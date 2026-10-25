@@ -16,6 +16,7 @@ from OCC.Core.XCAFDoc import (XCAFDoc_Datum, XCAFDoc_Dimension, XCAFDoc_DimTolTo
                               XCAFDoc_DocumentTool)
 
 from . import p21
+from .p21 import DMIA_PH
 from .laden import StepModell
 from .pmi import BEZUG, MASS, Pmi
 
@@ -180,6 +181,11 @@ def bezugs_flaechen_aus_datei(modell: StepModell) -> dict[str, set[int]]:
             continue
         buchstabe = ziel.args("DATUM")[4]
         out.setdefault(buchstabe, set()).update(flaechen_von_aspekt(datei, modell, args[2].id))
+    # manche Systeme verknuepfen die Geometrie direkt mit dem DATUM (z. B. NIST FTC-06)
+    for d in datei.of_type("DATUM"):
+        fl = flaechen_von_aspekt(datei, modell, d.id)
+        if fl:
+            out.setdefault(d.args("DATUM")[4], set()).update(fl)
     return out
 
 
@@ -202,7 +208,7 @@ def _bezug_hat_grafik(datei: p21.P21Datei, datum_id: int) -> bool:
         if r.is_a("SHAPE_ASPECT_RELATIONSHIP"):
             merkmal = r.args("SHAPE_ASPECT_RELATIONSHIP")[2]
             if any(datei.entities[x].is_a("DRAUGHTING_MODEL_ITEM_ASSOCIATION")
-                   for x in datei.referrers().get(merkmal.id, [])):
+                   or datei.entities[x].is_a(DMIA_PH) for x in datei.referrers().get(merkmal.id, [])):
                 return True
     return False
 

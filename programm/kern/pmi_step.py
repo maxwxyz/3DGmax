@@ -8,7 +8,7 @@ Werte werden in mm umgerechnet (wie OCCT die Geometrie liefert).
 from __future__ import annotations
 
 from .laden import StepModell
-from .p21 import Entity, Enum, P21Datei, Ref, Typed
+from .p21 import DMIA_PH, Entity, Enum, P21Datei, Ref, Typed
 from .pmi import TOLERANZ, BezugsRef, Pmi
 from .pmi_lesen import flaechen_von_aspekt
 
@@ -211,7 +211,7 @@ def _lies_rahmen(modell: StepModell, e: Entity, zonen: dict[int, list[Entity]]) 
 def _hat_praesentation(datei: P21Datei, eid: int) -> bool:
     for rid in datei.referrers().get(eid, []):
         r = datei.entities[rid]
-        if r.is_a("DRAUGHTING_MODEL_ITEM_ASSOCIATION"):
+        if r.is_a("DRAUGHTING_MODEL_ITEM_ASSOCIATION") or r.is_a(DMIA_PH):
             return True
     return False
 
@@ -293,9 +293,29 @@ def _werte_der_darstellung(datei: P21Datei, dim_id: int) -> dict[str, float]:
                     se = datei.get(sub)
                     if se is not None:
                         out[_item_name(se)] = _wert(datei, sub)
+            elif ie.is_a("DESCRIPTIVE_REPRESENTATION_ITEM"):
+                name, text = ie.args("DESCRIPTIVE_REPRESENTATION_ITEM")[:2]
+                out.setdefault("_notizen", []).append(text)
             else:
                 out[_item_name(ie) or "nominal value"] = _wert(datei, it)
+                _qualifikatoren(datei, ie, out)
     return out
+
+
+def _qualifikatoren(datei: P21Datei, ie: Entity, out: dict):
+    """Nachkommastellen (VALUE_FORMAT_TYPE_QUALIFIER 'NR2 1.3') und MIN/MAX/AVG."""
+    if not ie.is_a("QUALIFIED_REPRESENTATION_ITEM"):
+        return
+    for q in ie.args("QUALIFIED_REPRESENTATION_ITEM")[0] or []:
+        qe = datei.get(q)
+        if qe is None:
+            continue
+        if qe.is_a("VALUE_FORMAT_TYPE_QUALIFIER"):
+            fmt = qe.args("VALUE_FORMAT_TYPE_QUALIFIER")[0]
+            if "." in fmt:
+                out.setdefault("_dezimalen", int(fmt.rsplit(".", 1)[1]))
+        elif qe.is_a("TYPE_QUALIFIER"):
+            out["_qualifikator"] = qe.args("TYPE_QUALIFIER")[0]
 
 
 def _toleranz_des_masses(datei: P21Datei, dim_id: int, p: Pmi, winkel: bool):
@@ -331,6 +351,11 @@ def _lies_mass_step(modell: StepModell, e: Entity) -> Pmi:
         typ = "Location_Angular" if teil == "ANGULAR_LOCATION" else LAGEN.get(name, "Location_LinearDistance")
     p = Pmi(MASS, typ=typ, name=name or "", quelle="step", step_id=e.id)
     werte = _werte_der_darstellung(datei, e.id)
+    for notiz in werte.get("_notizen", []):
+        p.modifikatoren.append({"theoretical": "Theoretisch", "auxiliary": "Hilfsmass"}.get(notiz, notiz))
+    p.dezimalen = werte.get("_dezimalen")
+    if werte.get("_qualifikator"):
+        p.modifikatoren.append(werte["_qualifikator"].upper())
     if "nominal value" in werte:
         p.nennwert = werte["nominal value"]
     if "upper limit" in werte and "lower limit" in werte:

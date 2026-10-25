@@ -40,12 +40,18 @@ def referenz_zaehlung(datei) -> dict[str, int]:
     return {MASS: masse, TOLERANZ: tol, BEZUG: bez, "ansichten": kam}
 
 
+def _mass_schluessel(p):
+    typ = {"Location_None": "Location_LinearDistance"}.get(p.typ, p.typ)
+    r = lambda x: None if x is None else round(x, 4)  # noqa: E731
+    return typ, r(p.nennwert), r(p.oben), r(p.unten), p.passung
+
+
 def xcaf_abgleich(modell, eigene) -> tuple[int, int]:
     """(gleich, nur_xcaf): Masse als Mehrfachmenge von (Typ, Wert) vergleichen."""
-    xc = [p for p in lies_pmi_xcaf(modell) if p.art == MASS and p.semantisch]
-    norm = {"Location_None": "Location_LinearDistance"}
-    a = collections.Counter((norm.get(p.typ, p.typ), p.wert_text()) for p in xc)
-    b = collections.Counter((p.typ, p.wert_text()) for p in eigene if p.art == MASS)
+    # CommonLabel = Hinweis ohne Mass, kein Vergleich
+    xc = [p for p in lies_pmi_xcaf(modell) if p.art == MASS and p.semantisch and p.typ != "CommonLabel"]
+    a = collections.Counter(_mass_schluessel(p) for p in xc)
+    b = collections.Counter(_mass_schluessel(p) for p in eigene if p.art == MASS)
     gleich = sum((a & b).values())
     return gleich, sum(a.values()) - gleich
 

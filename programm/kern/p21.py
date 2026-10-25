@@ -11,6 +11,10 @@ import re
 from dataclasses import dataclass, field
 
 
+# Verknuepfung Semantik -> Annotation (mit Platzhalter ab AP242 e2)
+DMIA_PH = "DRAUGHTING_MODEL_ITEM_ASSOCIATION_WITH_PLACEHOLDER"
+
+
 @dataclass
 class Ref:
     """Verweis auf eine Entitaet (#123)."""

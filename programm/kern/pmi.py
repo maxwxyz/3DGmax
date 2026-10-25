@@ -65,6 +65,7 @@ class Pmi:
     grafisch: bool = False
     nur_grafik_text: str = ""
     quelle: str = "xcaf"  # xcaf | step (Ergaenzung)
+    dezimalen: int | None = None  # Nachkommastellen laut Datei
     step_id: int = 0  # Entitaet in der STEP-Datei (0 = unbekannt)
     nummer: int = 0  # laufende Nummer in der Liste
 
@@ -87,7 +88,7 @@ class Pmi:
         if self.passung:
             return f"{txt} {self.passung}"
         if self.grenzmass and self.oben is not None and self.unten is not None:
-            return f"{_zahl(self.unten)}–{_zahl(self.oben)}{einheit}"
+            return f"{MASS_VORSATZ.get(self.typ, '')}{_zahl(self.unten)}–{_zahl(self.oben)}{einheit}"
         if self.oben is None and self.unten is None:
             return txt
         o, u = self.oben or 0.0, self.unten or 0.0

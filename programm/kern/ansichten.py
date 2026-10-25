@@ -9,7 +9,7 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 
 from .laden import StepModell
-from .p21 import Entity, P21Datei, Ref, Typed
+from .p21 import DMIA_PH, Entity, P21Datei, Ref, Typed
 from .pmi import Pmi
 from .pmi_step import laenge_mm
 
@@ -101,8 +101,8 @@ def lies_ansichten(modell: StepModell, pmi: list[Pmi] | None = None) -> list[Ans
     skala = _laengen_skala(datei)
     # Annotation -> semantische PMI
     zu_pmi: dict[int, set[int]] = {}
-    for d in datei.of_type("DRAUGHTING_MODEL_ITEM_ASSOCIATION"):
-        args = d.args("DRAUGHTING_MODEL_ITEM_ASSOCIATION")
+    for d in datei.of_type("DRAUGHTING_MODEL_ITEM_ASSOCIATION") + datei.of_type(DMIA_PH):
+        args = d.args(next(iter(d.parts)))
         if isinstance(args[2], Ref) and isinstance(args[4], Ref):
             zu_pmi.setdefault(args[4].id, set()).add(_semantik_von(datei, args[2].id))
     ansichten = []
