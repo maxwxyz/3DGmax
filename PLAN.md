@@ -32,7 +32,9 @@ semantischer PMI-Vergleich + Prüfrundgang + Bericht, wie ZGmax für 2D.
 **Python 3.14 + PySide6** wie ZGmax. Gründe: gleiche Werkzeugkette (Tests offscreen, PyInstaller, `tr()`, HANDOFF),
 Teile übertragbar (Prüfrundgang, Protokoll mit SHA-256, Changelog/Version, Anleitung mit Menüreferenz, Container).
 
-### 2.2 Geometriekern – **OCP (cadquery-ocp) statt pythonocc-core**
+### 2.2 Geometriekern – **pythonocc-core über pixi** (nach Versuch in Schritt 1 geändert, siehe docs/Machbarkeit.md)
+
+Ursprünglicher Vorschlag (verworfen):
 - **OCCT 8.0.1** ist aktuell. `cadquery-ocp` 8.0.1.1.0 gibt es als **pip-Wheel für Python 3.14 auf macOS (arm64/x86),
   Windows und Linux**, je ca. 50–70 MB [geprüft]. Damit passt es in eine normale `.venv` wie bei ZGmax.
 - `pythonocc-core` 8.0.1.2 gibt es nur über conda-forge [geprüft] → zusätzliche Umgebung (pixi/conda), PyInstaller
@@ -150,7 +152,7 @@ Changelog DE/EN, HANDOFF.md, unfertiges auf `wip/...`, nach jedem Commit Push.
 
 ## 7. Entscheidungen, die bei dir liegen
 
-- Geometriekern **OCP über pip** (empfohlen) statt pythonocc über conda.
+- ~~Geometriekern OCP über pip~~ → **pythonocc über pixi** (Versuch: OCP kann STEP-Flächen nicht zuordnen).
 - Darstellung **OCCT-Viewer** (empfohlen) statt VTK.
 - JT: nur Netz frei, PMI nur mit Angebot – erst nach Schritt 1.
 - Projektname/Programmname „3DGmax“, Dateiendung `.3dgmax`?
