@@ -42,7 +42,7 @@
 | PMI color: high contrast / from file / custom | ✅ |
 | PMI export CSV (values, datums, face IDs, views) | ✅ |
 | Plausibility check (unused/missing datums, without face/view, duplicates, rules) | ✅ |
-| Targeted search (`datum:A`, `value:0.5`, `type:position`) | ⬜ |
+| Targeted search (`datum:A`, `value:0.5`, `type:position`, `view:`, `name:`, `no:`, `balloon:`) | ✅ |
 | Surface texture (roughness), weld symbols | ⬜ |
 | Make graphical PMI searchable (OCR on rendered annotations) | 💡 |
 | Convert graphical PMI into semantic PMI | 💡 |

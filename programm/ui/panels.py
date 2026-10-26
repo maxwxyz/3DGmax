@@ -165,7 +165,9 @@ class PmiPanel(QtWidgets.QWidget):
                           (tr("Bezüge"), BEZUG), (tr("Hinweise"), HINWEIS)):
             self.art.addItem(text, art)
         self.suche = QtWidgets.QLineEdit()
-        self.suche.setPlaceholderText(tr("Suchen: Wert, Bezug, Name, Ansicht (z. B. 0.5, A, MBD_A)"))
+        self.suche.setPlaceholderText(tr("Suchen: Text oder bezug:A, wert:0.5, typ:position, ansicht:MBD_A"))
+        self.suche.setToolTip(tr("Freier Text sucht überall. Gezielt: bezug:A, wert:0.5, typ:position (Merkmal), "
+                                 "art:toleranz, ansicht:MBD_A, name:…, nr:12, ballon:3 – mehrere Begriffe = alle"))
         self.suche.setClearButtonEnabled(True)
         oben.addWidget(self.art)
         oben.addWidget(self.suche, 1)
@@ -257,10 +259,42 @@ class PmiPanel(QtWidgets.QWidget):
             return False
         s = self.suche.text().strip().lower()
         if s:
-            text = " ".join((p.wert_text(), p.bezug_text(), p.name, p.typ, tr(ART_TEXT.get(p.art, "")),
-                             " ".join(self.ansichten_je_pmi.get(p.nummer, [])), " ".join(p.modifikatoren))).lower()
-            return all(teil in text for teil in s.split())
+            return all(self._passt_teil(p, teil) for teil in s.split())
         return True
+
+    # gezielte Suche: schluessel:wert (deutsch und englisch)
+    FELDER = {"bezug": "bezug", "datum": "bezug", "wert": "wert", "value": "wert", "typ": "typ", "type": "typ",
+              "merkmal": "typ", "art": "art", "kind": "art", "ansicht": "ansicht", "view": "ansicht",
+              "name": "name", "nr": "nr", "no": "nr", "ballon": "ballon", "balloon": "ballon"}
+
+    def _passt_teil(self, p, teil: str) -> bool:
+        schluessel, _, wert = teil.partition(":")
+        feld = self.FELDER.get(schluessel) if wert else None
+        if feld is None:
+            text = " ".join((p.wert_text(), p.bezug_text(), p.name, p.typ, tr(ART_TEXT.get(p.art, "")), tr(p.merkmal()),
+                             " ".join(self.ansichten_je_pmi.get(p.nummer, [])), " ".join(p.modifikatoren))).lower()
+            return teil in text
+        if feld == "bezug":
+            namen = {n.lower() for b in p.bezuege for n in b.name.split("-")}
+            return wert in namen or (p.art == BEZUG and p.name.lower() == wert)
+        if feld == "wert":
+            zahlen = [x for x in (p.nennwert, p.wert, p.oben, p.unten) if x is not None]
+            try:
+                ziel = float(wert.replace(",", "."))
+            except ValueError:
+                return wert in p.wert_text().lower()
+            return any(abs(abs(x) - ziel) < 1e-9 for x in zahlen)
+        if feld == "typ":
+            return wert in p.typ.lower() or wert in tr(p.merkmal()).lower() or wert in p.merkmal().lower()
+        if feld == "art":
+            return wert in p.art or wert in tr(ART_TEXT.get(p.art, "")).lower()
+        if feld == "ansicht":
+            return any(wert in a.lower() for a in self.ansichten_je_pmi.get(p.nummer, []))
+        if feld == "name":
+            return wert in p.name.lower()
+        if feld == "nr":
+            return wert == str(p.nummer)
+        return wert == str(self.ballon.get(p.nummer, ""))
 
     def _filtern(self):
         sichtbar = 0

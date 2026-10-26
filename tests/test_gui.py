@@ -435,3 +435,18 @@ def test_netz_laden_schnellmessung_eigenschaften(fenster):
     assert "120.000 × 105.000 × 37.000" in d.als_text()
     f.lade(pfad("formate/baugruppe.igs"), warten=True)
     assert len(f.erg.modell.flaechen) > 20
+
+
+def test_gezielte_pmi_suche(fenster_ctc01):
+    p = fenster_ctc01.pmi
+    p.suche.setText("bezug:c")
+    assert p.sichtbare() and all(any("C" in b.name for b in q.bezuege) or q.name == "C" for q in p.sichtbare())
+    p.suche.setText("typ:position")
+    assert {q.typ for q in p.sichtbare()} == {"Position"}
+    p.suche.setText("wert:0.75")
+    assert p.sichtbare() and all(0.75 in (q.wert, q.nennwert, q.oben, abs(q.unten or 0)) for q in p.sichtbare())
+    p.suche.setText("art:bezug bezug:a")
+    assert [q.name for q in p.sichtbare()] == ["A"]
+    p.suche.setText("Durchmesser")  # freier Text findet auch das Merkmal
+    assert p.sichtbare() and all(q.typ == "Size_Diameter" for q in p.sichtbare())
+    p.suche.setText("")

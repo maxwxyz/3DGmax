@@ -621,5 +621,7 @@
 "Netz": "Mesh",
 "Netz ohne exakte Fläche": "Mesh without exact surface",
 "Netze": "Meshes",
-"{} Dreiecke": "{} triangles"
+"{} Dreiecke": "{} triangles",
+"Suchen: Text oder bezug:A, wert:0.5, typ:position, ansicht:MBD_A": "Search: text or datum:A, value:0.5, type:position, view:MBD_A",
+"Freier Text sucht überall. Gezielt: bezug:A, wert:0.5, typ:position (Merkmal), art:toleranz, ansicht:MBD_A, name:…, nr:12, ballon:3 – mehrere Begriffe = alle": "Free text searches everywhere. Targeted: datum:A, value:0.5, type:position (characteristic), kind:tolerance, view:MBD_A, name:…, no:12, balloon:3 – several terms = all"
 }
