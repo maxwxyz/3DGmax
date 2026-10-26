@@ -11,7 +11,7 @@
 | Pivot stays fixed during zoom/pan, shown as line cross while orbiting/panning | ✅ |
 | Display shaded/with edges/wireframe, light/dark, custom background colors | ✅ |
 | Saved views: camera, window, PMI per view, browse (◀ ▶), search | ✅ |
-| Thumbnails per saved view | ⬜ |
+| Thumbnails per saved view (HLR edge drawing with PMI, background) | ✅ |
 | Section X/Y/Z, at selected face/edge, from view direction, slider | ✅ |
 | Multiple section planes, clipping box, section views from the model, section contour as view | ⬜ |
 | 3D selection of faces/edges (multiple), context menu, zoom to selection, align normal (upright: edges level, annotations readable), flip view | ✅ |

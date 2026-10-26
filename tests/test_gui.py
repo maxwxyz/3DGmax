@@ -491,3 +491,12 @@ def test_zeichnung_mit_pmi(fenster_ctc01, tmp_path):
     f.aktionen["zeichnung_pmi"].setChecked(False)
     svg = f.exportiere_zeichnung("aktuell", str(tmp_path / "b.svg"))
     assert "#1d4ed8" not in open(svg, encoding="utf-8").read()
+
+
+def test_vorschaubilder_ansichten(fenster_ctc01):
+    f = fenster_ctc01
+    f._vorschau.wait(20000)
+    from PySide6 import QtWidgets
+    QtWidgets.QApplication.processEvents()
+    it = f.ansichten.liste.item(1)
+    assert it is not None and not it.icon().isNull()

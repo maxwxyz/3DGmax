@@ -492,6 +492,7 @@ class AnsichtenPanel(QtWidgets.QWidget):
         self.suche.textChanged.connect(self._filtern)
         lay.addWidget(self.suche)
         self.liste = QtWidgets.QListWidget()
+        self.liste.setIconSize(QtCore.QSize(96, 64))
         lay.addWidget(self.liste)
         reihe = QtWidgets.QHBoxLayout()
         self.zurueck = QtWidgets.QPushButton("◀")
@@ -586,8 +587,55 @@ class AnsichtenPanel(QtWidgets.QWidget):
         self.liste.setCurrentRow(ziel)
         self.liste.setFocus()  # danach weiter mit Pfeiltasten
 
+    def setze_vorschau(self, i: int, svg: str):
+        """Vorschaubild der Ansicht i (Index in self.ansichten)."""
+        it = self.liste.item(i + 1)
+        if it is not None:
+            it.setIcon(svg_symbol(svg))
+
     def waehle_name(self, name: str):
         for z, a in enumerate(self.ansichten, 1):
             if a.name == name:
                 self.liste.setCurrentRow(z)
                 return
+
+
+class VorschauLader(QtCore.QThread):
+    """Vorschaubilder der gespeicherten Ansichten als Kantenzeichnung (HLR) im Hintergrund."""
+
+    fertig = QtCore.Signal(int, str)  # Index der Ansicht, SVG
+
+    def __init__(self, form, ansichten, grafik_je_ansicht, pmi_text, parent=None):
+        super().__init__(parent)
+        self.form, self.ansichten = form, list(ansichten)
+        self.grafik_je_ansicht, self.pmi_text = grafik_je_ansicht, pmi_text
+        self.abbrechen = False
+
+    def run(self):
+        from ..kern import zeichnung
+        for i, a in enumerate(self.ansichten):
+            if self.abbrechen:
+                return
+            try:
+                z = zeichnung.projiziere(self.form, a.richtung, a.oben, a.name, verdeckt=False, abweichung=0.5)
+                zeichnung.pmi_hinzu(z, self.grafik_je_ansicht[i], self.pmi_text, a.richtung, a.oben)
+                self.fertig.emit(i, zeichnung.als_svg([z], a.name))
+            except Exception:  # noqa: BLE001 - ohne Vorschau weiter
+                continue
+
+
+def svg_symbol(svg: str, breite: int = 96, hoehe: int = 64) -> QtGui.QIcon:
+    from PySide6 import QtSvg
+    r = QtSvg.QSvgRenderer(QtCore.QByteArray(svg.encode("utf-8")))
+    bild = QtGui.QPixmap(breite * 2, hoehe * 2)
+    bild.setDevicePixelRatio(2.0)
+    bild.fill(QtGui.QColor("white"))
+    maler = QtGui.QPainter(bild)
+    maler.setRenderHint(QtGui.QPainter.RenderHint.Antialiasing)
+    g = r.defaultSize()
+    if g.width() > 0 and g.height() > 0:
+        k = min(breite / g.width(), hoehe / g.height())
+        w, h = g.width() * k, g.height() * k
+        r.render(maler, QtCore.QRectF((breite - w) / 2, (hoehe - h) / 2, w, h))
+    maler.end()
+    return QtGui.QIcon(bild)

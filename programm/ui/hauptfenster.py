@@ -693,6 +693,7 @@ class Hauptfenster(QtWidgets.QMainWindow):
         self.pmi.zeige(erg.pmi, erg.ansichten)
         self.spalten_anpassen()
         self.ansichten.zeige(erg.ansichten)
+        self._starte_vorschau()
         self._merke_zuletzt(erg.pfad)
         n = len(erg.pmi)
         self.statusBar().showMessage(tr("{} geladen: {} Flächen, {} PMI, {} Ansichten ({:.1f} s)").format(
@@ -878,8 +879,33 @@ class Hauptfenster(QtWidgets.QMainWindow):
             self.erg.ansichten.remove(a)
             self._ansichten_neu(None)
 
+    def _starte_vorschau(self):
+        """Vorschaubilder der gespeicherten Ansichten im Hintergrund zeichnen."""
+        from OCC.Core.BRep import BRep_Builder
+        from OCC.Core.TopoDS import TopoDS_Compound
+        from .panels import VorschauLader
+        alt = getattr(self, "_vorschau", None)
+        if alt is not None and alt.isRunning():
+            alt.abbrechen = True
+            alt.wait(2000)
+        if self.erg is None or not self.erg.ansichten:
+            return
+        form = TopoDS_Compound()
+        bb = BRep_Builder()
+        bb.MakeCompound(form)
+        for k in self.erg.baum.blaetter():
+            if not k.hilfsgeometrie:
+                bb.Add(form, k.form)
+        pmi_text = {p.step_id: p.wert_text() for p in self.erg.pmi if p.step_id}
+        grafik = [self._grafik_fuer(a.pmi_ids) for a in self.erg.ansichten]
+        lader = VorschauLader(form, self.erg.ansichten, grafik, pmi_text, self)
+        lader.fertig.connect(self.ansichten.setze_vorschau)
+        self._vorschau = lader
+        lader.start()
+
     def _ansichten_neu(self, waehlen):
         self.ansichten.zeige(self.erg.ansichten)
+        self._starte_vorschau()
         self.pmi.setze_ansichten(self.erg.ansichten)
         if waehlen is not None:
             self.ansichten.liste.blockSignals(True)
@@ -1690,6 +1716,9 @@ class Hauptfenster(QtWidgets.QMainWindow):
 
     def closeEvent(self, ev):
         self._fenster_merken()
+        if getattr(self, "_vorschau", None) is not None and self._vorschau.isRunning():
+            self._vorschau.abbrechen = True
+            self._vorschau.wait(5000)
         self.lade_abbrechen()
         if self._vlader is not None and self._vlader.isRunning():
             self._vlader.abgebrochen = True
