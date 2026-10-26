@@ -21,6 +21,7 @@ pypdf = "*"
 
 [feature.dev.dependencies]
 pyinstaller = "6.*"
+pytest-timeout = "*"
 
 [feature.dev.pypi-dependencies]
 pytest = "*"
@@ -30,6 +31,7 @@ default = { features = ["dev"] }
 
 [tasks]
 test = { cmd = "python -m pytest -q", env = { QT_QPA_PLATFORM = "offscreen" } }
+test-ci = { cmd = "python -m pytest -v -rA --timeout=300 -p no:cacheprovider", env = { QT_QPA_PLATFORM = "offscreen" } }
 machbarkeit = "python werkzeuge/machbarkeit.py"
 start = "python -m programm.app"
 selbsttest = "python -m programm.app --selbsttest"

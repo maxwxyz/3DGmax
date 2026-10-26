@@ -8,7 +8,8 @@ if "%1"=="--ohne-tests" set DG_OHNE_TESTS=1
 if "%DG_OHNE_TESTS%"=="1" (
   echo Tests uebersprungen
 ) else (
-  call pixi run test || exit /b 1
+  if "%DG_TESTAUFGABE%"=="" set DG_TESTAUFGABE=test
+  call pixi run %DG_TESTAUFGABE% || exit /b 1
 )
 if exist build\pyinstaller rmdir /s /q build\pyinstaller
 if exist dist\3DGmax rmdir /s /q dist\3DGmax

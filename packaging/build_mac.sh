@@ -9,7 +9,7 @@ pixi install
 if [ "${1:-}" = "--ohne-tests" ] || [ "${DG_OHNE_TESTS:-0}" = "1" ]; then
   echo "Tests uebersprungen (--ohne-tests)"
 else
-  pixi run test
+  pixi run ${DG_TESTAUFGABE:-test}
 fi
 rm -rf build/pyinstaller dist/3DGmax dist/3DGmax.app
 pixi run bauen

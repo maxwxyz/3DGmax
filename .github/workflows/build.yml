@@ -27,10 +27,12 @@ jobs:
           - os: ubuntu-latest
             name: Linux-x64
     runs-on: ${{ matrix.os }}
+    timeout-minutes: 60
     env:
       QT_QPA_PLATFORM: offscreen
       AKTIV: ${{ inputs.plattform == 'alle' || inputs.plattform == matrix.name }}
       DG_OHNE_TESTS: ${{ inputs.tests && '0' || '1' }}
+      DG_TESTAUFGABE: test-ci          # ausfuehrlich, mit Zeitlimit je Test
     steps:
       - uses: actions/checkout@v4
         if: env.AKTIV == 'true'
