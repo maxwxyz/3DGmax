@@ -48,6 +48,8 @@ def erzeuge():
         g.ChangeCoordinateSystemConverter().SetInputLengthUnit(0.001)  # mm -> m (glTF)
         g.Perform(m.doc, info, Message_ProgressRange())
     _schreibe_3mf(m, os.path.join(ZIEL, "baugruppe.3mf"))
+    schreibe_ply(os.path.join(ZIEL, "baugruppe.stl"), os.path.join(ZIEL, "baugruppe_ascii.ply"),
+                 os.path.join(ZIEL, "baugruppe.ply"))
     return sorted(os.listdir(ZIEL))
 
 
@@ -91,3 +93,25 @@ def _schreibe_3mf(m, pfad):
 
 if __name__ == "__main__":
     print(erzeuge())
+
+
+def schreibe_ply(pfad_stl: str, ziel_ascii: str, ziel_binaer: str):
+    """PLY-Testdateien (ASCII und binaer, Dreiecke) aus einem STL-Netz."""
+    import numpy as np
+    from OCC.Core.RWStl import rwstl
+    tri = rwstl.ReadFile(pfad_stl)
+    p = np.array([[tri.Node(i).X(), tri.Node(i).Y(), tri.Node(i).Z()] for i in range(1, tri.NbNodes() + 1)])
+    t = np.array([tri.Triangle(i).Get() for i in range(1, tri.NbTriangles() + 1)], dtype=int) - 1
+    kopf = (f"ply\nformat {{}} 1.0\nelement vertex {len(p)}\nproperty float x\nproperty float y\nproperty float z\n"
+            f"element face {len(t)}\nproperty list uchar int vertex_indices\nend_header\n")
+    with open(ziel_ascii, "w") as f:
+        f.write(kopf.format("ascii"))
+        f.writelines(f"{x:.5f} {y:.5f} {z:.5f}\n" for x, y, z in p)
+        f.writelines(f"3 {a} {b} {c}\n" for a, b, c in t)
+    with open(ziel_binaer, "wb") as f:
+        f.write(kopf.format("binary_little_endian").encode())
+        f.write(p.astype("<f4").tobytes())
+        dt = np.dtype([("k", "u1"), ("i", "<i4", (3,))])
+        flaechen = np.zeros(len(t), dtype=dt)
+        flaechen["k"], flaechen["i"] = 3, t
+        f.write(flaechen.tobytes())

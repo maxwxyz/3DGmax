@@ -146,7 +146,7 @@ def step_ident(reader, ent) -> int:
 
 ENDUNGEN_STEP = (".stp", ".step", ".p21")
 ENDUNGEN_IGES = (".igs", ".iges")
-ENDUNGEN_NETZ = (".stl", ".obj", ".gltf", ".glb", ".3mf")
+ENDUNGEN_NETZ = (".stl", ".obj", ".gltf", ".glb", ".3mf", ".ply")
 ENDUNGEN_QIF = (".qif",)
 ENDUNGEN = ENDUNGEN_STEP + ENDUNGEN_IGES + ENDUNGEN_NETZ + ENDUNGEN_QIF
 
@@ -185,6 +185,97 @@ def _poly(punkte, dreiecke):
     for i, (a, b, c) in enumerate(dreiecke, 1):
         tri.SetTriangle(i, Poly_Triangle(int(a) + 1, int(b) + 1, int(c) + 1))
     return tri
+
+
+_PLY_TYPEN = {"char": "i1", "int8": "i1", "uchar": "u1", "uint8": "u1", "short": "i2", "int16": "i2", "ushort": "u2",
+              "uint16": "u2", "int": "i4", "int32": "i4", "uint": "u4", "uint32": "u4", "float": "f4",
+              "float32": "f4", "double": "f8", "float64": "f8"}
+
+
+def lies_ply(pfad: str):
+    """PLY (ASCII oder binaer): (Punkte (n,3), Dreiecke (m,3)); Vielecke werden in Dreiecke zerlegt."""
+    import numpy as np
+    with open(pfad, "rb") as f:
+        if f.readline().strip() != b"ply":
+            raise LadeFehler(f"Keine PLY-Datei: {pfad}")
+        format_, elemente, aktuell = "", [], None
+        while True:
+            zeile = f.readline()
+            if not zeile:
+                raise LadeFehler("PLY-Kopf ohne end_header")
+            teile = zeile.decode("ascii", "replace").split()
+            if not teile:
+                continue
+            if teile[0] == "format":
+                format_ = teile[1]
+            elif teile[0] == "element":
+                aktuell = {"name": teile[1], "n": int(teile[2]), "props": []}
+                elemente.append(aktuell)
+            elif teile[0] == "property" and aktuell is not None:
+                aktuell["props"].append(teile[1:])
+            elif teile[0] == "end_header":
+                break
+        rest = f.read()
+    punkte, dreiecke = np.zeros((0, 3)), []
+    if format_ == "ascii":
+        werte = rest.decode("ascii", "replace").split()
+        pos = 0
+        for el in elemente:
+            for _ in range(el["n"]):
+                if el["name"] == "vertex":
+                    namen = [p[-1] for p in el["props"]]
+                    zeile = werte[pos:pos + len(namen)]
+                    pos += len(namen)
+                    el.setdefault("daten", []).append([float(zeile[namen.index(a)]) for a in "xyz"])
+                else:
+                    for p in el["props"]:
+                        if p[0] == "list":
+                            k = int(werte[pos])
+                            idx = [int(x) for x in werte[pos + 1:pos + 1 + k]]
+                            pos += 1 + k
+                            if el["name"] == "face":
+                                dreiecke += [(idx[0], idx[j], idx[j + 1]) for j in range(1, k - 1)]
+                        else:
+                            pos += 1
+        punkte = np.array(next((e.get("daten", []) for e in elemente if e["name"] == "vertex"), []), float)
+    else:
+        ende = "<" if "little" in format_ else ">"
+        puffer, pos = memoryview(rest), 0
+        for el in elemente:
+            if all(p[0] != "list" for p in el["props"]):
+                dt = np.dtype([(p[-1], ende + _PLY_TYPEN[p[0]]) for p in el["props"]])
+                daten = np.frombuffer(puffer[pos:pos + dt.itemsize * el["n"]], dtype=dt)
+                pos += dt.itemsize * el["n"]
+                if el["name"] == "vertex":
+                    punkte = np.column_stack([daten[a].astype(float) for a in "xyz"])
+                continue
+            # Flaechen: Liste je Element; schneller Weg fuer reine Dreiecke
+            p = next(q for q in el["props"] if q[0] == "list")
+            zt, it = np.dtype(ende + _PLY_TYPEN[p[1]]), np.dtype(ende + _PLY_TYPEN[p[2]])
+            andere = [q for q in el["props"] if q is not p]
+            if not andere:
+                probe = np.frombuffer(puffer[pos:pos + zt.itemsize], dtype=zt)[0] if el["n"] else 0
+                dt3 = np.dtype([("k", zt), ("i", it, (int(probe),))])
+                if el["n"] and int(probe) == 3 and len(puffer) - pos >= dt3.itemsize * el["n"]:
+                    daten = np.frombuffer(puffer[pos:pos + dt3.itemsize * el["n"]], dtype=dt3)
+                    if np.all(daten["k"] == 3):
+                        dreiecke = daten["i"].astype(int).tolist()
+                        pos += dt3.itemsize * el["n"]
+                        continue
+            for _ in range(el["n"]):
+                for q in el["props"]:
+                    if q[0] == "list":
+                        k = int(np.frombuffer(puffer[pos:pos + zt.itemsize], dtype=zt)[0])
+                        pos += zt.itemsize
+                        idx = np.frombuffer(puffer[pos:pos + it.itemsize * k], dtype=it).astype(int)
+                        pos += it.itemsize * k
+                        if el["name"] == "face":
+                            dreiecke += [(idx[0], idx[j], idx[j + 1]) for j in range(1, k - 1)]
+                    else:
+                        pos += np.dtype(_PLY_TYPEN[q[0]]).itemsize
+    if not len(punkte) or not dreiecke:
+        raise LadeFehler(f"PLY ohne Dreiecksnetz (nur Punkte werden noch nicht unterstützt): {pfad}")
+    return punkte, np.asarray(dreiecke, int)
 
 
 def _lies_3mf(pfad: str, doc):
@@ -269,6 +360,9 @@ def lade_modell(pfad: str) -> StepModell:
         _netz_flaeche(tri, os.path.splitext(os.path.basename(pfad))[0], doc)
     elif endung == ".3mf":
         _lies_3mf(pfad, doc)
+    elif endung == ".ply":
+        punkte, dreiecke = lies_ply(pfad)
+        _netz_flaeche(_poly(punkte, dreiecke), os.path.splitext(os.path.basename(pfad))[0], doc)
     else:
         from OCC.Core.Message import Message_ProgressRange
         from OCC.Core.TCollection import TCollection_AsciiString

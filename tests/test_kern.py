@@ -243,8 +243,9 @@ def test_formate_laden_und_netze():
     from programm.kern.laden import ist_netz, lade_modell
     from tests.conftest import pfad
     groesse = (120.0, 105.0, 37.0)  # Test-Baugruppe; Winkel liegt in der Unterbaugruppe bei y = 85..105
-    for name, netz in (("igs", False), ("stl", True), ("obj", True), ("gltf", True), ("glb", True), ("3mf", True)):
-        m = lade_modell(pfad(f"formate/baugruppe.{name}"))
+    for name, netz in (("igs", False), ("stl", True), ("obj", True), ("gltf", True), ("glb", True), ("3mf", True),
+                       ("ply", True), ("_ascii.ply", True)):
+        m = lade_modell(pfad(f"formate/baugruppe{name}" if name.startswith("_") else f"formate/baugruppe.{name}"))
         assert ist_netz(m) == netz, name
         assert np.allclose(berechne(m.form).groesse, groesse, atol=0.05), (name, berechne(m.form).groesse)
     winkel = next(k for k in lies_baum(lade_modell(pfad("baugruppe.stp"))).blaetter() if k.name == "Winkel")

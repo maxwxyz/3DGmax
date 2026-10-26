@@ -82,7 +82,8 @@
 | Assembly comparison (parts new/removed/moved/changed/renamed) | ✅ |
 | Geometry comparison per part instance (instances currently share one face set) | ⬜ |
 | Meshes: STL/OBJ/glTF/3MF vs. CAD and mesh vs. mesh (alignment, color map) | ✅ |
-| Point clouds / scan formats (PLY, XYZ, E57) | ⬜ |
+| PLY meshes from scanners | ✅ |
+| Point clouds without triangles (PLY points, XYZ, E57) | ⬜ |
 
 ## Reports and exchange
 | Feature | Status |
@@ -104,7 +105,7 @@
 | STEP AP242/AP214/AP203 | ✅ |
 | QIF 3.0: exact B-rep and semantic PMI (validated against STEP for NIST CTC-01/FTC-06) | ✅ |
 | QIF: graphical PMI (PMIDisplaySet), saved views, measurement results | ⬜ |
-| IGES, STL, OBJ, glTF/GLB, 3MF (meshes: view, measure, analyze, compare against CAD) | ✅ |
+| IGES, STL, OBJ, glTF/GLB, 3MF, PLY (meshes: view, measure, analyze, compare against CAD) | ✅ |
 | JT via TKJT (GPL v2+), build with/without TKJT | ⬜ (step 7) |
 | 3D PDF / PRC: mesh, graphical and semantic PMI, B-rep (own reader, PLAN §8.15; NIST STC PDFs as test data) | ⬜ |
 | CATIA V5/V6 CATPart/CATProduct | 💡 (only via licensed SDK or CATIA exports; legal review first) |
