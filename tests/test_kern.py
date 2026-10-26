@@ -190,7 +190,7 @@ def test_stueckliste_baugruppe():
     assert namen["Winkel"].baugruppen == ["Halter"]
     assert abs(namen["Deckel"].volumen - 100 * 60 * 4) < 1e-6
     text = sl.als_csv(liste, 7.85)
-    assert text.splitlines()[0].startswith("Pos;Benennung;Anzahl") and len(text.splitlines()) == 5
+    assert text.splitlines()[0].startswith("Pos;Sachnummer;Benennung;Anzahl") and len(text.splitlines()) == 5
 
 
 def test_analysen_entformung_kruemmung_wandstaerke():
@@ -372,3 +372,12 @@ def test_iso14405_modifikatoren_im_text():
     assert p.wert_text() == "⌀10 ±0.1 LP ACS"
     q = Pmi(MASS, "Size_Thickness", nennwert=8.0, passung="h7", modifikatoren=["Square", "Envelope"])
     assert q.wert_text() == "□8 h7 Ⓔ" and "Hüllbedingung" in q.huelle_text() or q.typ == "Size_Thickness"
+
+
+def test_sachnummern_aus_step_produkten():
+    from programm.kern import p21, stueckliste as sl
+    d = p21.lese_text("ISO-10303-21;\nHEADER;\nENDSEC;\nDATA;\n#1=PRODUCT('4711-01','Deckel','',(#2));\n"
+                      "#3=PRODUCT('Grundplatte','Grundplatte','',(#2));\nENDSEC;\nEND-ISO-10303-21;\n")
+    assert sl.sachnummern(d) == {"Deckel": "4711-01"}
+    liste = sl.ergaenze_sachnummern([sl.Position(1, "Deckel", 1, 1.0, 1.0)], d)
+    assert liste[0].sachnummer == "4711-01" and sl.zeilen(liste, 7.85)[0][1] == "4711-01"

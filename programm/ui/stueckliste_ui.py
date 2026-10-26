@@ -12,13 +12,13 @@ from ..kern import stueckliste as sl
 class StuecklisteFenster(QtWidgets.QDialog):
     isolieren = QtCore.Signal(set)  # Blattnummern
 
-    def __init__(self, wurzel, einstellungen, speicherpfad, parent=None):
+    def __init__(self, wurzel, einstellungen, speicherpfad, parent=None, datei=None):
         super().__init__(parent)
         self.setWindowTitle(tr("Stückliste"))
         self.resize(760, 420)
         self.ein = einstellungen
         self.speicherpfad = speicherpfad
-        self.liste = sl.positionen(wurzel)
+        self.liste = sl.ergaenze_sachnummern(sl.positionen(wurzel), datei)
         self.dichte = float(self.ein.value("dichte", ek.DICHTE_STAHL))
         lay = QtWidgets.QVBoxLayout(self)
         gesamt = sum(p.anzahl for p in self.liste)
@@ -38,7 +38,7 @@ class StuecklisteFenster(QtWidgets.QDialog):
         for z, werte in enumerate(zeilen):
             for s, w in enumerate(werte):
                 it = QtWidgets.QTableWidgetItem(w)
-                if s in (0, 2, 3, 4, 5):
+                if s in (0, 3, 4, 5, 6):
                     it.setTextAlignment(QtCore.Qt.AlignmentFlag.AlignRight | QtCore.Qt.AlignmentFlag.AlignVCenter)
                 self.tabelle.setItem(z, s, it)
         self.tabelle.resizeColumnsToContents()

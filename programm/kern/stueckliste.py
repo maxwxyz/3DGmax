@@ -20,6 +20,7 @@ class Position:
     oberflaeche: float  # mm2 je Stueck
     baugruppen: list[str] = field(default_factory=list)  # in welchen Baugruppen es vorkommt
     nummern: list[int] = field(default_factory=list)  # Blattnummern der Exemplare (Ansicht)
+    sachnummer: str = ""  # Produktkennung laut Datei (STEP PRODUCT.id)
 
     def masse(self, dichte: float) -> float:
         """Masse je Stueck in kg bei Dichte g/cm3."""
@@ -60,12 +61,31 @@ def positionen(wurzel) -> list[Position]:
     return [p for _, p in gruppen]
 
 
-SPALTEN = ("Pos", "Benennung", "Anzahl", "Volumen je Stück (cm³)", "Masse je Stück (kg)", "Masse gesamt (kg)",
+def sachnummern(datei) -> dict[str, str]:
+    """Produktname -> Produktkennung aus einer STEP-Datei (PRODUCT(id, name, ...)); leer ohne Datei."""
+    out = {}
+    if datei is None:
+        return out
+    for e in datei.of_type("PRODUCT"):
+        a = e.args("PRODUCT")
+        if len(a) >= 2 and isinstance(a[0], str) and isinstance(a[1], str) and a[0] and a[0] != a[1]:
+            out.setdefault(a[1], a[0])
+    return out
+
+
+def ergaenze_sachnummern(liste: list[Position], datei) -> list[Position]:
+    nummern = sachnummern(datei)
+    for p in liste:
+        p.sachnummer = nummern.get(p.name, "")
+    return liste
+
+
+SPALTEN = ("Pos", "Sachnummer", "Benennung", "Anzahl", "Volumen je Stück (cm³)", "Masse je Stück (kg)", "Masse gesamt (kg)",
            "Baugruppe")
 
 
 def zeilen(liste: list[Position], dichte: float) -> list[list[str]]:
-    return [[str(p.pos), p.name, str(p.anzahl), f"{p.volumen / 1000:.3f}", f"{p.masse(dichte):.4f}",
+    return [[str(p.pos), p.sachnummer, p.name, str(p.anzahl), f"{p.volumen / 1000:.3f}", f"{p.masse(dichte):.4f}",
              f"{p.masse(dichte) * p.anzahl:.4f}", ", ".join(p.baugruppen)] for p in liste]
 
 
@@ -74,5 +94,5 @@ def als_csv(liste: list[Position], dichte: float) -> str:
     w = csv.writer(puffer, delimiter=";")
     w.writerow([tr(s) for s in SPALTEN])
     for z in zeilen(liste, dichte):
-        w.writerow([x.replace(".", ",") if i in (3, 4, 5) else x for i, x in enumerate(z)])
+        w.writerow([x.replace(".", ",") if i in (4, 5, 6) else x for i, x in enumerate(z)])
     return puffer.getvalue()

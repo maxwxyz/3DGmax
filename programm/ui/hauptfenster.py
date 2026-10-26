@@ -1653,7 +1653,8 @@ class Hauptfenster(QtWidgets.QMainWindow):
         if self.erg is None:
             return None
         from .stueckliste_ui import StuecklisteFenster
-        f = StuecklisteFenster(self.erg.baum, self.ein, os.path.splitext(self.erg.pfad)[0] + "_stueckliste.csv", self)
+        f = StuecklisteFenster(self.erg.baum, self.ein, os.path.splitext(self.erg.pfad)[0] + "_stueckliste.csv", self,
+                               self.erg.modell.datei)
         f.isolieren.connect(self.ansicht.isoliere)
         f.isolieren.connect(lambda _n: self.statusBar().showMessage(
             tr("Teil isoliert – Umschalt+H zeigt wieder alle Teile"), 6000))
