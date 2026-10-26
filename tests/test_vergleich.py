@@ -404,3 +404,21 @@ def test_pmi_darstellung_verschoben():
     assert gefunden and all(a.status == vergleich.GRAFIK for a in gefunden)
     assert any("dX +5.00" in a.beschreibung for a in gefunden)
     assert vergleich._grafik_aenderungen(liste, alt, alt, Ausrichtung(np.eye(4), "gleich", 0, 1), 0.01) == []
+
+
+def test_vergleich_netz_gegen_cad(fenster):
+    """Scan-/Netzvergleich: STL des Modells gegen das CAD-Modell (Ausrichtung, Farbkarte ohne Absturz)."""
+    from tests.conftest import pfad
+    f = fenster
+    f.lade(pfad("baugruppe.stp"), warten=True)
+    f.starte_vergleich({"alt": pfad("baugruppe.stp"), "neu": pfad("formate/baugruppe.stl"), "toleranz": 0.05,
+                        "suchweite": 2.0}, warten=True)
+    v = f.vergleich
+    assert v is not None and v.ausrichtung.methode == "gleich"
+    f.aenderungen.karte_an.blockSignals(True)
+    f.aenderungen.karte_an.setChecked(True)
+    f.aenderungen.karte_an.blockSignals(False)
+    f.zeige_farbkarte(True, warten=True)
+    lo, hi = v.karte.bereich()
+    assert abs(lo) < 0.5 and abs(hi) < 0.5  # Netz liegt (bis auf Sehnenfehler/Exemplare) auf dem CAD
+    f.beende_vergleich()

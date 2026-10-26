@@ -47,6 +47,16 @@ MATERIAL = {"M": "Maximum-Material Ⓜ", "L": "Minimum-Material Ⓛ"}
 # ASME-Begriffe, wo sie von ISO 1101 abweichen (Anzeige ueber tr())
 MERKMAL_ASME = {"ProfileOfSurface": "Flächenprofil", "ProfileOfLine": "Linienprofil", "CircularRunout": "Rundlauf",
                 "Cylindricity": "Zylindrizität", "Angularity": "Winkligkeit"}
+# Groessenmodifikatoren nach ISO 14405-1 (und ASME-Pendants) fuer die Anzeige hinter dem Mass
+GROESSEN_MOD = {
+    "TwoPointSize": "LP", "LocalSizeDefinedBySphere": "LS", "LeastSquaresAssociationCriterion": "GG",
+    "MaximumInscribedAssociation": "GX", "MinimumCircumscribedAssociation": "GN", "CircumferenceDiameter": "CC",
+    "AreaDiameter": "CA", "VolumeDiameter": "CV", "MaximumSize": "SX", "MinimumSize": "SN", "AverageSize": "SA",
+    "MedianSize": "SM", "MidRangeSize": "SD", "RangeOfSizes": "SR", "AnyCrossSection": "ACS",
+    "SpecificFixedCrossSection": "SCS", "CommonTolerance": "CT", "FreeStateCondition": "Ⓕ",
+    "StatisticalTolerance": "⟨ST⟩", "ControlledRadius": "CR", "ContinuousFeature": "⟨CF⟩", "Envelope": "Ⓔ",
+}
+VORSATZ_MOD = {"Square": "□"}
 GROESSENMASSE = {"Size_Diameter", "Size_Radius", "Size_SphericalDiameter", "Size_SphericalRadius", "Size_Thickness"}
 
 
@@ -107,6 +117,12 @@ class Pmi:
     def _mass_text(self) -> str:
         if self.nennwert is None:
             return self.nur_grafik_text or "(ohne Wert)"
+        text = self._mass_kern()
+        vorsatz = "".join(VORSATZ_MOD[m] for m in self.modifikatoren if m in VORSATZ_MOD)
+        mods = " ".join(GROESSEN_MOD[m] for m in self.modifikatoren if m in GROESSEN_MOD)
+        return f"{vorsatz}{text}" + (f" {mods}" if mods else "")
+
+    def _mass_kern(self) -> str:
         einheit = "°" if self.typ in WINKEL_TYPEN else ""
         txt = f"{MASS_VORSATZ.get(self.typ, '')}{_zahl(self.nennwert)}{einheit}"
         if self.passung:

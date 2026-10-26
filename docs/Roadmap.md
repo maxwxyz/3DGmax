@@ -22,7 +22,7 @@
 | Model properties: volume, area, mass (density), center of gravity, overall size, file header | ✅ |
 | Anti-aliasing, sans-serif labels, subtle view cube; window/panel/column layout remembered | ✅ |
 | Camera: perspective/orthographic, view back/forward | ✅ |
-| Smooth camera transitions | ⬜ |
+| Smooth camera transitions | ✅ |
 | Hide selected in 3D, tree search; 3D PMI follows list filter | ✅ |
 | Exploded view (slider), parts list (BOM) with quantity, volume, mass, CSV | ✅ |
 | Exploded view by assembly levels / along axes, BOM with STEP properties (material, part number) | ⬜ |
@@ -39,7 +39,8 @@
 | Limits from ISO 286 tolerance classes (holes C–S, shafts c–s, IT1–IT18, up to 500 mm; cross-checked) | ✅ |
 | ISO 286: letters a, b, j, t–zc, sizes above 500 mm, fits H7/g6 as pair | ⬜ |
 | Standard awareness ASME Y14.5 / ISO GPS (detect, fallback ISO, per-model override, terms, rule, envelope note) | ✅ |
-| More standard-specific rules and ISO 14405 modifier display | ⬜ |
+| ISO 14405 modifier display | ✅ |
+| More standard-specific check rules | ⬜ |
 | PMI color: high contrast / from file / custom | ✅ |
 | PMI export CSV (values, datums, face IDs, views) | ✅ |
 | Plausibility check (unused/missing datums, without face/view, duplicates, rules) | ✅ |
@@ -80,7 +81,8 @@
 | Graphical-only PMI (notes without semantics) matched and compared by text/position | ⬜ |
 | Assembly comparison (parts new/removed/moved/changed/renamed) | ✅ |
 | Geometry comparison per part instance (instances currently share one face set) | ⬜ |
-| Meshes: STL/OBJ vs. CAD, mesh vs. mesh, fit and compare 3D scans | ⬜ |
+| Meshes: STL/OBJ/glTF/3MF vs. CAD and mesh vs. mesh (alignment, color map) | ✅ |
+| Point clouds / scan formats (PLY, XYZ, E57) | ⬜ |
 
 ## Reports and exchange
 | Feature | Status |

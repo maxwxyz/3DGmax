@@ -363,3 +363,11 @@ def test_tolerierungsberater_regeln(ctc01):
     assert zwei and zwei[0].pmi.typ in ("Perpendicularity", "Parallelism", "Location_LinearDistance",
                                        "Size_Thickness", "Location_Angular")
     assert all(g in pv.GRUENDE for x in v + zwei for g in [x.grund])
+
+
+def test_iso14405_modifikatoren_im_text():
+    from programm.kern.pmi import MASS, Pmi
+    p = Pmi(MASS, "Size_Diameter", nennwert=10.0, oben=0.1, unten=-0.1, modifikatoren=["TwoPointSize", "AnyCrossSection"])
+    assert p.wert_text() == "⌀10 ±0.1 LP ACS"
+    q = Pmi(MASS, "Size_Thickness", nennwert=8.0, passung="h7", modifikatoren=["Square", "Envelope"])
+    assert q.wert_text() == "□8 h7 Ⓔ" and "Hüllbedingung" in q.huelle_text() or q.typ == "Size_Thickness"

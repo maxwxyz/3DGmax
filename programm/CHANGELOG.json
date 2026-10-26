@@ -82,7 +82,10 @@
    "Toleranzzonen: für eine gewählte Toleranz wird die Zone als Hüllgeometrie gezeigt (Versatzflächen ±t/2, Zylinder bei ⌀-Zone), schmale Zonen mit Angabe überhöht.",
    "Toleranzkette (Modell › Toleranzkette): gewählte Maße mit Richtung zu einer Maßkette, Schlussmaß nach Worst Case, statistisch (RSS) und Monte Carlo; ISO-286-Klassen werden berücksichtigt; Export CSV.",
    "PMI anlegen mit Tolerierungsberater (Modell › PMI anlegen, 3D-Kontextmenü): Vorschläge je Auswahl (Bohrung H7 + Position Ⓜ, Ebenheit/Bezug, Abstand/Breite + Parallelität, Rechtwinkligkeit, Winkel, Kugel), Werte anpassbar; eigene PMI mit erzeugter Darstellung, im Projekt gespeichert.",
-   "PMI bearbeiten (Kontextmenü): Nennmaß, Abmaße, Passung, Toleranzwert, Materialbedingung; Änderungen mit ✎ markiert, Dateiwerte gemerkt, im Projekt gespeichert; eigene PMI löschbar."
+   "PMI bearbeiten (Kontextmenü): Nennmaß, Abmaße, Passung, Toleranzwert, Materialbedingung; Änderungen mit ✎ markiert, Dateiwerte gemerkt, im Projekt gespeichert; eigene PMI löschbar.",
+   "Weiche Kamerafahrten bei Standardansichten und Würfelklicks (abschaltbar unter Ansicht).",
+   "ISO-14405-Größenmodifikatoren (LP, GG, GX, ACS …) und Ⓔ im Maßtext.",
+   "Farbkarte und Netzvergleich berücksichtigen jedes Exemplar einer Baugruppe (z. B. Scan gegen CAD-Baugruppe)."
   ],
   "en": [
    "First viewer version: load STEP AP242, assembly tree, CAD-style navigation, standard views.",
@@ -166,7 +169,10 @@
    "Tolerance zones: the zone of a selected tolerance is shown as envelope geometry (offset faces ±t/2, cylinder for ⌀ zones), narrow zones exaggerated with notice.",
    "Tolerance stack-up (Model › Tolerance stack-up): selected dimensions with direction form a chain, closing dimension by worst case, statistical (RSS) and Monte Carlo; ISO 286 classes included; CSV export.",
    "Create PMI with tolerancing advisor (Model › Create PMI, 3D context menu): suggestions per selection (hole H7 + position Ⓜ, flatness/datum, distance/width + parallelism, perpendicularity, angle, sphere), editable values; own PMI with generated presentation, saved in the project.",
-   "Edit PMI (context menu): nominal, deviations, fit, tolerance value, material condition; changes marked with ✎, file values kept, saved in the project; own PMI can be deleted."
+   "Edit PMI (context menu): nominal, deviations, fit, tolerance value, material condition; changes marked with ✎, file values kept, saved in the project; own PMI can be deleted.",
+   "Smooth camera transitions for standard views and cube clicks (can be switched off under View).",
+   "ISO 14405 size modifiers (LP, GG, GX, ACS …) and Ⓔ in the dimension text.",
+   "Color map and mesh comparison consider every instance of an assembly (e.g. scan vs. CAD assembly)."
   ]
  },
  "releases": [

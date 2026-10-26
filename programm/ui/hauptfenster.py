@@ -164,6 +164,9 @@ class Hauptfenster(QtWidgets.QMainWindow):
         self.start.zeige_zuletzt(self.zuletzt())
         self._spalten_verschiebbar()
         self._fenster_herstellen()
+        an_ani = str(self.ein.value("animation", True)).lower() in ("true", "1")
+        self.aktionen["animation"].setChecked(an_ani)
+        self.ansicht.animation = an_ani
         self.aktionen["zeichnung_pmi"].setChecked(str(self.ein.value("zeichnung_pmi", True)).lower() in ("true", "1"))
         an = str(self.ein.value("perspektive", False)).lower() in ("true", "1")
         self.aktionen["perspektive"].setChecked(an)
@@ -176,6 +179,11 @@ class Hauptfenster(QtWidgets.QMainWindow):
     def _kamera_vor(self):
         if not self.ansicht.kamera_vor():
             self.statusBar().showMessage(tr("Keine spätere Ansicht"), 3000)
+
+    def _animation(self):
+        an = self.aktionen["animation"].isChecked()
+        self.ein.setValue("animation", an)
+        self.ansicht.animation = an
 
     def _perspektive(self):
         an = self.aktionen["perspektive"].isChecked()
@@ -371,6 +379,8 @@ class Hauptfenster(QtWidgets.QMainWindow):
         A("kamera_zurueck", tr("Ansicht zurück"), self._kamera_zurueck, "Alt+Left",
           tipp=tr("Vorherige Kameraposition"))
         A("kamera_vor", tr("Ansicht vor"), self._kamera_vor, "Alt+Right", tipp=tr("Nächste Kameraposition"))
+        A("animation", tr("Weiche Kamerafahrten"), self._animation, pruefbar=True,
+          tipp=tr("Standardansichten und Würfelklicks fahren weich an statt zu springen"))
         A("perspektive", tr("Perspektive"), self._perspektive, "P", pruefbar=True,
           tipp=tr("Zentralperspektive statt Parallelprojektion"))
         A("drehpunkt", tr("Drehpunkt zurücksetzen"), self.ansicht.drehpunkt_zuruecksetzen,
@@ -477,6 +487,7 @@ class Hauptfenster(QtWidgets.QMainWindow):
         m.addAction(a["kamera_zurueck"])
         m.addAction(a["kamera_vor"])
         m.addAction(a["perspektive"])
+        m.addAction(a["animation"])
         m.addSeparator()
         m.addAction(a["ansicht_vor"])
         m.addAction(a["ansicht_zurueck"])

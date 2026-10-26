@@ -41,6 +41,7 @@ def pruefe():
     app.quit()
 def pruefe_alles():
     a = f.ansicht; cam = a.d.View.Camera()
+    a.animation = False  # Pruefungen erwarten die Kamera sofort am Ziel
     mitte = (a.viewer.width() / 2, a.viewer.height() / 2)
     e0 = cam.Eye().Coord()
     T = QtCore.QEvent.Type
@@ -101,6 +102,16 @@ def pruefe_alles():
     a._zeige_drehpunkt(an=False)
     a.alles_zeigen()
     ergebnis["drehpunkt_zurueck"] = a._drehpunkt is None and a._drehpunkt_ais is None
+    # Kamerafahrt: nach dem Ende am Ziel
+    a.animation = True
+    a.standard("oben")
+    for _ in range(40):
+        QtWidgets.QApplication.processEvents()
+        if not a._fahrt_uhr.isActive():
+            break
+        import time; time.sleep(0.02)
+    ergebnis["fahrt"] = not a._fahrt_uhr.isActive() and abs(cam.Direction().Z() + 1.0) < 1e-6
+    a.animation = False
     s0 = cam.Scale()
     rad = QtGui.QWheelEvent(QtCore.QPointF(*mitte), a.viewer.mapToGlobal(QtCore.QPointF(*mitte)), QtCore.QPoint(), QtCore.QPoint(0, 240),
                             QtCore.Qt.MouseButton.NoButton, QtCore.Qt.KeyboardModifier.NoModifier, QtCore.Qt.ScrollPhase.NoScrollPhase, False)

@@ -597,8 +597,10 @@ class OcctAnsicht(AnsichtBasis):
 
     def wuerfel_ausrichten(self, orientierung):
         """Kamera auf eine Wuerfelseite, -kante oder -ecke ausrichten und einpassen."""
-        self.d.View.SetProj(orientierung)
-        self.alles_zeigen()
+        def aendern():
+            self.d.View.SetProj(orientierung)
+            self.alles_zeigen()
+        self._mit_fahrt(aendern)
         self._kamera_bewegt()
 
     def _wuerfel_maus(self, typ, ev, x, y) -> bool:
@@ -630,9 +632,57 @@ class OcctAnsicht(AnsichtBasis):
         return typ == E.MouseButtonDblClick
 
     def _neu_zeichnen(self):
-        if self._bereit:
+        if self._bereit and not getattr(self, "_still", False):
             self.d.Context.UpdateCurrentViewer()
             self.d.View.Redraw()
+
+    # --- weiche Kamerafahrten ---
+
+    def _mit_fahrt(self, aenderung, dauer: float = 0.28):
+        """Kamera-Aenderung ausfuehren und vom alten zum neuen Stand in kleinen Schritten hinfahren."""
+        if not self._bereit or not getattr(self, "animation", True) or self.szene is None:
+            aenderung()
+            return
+        import numpy as np
+        start = self._kamera_jetzt()
+        self._still = True
+        try:
+            aenderung()
+        finally:
+            self._still = False
+        ziel = self._kamera_jetzt()
+        if self._gleich(start, ziel):
+            self._neu_zeichnen()
+            return
+        schritte = max(int(dauer * 60), 2)
+        self._fahrt = [start, ziel, 0, schritte]
+        if not hasattr(self, "_fahrt_uhr"):
+            self._fahrt_uhr = QtCore.QTimer(self)
+            self._fahrt_uhr.setInterval(16)
+            self._fahrt_uhr.timeout.connect(self._fahrt_schritt)
+        self._fahrt_schritt()
+        self._fahrt_uhr.start()
+        _ = np
+
+    def _fahrt_schritt(self):
+        import numpy as np
+        start, ziel, i, n = self._fahrt
+        i += 1
+        t = i / n
+        t = t * t * (3 - 2 * t)  # weich anfahren und abbremsen
+        e = np.array(start[0]) * (1 - t) + np.array(ziel[0]) * t
+        c = np.array(start[1]) * (1 - t) + np.array(ziel[1]) * t
+        u = np.array(start[2]) * (1 - t) + np.array(ziel[2]) * t
+        if np.linalg.norm(u) < 1e-9:
+            u = np.array(ziel[2])
+        u = u / np.linalg.norm(u)
+        skala = start[3] * (ziel[3] / start[3]) ** t if start[3] > 0 and ziel[3] > 0 else ziel[3]
+        self._kamera_setzen((tuple(e), tuple(c), tuple(u), skala))
+        self._fahrt[2] = i
+        if i >= n:
+            self._fahrt_uhr.stop()
+            self._kamera_setzen(ziel)
+            self._kamera_bewegt()
 
     def setze_thema(self, thema: dict):
         super().setze_thema(thema)
@@ -1354,8 +1404,10 @@ class OcctAnsicht(AnsichtBasis):
         richtung = {"vorne": V3d.V3d_Yneg, "hinten": V3d.V3d_Ypos, "oben": V3d.V3d_Zpos,
                     "unten": V3d.V3d_Zneg, "links": V3d.V3d_Xneg, "rechts": V3d.V3d_Xpos,
                     "iso": V3d.V3d_XposYnegZpos}[name]
-        self.d.View.SetProj(richtung)
-        self.alles_zeigen()
+        def aendern():
+            self.d.View.SetProj(richtung)
+            self.alles_zeigen()
+        self._mit_fahrt(aendern)
         self._kamera_bewegt()
 
     def _sichtbare_box(self):
@@ -1778,6 +1830,10 @@ class OcctAnsicht(AnsichtBasis):
         E = QtCore.QEvent.Type
         if typ in (E.MouseButtonPress, E.MouseMove, E.MouseButtonRelease, E.MouseButtonDblClick):
             x, y = self._px(ev.position())
+            if typ == E.MouseButtonPress and getattr(self, "_fahrt_uhr", None) is not None and \
+                    self._fahrt_uhr.isActive():
+                self._fahrt_uhr.stop()  # Fahrt abbrechen: sofort am Ziel weiter navigieren
+                self._kamera_setzen(self._fahrt[1])
             if self._wuerfel_maus(typ, ev, x, y):
                 return True
             knopf, knoepfe = int(ev.button().value), int(ev.buttons().value)

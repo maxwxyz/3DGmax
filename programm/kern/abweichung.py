@@ -82,6 +82,17 @@ def _feinheit(flaechen) -> float:
     return min(max(float(np.linalg.norm([x1 - x0, y1 - y0, z1 - z0])) * 5e-4, 0.01), 0.2)
 
 
+def _flaechen_mit_lage(form) -> list:
+    from OCC.Core.TopAbs import TopAbs_FACE
+    from OCC.Core.TopExp import TopExp_Explorer
+    from OCC.Core.TopoDS import topods
+    out, ex = [], TopExp_Explorer(form, TopAbs_FACE)
+    while ex.More():
+        out.append(topods.Face(ex.Current()))
+        ex.Next()
+    return out
+
+
 def _diagonale(netze) -> float:
     alle = [p for p, _ in netze if len(p)]
     if not alle:
@@ -202,7 +213,8 @@ def berechne(modell_alt, modell_neu, ausrichtung: Ausrichtung | None = None, fei
     Je Knoten: Kandidatenflaechen aus dem Netz des alten Stands, Projektion auf jede (Fusspunkt innerhalb der
     Berandung), kleinster Abstand gewinnt; liegt kein Fusspunkt innen (Kante/Ecke), exakt per BRepExtrema.
     """
-    alt_f, neu_f = modell_alt.flaechen, modell_neu.flaechen
+    # alle Flaechen mit Lage (jedes Exemplar einer Baugruppe einzeln; modell.flaechen fasst Exemplare zusammen)
+    alt_f, neu_f = _flaechen_mit_lage(modell_alt.form), _flaechen_mit_lage(modell_neu.form)
     feinheit = feinheit or _feinheit(alt_f)
     netz_alt = NetzAbstand(tesselliere(alt_f, feinheit))
     m = np.eye(4) if ausrichtung is None else ausrichtung.matrix
