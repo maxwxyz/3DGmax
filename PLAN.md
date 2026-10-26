@@ -177,5 +177,5 @@ Changelog DE/EN, HANDOFF.md, unfertiges auf `wip/...`, nach jedem Commit Push.
 - **Mit TKJT (GPL v2+):** zusätzlich JT-Lesen. Eine weitergegebene App müsste dann unter einer GPL-kompatiblen Lizenz
   mit Quelltext stehen; für reine interne Nutzung keine Pflichten. Bau-Skripte und GitHub-Workflow erhalten dafür
   einen Schalter (Standard: ohne TKJT). Wird mit Schritt 7 umgesetzt, damit es keinen Schalter ohne Funktion gibt.
-- Offene Entscheidung: Lizenz von 3DGmax selbst (ZGmax nutzt AGPL-3.0; mit AGPL wäre TKJT auch extern verträglich,
-  da GPL v2 „oder später“).
+- Entschieden (2026-10-26): 3DGmax steht unter **GPL-3.0-or-later** – verträglich mit OCCT/pythonocc/PySide6 (LGPL)
+  und TKJT (GPL v2+), auch bei Weitergabe einer App mit TKJT.

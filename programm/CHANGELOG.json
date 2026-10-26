@@ -15,7 +15,8 @@
    "„Ganzes Modell zeigen“ passt auf die Teile ein (ohne weit abstehende Beschriftungen).",
    "Hinweise (Notizen) und Bezugsstellen (z. B. A1) als eigene Einträge in der PMI-Liste.",
    "Drehpunkt setzen und Bildmitte (Mitteltaste) funktionieren zuverlässig.",
-   "PMI-Beschriftungen standardmäßig in gut lesbarer Farbe für hell und dunkel; abschaltbar (dann Farbe aus der Datei)."
+   "PMI-Beschriftungen standardmäßig in gut lesbarer Farbe für hell und dunkel; abschaltbar (dann Farbe aus der Datei).",
+   "Lizenz: GNU GPL v3 oder später (GPL-3.0-or-later), angezeigt im Fenster „Über 3DGmax“."
   ],
   "en": [
    "First viewer version: load STEP AP242, assembly tree, CAD-style navigation, standard views.",
@@ -32,7 +33,8 @@
    "“Fit all” fits the parts (without far-reaching annotations).",
    "Notes and datum targets (e.g. A1) as separate entries in the PMI list.",
    "Setting the pivot and the view centre (middle button) work reliably.",
-   "PMI annotations by default in a well readable color for light and dark; can be switched off (then file color)."
+   "PMI annotations by default in a well readable color for light and dark; can be switched off (then file color).",
+   "License: GNU GPL v3 or later (GPL-3.0-or-later), shown in the “About 3DGmax” window."
   ]
  },
  "releases": [

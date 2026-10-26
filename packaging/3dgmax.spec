@@ -15,6 +15,7 @@ OCCT_RES = next((p for p in (os.path.join(PREFIX, "share", "opencascade", "resou
 
 datas = [(os.path.join(SRC, f), ".") for f in ("Anleitung.html", "Manual.html", "i18n_en.json", "CHANGELOG.json",
                                                "icon.png", "icon.ico", "icon.icns")]
+datas += [(os.path.join(ROOT, "LICENSE"), ".")]   # GPL-3.0-or-later, liegt der App bei
 datas += [(os.path.join(SRC, "beispiele"), os.path.join("programm", "beispiele"))]   # fuer --selbsttest
 if OCCT_RES:
     for teil in ("Shaders", "StdResource", "XSMessage", "SHMessage", "XSTEPResource", "XmlOcafResource",
