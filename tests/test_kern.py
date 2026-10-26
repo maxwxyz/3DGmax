@@ -214,3 +214,22 @@ def test_analysen_entformung_kruemmung_wandstaerke():
     endlich = r[np.isfinite(r)]
     assert np.any(np.isclose(endlich, 3.0)) and np.any(np.isinf(r))  # Schaft R3, Stirnflaechen eben
     assert an.skala_kruemmung().wert_text(math.inf) == "eben"
+
+
+def test_iso286_grenzabmasse():
+    from programm.kern import iso286
+    from programm.kern.pmi import MASS, Pmi
+    bekannt = {  # (Klasse, Nennmass): (oben, unten) in um
+        ("H7", 2): (10, 0), ("g6", 2): (-2, -8), ("K7", 2): (0, -10), ("N7", 2): (-4, -14), ("P7", 2): (-6, -16),
+        ("s6", 2): (20, 14), ("r6", 2): (16, 10), ("H7", 25): (21, 0), ("g6", 25): (-7, -20), ("f7", 25): (-20, -41),
+        ("k6", 25): (15, 2), ("n6", 25): (28, 15), ("p6", 25): (35, 22), ("K7", 25): (6, -15), ("M7", 25): (0, -21),
+        ("N7", 25): (-7, -28), ("P7", 25): (-14, -35), ("JS9", 25): (26, -26), ("G6", 3.5): (12, 4),
+        ("H7", 450): (63, 0), ("g6", 450): (-20, -60), ("M7", 450): (0, -63), ("K7", 450): (18, -45),
+        ("s6", 480): (292, 252), ("M6", 300): (-9, -41), ("H11", 4): (75, 0), ("c11", 25): (-110, -240),
+    }
+    for (klasse, d), soll in bekannt.items():
+        assert iso286.abmasse_um(klasse, d) == soll, (klasse, d, iso286.abmasse_um(klasse, d))
+    assert iso286.abmasse_um("H7", 600) is None and iso286.abmasse_um("Hx", 10) is None
+    assert iso286.abmasse_um("H7/g6", 10) is None
+    p = Pmi(MASS, "Size_Diameter", nennwert=20.0, passung="H7")
+    assert p.grenzen() == (20.021, 20.0)

@@ -614,5 +614,6 @@
 "Wandstärke (mm)": "Wall thickness (mm)",
 "eben": "planar",
 "{} Positionen, {} Teile · Dichte {:.3f} g/cm³ (wie in den Modelleigenschaften)": "{} items, {} parts · density {:.3f} g/cm³ (as in the model properties)",
-"{} {} bei ({:.2f}, {:.2f}, {:.2f})": "{} {} at ({:.2f}, {:.2f}, {:.2f})"
+"{} {} bei ({:.2f}, {:.2f}, {:.2f})": "{} {} at ({:.2f}, {:.2f}, {:.2f})",
+"{}: Abmaße {:+.4g} / {:+.4g} mm nach ISO 286": "{}: deviations {:+.4g} / {:+.4g} mm per ISO 286"
 }

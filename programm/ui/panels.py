@@ -420,6 +420,9 @@ def _tooltip(p) -> str:
     teile.append(tr("Flächen: {}").format(len(p.flaechen)))
     if p.huelle_text():
         teile.append(tr(p.huelle_text()))
+    abw = p.klassen_abmasse() if p.oben is None and p.unten is None else None
+    if abw is not None:
+        teile.append(tr("{}: Abmaße {:+.4g} / {:+.4g} mm nach ISO 286").format(p.passung, *abw))
     if not p.semantisch:
         teile.append(tr("nur grafisch (keine auswertbare Semantik)"))
     return "\n".join(teile)

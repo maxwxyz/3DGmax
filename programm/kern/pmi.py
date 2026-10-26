@@ -143,8 +143,11 @@ class Pmi:
         return self.typ
 
     def abmasse(self) -> tuple[float | None, float | None]:
-        """Oberes und unteres Abmass (bei Grenzmassen aus dem Nennmass gerechnet)."""
-        if self.art != MASS or self.oben is None and self.unten is None:
+        """Oberes und unteres Abmass (bei Grenzmassen aus dem Nennmass, bei Toleranzklasse nach ISO 286)."""
+        if self.art == MASS and self.oben is None and self.unten is None:
+            klasse = self.klassen_abmasse()
+            return klasse if klasse is not None else (None, None)
+        if self.art != MASS:
             return None, None
         if self.grenzmass:
             if self.nennwert is None:
@@ -152,6 +155,14 @@ class Pmi:
             return (None if self.oben is None else self.oben - self.nennwert,
                     None if self.unten is None else self.unten - self.nennwert)
         return self.oben or 0.0, self.unten or 0.0
+
+    def klassen_abmasse(self) -> tuple[float, float] | None:
+        """Abmasse aus der Toleranzklasse (z. B. H7) nach ISO 286 in mm, falls Klasse und Nennmass passen."""
+        if self.art != MASS or not self.passung or self.nennwert is None or "/" in self.passung \
+                or self.typ in WINKEL_TYPEN:
+            return None
+        from .iso286 import grenzabmasse
+        return grenzabmasse(self.passung, abs(self.nennwert))
 
     def grenzen(self) -> tuple[float | None, float | None]:
         """Hoechstmass und Mindestmass (ohne Passungstabelle: nur aus Abmassen bzw. Grenzmassen)."""

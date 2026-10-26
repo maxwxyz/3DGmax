@@ -35,7 +35,8 @@
 | PMI ↔ face in both directions, select datums / tolerances using a datum | ✅ |
 | List with name, views, search, filter, context menu; count in current view | ✅ |
 | Table columns: move, show/hide; ISO GPS columns (characteristic, nominal, deviations, limits, size tolerance, class, zone, material condition) | ✅ |
-| Limits from ISO 286 tolerance classes (e.g. H7) | ⬜ |
+| Limits from ISO 286 tolerance classes (holes C–S, shafts c–s, IT1–IT18, up to 500 mm; cross-checked) | ✅ |
+| ISO 286: letters a, b, j, t–zc, sizes above 500 mm, fits H7/g6 as pair | ⬜ |
 | Standard awareness ASME Y14.5 / ISO GPS (detect, fallback ISO, per-model override, terms, rule, envelope note) | ✅ |
 | More standard-specific rules and ISO 14405 modifier display | ⬜ |
 | PMI color: high contrast / from file / custom | ✅ |

@@ -32,7 +32,10 @@ Then: exploded view (OcctAnsicht.setze_explosion: radial offsets via SetLocalTra
 blocked; fit includes local transforms), parts list (kern/stueckliste.py, ui/stueckliste_ui.py; groups by base name +
 TShape), analyses (kern/analyse.py: draft, curvature radius, wall thickness by ray; ui/analyse_ui.py dock; generic
 color map via abweichung.Skala). Test assembly: werkzeuge/baugruppe.py -> tests/daten/baugruppe.stp.
-Next: PLAN §8.12 item 10 (ISO 286 limits, needs exact tables), then step 6 formats (STL/OBJ/glTF/IGES, QIF).
+Then ISO 286 (kern/iso286.py): IT table and fundamental deviations up to 500 mm, hole rules (mirror, delta, M6
+250–315 exception); cross-checked against the MIT-licensed isofits tables (1334 equal, 6 differ = errors in that
+data, inconsistent with its own IT values); Pmi.abmasse() falls back to the class.
+Next: step 6 formats (STL/OBJ/glTF/IGES, then QIF).
 
 ## Environment and commands
 ```bash

@@ -60,7 +60,8 @@
    "Bezugssystem-Beschriftung weiß auf farbigem Feld; eingeblendete Spalten passen sich dem Inhalt an; Über-Dialog nur mit Copyright, auf macOS im Programmmenü.",
    "Explosionsansicht (X) mit Regler für Baugruppen; PMI und Messen ruhen solange.",
    "Stückliste (Modell › Stückliste): gleiche Teile zusammengefasst mit Anzahl, Volumen und Masse, Baugruppe; Export CSV, Doppelklick isoliert das Teil.",
-   "Analysen als Farbkarte (Modell › Analyse): Entformungsschräge zu einer Ausformrichtung mit Mindestwinkel, Krümmungsradius, Wandstärke; Legende und Wert per Klick."
+   "Analysen als Farbkarte (Modell › Analyse): Entformungsschräge zu einer Ausformrichtung mit Mindestwinkel, Krümmungsradius, Wandstärke; Legende und Wert per Klick.",
+   "Toleranzklassen nach ISO 286 (z. B. H7, g6, JS9; bis 500 mm): Abmaße, Höchst- und Mindestmaß werden berechnet und in PMI-Tabelle, Schnellmessung, Merkmalsliste und Export gezeigt."
   ],
   "en": [
    "First viewer version: load STEP AP242, assembly tree, CAD-style navigation, standard views.",
@@ -122,7 +123,8 @@
    "Datum labels white on a colored box; shown columns fit their content; About dialog with copyright only, on macOS in the application menu.",
    "Exploded view (X) with slider for assemblies; PMI and measuring pause meanwhile.",
    "Parts list (Model › Parts list): equal parts combined with quantity, volume, mass and assembly; CSV export, double-click isolates the part.",
-   "Analyses as color map (Model › Analysis): draft angle to a pull direction with minimum angle, curvature radius, wall thickness; legend and value on click."
+   "Analyses as color map (Model › Analysis): draft angle to a pull direction with minimum angle, curvature radius, wall thickness; legend and value on click.",
+   "ISO 286 tolerance classes (e.g. H7, g6, JS9; up to 500 mm): deviations and upper/lower limits are computed and shown in the PMI table, quick measure, bill of characteristics and exports."
   ]
  },
  "releases": [
