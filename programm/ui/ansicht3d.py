@@ -254,6 +254,11 @@ class AnsichtBasis(QtWidgets.QWidget):
     def drehpunkt_zuruecksetzen(self, melden: bool = True):
         pass
 
+    def aktuelle_ansicht(self, name: str):
+        """Kamera als gespeicherte Ansicht (vom Nutzer gemerkt)."""
+        from ..kern.ansichten import Ansicht
+        return Ansicht(name, 0, eigen=True)
+
     def setze_perspektive(self, an: bool):
         """Zentralperspektive statt Parallelprojektion."""
         self.perspektive = an
@@ -947,6 +952,17 @@ class OcctAnsicht(AnsichtBasis):
             ctx.Deactivate(lab)
             self._bezug_ais.append(lab)
         self._neu_zeichnen()
+
+    def aktuelle_ansicht(self, name):
+        a = super().aktuelle_ansicht(name)
+        if not self._bereit:
+            return a
+        cam = self.d.View.Camera()
+        e, d, u = cam.Eye(), cam.Direction(), cam.Up()
+        a.ort, a.richtung, a.oben = (e.X(), e.Y(), e.Z()), (d.X(), d.Y(), d.Z()), (u.X(), u.Y(), u.Z())
+        b, h = max(self.viewer.width(), 1), max(self.viewer.height(), 1)
+        a.hoehe, a.breite, a.abstand = cam.Scale(), cam.Scale() * b / h, cam.Distance()
+        return a
 
     def blick_zum_betrachter(self):
         if not self._bereit:

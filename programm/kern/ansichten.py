@@ -29,6 +29,8 @@ class Ansicht:
     perspektive: bool = False
     pmi_ids: set[int] = field(default_factory=set)  # STEP-#IDs der sichtbaren PMI
     pmi_nummern: list[int] = field(default_factory=list)
+    eigen: bool = False  # vom Nutzer gemerkt (nicht aus der Datei)
+    messungen: list[int] = field(default_factory=list)  # Nummern der dabei sichtbaren Messungen
 
 
 def _punkt(datei: P21Datei, ref, skala=1.0):

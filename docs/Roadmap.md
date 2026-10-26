@@ -57,7 +57,7 @@
 |---|---|
 | Distance, angle, radius/Ø, wall thickness, coordinates; snapping; list, CSV, copy | ✅ |
 | Quick measure in the status bar for the selection (length, Ø/R, area, distances, axis distance, angle, PMI info) | ✅ |
-| Save measurement as view, measurements in reports | ⬜ |
+| Own views (camera, PMI, measurements) in project and PDF; measurement report PDF | ✅ |
 
 ## Comparison
 | Feature | Status |

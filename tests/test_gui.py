@@ -450,3 +450,23 @@ def test_gezielte_pmi_suche(fenster_ctc01):
     p.suche.setText("Durchmesser")  # freier Text findet auch das Merkmal
     assert p.sichtbare() and all(q.typ == "Size_Diameter" for q in p.sichtbare())
     p.suche.setText("")
+
+
+def test_eigene_ansicht_messprotokoll_projekt(fenster_ctc01, tmp_path):
+    from programm.kern.messen import Messung
+    f = fenster_ctc01
+    n0 = len(f.erg.ansichten)
+    f.pmi.art.setCurrentIndex(f.pmi.art.findData("toleranz"))
+    a = f.merke_ansicht("Toleranzen oben")
+    assert a.eigen and len(f.erg.ansichten) == n0 + 1 and a.pmi_nummern
+    assert all(p.art == "toleranz" for p in f.erg.pmi if p.nummer in a.pmi_nummern)
+    f.pmi.art.setCurrentIndex(0)
+    f.messen.fuege_hinzu(Messung("abstand", 12.5, "mm", [(0, 0, 0), (12.5, 0, 0)], "Punkt – Punkt"))
+    pdf = f.exportiere_pdf("messungen", str(tmp_path / "m.pdf"))
+    assert pdf and (tmp_path / "m.pdf").stat().st_size > 1000
+    projekt = f.speichere_projekt(str(tmp_path / "p.3dgmax"))
+    f.ansichten.entfernen.emit(a)
+    assert len(f.erg.ansichten) == n0
+    f.oeffne_projekt(projekt, warten=True)
+    namen = [x.name for x in f.erg.ansichten]
+    assert "Toleranzen oben" in namen and f.messen.messungen

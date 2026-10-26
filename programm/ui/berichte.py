@@ -302,3 +302,24 @@ def merkmale_pdf(fenster, pfad: str, bild: bool = True) -> str:
     spalten = [(tr(t), b) for t, b in zip(merkmale.SPALTEN, MERKMAL_BREITEN)]
     bericht.tabelle(spalten, merkmale.zeilen(liste, erg.ansichten) or [["–"] + [""] * (len(spalten) - 1)])
     return bericht.fertig()
+
+
+MESS_SPALTEN = [("Nr", 0.05), ("Art", 0.13), ("Wert", 0.22), ("Elemente", 0.25), ("Punkte (mm)", 0.35)]
+
+
+def messungen_pdf(fenster, pfad: str, bild: bool = True) -> str:
+    """Messprotokoll: Bild mit den Messungen im Modell, Tabelle mit Werten, Elementen und Punkten."""
+    from .messwerkzeug import ART_TEXT, _woerter
+    erg = fenster.erg
+    modell = os.path.basename(erg.pfad)
+    liste = list(fenster.messen.messungen)
+    bericht = PdfBericht(pfad, tr("Messprotokoll – {}").format(modell))
+    bericht.ueberschrift(tr("Messprotokoll"))
+    bericht.absatz(tr("Modell: {} · {} Messungen · Werte aus der exakten Geometrie").format(modell, len(liste)))
+    if bild and liste:
+        with _BreiteAnsicht(fenster):
+            bericht.bild(fenster.ansicht.bild_qimage(), 0.58)
+    zeilen = [[str(m.nummer), tr(ART_TEXT.get(m.art, m.art)), _woerter(m.text()), _woerter(m.elemente),
+               " | ".join(f"{x:.3f}, {y:.3f}, {z:.3f}" for x, y, z in m.punkte)] for m in liste]
+    bericht.tabelle([(tr(t), w) for t, w in MESS_SPALTEN], zeilen or [["–", tr("keine Messungen"), "", "", ""]])
+    return bericht.fertig()

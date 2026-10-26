@@ -623,5 +623,18 @@
 "Netze": "Meshes",
 "{} Dreiecke": "{} triangles",
 "Suchen: Text oder bezug:A, wert:0.5, typ:position, ansicht:MBD_A": "Search: text or datum:A, value:0.5, type:position, view:MBD_A",
-"Freier Text sucht überall. Gezielt: bezug:A, wert:0.5, typ:position (Merkmal), art:toleranz, ansicht:MBD_A, name:…, nr:12, ballon:3 – mehrere Begriffe = alle": "Free text searches everywhere. Targeted: datum:A, value:0.5, type:position (characteristic), kind:tolerance, view:MBD_A, name:…, no:12, balloon:3 – several terms = all"
+"Freier Text sucht überall. Gezielt: bezug:A, wert:0.5, typ:position (Merkmal), art:toleranz, ansicht:MBD_A, name:…, nr:12, ballon:3 – mehrere Begriffe = alle": "Free text searches everywhere. Targeted: datum:A, value:0.5, type:position (characteristic), kind:tolerance, view:MBD_A, name:…, no:12, balloon:3 – several terms = all",
+"Aktuelle Kamera, sichtbare PMI und Messungen als eigene Ansicht merken": "Remember the current camera, visible PMI and measurements as your own view",
+"Ansicht gemerkt: {} (wird mit dem Projekt gespeichert)": "View remembered: {} (saved with the project)",
+"Bild mit den Messungen und Tabelle der Messwerte": "Image with the measurements and table of values",
+"Eigene Ansicht {}": "Own view {}",
+"Eigene Ansicht – Doppelklick benennt um, Rechtsklick löscht": "Own view – double-click renames, right-click deletes",
+"Messprotokoll": "Measurement report",
+"Messprotokoll (PDF) …": "Measurement report (PDF) …",
+"Messprotokoll – {}": "Measurement report – {}",
+"Modell: {} · {} Messungen · Werte aus der exakten Geometrie": "Model: {} · {} measurements · values from the exact geometry",
+"Umbenennen": "Rename",
+"keine Messungen": "no measurements",
+"＋ Merken": "＋ Remember",
+"Punkte (mm)": "Points (mm)"
 }

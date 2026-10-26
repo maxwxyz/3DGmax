@@ -247,6 +247,19 @@ class PmiPanel(QtWidgets.QWidget):
                 "Modifikatoren": ", ".join(p.modifikatoren),
                 "Semantisch": tr("ja") if p.semantisch else tr("nein")}
 
+    def setze_ansichten(self, ansichten: list):
+        """Ansichten neu zuordnen (z. B. nach eigener Ansicht), ohne Filter und Auswahl zu verlieren."""
+        self.ansichten = list(ansichten)
+        self.ansichten_je_pmi = {}
+        for a in self.ansichten:
+            for nr in a.pmi_nummern:
+                self.ansichten_je_pmi.setdefault(nr, []).append(a.name)
+        spalte = self.SPALTEN.index("Ansichten")
+        for z, p in enumerate(self.pmi):
+            it = self.tabelle.item(z, spalte)
+            if it is not None:
+                it.setText(", ".join(self.ansichten_je_pmi.get(p.nummer, [])))
+
     def nur_ansicht(self, nummern: set[int] | None):
         self.nur_nummern = None if nummern is None else set(nummern)
         self._filtern()
@@ -466,6 +479,8 @@ class AnsichtenPanel(QtWidgets.QWidget):
     """Gespeicherte Ansichten des Modells (mit Suche nach Name)."""
 
     gewaehlt = QtCore.Signal(object)  # Ansicht oder None (alle PMI)
+    merken = QtCore.Signal()  # aktuelle Kamera als eigene Ansicht
+    entfernen = QtCore.Signal(object)  # eigene Ansicht loeschen
 
     def __init__(self, parent=None):
         super().__init__(parent)
@@ -485,9 +500,16 @@ class AnsichtenPanel(QtWidgets.QWidget):
         self.vor.setToolTip(tr("Nächste Ansicht (Bild ab, →)"))
         self.zurueck.clicked.connect(lambda: self.gehe(-1))
         self.vor.clicked.connect(lambda: self.gehe(+1))
+        self.plus = QtWidgets.QPushButton(tr("＋ Merken"))
+        self.plus.setToolTip(tr("Aktuelle Kamera, sichtbare PMI und Messungen als eigene Ansicht merken"))
+        self.plus.clicked.connect(self.merken.emit)
         reihe.addWidget(self.zurueck)
         reihe.addWidget(self.vor)
+        reihe.addWidget(self.plus)
         lay.addLayout(reihe)
+        self.liste.setContextMenuPolicy(QtCore.Qt.ContextMenuPolicy.CustomContextMenu)
+        self.liste.customContextMenuRequested.connect(self._menue)
+        self.liste.itemChanged.connect(self._umbenannt)
         self.ansichten: list = []
         self.liste.currentRowChanged.connect(self._zeile)
         # erneuter Klick auf die aktuelle Ansicht stellt die Kamera wieder her
@@ -508,12 +530,37 @@ class AnsichtenPanel(QtWidgets.QWidget):
         self.liste.addItem(tr("(Keine Ansicht – alle PMI)"))
         for a in ansichten:
             n = len(a.pmi_nummern)
-            it = QtWidgets.QListWidgetItem(f"{a.name}   ({tr('{} PMI').format(n)})")
-            if n == 0:
+            it = QtWidgets.QListWidgetItem(f"{a.name}   ({tr('{} PMI').format(n)})" if not a.eigen else a.name)
+            if a.eigen:
+                it.setFlags(it.flags() | QtCore.Qt.ItemFlag.ItemIsEditable)
+                it.setToolTip(tr("Eigene Ansicht – Doppelklick benennt um, Rechtsklick löscht"))
+                schrift = it.font()
+                schrift.setItalic(True)
+                it.setFont(schrift)
+            if n == 0 and not a.eigen:
                 it.setForeground(QtGui.QBrush(self.palette().color(QtGui.QPalette.ColorRole.PlaceholderText)))
             self.liste.addItem(it)
         self.liste.setCurrentRow(0)
         self.liste.blockSignals(False)
+
+    def _menue(self, pos):
+        it = self.liste.itemAt(pos)
+        z = self.liste.row(it) if it is not None else -1
+        if z <= 0 or not self.ansichten[z - 1].eigen:
+            return
+        m = QtWidgets.QMenu(self)
+        a_name = m.addAction(tr("Umbenennen"))
+        a_weg = m.addAction(tr("Löschen"))
+        gewaehlt = m.exec(self.liste.viewport().mapToGlobal(pos))
+        if gewaehlt is a_name:
+            self.liste.editItem(it)
+        elif gewaehlt is a_weg:
+            self.entfernen.emit(self.ansichten[z - 1])
+
+    def _umbenannt(self, it):
+        z = self.liste.row(it)
+        if 0 < z <= len(self.ansichten) and self.ansichten[z - 1].eigen and it.text().strip():
+            self.ansichten[z - 1].name = it.text().strip()
 
     def _zeile(self, z):
         self.gewaehlt.emit(None if z <= 0 else self.ansichten[z - 1])

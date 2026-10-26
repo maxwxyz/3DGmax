@@ -36,12 +36,13 @@ def _eindeutig(namen: list[str]) -> list[str]:
 
 
 def speichere(pfad: str, modell_pfad: str | None = None, vergleich=None, messungen: list | None = None,
-              version: str = "") -> str:
+              version: str = "", ansichten: list | None = None) -> str:
     """Modell oder Vergleich mit Pruefstand und Messungen als .3dgmax speichern."""
     if not pfad.lower().endswith(ENDUNG):
         pfad += ENDUNG
     daten = {"format": FORMAT, "programm": f"3DGmax {version}".strip(), "messungen":
-             [asdict(m) for m in (messungen or [])]}
+             [asdict(m) for m in (messungen or [])],
+             "ansichten": [_ansicht_json(a) for a in (ansichten or []) if getattr(a, "eigen", False)]}
     if vergleich is not None:
         quellen = [vergleich.alt.pfad, vergleich.neu.pfad]
         alt, neu = _eindeutig([os.path.basename(q) for q in quellen])
@@ -75,7 +76,17 @@ def lade(pfad: str, ziel: str | None = None) -> dict:
                     f.write(z.read(name))
     daten["pfade"] = {k: os.path.join(ziel, v) for k, v in daten["modelle"].items()}
     daten["messungen"] = [Messung(**m) for m in daten.get("messungen", [])]
+    from .ansichten import Ansicht
+    daten["ansichten"] = [Ansicht(**{**a, "pmi_ids": set(a.get("pmi_ids", [])), "ort": tuple(a["ort"]),
+                                     "richtung": tuple(a["richtung"]), "oben": tuple(a["oben"])})
+                          for a in daten.get("ansichten", [])]
     return daten
+
+
+def _ansicht_json(a) -> dict:
+    d = asdict(a)
+    d["pmi_ids"] = sorted(d["pmi_ids"])
+    return d
 
 
 def uebernimm_pruefstand(vergleich, gespeichert: list[dict]) -> int:

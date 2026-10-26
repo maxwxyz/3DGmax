@@ -320,6 +320,8 @@ class Hauptfenster(QtWidgets.QMainWindow):
           tipp=tr("Nummern der Merkmale (Maße, Form- und Lagetoleranzen) im Modell, wie in der Merkmalsliste"))
         A("merkmale_csv", tr("Merkmalsliste (CSV) …"), lambda: self.exportiere_merkmale(),
           tipp=tr("Prüfbare Merkmale mit Ballonnummer, Grenzen und Spalten für Messwerte"))
+        A("pdf_messungen", tr("Messprotokoll (PDF) …"), lambda: self.exportiere_pdf("messungen"),
+          tipp=tr("Bild mit den Messungen und Tabelle der Messwerte"))
         A("merkmale_pdf", tr("Merkmalsliste (PDF) …"), lambda: self.exportiere_pdf("merkmale"),
           tipp=tr("Übersichtsbild mit Ballonnummern und Merkmalstabelle"))
         A("eigenschaften", tr("Modelleigenschaften …"), self.zeige_eigenschaften, "Ctrl+I",
@@ -419,7 +421,7 @@ class Hauptfenster(QtWidgets.QMainWindow):
         m.addSeparator()
         m.addAction(a["projekt_speichern"])
         me = m.addMenu(tr("Exportieren"))
-        for n in ("pdf_ansichten", "merkmale_pdf", "pdf_vergleich", "pdf_pmi_aenderungen"):
+        for n in ("pdf_ansichten", "merkmale_pdf", "pdf_messungen", "pdf_vergleich", "pdf_pmi_aenderungen"):
             me.addAction(a[n])
         me.addSeparator()
         for n in ("pmi_export", "merkmale_csv", "aenderungen_export"):
@@ -548,6 +550,8 @@ class Hauptfenster(QtWidgets.QMainWindow):
         self.pmi.filter_geaendert.connect(self._pmi_filter)
         self.pmi.befehl.connect(self._pmi_befehl)
         self.ansichten.gewaehlt.connect(self._ansicht_gewaehlt)
+        self.ansichten.merken.connect(lambda: self.merke_ansicht())
+        self.ansichten.entfernen.connect(self._ansicht_entfernen)
         self.ansicht.flaeche_gewaehlt.connect(self._flaeche_gewaehlt)
         self.ansicht.pmi_gewaehlt.connect(self._grafik_pmi_gewaehlt)
         self.ansicht.meldung.connect(lambda t: self.statusBar().showMessage(t, 5000))
@@ -837,6 +841,36 @@ class Hauptfenster(QtWidgets.QMainWindow):
                     out.append((name, b.stelle, set(p.flaechen)))
         return out
 
+    # --- Eigene Ansichten ---
+
+    def merke_ansicht(self, name: str = ""):
+        """Aktuelle Kamera mit den sichtbaren PMI und Messungen als eigene Ansicht."""
+        if self.erg is None:
+            return None
+        n = sum(1 for a in self.erg.ansichten if a.eigen) + 1
+        a = self.ansicht.aktuelle_ansicht(name or tr("Eigene Ansicht {}").format(n))
+        sichtbar = self.pmi.sichtbare()
+        a.pmi_nummern = [p.nummer for p in sichtbar]
+        a.pmi_ids = {p.step_id for p in sichtbar if p.step_id}
+        a.messungen = [m.nummer for m in self.messen.messungen]
+        self.erg.ansichten.append(a)
+        self._ansichten_neu(a)
+        self.statusBar().showMessage(tr("Ansicht gemerkt: {} (wird mit dem Projekt gespeichert)").format(a.name), 6000)
+        return a
+
+    def _ansicht_entfernen(self, a):
+        if self.erg is not None and a in self.erg.ansichten:
+            self.erg.ansichten.remove(a)
+            self._ansichten_neu(None)
+
+    def _ansichten_neu(self, waehlen):
+        self.ansichten.zeige(self.erg.ansichten)
+        self.pmi.setze_ansichten(self.erg.ansichten)
+        if waehlen is not None:
+            self.ansichten.liste.blockSignals(True)
+            self.ansichten.liste.setCurrentRow(self.erg.ansichten.index(waehlen) + 1)
+            self.ansichten.liste.blockSignals(False)
+
     def _pmi_filter(self, ids):
         """3D zeigt die PMI, die die Liste nach Art/Suche zeigt; ohne Filter wie die gewaehlte Ansicht."""
         self._pmi_filter_ids = ids
@@ -948,7 +982,8 @@ class Hauptfenster(QtWidgets.QMainWindow):
                                           "3DGmax (*.3dgmax)")
         if not pfad:
             return None
-        ziel = projekt.speichere(pfad, self.erg.pfad, self.vergleich, self.messen.messungen, VERSION)
+        ziel = projekt.speichere(pfad, self.erg.pfad, self.vergleich, self.messen.messungen, VERSION,
+                                 self.erg.ansichten)
         self.statusBar().showMessage(tr("Projekt gespeichert: {}").format(ziel), 6000)
         return ziel
 
@@ -973,6 +1008,9 @@ class Hauptfenster(QtWidgets.QMainWindow):
             self.messen.messungen = list(d["messungen"])
             self.messen._fuelle()
             self.dock_messen.show()
+        if d and d.get("ansichten") and self.erg is not None:
+            self.erg.ansichten.extend(d["ansichten"])
+            self._ansichten_neu(None)
         self._projekt = None
 
     def zeige_vergleich(self, v):
@@ -1270,11 +1308,11 @@ class Hauptfenster(QtWidgets.QMainWindow):
 
     def exportiere_pdf(self, art: str, pfad: str = "") -> str | None:
         from . import berichte
-        if self.erg is None or (art not in ("ansichten", "merkmale") and self.vergleich is None):
+        if self.erg is None or (art not in ("ansichten", "merkmale", "messungen") and self.vergleich is None):
             return None
         basis = os.path.splitext((self.vergleich.neu.pfad if self.vergleich else self.erg.pfad))[0]
         endung = {"ansichten": "_ansichten.pdf", "vergleich": "_vergleich.pdf", "pmi_aenderungen": "_pmi_aenderungen.pdf",
-                  "merkmale": "_merkmale.pdf"}[art]
+                  "merkmale": "_merkmale.pdf", "messungen": "_messprotokoll.pdf"}[art]
         pfad = pfad or self._speicherpfad(tr("PDF speichern"), basis + endung, "PDF (*.pdf)")
         if not pfad:
             return None
@@ -1285,6 +1323,8 @@ class Hauptfenster(QtWidgets.QMainWindow):
                 berichte.ansichten_pdf(self, pfad)
             elif art == "merkmale":
                 berichte.merkmale_pdf(self, pfad)
+            elif art == "messungen":
+                berichte.messungen_pdf(self, pfad)
             elif art == "vergleich":
                 berichte.vergleich_pdf(self, pfad)
             else:
