@@ -19,7 +19,7 @@ FELDER = ("nennwert", "oben", "unten", "passung", "wert", "zone", "zonen_wert", 
 FELD_TEXT = {"nennwert": "Nennwert", "oben": "oberes Abmaß/Höchstmaß", "unten": "unteres Abmaß/Mindestmaß",
              "passung": "Passung", "wert": "Toleranzwert", "zone": "Zone", "zonen_wert": "Zonenwert",
              "material": "Materialbedingung", "modifikatoren": "Modifikatoren", "bezuege": "Bezüge",
-             "flaechen": "zugeordnete Flächen", "name": "Name", "geometrie": "Geometrie"}
+             "flaechen": "zugeordnete Flächen", "name": "Name", "geometrie": "Geometrie", "text": "Text"}
 
 
 @dataclass
@@ -85,7 +85,18 @@ def _punkte(a: Pmi, b: Pmi, zuordnung: dict[int, int]) -> float:
         s += 1.0
     if a.art == "bezug" and a.name == b.name:
         s += 3.0
+    if a.art == "hinweis":  # rein grafische Hinweise: ueber den Text zuordnen
+        ta, tb = (a.nur_grafik_text or "").strip(), (b.nur_grafik_text or "").strip()
+        if ta and ta == tb:
+            s += 3.0
+        elif ta and tb and _aehnlich(ta, tb) >= 0.6:
+            s += 1.5
     return s
+
+
+def _aehnlich(a: str, b: str) -> float:
+    from difflib import SequenceMatcher
+    return SequenceMatcher(None, a, b).ratio()
 
 
 def vergleiche_pmi(alt: list[Pmi], neu: list[Pmi], zuordnung: dict[int, int] | None = None,
@@ -126,6 +137,8 @@ def _vergleiche_felder(a: Pmi, b: Pmi, zuordnung, zuordnung_ab=None, geo_status=
         felder.append(("bezuege", a.bezug_text() or "–", b.bezug_text() or "–"))
     if (a.name or "") != (b.name or ""):
         felder.append(("name", a.name or "–", b.name or "–"))
+    if a.art == "hinweis" and (a.nur_grafik_text or "").strip() != (b.nur_grafik_text or "").strip():
+        felder.append(("text", a.nur_grafik_text or "–", b.nur_grafik_text or "–"))
     fb = _flaechen_in_a(b, zuordnung)
     if (a.flaechen or b.flaechen) and not _gleiche_flaechen(a, b, zuordnung, zuordnung_ab):
         felder.append(("flaechen", str(len(a.flaechen)),

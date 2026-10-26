@@ -86,7 +86,8 @@
    "Weiche Kamerafahrten bei Standardansichten und Würfelklicks (abschaltbar unter Ansicht).",
    "ISO-14405-Größenmodifikatoren (LP, GG, GX, ACS …) und Ⓔ im Maßtext.",
    "Farbkarte und Netzvergleich berücksichtigen jedes Exemplar einer Baugruppe (z. B. Scan gegen CAD-Baugruppe).",
-   "PLY-Netze (ASCII und binär, z. B. aus 3D-Scannern) lesen."
+   "PLY-Netze (ASCII und binär, z. B. aus 3D-Scannern) lesen.",
+   "Vergleich: rein grafische Hinweise werden über ihren Text zugeordnet, geänderter Text wird gemeldet."
   ],
   "en": [
    "First viewer version: load STEP AP242, assembly tree, CAD-style navigation, standard views.",
@@ -174,7 +175,8 @@
    "Smooth camera transitions for standard views and cube clicks (can be switched off under View).",
    "ISO 14405 size modifiers (LP, GG, GX, ACS …) and Ⓔ in the dimension text.",
    "Color map and mesh comparison consider every instance of an assembly (e.g. scan vs. CAD assembly).",
-   "Read PLY meshes (ASCII and binary, e.g. from 3D scanners)."
+   "Read PLY meshes (ASCII and binary, e.g. from 3D scanners).",
+   "Comparison: graphical-only notes are matched by their text, changed text is reported."
   ]
  },
  "releases": [

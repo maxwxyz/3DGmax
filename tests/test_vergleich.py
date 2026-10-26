@@ -422,3 +422,16 @@ def test_vergleich_netz_gegen_cad(fenster):
     lo, hi = v.karte.bereich()
     assert abs(lo) < 0.5 and abs(hi) < 0.5  # Netz liegt (bis auf Sehnenfehler/Exemplare) auf dem CAD
     f.beende_vergleich()
+
+
+def test_hinweise_ueber_text_verglichen():
+    from programm.kern import vergleich_pmi as vp
+    from programm.kern.pmi import HINWEIS, Pmi
+    alt = [Pmi(HINWEIS, "Note", "Text.1", nur_grafik_text="ALL FILLETS R2", semantisch=False),
+           Pmi(HINWEIS, "Note", "Text.2", nur_grafik_text="BREAK SHARP EDGES 0.5", semantisch=False)]
+    neu = [Pmi(HINWEIS, "Note", "Text.9", nur_grafik_text="BREAK SHARP EDGES 0.5", semantisch=False),
+           Pmi(HINWEIS, "Note", "Text.1", nur_grafik_text="ALL FILLETS R3", semantisch=False)]
+    erg = {(x.status, (x.alt or x.neu).nur_grafik_text) for x in vp.vergleiche_pmi(alt, neu)}
+    assert (vp.GEAENDERT, "ALL FILLETS R2") in erg  # gleicher Name, Text geaendert
+    stat = {x.status for x in vp.vergleiche_pmi(alt, neu) if (x.alt and "BREAK" in x.alt.nur_grafik_text)}
+    assert stat <= {vp.GLEICH, vp.GEAENDERT} and vp.NEU not in stat  # gleicher Text -> zugeordnet
