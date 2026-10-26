@@ -24,9 +24,15 @@ def selbsttest() -> int:
 
 
 def main(argv=None) -> int:
+    """Optionen: datei.stp, --selbsttest, --bild ausgabe.png (Modell laden, 3D-Bild speichern, beenden)."""
     argv = list(sys.argv[1:] if argv is None else argv)
     if "--selbsttest" in argv:
         return selbsttest()
+    bild = argv[argv.index("--bild") + 1] if "--bild" in argv else None
+    if bild:
+        import tempfile
+        os.environ.setdefault("DG_EINSTELLUNGEN", os.path.join(tempfile.mkdtemp(), "einstellungen.ini"))
+        argv.remove(bild)
     from PySide6 import QtCore, QtWidgets
     QtCore.QCoreApplication.setOrganizationName("3DGmax")
     QtCore.QCoreApplication.setApplicationName("3DGmax")
@@ -35,6 +41,15 @@ def main(argv=None) -> int:
     fenster = Hauptfenster()
     fenster.show()
     dateien = [a for a in argv if not a.startswith("-")]
+    if bild:
+        def speichern():
+            ok = fenster.ansicht.bild(os.path.abspath(bild))
+            print(f"BILD {'OK' if ok else 'FEHLER'}: {bild}", flush=True)
+            app.exit(0 if ok else 1)
+        if dateien:
+            fenster.lade(os.path.abspath(dateien[0]), warten=True)
+        QtCore.QTimer.singleShot(1500, speichern)
+        return app.exec()
     if dateien:
         fenster.lade(os.path.abspath(dateien[0]))
     QtCore.QTimer.singleShot(300, fenster.erster_start)

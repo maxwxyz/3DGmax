@@ -1,8 +1,8 @@
+*.pyc
+.DS_Store
+.pixi/
 .venv/
 __pycache__/
-*.pyc
 build/
-dist/
-.DS_Store
 daten/
-.pixi/
+dist/

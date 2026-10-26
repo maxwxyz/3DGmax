@@ -530,7 +530,7 @@ class OcctAnsicht(AnsichtBasis):
         from OCC.Core.gp import gp_Pnt, gp_Trsf, gp_Vec
         v = self.d.View
         cam = v.Camera()
-        px, py, pz = v.Convert(int(x), int(y))
+        px, py, pz = v.ConvertWithProj(int(x), int(y))[:3]
         c = cam.Center()
         ziel = gp_Pnt(px, py, pz)
         t = gp_Trsf()
@@ -588,8 +588,8 @@ class OcctAnsicht(AnsichtBasis):
     # --- Maus und Trackpad ---
 
     def _px(self, pos):
-        r = self.viewer.devicePixelRatioF()
-        return int(pos.x() * r), int(pos.y() * r)
+        # OCCT rechnet in logischen Punkten (Cocoa_Window), nicht in Geraetepixeln
+        return int(pos.x()), int(pos.y())
 
     def eventFilter(self, obj, ev):
         if obj is not self.viewer or not self._bereit:
@@ -651,7 +651,7 @@ class OcctAnsicht(AnsichtBasis):
         pixel = ev.pixelDelta()
         trackpad = not pixel.isNull() and ev.phase() != QtCore.Qt.ScrollPhase.NoScrollPhase
         if trackpad:
-            r = self.viewer.devicePixelRatioF()
+            r = 1.0
             if ev.modifiers() & QtCore.Qt.KeyboardModifier.AltModifier:
                 self._mitte_cache = self._mitte()
                 self._drehe(-pixel.x() * r, -pixel.y() * r)

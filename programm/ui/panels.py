@@ -116,8 +116,9 @@ class PmiPanel(QtWidgets.QWidget):
         lay.setContentsMargins(6, 6, 6, 6)
         oben = QtWidgets.QHBoxLayout()
         self.art = QtWidgets.QComboBox()
-        for text, art in (("Alle Arten", None), ("Maße", MASS), ("Toleranzen", TOLERANZ), ("Bezüge", BEZUG)):
-            self.art.addItem(tr(text), art)
+        for text, art in ((tr("Alle Arten"), None), (tr("Maße"), MASS), (tr("Toleranzen"), TOLERANZ),
+                          (tr("Bezüge"), BEZUG)):
+            self.art.addItem(text, art)
         self.suche = QtWidgets.QLineEdit()
         self.suche.setPlaceholderText(tr("Suchen (z. B. 0.5, A, ⌀)"))
         self.suche.setClearButtonEnabled(True)

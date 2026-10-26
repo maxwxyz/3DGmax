@@ -1,24 +1,38 @@
-# Übergabe (Stand 2026-10-25)
+# Übergabe (Stand 2026-10-26)
 
-Branch: `main` (Schritt 1 Machbarkeit fertig). Ergebnis: `docs/Machbarkeit.md`, Zahlen: `docs/Machbarkeit_Tabelle.md`.
+Branch: `main`. Schritt 1 (Machbarkeit) und Schritt 2 (Viewer) fertig. Version 0.1 (+ unveröffentlichte Einträge in
+`programm/CHANGELOG.json`).
 
-## Umgebung
+## Umgebung und Befehle
 ```bash
-pixi install                 # Python 3.14, pythonocc-core 8.0.1, PySide6 6.12 (pixi.toml)
-pixi run test                # Kern-Tests mit NIST-Modellen (tests/daten)
-pixi run machbarkeit         # Auswertung aller NIST-Dateien in daten/nist (nicht im Repo)
-pixi run python werkzeuge/viewer_versuch.py tests/daten/nist_ftc_10_asme1_ap242-e2.stp
+pixi install                      # Python 3.14, pythonocc-core 8.0.1, PySide6 6.12, PyInstaller
+pixi run start                    # App starten (optional Datei dahinter: pixi run start datei.stp)
+pixi run test                     # alle Tests offscreen (Kern, Oberfläche, Stresstest), ~7 s
+DG_BILDSCHIRM=1 pixi run python -m pytest -q tests/test_bildschirm.py   # echte 3D-Ansicht (Mac mit Bildschirm)
+pixi run selbsttest
+pixi run python werkzeuge/bildschirmfotos.py docs/bilder --thema hell   # Doku-Bilder (DG_LANG=en für englisch)
+pixi run python werkzeuge/tr_texte.py   # alle tr()-Texte; Test prüft, dass i18n_en.json vollständig ist
+packaging/build_mac.sh [--ohne-tests]    # bzw. build_linux.sh / build_windows.bat → dist/
 ```
-NIST-Dateien komplett: https://www.nist.gov/document/nist-pmi-step-files → entpacken nach `daten/nist/`.
+GitHub: Actions → „Apps bauen“ (Plattform wählbar, Tests an/aus). Nutzt pixi (`prefix-dev/setup-pixi`).
 
-## Fertig
-- `programm/kern/p21.py` eigener STEP-Leser (Entitätsgraph), `laden.py` (XCAF + Flächenindex + #ID-Zuordnung),
-  `pmi.py` (Datenmodell, Text mit Symbolen), `pmi_step.py` (Maße/Toleranzen aus Datei), `pmi_lesen.py` (Liste,
-  Bezüge, XCAF-Gegenprüfung), `ansichten.py` (Saved Views).
-- Entscheidung: pythonocc statt OCP, Semantik aus eigener STEP-Auswertung (Begründung in docs/Machbarkeit.md).
+## Aufbau
+- `programm/kern/`: `p21.py` (STEP-Graph), `laden.py`, `pmi*.py`, `ansichten.py`, `praesentation.py` (grafische PMI),
+  `baum.py`, `farben.py` (Farben aus STEP – pythonocc-Bindung für XCAF-Farben unbrauchbar).
+- `programm/ui/`: `hauptfenster.py`, `ansicht3d.py` (OCCT-Viewer + eigene Navigation; `PlatzhalterAnsicht` offscreen),
+  `panels.py`, `lader.py` (Hintergrund), `hilfe.py` (Anleitung mit automatischer Menüreferenz), `thema.py`.
+- Einstellungen: QSettings „3DGmax“; Tests/Skripte setzen `DG_EINSTELLUNGEN=<ini>` (echte nie berühren).
 
-## Offen / nächster Schritt (Schritt 2 Viewer)
-- Nutzer: Beispiel-JT und 3D-PDF liefern; eigene anonymisierte STEP-Modelle.
-- Schritt 2: Hauptfenster (Baum, Navigation, Darstellungsarten, hell/dunkel), grafische PMI anzeigen, Hinweise,
-  Bezugsstellen, Hilfsgeometrie trennen, `tr()`/Übersetzung, Einführung, F1-Anleitung, Tests offscreen.
-- Viewer-Bildschirmfoto: `QWidget.grab()` erfasst OpenGL nicht → für Doku `View.Dump` nutzen.
+## Erkenntnisse (nicht offensichtlich)
+- OCCT-Viewer auf dem Mac rechnet in logischen Punkten (keine Retina-Skalierung der Mauskoordinaten).
+- Flächen mit eigener Farbe (`AIS_ColoredShape.SetCustomColor`) zeichnen keine Ränder → Kanten als eigene AIS-Ebene.
+- Offscreen-Rendering von OCCT stürzt auf macOS ab → Tests nutzen den Platzhalter, echter 3D-Test separat.
+- Gebaute App braucht OCCT-Ressourcen (`occt_resources`, gesetzt in `packaging/start_3dgmax.py`). Größe: 492 MB
+  (.app), 145 MB (ZIP) – verkleinern möglich (nur benötigte OCC.Core-Module).
+
+## Offen / nächster Schritt
+- Schritt 3: Messen (Abstand, Winkel, Radius, Wandstärke, Koordinaten, Fang, Liste, CSV).
+- Viewer-Feinschliff: App-Symbol fehlt; „Ganzes Modell zeigen“ bezieht die PMI-Grafik mit ein (Modell wirkt klein);
+  gespeicherte Ansicht stellt nur Richtung ein, nicht Ausschnitt/Zoom der Datei; Hinweise (Notes) und
+  Bezugsstellen als eigene Listeneinträge; Windows/Linux-Bau auf GitHub noch nicht gelaufen (erster Lauf angestoßen).
+- Nutzer: JT-, 3D-PDF- und eigene STEP-Beispiele liefern.

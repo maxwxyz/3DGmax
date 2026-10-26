@@ -1,0 +1,63 @@
+<!doctype html>
+<html lang="de"><head><meta charset="utf-8"><title>3DGmax – Anleitung</title>
+<style>body{font-family:sans-serif;line-height:1.45;margin:16px}table{border-collapse:collapse}td,th{border-bottom:1px solid #ccc;padding:3px 8px;text-align:left;vertical-align:top}kbd{border:1px solid #999;border-radius:3px;padding:0 4px}</style>
+</head><body>
+<h1>3DGmax – Anleitung</h1>
+<p>3DGmax zeigt 3D-Modelle mit PMI (Maße, Toleranzen, Bezüge) aus STEP-Dateien (AP242) an. Die PMI liest das
+Programm semantisch, also als auswertbare Werte – nicht nur als Bild. Messen und der Vergleich zweier Stände folgen
+in den nächsten Versionen.</p>
+
+<h2>Modell öffnen</h2>
+<ul>
+<li><b>Datei › Öffnen</b> (<kbd>Strg</kbd>+<kbd>O</kbd>) oder Datei ins Fenster ziehen. Unterstützt: STEP AP242, AP214, AP203 (.stp, .step).</li>
+<li><b>Datei › Zuletzt verwendet</b> und die Startseite zeigen die letzten Dateien.</li>
+<li>Das Laden läuft im Hintergrund; <b>Abbrechen</b> in der Statusleiste verwirft das Ergebnis.</li>
+</ul>
+
+<h2>Bewegen (geht immer)</h2>
+<table>
+<tr><th>Aktion</th><th>Maus</th><th>Trackpad</th></tr>
+<tr><td>Drehen</td><td>linke Taste ziehen</td><td><kbd>⌥</kbd>/<kbd>Alt</kbd> + zwei Finger</td></tr>
+<tr><td>Verschieben</td><td>mittlere oder rechte Taste ziehen, <kbd>Umschalt</kbd> + links</td><td>zwei Finger</td></tr>
+<tr><td>Zoomen</td><td>Mausrad (zur Mausposition)</td><td>Finger aufziehen/zusammenziehen</td></tr>
+<tr><td>Drehpunkt setzen</td><td colspan="2">Doppelklick auf das Modell; Doppelklick ins Leere = Mitte</td></tr>
+<tr><td>Standardansichten</td><td colspan="2">Tasten <kbd>1</kbd>–<kbd>7</kbd> (vorne, hinten, oben, unten, links, rechts, iso), <kbd>F</kbd> passt alles ein</td></tr>
+</table>
+
+<h2>PMI</h2>
+<ul>
+<li>Die <b>PMI-Liste</b> (rechts) zeigt alle Maße, Form- und Lagetoleranzen und Bezüge mit Wert, Toleranz,
+Bezugssystem (z. B. <code>⌖ | ⌀0.75 | A | B | C</code>) und Anzahl der zugeordneten Flächen.
+Filter nach Art und Suche (<kbd>Strg</kbd>+<kbd>F</kbd>) schränken die Liste ein.</li>
+<li><b>PMI anklicken</b> hebt die zugehörigen Flächen und die Beschriftung im Modell orange hervor.</li>
+<li><b>Fläche anklicken</b> wählt alle PMI dieser Fläche in der Liste; ein Klick auf eine Beschriftung wählt ihre PMI.</li>
+<li>Theoretisch genaue Maße stehen in eckigen Klammern <code>[75]</code>, Hilfsmaße in runden <code>(75)</code>.</li>
+<li><b>Grafische PMI zeigen</b> (<kbd>G</kbd>) blendet die Beschriftungen im Modell ein/aus. Fehlt in der Datei die
+fertige Grafik, schreibt 3DGmax den Text aus der Semantik.</li>
+</ul>
+
+<h2>Gespeicherte Ansichten</h2>
+<p>Die Liste links unten zeigt die Ansichten aus dem Modell. Eine Ansicht stellt die Kamera ein und zeigt nur die PMI
+dieser Ansicht (auch in der Liste). „(Keine Ansicht – alle PMI)“ hebt den Filter auf.</p>
+
+<h2>Struktur, Darstellung, Schnitt</h2>
+<ul>
+<li>Haken in der Struktur blenden Teile ein und aus; Rechtsklick: <b>Isolieren</b>, <b>Alle zeigen</b>, <b>Transparent</b>.</li>
+<li>Darstellung: <b>Schattiert mit Kanten</b> (<kbd>E</kbd>), <b>Schattiert</b> (<kbd>S</kbd>), <b>Drahtmodell</b> (<kbd>W</kbd>).</li>
+<li><b>Schnitt</b>: Ebene senkrecht zu X, Y oder Z; der Regler verschiebt sie, die Schnittfläche ist orange gefüllt.</li>
+<li><b>Hilfsgeometrie zeigen</b>: Punkte und Linien ohne Flächen (z. B. Konstruktionsgeometrie) sind sonst ausgeblendet.</li>
+<li><b>Ansicht › Farbschema</b>: hell, dunkel oder wie das System. <b>Ansicht › Sprache</b>: Deutsch/Englisch (beim nächsten Start).</li>
+</ul>
+
+<h2>Bilder</h2>
+<p><b>Datei › Bild speichern</b> speichert die 3D-Ansicht als PNG, <b>Bild in Zwischenablage</b>
+(<kbd>Strg</kbd>+<kbd>Umschalt</kbd>+<kbd>C</kbd>) kopiert sie.</p>
+
+<h2>Grenzen dieser Version</h2>
+<ul>
+<li>Nur STEP. JT, 3D-PDF, QIF und weitere Formate folgen.</li>
+<li>Bei Teilen, die mehrfach in einer Baugruppe vorkommen, wird eine PMI an allen Vorkommen hervorgehoben.</li>
+</ul>
+
+<!--MENUEBEFEHLE-->
+</body></html>

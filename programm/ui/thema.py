@@ -39,7 +39,7 @@ QToolBar {{ background: {t['flaeche']}; border: none; border-bottom: 1px solid {
 QToolButton {{ background: transparent; border: 1px solid transparent; border-radius: 6px; padding: 4px 8px; color: {t['text']}; }}
 QToolButton:hover {{ background: {t['hover']}; }}
 QToolButton:checked {{ background: {t['wahl']}; color: {t['akzent']}; }}
-QToolButton:disabled {{ color: {t['aus']}; }}
+QToolButton:disabled, QToolButton:checked:disabled {{ color: {t['aus']}; background: transparent; }}
 QDockWidget {{ color: {t['text']}; }}
 QDockWidget::title {{ background: {t['fenster']}; padding: 5px 8px; font-weight: 600; }}
 QTreeWidget, QTableWidget, QListWidget, QTextBrowser {{ background: {t['flaeche']}; color: {t['text']};

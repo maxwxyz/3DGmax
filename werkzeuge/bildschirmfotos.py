@@ -12,6 +12,7 @@ import tempfile
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 os.environ["DG_EINSTELLUNGEN"] = os.path.join(tempfile.mkdtemp(), "einstellungen.ini")
+os.environ.setdefault("DG_LANG", "de")  # Doku-Bilder auf Deutsch (DG_LANG=en fuer englische)
 
 from PySide6 import QtCore, QtWidgets  # noqa: E402
 

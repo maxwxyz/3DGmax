@@ -19,6 +19,9 @@ lxml = "*"
 pyside6 = "==6.12.*"
 pypdf = "*"
 
+[feature.dev.dependencies]
+pyinstaller = "6.*"
+
 [feature.dev.pypi-dependencies]
 pytest = "*"
 pytest-qt = "*"
@@ -29,3 +32,6 @@ default = { features = ["dev"] }
 [tasks]
 test = { cmd = "python -m pytest -q", env = { QT_QPA_PLATFORM = "offscreen" } }
 machbarkeit = "python werkzeuge/machbarkeit.py"
+start = "python -m programm.app"
+selbsttest = "python -m programm.app --selbsttest"
+bauen = { cmd = "pyinstaller --noconfirm --clean --workpath build/pyinstaller --distpath dist packaging/3dgmax.spec" }

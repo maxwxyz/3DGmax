@@ -1,0 +1,62 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><title>3DGmax – Manual</title>
+<style>body{font-family:sans-serif;line-height:1.45;margin:16px}table{border-collapse:collapse}td,th{border-bottom:1px solid #ccc;padding:3px 8px;text-align:left;vertical-align:top}kbd{border:1px solid #999;border-radius:3px;padding:0 4px}</style>
+</head><body>
+<h1>3DGmax – Manual</h1>
+<p>3DGmax displays 3D models with PMI (dimensions, tolerances, datums) from STEP files (AP242). PMI is read
+semantically, i.e. as evaluable values – not just as a picture. Measuring and comparing two revisions follow in the
+next versions.</p>
+
+<h2>Open a model</h2>
+<ul>
+<li><b>File › Open</b> (<kbd>Ctrl</kbd>+<kbd>O</kbd>) or drag a file into the window. Supported: STEP AP242, AP214, AP203 (.stp, .step).</li>
+<li><b>File › Recent files</b> and the start page list the last files.</li>
+<li>Loading runs in the background; <b>Cancel</b> in the status bar discards the result.</li>
+</ul>
+
+<h2>Navigate (always available)</h2>
+<table>
+<tr><th>Action</th><th>Mouse</th><th>Trackpad</th></tr>
+<tr><td>Rotate</td><td>drag with left button</td><td><kbd>⌥</kbd>/<kbd>Alt</kbd> + two fingers</td></tr>
+<tr><td>Pan</td><td>drag with middle or right button, <kbd>Shift</kbd> + left</td><td>two fingers</td></tr>
+<tr><td>Zoom</td><td>mouse wheel (towards the cursor)</td><td>pinch</td></tr>
+<tr><td>Set pivot</td><td colspan="2">double-click on the model; double-click on empty space = centre</td></tr>
+<tr><td>Standard views</td><td colspan="2">keys <kbd>1</kbd>–<kbd>7</kbd> (front, back, top, bottom, left, right, iso), <kbd>F</kbd> fits all</td></tr>
+</table>
+
+<h2>PMI</h2>
+<ul>
+<li>The <b>PMI list</b> (right) shows all dimensions, geometric tolerances and datums with value, tolerance, datum
+reference frame (e.g. <code>⌖ | ⌀0.75 | A | B | C</code>) and the number of associated faces. Filter by type and
+search (<kbd>Ctrl</kbd>+<kbd>F</kbd>) narrow the list.</li>
+<li><b>Click a PMI</b> to highlight its faces and its annotation in the model in orange.</li>
+<li><b>Click a face</b> to select all PMI of that face in the list; clicking an annotation selects its PMI.</li>
+<li>Basic dimensions are shown in square brackets <code>[75]</code>, reference dimensions in parentheses <code>(75)</code>.</li>
+<li><b>Show graphical PMI</b> (<kbd>G</kbd>) toggles the annotations in the model. If the file has no ready-made
+graphics, 3DGmax writes the text from the semantics.</li>
+</ul>
+
+<h2>Saved views</h2>
+<p>The list at the bottom left shows the views stored in the model. A view sets the camera and shows only the PMI of
+that view (also in the list). “(No view – all PMI)” removes the filter.</p>
+
+<h2>Structure, display, section</h2>
+<ul>
+<li>Check boxes in the structure show and hide parts; right-click: <b>Isolate</b>, <b>Show all</b>, <b>Transparent</b>.</li>
+<li>Display: <b>Shaded with edges</b> (<kbd>E</kbd>), <b>Shaded</b> (<kbd>S</kbd>), <b>Wireframe</b> (<kbd>W</kbd>).</li>
+<li><b>Section</b>: plane normal to X, Y or Z; the slider moves it, the cut face is filled in orange.</li>
+<li><b>Show auxiliary geometry</b>: points and lines without faces (e.g. construction geometry) are hidden otherwise.</li>
+<li><b>View › Color scheme</b>: light, dark or like the system. <b>View › Language</b>: German/English (on next start).</li>
+</ul>
+
+<h2>Images</h2>
+<p><b>File › Save image</b> saves the 3D view as PNG, <b>Copy image</b> (<kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>C</kbd>) copies it.</p>
+
+<h2>Limits of this version</h2>
+<ul>
+<li>STEP only. JT, 3D PDF, QIF and other formats will follow.</li>
+<li>For parts used several times in an assembly, a PMI is highlighted on all occurrences.</li>
+</ul>
+
+<!--MENUEBEFEHLE-->
+</body></html>
