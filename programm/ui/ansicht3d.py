@@ -191,6 +191,11 @@ class AnsichtBasis(QtWidgets.QWidget):
     def bild(self, pfad: str) -> bool:
         return False
 
+    def bild_qimage(self) -> QtGui.QImage:
+        """Aktuelle Ansicht als Bild (fuer Berichte)."""
+        img = self.grab().toImage()
+        return img
+
     def drehpunkt_zuruecksetzen(self):
         pass
 
@@ -783,6 +788,24 @@ class OcctAnsicht(AnsichtBasis):
             return False
         self._neu_zeichnen()
         return bool(self.d.View.Dump(pfad))
+
+    def bild_qimage(self):
+        """Bildschirmabgriff der 3D-Ansicht in Geraeteaufloesung (Retina), sonst View.Dump."""
+        import os
+        import tempfile
+        if not self._bereit:
+            return QtGui.QImage()
+        self._neu_zeichnen()
+        QtWidgets.QApplication.processEvents()
+        oben_links = self.viewer.mapToGlobal(QtCore.QPoint(0, 0))
+        bildschirm = self.viewer.screen()
+        lokal = oben_links - bildschirm.geometry().topLeft()
+        img = bildschirm.grabWindow(0, lokal.x(), lokal.y(), self.viewer.width(), self.viewer.height()).toImage()
+        if not img.isNull() and img.width() > 10:
+            return img
+        pfad = os.path.join(tempfile.mkdtemp(), "ansicht.png")
+        self.d.View.Dump(pfad)
+        return QtGui.QImage(pfad)
 
     # --- Maus und Trackpad ---
 

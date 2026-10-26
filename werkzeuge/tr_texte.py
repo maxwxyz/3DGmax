@@ -28,10 +28,13 @@ def tr_texte() -> set[str]:
     # Texte, die ueber Tabellen laufen (tr(variable))
     from programm.kern.pmi import BEZUG, HINWEIS, MASS, TOLERANZ  # noqa: F401
     from programm.ui import einstellungen, hilfe, messwerkzeug, panels, vergleich_ui
+    from programm.ui import berichte
+    out |= {t for t, _ in berichte.PMI_SPALTEN + berichte.AENDERUNG_SPALTEN} | {"Status", "Alt", "Neu"}
     from programm.kern import pmi_bericht, pruefung
-    out |= {pmi_bericht.FEHLER, pmi_bericht.WARNUNG, pmi_bericht.INFO, "Maß ohne Wert", "Keine Fläche zugeordnet",
-            "Nur grafisch (Hinweis ohne auswertbare Semantik)", "Toleranzwert 0 ohne Materialbedingung",
-            "Positionstoleranz ohne Bezug (nur als Muster sinnvoll)"}
+    out |= {pmi_bericht.FEHLER, pmi_bericht.WARNUNG, pmi_bericht.INFO} | set(pmi_bericht.CSV_SPALTEN)
+    out |= set(pmi_bericht.ART_TEXT.values()) | set(pmi_bericht.KATEGORIE.values()) | set(pmi_bericht.STATUS.values())
+    from programm.kern import vergleich as kv, vergleich_pmi as kvp
+    out |= set(kv.GEO_TITEL.values()) | set(kv.PMI_TITEL.values()) | set(kvp.FELD_TEXT.values())
     for tabelle in (vergleich_ui.STATUS_TEXT, vergleich_ui.PRUEF_TEXT, vergleich_ui.KATEGORIE_TEXT):
         out |= set(tabelle.values())
     out |= set(pruefung.ERGEBNISSE) | {"Ausrichten …", "Geometrie vergleichen …", "PMI vergleichen …",

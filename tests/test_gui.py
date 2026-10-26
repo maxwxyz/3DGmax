@@ -29,7 +29,8 @@ def test_laden_fuellt_alles(fenster_ctc01):
     # "Schnittseite umkehren" ist ohne aktiven Schnitt bewusst ausgegraut
     # ohne aktiven Schnitt bzw. Vergleich bewusst ausgegraut
     assert all(a.isEnabled() for n, a in f.aktionen.items()
-               if n not in ("schnitt_umkehren", "vergleich_beenden", "aenderungen_export"))
+               if n not in ("schnitt_umkehren", "vergleich_beenden", "aenderungen_export", "pdf_vergleich",
+                            "pdf_pmi_aenderungen"))
     assert not f.aktionen["schnitt_umkehren"].isEnabled()
     assert os.path.basename(f.zuletzt()[0]) == "nist_ctc_01_asme1_ap242-e1.stp"
 

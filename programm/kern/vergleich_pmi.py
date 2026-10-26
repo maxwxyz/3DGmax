@@ -7,6 +7,8 @@ Danach Feld fuer Feld vergleichen.
 
 from __future__ import annotations
 
+from ..i18n import tr
+
 from dataclasses import dataclass, field
 
 from .pmi import Pmi
@@ -30,7 +32,7 @@ class PmiAenderung:
     def text(self) -> str:
         p = self.neu or self.alt
         if self.felder:
-            return "; ".join(f"{FELD_TEXT.get(f, f)}: {a} → {n}" if a else f"{FELD_TEXT.get(f, f)}: {n}"
+            return "; ".join(f"{tr(FELD_TEXT.get(f, f))}: {a} → {n}" if a else f"{tr(FELD_TEXT.get(f, f))}: {n}"
                              for f, a, n in self.felder)
         return p.wert_text()
 
@@ -124,11 +126,12 @@ def _vergleiche_felder(a: Pmi, b: Pmi, zuordnung, zuordnung_ab=None, geo_status=
         felder.append(("bezuege", a.bezug_text() or "–", b.bezug_text() or "–"))
     fb = _flaechen_in_a(b, zuordnung)
     if (a.flaechen or b.flaechen) and not _gleiche_flaechen(a, b, zuordnung, zuordnung_ab):
-        felder.append(("flaechen", str(len(a.flaechen)), f"{len(b.flaechen)} ({len(a.flaechen & fb)} gleich)"))
+        felder.append(("flaechen", str(len(a.flaechen)),
+                       tr("{} ({} gleich)").format(len(b.flaechen), len(a.flaechen & fb))))
     if felder:
         return PmiAenderung(GEAENDERT, a, b, felder)
     geaendert = [f for f in b.flaechen if (geo_status or {}).get(f, "gleich") != "gleich"]
     if geaendert:
-        return PmiAenderung(GEOMETRIE, a, b, [("geometrie", "", f"{len(geaendert)} von {len(b.flaechen)} "
-                                                               "Flächen geändert, PMI unverändert")])
+        return PmiAenderung(GEOMETRIE, a, b, [("geometrie", "", tr("{} von {} Flächen geändert, PMI unverändert")
+                                                .format(len(geaendert), len(b.flaechen)))])
     return PmiAenderung(GLEICH, a, b, felder)

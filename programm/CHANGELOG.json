@@ -25,7 +25,9 @@
    "Flächen und Kanten im Modell wählen (Strg/Umschalt für mehrere); Rechtsklick-Menü im 3D-Fenster; Normal auf Auswahl ausrichten (N).",
    "Schnitt an gewählter Fläche/Kante und aus Blickrichtung; Regler nur bei aktivem Schnitt.",
    "Eigene Farben für PMI-Beschriftungen und den Hintergrund (Einstellungen).",
-   "PMI exportieren (CSV, mit Flächen-IDs und Ansichten), Änderungen exportieren (CSV) und PMI prüfen: unbenutzte/fehlende Bezüge, PMI ohne Fläche oder Ansicht, Doppelte, Lagetoleranz ohne Bezug."
+   "PMI exportieren (CSV, mit Flächen-IDs und Ansichten), Änderungen exportieren (CSV) und PMI prüfen: unbenutzte/fehlende Bezüge, PMI ohne Fläche oder Ansicht, Doppelte, Lagetoleranz ohne Bezug.",
+   "PDF-Export: eine Seite je gespeicherter Ansicht (Ansichtsname, Modell, Bild, PMI), Vergleichsbericht mit Bild je Änderung, Tabelle der PMI-Änderungen.",
+   "Exporte (CSV, PDF, Prüfprotokoll) und Änderungstexte folgen der eingestellten Sprache."
   ],
   "en": [
    "First viewer version: load STEP AP242, assembly tree, CAD-style navigation, standard views.",
@@ -52,7 +54,9 @@
    "Select faces and edges in the model (Ctrl/Shift for several); right-click menu in the 3D window; align normal to selection (N).",
    "Section at the selected face/edge and from the view direction; slider only while a section is active.",
    "Custom colors for PMI annotations and the background (settings).",
-   "Export PMI (CSV, with face IDs and views), export changes (CSV) and check PMI: unused/missing datums, PMI without face or view, duplicates, orientation tolerance without datum."
+   "Export PMI (CSV, with face IDs and views), export changes (CSV) and check PMI: unused/missing datums, PMI without face or view, duplicates, orientation tolerance without datum.",
+   "PDF export: one page per saved view (view name, model, image, PMI), comparison report with one image per change, table of PMI changes.",
+   "Exports (CSV, PDF, review report) and change texts follow the selected language."
   ]
  },
  "releases": [

@@ -189,6 +189,12 @@ class Hauptfenster(QtWidgets.QMainWindow):
           tipp=tr("Das Teil der gewählten Fläche ausblenden"))
         A("teil_isolieren", tr("Teil isolieren"), lambda: self._teil_befehl("isolieren"),
           tipp=tr("Nur das Teil der gewählten Fläche zeigen"))
+        A("pdf_ansichten", tr("Ansichten als PDF …"), lambda: self.exportiere_pdf("ansichten"),
+          tipp=tr("Eine Seite je gespeicherter Ansicht mit Bild und sichtbaren PMI"))
+        A("pdf_vergleich", tr("Vergleichsbericht (PDF) …"), lambda: self.exportiere_pdf("vergleich"),
+          tipp=tr("Übersicht, Änderungsliste und ein Bild je Änderung"))
+        A("pdf_pmi_aenderungen", tr("PMI-Änderungen (PDF) …"), lambda: self.exportiere_pdf("pmi_aenderungen"),
+          tipp=tr("Tabelle der PMI-Änderungen alt/neu für Lieferanten und Fertigung"))
         A("bild_speichern", tr("Bild speichern …"), self.bild_speichern, tipp=tr("Aktuelle Ansicht als PNG"))
         A("bild_kopieren", tr("Bild in Zwischenablage"), self.bild_kopieren, "Ctrl+Shift+C",
           tipp=tr("Aktuelle Ansicht in die Zwischenablage"))
@@ -269,6 +275,12 @@ class Hauptfenster(QtWidgets.QMainWindow):
         m.addAction(a["vergleichen"])
         m.addAction(a["vergleich_beenden"])
         m.addSeparator()
+        me = m.addMenu(tr("Exportieren"))
+        for n in ("pdf_ansichten", "pdf_vergleich", "pdf_pmi_aenderungen"):
+            me.addAction(a[n])
+        me.addSeparator()
+        for n in ("pmi_export", "aenderungen_export"):
+            me.addAction(a[n])
         for n in ("bild_speichern", "bild_kopieren"):
             m.addAction(a[n])
         m.addSeparator()
@@ -399,7 +411,8 @@ class Hauptfenster(QtWidgets.QMainWindow):
             self.dock_messen.hide()
             self.messen.setze_modus(None)
         self.aktionen["vergleich_beenden"].setEnabled(da and self.vergleich is not None)
-        self.aktionen["aenderungen_export"].setEnabled(da and self.vergleich is not None)
+        for n in ("aenderungen_export", "pdf_vergleich", "pdf_pmi_aenderungen"):
+            self.aktionen[n].setEnabled(da and self.vergleich is not None)
 
     # --- Laden ---
 
@@ -624,7 +637,8 @@ class Hauptfenster(QtWidgets.QMainWindow):
         self.dock_aenderungen.show()
         self.dock_aenderungen.raise_()
         self.aktionen["vergleich_beenden"].setEnabled(True)
-        self.aktionen["aenderungen_export"].setEnabled(True)
+        for n in ("aenderungen_export", "pdf_vergleich", "pdf_pmi_aenderungen"):
+            self.aktionen[n].setEnabled(True)
         self.setWindowTitle(self._titel(f"{os.path.basename(v.alt.pfad)} → {os.path.basename(v.neu.pfad)}"))
         self.statusBar().showMessage(tr("Vergleich fertig: {} Änderungen").format(len(v.aenderungen)), 8000)
 
@@ -636,7 +650,8 @@ class Hauptfenster(QtWidgets.QMainWindow):
         self.aenderungen.zeige(None)
         self.dock_aenderungen.hide()
         self.aktionen["vergleich_beenden"].setEnabled(False)
-        self.aktionen["aenderungen_export"].setEnabled(False)
+        for n in ("aenderungen_export", "pdf_vergleich", "pdf_pmi_aenderungen"):
+            self.aktionen[n].setEnabled(False)
         if neu_zeigen and self.erg is not None:
             self.setWindowTitle(self._titel(os.path.basename(self.erg.pfad)))
 
@@ -794,6 +809,29 @@ class Hauptfenster(QtWidgets.QMainWindow):
             f.write(pmi_bericht.vergleich_csv(self.vergleich))
         self.statusBar().showMessage(tr("Exportiert: {}").format(pfad), 6000)
         return True
+
+    def exportiere_pdf(self, art: str, pfad: str = "") -> str | None:
+        from . import berichte
+        if self.erg is None or (art != "ansichten" and self.vergleich is None):
+            return None
+        basis = os.path.splitext((self.vergleich.neu.pfad if self.vergleich else self.erg.pfad))[0]
+        endung = {"ansichten": "_ansichten.pdf", "vergleich": "_vergleich.pdf", "pmi_aenderungen": "_pmi_aenderungen.pdf"}[art]
+        pfad = pfad or self._speicherpfad(tr("PDF speichern"), basis + endung, "PDF (*.pdf)")
+        if not pfad:
+            return None
+        self.statusBar().showMessage(tr("PDF wird erstellt …"))
+        QtWidgets.QApplication.setOverrideCursor(QtCore.Qt.CursorShape.WaitCursor)
+        try:
+            if art == "ansichten":
+                berichte.ansichten_pdf(self, pfad)
+            elif art == "vergleich":
+                berichte.vergleich_pdf(self, pfad)
+            else:
+                berichte.pmi_aenderungen_pdf(self.vergleich, pfad)
+        finally:
+            QtWidgets.QApplication.restoreOverrideCursor()
+        self.statusBar().showMessage(tr("PDF gespeichert: {}").format(pfad), 8000)
+        return pfad
 
     def pruefe_pmi(self):
         from ..kern import pmi_bericht

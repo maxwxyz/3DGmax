@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from ..i18n import tr
+
 from dataclasses import dataclass, field
 
 from . import ausrichten, vergleich_geo, vergleich_pmi
@@ -72,11 +74,12 @@ def _geo_aenderungen(geo, nachbarn_neu, nachbarn_alt) -> list[Aenderung]:
         for g in _gruppen(menge, nachbarn_neu):
             alt = {geo.zuordnung[f] for f in g if f in geo.zuordnung}
             abw = max(geo.max_abw_b.get(f, 0.0) for f in g)
-            out.append(Aenderung(0, GEOMETRIE, status, GEO_TITEL[status],
-                                 f"{len(g)} Fläche(n), größte Abweichung {abw:.3f} mm", g, alt))
+            out.append(Aenderung(0, GEOMETRIE, status, tr(GEO_TITEL[status]),
+                                 tr("{} Fläche(n), größte Abweichung {:.3f} mm").format(len(g), abw), g, alt))
     weg = {f for f, s in geo.status_a.items() if s == ENTFERNT}
     for g in _gruppen(weg, nachbarn_alt):
-        out.append(Aenderung(0, GEOMETRIE, ENTFERNT, GEO_TITEL[ENTFERNT], f"{len(g)} Fläche(n)", set(), g))
+        out.append(Aenderung(0, GEOMETRIE, ENTFERNT, tr(GEO_TITEL[ENTFERNT]), tr("{} Fläche(n)").format(len(g)),
+                             set(), g))
     return out
 
 
@@ -87,7 +90,7 @@ def _pmi_aenderungen(liste) -> list[Aenderung]:
             continue
         p = x.neu or x.alt
         art = {"mass": "Maß", "toleranz": "Toleranz", "bezug": "Bezug", "hinweis": "Hinweis"}.get(p.art, p.art)
-        out.append(Aenderung(0, PMI, x.status, f"{PMI_TITEL[x.status]}: {art} {p.wert_text()}", x.text(),
+        out.append(Aenderung(0, PMI, x.status, f"{tr(PMI_TITEL[x.status])}: {tr(art)} {p.wert_text()}", x.text(),
                              set(x.neu.flaechen) if x.neu else set(), set(x.alt.flaechen) if x.alt else set(),
                              x.alt, x.neu))
     return out
@@ -97,11 +100,11 @@ def vergleiche(alt, neu, toleranz: float = 0.01, suchweite: float = 2.0, ausrich
                fortschritt=lambda text: None) -> Vergleich:
     """alt, neu: Ergebnisse von ui.lader.lade_alles (Modell, PMI, ...)."""
     if ausrichtung is None:
-        fortschritt("Ausrichten …")
+        fortschritt(tr("Ausrichten …"))
         ausrichtung = ausrichten.richte_aus(alt.modell.flaechen, neu.modell.flaechen, toleranz)
-    fortschritt("Geometrie vergleichen …")
+    fortschritt(tr("Geometrie vergleichen …"))
     geo = vergleich_geo.vergleiche(alt.modell, neu.modell, ausrichtung, toleranz, suchweite=suchweite)
-    fortschritt("PMI vergleichen …")
+    fortschritt(tr("PMI vergleichen …"))
     pmi = vergleich_pmi.vergleiche_pmi(alt.pmi, neu.pmi, geo.zuordnung, zuordnung_ab=geo.zuordnung_ab,
                                        geo_status=geo.status_b)
     nachbarn_neu = vergleich_geo._nachbarn(neu.modell.flaechen, neu.modell.flaechen_index)

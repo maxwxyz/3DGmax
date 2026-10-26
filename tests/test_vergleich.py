@@ -120,3 +120,34 @@ def test_vergleich_in_oberflaeche(fenster, tmp_path):
     f._zoome_auswahl()
     f.beende_vergleich()
     assert f.vergleich is None and f.ansicht.vergleich_status is None
+
+
+def test_pdf_berichte(fenster, tmp_path):
+    f = fenster
+    f.lade(pfad("nist_ftc_10_asme1_ap242-e2.stp"), warten=True)
+    p = f.exportiere_pdf("ansichten", str(tmp_path / "ansichten.pdf"))
+    import pypdf
+    seiten = len(pypdf.PdfReader(p).pages)
+    assert seiten >= sum(1 for a in f.erg.ansichten if a.pmi_nummern)
+    assert "MBD_A" in pypdf.PdfReader(p).pages[0].extract_text()
+    f.starte_vergleich({"alt": pfad("nist_ctc_01_asme1_ap242-e1.stp"), "neu": pfad("varianten/ctc01_geo_pmi.stp"),
+                        "toleranz": 0.01, "suchweite": 2.0}, warten=True)
+    v = f.exportiere_pdf("vergleich", str(tmp_path / "vergleich.pdf"))
+    text = "".join(s.extract_text() for s in pypdf.PdfReader(v).pages)
+    assert "ctc01_geo_pmi.stp" in text and len(pypdf.PdfReader(v).pages) >= 1 + len(f.vergleich.aenderungen)
+    t = f.exportiere_pdf("pmi_aenderungen", str(tmp_path / "pmi.pdf"))
+    assert "21" in pypdf.PdfReader(t).pages[0].extract_text()
+
+
+def test_exporte_englisch(alt, monkeypatch):
+    """Mit englischer Oberflaeche sind Aenderungstexte und CSV-Spalten englisch."""
+    from programm import i18n
+    monkeypatch.setattr(i18n, "SPRACHE", "en")
+    from programm.kern import pmi_bericht, vergleich
+    v = vergleich.vergleiche(alt, _variante("ctc01_geo_pmi"))
+    text = pmi_bericht.vergleich_csv(v)
+    kopf = text.splitlines()[0]
+    assert kopf.startswith("No;Category;Status;Title;Description;Old;New")
+    assert "nominal: 20 → 21" in text and "PMI changed: Dimension" in text
+    assert "face(s), largest deviation" in text
+    assert pmi_bericht.als_csv(pmi_bericht.tabelle(alt.pmi, alt.ansichten)).startswith("No;Kind;Type;Name;Value")

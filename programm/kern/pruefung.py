@@ -2,12 +2,15 @@
 
 from __future__ import annotations
 
+from ..i18n import tr
+
 import datetime
 import hashlib
 import json
 import os
 
 ERGEBNISSE = ("freigegeben", "mit Auflagen", "nicht freigegeben")
+_PRUEF = {"offen": "offen", "geprueft": "geprüft", "abgelehnt": "abgelehnt"}
 
 
 def datei_hash(pfad: str) -> str:
@@ -49,17 +52,19 @@ def ist_unveraendert(daten: dict) -> bool:
 
 
 def als_text(daten: dict) -> str:
-    z = [f"Prüfprotokoll – {daten['programm']}", f"Zeitpunkt: {daten['zeitpunkt']}",
-         f"Prüfer: {daten['pruefer']}", f"Ergebnis: {daten['ergebnis']}", f"Bemerkung: {daten['bemerkung']}", "",
-         f"Alt: {daten['alt']['datei']}  SHA-256 {daten['alt']['sha256']}",
-         f"Neu: {daten['neu']['datei']}  SHA-256 {daten['neu']['sha256']}",
-         f"Toleranz: {daten['toleranz_mm']} mm, Suchweite: {daten['suchweite_mm']} mm, "
-         f"Ausrichtung: {daten['ausrichtung']['methode']}", "", "Änderungen:"]
+    z = [f"{tr('Prüfprotokoll')} – {daten['programm']}", f"{tr('Zeitpunkt')}: {daten['zeitpunkt']}",
+         f"{tr('Prüfer')}: {daten['pruefer']}", f"{tr('Ergebnis')}: {tr(daten['ergebnis'])}",
+         f"{tr('Bemerkung')}: {daten['bemerkung']}", "",
+         f"{tr('Alt')}: {daten['alt']['datei']}  SHA-256 {daten['alt']['sha256']}",
+         f"{tr('Neu')}: {daten['neu']['datei']}  SHA-256 {daten['neu']['sha256']}",
+         tr("Toleranz: {} mm, Suchweite: {} mm, Ausrichtung: {}").format(
+             daten['toleranz_mm'], daten['suchweite_mm'], daten['ausrichtung']['methode']), "",
+         f"{tr('Änderungen')}:"]
     for a in daten["aenderungen"]:
-        z.append(f"  {a['nr']:3d}  [{a['pruefstatus']}]  {a['titel']} – {a['beschreibung']}"
-                 + (f"  Kommentar: {a['kommentar']}" if a["kommentar"] else ""))
-    z += ["", f"Prüfsumme (SHA-256): {daten['pruefsumme_sha256']}",
-          "Hinweis: Prüfsumme zur Erkennung nachträglicher Änderungen, keine qualifizierte elektronische Signatur."]
+        z.append(f"  {a['nr']:3d}  [{tr(_PRUEF.get(a['pruefstatus'], a['pruefstatus']))}]  {a['titel']} – "
+                 f"{a['beschreibung']}" + (f"  {tr('Kommentar')}: {a['kommentar']}" if a["kommentar"] else ""))
+    z += ["", f"{tr('Prüfsumme')} (SHA-256): {daten['pruefsumme_sha256']}",
+          tr("Hinweis: Prüfsumme zur Erkennung nachträglicher Änderungen, keine qualifizierte elektronische Signatur.")]
     return "\n".join(z)
 
 
