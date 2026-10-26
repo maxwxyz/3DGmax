@@ -115,12 +115,36 @@ class VergleichsLader(QtCore.QThread):
             self.fertig.emit(v)
 
 
+class KartenLader(QtCore.QThread):
+    """Abweichungs-Farbkarte im Hintergrund berechnen."""
+
+    fertig = QtCore.Signal(object)  # Karte
+    fehler = QtCore.Signal(str)
+    stand = QtCore.Signal(int)  # Prozent
+
+    def __init__(self, vergleich, parent=None):
+        super().__init__(parent)
+        self.vergleich = vergleich
+
+    def run(self):
+        from ..kern import abweichung
+        v = self.vergleich
+        try:
+            karte = abweichung.berechne(v.alt.modell, v.neu.modell, v.ausrichtung,
+                                        fortschritt=lambda a: self.stand.emit(int(a * 100)))
+        except Exception as e:  # noqa: BLE001 - Fehler dem Nutzer zeigen
+            self.fehler.emit(f"{e}\n\n{traceback.format_exc(limit=3)}")
+            return
+        self.fertig.emit(karte)
+
+
 class AenderungenPanel(QtWidgets.QWidget):
-    """Nummerierte Aenderungen, Pruefstatus, Kommentar, Pruefrundgang."""
+    """Nummerierte Aenderungen, Pruefstatus, Kommentar, Pruefrundgang, Abweichungs-Farbkarte."""
 
     gewaehlt = QtCore.Signal(object)  # Aenderung oder None
     abschliessen = QtCore.Signal()
     beenden = QtCore.Signal()
+    karte = QtCore.Signal(bool, float)  # Farbkarte an/aus, Skalenende (0 = automatisch)
 
     def __init__(self, parent=None):
         super().__init__(parent)
@@ -144,6 +168,25 @@ class AenderungenPanel(QtWidgets.QWidget):
         oben.addWidget(self.filter, 1)
         oben.addWidget(self.start)
         lay.addLayout(oben)
+        reihe_karte = QtWidgets.QHBoxLayout()
+        self.karte_an = QtWidgets.QCheckBox(tr("Abweichungs-Farbkarte"))
+        self.karte_an.setToolTip(tr("Abstand des neuen zum alten Stand farbig: grün innerhalb der Toleranz, "
+                                    "rot Aufmaß (+), blau Untermaß (−); Klick ins Modell zeigt den Wert"))
+        self.skala = QtWidgets.QDoubleSpinBox()
+        self.skala.setDecimals(3)
+        self.skala.setRange(0.0, 1000.0)
+        self.skala.setSingleStep(0.05)
+        self.skala.setSuffix(" mm")
+        self.skala.setSpecialValueText(tr("automatisch"))
+        self.skala.setToolTip(tr("Skalenende ± (0 = automatisch)"))
+        reihe_karte.addWidget(self.karte_an)
+        reihe_karte.addStretch(1)
+        reihe_karte.addWidget(QtWidgets.QLabel(tr("Skala ±")))
+        reihe_karte.addWidget(self.skala)
+        lay.addLayout(reihe_karte)
+        self.karte_an.toggled.connect(lambda an: self.karte.emit(an, self.skala.value()))
+        self.skala.editingFinished.connect(
+            lambda: self.karte_an.isChecked() and self.karte.emit(True, self.skala.value()))
         self.tabelle = QtWidgets.QTableWidget(0, 4)
         self.tabelle.setHorizontalHeaderLabels([tr("Nr"), tr("Art"), tr("Änderung"), tr("Prüfstatus")])
         self.tabelle.verticalHeader().setVisible(False)
@@ -199,6 +242,9 @@ class AenderungenPanel(QtWidgets.QWidget):
 
     def zeige(self, vergleich, farben: dict | None = None):
         self.vergleich = vergleich
+        self.karte_an.blockSignals(True)
+        self.karte_an.setChecked(False)  # neuer Vergleich: Farbkarte aus
+        self.karte_an.blockSignals(False)
         t = self.tabelle
         t.blockSignals(True)
         if vergleich is None:

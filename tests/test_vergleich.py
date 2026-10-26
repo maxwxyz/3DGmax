@@ -262,3 +262,42 @@ def test_ausrichten_nach_ebenen_und_achsen():
     assert np.allclose(a2.matrix[:3, 3], t, atol=1e-5)
     with pytest.raises(ValueError):
         au.richte_nach_elementen(paare[:2])
+
+
+def test_abweichungskarte_vorzeichen_und_strahl():
+    from programm.kern import abweichung
+    from programm.kern.laden import lade_step
+    from tests.conftest import pfad
+    a = lade_step(pfad("nist_ctc_01_asme1_ap242-e1.stp"))
+    b = lade_step(pfad("varianten/ctc01_geo.stp"))
+    selbst = abweichung.berechne(a, a)
+    assert abs(selbst.alle()).max() < 0.005  # nur Netzrest an gekruemmten Flaechen
+    k = abweichung.berechne(a, b)
+    lo, hi = k.bereich()
+    assert abs(lo + 0.5) < 0.01 and hi < 0.01  # Bohrung im neuen Stand: Untermass -0.5
+    assert abweichung.standard_grenze(k, 0.01) == 0.5
+    g = abweichung.stufen(0.01, 0.5)
+    assert g[0] == -0.5 and g[-1] == 0.5 and 0.01 in g and -0.01 in g
+    # Strahl von oben auf die Platte trifft das Netz mit Abweichung ~0
+    pts, _, _ = k.gesamt()
+    mitte = pts.mean(axis=0)
+    treffer = k.am_strahl((mitte[0], mitte[1], pts[:, 2].max() + 100), (0, 0, -1))
+    assert treffer is not None and abs(treffer[1]) < 0.01
+    assert abweichung.farbe(0.0, 0.01, 0.5) != abweichung.farbe(0.4, 0.01, 0.5) != abweichung.farbe(-0.4, 0.01, 0.5)
+
+
+def test_farbkarte_im_vergleich(fenster):
+    from tests.conftest import pfad
+    f = fenster
+    f.lade(pfad("nist_ctc_01_asme1_ap242-e1.stp"), warten=True)
+    f.starte_vergleich({"alt": pfad("nist_ctc_01_asme1_ap242-e1.stp"), "neu": pfad("varianten/ctc01_geo.stp"),
+                        "toleranz": 0.01, "suchweite": 2.0}, warten=True)
+    f.aenderungen.karte_an.blockSignals(True)
+    f.aenderungen.karte_an.setChecked(True)
+    f.aenderungen.karte_an.blockSignals(False)
+    f.zeige_farbkarte(True, warten=True)
+    assert getattr(f.vergleich, "karte", None) is not None
+    assert f.ansicht.abweichung is not None and f.ansicht.abweichung[2] == 0.5
+    f.zeige_farbkarte(False)
+    assert f.ansicht.abweichung is None
+    f.beende_vergleich()

@@ -43,7 +43,8 @@
    "Ansichtswürfel mit Achsenkreuz oben rechts in der 3D-Ansicht (abgeschrägte Kanten/Ecken, Beschriftung): Klick richtet die Kamera aus, Ziehen dreht; ersetzt die Ansichtsknöpfe in der Werkzeugleiste.",
    "Ansichtswürfel überarbeitet: hell, matt, leicht gerundet, Achsen farbig (X rot, Y grün, Z blau), serifenlose Beschriftung, Hover-Hervorhebung, schärfer auf Retina.",
    "Oberfläche aufgeräumt: kompakte Tabellenzeilen ohne Gitter, schmale Scrollbalken, einheitliche Auswahlfelder, Menüs und Tooltips.",
-   "Trackpad: Schieben mit zwei Fingern und Drehen mit zwei Fingern + Alt nicht mehr gespiegelt."
+   "Trackpad: Schieben mit zwei Fingern und Drehen mit zwei Fingern + Alt nicht mehr gespiegelt.",
+   "Vergleich: Abweichungs-Farbkarte (Abstand neu zu alt mit Vorzeichen, grün innerhalb der Toleranz, rot Aufmaß, blau Untermaß) mit Legende, automatischer oder eigener Skala und Wert per Klick."
   ],
   "en": [
    "First viewer version: load STEP AP242, assembly tree, CAD-style navigation, standard views.",
@@ -88,7 +89,8 @@
    "View cube with axes at the top right of the 3D view (chamfered edges/corners, labels): click aligns the camera, drag rotates; replaces the view buttons in the toolbar.",
    "View cube reworked: light, matte, slightly rounded, colored axes (X red, Y green, Z blue), sans-serif labels, hover highlight, sharp on Retina.",
    "UI tidied up: compact table rows without grid, slim scroll bars, consistent combo boxes, menus and tooltips.",
-   "Trackpad: two-finger pan and two-finger + Alt rotate no longer mirrored."
+   "Trackpad: two-finger pan and two-finger + Alt rotate no longer mirrored.",
+   "Comparison: deviation color map (signed distance new to old, green within tolerance, red excess, blue missing material) with legend, automatic or custom scale and value on click."
   ]
  },
  "releases": [

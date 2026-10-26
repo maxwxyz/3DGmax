@@ -80,6 +80,7 @@ class AnsichtBasis(QtWidgets.QWidget):
         self.vergleich_status: dict | None = None
         self.vergleich_entfernt: list = []
         self.vergleich_trsf = None
+        self.abweichung = None  # (Karte, Toleranz, Grenze) der Farbkarte
         self.letzter_zoom = None
         self.letzte_ausrichtung = None
         self.auswahl3d: list = []  # gewaehlte Flaechen/Kanten (TopoDS)
@@ -172,8 +173,14 @@ class AnsichtBasis(QtWidgets.QWidget):
         """Vergleichsmodus: Flaechen des neuen Stands nach Status einfaerben, entfernte Flaechen (alt) zeigen.
         status None beendet den Vergleichsmodus."""
         self.vergleich_status = None if status is None else dict(status)
+        if status is None:
+            self.abweichung = None
         self.vergleich_entfernt = list(entfernt_formen or [])
         self.vergleich_trsf = trsf
+
+    def zeige_abweichung(self, karte, toleranz: float = 0.01, grenze: float = 0.1):
+        """Abweichungs-Farbkarte (kern.abweichung.Karte) statt der Statusfarben zeigen; None blendet sie aus."""
+        self.abweichung = None if karte is None else (karte, toleranz, grenze)
 
     def zoome_auf(self, flaechen: set[int], formen: list | None = None, pmi_ids: set | None = None):
         """Ausschnitt auf Flaechen (Index im angezeigten Modell), weitere Formen und PMI-Grafik setzen."""
@@ -547,8 +554,10 @@ class OcctAnsicht(AnsichtBasis):
                 kanten.SetLocalTransformation(self.vergleich_trsf)
             self._kanten[k.nummer] = kanten
         self._mess_ais = []
+        self._karte_ais = []
         self._baue_entfernt()
         self._baue_grafik()
+        self._baue_abweichung()
         self._wende_darstellung_an()
         self._wende_sichtbarkeit_an()
         self.standard(self.letzte_ansicht if self.letzte_ansicht in STANDARDANSICHTEN else "iso")
@@ -576,8 +585,100 @@ class OcctAnsicht(AnsichtBasis):
 
     def zeige_vergleich(self, status, entfernt_formen=None, trsf=None):
         super().zeige_vergleich(status, entfernt_formen, trsf)
+        if status is None:
+            self.abweichung = None
         if self._bereit and self.szene is not None:
             self._baue_szene()
+
+    def zeige_abweichung(self, karte, toleranz=0.01, grenze=0.1):
+        super().zeige_abweichung(karte, toleranz, grenze)
+        if self._bereit:
+            self._baue_abweichung()
+            self._wende_sichtbarkeit_an()
+            self._neu_zeichnen()
+
+    def _baue_abweichung(self):
+        """Farbiges Netz (Farbe je Knoten) und Legende; Teile werden dabei ausgeblendet."""
+        from OCC.Core.AIS import AIS_ColorScale, AIS_Triangulation
+        from OCC.Core.Aspect import Aspect_TOCSD_USER, Aspect_TOTP_LEFT_LOWER
+        from OCC.Core.Graphic3d import (Graphic3d_MaterialAspect, Graphic3d_NameOfMaterial_UserDefined,
+                                        Graphic3d_TMF_2d, Graphic3d_TransformPers, Graphic3d_Vec2i)
+        from OCC.Core.Poly import Poly_Triangle, Poly_Triangulation
+        from OCC.Core.TColStd import TColStd_HArray1OfInteger, TColStd_SequenceOfExtendedString
+        from OCC.Core.TCollection import TCollection_ExtendedString
+        from OCC.Core.gp import gp_Pnt
+        from ..kern import abweichung as ab
+        ctx = self.d.Context
+        for alt in getattr(self, "_karte_ais", []):
+            ctx.Remove(alt, False)
+        self._karte_ais = []
+        if self.abweichung is None:
+            return
+        karte, tol, grenze = self.abweichung
+        pts, tris, werte = karte.gesamt()
+        if not len(tris):
+            return
+        netz = Poly_Triangulation(len(pts), len(tris), False)
+        for i, p in enumerate(pts, 1):
+            netz.SetNode(i, gp_Pnt(float(p[0]), float(p[1]), float(p[2])))
+        for i, t in enumerate(tris, 1):
+            netz.SetTriangle(i, Poly_Triangle(int(t[0]) + 1, int(t[1]) + 1, int(t[2]) + 1))
+        farben = TColStd_HArray1OfInteger(1, len(pts))
+        for i, w in enumerate(werte, 1):
+            r, g, b = ab.farbe(float(w), tol, grenze)
+            c = int(r * 255) | int(g * 255) << 8 | int(b * 255) << 16 | 255 << 24  # RGBA als Bytes
+            farben.SetValue(i, c - (1 << 32))  # als vorzeichenbehaftete 32-Bit-Zahl
+        flaeche = AIS_Triangulation(netz)
+        flaeche.SetColors(farben)
+        mat = Graphic3d_MaterialAspect(Graphic3d_NameOfMaterial_UserDefined)
+        mat.SetAmbientColor(_farbe((0.55, 0.55, 0.55)))
+        mat.SetDiffuseColor(_farbe((0.8, 0.8, 0.8)))
+        mat.SetSpecularColor(_farbe((0.1, 0.1, 0.1)))
+        flaeche.SetMaterial(mat)
+        ctx.Display(flaeche, 0, -1, False)  # AIS_Triangulation kennt nur Modus 0
+        ctx.Deactivate(flaeche)
+        self._karte_ais.append(flaeche)
+        # Legende unten links: Stufen von -Grenze bis +Grenze, Mitte = innerhalb Toleranz
+        grenzen = ab.stufen(tol, grenze)
+        k = max(1.0, self.viewer.devicePixelRatioF()) if sys.platform == "darwin" else 1.0
+        skala = AIS_ColorScale()
+        skala.SetRange(grenzen[0], grenzen[-1])
+        skala.SetNumberOfIntervals(len(grenzen) - 1)
+        skala.SetColorType(Aspect_TOCSD_USER)
+        for i in range(len(grenzen) - 1):
+            mitte = (grenzen[i] + grenzen[i + 1]) / 2
+            skala.SetIntervalColor(_farbe(ab.farbe(mitte, tol, grenze)), i + 1)
+        texte = TColStd_SequenceOfExtendedString()
+        for g in grenzen:
+            texte.Append(TCollection_ExtendedString(f"{g:+.3f}".replace("+0.000", "0"), True))
+        skala.SetLabelType(Aspect_TOCSD_USER)
+        skala.SetLabels(texte)
+        skala.SetLabelAtBorder(True)
+        skala.SetTitle(TCollection_ExtendedString(tr("Abweichung (mm)"), True))
+        skala.SetTextHeight(int(13 * k))
+        dunkel = sum((self.thema or {}).get("hg_oben", (1, 1, 1))) < 1.5
+        skala.SetColor(_farbe((0.95, 0.95, 0.95) if dunkel else (0.1, 0.1, 0.12)))  # Schriftfarbe
+        # Breite = Farbbalken + Beschriftung (OCCT begrenzt den Balken auf 20 px)
+        skala.SetSize(int(110 * k), int(260 * k))
+        schrift = "Helvetica Neue" if sys.platform == "darwin" else ("Segoe UI" if sys.platform == "win32" else "DejaVu Sans")
+        from OCC.Core.Prs3d import Prs3d_TextAspect
+        text = Prs3d_TextAspect()
+        text.Aspect().SetFont(schrift)
+        text.SetColor(_farbe((0.95, 0.95, 0.95) if dunkel else (0.1, 0.1, 0.12)))
+        text.SetHeight(int(13 * k))
+        skala.Attributes().SetTextAspect(text)
+        skala.SetTransformPersistence(Graphic3d_TransformPers(Graphic3d_TMF_2d, Aspect_TOTP_LEFT_LOWER,
+                                                              Graphic3d_Vec2i(int(20 * k), int(20 * k))))
+        ctx.Display(skala, False)
+        ctx.Deactivate(skala)
+        self._karte_ais.append(skala)
+
+    def abweichung_bei(self, x, y) -> tuple | None:
+        """(Punkt, Abweichung) der Farbkarte unter der Maus."""
+        if self.abweichung is None or not self._bereit:
+            return None
+        px, py, pz, vx, vy, vz = self.d.View.ConvertWithProj(int(x), int(y))
+        return self.abweichung[0].am_strahl((px, py, pz), (vx, vy, vz))
 
     def setze_ausrichtmodus(self, alt_form):
         super().setze_ausrichtmodus(alt_form)
@@ -662,7 +763,7 @@ class OcctAnsicht(AnsichtBasis):
                 ctx.Display(kanten, 0, -1, False)
                 ctx.Deactivate(kanten)
         for nr, ais in self._teile.items():
-            if nr in self.versteckt:
+            if nr in self.versteckt or self.abweichung is not None:
                 ctx.Erase(ais, False)
             else:
                 ctx.Display(ais, False)
@@ -1205,6 +1306,12 @@ class OcctAnsicht(AnsichtBasis):
 
     def _klick(self, x, y):
         ctx = self.d.Context
+        if self.abweichung is not None and not self.messmodus:
+            treffer = self.abweichung_bei(x, y)
+            if treffer is not None:
+                p, w = treffer
+                self.meldung.emit(tr("Abweichung {:+.4f} mm bei ({:.2f}, {:.2f}, {:.2f})").format(w, *p))
+                return
         ctx.MoveTo(x, y, self.d.View, False)
         if not ctx.HasDetected():
             if not QtWidgets.QApplication.keyboardModifiers():

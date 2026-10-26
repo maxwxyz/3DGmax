@@ -53,7 +53,7 @@
 | Semantic PMI comparison (field by field incl. name, datums, faces), "geometry under PMI changed" | ✅ |
 | Change list, review walk-through, comment, review report with SHA-256 | ✅ |
 | Export changes (CSV) | ✅ |
-| Deviation color map (scale, tolerance limit, sign) | ⬜ |
+| Deviation color map (scale, tolerance limit, sign, value on click) | ✅ |
 | Display like CATIA Compare Products: added/removed volume, visual (fast) and exact | ⬜ |
 | Detect moved elements and moved PMI | ⬜ |
 | Graphical PMI comparison (moved, changed, new, removed) | ⬜ |

@@ -440,6 +440,7 @@ class Hauptfenster(QtWidgets.QMainWindow):
         self.aenderungen.gewaehlt.connect(self._aenderung_gewaehlt)
         self.aenderungen.abschliessen.connect(self.schliesse_pruefung_ab)
         self.aenderungen.beenden.connect(self.beende_vergleich)
+        self.aenderungen.karte.connect(self.zeige_farbkarte)
 
     def _modell_da(self, da: bool):
         for a in self.aktionen.values():
@@ -777,6 +778,42 @@ class Hauptfenster(QtWidgets.QMainWindow):
             self._vlader.wait()
             QtWidgets.QApplication.processEvents()
             QtWidgets.QApplication.processEvents()
+
+    def zeige_farbkarte(self, an: bool, grenze: float = 0.0, warten: bool = False):
+        """Abweichungs-Farbkarte ein/aus; wird einmal je Vergleich im Hintergrund berechnet."""
+        v = self.vergleich
+        if v is None:
+            return
+        if not an:
+            self.ansicht.zeige_abweichung(None)
+            return
+        karte = getattr(v, "karte", None)
+        if karte is None:
+            from .vergleich_ui import KartenLader
+            if getattr(self, "_karten_lader", None) is not None and self._karten_lader.isRunning():
+                return
+            lader = KartenLader(v, self)
+            lader.stand.connect(lambda p: self.statusBar().showMessage(tr("Farbkarte berechnen … {} %").format(p)))
+            lader.fehler.connect(lambda t: QtWidgets.QMessageBox.warning(self, tr("Farbkarte"), t))
+            lader.fertig.connect(lambda k, v=v: self._farbkarte_fertig(v, k))
+            self._karten_lader = lader
+            lader.start()
+            if warten:
+                lader.wait()
+                QtWidgets.QApplication.processEvents()
+            return
+        from ..kern import abweichung
+        grenze = grenze or abweichung.standard_grenze(karte, v.toleranz)
+        grenze = max(grenze, 2 * v.toleranz)
+        self.ansicht.zeige_abweichung(karte, v.toleranz, grenze)
+        lo, hi = karte.bereich()
+        self.statusBar().showMessage(tr("Farbkarte: Abweichung {:+.3f} bis {:+.3f} mm, Skala ±{:.3f} mm, "
+                                        "Toleranz ±{:.3f} mm").format(lo, hi, grenze, v.toleranz), 10000)
+
+    def _farbkarte_fertig(self, v, karte):
+        v.karte = karte
+        if self.vergleich is v and self.aenderungen.karte_an.isChecked():
+            self.zeige_farbkarte(True, self.aenderungen.skala.value())
 
     def beende_vergleich(self, neu_zeigen: bool = True):
         if self.vergleich is None:

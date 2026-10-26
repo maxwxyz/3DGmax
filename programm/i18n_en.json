@@ -469,5 +469,15 @@
 "Unteres Abmaß": "Lower deviation",
 "Winkel (Größe)": "Angle (size)",
 "Winkel (Lage)": "Angle (location)",
-"Zylinderform": "Cylindricity"
+"Zylinderform": "Cylindricity",
+"Abstand des neuen zum alten Stand farbig: grün innerhalb der Toleranz, rot Aufmaß (+), blau Untermaß (−); Klick ins Modell zeigt den Wert": "Distance of the new to the old revision in color: green within tolerance, red excess material (+), blue missing material (−); click the model to see the value",
+"Abweichung (mm)": "Deviation (mm)",
+"Abweichung {:+.4f} mm bei ({:.2f}, {:.2f}, {:.2f})": "Deviation {:+.4f} mm at ({:.2f}, {:.2f}, {:.2f})",
+"Abweichungs-Farbkarte": "Deviation color map",
+"Farbkarte": "Color map",
+"Farbkarte berechnen … {} %": "Computing color map … {} %",
+"Farbkarte: Abweichung {:+.3f} bis {:+.3f} mm, Skala ±{:.3f} mm, Toleranz ±{:.3f} mm": "Color map: deviation {:+.3f} to {:+.3f} mm, scale ±{:.3f} mm, tolerance ±{:.3f} mm",
+"Skala ±": "Scale ±",
+"Skalenende ± (0 = automatisch)": "Scale end ± (0 = automatic)",
+"automatisch": "automatic"
 }
