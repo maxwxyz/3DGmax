@@ -271,6 +271,9 @@ def lies_pmi_xcaf(modell: StepModell) -> list[Pmi]:
 def lies_pmi(modell: StepModell) -> list[Pmi]:
     """Semantische PMI: aus der STEP-Datei, sonst aus XCAF."""
     from .pmi_step import lies_masse, lies_toleranzen
+    if getattr(modell, "qif", None) is not None:
+        zu = modell.qif_flaechen
+        return modell.qif.merkmale(lambda fid: modell.flaechen_index(zu[fid]) if fid in zu else None)
     if modell.datei is None:
         liste = lies_pmi_xcaf(modell)
     else:

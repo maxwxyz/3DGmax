@@ -147,7 +147,8 @@ def step_ident(reader, ent) -> int:
 ENDUNGEN_STEP = (".stp", ".step", ".p21")
 ENDUNGEN_IGES = (".igs", ".iges")
 ENDUNGEN_NETZ = (".stl", ".obj", ".gltf", ".glb", ".3mf")
-ENDUNGEN = ENDUNGEN_STEP + ENDUNGEN_IGES + ENDUNGEN_NETZ
+ENDUNGEN_QIF = (".qif",)
+ENDUNGEN = ENDUNGEN_STEP + ENDUNGEN_IGES + ENDUNGEN_NETZ + ENDUNGEN_QIF
 
 
 def _modell_aus_doc(pfad: str, doc, t0: float) -> StepModell:
@@ -222,6 +223,24 @@ def _lies_3mf(pfad: str, doc):
             _netz_flaeche(_poly(pts, tri), name, doc)
 
 
+def _lade_qif(pfad: str, doc, t0: float) -> StepModell:
+    """QIF: exakte B-Rep aus der Datei; PMI liest kern.pmi_lesen ueber modell.qif."""
+    from OCC.Core.TCollection import TCollection_ExtendedString
+    from OCC.Core.TDataStd import TDataStd_Name
+    from .qif import NS, QifDokument
+    q = QifDokument(pfad)
+    form, zuordnung = q.baue_form()
+    st = XCAFDoc_DocumentTool.ShapeTool(doc.Main())
+    lab = st.AddShape(form, False)
+    teil = q.wurzel.find(f".//{NS}Part")
+    name = (teil.get("label") if teil is not None else "") or "QIF"
+    TDataStd_Name.Set(lab, TCollection_ExtendedString(name, True))
+    modell = _modell_aus_doc(pfad, doc, t0)
+    modell.qif = q
+    modell.qif_flaechen = zuordnung
+    return modell
+
+
 def lade_modell(pfad: str) -> StepModell:
     """Modell nach Endung laden: STEP (mit PMI), IGES, STL, OBJ, glTF/GLB, 3MF (Netze, ohne PMI). Laengen in mm."""
     import os
@@ -232,6 +251,8 @@ def lade_modell(pfad: str) -> StepModell:
     from OCC.Core.XCAFApp import XCAFApp_Application
     doc = TDocStd_Document("XmlXCAF")
     XCAFApp_Application.GetApplication().InitDocument(doc)
+    if endung in ENDUNGEN_QIF:
+        return _lade_qif(pfad, doc, t0)
     if endung in ENDUNGEN_IGES:
         from OCC.Core.IGESCAFControl import IGESCAFControl_Reader
         r = IGESCAFControl_Reader()

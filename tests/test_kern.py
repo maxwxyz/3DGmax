@@ -258,3 +258,23 @@ def test_formate_laden_und_netze():
     k = abweichung.berechne(stl, lade_modell(pfad("formate/baugruppe.stl")))  # Netz gegen Netz: kein Absturz
     assert np.nanmax(np.abs(k.alle())) < 0.01
     assert cad.flaechen
+
+
+def test_qif_brep_und_pmi():
+    """QIF 3.0 der NIST-Testfaelle (nur lokal unter daten/qif, nicht im Repo)."""
+    import os
+    import pytest
+    from tests.conftest import WURZEL
+    q = os.path.join(WURZEL, "daten", "qif", "nist_ctc_01_asme1_ap242.qif")
+    if not os.path.exists(q):
+        pytest.skip("QIF-Testdatei nicht vorhanden (daten/qif)")
+    from programm.kern.eigenschaften import berechne
+    from programm.ui.lader import lade_alles
+    e = lade_alles(q)
+    w = berechne(e.modell.form)
+    assert len(e.modell.flaechen) == 117 and abs(w.volumen - 14644823.3) < 5  # wie die STEP-Datei
+    arten = [p.art for p in e.pmi]
+    assert arten.count("toleranz") == 6 and arten.count("bezug") == 3 and arten.count("mass") >= 7
+    pos = next(p for p in e.pmi if p.typ == "Position")
+    assert pos.wert == 0.75 and pos.bezug_text() == "A|B|C" and pos.flaechen
+    assert e.norm.art == "asme" and "QIF" in e.norm.grund

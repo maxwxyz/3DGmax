@@ -55,6 +55,14 @@ def erkenne(pfad: str, pmi: list | None = None, text: str | None = None) -> Norm
     text = _dateitext(pfad) if text is None else text
     punkte = {ISO: 0, ASME: 0}
     gruende = {ISO: "", ASME: ""}
+    # QIF: <StandardsOrganizationEnum>ASME</...><Designator>Y14.5 2009</Designator>
+    for treffer in re.finditer(r"<StandardsOrganizationEnum>\s*(\w+)\s*</StandardsOrganizationEnum>\s*</Organization>"
+                               r"\s*<Designator>([^<]*)</Designator>", text):
+        org, bez = treffer.group(1).upper(), treffer.group(2).strip()
+        art = ASME if org in ("ASME", "ANSI") else (ISO if org in ("ISO", "DIN", "CEN") else None)
+        if art:
+            punkte[art] += 20
+            gruende[art] = gruende[art] or f"{org} {bez} (QIF)"
     # Empfohlene Praxis AP242: DOCUMENT('<Norm>','Geometric Tolerancing Standard', ...) nennt die Norm ausdruecklich
     for treffer in re.finditer(r"DOCUMENT\s*\(\s*'([^']*)'\s*,\s*'Geometric Tolerancing Standard'", text, re.I):
         name = treffer.group(1)

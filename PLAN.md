@@ -62,7 +62,7 @@ numpy, scipy (KD tree, ICP), pypdf (3D streams from PDF, BSD), lxml (QIF), pytes
 | STEP AP242 / AP214 / AP203 | OCCT + own entity reader | yes | semantic + graphical | done | 0 |
 | IGES, STL, OBJ, glTF/GLB | OCCT readers (present in pythonocc) **[done]** | yes | – | small | 0 |
 | 3MF | own reader (ZIP + XML) **[done]** | mesh | – | small | 0 |
-| **QIF** | lxml + classes from the official XSD | QIF B-rep or link to STEP | **semantic, clean** | medium | 0 |
+| **QIF** | lxml, own B-rep builder (kern/qif.py) **[done: B-rep + semantic PMI]**; test files: NIST models from github.com/QualityInformationFramework/qif-community (licence not stated – kept local in daten/qif) | QIF B-rep | **semantic, clean** | medium | 0 |
 | **JT** – mesh | own reader per ISO 14306 | mesh | – | large (weeks) | 0 |
 | **JT** – TKJT (as used by FreeCAD) | TKJT by Open Cascade (2013–2015), maintained at github.com/mmaenz/TKJT (OCCT 7.7, compiled on Mac, untested); own Python binding | mesh, structure, attributes; PMI part present, scope [open] | [open] | medium–large | 0, but **GPL v2+** [verified] |
 | **JT** – commercial SDK | Siemens JT Open Toolkit, Open Cascade JT SDK, CAD Exchanger, HOOPS Exchange | yes | yes | medium | quote only |

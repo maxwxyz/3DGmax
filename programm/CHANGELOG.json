@@ -63,7 +63,8 @@
    "Analysen als Farbkarte (Modell › Analyse): Entformungsschräge zu einer Ausformrichtung mit Mindestwinkel, Krümmungsradius, Wandstärke; Legende und Wert per Klick.",
    "Toleranzklassen nach ISO 286 (z. B. H7, g6, JS9; bis 500 mm): Abmaße, Höchst- und Mindestmaß werden berechnet und in PMI-Tabelle, Schnellmessung, Merkmalsliste und Export gezeigt.",
    "Weitere Formate: IGES (B-Rep) sowie STL, OBJ, glTF/GLB und 3MF (Netze, Längen in mm); Netze lassen sich ansehen, messen (Punkte, Fläche, Volumen), analysieren und gegen CAD vergleichen (Abweichungs-Farbkarte, z. B. Scan gegen CAD).",
-   "Korrektur: Teile in Unterbaugruppen erhalten die Lage der übergeordneten Baugruppe (vorher am Ursprung)."
+   "Korrektur: Teile in Unterbaugruppen erhalten die Lage der übergeordneten Baugruppe (vorher am Ursprung).",
+   "QIF 3.0 lesen: exakte B-Rep (Ebenen, Zylinder, Kegel, Kugeln, Tori, NURBS) und semantische PMI (Maße, Form- und Lagetoleranzen, Bezüge, Bezugssysteme) mit Flächenverknüpfung; Norm aus der Datei."
   ],
   "en": [
    "First viewer version: load STEP AP242, assembly tree, CAD-style navigation, standard views.",
@@ -128,7 +129,8 @@
    "Analyses as color map (Model › Analysis): draft angle to a pull direction with minimum angle, curvature radius, wall thickness; legend and value on click.",
    "ISO 286 tolerance classes (e.g. H7, g6, JS9; up to 500 mm): deviations and upper/lower limits are computed and shown in the PMI table, quick measure, bill of characteristics and exports.",
    "More formats: IGES (B-rep) and STL, OBJ, glTF/GLB and 3MF (meshes, lengths in mm); meshes can be viewed, measured (points, area, volume), analyzed and compared with CAD (deviation color map, e.g. scan vs. CAD).",
-   "Fix: parts in sub-assemblies get the placement of their parent assembly (previously at the origin)."
+   "Fix: parts in sub-assemblies get the placement of their parent assembly (previously at the origin).",
+   "Read QIF 3.0: exact B-rep (planes, cylinders, cones, spheres, tori, NURBS) and semantic PMI (dimensions, geometric tolerances, datums, datum reference frames) linked to faces; standard from the file."
   ]
  },
  "releases": [

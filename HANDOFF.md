@@ -11,7 +11,7 @@ Branch: `main` (no other branches). Version 0.1 plus many unreleased entries in 
 | 3 Measure | ✅ |
 | 4 Compare | ✅ incl. manual alignment, deviation color map (open: moved detection, graphical PMI compare, assemblies, meshes) |
 | 5 Output | ✅ PDF per view, comparison PDF, PMI change PDF, project container, folder comparison (open: views as drawings HLR) |
-| 6 Formats | 🟡 IGES, STL, OBJ, glTF/GLB, 3MF done; open: QIF, PRC/3D PDF (§8.15) |
+| 6 Formats | 🟡 IGES, STL, OBJ, glTF/GLB, 3MF, QIF (B-rep + semantic PMI) done; open: PRC/3D PDF (§8.15), QIF graphics/views |
 | 7 JT via TKJT | ⬜ (no free JT test files with PMI found) |
 Details: `docs/Roadmap.md`; future topics: PLAN.md §8 (tolerance zones, annotating, graphical PMI/OCR, tolerance stack-up,
 PMI editing, CATIA files).
@@ -39,7 +39,12 @@ Then step 6 formats: kern/laden.lade_modell (IGES via XCAF, STL/OBJ/glTF/GLB via
 reader), mesh faces have no surface (guards in messen, schnellinfo, abweichung, vergleich_geo, analyse, ausrichten,
 ray picking `_netz_treffer`); test files from werkzeuge/formate.py (tests/daten/formate). Fixed nested assembly
 placement in kern/baum.py.
-Next: QIF (no test files yet – find free samples), PRC/3D PDF reader (PLAN §8.15, NIST STC PDFs contain PRC).
+Then QIF (kern/qif.py): own B-rep builder (surfaces/curves -> OCCT, ShapeFix_Wire connects loop edges, sewing with
+Modified() to keep the QIF face ids), semantic PMI (characteristics, datums, DRF), units per value (linearUnit).
+Test files: NIST QIF from qif-community (licence not stated) only local in daten/qif; test skips without them.
+Validated: CTC-01 and FTC-06 volume/size identical to STEP; FTC-08/09 QIF are other model revisions (scaled).
+Next: PRC/3D PDF reader (PLAN §8.15, NIST STC PDFs contain PRC), QIF graphical PMI and views, JT via TKJT
+(step 7; free JT file without PMI: daten/nist_cad_dl/nist-cad-models-mtc-assembly.zip -> NX/NIST mtc crada assembly.jt).
 
 ## Environment and commands
 ```bash
