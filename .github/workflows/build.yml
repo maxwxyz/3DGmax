@@ -38,7 +38,7 @@ jobs:
         if: env.AKTIV == 'true'
         with:
           cache: true
-          run-install: false
+          run-install: true
       - name: Grafik-Grundpakete (Linux)
         if: env.AKTIV == 'true' && runner.os == 'Linux'
         run: |
