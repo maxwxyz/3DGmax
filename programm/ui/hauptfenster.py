@@ -384,6 +384,8 @@ class Hauptfenster(QtWidgets.QMainWindow):
             sg.addAction(a)
         self.aktionen["schnitt_aus"].setChecked(True)
         A("schnitt_umkehren", tr("Schnittseite umkehren"), self._schnitt_umkehren, pruefbar=True)
+        A("schnittbox", tr("Schnittbox um Auswahl"), self._schnittbox, pruefbar=True,
+          tipp=tr("Nur den Bereich um die gewählten Flächen zeigen, alles außerhalb der Box ist weggeschnitten"))
         A("alle_zeigen", tr("Alle Teile zeigen"), self.baum.alle_zeigen, "Shift+H",
           tipp=tr("Ausgeblendete Teile wieder zeigen"))
         A("isolieren", tr("Gewählte Teile isolieren"), self._isolieren, "I")
@@ -475,6 +477,8 @@ class Hauptfenster(QtWidgets.QMainWindow):
         for n in ("schnitt_aus", "schnitt_x", "schnitt_y", "schnitt_z", "schnitt_auswahl", "schnitt_blick"):
             ms.addAction(a[n])
         ms.addSeparator()
+        ms.addAction(a["schnittbox"])
+        ms.addSeparator()
         ms.addAction(a["schnitt_umkehren"])
         m.addSeparator()
         mt = m.addMenu(tr("Farbschema"))
@@ -534,7 +538,7 @@ class Hauptfenster(QtWidgets.QMainWindow):
         knopf.setPopupMode(QtWidgets.QToolButton.ToolButtonPopupMode.InstantPopup)
         menue = QtWidgets.QMenu(knopf)
         for n in ("schnitt_aus", "schnitt_x", "schnitt_y", "schnitt_z", "schnitt_auswahl", "schnitt_blick",
-                  "schnitt_umkehren"):
+                  "schnitt_umkehren", "schnittbox"):
             menue.addAction(a[n])
         knopf.setMenu(menue)
         self.schnitt_knopf = knopf
@@ -681,6 +685,9 @@ class Hauptfenster(QtWidgets.QMainWindow):
         if self.aktionen["explosion"].isChecked():
             self.aktionen["explosion"].setChecked(False)
             self._explosion_umschalten()
+        if self.aktionen["schnittbox"].isChecked():
+            self.aktionen["schnittbox"].setChecked(False)
+            self.ansicht.schnittbox(None)
         if vergleich is None and self.ansicht.abweichung is not None:
             self.ansicht.zeige_analyse(None)  # Analyse gehoert zum alten Modell
         self.erg = erg
@@ -1331,7 +1338,7 @@ class Hauptfenster(QtWidgets.QMainWindow):
         for n in ("zoom_auswahl", "normal_auswahl", "auswahl_aufheben"):
             m.addAction(a[n])
         m.addSeparator()
-        for n in ("schnitt_auswahl", "schnitt_blick", "schnitt_aus"):
+        for n in ("schnitt_auswahl", "schnitt_blick", "schnittbox", "schnitt_aus"):
             m.addAction(a[n])
         m.addSeparator()
         for n in ("teil_ausblenden", "teil_isolieren", "alle_zeigen"):
@@ -1631,6 +1638,16 @@ class Hauptfenster(QtWidgets.QMainWindow):
         self.aktionen["schnitt_umkehren"].setEnabled(da and achse is not None)
         self.ansicht.schnitt(achse, self.schnitt_regler.value() / 1000.0,
                              self.aktionen["schnitt_umkehren"].isChecked())
+
+    def _schnittbox(self):
+        if not self.aktionen["schnittbox"].isChecked():
+            self.ansicht.schnittbox(None)
+            return
+        if not self.ansicht.schnittbox_um_auswahl():
+            self.aktionen["schnittbox"].setChecked(False)
+            self.statusBar().showMessage(tr("Erst Flächen oder Kanten im Modell wählen"), 5000)
+            return
+        self.ansicht.zoome_auf(set(), list(self.ansicht.auswahl3d))
 
     def _schnitt_umkehren(self):
         self._schnitt(self._schnitt_achse)

@@ -76,7 +76,8 @@
    "Vergleich erkennt verschobene Elemente (gleiche Form, gleicher Versatz) als „Geometrie verschoben“ mit dX/dY/dZ statt neu + entfernt; zugehörige PMI als „PMI verschoben“.",
    "Baugruppenvergleich: Teile neu, entfernt, verschoben (mit Versatz), geändert (Volumen) und umbenannt; eigener Filter „Baugruppe“ in der Änderungsliste.",
    "Automatische Ausrichtung bleibt bei gleicher Lage, sobald die Hälfte der Oberfläche schon exakt aufliegt (Baugruppen mit Änderungen werden nicht mehr verzogen).",
-   "Grafischer PMI-Vergleich: bei semantisch gleicher PMI wird eine verschobene oder in der Form geänderte Beschriftung als „PMI-Darstellung geändert“ gemeldet."
+   "Grafischer PMI-Vergleich: bei semantisch gleicher PMI wird eine verschobene oder in der Form geänderte Beschriftung als „PMI-Darstellung geändert“ gemeldet.",
+   "Schnittbox um die Auswahl: nur der Bereich um gewählte Flächen bleibt sichtbar (Schnittflächen farbig)."
   ],
   "en": [
    "First viewer version: load STEP AP242, assembly tree, CAD-style navigation, standard views.",
@@ -154,7 +155,8 @@
    "Comparison detects moved elements (same shape, same offset) as “geometry moved” with dX/dY/dZ instead of new + removed; their PMI as “PMI moved”.",
    "Assembly comparison: parts new, removed, moved (with offset), changed (volume) and renamed; own filter “Assembly” in the change list.",
    "Automatic alignment keeps the same placement once half of the surface already coincides (assemblies with changes are no longer skewed).",
-   "Graphical PMI comparison: for semantically equal PMI a moved or reshaped annotation is reported as “PMI presentation changed”."
+   "Graphical PMI comparison: for semantically equal PMI a moved or reshaped annotation is reported as “PMI presentation changed”.",
+   "Section box around the selection: only the region around selected faces stays visible (capped sections)."
   ]
  },
  "releases": [

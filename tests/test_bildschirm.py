@@ -82,6 +82,11 @@ def pruefe_alles():
     ok = ok and cam.ProjectionType() == Graphic3d_Camera.Projection_Perspective
     a.setze_perspektive(False)
     ergebnis["kameraverlauf"] = ok
+    a.setze_auswahl([f.erg.modell.flaechen[0]])
+    ergebnis["schnittbox"] = a.schnittbox_um_auswahl() and len(a._box_ebenen) == 6
+    a.schnittbox(None)
+    ergebnis["schnittbox_aus"] = a._box_ebenen == []
+    a.setze_auswahl([])
     # Drehpunkt per Mitteltaste: bleibt beim Zoomen und Verschieben fest, Kreuz sichtbar
     a.standard("iso")
     mitte_px = (a.viewer.width() / 2, a.viewer.height() / 2)

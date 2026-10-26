@@ -500,3 +500,17 @@ def test_vorschaubilder_ansichten(fenster_ctc01):
     QtWidgets.QApplication.processEvents()
     it = f.ansichten.liste.item(1)
     assert it is not None and not it.icon().isNull()
+
+
+def test_schnittbox_aktion(fenster_ctc01):
+    f = fenster_ctc01
+    f.aktionen["schnittbox"].setChecked(True)
+    f._schnittbox()
+    assert not f.aktionen["schnittbox"].isChecked()  # ohne Auswahl nicht moeglich
+    f.ansicht.setze_auswahl([f.erg.modell.flaechen[3]])
+    f.aktionen["schnittbox"].setChecked(True)
+    f._schnittbox()
+    assert f.ansicht.box is not None
+    f.aktionen["schnittbox"].setChecked(False)
+    f._schnittbox()
+    assert f.ansicht.box is None

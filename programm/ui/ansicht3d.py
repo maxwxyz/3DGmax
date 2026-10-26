@@ -86,6 +86,7 @@ class AnsichtBasis(QtWidgets.QWidget):
         self.ballone: list = []
         self.explosion = 0.0
         self.material = None
+        self.box = None  # Schnittbox ((x0, y0, z0), (x1, y1, z1)) oder None
         self.letzter_zoom = None
         self.letzte_ausrichtung = None
         self.auswahl3d: list = []  # gewaehlte Flaechen/Kanten (TopoDS)
@@ -110,6 +111,26 @@ class AnsichtBasis(QtWidgets.QWidget):
     def zeige_ballone(self, ballone: list):
         """Ballonnummern [(Nummer, (x, y, z))] an den Merkmalen; [] blendet aus."""
         self.ballone = list(ballone)
+
+    def schnittbox(self, box):
+        """Nur den Bereich innerhalb der Box ((x0, y0, z0), (x1, y1, z1)) zeigen; None hebt sie auf."""
+        self.box = box
+
+    def schnittbox_um_auswahl(self, rand: float = 0.15) -> bool:
+        """Box um die gewaehlten Flaechen/Kanten (mit Rand); False ohne Auswahl."""
+        from OCC.Core.Bnd import Bnd_Box
+        from OCC.Core.BRepBndLib import brepbndlib
+        if not self.auswahl3d:
+            return False
+        b = Bnd_Box()
+        for f in self.auswahl3d:
+            brepbndlib.Add(f, b)
+        if b.IsVoid():
+            return False
+        x0, y0, z0, x1, y1, z1 = b.Get()
+        r = max(max(x1 - x0, y1 - y0, z1 - z0) * rand, 1.0)
+        self.schnittbox(((x0 - r, y0 - r, z0 - r), (x1 + r, y1 + r, z1 + r)))
+        return True
 
     def zeige_material(self, dazu, weg):
         """Materialvergleich: hinzugekommenes (gruen) und entferntes Volumen (rot); beide None blendet aus."""
@@ -1064,6 +1085,31 @@ class OcctAnsicht(AnsichtBasis):
                     a.SetLocalTransformation(t)
                     ctx.Redisplay(a, False)
         self._wende_sichtbarkeit_an()
+
+    def schnittbox(self, box):
+        super().schnittbox(box)
+        if not self._bereit:
+            return
+        from OCC.Core.gp import gp_Dir, gp_Pln, gp_Pnt
+        from OCC.Core.Graphic3d import Graphic3d_ClipPlane
+        for e in getattr(self, "_box_ebenen", []):
+            self.d.View.RemoveClipPlane(e)
+        self._box_ebenen = []
+        if box is not None:
+            lo, hi = box
+            farbe = _farbe((self.thema or {}).get("schnitt", (1, 0.55, 0.1)))
+            # je Seite eine Ebene, deren Richtung ins Innere zeigt: weggeschnitten wird die Aussenseite
+            for achse in range(3):
+                for wert, vz in ((lo[achse], 1.0), (hi[achse], -1.0)):
+                    p, d = [0.0, 0.0, 0.0], [0.0, 0.0, 0.0]
+                    p[achse], d[achse] = float(wert), vz
+                    ebene = Graphic3d_ClipPlane(gp_Pln(gp_Pnt(*p), gp_Dir(*d)))
+                    ebene.SetCapping(True)
+                    ebene.SetCappingColor(farbe)
+                    ebene.SetOn(True)
+                    self.d.View.AddClipPlane(ebene)
+                    self._box_ebenen.append(ebene)
+        self._neu_zeichnen()
 
     def zeige_material(self, dazu, weg):
         super().zeige_material(dazu, weg)

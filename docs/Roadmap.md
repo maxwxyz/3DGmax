@@ -13,7 +13,8 @@
 | Saved views: camera, window, PMI per view, browse (◀ ▶), search | ✅ |
 | Thumbnails per saved view (HLR edge drawing with PMI, background) | ✅ |
 | Section X/Y/Z, at selected face/edge, from view direction, slider | ✅ |
-| Multiple section planes, clipping box, section views from the model, section contour as view | ⬜ |
+| Clipping box around the selection | ✅ |
+| Multiple section planes, section views from the model, section contour as view | ⬜ |
 | 3D selection of faces/edges (multiple), context menu, zoom to selection, align normal (upright: edges level, annotations readable), flip view | ✅ |
 | View cube with axes (chamfered edges/corners, click aligns, drag rotates) | ✅ |
 | Wireframe: click through to hidden edges | ✅ |

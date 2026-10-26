@@ -673,5 +673,8 @@
 "Darstellung geändert (Größe {:.1f} → {:.1f} mm)": "Presentation changed (size {:.1f} → {:.1f} mm)",
 "Beschriftung verschoben um dX {:+.2f}  dY {:+.2f}  dZ {:+.2f} mm": "Annotation moved by dX {:+.2f}  dY {:+.2f}  dZ {:+.2f} mm",
 "PMI-Darstellung geändert": "PMI presentation changed",
-"Darstellung geändert": "presentation changed"
+"Darstellung geändert": "presentation changed",
+"Schnittbox um Auswahl": "Section box around selection",
+"Nur den Bereich um die gewählten Flächen zeigen, alles außerhalb der Box ist weggeschnitten": "Show only the region around the selected faces, everything outside the box is clipped",
+"Erst Flächen oder Kanten im Modell wählen": "Select faces or edges in the model first"
 }
