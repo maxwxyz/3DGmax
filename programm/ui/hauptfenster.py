@@ -325,6 +325,8 @@ class Hauptfenster(QtWidgets.QMainWindow):
           tipp=tr("Alle Kommentare mit Art, Status, Autor, Datum und Bezug"))
         A("pdf_kommentare", tr("Kommentare (PDF) …"), lambda: self.exportiere_pdf("kommentare"),
           tipp=tr("Bild mit den Kommentar-Markierungen und Liste der Kommentare"))
+        A("toleranzkette", tr("Toleranzkette …"), lambda: self.zeige_toleranzkette(),
+          tipp=tr("Maßkette aus gewählten Maßen: Worst Case, statistisch (RSS) und Monte Carlo"))
         A("analyse", tr("Analyse …"), self.zeige_analyse_leiste,
           tipp=tr("Entformungsschräge, Krümmungsradius oder Wandstärke als Farbkarte"))
         A("toleranzzone", tr("Toleranzzone zeigen"), lambda: self._zone_aktualisieren(self.pmi.gewaehlte()),
@@ -506,6 +508,7 @@ class Hauptfenster(QtWidgets.QMainWindow):
         m.addAction(a["stueckliste"])
         m.addAction(a["explosion"])
         m.addAction(a["analyse"])
+        m.addAction(a["toleranzkette"])
         m.addAction(a["kommentar"])
         mn = m.addMenu(tr("Norm"))
         for n in ("norm_auto", "norm_iso", "norm_asme"):
@@ -1671,6 +1674,25 @@ class Hauptfenster(QtWidgets.QMainWindow):
 
     def analyse_aus(self):
         self.ansicht.zeige_analyse(None)
+
+    def zeige_toleranzkette(self, nur_anlegen: bool = False):
+        """Fenster Toleranzkette; die Knoepfe uebernehmen die in der PMI-Liste gewaehlten Masse."""
+        from .toleranzkette_ui import ToleranzketteFenster
+        f = getattr(self, "_kette", None)
+        if f is None:
+            f = ToleranzketteFenster(self)
+            f.plus.clicked.connect(lambda: self._kette_uebernehmen(+1))
+            f.minus.clicked.connect(lambda: self._kette_uebernehmen(-1))
+            self._kette = f
+        if not nur_anlegen:
+            f.show()
+            f.raise_()
+        return f
+
+    def _kette_uebernehmen(self, richtung: int):
+        n = self._kette.uebernimm(self.pmi.gewaehlte(), richtung)
+        if not n:
+            self.statusBar().showMessage(tr("Erst Maße mit Nennmaß in der PMI-Liste wählen"), 5000)
 
     def _explosion_einpassen(self):
         """Alle Teile im Bild halten; ein gesetzter Drehpunkt bleibt dabei erhalten."""

@@ -79,7 +79,8 @@
    "Grafischer PMI-Vergleich: bei semantisch gleicher PMI wird eine verschobene oder in der Form geänderte Beschriftung als „PMI-Darstellung geändert“ gemeldet.",
    "Schnittbox um die Auswahl: nur der Bereich um gewählte Flächen bleibt sichtbar (Schnittflächen farbig).",
    "Kommentare (K): Kommentar, Frage oder Änderungsvorschlag an Flächen oder PMI, Markierung K1, K2 … im Modell, Liste mit Status offen/erledigt, im Projekt gespeichert, Export CSV und PDF.",
-   "Toleranzzonen: für eine gewählte Toleranz wird die Zone als Hüllgeometrie gezeigt (Versatzflächen ±t/2, Zylinder bei ⌀-Zone), schmale Zonen mit Angabe überhöht."
+   "Toleranzzonen: für eine gewählte Toleranz wird die Zone als Hüllgeometrie gezeigt (Versatzflächen ±t/2, Zylinder bei ⌀-Zone), schmale Zonen mit Angabe überhöht.",
+   "Toleranzkette (Modell › Toleranzkette): gewählte Maße mit Richtung zu einer Maßkette, Schlussmaß nach Worst Case, statistisch (RSS) und Monte Carlo; ISO-286-Klassen werden berücksichtigt; Export CSV."
   ],
   "en": [
    "First viewer version: load STEP AP242, assembly tree, CAD-style navigation, standard views.",
@@ -160,7 +161,8 @@
    "Graphical PMI comparison: for semantically equal PMI a moved or reshaped annotation is reported as “PMI presentation changed”.",
    "Section box around the selection: only the region around selected faces stays visible (capped sections).",
    "Comments (K): comment, question or change proposal on faces or PMI, markers K1, K2 … in the model, list with status open/done, saved in the project, export CSV and PDF.",
-   "Tolerance zones: the zone of a selected tolerance is shown as envelope geometry (offset faces ±t/2, cylinder for ⌀ zones), narrow zones exaggerated with notice."
+   "Tolerance zones: the zone of a selected tolerance is shown as envelope geometry (offset faces ±t/2, cylinder for ⌀ zones), narrow zones exaggerated with notice.",
+   "Tolerance stack-up (Model › Tolerance stack-up): selected dimensions with direction form a chain, closing dimension by worst case, statistical (RSS) and Monte Carlo; ISO 286 classes included; CSV export."
   ]
  },
  "releases": [

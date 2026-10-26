@@ -545,3 +545,15 @@ def test_toleranzzone_anzeigen(fenster_ctc01):
     f.pmi.waehle(lambda p: False)
     assert f.ansicht.zone_formen == []
     f.aktionen["toleranzzone"].setChecked(False)
+
+
+def test_toleranzkette_fenster(fenster_ctc01, tmp_path):
+    f = fenster_ctc01
+    k = f.zeige_toleranzkette(nur_anlegen=True)
+    f.pmi.waehle(lambda p: p.art == "mass" and p.nennwert is not None)
+    f._kette_uebernehmen(+1)
+    assert len(k.glieder) >= 5 and k.e.wc_max > k.e.wc_min
+    k.tabelle.selectRow(0)
+    k._drehen()
+    assert k.glieder[0].richtung == -1
+    assert k.speichere(str(tmp_path / "kette.csv"))

@@ -159,7 +159,7 @@ Throughout: tests (core, offscreen UI, stress test, on-screen test), `--selbstte
 - PDF per saved view: one page per view with view name, model name, date, visible PMI (image + list); plus comparison
   report and PMI change table (step 5).
 
-### 8.8 Tolerance stack-up analysis (future)
+### 8.8 Tolerance stack-up analysis (stage 1 done: 1D chain from PMI dimensions, worst case, RSS, Monte Carlo)
 - Dimension chains built from the semantic PMI (select faces/PMI along a chain), worst case, statistical (RSS) and
   Monte Carlo; GD&T contributions (position, profile, datum shift with material condition); report with contributors.
 - Related: bill of characteristics with balloon numbers for metrology/quality.

@@ -331,3 +331,18 @@ def test_toleranzzonen(ctc01):
     assert z.art == "zylinder" and len(z.formen) == 1
     assert tz.zone(Pmi("mass", "Size_Diameter", wert=0.1, flaechen={1}), ctc01) is None
     assert BRepBuilderAPI_MakeFace(gp_Pln(gp_Pnt(0, 0, 0), gp_Dir(0, 0, 1))).IsDone()
+
+
+def test_toleranzkette():
+    from programm.kern import toleranzkette as tk
+    from programm.kern.pmi import MASS, Pmi
+    a = tk.glied_von_pmi(Pmi(MASS, "Location_LinearDistance", nennwert=50.0, oben=0.1, unten=-0.1, nummer=1), +1)
+    b = tk.glied_von_pmi(Pmi(MASS, "Location_LinearDistance", nennwert=20.0, oben=0.05, unten=-0.05, nummer=2), -1)
+    c = tk.glied_von_pmi(Pmi(MASS, "Size_Diameter", nennwert=10.0, passung="h7", nummer=3), -1)  # 0/-0.015
+    e = tk.berechne([a, b, c])
+    assert abs(e.nenn - 20.0) < 1e-12
+    assert abs(e.wc_max - (50.1 - 19.95 - 9.985)) < 1e-9 and abs(e.wc_min - (49.9 - 20.05 - 10.0)) < 1e-9
+    assert abs(e.rss - (0.1 ** 2 + 0.05 ** 2 + 0.0075 ** 2) ** 0.5) < 1e-9
+    assert e.mc_min > e.wc_min and e.mc_max < e.wc_max and abs(e.mc_mittel - e.mitte) < 1e-3
+    assert tk.glied_von_pmi(Pmi("toleranz", "Flatness", wert=0.1)) is None
+    assert "Worst Case max" in tk.als_csv([a, b, c], e)

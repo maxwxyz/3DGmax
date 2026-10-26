@@ -49,7 +49,8 @@
 | Convert graphical PMI into semantic PMI | 💡 |
 | Show tolerance zones as envelope surfaces (offsets ±t/2, ⌀ zone cylinder, exaggeration) | ✅ |
 | Tolerance zones: datum-oriented zones, unequal/offset zones (UZ), projected zones, material conditions | ⬜ |
-| Tolerance stack-up analysis (dimension chains, worst case, RSS, Monte Carlo) | 💡 |
+| Tolerance stack-up 1D (dimension chain from PMI, worst case, RSS, Monte Carlo, CSV) | ✅ |
+| Tolerance stack-up 3D (geometric tolerances, chain from the model, sensitivity) | 💡 |
 | Bill of characteristics with balloon numbers (table column, 3D balloons, CSV, PDF) | ✅ |
 | Datum reference frame display for a selected tolerance | ✅ |
 | Create and edit PMI, tolerancing advisor with contextual suggestions | 💡 |
