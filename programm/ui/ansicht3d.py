@@ -150,6 +150,12 @@ class AnsichtBasis(QtWidgets.QWidget):
         """Kommentar-Markierungen [(Nummer, (x, y, z), erledigt)]."""
         self.kommentar_marken = list(marken)
 
+    def ergaenze_grafik(self, neue: dict, pmi: list):
+        """Weitere Callouts in die Szene aufnehmen (Grafik und Texte)."""
+        if self.szene is not None:
+            self.szene.grafik.update(neue)
+            self.szene.pmi_text.update({p.step_id: p.wert_text() for p in pmi if p.step_id})
+
     def zeige_zone(self, formen: list):
         """Toleranzzone (Formen) halbdurchsichtig zeigen; [] blendet aus."""
         self.zone_formen = list(formen)
@@ -871,49 +877,61 @@ class OcctAnsicht(AnsichtBasis):
         self._neu_zeichnen()
 
     def _baue_grafik(self):
+        for cid, g in self.szene.grafik.items():
+            self._baue_callout(cid, g)
+
+    def ergaenze_grafik(self, neue: dict, pmi: list):
+        """Weitere Callouts (z. B. fuer neu angelegte PMI) ohne Neuaufbau der Szene hinzufuegen."""
+        if self.szene is None:
+            return
+        AnsichtBasis.ergaenze_grafik(self, neue, pmi)
+        if self._bereit:
+            for cid, g in neue.items():
+                self._baue_callout(cid, g)
+            self._wende_sichtbarkeit_an()
+
+    def _baue_callout(self, cid, g):
         from OCC.Core.AIS import AIS_Shape, AIS_TextLabel
         from OCC.Core.Graphic3d import Graphic3d_ZLayerId_Top
         from OCC.Core.gp import gp_Ax2, gp_Dir, gp_Pnt
         from OCC.Core.TCollection import TCollection_ExtendedString
-
         sz = self.szene
         farbe = _farbe((self.thema or {}).get("pmi", (0.05, 0.2, 0.55)))
-        for cid, g in sz.grafik.items():
-            liste = []
-            form, texte = _grafik_form(g, sz.pmi_text)
-            if form is not None:
-                ais = AIS_Shape(form)
-                ais.SetColor(farbe)
-                ais.SetWidth(2.0)
-                liste.append(ais)
-            for ph, text in texte:
-                lab = AIS_TextLabel()
-                lab.SetFont(pmi_schrift())
-                lab.SetText(TCollection_ExtendedString(text if not g.erzeugt else f" {text} ", True))
-                o = ph.ursprung
-                lab.SetPosition(gp_Pnt(float(o[0]), float(o[1]), float(o[2])))
-                if g.erzeugt:  # erzeugte Beschriftung: zum Betrachter, Textfeld in eigener Farbe
-                    from OCC.Core.Aspect import Aspect_TODT_SUBTITLE
-                    lab.SetDisplayType(Aspect_TODT_SUBTITLE)
-                    lab.SetColorSubTitle(_farbe(ERZEUGT_FARBE))
-                    lab.SetColor(_farbe((1.0, 1.0, 1.0)))
-                    lab.SetHeight(14)
-                    liste.append(lab)
-                    continue
-                z = ph.x[1] * ph.y[2] - ph.x[2] * ph.y[1], ph.x[2] * ph.y[0] - ph.x[0] * ph.y[2], \
-                    ph.x[0] * ph.y[1] - ph.x[1] * ph.y[0]
-                try:
-                    lab.SetOrientation3D(gp_Ax2(gp_Pnt(*map(float, o)), gp_Dir(*map(float, z)),
-                                                gp_Dir(*map(float, ph.x))))
-                except Exception:  # noqa: BLE001 - degenerierte Achsen: Text zum Betrachter
-                    pass
-                lab.SetHeight(max(ph.hoehe * 0.7, 1.0))
-                lab.SetColor(farbe)
+        liste = []
+        form, texte = _grafik_form(g, sz.pmi_text)
+        if form is not None:
+            ais = AIS_Shape(form)
+            ais.SetColor(farbe)
+            ais.SetWidth(2.0)
+            liste.append(ais)
+        for ph, text in texte:
+            lab = AIS_TextLabel()
+            lab.SetFont(pmi_schrift())
+            lab.SetText(TCollection_ExtendedString(text if not g.erzeugt else f" {text} ", True))
+            o = ph.ursprung
+            lab.SetPosition(gp_Pnt(float(o[0]), float(o[1]), float(o[2])))
+            if g.erzeugt:  # erzeugte Beschriftung: zum Betrachter, Textfeld in eigener Farbe
+                from OCC.Core.Aspect import Aspect_TODT_SUBTITLE
+                lab.SetDisplayType(Aspect_TODT_SUBTITLE)
+                lab.SetColorSubTitle(_farbe(ERZEUGT_FARBE))
+                lab.SetColor(_farbe((1.0, 1.0, 1.0)))
+                lab.SetHeight(14)
                 liste.append(lab)
-            for ais in liste:
-                ais.SetZLayer(Graphic3d_ZLayerId_Top)
-                self._ais_callout[ais] = cid
-            self._callouts[cid] = liste
+                continue
+            z = ph.x[1] * ph.y[2] - ph.x[2] * ph.y[1], ph.x[2] * ph.y[0] - ph.x[0] * ph.y[2], \
+                ph.x[0] * ph.y[1] - ph.x[1] * ph.y[0]
+            try:
+                lab.SetOrientation3D(gp_Ax2(gp_Pnt(*map(float, o)), gp_Dir(*map(float, z)),
+                                            gp_Dir(*map(float, ph.x))))
+            except Exception:  # noqa: BLE001 - degenerierte Achsen: Text zum Betrachter
+                pass
+            lab.SetHeight(max(ph.hoehe * 0.7, 1.0))
+            lab.SetColor(farbe)
+            liste.append(lab)
+        for ais in liste:
+            ais.SetZLayer(Graphic3d_ZLayerId_Top)
+            self._ais_callout[ais] = cid
+        self._callouts[cid] = liste
 
     # --- Sichtbarkeit und Hervorhebung ---
 

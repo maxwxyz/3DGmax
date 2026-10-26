@@ -1,0 +1,70 @@
+"""Dialog PMI anlegen: Vorschlaege des Tolerierungsberaters fuer die Auswahl uebernehmen und anpassen."""
+
+from __future__ import annotations
+
+from PySide6 import QtCore, QtWidgets
+
+from ..i18n import tr
+from ..kern.pmi import MASS
+
+
+class PmiAnlegenDialog(QtWidgets.QDialog):
+    SPALTEN = ("Übernehmen", "Merkmal", "Wert", "Toleranz / ±", "Passung", "Begründung")
+
+    def __init__(self, vorschlaege: list, parent=None):
+        super().__init__(parent)
+        self.setWindowTitle(tr("PMI anlegen"))
+        self.resize(760, 300)
+        self.vorschlaege = vorschlaege
+        lay = QtWidgets.QVBoxLayout(self)
+        hinweis = QtWidgets.QLabel(tr("Vorschläge für die gewählten Flächen – Werte sind Startwerte (Nennmaß gemessen), "
+                                      "bitte prüfen und anpassen."))
+        hinweis.setWordWrap(True)
+        hinweis.setObjectName("leise")
+        lay.addWidget(hinweis)
+        self.tabelle = QtWidgets.QTableWidget(len(vorschlaege), len(self.SPALTEN))
+        self.tabelle.setHorizontalHeaderLabels([tr(s) for s in self.SPALTEN])
+        self.tabelle.verticalHeader().setVisible(False)
+        for z, v in enumerate(vorschlaege):
+            p = v.pmi
+            haken = QtWidgets.QTableWidgetItem()
+            haken.setCheckState(QtCore.Qt.CheckState.Checked)
+            self.tabelle.setItem(z, 0, haken)
+            for s, text in ((1, tr(p.merkmal())), (2, p.wert_text()), (5, tr(v.grund))):
+                it = QtWidgets.QTableWidgetItem(text)
+                it.setFlags(it.flags() & ~QtCore.Qt.ItemFlag.ItemIsEditable)
+                self.tabelle.setItem(z, s, it)
+            tol = p.wert if p.art != MASS else (p.oben if p.oben is not None else "")
+            self.tabelle.setItem(z, 3, QtWidgets.QTableWidgetItem("" if tol in ("", None) else f"{tol:g}"))
+            self.tabelle.setItem(z, 4, QtWidgets.QTableWidgetItem(p.passung if p.art == MASS else ""))
+        self.tabelle.resizeColumnsToContents()
+        self.tabelle.horizontalHeader().setStretchLastSection(True)
+        lay.addWidget(self.tabelle, 1)
+        knoepfe = QtWidgets.QDialogButtonBox(QtWidgets.QDialogButtonBox.StandardButton.Ok |
+                                             QtWidgets.QDialogButtonBox.StandardButton.Cancel)
+        knoepfe.accepted.connect(self.accept)
+        knoepfe.rejected.connect(self.reject)
+        lay.addWidget(knoepfe)
+
+    def gewaehlte(self) -> list:
+        """Uebernommene PMI mit den eingetragenen Werten."""
+        out = []
+        for z, v in enumerate(self.vorschlaege):
+            if self.tabelle.item(z, 0).checkState() != QtCore.Qt.CheckState.Checked:
+                continue
+            p = v.pmi
+            text = (self.tabelle.item(z, 3).text() or "").replace(",", ".").strip()
+            try:
+                wert = float(text) if text else None
+            except ValueError:
+                wert = None
+            if p.art == MASS:
+                p.passung = (self.tabelle.item(z, 4).text() or "").strip()
+                if p.passung:
+                    p.oben = p.unten = None
+                elif wert is not None:
+                    p.oben, p.unten = abs(wert), -abs(wert)
+            elif wert is not None:
+                p.wert = wert
+            out.append(p)
+        return out

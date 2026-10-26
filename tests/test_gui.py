@@ -557,3 +557,20 @@ def test_toleranzkette_fenster(fenster_ctc01, tmp_path):
     k._drehen()
     assert k.glieder[0].richtung == -1
     assert k.speichere(str(tmp_path / "kette.csv"))
+
+
+def test_pmi_anlegen_berater_projekt(fenster_ctc01, tmp_path):
+    f = fenster_ctc01
+    n0 = len(f.erg.pmi)
+    loch = next(p for p in f.erg.pmi if p.typ == "Size_Diameter" and p.flaechen)
+    f.ansicht.setze_auswahl([f.erg.modell.flaechen[i] for i in sorted(loch.flaechen)])
+    neue = f.pmi_anlegen(uebernehmen=["Size_Diameter", "Position"])
+    assert [p.typ for p in neue] == ["Size_Diameter", "Position"] and len(f.erg.pmi) == n0 + 2
+    d = neue[0]
+    assert d.passung in ("H7", "h7") and d.grenzen()[0] is not None and d.quelle == "eigen"
+    assert neue[1].material == "M" and neue[1].bezuege
+    assert any(g.erzeugt and d.step_id in g.pmi_ids for g in f.erg.grafik.values())
+    projekt = f.speichere_projekt(str(tmp_path / "p.3dgmax"))
+    f.oeffne_projekt(projekt, warten=True)
+    eigene = [p for p in f.erg.pmi if p.quelle == "eigen"]
+    assert [p.typ for p in eigene] == ["Size_Diameter", "Position"]

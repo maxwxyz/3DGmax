@@ -346,3 +346,20 @@ def test_toleranzkette():
     assert e.mc_min > e.wc_min and e.mc_max < e.wc_max and abs(e.mc_mittel - e.mitte) < 1e-3
     assert tk.glied_von_pmi(Pmi("toleranz", "Flatness", wert=0.1)) is None
     assert "Worst Case max" in tk.als_csv([a, b, c], e)
+
+
+def test_tolerierungsberater_regeln(ctc01):
+    from programm.kern import pmi_vorschlag as pv
+    from programm.kern.messen import art_von
+    from programm.kern.pmi_lesen import lies_pmi
+    pmi = lies_pmi(ctc01)
+    loch = next(p for p in pmi if p.typ == "Size_Diameter" and p.flaechen)
+    v = pv.vorschlaege(sorted(loch.flaechen), ctc01, pmi)
+    assert [x.pmi.typ for x in v] == ["Size_Diameter", "Position"]
+    assert abs(v[0].pmi.nennwert - loch.nennwert) < 1e-6 and v[1].pmi.bezug_text() == "A|B|C"
+    eben = [i for i, f in enumerate(ctc01.flaechen) if art_von(f) == "Ebene"]
+    assert pv.vorschlaege(eben[:1], ctc01, pmi)[0].pmi.typ == "Flatness"
+    zwei = pv.vorschlaege(eben[:2], ctc01, pmi)
+    assert zwei and zwei[0].pmi.typ in ("Perpendicularity", "Parallelism", "Location_LinearDistance",
+                                       "Size_Thickness", "Location_Angular")
+    assert all(g in pv.GRUENDE for x in v + zwei for g in [x.grund])

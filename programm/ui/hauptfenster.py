@@ -325,6 +325,8 @@ class Hauptfenster(QtWidgets.QMainWindow):
           tipp=tr("Alle Kommentare mit Art, Status, Autor, Datum und Bezug"))
         A("pdf_kommentare", tr("Kommentare (PDF) …"), lambda: self.exportiere_pdf("kommentare"),
           tipp=tr("Bild mit den Kommentar-Markierungen und Liste der Kommentare"))
+        A("pmi_anlegen", tr("PMI anlegen …"), lambda: self.pmi_anlegen(),
+          tipp=tr("Tolerierungsberater: passende Maße und Toleranzen für die gewählten Flächen vorschlagen und anlegen"))
         A("toleranzkette", tr("Toleranzkette …"), lambda: self.zeige_toleranzkette(),
           tipp=tr("Maßkette aus gewählten Maßen: Worst Case, statistisch (RSS) und Monte Carlo"))
         A("analyse", tr("Analyse …"), self.zeige_analyse_leiste,
@@ -509,6 +511,7 @@ class Hauptfenster(QtWidgets.QMainWindow):
         m.addAction(a["explosion"])
         m.addAction(a["analyse"])
         m.addAction(a["toleranzkette"])
+        m.addAction(a["pmi_anlegen"])
         m.addAction(a["kommentar"])
         mn = m.addMenu(tr("Norm"))
         for n in ("norm_auto", "norm_iso", "norm_asme"):
@@ -1148,7 +1151,8 @@ class Hauptfenster(QtWidgets.QMainWindow):
         if not pfad:
             return None
         ziel = projekt.speichere(pfad, self.erg.pfad, self.vergleich, self.messen.messungen, VERSION,
-                                 self.erg.ansichten, self.kommentare.kommentare)
+                                 self.erg.ansichten, self.kommentare.kommentare,
+                                 [p for p in self.erg.pmi if p.quelle == "eigen"])
         self.statusBar().showMessage(tr("Projekt gespeichert: {}").format(ziel), 6000)
         return ziel
 
@@ -1173,6 +1177,8 @@ class Hauptfenster(QtWidgets.QMainWindow):
             self.messen.messungen = list(d["messungen"])
             self.messen._fuelle()
             self.dock_messen.show()
+        if d and d.get("eigene_pmi") and self.erg is not None:
+            self.fuege_pmi_hinzu(d["eigene_pmi"])
         if d and d.get("kommentare"):
             self.kommentare.setze(d["kommentare"])
             self.dock_kommentare.show()
@@ -1460,6 +1466,9 @@ class Hauptfenster(QtWidgets.QMainWindow):
         for n in ("schnitt_auswahl", "schnitt_blick", "schnittbox", "schnitt_aus"):
             m.addAction(a[n])
         m.addSeparator()
+        for n in ("pmi_anlegen", "kommentar"):
+            m.addAction(a[n])
+        m.addSeparator()
         for n in ("teil_ausblenden", "teil_isolieren", "alle_zeigen"):
             m.addAction(a[n])
         m.addSeparator()
@@ -1674,6 +1683,54 @@ class Hauptfenster(QtWidgets.QMainWindow):
 
     def analyse_aus(self):
         self.ansicht.zeige_analyse(None)
+
+    def pmi_anlegen(self, uebernehmen: list | None = None):
+        """Vorschlaege fuer die gewaehlten Flaechen; uebernehmen=None fragt per Dialog (sonst Liste der Vorschlaege)."""
+        from ..kern import pmi_erzeugen, pmi_vorschlag
+        from .pmi_anlegen_ui import PmiAnlegenDialog
+        if self.erg is None:
+            return []
+        flaechen = sorted({i for f in self.ansicht.auswahl3d for i in [self.erg.modell.flaechen_index(f)]
+                           if i is not None})
+        if not flaechen:
+            self.statusBar().showMessage(tr("Erst Flächen im Modell wählen"), 5000)
+            return []
+        vorschlaege = pmi_vorschlag.vorschlaege(flaechen, self.erg.modell, self.erg.pmi)
+        if not vorschlaege:
+            self.statusBar().showMessage(tr("Für diese Auswahl gibt es keinen Vorschlag"), 5000)
+            return []
+        if uebernehmen is None:
+            d = PmiAnlegenDialog(vorschlaege, self)
+            if d.exec() != QtWidgets.QDialog.DialogCode.Accepted:
+                return []
+            neue = d.gewaehlte()
+        else:
+            neue = [v.pmi for v in vorschlaege if v.pmi.typ in uebernehmen]
+        return self.fuege_pmi_hinzu(neue)
+
+    def fuege_pmi_hinzu(self, neue: list) -> list:
+        """Eigene PMI ins Modell: Nummer, Kennung, Norm, erzeugte Darstellung, Liste aktualisieren."""
+        from ..kern import pmi_erzeugen
+        if not neue:
+            return []
+        start = max((p.nummer for p in self.erg.pmi), default=0)
+        kleinste = min([p.step_id for p in self.erg.pmi if p.step_id < 0] + [-1000])
+        norm = self.erg.pmi[0].norm if self.erg.pmi else "iso"
+        for i, p in enumerate(neue, 1):
+            p.nummer, p.step_id, p.quelle, p.norm = start + i, kleinste - i, "eigen", norm
+            p.semantisch, p.grafisch = True, False
+            if not p.name:
+                p.name = f"{tr(p.merkmal())}.{p.nummer}" if p.art != "bezug" else p.name
+        self.erg.pmi.extend(neue)
+        grafik = pmi_erzeugen.ergaenze(neue, self.erg.grafik, self.erg.modell)
+        frei = min(list(self.erg.grafik) + [0]) - 1
+        grafik = {frei - i: g for i, g in enumerate(grafik.values())}
+        self.erg.grafik.update(grafik)
+        self.ansicht.ergaenze_grafik(grafik, neue)
+        self.pmi.zeige(self.erg.pmi, self.erg.ansichten)
+        self.pmi.waehle(lambda p: p in neue)
+        self.statusBar().showMessage(tr("{} PMI angelegt (eigene, werden im Projekt gespeichert)").format(len(neue)), 6000)
+        return neue
 
     def zeige_toleranzkette(self, nur_anlegen: bool = False):
         """Fenster Toleranzkette; die Knoepfe uebernehmen die in der PMI-Liste gewaehlten Masse."""

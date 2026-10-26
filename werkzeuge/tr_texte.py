@@ -59,6 +59,10 @@ def tr_texte() -> set[str]:
     out |= {"Hüllbedingung gilt (ASME Rule #1)", "Hüllbedingung Ⓔ", "Unabhängigkeitsprinzip (ISO 8015) – Form nicht begrenzt"}
     from programm.kern import merkmale as km
     out |= set(km.SPALTEN)
+    from programm.kern import pmi_vorschlag as kv2
+    out |= set(kv2.GRUENDE)
+    from programm.ui import pmi_anlegen_ui
+    out |= set(pmi_anlegen_ui.PmiAnlegenDialog.SPALTEN)
     from programm.kern import toleranzkette as kt
     out |= set(kt.SPALTEN)
     from programm.kern import kommentare as kk

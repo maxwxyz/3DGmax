@@ -53,7 +53,8 @@
 | Tolerance stack-up 3D (geometric tolerances, chain from the model, sensitivity) | 💡 |
 | Bill of characteristics with balloon numbers (table column, 3D balloons, CSV, PDF) | ✅ |
 | Datum reference frame display for a selected tolerance | ✅ |
-| Create and edit PMI, tolerancing advisor with contextual suggestions | 💡 |
+| Create PMI with tolerancing advisor (stage 1: rules per selection, own PMI in project) | ✅ |
+| Edit existing PMI, write PMI back to STEP AP242, advisor stage 2 (DRF consistency, fits from mating parts) | ⬜ |
 
 ## Measuring
 | Feature | Status |

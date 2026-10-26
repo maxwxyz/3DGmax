@@ -170,7 +170,7 @@ Throughout: tests (core, offscreen UI, stress test, on-screen test), `--selbstte
 - **JT with PMI: no freely available files found** (NIST publishes STEP and native CAD only; JT2Go samples are under
   the Siemens license). Option: export JT of the NIST models from a CAD system.
 
-### 8.10 Create and edit PMI (future)
+### 8.10 Create and edit PMI (stage 1 done: advisor suggestions, own PMI in project; open: edit, STEP write-back)
 - Edit existing PMI and create new PMI on existing models (semantic, linked to faces), write back to STEP AP242.
 - **Tolerancing advisor:** contextual suggestions based on the selection (e.g. hole pattern → position with ⌀ zone and
   Ⓜ, planar datum face → flatness, mating cylinder → fit), checking consistency with the datum reference frame and
