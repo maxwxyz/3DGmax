@@ -89,3 +89,34 @@ def test_pruefprotokoll(alt, tmp_path):
     assert "Prüfsumme" in open(t, encoding="utf-8").read()
     d["ergebnis"] = "freigegeben"
     assert not pruefung.ist_unveraendert(d)
+
+
+def test_vergleich_in_oberflaeche(fenster, tmp_path):
+    f = fenster
+    f.starte_vergleich({"alt": pfad("nist_ctc_01_asme1_ap242-e1.stp"), "neu": pfad("varianten/ctc01_geo_pmi.stp"),
+                        "toleranz": 0.01, "suchweite": 2.0}, warten=True)
+    assert f.vergleich is not None and f.dock_aenderungen.isVisibleTo(f)
+    assert f.aenderungen.tabelle.rowCount() == 3
+    assert f.ansicht.vergleich_status is not None
+    assert "→" in f.windowTitle()
+    # Pruefrundgang: starten, Status setzen springt zur naechsten offenen Aenderung
+    f.aenderungen.pruefen_starten()
+    erste = f.aenderungen.gewaehlte()
+    assert erste.nummer == 1 and f.ansicht.letzter_zoom is not None
+    f.aenderungen.kommentar.setText("passt")
+    f.aenderungen.setze_status("geprueft")
+    assert erste.pruefstatus == "geprueft" and erste.kommentar == "passt"
+    assert f.aenderungen.gewaehlte().nummer == 2
+    f.aenderungen.setze_status("abgelehnt")
+    j, t = f.schliesse_pruefung_ab(str(tmp_path / "p.json"),
+                                   {"pruefer": "Test", "ergebnis": "mit Auflagen", "bemerkung": ""})
+    import json
+    from programm.kern import pruefung
+    daten = json.load(open(j, encoding="utf-8"))
+    assert pruefung.ist_unveraendert(daten) and daten["aenderungen"][0]["kommentar"] == "passt"
+    # Auf Auswahl zoomen mit gewaehlter PMI
+    f.dock_aenderungen.hide()
+    f.pmi.waehle(lambda p: p.nummer == 1)
+    f._zoome_auswahl()
+    f.beende_vergleich()
+    assert f.vergleich is None and f.ansicht.vergleich_status is None

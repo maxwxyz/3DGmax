@@ -69,6 +69,10 @@ class AnsichtBasis(QtWidgets.QWidget):
         self.messmodus = False
         self.messungen: list = []
         self.pmi_kontrast = True  # PMI-Farbe ans Farbschema anpassen (sonst Farbe aus der Datei)
+        self.vergleich_status: dict | None = None
+        self.vergleich_entfernt: list = []
+        self.vergleich_trsf = None
+        self.letzter_zoom = None
 
     # --- Schnittstelle (Unterklassen ergaenzen die Darstellung) ---
 
@@ -144,6 +148,17 @@ class AnsichtBasis(QtWidgets.QWidget):
     def fang_toleranz(self) -> float:
         """Fangweite in mm (etwa 12 Pixel)."""
         return 1.0
+
+    def zeige_vergleich(self, status: dict | None, entfernt_formen: list | None = None, trsf=None):
+        """Vergleichsmodus: Flaechen des neuen Stands nach Status einfaerben, entfernte Flaechen (alt) zeigen.
+        status None beendet den Vergleichsmodus."""
+        self.vergleich_status = None if status is None else dict(status)
+        self.vergleich_entfernt = list(entfernt_formen or [])
+        self.vergleich_trsf = trsf
+
+    def zoome_auf(self, flaechen: set[int], formen: list | None = None):
+        """Ausschnitt auf Flaechen (Index im angezeigten Modell) und weitere Formen setzen."""
+        self.letzter_zoom = (set(flaechen), len(formen or []))
 
     def bild(self, pfad: str) -> bool:
         return False
@@ -317,10 +332,13 @@ class OcctAnsicht(AnsichtBasis):
                 idx = sz.modell.flaechen_index(f)
                 if idx is not None:
                     self._flaechen_ais.setdefault(idx, []).append((ais, f))
-                    if idx in sz.farben:
-                        ais.SetCustomColor(f, _farbe(_abgetoent(sz.farben[idx], grundfarbe)))
+                    farbe = self._grundfarbe(idx)
+                    if farbe is not None:
+                        ais.SetCustomColor(f, _farbe(farbe))
                 ex.Next()
             self._teile[k.nummer] = ais
+            if self.vergleich_trsf is not None:
+                ais.SetLocalTransformation(self.vergleich_trsf)
             ctx.Display(ais, 1, -1, False)
             ctx.Deactivate(ais)
             ctx.Activate(ais, 4, False)  # 4 = Flaechen waehlbar
@@ -328,13 +346,69 @@ class OcctAnsicht(AnsichtBasis):
             kanten = AIS_Shape(_kanten_von(k.form))
             kanten.SetColor(_farbe(t.get("kante", (0.15, 0.17, 0.2))))
             kanten.SetWidth(1.0)
+            if self.vergleich_trsf is not None:
+                kanten.SetLocalTransformation(self.vergleich_trsf)
             self._kanten[k.nummer] = kanten
         self._mess_ais = []
+        self._baue_entfernt()
         self._baue_grafik()
         self._wende_darstellung_an()
         self._wende_sichtbarkeit_an()
         self.standard(self.letzte_ansicht if self.letzte_ansicht in STANDARDANSICHTEN else "iso")
         self._drehpunkt = None
+
+    def _baue_entfernt(self):
+        """Im alten Stand vorhandene, im neuen entfernte Flaechen: rot, durchscheinend, nicht waehlbar."""
+        from OCC.Core.AIS import AIS_Shape
+        from OCC.Core.BRep import BRep_Builder
+        from OCC.Core.TopoDS import TopoDS_Compound
+        self._entfernt_ais = None
+        if not self.vergleich_entfernt:
+            return
+        bb = BRep_Builder()
+        comp = TopoDS_Compound()
+        bb.MakeCompound(comp)
+        for f in self.vergleich_entfernt:
+            bb.Add(comp, f)
+        ais = AIS_Shape(comp)
+        ais.SetColor(_farbe(_status_farbe(self.thema or {}, "entfernt") or (0.9, 0.15, 0.15)))
+        self.d.Context.Display(ais, 1, -1, False)
+        self.d.Context.SetTransparency(ais, 0.55, False)
+        self.d.Context.Deactivate(ais)
+        self._entfernt_ais = ais
+
+    def zeige_vergleich(self, status, entfernt_formen=None, trsf=None):
+        super().zeige_vergleich(status, entfernt_formen, trsf)
+        if self._bereit and self.szene is not None:
+            self._baue_szene()
+
+    def zoome_auf(self, flaechen, formen=None):
+        super().zoome_auf(flaechen, formen)
+        if not self._bereit:
+            return
+        from OCC.Core.Bnd import Bnd_Box
+        from OCC.Core.BRepBndLib import brepbndlib
+        from OCC.Core.TopLoc import TopLoc_Location
+        box = Bnd_Box()
+        lage = TopLoc_Location(self.vergleich_trsf) if self.vergleich_trsf is not None else None
+        for idx in flaechen:
+            for _ais, f in self._flaechen_ais.get(idx, []):
+                brepbndlib.Add(f.Moved(lage) if lage is not None else f, box)
+        for f in formen or []:
+            brepbndlib.Add(f, box)
+        if box.IsVoid():
+            return
+        x0, y0, z0, x1, y1, z1 = box.Get()
+        # Umgebung zeigen: mindestens 15 % der Modellgroesse, damit man sich orientieren kann
+        gesamt = self._sichtbare_box()
+        g = 0.0
+        if not gesamt.IsVoid():
+            gx0, gy0, gz0, gx1, gy1, gz1 = gesamt.Get()
+            g = max(gx1 - gx0, gy1 - gy0, gz1 - gz0)
+        box.Enlarge(max(max(x1 - x0, y1 - y0, z1 - z0) * 0.6, 0.15 * g, 1.0))
+        self.d.View.FitAll(box, 0.05, False)
+        self.d.View.ZFitAll()
+        self._neu_zeichnen()
 
     def _baue_grafik(self):
         from OCC.Core.AIS import AIS_Shape, AIS_TextLabel
@@ -412,6 +486,17 @@ class OcctAnsicht(AnsichtBasis):
                     ctx.Erase(ais, False)
         self._neu_zeichnen()
 
+    def _grundfarbe(self, idx):
+        """Farbe einer Flaeche ohne Hervorhebung: Vergleichsstatus, sonst Dateifarbe, sonst None (Grundfarbe)."""
+        t = self.thema or {}
+        grund = t.get("modell", (0.78, 0.8, 0.84))
+        if self.vergleich_status is not None:
+            st = _status_farbe(t, self.vergleich_status.get(idx, "gleich"))
+            return st if st is not None else grund
+        if idx in self.szene.farben:
+            return _abgetoent(self.szene.farben[idx], grund)
+        return None
+
     def hebe_flaechen(self, flaechen):
         alt = self.hervor
         super().hebe_flaechen(flaechen)
@@ -425,7 +510,7 @@ class OcctAnsicht(AnsichtBasis):
                 if idx in self.hervor:
                     ais.SetCustomColor(f, _farbe(t.get("hervor", (1, 0.45, 0))))
                 else:
-                    ais.SetCustomColor(f, _farbe(_abgetoent(self.szene.farben.get(idx, grund), grund)))
+                    ais.SetCustomColor(f, _farbe(self._grundfarbe(idx) or grund))
                 geaendert.add(ais)
         for ais in geaendert:
             self.d.Context.Redisplay(ais, False)
@@ -490,10 +575,12 @@ class OcctAnsicht(AnsichtBasis):
     def _sichtbare_box(self):
         from OCC.Core.Bnd import Bnd_Box
         from OCC.Core.BRepBndLib import brepbndlib
+        from OCC.Core.TopLoc import TopLoc_Location
         box = Bnd_Box()
+        lage = TopLoc_Location(self.vergleich_trsf) if self.vergleich_trsf is not None else None
         for nr, ais in self._teile.items():
             if nr not in self.versteckt:
-                brepbndlib.Add(ais.Shape(), box)
+                brepbndlib.Add(ais.Shape().Moved(lage) if lage is not None else ais.Shape(), box)
         return box
 
     def alles_zeigen(self):
@@ -865,6 +952,10 @@ def _kanten_von(form):
         bb.Add(comp, ex.Current())
         ex.Next()
     return comp
+
+
+def _status_farbe(thema: dict, status: str):
+    return thema.get({"geaendert": "v_geaendert", "neu": "v_neu", "entfernt": "v_entfernt"}.get(status, ""))
 
 
 def _abgetoent(rgb, grund):

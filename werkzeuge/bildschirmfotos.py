@@ -77,11 +77,23 @@ def main(argv):
         f.messen.element(fl[0], (a.X(), a.Y(), a.Z()))
         f.messen.element(fl[40], (b.X(), b.Y(), b.Z()))
 
+    def vergleich():
+        f.messen.loesche_alle()
+        f.aktionen["messen_ende"].trigger()
+        d = os.path.join(WURZEL, "tests", "daten")
+        f.starte_vergleich({"alt": os.path.join(d, "nist_ctc_01_asme1_ap242-e1.stp"),
+                            "neu": os.path.join(d, "varianten", "ctc01_geo_pmi.stp"),
+                            "toleranz": 0.01, "suchweite": 2.0}, warten=True)
+        f.aenderungen.pruefen_starten()
+        f.aenderungen.gehe(+1)
+        f.aenderungen.gehe(+1)
+
     schritte += [start, lambda: foto(f, os.path.join(ziel, f"geladen_{thema}.png")), pmi_waehlen,
                  lambda: foto(f, os.path.join(ziel, f"pmi_{thema}.png")), ansicht,
                  lambda: foto(f, os.path.join(ziel, f"ansicht_{thema}.png")),
                  lambda: f._schnitt("x"), lambda: foto(f, os.path.join(ziel, f"schnitt_{thema}.png")),
-                 messen, lambda: foto(f, os.path.join(ziel, f"messen_{thema}.png"))]
+                 messen, lambda: foto(f, os.path.join(ziel, f"messen_{thema}.png")),
+                 vergleich, lambda: foto(f, os.path.join(ziel, f"vergleich_{thema}.png"))]
     QtCore.QTimer.singleShot(800, weiter)
     return app.exec()
 

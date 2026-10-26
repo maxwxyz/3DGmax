@@ -12,6 +12,7 @@ from ..version import VERSION
 from . import ansicht3d, thema
 from .lader import Lader
 from .messwerkzeug import MessPanel
+from .vergleich_ui import AbschlussDialog, AenderungenPanel, VergleichDialog, VergleichsLader
 from .panels import AnsichtenPanel, BaumPanel, PmiPanel
 
 DATEIFILTER = "STEP (*.stp *.step *.STP *.STEP)"
@@ -115,6 +116,13 @@ class Hauptfenster(QtWidgets.QMainWindow):
         self.messen = MessPanel()
         self.dock_messen = self._dock(tr("Messen"), self.messen, QtCore.Qt.DockWidgetArea.RightDockWidgetArea)
         self.tabifyDockWidget(self.dock_pmi, self.dock_messen)
+        self.aenderungen = AenderungenPanel()
+        self.dock_aenderungen = self._dock(tr("Änderungen"), self.aenderungen,
+                                           QtCore.Qt.DockWidgetArea.RightDockWidgetArea)
+        self.tabifyDockWidget(self.dock_pmi, self.dock_aenderungen)
+        self.dock_aenderungen.hide()
+        self.vergleich = None
+        self._vlader = None
         self.dock_pmi.raise_()
         self.resizeDocks([self.dock_pmi], [430], QtCore.Qt.Orientation.Horizontal)
 
@@ -168,6 +176,11 @@ class Hauptfenster(QtWidgets.QMainWindow):
         A = self._aktion
         A("oeffnen", tr("Öffnen …"), lambda: self.oeffnen(""), QtGui.QKeySequence.StandardKey.Open,
           tipp=tr("STEP-Datei öffnen"), modell=False)
+        A("vergleichen", tr("Vergleichen …"), lambda: self.starte_vergleich(), "Ctrl+Shift+V",
+          tipp=tr("Zwei Stände eines Modells vergleichen (Geometrie und PMI)"), modell=False)
+        A("vergleich_beenden", tr("Vergleich beenden"), self.beende_vergleich, tipp=tr("Zurück zur normalen Ansicht"))
+        A("zoom_auswahl", tr("Auf Auswahl zoomen"), self._zoome_auswahl, "Z",
+          tipp=tr("Gewählte PMI, Messung oder Änderung bildfüllend zeigen"))
         A("bild_speichern", tr("Bild speichern …"), self.bild_speichern, tipp=tr("Aktuelle Ansicht als PNG"))
         A("bild_kopieren", tr("Bild in Zwischenablage"), self.bild_kopieren, "Ctrl+Shift+C",
           tipp=tr("Aktuelle Ansicht in die Zwischenablage"))
@@ -233,6 +246,9 @@ class Hauptfenster(QtWidgets.QMainWindow):
         m.addAction(a["oeffnen"])
         self.menue_zuletzt = m.addMenu(tr("Zuletzt verwendet"))
         m.addSeparator()
+        m.addAction(a["vergleichen"])
+        m.addAction(a["vergleich_beenden"])
+        m.addSeparator()
         for n in ("bild_speichern", "bild_kopieren"):
             m.addAction(a[n])
         m.addSeparator()
@@ -244,6 +260,7 @@ class Hauptfenster(QtWidgets.QMainWindow):
         for n in ansicht3d.STANDARDANSICHTEN:
             m.addAction(a["ansicht_" + n])
         m.addAction(a["alles"])
+        m.addAction(a["zoom_auswahl"])
         m.addAction(a["drehpunkt"])
         m.addSeparator()
         for n in ansicht3d.DARSTELLUNGEN:
@@ -273,7 +290,7 @@ class Hauptfenster(QtWidgets.QMainWindow):
         m.addAction(a["messen"])
         m.addAction(a["messen_ende"])
         self.menue_fenster = mb.addMenu(tr("&Fenster"))
-        for d in (self.dock_baum, self.dock_ansichten, self.dock_pmi, self.dock_messen):
+        for d in (self.dock_baum, self.dock_ansichten, self.dock_pmi, self.dock_messen, self.dock_aenderungen):
             self.menue_fenster.addAction(d.toggleViewAction())
         m = mb.addMenu(tr("&Hilfe"))
         for n in ("anleitung", "einfuehrung", "neu", "ueber"):
@@ -287,6 +304,7 @@ class Hauptfenster(QtWidgets.QMainWindow):
         tb.setToolButtonStyle(QtCore.Qt.ToolButtonStyle.ToolButtonTextOnly)
         a = self.aktionen
         tb.addAction(a["oeffnen"])
+        tb.addAction(a["vergleichen"])
         tb.addSeparator()
         for n in ("vorne", "oben", "rechts", "iso"):
             tb.addAction(a["ansicht_" + n])
@@ -332,6 +350,9 @@ class Hauptfenster(QtWidgets.QMainWindow):
         self.messen.modus_geaendert.connect(self._messmodus)
         self.messen.koerper_von = self._koerper_von
         self.messen.toleranz = self.ansicht.fang_toleranz
+        self.aenderungen.gewaehlt.connect(self._aenderung_gewaehlt)
+        self.aenderungen.abschliessen.connect(self.schliesse_pruefung_ab)
+        self.aenderungen.beenden.connect(self.beende_vergleich)
 
     def _modell_da(self, da: bool):
         for a in self.aktionen.values():
@@ -346,6 +367,7 @@ class Hauptfenster(QtWidgets.QMainWindow):
         if not da:
             self.dock_messen.hide()
             self.messen.setze_modus(None)
+        self.aktionen["vergleich_beenden"].setEnabled(da and self.vergleich is not None)
 
     # --- Laden ---
 
@@ -395,6 +417,9 @@ class Hauptfenster(QtWidgets.QMainWindow):
             QtWidgets.QApplication.processEvents()
 
     def lade_abbrechen(self):
+        if getattr(self, "_vlader", None) is not None and self._vlader.isRunning():
+            self._vlader.abgebrochen = True
+            self._vlader = None
         if self._lader is not None and self._lader.isRunning():
             self._lader.abgebrochen = True
             self.statusBar().showMessage(tr("Laden abgebrochen"), 4000)
@@ -410,7 +435,9 @@ class Hauptfenster(QtWidgets.QMainWindow):
         self.abbrechen.hide()
         self.zeige_ergebnis(erg)
 
-    def zeige_ergebnis(self, erg):
+    def zeige_ergebnis(self, erg, vergleich=None):
+        if vergleich is None and self.vergleich is not None:
+            self.beende_vergleich(neu_zeigen=False)
         self.erg = erg
         self.setWindowTitle(self._titel(os.path.basename(erg.pfad)))
         szene = ansicht3d.Szene(erg.modell, erg.baum, erg.farben, erg.grafik, erg.pmi)
@@ -426,12 +453,14 @@ class Hauptfenster(QtWidgets.QMainWindow):
 
     def _ladefehler(self, text):
         self._lader = None
+        self._vlader = None
         self.fortschritt.hide()
         self.abbrechen.hide()
         self.statusBar().clearMessage()
         QtWidgets.QMessageBox.warning(self, tr("Laden fehlgeschlagen"), text)
 
     def schliesse_modell(self):
+        self.beende_vergleich(neu_zeigen=False)
         self.messen.loesche_alle()
         self.erg = None
         self.ansicht.zeige(None)
@@ -524,6 +553,111 @@ class Hauptfenster(QtWidgets.QMainWindow):
                     return k.form
                 ex.Next()
         return None
+
+    # --- Vergleich ---
+
+    def starte_vergleich(self, werte: dict | None = None, warten: bool = False):
+        if werte is None:
+            d = VergleichDialog(self.erg.pfad if self.erg else (self.zuletzt()[0] if self.zuletzt() else ""), self)
+            if d.exec() != QtWidgets.QDialog.DialogCode.Accepted:
+                return
+            werte = d.werte()
+        self.lade_abbrechen()
+        self.statusBar().showMessage(tr("Vergleiche …"))
+        self.fortschritt.show()
+        self.abbrechen.show()
+        self._vlader = VergleichsLader(werte, self.erg, self)
+        self._vlader.stand.connect(lambda t: self.statusBar().showMessage(t))
+        self._vlader.fertig.connect(self._vergleich_fertig)
+        self._vlader.fehler.connect(self._ladefehler)
+        self._vlader.start()
+        if warten:
+            self._vlader.wait()
+            QtWidgets.QApplication.processEvents()
+            QtWidgets.QApplication.processEvents()
+
+    def _vergleich_fertig(self, v):
+        self._vlader = None
+        self.fortschritt.hide()
+        self.abbrechen.hide()
+        self.zeige_vergleich(v)
+
+    def zeige_vergleich(self, v):
+        self.vergleich = v
+        self.zeige_ergebnis(v.neu, vergleich=v)
+        entfernt = [v.alt.modell.flaechen[i] for i, st in v.geo.status_a.items() if st == "entfernt"]
+        self.ansicht.zeige_vergleich(v.geo.status_b, entfernt, v.ausrichtung.gp_trsf())
+        self.aenderungen.zeige(v, self.thema)
+        self.dock_aenderungen.show()
+        self.dock_aenderungen.raise_()
+        self.aktionen["vergleich_beenden"].setEnabled(True)
+        self.setWindowTitle(self._titel(f"{os.path.basename(v.alt.pfad)} → {os.path.basename(v.neu.pfad)}"))
+        self.statusBar().showMessage(tr("Vergleich fertig: {} Änderungen").format(len(v.aenderungen)), 8000)
+
+    def beende_vergleich(self, neu_zeigen: bool = True):
+        if self.vergleich is None:
+            return
+        self.vergleich = None
+        self.ansicht.zeige_vergleich(None)
+        self.aenderungen.zeige(None)
+        self.dock_aenderungen.hide()
+        self.aktionen["vergleich_beenden"].setEnabled(False)
+        if neu_zeigen and self.erg is not None:
+            self.setWindowTitle(self._titel(os.path.basename(self.erg.pfad)))
+
+    def _aenderung_gewaehlt(self, a):
+        if a is None or self.vergleich is None:
+            self.ansicht.hebe_flaechen(set())
+            return
+        self.ansicht.hebe_flaechen(a.flaechen_neu)
+        alt_formen = [] if a.flaechen_neu else [self.vergleich.alt.modell.flaechen[i] for i in a.flaechen_alt]
+        self.ansicht.zoome_auf(a.flaechen_neu, alt_formen)
+        if a.pmi_neu is not None:
+            self.pmi.waehle(lambda p: p is a.pmi_neu)
+            self.ansicht.hebe_flaechen(a.flaechen_neu)
+        self.statusBar().showMessage(f"{a.nummer}: {a.titel} – {a.beschreibung}", 8000)
+
+    def schliesse_pruefung_ab(self, pfad: str = "", werte: dict | None = None):
+        from ..kern import pruefung
+        if self.vergleich is None:
+            return None
+        if werte is None:
+            d = AbschlussDialog(self.vergleich, self.ein.value("pruefer", ""), self)
+            if d.exec() != QtWidgets.QDialog.DialogCode.Accepted:
+                return None
+            werte = d.werte()
+        self.ein.setValue("pruefer", werte["pruefer"])
+        if not pfad:
+            vorschlag = os.path.splitext(self.vergleich.neu.pfad)[0] + "_pruefprotokoll"
+            pfad, _ = QtWidgets.QFileDialog.getSaveFileName(self, tr("Prüfprotokoll speichern"), vorschlag + ".json",
+                                                            "JSON (*.json)")
+            if not pfad:
+                return None
+        daten = pruefung.protokoll(self.vergleich, werte["pruefer"], werte["ergebnis"], werte["bemerkung"], VERSION)
+        dateien = pruefung.speichere(daten, os.path.splitext(pfad)[0])
+        self.statusBar().showMessage(tr("Prüfprotokoll gespeichert: {}").format(dateien[1]), 8000)
+        return dateien
+
+    def _zoome_auswahl(self):
+        """Gewaehlte Aenderung, PMI (auch mehrere) oder Messung bildfuellend zeigen."""
+        if self.vergleich is not None and self.dock_aenderungen.isVisible() and self.aenderungen.gewaehlte():
+            self._aenderung_gewaehlt(self.aenderungen.gewaehlte())
+            return
+        zeilen = {i.row() for i in self.messen.tabelle.selectedIndexes()}
+        if self.dock_messen.isVisible() and zeilen:
+            from OCC.Core.BRepBuilderAPI import BRepBuilderAPI_MakeVertex
+            from OCC.Core.gp import gp_Pnt
+            formen = [BRepBuilderAPI_MakeVertex(gp_Pnt(*p)).Vertex()
+                      for z in zeilen for p in self.messen.messungen[z].punkte]
+            self.ansicht.zoome_auf(set(), formen)
+            return
+        flaechen = set()
+        for z in {i.row() for i in self.pmi.tabelle.selectedIndexes()}:
+            flaechen |= self.pmi.pmi[z].flaechen
+        if flaechen:
+            self.ansicht.zoome_auf(flaechen)
+        else:
+            self.statusBar().showMessage(tr("Erst PMI, Messung oder Änderung wählen"), 4000)
 
     def _grafik_umschalten(self):
         self.ansicht.setze_grafik(self.aktionen["grafik"].isChecked())
@@ -642,4 +776,7 @@ class Hauptfenster(QtWidgets.QMainWindow):
 
     def closeEvent(self, ev):
         self.lade_abbrechen()
+        if self._vlader is not None and self._vlader.isRunning():
+            self._vlader.abgebrochen = True
+            self._vlader.wait(30000)
         super().closeEvent(ev)

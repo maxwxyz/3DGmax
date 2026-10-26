@@ -27,7 +27,7 @@ def test_laden_fuellt_alles(fenster_ctc01):
     assert f.ansichten.liste.count() == 2  # "keine Ansicht" + MBD_0
     assert f.baum.baum.topLevelItemCount() == 1
     # "Schnittseite umkehren" ist ohne aktiven Schnitt bewusst ausgegraut
-    assert all(a.isEnabled() for n, a in f.aktionen.items() if n != "schnitt_umkehren")
+    assert all(a.isEnabled() for n, a in f.aktionen.items() if n not in ("schnitt_umkehren", "vergleich_beenden"))
     assert not f.aktionen["schnitt_umkehren"].isEnabled()
     assert os.path.basename(f.zuletzt()[0]) == "nist_ctc_01_asme1_ap242-e1.stp"
 

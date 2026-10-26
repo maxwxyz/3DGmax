@@ -16,7 +16,10 @@
    "Hinweise (Notizen) und Bezugsstellen (z. B. A1) als eigene Einträge in der PMI-Liste.",
    "Drehpunkt setzen und Bildmitte (Mitteltaste) funktionieren zuverlässig.",
    "PMI-Beschriftungen standardmäßig in gut lesbarer Farbe für hell und dunkel; abschaltbar (dann Farbe aus der Datei).",
-   "Lizenz: GNU GPL v3 oder später (GPL-3.0-or-later), angezeigt im Fenster „Über 3DGmax“."
+   "Lizenz: GNU GPL v3 oder später (GPL-3.0-or-later), angezeigt im Fenster „Über 3DGmax“.",
+   "Vergleich zweier Stände: automatisches Ausrichten (Bestpassung), Geometrievergleich (gleich, geändert, neu, entfernt) und semantischer PMI-Vergleich mit Alt → Neu.",
+   "Änderungsliste mit Prüfrundgang (Prüfen starten, Geprüft/Abgelehnt, Kommentar) und Prüfprotokoll mit Prüfsumme.",
+   "Auf Auswahl zoomen (Z) für PMI, Messungen und Änderungen."
   ],
   "en": [
    "First viewer version: load STEP AP242, assembly tree, CAD-style navigation, standard views.",
@@ -34,7 +37,10 @@
    "Notes and datum targets (e.g. A1) as separate entries in the PMI list.",
    "Setting the pivot and the view centre (middle button) work reliably.",
    "PMI annotations by default in a well readable color for light and dark; can be switched off (then file color).",
-   "License: GNU GPL v3 or later (GPL-3.0-or-later), shown in the “About 3DGmax” window."
+   "License: GNU GPL v3 or later (GPL-3.0-or-later), shown in the “About 3DGmax” window.",
+   "Comparison of two revisions: automatic alignment (best fit), geometry comparison (equal, changed, new, removed) and semantic PMI comparison with old → new.",
+   "Change list with review walk-through (start review, checked/rejected, comment) and review report with checksum.",
+   "Zoom to selection (Z) for PMI, measurements and changes."
   ]
  },
  "releases": [

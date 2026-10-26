@@ -27,7 +27,13 @@ def tr_texte() -> set[str]:
                     out.add(k.args[0].value)
     # Texte, die ueber Tabellen laufen (tr(variable))
     from programm.kern.pmi import BEZUG, HINWEIS, MASS, TOLERANZ  # noqa: F401
-    from programm.ui import einstellungen, hilfe, messwerkzeug, panels
+    from programm.ui import einstellungen, hilfe, messwerkzeug, panels, vergleich_ui
+    from programm.kern import pruefung
+    for tabelle in (vergleich_ui.STATUS_TEXT, vergleich_ui.PRUEF_TEXT, vergleich_ui.KATEGORIE_TEXT):
+        out |= set(tabelle.values())
+    out |= set(pruefung.ERGEBNISSE) | {"Ausrichten …", "Geometrie vergleichen …", "PMI vergleichen …",
+                                       "gleiche Lage", "Bestpassung", "Punktpaare",
+                                       "Geometrie geändert", "Geometrie neu", "Geometrie entfernt"}
     out |= set(messwerkzeug.ART_TEXT.values())
     from programm.kern import messen
     out |= set(messen.WOERTER)

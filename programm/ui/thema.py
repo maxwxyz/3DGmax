@@ -18,7 +18,8 @@ THEMEN = {
         # 3D-Ansicht (RGB 0..1)
         hg_oben=(0.86, 0.89, 0.93), hg_unten=(0.70, 0.74, 0.80),
         modell=(0.78, 0.80, 0.84), kante=(0.15, 0.17, 0.20), pmi=(0.05, 0.20, 0.55),
-        hervor=(1.0, 0.45, 0.0), pmi_hervor=(0.85, 0.25, 0.0), schnitt=(1.0, 0.55, 0.1)),
+        hervor=(1.0, 0.45, 0.0), pmi_hervor=(0.85, 0.25, 0.0), schnitt=(1.0, 0.55, 0.1),
+        v_geaendert=(0.96, 0.72, 0.05), v_neu=(0.15, 0.70, 0.30), v_entfernt=(0.90, 0.15, 0.15)),
     "dunkel": dict(
         name="dunkel", fenster="#1c1f24", flaeche="#262a31", rand="#353b44", rand2="#4a515c",
         text="#e5e7eb", text2="#cbd0d8", leise="#9ca3af", aus="#6b7280", hover="#323842",
@@ -26,7 +27,8 @@ THEMEN = {
         eingabe="#15171b", eingabe_text="#f3f4f6",
         hg_oben=(0.20, 0.22, 0.26), hg_unten=(0.09, 0.10, 0.12),
         modell=(0.62, 0.65, 0.70), kante=(0.08, 0.09, 0.10), pmi=(0.55, 0.80, 1.0),
-        hervor=(1.0, 0.55, 0.1), pmi_hervor=(1.0, 0.65, 0.2), schnitt=(1.0, 0.6, 0.15)),
+        hervor=(1.0, 0.55, 0.1), pmi_hervor=(1.0, 0.65, 0.2), schnitt=(1.0, 0.6, 0.15),
+        v_geaendert=(1.0, 0.80, 0.15), v_neu=(0.30, 0.85, 0.40), v_entfernt=(1.0, 0.30, 0.30)),
 }
 AKTUELL = dict(THEMEN["hell"])
 
