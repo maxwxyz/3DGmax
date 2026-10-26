@@ -535,3 +535,13 @@ def test_kommentare_anlegen_projekt_export(fenster_ctc01, tmp_path):
     f.kommentare.setze([])
     f.oeffne_projekt(projekt, warten=True)
     assert [k.text for k in f.kommentare.kommentare] == ["Fase prüfen", "Toleranz zu eng?"]
+
+
+def test_toleranzzone_anzeigen(fenster_ctc01):
+    f = fenster_ctc01
+    f.aktionen["toleranzzone"].setChecked(True)
+    f.pmi.waehle(lambda p: p.typ == "Flatness")
+    assert f.ansicht.zone_formen
+    f.pmi.waehle(lambda p: False)
+    assert f.ansicht.zone_formen == []
+    f.aktionen["toleranzzone"].setChecked(False)

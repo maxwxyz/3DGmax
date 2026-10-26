@@ -311,3 +311,23 @@ def test_grafische_pmi_aus_semantik(ctc01):
     abstaende = np.linalg.norm(orte[:, None] - orte[None], axis=2) + np.eye(len(orte)) * 1e9
     assert abstaende.min() > 3.9 * next(iter(neu.values())).platzhalter[0].hoehe  # keine Ueberdeckung
     assert pmi_erzeugen.ergaenze(pmi, neu, ctc01) == {}  # schon dargestellt: nichts Neues
+
+
+def test_toleranzzonen(ctc01):
+    from OCC.Core.BRepBuilderAPI import BRepBuilderAPI_MakeFace
+    from OCC.Core.gp import gp_Pln, gp_Pnt, gp_Dir
+    from programm.kern import toleranzzone as tz
+    from programm.kern.pmi import TOLERANZ, Pmi
+    from programm.kern.pmi_lesen import lies_pmi
+    pmi = lies_pmi(ctc01)
+    eben = next(p for p in pmi if p.typ == "Flatness")
+    z = tz.zone(eben, ctc01, 2.0)
+    assert z.art == "flaechen" and len(z.formen) == 2 * len(eben.flaechen) and z.faktor == 10.0 and z.breite == 0.2
+    assert tz.zone(eben, ctc01).faktor == 1.0
+    # Durchmesserzone an einer Bohrung: Zylinder
+    loch = next(p for p in pmi if p.typ == "Size_Diameter" and p.flaechen)
+    pos = Pmi(TOLERANZ, "Position", wert=0.1, modifikatoren=["Diameter"], flaechen=set(loch.flaechen))
+    z = tz.zone(pos, ctc01)
+    assert z.art == "zylinder" and len(z.formen) == 1
+    assert tz.zone(Pmi("mass", "Size_Diameter", wert=0.1, flaechen={1}), ctc01) is None
+    assert BRepBuilderAPI_MakeFace(gp_Pln(gp_Pnt(0, 0, 0), gp_Dir(0, 0, 1))).IsDone()

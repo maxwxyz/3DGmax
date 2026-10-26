@@ -702,5 +702,10 @@
 "Frage": "Question",
 "erledigt": "done",
 "Datum": "Date",
-"Ort (mm)": "Location (mm)"
+"Ort (mm)": "Location (mm)",
+"Toleranzzone zeigen": "Show tolerance zone",
+"Zone der gewählten Toleranz als Hüllgeometrie (schmale Zonen überhöht)": "Zone of the selected tolerance as envelope geometry (narrow zones exaggerated)",
+"Für diese PMI gibt es keine Zonendarstellung": "No zone display for this PMI",
+"Toleranzzone {:.4g} mm": "Tolerance zone {:.4g} mm",
+"(Darstellung {:.0f}-fach überhöht)": "(display exaggerated {:.0f}×)"
 }

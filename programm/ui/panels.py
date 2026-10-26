@@ -372,6 +372,8 @@ class PmiPanel(QtWidgets.QWidget):
         m = QtWidgets.QMenu(self)
         a_zoom = m.addAction(tr("Auf Auswahl zoomen"))
         a_normal = m.addAction(tr("Normal auf Auswahl ausrichten"))
+        a_zone = m.addAction(tr("Toleranzzone zeigen"))
+        a_zone.setEnabled(len(auswahl) == 1 and auswahl[0].art == TOLERANZ)
         m.addSeparator()
         a_bez = m.addAction(tr("Bezüge dieser Toleranz wählen"))
         a_mit = m.addAction(tr("Toleranzen mit diesem Bezug wählen"))
@@ -394,6 +396,8 @@ class PmiPanel(QtWidgets.QWidget):
             self.befehl.emit("zoomen", auswahl)
         elif gewaehlt is a_normal:
             self.befehl.emit("ausrichten", auswahl)
+        elif gewaehlt is a_zone:
+            self.befehl.emit("zone", auswahl)
         elif gewaehlt is a_bez:
             self.waehle_bezuege(auswahl)
         elif gewaehlt is a_mit:

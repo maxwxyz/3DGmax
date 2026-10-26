@@ -327,6 +327,8 @@ class Hauptfenster(QtWidgets.QMainWindow):
           tipp=tr("Bild mit den Kommentar-Markierungen und Liste der Kommentare"))
         A("analyse", tr("Analyse …"), self.zeige_analyse_leiste,
           tipp=tr("Entformungsschräge, Krümmungsradius oder Wandstärke als Farbkarte"))
+        A("toleranzzone", tr("Toleranzzone zeigen"), lambda: self._zone_aktualisieren(self.pmi.gewaehlte()),
+          pruefbar=True, tipp=tr("Zone der gewählten Toleranz als Hüllgeometrie (schmale Zonen überhöht)"))
         A("ballone", tr("Ballonnummern zeigen"), self.zeige_ballone_aktuell, "B", pruefbar=True,
           tipp=tr("Nummern der Merkmale (Maße, Form- und Lagetoleranzen) im Modell, wie in der Merkmalsliste"))
         A("merkmale_csv", tr("Merkmalsliste (CSV) …"), lambda: self.exportiere_merkmale(),
@@ -482,6 +484,7 @@ class Hauptfenster(QtWidgets.QMainWindow):
         m.addAction(a["grafik"])
         m.addAction(a["grafik_auswahl"])
         m.addAction(a["ballone"])
+        m.addAction(a["toleranzzone"])
         m.addAction(a["hilfsgeometrie"])
         m.addSeparator()
         ms = m.addMenu(tr("Schnitt"))
@@ -822,6 +825,7 @@ class Hauptfenster(QtWidgets.QMainWindow):
         self.ansicht.hebe_flaechen(flaechen)
         self.ansicht.hebe_pmi({p.step_id for p in liste if p.step_id})
         self.ansicht.zeige_bezugssystem(self._bezugssystem(liste))
+        self._zone_aktualisieren(liste)
         if len(liste) == 1:
             p = liste[0]
             self.statusBar().showMessage(f"{p.nummer}: {p.wert_text()}  ({tr('{} Flächen').format(len(p.flaechen))})")
@@ -868,6 +872,29 @@ class Hauptfenster(QtWidgets.QMainWindow):
         self._wende_norm_an(self.erg, wahl)
         self.pmi.zeige(self.erg.pmi, self.erg.ansichten)
         self.statusBar().showMessage(tr("Norm: {}").format(self.norm_text), 6000)
+
+    def _zone_aktualisieren(self, liste):
+        """Toleranzzone der einzeln gewaehlten Toleranz zeigen (wenn eingeschaltet)."""
+        from ..kern import toleranzzone
+        if not self.aktionen["toleranzzone"].isChecked() or len(liste) != 1 or self.erg is None:
+            self.ansicht.zeige_zone([])
+            return
+        from OCC.Core.Bnd import Bnd_Box
+        from OCC.Core.BRepBndLib import brepbndlib
+        box = Bnd_Box()
+        brepbndlib.Add(self.erg.modell.form, box)
+        x0, y0, z0, x1, y1, z1 = box.Get()
+        mindest = max(x1 - x0, y1 - y0, z1 - z0) / 250  # schmalere Zonen werden ueberhoeht
+        z = toleranzzone.zone(liste[0], self.erg.modell, mindest)
+        if z is None:
+            self.ansicht.zeige_zone([])
+            self.statusBar().showMessage(tr("Für diese PMI gibt es keine Zonendarstellung"), 5000)
+            return
+        self.ansicht.zeige_zone(z.formen)
+        text = tr("Toleranzzone {:.4g} mm").format(z.breite)
+        if z.faktor > 1.01:
+            text += " " + tr("(Darstellung {:.0f}-fach überhöht)").format(z.faktor)
+        self.statusBar().showMessage(text, 8000)
 
     def _bezugssystem(self, liste) -> list:
         """Bezugselemente einer einzeln gewaehlten Toleranz: [(Name, Stelle 1..3, Flaechen)]."""
@@ -1698,6 +1725,9 @@ class Hauptfenster(QtWidgets.QMainWindow):
         elif art == "ansicht":
             self.dock_ansichten.show()
             self.ansichten.waehle_name(wert)
+        elif art == "zone":
+            self.aktionen["toleranzzone"].setChecked(True)
+            self._zone_aktualisieren(wert)
 
     def _grafik_umschalten(self):
         an = self.aktionen["grafik"].isChecked()

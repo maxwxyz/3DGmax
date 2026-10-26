@@ -88,6 +88,7 @@ class AnsichtBasis(QtWidgets.QWidget):
         self.material = None
         self.box = None  # Schnittbox ((x0, y0, z0), (x1, y1, z1)) oder None
         self.kommentar_marken: list = []
+        self.zone_formen: list = []
         self.letzter_zoom = None
         self.letzte_ausrichtung = None
         self.auswahl3d: list = []  # gewaehlte Flaechen/Kanten (TopoDS)
@@ -148,6 +149,10 @@ class AnsichtBasis(QtWidgets.QWidget):
     def zeige_kommentare(self, marken: list):
         """Kommentar-Markierungen [(Nummer, (x, y, z), erledigt)]."""
         self.kommentar_marken = list(marken)
+
+    def zeige_zone(self, formen: list):
+        """Toleranzzone (Formen) halbdurchsichtig zeigen; [] blendet aus."""
+        self.zone_formen = list(formen)
 
     def setze_explosion(self, anteil: float):
         """Explosionsansicht: Teile vom Mittelpunkt weg verschieben (0 = aus, 1 = weit)."""
@@ -691,6 +696,7 @@ class OcctAnsicht(AnsichtBasis):
         self._ballon_ais = []
         self._material_ais = []
         self._kommentar_ais = []
+        self._zone_ais = []
         self._baue_entfernt()
         self._baue_grafik()
         self._baue_abweichung()
@@ -1123,6 +1129,26 @@ class OcctAnsicht(AnsichtBasis):
             ctx.Display(lab, False)
             ctx.Deactivate(lab)
             self._kommentar_ais.append(lab)
+        self._neu_zeichnen()
+
+    def zeige_zone(self, formen):
+        super().zeige_zone(formen)
+        if not self._bereit:
+            return
+        from OCC.Core.AIS import AIS_Shape
+        ctx = self.d.Context
+        for a in getattr(self, "_zone_ais", []):
+            ctx.Remove(a, False)
+        self._zone_ais = []
+        for f in self.zone_formen:
+            ais = AIS_Shape(f)
+            ais.SetColor(_farbe((0.10, 0.70, 0.45)))
+            if self.vergleich_trsf is not None:
+                ais.SetLocalTransformation(self.vergleich_trsf)
+            ctx.Display(ais, 1, -1, False)
+            ctx.SetTransparency(ais, 0.45, False)
+            ctx.Deactivate(ais)
+            self._zone_ais.append(ais)
         self._neu_zeichnen()
 
     def schnittbox(self, box):

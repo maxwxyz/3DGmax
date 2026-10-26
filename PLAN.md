@@ -146,7 +146,7 @@ Throughout: tests (core, offscreen UI, stress test, on-screen test), `--selbstte
 - Convert to semantic PMI: evaluate recognized text + frame structure; mark result as "derived (check)", never as
   genuine semantics.
 
-### 8.5 Tolerance zones (future)
+### 8.5 Tolerance zones (stage 1 done: offsets ±t/2, ⌀ zone cylinders, exaggeration; open: datum-oriented, UZ, projected)
 - Generate envelope surfaces for roundness, cylindricity, coaxiality, position, surface/line profile etc. showing how far
   geometry may deviate from nominal – including datum reference frame, material condition, unequal zones (UZ),
   projected zones.
