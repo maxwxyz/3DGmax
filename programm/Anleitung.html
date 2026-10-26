@@ -4,8 +4,7 @@
 </head><body>
 <h1>3DGmax – Anleitung</h1>
 <p>3DGmax zeigt 3D-Modelle mit PMI (Maße, Toleranzen, Bezüge) aus STEP-Dateien (AP242) an. Die PMI liest das
-Programm semantisch, also als auswertbare Werte – nicht nur als Bild. Messen und der Vergleich zweier Stände folgen
-in den nächsten Versionen.</p>
+Programm semantisch, also als auswertbare Werte – nicht nur als Bild. Der Vergleich zweier Stände folgt in der nächsten Version.</p>
 
 <h2>Modell öffnen</h2>
 <ul>
@@ -49,6 +48,20 @@ dieser Ansicht (auch in der Liste). „(Keine Ansicht – alle PMI)“ hebt den 
 <li><b>Schnitt</b>: Ebene senkrecht zu X, Y oder Z; der Regler verschiebt sie, die Schnittfläche ist orange gefüllt.</li>
 <li><b>Hilfsgeometrie zeigen</b>: Punkte und Linien ohne Flächen (z. B. Konstruktionsgeometrie) sind sonst ausgeblendet.</li>
 <li><b>Ansicht › Farbschema</b>: hell, dunkel oder wie das System. <b>Ansicht › Sprache</b>: Deutsch/Englisch (beim nächsten Start).</li>
+</ul>
+
+<h2>Messen</h2>
+<ul>
+<li><b>Werkzeuge › Messen</b> (<kbd>M</kbd>) öffnet die Leiste „Messen“. Messart wählen, dann im Modell klicken; die
+Navigation geht dabei weiter. <kbd>Esc</kbd> beendet das Messen.</li>
+<li><b>Abstand</b>: zwei Elemente (Punkt, Kante, Fläche) – kürzester Abstand mit dX/dY/dZ.</li>
+<li><b>Winkel</b>: zwei Ebenen, Achsen (Zylinder, Kegel, Kreis) oder Geraden; die Ergänzung zu 180° steht dabei.</li>
+<li><b>Radius / Ø</b>: Kreis, Bogen, Zylinder, Kugel, Kegel (Bezugsradius), Torus (kleiner Radius).</li>
+<li><b>Wandstärke</b>: Stelle auf einer Fläche; gemessen wird senkrecht ins Material bis zur Gegenfläche.</li>
+<li><b>Koordinaten</b>: X, Y, Z eines Punktes.</li>
+<li><b>Fangen</b> (Haken): in der Nähe von Endpunkten, Kantenmitten und Kreismitten wird dorthin gefangen.</li>
+<li>Ergebnisse stehen in der Liste und im Modell; <b>Löschen</b>, <b>Alle löschen</b>, <b>Kopieren</b> und
+<b>CSV speichern</b> (Semikolon, Dezimalkomma – passt für Excel auf Deutsch).</li>
 </ul>
 
 <h2>Bilder</h2>

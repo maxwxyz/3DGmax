@@ -9,7 +9,12 @@
    "Einführung beim ersten Start, Anleitung (F1) auf Deutsch und Englisch.",
    "Portable Apps für Windows, macOS und Linux (GitHub „Apps bauen“, wahlweise ohne Tests); Startoptionen --selbsttest und --bild.",
    "Kamerasteuerung wie in CATIA als Standard; klassische Steuerung unter Datei › Einstellungen wählbar.",
-   "Logo und App-Symbol; Version im Fenstertitel; Autor im Fenster „Über 3DGmax“."
+   "Logo und App-Symbol; Version im Fenstertitel; Autor im Fenster „Über 3DGmax“.",
+   "Messen: Abstand, Winkel, Radius/Ø, Wandstärke, Koordinaten mit Fang; Liste, Kopieren, CSV.",
+   "Gespeicherte Ansichten übernehmen Kameraort und Ausschnitt aus der Datei; Beschriftungen nicht mehr gespiegelt.",
+   "„Ganzes Modell zeigen“ passt auf die Teile ein (ohne weit abstehende Beschriftungen).",
+   "Hinweise (Notizen) und Bezugsstellen (z. B. A1) als eigene Einträge in der PMI-Liste.",
+   "Drehpunkt setzen und Bildmitte (Mitteltaste) funktionieren zuverlässig."
   ],
   "en": [
    "First viewer version: load STEP AP242, assembly tree, CAD-style navigation, standard views.",
@@ -20,7 +25,12 @@
    "Introduction on first start, manual (F1) in German and English.",
    "Portable apps for Windows, macOS and Linux (GitHub “Apps bauen” workflow, optionally without tests); start options --selbsttest and --bild.",
    "CATIA-style camera control by default; classic control selectable under File › Settings.",
-   "Logo and app icon; version in the window title; author in the “About 3DGmax” window."
+   "Logo and app icon; version in the window title; author in the “About 3DGmax” window.",
+   "Measure: distance, angle, radius/Ø, wall thickness, coordinates with snapping; list, copy, CSV.",
+   "Saved views take camera position and window from the file; annotations no longer mirrored.",
+   "“Fit all” fits the parts (without far-reaching annotations).",
+   "Notes and datum targets (e.g. A1) as separate entries in the PMI list.",
+   "Setting the pivot and the view centre (middle button) work reliably."
   ]
  },
  "releases": [

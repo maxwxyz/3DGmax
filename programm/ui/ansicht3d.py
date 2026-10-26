@@ -48,6 +48,7 @@ class AnsichtBasis(QtWidgets.QWidget):
 
     flaeche_gewaehlt = QtCore.Signal(int)  # Flaechenindex, -1 = nichts
     pmi_gewaehlt = QtCore.Signal(set)  # STEP-#IDs der angeklickten grafischen PMI
+    element_gewaehlt = QtCore.Signal(object, object)  # Messmodus: TopoDS-Form, Punkt (x, y, z)
     meldung = QtCore.Signal(str)
 
     def __init__(self, parent=None):
@@ -65,6 +66,8 @@ class AnsichtBasis(QtWidgets.QWidget):
         self.letzte_ansicht = "iso"
         self.thema: dict = {}
         self.navigation = "catia"
+        self.messmodus = False
+        self.messungen: list = []
 
     # --- Schnittstelle (Unterklassen ergaenzen die Darstellung) ---
 
@@ -122,6 +125,16 @@ class AnsichtBasis(QtWidgets.QWidget):
 
     def setze_navigation(self, modus: str):
         self.navigation = modus
+
+    def setze_messmodus(self, an: bool):
+        self.messmodus = an
+
+    def zeige_messungen(self, messungen: list):
+        self.messungen = list(messungen)
+
+    def fang_toleranz(self) -> float:
+        """Fangweite in mm (etwa 12 Pixel)."""
+        return 1.0
 
     def bild(self, pfad: str) -> bool:
         return False
@@ -307,6 +320,7 @@ class OcctAnsicht(AnsichtBasis):
             kanten.SetColor(_farbe(t.get("kante", (0.15, 0.17, 0.2))))
             kanten.SetWidth(1.0)
             self._kanten[k.nummer] = kanten
+        self._mess_ais = []
         self._baue_grafik()
         self._wende_darstellung_an()
         self._wende_sichtbarkeit_an()
@@ -366,9 +380,8 @@ class OcctAnsicht(AnsichtBasis):
                 ctx.Erase(ais, False)
             else:
                 ctx.Display(ais, False)
-                ctx.Deactivate(ais)
-                ctx.Activate(ais, 4, False)
                 ctx.SetTransparency(ais, 0.65 if nr in self.transparent else 0.0, False)
+        self._aktiviere_auswahl()
         for ais in self._hilfe:
             if self.hilfsgeometrie_an:
                 ctx.Display(ais, False)
@@ -626,6 +639,62 @@ class OcctAnsicht(AnsichtBasis):
         super().setze_navigation(modus)
         self.nav = Navigation(modus)
 
+    def setze_messmodus(self, an: bool):
+        super().setze_messmodus(an)
+        self._aktiviere_auswahl()
+
+    def _aktiviere_auswahl(self):
+        if not self._bereit:
+            return
+        ctx = self.d.Context
+        for nr, ais in self._teile.items():
+            if nr in self.versteckt:
+                continue
+            ctx.Deactivate(ais)
+            for modus in ((1, 2, 4) if self.messmodus else (4,)):  # Punkte, Kanten, Flaechen
+                ctx.Activate(ais, modus, False)
+
+    def fang_toleranz(self) -> float:
+        return self.d.View.Convert(12) if self._bereit else 1.0
+
+    def zeige_messungen(self, messungen):
+        super().zeige_messungen(messungen)
+        if not self._bereit:
+            return
+        from OCC.Core.AIS import AIS_Shape, AIS_TextLabel
+        from OCC.Core.BRepBuilderAPI import BRepBuilderAPI_MakeEdge, BRepBuilderAPI_MakeVertex
+        from OCC.Core.Graphic3d import Graphic3d_ZLayerId_Topmost
+        from OCC.Core.gp import gp_Pnt
+        from OCC.Core.TCollection import TCollection_ExtendedString
+        ctx = self.d.Context
+        for ais in getattr(self, "_mess_ais", []):
+            ctx.Remove(ais, False)
+        self._mess_ais = []
+        farbe = _farbe((self.thema or {}).get("hervor", (1, 0.45, 0)))
+        for m in self.messungen:
+            pts = [gp_Pnt(*p) for p in m.punkte]
+            formen = [BRepBuilderAPI_MakeVertex(p).Vertex() for p in pts]
+            if len(pts) == 2 and pts[0].Distance(pts[1]) > 1e-9:
+                formen.append(BRepBuilderAPI_MakeEdge(pts[0], pts[1]).Edge())
+            for f in formen:
+                a = AIS_Shape(f)
+                a.SetColor(farbe)
+                a.SetWidth(2.0)
+                self._mess_ais.append(a)
+            lab = AIS_TextLabel()
+            mitte = pts[0] if len(pts) == 1 else gp_Pnt((pts[0].X() + pts[1].X()) / 2,
+                                                      (pts[0].Y() + pts[1].Y()) / 2, (pts[0].Z() + pts[1].Z()) / 2)
+            lab.SetPosition(mitte)
+            lab.SetText(TCollection_ExtendedString(f"{m.nummer}: {m.text()}", True))
+            lab.SetColor(farbe)
+            lab.SetHeight(20)
+            self._mess_ais.append(lab)
+        for a in self._mess_ais:
+            a.SetZLayer(Graphic3d_ZLayerId_Topmost)
+            ctx.Display(a, False)
+            ctx.Deactivate(a)
+        self._neu_zeichnen()
+
     def eventFilter(self, obj, ev):
         if obj is not self.viewer or not self._bereit:
             return False
@@ -680,14 +749,12 @@ class OcctAnsicht(AnsichtBasis):
     def _zentriere(self, x, y):
         """CATIA: Punkt unter der Maus wird Bildmitte (und Drehzentrum)."""
         from OCC.Core.gp import gp_Trsf, gp_Vec
-        ctx = self.d.Context
-        ctx.MoveTo(x, y, self.d.View, False)
-        sel = ctx.MainSelector()
-        if not (ctx.HasDetected() and sel.NbPicked() > 0):
+        p = self._punkt_unter_maus(x, y)
+        if p is None:
             return
         cam = self.d.View.Camera()
         t = gp_Trsf()
-        t.SetTranslation(gp_Vec(cam.Center(), sel.PickedPoint(1)))
+        t.SetTranslation(gp_Vec(cam.Center(), p))
         cam.Transform(t)
         self.d.View.Redraw()
         self.meldung.emit(tr("Bildmitte versetzt"))
@@ -727,16 +794,46 @@ class OcctAnsicht(AnsichtBasis):
             self.pmi_gewaehlt.emit(set(self.szene.grafik[cid].pmi_ids))
             return
         if ctx.HasDetectedShape():
-            idx = self.szene.modell.flaechen_index(ctx.DetectedShape())
+            form = ctx.DetectedShape()
+            if self.messmodus:
+                p = self._punkt_unter_maus(x, y, form)
+                if p is not None:
+                    self.element_gewaehlt.emit(form, (p.X(), p.Y(), p.Z()))
+                return
+            idx = self.szene.modell.flaechen_index(form)
             self.flaeche_gewaehlt.emit(-1 if idx is None else idx)
 
+    def _punkt_unter_maus(self, x, y, form=None):
+        """3D-Punkt auf dem Element unter der Maus (Sichtstrahl geschnitten mit dem Element)."""
+        from OCC.Core.BRepBuilderAPI import BRepBuilderAPI_MakeEdge
+        from OCC.Core.BRepExtrema import BRepExtrema_DistShapeShape
+        from OCC.Core.gp import gp_Dir, gp_Lin, gp_Pnt
+        from OCC.Core.IntCurvesFace import IntCurvesFace_ShapeIntersector
+        from OCC.Core.TopAbs import TopAbs_FACE
+        x, y = int(x), int(y)
+        if form is None:
+            ctx = self.d.Context
+            ctx.MoveTo(x, y, self.d.View, False)
+            if not ctx.HasDetectedShape():
+                return None
+            form = ctx.DetectedShape()
+        px, py, pz, vx, vy, vz = self.d.View.ConvertWithProj(int(x), int(y))
+        strahl = gp_Lin(gp_Pnt(px, py, pz), gp_Dir(vx, vy, vz))
+        if form.ShapeType() == TopAbs_FACE:
+            schnitt = IntCurvesFace_ShapeIntersector()
+            schnitt.Load(form, 1e-6)
+            schnitt.Perform(strahl, -1e9, 1e9)
+            if schnitt.IsDone() and schnitt.NbPnt() > 0:
+                return schnitt.Pnt(min(range(1, schnitt.NbPnt() + 1), key=schnitt.WParameter))
+        kante = BRepBuilderAPI_MakeEdge(strahl, -1e7, 1e7).Edge()
+        ext = BRepExtrema_DistShapeShape(kante, form)
+        ext.Perform()
+        return ext.PointOnShape2(1) if ext.IsDone() and ext.NbSolution() > 0 else None
+
     def _setze_drehpunkt(self, x, y):
-        ctx = self.d.Context
-        ctx.MoveTo(x, y, self.d.View, False)
-        sel = ctx.MainSelector()
-        if ctx.HasDetected() and sel.NbPicked() > 0:
-            self._drehpunkt = sel.PickedPoint(1)
-            p = self._drehpunkt
+        p = self._punkt_unter_maus(x, y)
+        if p is not None:
+            self._drehpunkt = p
             self.meldung.emit(tr("Drehpunkt gesetzt: {:.1f}, {:.1f}, {:.1f}").format(p.X(), p.Y(), p.Z()))
         else:
             self.drehpunkt_zuruecksetzen()

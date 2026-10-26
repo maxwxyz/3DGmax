@@ -32,6 +32,14 @@ def los():
     f.lade(os.path.join(sys.argv[1], "tests", "daten", "nist_ctc_01_asme1_ap242-e1.stp"), warten=True)
     QtCore.QTimer.singleShot(800, pruefe)
 def pruefe():
+    try:
+        pruefe_alles()
+    except Exception as e:
+        import traceback
+        print("ERGEBNIS", {"fehler": False, "text": repr(e)}, flush=True)
+        traceback.print_exc()
+    app.quit()
+def pruefe_alles():
     a = f.ansicht; cam = a.d.View.Camera()
     mitte = (a.viewer.width() / 2, a.viewer.height() / 2)
     e0 = cam.Eye().Coord()
@@ -60,10 +68,16 @@ def pruefe():
     maus(T.MouseButtonPress, mitte); maus(T.MouseButtonRelease, mitte)
     ergebnis["klick"] = bool(treffer) and treffer[0] >= 0
     ergebnis["liste"] = len(f.pmi.tabelle.selectedIndexes()) >= 0
+    # Messmodus: Klick liefert Element und Punkt, Messung wird gezeichnet
+    elemente = []
+    a.element_gewaehlt.connect(lambda form, p: elemente.append((form, p)))
+    f.aktionen["messen"].trigger(); f.messen.setze_modus("koordinaten")
+    maus(T.MouseButtonPress, mitte); maus(T.MouseButtonRelease, mitte)
+    ergebnis["punkt_unter_maus"] = a._punkt_unter_maus(*mitte) is not None  # Drehpunkt, Bildmitte
+    ergebnis["messklick"] = bool(elemente) and len(f.messen.messungen) == 1 and bool(a._mess_ais)
     pfad = os.path.join(tempfile.mkdtemp(), "b.png")
     ergebnis["bild"] = f.ansicht.bild(pfad) and os.path.getsize(pfad) > 1000
     print("ERGEBNIS", ergebnis, flush=True)
-    app.quit()
 QtCore.QTimer.singleShot(500, los)
 app.exec()
 '''
@@ -76,4 +90,4 @@ def test_navigation_und_klick():
     zeile = next((z for z in r.stdout.splitlines() if z.startswith("ERGEBNIS")), "")
     assert zeile, r.stdout[-2000:] + r.stderr[-2000:]
     erg = eval(zeile.split(" ", 1)[1])  # noqa: S307 - eigene Ausgabe
-    assert all(erg.values()), erg
+    assert all(v for k, v in erg.items() if k != "text"), erg

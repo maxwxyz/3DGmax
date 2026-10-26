@@ -4,8 +4,7 @@
 </head><body>
 <h1>3DGmax – Manual</h1>
 <p>3DGmax displays 3D models with PMI (dimensions, tolerances, datums) from STEP files (AP242). PMI is read
-semantically, i.e. as evaluable values – not just as a picture. Measuring and comparing two revisions follow in the
-next versions.</p>
+semantically, i.e. as evaluable values – not just as a picture. Comparing two revisions follows in the next version.</p>
 
 <h2>Open a model</h2>
 <ul>
@@ -49,6 +48,20 @@ that view (also in the list). “(No view – all PMI)” removes the filter.</p
 <li><b>Section</b>: plane normal to X, Y or Z; the slider moves it, the cut face is filled in orange.</li>
 <li><b>Show auxiliary geometry</b>: points and lines without faces (e.g. construction geometry) are hidden otherwise.</li>
 <li><b>View › Color scheme</b>: light, dark or like the system. <b>View › Language</b>: German/English (on next start).</li>
+</ul>
+
+<h2>Measure</h2>
+<ul>
+<li><b>Tools › Measure</b> (<kbd>M</kbd>) opens the “Measure” panel. Choose a measurement, then click in the model;
+navigation keeps working. <kbd>Esc</kbd> ends measuring.</li>
+<li><b>Distance</b>: two elements (point, edge, face) – shortest distance with dX/dY/dZ.</li>
+<li><b>Angle</b>: two planes, axes (cylinder, cone, circle) or lines; the supplement to 180° is shown too.</li>
+<li><b>Radius / Ø</b>: circle, arc, cylinder, sphere, cone (reference radius), torus (minor radius).</li>
+<li><b>Wall thickness</b>: a spot on a face; measured perpendicular into the material up to the opposite face.</li>
+<li><b>Coordinates</b>: X, Y, Z of a point.</li>
+<li><b>Snap</b> (check box): close to end points, edge midpoints and circle centres the point snaps there.</li>
+<li>Results appear in the list and in the model; <b>Delete</b>, <b>Delete all</b>, <b>Copy</b> and <b>Save CSV</b>
+(semicolon, decimal comma).</li>
 </ul>
 
 <h2>Images</h2>

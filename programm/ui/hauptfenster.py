@@ -11,6 +11,7 @@ from ..i18n import tr
 from ..version import VERSION
 from . import ansicht3d, thema
 from .lader import Lader
+from .messwerkzeug import MessPanel
 from .panels import AnsichtenPanel, BaumPanel, PmiPanel
 
 DATEIFILTER = "STEP (*.stp *.step *.STP *.STEP)"
@@ -110,6 +111,10 @@ class Hauptfenster(QtWidgets.QMainWindow):
         self.dock_ansichten = self._dock(tr("Gespeicherte Ansichten"), self.ansichten,
                                          QtCore.Qt.DockWidgetArea.LeftDockWidgetArea)
         self.dock_pmi = self._dock(tr("PMI"), self.pmi, QtCore.Qt.DockWidgetArea.RightDockWidgetArea)
+        self.messen = MessPanel()
+        self.dock_messen = self._dock(tr("Messen"), self.messen, QtCore.Qt.DockWidgetArea.RightDockWidgetArea)
+        self.tabifyDockWidget(self.dock_pmi, self.dock_messen)
+        self.dock_pmi.raise_()
         self.resizeDocks([self.dock_pmi], [430], QtCore.Qt.Orientation.Horizontal)
 
         self.fortschritt = QtWidgets.QProgressBar()
@@ -201,6 +206,9 @@ class Hauptfenster(QtWidgets.QMainWindow):
         A("isolieren", tr("Gewählte Teile isolieren"), self._isolieren, "I")
         A("transparent", tr("Gewählte Teile transparent"), self._transparent, "T")
         A("pmi_suche", tr("PMI suchen"), self._suche_fokus, QtGui.QKeySequence.StandardKey.Find)
+        A("messen", tr("Messen"), self._messen_umschalten, "M", pruefbar=True,
+          tipp=tr("Abstand, Winkel, Radius, Wandstärke, Koordinaten messen"))
+        A("messen_ende", tr("Werkzeug beenden"), self._werkzeug_ende, "Esc", tipp=tr("Messen beenden"))
         tg = QtGui.QActionGroup(self)
         for n, text in (("auto", tr("Wie System")), ("hell", tr("Hell")), ("dunkel", tr("Dunkel"))):
             a = A("thema_" + n, text, lambda _=False, n=n: self.setze_thema(n), pruefbar=True, modell=False)
@@ -260,8 +268,11 @@ class Hauptfenster(QtWidgets.QMainWindow):
             m.addAction(a[n])
         m.addSeparator()
         m.addAction(a["pmi_suche"])
+        m = mb.addMenu(tr("&Werkzeuge"))
+        m.addAction(a["messen"])
+        m.addAction(a["messen_ende"])
         self.menue_fenster = mb.addMenu(tr("&Fenster"))
-        for d in (self.dock_baum, self.dock_ansichten, self.dock_pmi):
+        for d in (self.dock_baum, self.dock_ansichten, self.dock_pmi, self.dock_messen):
             self.menue_fenster.addAction(d.toggleViewAction())
         m = mb.addMenu(tr("&Hilfe"))
         for n in ("anleitung", "einfuehrung", "neu", "ueber"):
@@ -284,6 +295,7 @@ class Hauptfenster(QtWidgets.QMainWindow):
             tb.addAction(a["darstellung_" + n])
         tb.addSeparator()
         tb.addAction(a["grafik"])
+        tb.addAction(a["messen"])
         tb.addSeparator()
         knopf = QtWidgets.QToolButton()
         knopf.setText(tr("Schnitt"))
@@ -314,6 +326,11 @@ class Hauptfenster(QtWidgets.QMainWindow):
         self.baum.sichtbar_geaendert.connect(self.ansicht.knoten_sichtbar)
         self.baum.isolieren.connect(self.ansicht.isoliere)
         self.baum.transparent.connect(self.ansicht.knoten_transparent)
+        self.ansicht.element_gewaehlt.connect(self.messen.element)
+        self.messen.messungen_geaendert.connect(self.ansicht.zeige_messungen)
+        self.messen.modus_geaendert.connect(self._messmodus)
+        self.messen.koerper_von = self._koerper_von
+        self.messen.toleranz = self.ansicht.fang_toleranz
 
     def _modell_da(self, da: bool):
         for a in self.aktionen.values():
@@ -325,6 +342,9 @@ class Hauptfenster(QtWidgets.QMainWindow):
         self.stapel.setCurrentWidget(self.ansicht if da else self.start)
         for d in (self.dock_baum, self.dock_ansichten, self.dock_pmi):
             d.setVisible(da)
+        if not da:
+            self.dock_messen.hide()
+            self.messen.setze_modus(None)
 
     # --- Laden ---
 
@@ -411,6 +431,7 @@ class Hauptfenster(QtWidgets.QMainWindow):
         QtWidgets.QMessageBox.warning(self, tr("Laden fehlgeschlagen"), text)
 
     def schliesse_modell(self):
+        self.messen.loesche_alle()
         self.erg = None
         self.ansicht.zeige(None)
         self.baum.zeige(None)
@@ -467,6 +488,41 @@ class Hauptfenster(QtWidgets.QMainWindow):
         self.statusBar().showMessage(tr("Ansicht {}: {} PMI").format(ansicht.name, len(ansicht.pmi_nummern)), 5000)
 
     # --- Befehle ---
+
+    def _messen_umschalten(self):
+        an = self.aktionen["messen"].isChecked()
+        if an:
+            self.dock_messen.show()
+            self.dock_messen.raise_()
+            self.messen.setze_modus(self.messen.modus or "abstand")
+        else:
+            self.messen.setze_modus(None)
+
+    def _messmodus(self, art):
+        self.ansicht.setze_messmodus(art is not None)
+        self.aktionen["messen"].setChecked(art is not None)
+        if art:
+            self.statusBar().showMessage(tr("Messen: Elemente im Modell anklicken – Esc beendet"), 6000)
+
+    def _werkzeug_ende(self):
+        self.messen.setze_modus(None)
+
+    def _koerper_von(self, form):
+        """Teil (Koerper) des Baums, zu dem eine Flaeche gehoert (fuer die Wandstaerke)."""
+        if self.erg is None:
+            return None
+        from OCC.Core.TopAbs import TopAbs_FACE
+        from OCC.Core.TopExp import TopExp_Explorer
+        ziel = self.erg.modell.flaechen_index(form)
+        for k in self.erg.baum.blaetter():
+            if k.hilfsgeometrie:
+                continue
+            ex = TopExp_Explorer(k.form, TopAbs_FACE)
+            while ex.More():
+                if self.erg.modell.flaechen_index(ex.Current()) == ziel:
+                    return k.form
+                ex.Next()
+        return None
 
     def _grafik_umschalten(self):
         self.ansicht.setze_grafik(self.aktionen["grafik"].isChecked())

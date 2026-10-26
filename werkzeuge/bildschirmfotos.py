@@ -58,10 +58,30 @@ def main(argv):
     def ansicht():
         f.ansichten.liste.setCurrentRow(2)
 
+    def messen():
+        from programm.kern import messen as km
+        f._schnitt(None)
+        f.ansichten.liste.setCurrentRow(0)
+        f.ansicht.standard("iso")
+        f.aktionen["messen"].trigger()
+        fl = f.erg.modell.flaechen
+        zyl = [p for p in f.erg.pmi if p.typ == "Size_Diameter" and p.flaechen][:2]
+        f.messen.fang.setChecked(False)
+        for p in zyl:
+            fz = fl[sorted(p.flaechen)[0]]
+            c = km._mittelpunkt(fz)
+            f.messen.setze_modus("radius")
+            f.messen.element(fz, (c.X(), c.Y(), c.Z()))
+        a, b = km._mittelpunkt(fl[0]), km._mittelpunkt(fl[40])
+        f.messen.setze_modus("abstand")
+        f.messen.element(fl[0], (a.X(), a.Y(), a.Z()))
+        f.messen.element(fl[40], (b.X(), b.Y(), b.Z()))
+
     schritte += [start, lambda: foto(f, os.path.join(ziel, f"geladen_{thema}.png")), pmi_waehlen,
                  lambda: foto(f, os.path.join(ziel, f"pmi_{thema}.png")), ansicht,
                  lambda: foto(f, os.path.join(ziel, f"ansicht_{thema}.png")),
-                 lambda: f._schnitt("x"), lambda: foto(f, os.path.join(ziel, f"schnitt_{thema}.png"))]
+                 lambda: f._schnitt("x"), lambda: foto(f, os.path.join(ziel, f"schnitt_{thema}.png")),
+                 messen, lambda: foto(f, os.path.join(ziel, f"messen_{thema}.png"))]
     QtCore.QTimer.singleShot(800, weiter)
     return app.exec()
 

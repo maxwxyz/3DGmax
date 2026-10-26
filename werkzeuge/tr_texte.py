@@ -27,7 +27,15 @@ def tr_texte() -> set[str]:
                     out.add(k.args[0].value)
     # Texte, die ueber Tabellen laufen (tr(variable))
     from programm.kern.pmi import BEZUG, HINWEIS, MASS, TOLERANZ  # noqa: F401
-    from programm.ui import einstellungen, hilfe, panels
+    from programm.ui import einstellungen, hilfe, messwerkzeug, panels
+    out |= set(messwerkzeug.ART_TEXT.values())
+    from programm.kern import messen
+    out |= set(messen.WOERTER)
+    import re
+    quelle = open(messen.__file__, encoding="utf-8").read()
+    out |= set(re.findall(r'raise ValueError\("([^"]+)"\)', quelle))
+    for schritte in messwerkzeug.HINWEIS.values():
+        out |= set(schritte)
     for name, text in einstellungen.STEUERUNG_TEXT.values():
         out |= {name, text}
     out |= set(panels.ART_TEXT.values()) | set(panels.PmiPanel.SPALTEN)
