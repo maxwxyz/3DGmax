@@ -23,8 +23,9 @@ class Ansicht:
     ort: tuple[float, float, float] = (0.0, 0.0, 0.0)
     richtung: tuple[float, float, float] = (0.0, 0.0, -1.0)  # Blickrichtung
     oben: tuple[float, float, float] = (0.0, 1.0, 0.0)
-    breite: float = 0.0
+    breite: float = 0.0  # Fenster der Ansicht (mm)
     hoehe: float = 0.0
+    abstand: float = 0.0  # Abstand Kamera -> Bildebene (view_plane_distance, mm)
     perspektive: bool = False
     pmi_ids: set[int] = field(default_factory=set)  # STEP-#IDs der sichtbaren PMI
     pmi_nummern: list[int] = field(default_factory=list)
@@ -57,13 +58,15 @@ def _kamera(datei: P21Datei, e: Entity, ansicht: Ansicht, skala: float):
         ansicht.ort = _punkt(datei, ort, skala) or ansicht.ort
         z = _punkt(datei, achse) if achse else (0.0, 0.0, 1.0)
         x = _punkt(datei, ref_x) if ref_x else (1.0, 0.0, 0.0)
-        # Kamera blickt entlang -z der Platzierung, y = z x x ist oben
-        ansicht.richtung = tuple(-c for c in z)
+        # Kamera blickt entlang +z der Platzierung (gegengeprueft: sonst Schrift gespiegelt), y = z x x ist oben
+        ansicht.richtung = tuple(z)
         ansicht.oben = _kreuz(z, x)
     vv = datei.get(volumen)
     if vv is not None and vv.is_a("VIEW_VOLUME"):
         args = vv.args("VIEW_VOLUME")
         ansicht.perspektive = getattr(args[0], "name", "") == "CENTRAL"
+        if isinstance(args[2], (int, float)):
+            ansicht.abstand = float(args[2]) * skala
         box = datei.get(args[8]) if len(args) > 8 else None
         if box is not None and box.is_a("PLANAR_BOX"):
             ansicht.breite = float(box.args("PLANAR_BOX")[1]) * skala
@@ -83,8 +86,7 @@ def _items(datei: P21Datei, modell_e: Entity) -> list:
 def _semantik_von(datei: P21Datei, definition: int) -> int:
     """DMIA-Definition auf die PMI-#ID abbilden (Bezugsmerkmal -> DATUM)."""
     e = datei.get(definition)
-    if e is not None and (e.is_a("DATUM_FEATURE") or e.is_a("DATUM_TARGET")
-                          or e.is_a("PLACED_DATUM_TARGET_FEATURE")):
+    if e is not None and e.is_a("DATUM_FEATURE"):
         for rid in datei.referrers().get(definition, []):
             r = datei.entities[rid]
             if r.is_a("SHAPE_ASPECT_RELATIONSHIP"):
@@ -114,7 +116,9 @@ def lies_ansichten(modell: StepModell, pmi: list[Pmi] | None = None) -> list[Ans
             a = Ansicht(name, k.id)
             _kamera(datei, k, a, skala)
             for i in items:
-                a.pmi_ids |= zu_pmi.get(i, set())
+                # Callouts ohne Semantik (Hinweise) stehen mit ihrer eigenen #ID in der Liste
+                ohne = {i} if datei.entities[i].is_a("DRAUGHTING_CALLOUT") else set()
+                a.pmi_ids |= zu_pmi.get(i) or ohne
             ansichten.append(a)
     if pmi is not None:
         nr = {p.step_id: p.nummer for p in pmi if p.step_id}

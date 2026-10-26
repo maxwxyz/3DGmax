@@ -18,7 +18,7 @@ from OCC.Core.XCAFDoc import (XCAFDoc_Datum, XCAFDoc_Dimension, XCAFDoc_DimTolTo
 from . import p21
 from .p21 import DMIA_PH
 from .laden import StepModell
-from .pmi import BEZUG, MASS, Pmi
+from .pmi import BEZUG, HINWEIS, MASS, Pmi
 
 
 def _enum_namen(praefix: str) -> dict[int, str]:
@@ -213,6 +213,54 @@ def _bezug_hat_grafik(datei: p21.P21Datei, datum_id: int) -> bool:
     return False
 
 
+def lies_bezugsstellen(modell: StepModell) -> list[Pmi]:
+    """Bezugsstellen (Datum Targets) als eigene Eintraege, Name = Buchstabe + Nummer (z. B. A1)."""
+    datei = modell.datei
+    out = []
+    for teil in ("PLACED_DATUM_TARGET_FEATURE", "DATUM_TARGET"):
+        for e in sorted(datei.of_type(teil), key=lambda e: e.id):
+            if teil == "DATUM_TARGET" and e.is_a("PLACED_DATUM_TARGET_FEATURE"):
+                continue
+            args = e.args(teil)
+            art, nummer = (args[1] or ""), str(args[4] or "")
+            buchstabe = ""
+            for rid in datei.referrers().get(e.id, []):
+                r = datei.entities[rid]
+                if r.is_a("SHAPE_ASPECT_RELATIONSHIP"):
+                    ziel = datei.get(r.args("SHAPE_ASPECT_RELATIONSHIP")[3])
+                    if ziel is not None and ziel.is_a("DATUM"):
+                        buchstabe = ziel.args("DATUM")[4]
+            p = Pmi(BEZUG, typ="DatumTarget", name=f"{buchstabe}{nummer}", quelle="step", step_id=e.id)
+            if art:
+                p.modifikatoren.append(art)
+            p.flaechen = flaechen_von_aspekt(datei, modell, e.id)
+            p.grafisch = _bezug_hat_grafik(datei, e.id) or any(
+                datei.entities[x].is_a("DRAUGHTING_MODEL_ITEM_ASSOCIATION") or datei.entities[x].is_a(DMIA_PH)
+                for x in datei.referrers().get(e.id, []))
+            out.append(p)
+    return out
+
+
+def ergaenze_hinweise(pmi: list[Pmi], grafik: dict) -> list[Pmi]:
+    """Callouts ohne Semantik (Notizen, Texte) als Hinweise anhaengen; verknuepft ueber die Callout-#ID."""
+    vorhanden = {p.step_id for p in pmi}
+    for cid in sorted(grafik):
+        g = grafik[cid]
+        if g.pmi_ids & vorhanden or g.doppelt or g.leer():
+            continue
+        p = Pmi(HINWEIS, typ="Note", name=g.name, nur_grafik_text=g.name or tr_hinweis(),
+                semantisch=False, grafisch=True, quelle="step", step_id=cid)
+        g.pmi_ids.add(cid)
+        pmi.append(p)
+    for i, p in enumerate(pmi, 1):
+        p.nummer = i
+    return pmi
+
+
+def tr_hinweis() -> str:
+    return "Hinweis"
+
+
 def lies_pmi_xcaf(modell: StepModell) -> list[Pmi]:
     """Masse und Bezuege so, wie OCCT sie liest (Gegenpruefung, Formate ohne STEP-Datei)."""
     dt = XCAFDoc_DocumentTool.DimTolTool(modell.doc.Main())
@@ -226,7 +274,8 @@ def lies_pmi(modell: StepModell) -> list[Pmi]:
     if modell.datei is None:
         liste = lies_pmi_xcaf(modell)
     else:
-        liste = lies_masse(modell) + lies_toleranzen(modell) + lies_bezuege_step(modell)
+        liste = lies_masse(modell) + lies_toleranzen(modell) + lies_bezuege_step(modell) + \
+            lies_bezugsstellen(modell)
     for i, p in enumerate(liste, 1):
         p.nummer = i
     return liste

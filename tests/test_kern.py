@@ -85,3 +85,33 @@ def test_ansichten(ftc10):
     assert len(mit_pmi) >= 5
     for a in ans:
         assert abs(sum(c * c for c in a.richtung) - 1) < 1e-6
+
+
+def test_hinweise_und_bezugsstellen(ftc10):
+    from programm.kern.ansichten import _laengen_skala
+    from programm.kern.pmi_lesen import ergaenze_hinweise
+    from programm.kern.praesentation import lies_grafik
+    pmi = lies_pmi(ftc10)
+    stellen = [p.name for p in pmi if p.typ == "DatumTarget"]
+    assert stellen == ["K1", "K2", "L1", "L2"]
+    pmi = ergaenze_hinweise(pmi, lies_grafik(ftc10.datei, _laengen_skala(ftc10.datei)))
+    hinweise = [p for p in pmi if p.art == "hinweis"]
+    assert len(hinweise) == 9 and all(not p.semantisch for p in hinweise)
+    assert [p.nummer for p in pmi] == list(range(1, len(pmi) + 1))
+
+
+def test_ansicht_blickrichtung_lesbar(ftc10):
+    """Kamera blickt entlang +z der Platzierung (sonst ist die Schrift der Annotationen gespiegelt)."""
+    from OCC.Core.Bnd import Bnd_Box
+    from OCC.Core.BRepBndLib import brepbndlib
+    box = Bnd_Box()
+    brepbndlib.Add(ftc10.flaechen[0], box)
+    for f in ftc10.flaechen:
+        brepbndlib.Add(f, box)
+    x0, y0, z0, x1, y1, z1 = box.Get()
+    mitte = ((x0 + x1) / 2, (y0 + y1) / 2, (z0 + z1) / 2)
+    for a in lies_ansichten(ftc10):
+        if a.pmi_ids:
+            assert a.breite > 0 and a.abstand > 0
+            zum_modell = [m - o for m, o in zip(mitte, a.ort)]
+            assert sum(r * z for r, z in zip(a.richtung, zum_modell)) > 0, a.name  # Kamera blickt aufs Modell

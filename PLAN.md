@@ -84,6 +84,7 @@ wie in ZGmax), pypdf (3D-Streams aus PDF, BSD; PyMuPDF wäre AGPL), pytest + pyt
 | 3MF | eigener Leser (ZIP + XML) oder lib3mf (BSD) | Netz | – | klein | 0 € |
 | **QIF** | lxml + Klassen aus den offiziellen XSD (qifstandards.org, QualityInformationFramework auf GitHub) | QIF-eigene B-Rep oder Verweis auf STEP | **semantisch, sehr sauber** (Characteristics, Datums, Messwerte) | mittel | 0 € |
 | **JT** – Netz | eigener Leser nach ISO 14306 (LSG, Tri-Strip, zlib/LZMA) | Netz | – | groß (Wochen), Versionen 8–10 | 0 € |
+| **JT** – TKJT (wie FreeCAD) | TKJT von Open Cascade (2013–2015), gepflegt in github.com/mmaenz/TKJT (OCCT 7.7, Mac kompiliert, ungetestet); Python-Anbindung selbst bauen (pybind11) | Netz, Baugruppe, Attribute; PMI-Teil vorhanden (`JtElement_MetaData_PMIManager`), Umfang offen | [offen] | mittel–groß (OCCT-8-Anpassung, 3 Plattformen) | 0 €, aber **GPL v2+** [geprüft, Kopf der Quelldateien] |
 | **JT** – mit PMI | Siemens JT Open Toolkit (Mitgliedschaft, kein Listenpreis), Open Cascade JT SDK (kommerziell, Angebot), CAD Exchanger SDK (nur Angebot; ältere Liste 6.000–100.000 $/Jahr laut Wettbewerber), HOOPS Exchange (Angebot) | ja | ja | mittel (C++-Anbindung) | **4- bis 5-stellig pro Jahr** |
 | **3D-PDF U3D** | 3D-Stream mit pypdf herauslösen, U3D (ECMA-363, öffentlich) selbst lesen | Netz | nur Ansichten | mittel | 0 € |
 | **3D-PDF PRC** | PRC (ISO 14739) – kein brauchbarer freier Leser gefunden (Asymptote schreibt nur) | aufwendig | – | groß | sonst SDK (ODA PRC, HOOPS) |
@@ -134,6 +135,8 @@ tests/  packaging/  docs/
 | **4 Vergleich** | Ausrichten, Flächenzuordnung, Farbkarte, PMI-Diff, Änderungsliste, Prüfen starten, Prüfung abschließen | Zwei absichtlich geänderte Stände eines NIST-Modells (Wert, Toleranz, Bezug, Fläche geändert) – alle Änderungen gefunden, keine Falschmeldungen |
 | **5 Ausgaben** | PDF-Bericht mit Bildern, PMI-Änderungstabelle PDF/CSV, Zwischenablage, Projekt-Container, Ordnervergleich, **Ansichten als Zeichnung** (verdeckte Kanten mit OCCT-HLR, PMI-Projektion → PDF/SVG/DXF), Vergleich exportieren | Bericht für einen Lieferanten verständlich |
 | **6 Formate** | QIF, IGES/STL/OBJ/glTF/3MF, JT/3D-PDF je nach Entscheidung | Je Format eine Testdatei in den Tests |
+| **7 JT über TKJT** (nach STEP) | TKJT für OCCT 8 bauen, Python-Anbindung, JT laden (Netz, Struktur, dann PMI); Bau mit/ohne TKJT (siehe 8.3) | NIST- bzw. eigene JT-Datei wie STEP-Gegenstück |
+| **später: Schnittansichten** | Mehrere Schnittebenen/Clipping-Boxen, Schnittansichten aus dem Modell (AP242 Clipping in Saved Views), Schnittkontur hervorheben und als Ansicht speichern/exportieren | Schnitt aus der Datei sieht aus wie im CAD |
 
 Durchgängig: Tests ab Schritt 1 (Kern mit NIST-Dateien, Oberfläche offscreen, Stresstest), `--selbsttest`,
 Changelog DE/EN, HANDOFF.md, unfertiges auf `wip/...`, nach jedem Commit Push.
@@ -156,3 +159,23 @@ Changelog DE/EN, HANDOFF.md, unfertiges auf `wip/...`, nach jedem Commit Push.
 - Darstellung **OCCT-Viewer** (empfohlen) statt VTK.
 - JT: nur Netz frei, PMI nur mit Angebot – erst nach Schritt 1.
 - Projektname/Programmname „3DGmax“, Dateiendung `.3dgmax`?
+
+## 8. Ergänzungen (2026-10-26)
+
+### 8.1 Ansichten (Captures) durchklicken
+- Gespeicherte Ansichten mit Kamera **und** den jeweils eingeblendeten Annotationen zeigen; vor/zurück durchklicken
+  (Tasten, Knöpfe), Ansicht als Vorschaubild in der Liste. Teilweise erledigt: Kamera (Ort, Richtung, Ausschnitt)
+  und PMI-Filter je Ansicht; offen: Vor/Zurück-Knöpfe, Vorschaubilder, Schnittebenen der Ansicht.
+
+### 8.2 Suche
+- PMI-Suche nach Name, Maß/Wert, Bezug (vorhanden: Freitext über Wert, Bezüge, Name, Typ); ausbauen zu gezielter
+  Suche (z. B. `bezug:A`, `wert:0.5`, `typ:position`).
+- Suche nach Ansichten/Captures (Name, enthaltene PMI) in der Ansichtsliste.
+
+### 8.3 Bau-Varianten nach Lizenz
+- **Standard (Open Source, LGPL-Bibliotheken):** OCCT, pythonocc, Qt/PySide6 – die App darf weitergegeben werden.
+- **Mit TKJT (GPL v2+):** zusätzlich JT-Lesen. Eine weitergegebene App müsste dann unter einer GPL-kompatiblen Lizenz
+  mit Quelltext stehen; für reine interne Nutzung keine Pflichten. Bau-Skripte und GitHub-Workflow erhalten dafür
+  einen Schalter (Standard: ohne TKJT). Wird mit Schritt 7 umgesetzt, damit es keinen Schalter ohne Funktion gibt.
+- Offene Entscheidung: Lizenz von 3DGmax selbst (ZGmax nutzt AGPL-3.0; mit AGPL wäre TKJT auch extern verträglich,
+  da GPL v2 „oder später“).

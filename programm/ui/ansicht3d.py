@@ -465,20 +465,49 @@ class OcctAnsicht(AnsichtBasis):
         self.d.View.SetProj(richtung)
         self.alles_zeigen()
 
+    def _sichtbare_box(self):
+        from OCC.Core.Bnd import Bnd_Box
+        from OCC.Core.BRepBndLib import brepbndlib
+        box = Bnd_Box()
+        for nr, ais in self._teile.items():
+            if nr not in self.versteckt:
+                brepbndlib.Add(ais.Shape(), box)
+        return box
+
     def alles_zeigen(self):
-        if self._bereit:
+        """Auf die sichtbaren Teile einpassen (PMI-Beschriftungen ragen oft weit hinaus)."""
+        if not self._bereit:
+            return
+        box = self._sichtbare_box()
+        if box.IsVoid():
             self.d.View.FitAll(0.05, False)
-            self.d.View.ZFitAll()
-            self._neu_zeichnen()
+        else:
+            self.d.View.FitAll(box, 0.08, False)
+        self.d.View.ZFitAll()
+        self._neu_zeichnen()
 
     def kamera(self, ansicht):
         super().kamera(ansicht)
         if not self._bereit:
             return
+        from OCC.Core.gp import gp_Dir, gp_Pnt
         v = self.d.View
-        v.SetProj(*(-c for c in ansicht.richtung))
-        v.SetUp(*ansicht.oben)
-        self.alles_zeigen()
+        if ansicht.breite <= 0:
+            v.SetProj(*(-c for c in ansicht.richtung))
+            v.SetUp(*ansicht.oben)
+            self.alles_zeigen()
+            return
+        # Kamera wie in der Datei: Ort, Blickrichtung, oben und Fenstergroesse
+        cam = v.Camera()
+        o, r = ansicht.ort, ansicht.richtung
+        tiefe = ansicht.abstand if ansicht.abstand > 0 else 1000.0
+        cam.SetEye(gp_Pnt(*o))
+        cam.SetCenter(gp_Pnt(o[0] + r[0] * tiefe, o[1] + r[1] * tiefe, o[2] + r[2] * tiefe))
+        cam.SetUp(gp_Dir(*ansicht.oben))
+        breite, hoehe = self.viewer.width() or 1, self.viewer.height() or 1
+        cam.SetScale(max(ansicht.hoehe or ansicht.breite, (ansicht.breite or ansicht.hoehe) * hoehe / breite))
+        v.ZFitAll()
+        self._neu_zeichnen()
 
     def drehpunkt_zuruecksetzen(self):
         self._drehpunkt = None

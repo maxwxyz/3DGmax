@@ -23,7 +23,7 @@ def test_ohne_modell_keine_toten_knoepfe(fenster):
 def test_laden_fuellt_alles(fenster_ctc01):
     f = fenster_ctc01
     assert f.erg is not None
-    assert f.pmi.tabelle.rowCount() == 21
+    assert f.pmi.tabelle.rowCount() == 23  # 21 PMI + 2 Hinweise (Text.1, Text.2)
     assert f.ansichten.liste.count() == 2  # "keine Ansicht" + MBD_0
     assert f.baum.baum.topLevelItemCount() == 1
     # "Schnittseite umkehren" ist ohne aktiven Schnitt bewusst ausgegraut
@@ -58,7 +58,7 @@ def test_filter_und_suche(fenster_ctc01):
     f.pmi.suche.setText("0.75")
     assert {p.typ for p in f.pmi.sichtbare()} == {"Position"}
     f.pmi.suche.setText("")
-    assert len(f.pmi.sichtbare()) == 21
+    assert len(f.pmi.sichtbare()) == 23
 
 
 def test_gespeicherte_ansicht_filtert(app, tmp_path, monkeypatch):

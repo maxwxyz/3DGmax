@@ -17,7 +17,7 @@ def selbsttest() -> int:
         print("SELBSTTEST FEHLER: Beispieldatei fehlt")
         return 2
     erg = lade_alles(pfad)
-    ok = len(erg.modell.flaechen) == 117 and len(erg.pmi) == 21 and len(erg.ansichten) == 1
+    ok = len(erg.modell.flaechen) == 117 and len(erg.pmi) == 23 and len(erg.ansichten) == 1
     print(f"SELBSTTEST {'OK' if ok else 'FEHLER'}: {len(erg.modell.flaechen)} Flaechen, "
           f"{len(erg.pmi)} PMI, {len(erg.ansichten)} Ansichten, {len(erg.grafik)} Grafiken")
     return 0 if ok else 1
