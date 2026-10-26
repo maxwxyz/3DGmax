@@ -150,3 +150,45 @@ def test_pmi_farbe_kontrast_oder_datei(fenster_ctc01):
                               "sprache": f.ein.value("sprache", "auto"), "pmi_kontrast": False})
     assert f.ansicht.pmi_farbe(g) == g.farbe
     assert f.ein.value("pmi_kontrast", type=bool) is False
+
+
+def test_pmi_liste_name_ansichten_bezuege(app, tmp_path, monkeypatch):
+    monkeypatch.setenv("DG_EINSTELLUNGEN", str(tmp_path / "e.ini"))
+    from programm.ui.hauptfenster import Hauptfenster
+    from tests.conftest import pfad
+    f = Hauptfenster()
+    f.lade(pfad("nist_ftc_10_asme1_ap242-e2.stp"), warten=True)
+    p = f.pmi
+    assert p.SPALTEN.index("Name") == 4 and p.SPALTEN.index("Ansichten") == 5
+    p.suche.setText("MBD_E")  # Suche nach Ansicht
+    assert 0 < len(p.sichtbare()) <= 3
+    p.suche.setText("")
+    # Toleranz D | E-F-G -> Bezuege D, E, F, G waehlen
+    tol = next(q for q in p.pmi if q.bezug_text() == "D|E-F-G")
+    assert p.waehle_bezuege([tol]) == 4
+    a = next(q for q in p.pmi if q.art == "bezug" and q.name == "A")
+    assert p.waehle_mit_bezug([a]) > 10
+    # Ansichten durchklicken
+    f.ansichten.gehe(+1)
+    assert f.ansichten.liste.currentRow() == 1
+    f.ansichten.gehe(-1)
+    assert f.ansichten.liste.currentRow() == len(f.erg.ansichten) or f.ansichten.liste.currentRow() >= 1
+    f.close()
+
+
+def test_3d_auswahl_zoom_normal_und_schnitt(fenster_ctc01):
+    f = fenster_ctc01
+    fl = f.erg.modell.flaechen
+    f.ansicht.setze_auswahl([fl[3], fl[7]])
+    f.aktionen["zoom_auswahl"].trigger()
+    assert f.ansicht.letzter_zoom[0] == {3, 7}
+    f.aktionen["normal_auswahl"].trigger()
+    assert f.ansicht.letzte_ausrichtung[0] == {3, 7}
+    assert not f.schnitt_regler_aktion.isVisible()
+    f.aktionen["schnitt_z"].trigger()
+    assert f.schnitt_regler_aktion.isVisible()
+    f.aktionen["schnitt_aus"].trigger()
+    assert not f.schnitt_regler_aktion.isVisible()
+    f.ansicht.setze_auswahl([])
+    f.aktionen["schnitt_auswahl"].trigger()  # ohne Auswahl: Hinweis, kein Schnitt
+    assert f.ansicht.schnitt_zustand is None

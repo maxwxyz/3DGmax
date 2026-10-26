@@ -67,6 +67,12 @@ def pruefe_alles():
     a.flaeche_gewaehlt.connect(treffer.append)
     maus(T.MouseButtonPress, mitte); maus(T.MouseButtonRelease, mitte)
     ergebnis["klick"] = bool(treffer) and treffer[0] >= 0
+    ergebnis["auswahl3d"] = len(a.auswahl3d) == 1
+    a.richte_normal_aus(set(), list(a.auswahl3d))
+    ergebnis["schnitt_auswahl"] = a.schnitt_aus_auswahl()
+    a.schnitt("auswahl", a.schnitt_anteil_von_punkt("auswahl") or 0.5)
+    ergebnis["schnitt_ebene"] = a._clip is not None
+    a.schnitt(None)
     ergebnis["liste"] = len(f.pmi.tabelle.selectedIndexes()) >= 0
     # Messmodus: Klick liefert Element und Punkt, Messung wird gezeichnet
     elemente = []

@@ -19,7 +19,11 @@
    "Lizenz: GNU GPL v3 oder später (GPL-3.0-or-later), angezeigt im Fenster „Über 3DGmax“.",
    "Vergleich zweier Stände: automatisches Ausrichten (Bestpassung), Geometrievergleich (gleich, geändert, neu, entfernt) und semantischer PMI-Vergleich mit Alt → Neu.",
    "Änderungsliste mit Prüfrundgang (Prüfen starten, Geprüft/Abgelehnt, Kommentar) und Prüfprotokoll mit Prüfsumme.",
-   "Auf Auswahl zoomen (Z) für PMI, Messungen und Änderungen."
+   "Auf Auswahl zoomen (Z) für PMI, Messungen und Änderungen.",
+   "PMI-Liste: Spalten Name und Ansichten (durchsuchbar), Rechtsklick: Bezüge wählen, Toleranzen mit Bezug, zoomen, ausrichten, in Ansicht zeigen, kopieren.",
+   "Gespeicherte Ansichten durchklicken (◀ ▶, Bild auf/ab) und suchen; Statuszeile zeigt „n von N PMI“.",
+   "Flächen und Kanten im Modell wählen (Strg/Umschalt für mehrere); Rechtsklick-Menü im 3D-Fenster; Normal auf Auswahl ausrichten (N).",
+   "Schnitt an gewählter Fläche/Kante und aus Blickrichtung; Regler nur bei aktivem Schnitt."
   ],
   "en": [
    "First viewer version: load STEP AP242, assembly tree, CAD-style navigation, standard views.",
@@ -40,7 +44,11 @@
    "License: GNU GPL v3 or later (GPL-3.0-or-later), shown in the “About 3DGmax” window.",
    "Comparison of two revisions: automatic alignment (best fit), geometry comparison (equal, changed, new, removed) and semantic PMI comparison with old → new.",
    "Change list with review walk-through (start review, checked/rejected, comment) and review report with checksum.",
-   "Zoom to selection (Z) for PMI, measurements and changes."
+   "Zoom to selection (Z) for PMI, measurements and changes.",
+   "PMI list: columns name and views (searchable); right-click: select datums, tolerances using a datum, zoom, align, show in view, copy.",
+   "Browse saved views (◀ ▶, Page Up/Down) and search them; status bar shows “n of N PMI”.",
+   "Select faces and edges in the model (Ctrl/Shift for several); right-click menu in the 3D window; align normal to selection (N).",
+   "Section at the selected face/edge and from the view direction; slider only while a section is active."
   ]
  },
  "releases": [

@@ -104,11 +104,12 @@ def _setze_kinder(it, zustand, hilfe_auslassen=False):
 
 
 class PmiPanel(QtWidgets.QWidget):
-    """Tabelle aller PMI mit Artfilter und Suche."""
+    """Tabelle aller PMI mit Artfilter, Suche (Wert, Bezug, Name, Ansicht) und Kontextmenue."""
 
     gewaehlt = QtCore.Signal(list)  # Liste von Pmi
+    befehl = QtCore.Signal(str, object)  # Kontextmenue: ("zoomen"|"ausrichten"|"ansicht", Wert)
 
-    SPALTEN = ("Nr", "Art", "Wert", "Bezüge", "Flächen")
+    SPALTEN = ("Nr", "Art", "Wert", "Bezüge", "Name", "Ansichten", "Flächen")
 
     def __init__(self, parent=None):
         super().__init__(parent)
@@ -117,10 +118,10 @@ class PmiPanel(QtWidgets.QWidget):
         oben = QtWidgets.QHBoxLayout()
         self.art = QtWidgets.QComboBox()
         for text, art in ((tr("Alle Arten"), None), (tr("Maße"), MASS), (tr("Toleranzen"), TOLERANZ),
-                          (tr("Bezüge"), BEZUG)):
+                          (tr("Bezüge"), BEZUG), (tr("Hinweise"), HINWEIS)):
             self.art.addItem(text, art)
         self.suche = QtWidgets.QLineEdit()
-        self.suche.setPlaceholderText(tr("Suchen (z. B. 0.5, A, ⌀)"))
+        self.suche.setPlaceholderText(tr("Suchen: Wert, Bezug, Name, Ansicht (z. B. 0.5, A, MBD_A)"))
         self.suche.setClearButtonEnabled(True)
         oben.addWidget(self.art)
         oben.addWidget(self.suche, 1)
@@ -134,32 +135,45 @@ class PmiPanel(QtWidgets.QWidget):
         self.tabelle.setSelectionBehavior(QtWidgets.QAbstractItemView.SelectionBehavior.SelectRows)
         self.tabelle.setEditTriggers(QtWidgets.QAbstractItemView.EditTrigger.NoEditTriggers)
         self.tabelle.setAlternatingRowColors(True)
+        self.tabelle.setWordWrap(False)
+        self.tabelle.setContextMenuPolicy(QtCore.Qt.ContextMenuPolicy.CustomContextMenu)
+        self.tabelle.customContextMenuRequested.connect(self._menue)
         kopf = self.tabelle.horizontalHeader()
         kopf.setSectionResizeMode(2, QtWidgets.QHeaderView.ResizeMode.Stretch)
-        for i in (0, 1, 3, 4):
+        for i in (0, 1, 3, 4, 5, 6):
             kopf.setSectionResizeMode(i, QtWidgets.QHeaderView.ResizeMode.ResizeToContents)
         lay.addWidget(self.tabelle, 1)
         self.pmi: list = []
+        self.ansichten_je_pmi: dict[int, list[str]] = {}
+        self.ansichten: list = []
         self.nur_nummern: set[int] | None = None
         self.art.currentIndexChanged.connect(self._filtern)
         self.suche.textChanged.connect(self._filtern)
         self.tabelle.itemSelectionChanged.connect(self._auswahl)
 
-    def zeige(self, pmi: list):
+    def zeige(self, pmi: list, ansichten: list | None = None):
         self.pmi = pmi
+        self.ansichten = list(ansichten or [])
+        self.ansichten_je_pmi = {}
+        for a in self.ansichten:
+            for nr in a.pmi_nummern:
+                self.ansichten_je_pmi.setdefault(nr, []).append(a.name)
         self.nur_nummern = None
         t = self.tabelle
         t.blockSignals(True)
         t.setRowCount(len(pmi))
         for z, p in enumerate(pmi):
-            werte = (str(p.nummer), tr(ART_TEXT.get(p.art, p.art)), p.wert_text(), p.bezug_text(),
-                     str(len(p.flaechen)))
+            namen = self.ansichten_je_pmi.get(p.nummer, [])
+            werte = (str(p.nummer), tr(ART_TEXT.get(p.art, p.art)), p.wert_text(), p.bezug_text(), p.name,
+                     ", ".join(namen), str(len(p.flaechen)))
             for s, w in enumerate(werte):
                 it = QtWidgets.QTableWidgetItem(w)
-                if s in (0, 4):
+                if s in (0, 6):
                     it.setTextAlignment(QtCore.Qt.AlignmentFlag.AlignRight | QtCore.Qt.AlignmentFlag.AlignVCenter)
                 if s == 2:
                     it.setToolTip(_tooltip(p))
+                if s == 5 and namen:
+                    it.setToolTip(tr("In Ansichten: {}").format(", ".join(namen)))
                 t.setItem(z, s, it)
         t.blockSignals(False)
         self._filtern()
@@ -176,7 +190,8 @@ class PmiPanel(QtWidgets.QWidget):
             return False
         s = self.suche.text().strip().lower()
         if s:
-            text = " ".join((p.wert_text(), p.bezug_text(), p.name, p.typ, tr(ART_TEXT.get(p.art, "")))).lower()
+            text = " ".join((p.wert_text(), p.bezug_text(), p.name, p.typ, tr(ART_TEXT.get(p.art, "")),
+                             " ".join(self.ansichten_je_pmi.get(p.nummer, [])), " ".join(p.modifikatoren))).lower()
             return all(teil in text for teil in s.split())
         return True
 
@@ -191,9 +206,11 @@ class PmiPanel(QtWidgets.QWidget):
     def sichtbare(self) -> list:
         return [p for z, p in enumerate(self.pmi) if not self.tabelle.isRowHidden(z)]
 
+    def gewaehlte(self) -> list:
+        return [self.pmi[z] for z in sorted({i.row() for i in self.tabelle.selectedIndexes()})]
+
     def _auswahl(self):
-        zeilen = sorted({i.row() for i in self.tabelle.selectedIndexes()})
-        self.gewaehlt.emit([self.pmi[z] for z in zeilen])
+        self.gewaehlt.emit(self.gewaehlte())
 
     def waehle(self, pred) -> int:
         """Zeilen waehlen, fuer die pred(pmi) gilt; gibt die Anzahl zurueck."""
@@ -216,6 +233,64 @@ class PmiPanel(QtWidgets.QWidget):
         self._auswahl()
         return n
 
+    # --- Bezuege ---
+
+    def waehle_bezuege(self, auswahl: list) -> int:
+        """Bezuege der gewaehlten Toleranzen waehlen (Gruppen wie E-F-G einzeln)."""
+        namen = set()
+        for p in auswahl:
+            for b in p.bezuege:
+                namen |= set(b.name.split("-"))
+        return self.waehle(lambda q: q.art == BEZUG and q.typ == "Datum" and q.name in namen)
+
+    def waehle_mit_bezug(self, auswahl: list) -> int:
+        """Alle Toleranzen, die einen der gewaehlten Bezuege verwenden."""
+        namen = {p.name for p in auswahl if p.art == BEZUG}
+        return self.waehle(lambda q: q.art == TOLERANZ and any(set(b.name.split("-")) & namen for b in q.bezuege))
+
+    # --- Kontextmenue ---
+
+    def _menue(self, pos):
+        auswahl = self.gewaehlte()
+        m = QtWidgets.QMenu(self)
+        a_zoom = m.addAction(tr("Auf Auswahl zoomen"))
+        a_normal = m.addAction(tr("Normal auf Auswahl ausrichten"))
+        m.addSeparator()
+        a_bez = m.addAction(tr("Bezüge dieser Toleranz wählen"))
+        a_mit = m.addAction(tr("Toleranzen mit diesem Bezug wählen"))
+        a_bez.setEnabled(any(p.bezuege for p in auswahl))
+        a_mit.setEnabled(any(p.art == BEZUG for p in auswahl))
+        m.addSeparator()
+        menue_ansicht = m.addMenu(tr("In Ansicht zeigen"))
+        namen = sorted({n for p in auswahl for n in self.ansichten_je_pmi.get(p.nummer, [])})
+        for n in namen:
+            menue_ansicht.addAction(n).setData(n)
+        menue_ansicht.setEnabled(bool(namen))
+        m.addSeparator()
+        a_kopie = m.addAction(tr("Kopieren"))
+        for a in (a_zoom, a_normal, a_kopie):
+            a.setEnabled(bool(auswahl))
+        gewaehlt = m.exec(self.tabelle.viewport().mapToGlobal(pos))
+        if gewaehlt is None:
+            return
+        if gewaehlt is a_zoom:
+            self.befehl.emit("zoomen", auswahl)
+        elif gewaehlt is a_normal:
+            self.befehl.emit("ausrichten", auswahl)
+        elif gewaehlt is a_bez:
+            self.waehle_bezuege(auswahl)
+        elif gewaehlt is a_mit:
+            self.waehle_mit_bezug(auswahl)
+        elif gewaehlt is a_kopie:
+            self.kopiere(auswahl)
+        elif gewaehlt.data():
+            self.befehl.emit("ansicht", gewaehlt.data())
+
+    def kopiere(self, auswahl: list):
+        zeilen = ["\t".join((str(p.nummer), tr(ART_TEXT.get(p.art, p.art)), p.wert_text(), p.bezug_text(), p.name))
+                  for p in auswahl]
+        QtWidgets.QApplication.clipboard().setText("\n".join(zeilen))
+
 
 def _tooltip(p) -> str:
     teile = [p.name or p.typ, tr("Typ: {}").format(p.typ)]
@@ -228,7 +303,7 @@ def _tooltip(p) -> str:
 
 
 class AnsichtenPanel(QtWidgets.QWidget):
-    """Gespeicherte Ansichten des Modells."""
+    """Gespeicherte Ansichten des Modells (mit Suche nach Name)."""
 
     gewaehlt = QtCore.Signal(object)  # Ansicht oder None (alle PMI)
 
@@ -236,8 +311,23 @@ class AnsichtenPanel(QtWidgets.QWidget):
         super().__init__(parent)
         lay = QtWidgets.QVBoxLayout(self)
         lay.setContentsMargins(6, 6, 6, 6)
+        self.suche = QtWidgets.QLineEdit()
+        self.suche.setPlaceholderText(tr("Ansicht suchen"))
+        self.suche.setClearButtonEnabled(True)
+        self.suche.textChanged.connect(self._filtern)
+        lay.addWidget(self.suche)
         self.liste = QtWidgets.QListWidget()
         lay.addWidget(self.liste)
+        reihe = QtWidgets.QHBoxLayout()
+        self.zurueck = QtWidgets.QPushButton("◀")
+        self.zurueck.setToolTip(tr("Vorherige Ansicht (Bild auf)"))
+        self.vor = QtWidgets.QPushButton("▶")
+        self.vor.setToolTip(tr("Nächste Ansicht (Bild ab)"))
+        self.zurueck.clicked.connect(lambda: self.gehe(-1))
+        self.vor.clicked.connect(lambda: self.gehe(+1))
+        reihe.addWidget(self.zurueck)
+        reihe.addWidget(self.vor)
+        lay.addLayout(reihe)
         self.ansichten: list = []
         self.liste.currentRowChanged.connect(self._zeile)
 
@@ -257,3 +347,28 @@ class AnsichtenPanel(QtWidgets.QWidget):
 
     def _zeile(self, z):
         self.gewaehlt.emit(None if z <= 0 else self.ansichten[z - 1])
+
+    def _filtern(self):
+        s = self.suche.text().strip().lower()
+        for z, a in enumerate(self.ansichten, 1):
+            self.liste.item(z).setHidden(bool(s) and s not in a.name.lower())
+
+    def gehe(self, schritt: int):
+        """Naechste/vorherige sichtbare Ansicht mit PMI (Durchklicken der Captures)."""
+        kandidaten = [z for z, a in enumerate(self.ansichten, 1)
+                      if not self.liste.item(z).isHidden() and a.pmi_nummern] or \
+            [z for z in range(1, self.liste.count()) if not self.liste.item(z).isHidden()]
+        if not kandidaten:
+            return
+        jetzt = self.liste.currentRow()
+        if schritt > 0:
+            ziel = next((z for z in kandidaten if z > jetzt), kandidaten[0])
+        else:
+            ziel = next((z for z in reversed(kandidaten) if z < jetzt), kandidaten[-1])
+        self.liste.setCurrentRow(ziel)
+
+    def waehle_name(self, name: str):
+        for z, a in enumerate(self.ansichten, 1):
+            if a.name == name:
+                self.liste.setCurrentRow(z)
+                return

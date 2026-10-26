@@ -180,7 +180,14 @@ class Hauptfenster(QtWidgets.QMainWindow):
           tipp=tr("Zwei Stände eines Modells vergleichen (Geometrie und PMI)"), modell=False)
         A("vergleich_beenden", tr("Vergleich beenden"), self.beende_vergleich, tipp=tr("Zurück zur normalen Ansicht"))
         A("zoom_auswahl", tr("Auf Auswahl zoomen"), self._zoome_auswahl, "Z",
-          tipp=tr("Gewählte PMI, Messung oder Änderung bildfüllend zeigen"))
+          tipp=tr("Gewählte Flächen, Kanten, PMI, Messung oder Änderung bildfüllend zeigen"))
+        A("normal_auswahl", tr("Normal auf Auswahl ausrichten"), self._normal_auswahl, "N",
+          tipp=tr("Blick senkrecht auf die gewählte Fläche (Mittel bei mehreren) oder Beschriftung"))
+        A("auswahl_aufheben", tr("Auswahl aufheben"), self._auswahl_aufheben, tipp=tr("Gewählte Flächen und Kanten abwählen"))
+        A("teil_ausblenden", tr("Teil ausblenden"), lambda: self._teil_befehl("ausblenden"),
+          tipp=tr("Das Teil der gewählten Fläche ausblenden"))
+        A("teil_isolieren", tr("Teil isolieren"), lambda: self._teil_befehl("isolieren"),
+          tipp=tr("Nur das Teil der gewählten Fläche zeigen"))
         A("bild_speichern", tr("Bild speichern …"), self.bild_speichern, tipp=tr("Aktuelle Ansicht als PNG"))
         A("bild_kopieren", tr("Bild in Zwischenablage"), self.bild_kopieren, "Ctrl+Shift+C",
           tipp=tr("Aktuelle Ansicht in die Zwischenablage"))
@@ -209,10 +216,14 @@ class Hauptfenster(QtWidgets.QMainWindow):
         A("hilfsgeometrie", tr("Hilfsgeometrie zeigen"), self._hilfe_umschalten, pruefbar=True,
           tipp=tr("Punkte und Linien ohne Flächen (z. B. Konstruktionsgeometrie)"))
         sg = QtGui.QActionGroup(self)
-        for n, text in ((None, tr("Kein Schnitt")), ("x", tr("Schnitt X")), ("y", tr("Schnitt Y")),
-                        ("z", tr("Schnitt Z"))):
-            a = A("schnitt_" + (n or "aus"), text, lambda _=False, n=n: self._schnitt(n), pruefbar=True,
-                  tipp=tr("Schnittebene senkrecht zur Achse") if n else tr("Schnitt aufheben"))
+        for n, text, tipp in ((None, tr("Kein Schnitt"), tr("Schnitt aufheben")),
+                              ("x", tr("Schnitt X"), tr("Schnittebene senkrecht zur Achse")),
+                              ("y", tr("Schnitt Y"), tr("Schnittebene senkrecht zur Achse")),
+                              ("z", tr("Schnitt Z"), tr("Schnittebene senkrecht zur Achse")),
+                              ("auswahl", tr("Schnitt an Auswahl"), tr("Ebene durch die gewählte Fläche (bzw. senkrecht zur Kante)")),
+                              ("blick", tr("Schnitt aus Blickrichtung"), tr("Ebene senkrecht zur Blickrichtung, Abstand über den Regler"))):
+            a = A("schnitt_" + (n or "aus"), text, lambda _=False, n=n: self._waehle_schnitt(n), pruefbar=True,
+                  tipp=tipp)
             sg.addAction(a)
         self.aktionen["schnitt_aus"].setChecked(True)
         A("schnitt_umkehren", tr("Schnittseite umkehren"), self._schnitt_umkehren, pruefbar=True)
@@ -220,6 +231,8 @@ class Hauptfenster(QtWidgets.QMainWindow):
         A("isolieren", tr("Gewählte Teile isolieren"), self._isolieren, "I")
         A("transparent", tr("Gewählte Teile transparent"), self._transparent, "T")
         A("pmi_suche", tr("PMI suchen"), self._suche_fokus, QtGui.QKeySequence.StandardKey.Find)
+        A("ansicht_vor", tr("Nächste gespeicherte Ansicht"), lambda: self.ansichten.gehe(+1), "PgDown")
+        A("ansicht_zurueck", tr("Vorherige gespeicherte Ansicht"), lambda: self.ansichten.gehe(-1), "PgUp")
         A("messen", tr("Messen"), self._messen_umschalten, "M", pruefbar=True,
           tipp=tr("Abstand, Winkel, Radius, Wandstärke, Koordinaten messen"))
         A("messen_ende", tr("Werkzeug beenden"), self._werkzeug_ende, "Esc", tipp=tr("Messen beenden"))
@@ -261,6 +274,9 @@ class Hauptfenster(QtWidgets.QMainWindow):
             m.addAction(a["ansicht_" + n])
         m.addAction(a["alles"])
         m.addAction(a["zoom_auswahl"])
+        m.addAction(a["normal_auswahl"])
+        m.addAction(a["ansicht_vor"])
+        m.addAction(a["ansicht_zurueck"])
         m.addAction(a["drehpunkt"])
         m.addSeparator()
         for n in ansicht3d.DARSTELLUNGEN:
@@ -270,7 +286,7 @@ class Hauptfenster(QtWidgets.QMainWindow):
         m.addAction(a["hilfsgeometrie"])
         m.addSeparator()
         ms = m.addMenu(tr("Schnitt"))
-        for n in ("schnitt_aus", "schnitt_x", "schnitt_y", "schnitt_z"):
+        for n in ("schnitt_aus", "schnitt_x", "schnitt_y", "schnitt_z", "schnitt_auswahl", "schnitt_blick"):
             ms.addAction(a[n])
         ms.addSeparator()
         ms.addAction(a["schnitt_umkehren"])
@@ -282,7 +298,7 @@ class Hauptfenster(QtWidgets.QMainWindow):
         for n in ("sprache_auto", "sprache_de", "sprache_en"):
             msp.addAction(a[n])
         m = mb.addMenu(tr("&Modell"))
-        for n in ("alle_zeigen", "isolieren", "transparent"):
+        for n in ("alle_zeigen", "isolieren", "transparent", "teil_ausblenden", "teil_isolieren", "auswahl_aufheben"):
             m.addAction(a[n])
         m.addSeparator()
         m.addAction(a["pmi_suche"])
@@ -321,7 +337,8 @@ class Hauptfenster(QtWidgets.QMainWindow):
         knopf.setToolTip(tr("Schnittebene wählen"))
         knopf.setPopupMode(QtWidgets.QToolButton.ToolButtonPopupMode.InstantPopup)
         menue = QtWidgets.QMenu(knopf)
-        for n in ("schnitt_aus", "schnitt_x", "schnitt_y", "schnitt_z", "schnitt_umkehren"):
+        for n in ("schnitt_aus", "schnitt_x", "schnitt_y", "schnitt_z", "schnitt_auswahl", "schnitt_blick",
+                  "schnitt_umkehren"):
             menue.addAction(a[n])
         knopf.setMenu(menue)
         self.schnitt_knopf = knopf
@@ -332,12 +349,14 @@ class Hauptfenster(QtWidgets.QMainWindow):
         self.schnitt_regler.setMaximumWidth(160)
         self.schnitt_regler.setToolTip(tr("Lage der Schnittebene"))
         self.schnitt_regler.valueChanged.connect(lambda _: self._schnitt(self._schnitt_achse))
-        tb.addWidget(self.schnitt_regler)
+        self.schnitt_regler_aktion = tb.addWidget(self.schnitt_regler)
+        self.schnitt_regler_aktion.setVisible(False)  # nur bei aktivem Schnitt
         self._schnitt_achse = None
 
     def _verbinde(self):
         self.start.oeffnen.connect(self.oeffnen)
         self.pmi.gewaehlt.connect(self._pmi_gewaehlt)
+        self.pmi.befehl.connect(self._pmi_befehl)
         self.ansichten.gewaehlt.connect(self._ansicht_gewaehlt)
         self.ansicht.flaeche_gewaehlt.connect(self._flaeche_gewaehlt)
         self.ansicht.pmi_gewaehlt.connect(self._grafik_pmi_gewaehlt)
@@ -346,6 +365,7 @@ class Hauptfenster(QtWidgets.QMainWindow):
         self.baum.isolieren.connect(self.ansicht.isoliere)
         self.baum.transparent.connect(self.ansicht.knoten_transparent)
         self.ansicht.element_gewaehlt.connect(self.messen.element)
+        self.ansicht.kontextmenue.connect(self._kontextmenue_3d)
         self.messen.messungen_geaendert.connect(self.ansicht.zeige_messungen)
         self.messen.modus_geaendert.connect(self._messmodus)
         self.messen.koerper_von = self._koerper_von
@@ -360,6 +380,7 @@ class Hauptfenster(QtWidgets.QMainWindow):
                 a.setEnabled(da)
         self.schnitt_knopf.setEnabled(da)
         self.schnitt_regler.setEnabled(da and self._schnitt_achse is not None)
+        self.schnitt_regler_aktion.setVisible(da and self._schnitt_achse is not None)
         self.aktionen["schnitt_umkehren"].setEnabled(da and self._schnitt_achse is not None)
         self.stapel.setCurrentWidget(self.ansicht if da else self.start)
         for d in (self.dock_baum, self.dock_ansichten, self.dock_pmi):
@@ -444,7 +465,7 @@ class Hauptfenster(QtWidgets.QMainWindow):
         self._modell_da(True)
         self.ansicht.zeige(szene)
         self.baum.zeige(erg.baum)
-        self.pmi.zeige(erg.pmi)
+        self.pmi.zeige(erg.pmi, erg.ansichten)
         self.ansichten.zeige(erg.ansichten)
         self._merke_zuletzt(erg.pfad)
         n = len(erg.pmi)
@@ -515,7 +536,8 @@ class Hauptfenster(QtWidgets.QMainWindow):
         self.pmi.nur_ansicht(set(ansicht.pmi_nummern))
         self.ansicht.zeige_pmi(ansicht.pmi_ids)
         self.ansicht.kamera(ansicht)
-        self.statusBar().showMessage(tr("Ansicht {}: {} PMI").format(ansicht.name, len(ansicht.pmi_nummern)), 5000)
+        self.statusBar().showMessage(tr("Ansicht {}: {} von {} PMI").format(
+            ansicht.name, len(ansicht.pmi_nummern), len(self.erg.pmi) if self.erg else 0), 6000)
 
     # --- Befehle ---
 
@@ -638,26 +660,106 @@ class Hauptfenster(QtWidgets.QMainWindow):
         self.statusBar().showMessage(tr("Prüfprotokoll gespeichert: {}").format(dateien[1]), 8000)
         return dateien
 
-    def _zoome_auswahl(self):
-        """Gewaehlte Aenderung, PMI (auch mehrere) oder Messung bildfuellend zeigen."""
+    def _auswahl_ziel(self):
+        """(Flaechen, Formen, PMI-IDs) der aktuellen Auswahl: 3D-Auswahl, gewaehlte PMI, Messung, Aenderung."""
+        from OCC.Core.TopAbs import TopAbs_FACE
         if self.vergleich is not None and self.dock_aenderungen.isVisible() and self.aenderungen.gewaehlte():
-            self._aenderung_gewaehlt(self.aenderungen.gewaehlte())
-            return
+            a = self.aenderungen.gewaehlte()
+            alt = [] if a.flaechen_neu else [self.vergleich.alt.modell.flaechen[i] for i in a.flaechen_alt]
+            return set(a.flaechen_neu), alt, set()
         zeilen = {i.row() for i in self.messen.tabelle.selectedIndexes()}
         if self.dock_messen.isVisible() and zeilen:
             from OCC.Core.BRepBuilderAPI import BRepBuilderAPI_MakeVertex
             from OCC.Core.gp import gp_Pnt
-            formen = [BRepBuilderAPI_MakeVertex(gp_Pnt(*p)).Vertex()
-                      for z in zeilen for p in self.messen.messungen[z].punkte]
-            self.ansicht.zoome_auf(set(), formen)
-            return
-        flaechen = set()
-        for z in {i.row() for i in self.pmi.tabelle.selectedIndexes()}:
-            flaechen |= self.pmi.pmi[z].flaechen
-        if flaechen:
-            self.ansicht.zoome_auf(flaechen)
+            return set(), [BRepBuilderAPI_MakeVertex(gp_Pnt(*p)).Vertex()
+                           for z in zeilen for p in self.messen.messungen[z].punkte], set()
+        flaechen, formen = set(), []
+        if self.erg is not None:
+            for f in self.ansicht.auswahl3d:
+                idx = self.erg.modell.flaechen_index(f) if f.ShapeType() == TopAbs_FACE else None
+                if idx is not None:
+                    flaechen.add(idx)
+                else:
+                    formen.append(f)
+        pmi = self.pmi.gewaehlte()
+        for p in pmi:
+            flaechen |= p.flaechen
+        return flaechen, formen, {p.step_id for p in pmi if p.step_id}
+
+    def _zoome_auswahl(self):
+        """Gewaehlte Flaechen/Kanten, PMI (auch mehrere), Messung oder Aenderung bildfuellend zeigen."""
+        flaechen, formen, ids = self._auswahl_ziel()
+        if flaechen or formen or ids:
+            self.ansicht.zoome_auf(flaechen, formen, ids)
         else:
-            self.statusBar().showMessage(tr("Erst PMI, Messung oder Änderung wählen"), 4000)
+            self.statusBar().showMessage(tr("Erst Fläche, Kante, PMI, Messung oder Änderung wählen"), 4000)
+
+    def _normal_auswahl(self):
+        flaechen, formen, ids = self._auswahl_ziel()
+        if flaechen or formen or ids:
+            self.ansicht.richte_normal_aus(flaechen, formen, ids)
+        else:
+            self.statusBar().showMessage(tr("Erst Fläche, Kante, PMI, Messung oder Änderung wählen"), 4000)
+
+    def _auswahl_aufheben(self):
+        self.ansicht.setze_auswahl([])
+        self.pmi.waehle(lambda p: False)
+
+    def _knoten_von(self, form):
+        if self.erg is None:
+            return None
+        from OCC.Core.TopAbs import TopAbs_FACE
+        from OCC.Core.TopExp import TopExp_Explorer
+        ziel = self.erg.modell.flaechen_index(form)
+        for k in self.erg.baum.blaetter():
+            ex = TopExp_Explorer(k.form, TopAbs_FACE)
+            while ex.More():
+                if self.erg.modell.flaechen_index(ex.Current()) == ziel:
+                    return k
+                ex.Next()
+        return None
+
+    def _teil_befehl(self, art):
+        from OCC.Core.TopAbs import TopAbs_FACE
+        knoten = {k.nummer for f in self.ansicht.auswahl3d if f.ShapeType() == TopAbs_FACE
+                  for k in [self._knoten_von(f)] if k is not None}
+        if not knoten:
+            self.statusBar().showMessage(tr("Erst eine Fläche des Teils wählen"), 4000)
+            return
+        if art == "ausblenden":
+            self.ansicht.knoten_sichtbar(knoten, False)
+        else:
+            self.ansicht.isoliere(knoten)
+
+    def _kontextmenue_3d(self, pos):
+        a = self.aktionen
+        m = QtWidgets.QMenu(self)
+        for n in ("zoom_auswahl", "normal_auswahl", "auswahl_aufheben"):
+            m.addAction(a[n])
+        m.addSeparator()
+        for n in ("schnitt_auswahl", "schnitt_blick", "schnitt_aus"):
+            m.addAction(a[n])
+        m.addSeparator()
+        for n in ("teil_ausblenden", "teil_isolieren", "alle_zeigen"):
+            m.addAction(a[n])
+        m.addSeparator()
+        m.addAction(a["messen"])
+        m.addAction(a["alles"])
+        std = m.addMenu(tr("Standardansicht"))
+        for n in ansicht3d.STANDARDANSICHTEN:
+            std.addAction(a["ansicht_" + n])
+        m.exec(pos)
+
+    def _pmi_befehl(self, art, wert):
+        if art == "zoomen":
+            flaechen = set().union(*(p.flaechen for p in wert)) if wert else set()
+            self.ansicht.zoome_auf(flaechen, None, {p.step_id for p in wert})
+        elif art == "ausrichten":
+            self.ansicht.richte_normal_aus(set().union(*(p.flaechen for p in wert)) if wert else set(), None,
+                                           {p.step_id for p in wert})
+        elif art == "ansicht":
+            self.dock_ansichten.show()
+            self.ansichten.waehle_name(wert)
 
     def _grafik_umschalten(self):
         self.ansicht.setze_grafik(self.aktionen["grafik"].isChecked())
@@ -665,10 +767,26 @@ class Hauptfenster(QtWidgets.QMainWindow):
     def _hilfe_umschalten(self):
         self.ansicht.setze_hilfsgeometrie(self.aktionen["hilfsgeometrie"].isChecked())
 
+    def _waehle_schnitt(self, achse):
+        """Schnittart waehlen; bei Auswahl/Blick wird die Ebene jetzt festgelegt."""
+        if achse == "auswahl" and not self.ansicht.schnitt_aus_auswahl():
+            self.statusBar().showMessage(tr("Erst eine Fläche oder gerade/runde Kante im Modell wählen"), 5000)
+            self.aktionen["schnitt_" + (self._schnitt_achse or "aus")].setChecked(True)
+            return
+        if achse == "blick":
+            self.ansicht.schnitt_aus_blick()
+        if achse in ("auswahl", "blick"):
+            anteil = self.ansicht.schnitt_anteil_von_punkt(achse)
+            self.schnitt_regler.blockSignals(True)
+            self.schnitt_regler.setValue(int(1000 * (anteil if anteil is not None else 0.5)))
+            self.schnitt_regler.blockSignals(False)
+        self._schnitt(achse)
+
     def _schnitt(self, achse):
         self._schnitt_achse = achse
         da = self.erg is not None
         self.schnitt_regler.setEnabled(da and achse is not None)
+        self.schnitt_regler_aktion.setVisible(da and achse is not None)
         self.aktionen["schnitt_umkehren"].setEnabled(da and achse is not None)
         self.ansicht.schnitt(achse, self.schnitt_regler.value() / 1000.0,
                              self.aktionen["schnitt_umkehren"].isChecked())

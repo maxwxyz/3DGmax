@@ -3,13 +3,13 @@
 Eingabe: Ereignisse (druecken/bewegen/loslassen/doppelklick) mit Knopf, gedrueckten Knoepfen und Umschalttasten.
 Ausgabe: Befehle als Tupel, die die 3D-Ansicht ausfuehrt:
   ("drehen", dx, dy), ("schieben", dx, dy), ("zoomen", faktor, x, y), ("klick", x, y),
-  ("zentrieren", x, y), ("drehpunkt", x, y), ("hover", x, y)
+  ("zentrieren", x, y), ("drehpunkt", x, y), ("hover", x, y), ("kontext", x, y)
 
 CATIA (Standard):
   Mitteltaste ziehen: verschieben
   Mitteltaste halten + linke oder rechte Taste halten, ziehen: drehen
   Mitteltaste halten, links/rechts einmal klicken, weiter ziehen (hoch/runter): zoomen
-  Mitteltaste klicken: Punkt in die Bildmitte; linke Taste klicken: waehlen
+  Mitteltaste klicken: Punkt in die Bildmitte; linke Taste klicken: waehlen; rechte Taste klicken: Kontextmenue
 Klassisch:
   Linke Taste ziehen: drehen; Mitte/rechts oder Umschalt+links ziehen: verschieben
   Doppelklick: Drehpunkt; linke Taste klicken: waehlen
@@ -95,8 +95,12 @@ class Navigation:
                 out.append(("zentrieren", x, y))
             elif knopf == LINKS and not self.gezogen and self.knopf == LINKS:
                 out.append(("klick", x, y))
+            elif knopf == RECHTS and not self.gezogen and self.knopf == RECHTS:
+                out.append(("kontext", x, y))
         elif knopf == LINKS and not self.gezogen:
             out.append(("klick", x, y))
+        elif knopf == RECHTS and not self.gezogen:
+            out.append(("kontext", x, y))
         if not knoepfe:
             self._zuruecksetzen()
         return out

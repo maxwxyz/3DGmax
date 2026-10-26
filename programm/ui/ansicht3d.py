@@ -49,6 +49,8 @@ class AnsichtBasis(QtWidgets.QWidget):
     flaeche_gewaehlt = QtCore.Signal(int)  # Flaechenindex, -1 = nichts
     pmi_gewaehlt = QtCore.Signal(set)  # STEP-#IDs der angeklickten grafischen PMI
     element_gewaehlt = QtCore.Signal(object, object)  # Messmodus: TopoDS-Form, Punkt (x, y, z)
+    auswahl_geaendert = QtCore.Signal(list)  # 3D-Auswahl (Flaechen/Kanten)
+    kontextmenue = QtCore.Signal(object)  # globale Bildschirmposition (QPoint)
     meldung = QtCore.Signal(str)
 
     def __init__(self, parent=None):
@@ -73,6 +75,9 @@ class AnsichtBasis(QtWidgets.QWidget):
         self.vergleich_entfernt: list = []
         self.vergleich_trsf = None
         self.letzter_zoom = None
+        self.letzte_ausrichtung = None
+        self.auswahl3d: list = []  # gewaehlte Flaechen/Kanten (TopoDS)
+        self.schnitt_eigen = None  # (punkt, normale) fuer Schnitt an Auswahl / aus Blickrichtung
 
     # --- Schnittstelle (Unterklassen ergaenzen die Darstellung) ---
 
@@ -156,9 +161,24 @@ class AnsichtBasis(QtWidgets.QWidget):
         self.vergleich_entfernt = list(entfernt_formen or [])
         self.vergleich_trsf = trsf
 
-    def zoome_auf(self, flaechen: set[int], formen: list | None = None):
-        """Ausschnitt auf Flaechen (Index im angezeigten Modell) und weitere Formen setzen."""
-        self.letzter_zoom = (set(flaechen), len(formen or []))
+    def zoome_auf(self, flaechen: set[int], formen: list | None = None, pmi_ids: set | None = None):
+        """Ausschnitt auf Flaechen (Index im angezeigten Modell), weitere Formen und PMI-Grafik setzen."""
+        self.letzter_zoom = (set(flaechen), len(formen or []), set(pmi_ids or ()))
+
+    def richte_normal_aus(self, flaechen: set[int], formen: list | None = None, pmi_ids: set | None = None):
+        """Kamera senkrecht auf die Auswahl (Flaechennormale, Mittel bei mehreren, Ebene der Beschriftung)."""
+        self.letzte_ausrichtung = (set(flaechen), len(formen or []), set(pmi_ids or ()))
+
+    def setze_auswahl(self, formen: list):
+        self.auswahl3d = list(formen)
+        self.auswahl_geaendert.emit(list(self.auswahl3d))
+
+    def schnitt_aus_auswahl(self) -> bool:
+        """Schnittebene durch die gewaehlte Flaeche/Kante; False ohne passende Auswahl."""
+        return False
+
+    def schnitt_aus_blick(self) -> bool:
+        return False
 
     def bild(self, pfad: str) -> bool:
         return False
@@ -381,34 +401,6 @@ class OcctAnsicht(AnsichtBasis):
         super().zeige_vergleich(status, entfernt_formen, trsf)
         if self._bereit and self.szene is not None:
             self._baue_szene()
-
-    def zoome_auf(self, flaechen, formen=None):
-        super().zoome_auf(flaechen, formen)
-        if not self._bereit:
-            return
-        from OCC.Core.Bnd import Bnd_Box
-        from OCC.Core.BRepBndLib import brepbndlib
-        from OCC.Core.TopLoc import TopLoc_Location
-        box = Bnd_Box()
-        lage = TopLoc_Location(self.vergleich_trsf) if self.vergleich_trsf is not None else None
-        for idx in flaechen:
-            for _ais, f in self._flaechen_ais.get(idx, []):
-                brepbndlib.Add(f.Moved(lage) if lage is not None else f, box)
-        for f in formen or []:
-            brepbndlib.Add(f, box)
-        if box.IsVoid():
-            return
-        x0, y0, z0, x1, y1, z1 = box.Get()
-        # Umgebung zeigen: mindestens 15 % der Modellgroesse, damit man sich orientieren kann
-        gesamt = self._sichtbare_box()
-        g = 0.0
-        if not gesamt.IsVoid():
-            gx0, gy0, gz0, gx1, gy1, gz1 = gesamt.Get()
-            g = max(gx1 - gx0, gy1 - gy0, gz1 - gz0)
-        box.Enlarge(max(max(x1 - x0, y1 - y0, z1 - z0) * 0.6, 0.15 * g, 1.0))
-        self.d.View.FitAll(box, 0.05, False)
-        self.d.View.ZFitAll()
-        self._neu_zeichnen()
 
     def _baue_grafik(self):
         from OCC.Core.AIS import AIS_Shape, AIS_TextLabel
@@ -687,31 +679,89 @@ class OcctAnsicht(AnsichtBasis):
             self.d.View.RemoveClipPlane(self._clip)
         self._clip = None
 
+    def _schnitt_normale(self, achse):
+        """(Normale, Punkt auf der Ebene oder None) fuer Achse, Auswahl oder Blickrichtung."""
+        import numpy as np
+        if achse in ("x", "y", "z"):
+            n = np.zeros(3)
+            n["xyz".index(achse)] = 1.0
+            return n, None
+        if self.schnitt_eigen is None:
+            return None, None
+        return np.asarray(self.schnitt_eigen[1], float), np.asarray(self.schnitt_eigen[0], float)
+
+    def _schnitt_bereich(self, n):
+        """Bereich der Modellteile entlang der Normalen (min, max des Hüllquaders)."""
+        import itertools
+        import numpy as np
+        box = self._sichtbare_box()
+        if box.IsVoid():
+            return None
+        x0, y0, z0, x1, y1, z1 = box.Get()
+        ecken = np.array(list(itertools.product((x0, x1), (y0, y1), (z0, z1))))
+        werte = ecken @ n
+        return float(werte.min()), float(werte.max()), ecken.mean(axis=0)
+
+    def schnitt_anteil_von_punkt(self, achse) -> float | None:
+        """Reglerstellung, bei der die Ebene durch den Auswahlpunkt geht."""
+        n, p = self._schnitt_normale(achse)
+        if n is None or p is None:
+            return None
+        bereich = self._schnitt_bereich(n)
+        if bereich is None or bereich[1] - bereich[0] < 1e-9:
+            return None
+        return min(max((float(p @ n) - bereich[0]) / (bereich[1] - bereich[0]), 0.0), 1.0)
+
+    def schnitt_aus_auswahl(self) -> bool:
+        if not self._bereit or not self.auswahl3d:
+            return False
+        import numpy as np
+        from OCC.Core.BRepGProp import brepgprop
+        from OCC.Core.GProp import GProp_GProps
+        from OCC.Core.TopAbs import TopAbs_FACE
+        form = self.auswahl3d[-1]
+        n = self._normale(form)
+        if n is None:
+            return False
+        props = GProp_GProps()
+        (brepgprop.SurfaceProperties if form.ShapeType() == TopAbs_FACE else brepgprop.LinearProperties)(form, props)
+        c = props.CentreOfMass()
+        if self.vergleich_trsf is not None:
+            c = c.Transformed(self.vergleich_trsf)
+            n = n.Transformed(self.vergleich_trsf)
+        self.schnitt_eigen = (np.array([c.X(), c.Y(), c.Z()]), np.array([n.X(), n.Y(), n.Z()]))
+        return True
+
+    def schnitt_aus_blick(self) -> bool:
+        if not self._bereit:
+            return False
+        import numpy as np
+        cam = self.d.View.Camera()
+        d, c = cam.Direction(), cam.Center()
+        self.schnitt_eigen = (np.array([c.X(), c.Y(), c.Z()]), -np.array([d.X(), d.Y(), d.Z()]))
+        return True
+
     def schnitt(self, achse, anteil=0.5, umgekehrt=False):
         super().schnitt(achse, anteil, umgekehrt)
         if not self._bereit:
             return
-        from OCC.Core.Bnd import Bnd_Box
-        from OCC.Core.BRepBndLib import brepbndlib
         from OCC.Core.gp import gp_Dir, gp_Pln, gp_Pnt
         from OCC.Core.Graphic3d import Graphic3d_ClipPlane
         self._entferne_schnitt()
         if achse is None or self.szene is None:
             self._neu_zeichnen()
             return
-        box = Bnd_Box()
-        for ais in self._teile.values():  # ohne Hilfsgeometrie und PMI
-            brepbndlib.Add(ais.Shape(), box)
-        if box.IsVoid():
+        n, _ = self._schnitt_normale(achse)
+        bereich = self._schnitt_bereich(n) if n is not None else None
+        if bereich is None:
+            self._neu_zeichnen()
             return
-        x0, y0, z0, x1, y1, z1 = box.Get()
-        i = "xyz".index(achse)
-        lo, hi = (x0, y0, z0)[i], (x1, y1, z1)[i]
-        pos = [(x0 + x1) / 2, (y0 + y1) / 2, (z0 + z1) / 2]
-        pos[i] = lo + (hi - lo) * anteil
-        n = [0.0, 0.0, 0.0]
-        n[i] = 1.0 if umgekehrt else -1.0
-        ebene = Graphic3d_ClipPlane(gp_Pln(gp_Pnt(*pos), gp_Dir(*n)))
+        lo, hi, mitte = bereich
+        abstand = lo + (hi - lo) * anteil
+        pos = mitte + n * (abstand - float(mitte @ n))
+        # weggeschnitten wird die Seite in Normalenrichtung (beim Blick: die Seite zum Betrachter)
+        richtung = n if umgekehrt else -n
+        ebene = Graphic3d_ClipPlane(gp_Pln(gp_Pnt(*map(float, pos)), gp_Dir(*map(float, richtung))))
         ebene.SetCapping(True)
         ebene.SetCappingColor(_farbe((self.thema or {}).get("schnitt", (1, 0.55, 0.1))))
         ebene.SetOn(True)
@@ -751,7 +801,7 @@ class OcctAnsicht(AnsichtBasis):
             if nr in self.versteckt:
                 continue
             ctx.Deactivate(ais)
-            for modus in ((1, 2, 4) if self.messmodus else (4,)):  # Punkte, Kanten, Flaechen
+            for modus in ((1, 2, 4) if self.messmodus else (2, 4)):  # Punkte, Kanten, Flaechen
                 ctx.Activate(ais, modus, False)
 
     def fang_toleranz(self) -> float:
@@ -845,6 +895,8 @@ class OcctAnsicht(AnsichtBasis):
             self._setze_drehpunkt(*werte)
         elif art == "hover":
             self.d.Context.MoveTo(werte[0], werte[1], self.d.View, True)
+        elif art == "kontext":
+            self.kontextmenue.emit(self.viewer.mapToGlobal(QtCore.QPoint(int(werte[0]), int(werte[1]))))
 
     def _zentriere(self, x, y):
         """CATIA: Punkt unter der Maus wird Bildmitte (und Drehzentrum)."""
@@ -886,6 +938,8 @@ class OcctAnsicht(AnsichtBasis):
         ctx = self.d.Context
         ctx.MoveTo(x, y, self.d.View, False)
         if not ctx.HasDetected():
+            if not QtWidgets.QApplication.keyboardModifiers():
+                self.setze_auswahl([])
             self.flaeche_gewaehlt.emit(-1)
             return
         obj = ctx.DetectedInteractive()
@@ -900,8 +954,160 @@ class OcctAnsicht(AnsichtBasis):
                 if p is not None:
                     self.element_gewaehlt.emit(form, (p.X(), p.Y(), p.Z()))
                 return
+            mehr = bool(QtWidgets.QApplication.keyboardModifiers() &
+                        (QtCore.Qt.KeyboardModifier.ControlModifier | QtCore.Qt.KeyboardModifier.ShiftModifier |
+                         QtCore.Qt.KeyboardModifier.MetaModifier))
+            self._waehle_3d(form, mehr)
             idx = self.szene.modell.flaechen_index(form)
             self.flaeche_gewaehlt.emit(-1 if idx is None else idx)
+
+    # --- 3D-Auswahl ---
+
+    def _waehle_3d(self, form, ergaenzen: bool):
+        gleich = [f for f in self.auswahl3d if f.IsSame(form)]
+        if ergaenzen:
+            neu = [f for f in self.auswahl3d if not f.IsSame(form)] if gleich else self.auswahl3d + [form]
+        else:
+            neu = [form]
+        self.setze_auswahl(neu)
+
+    def setze_auswahl(self, formen):
+        super().setze_auswahl(formen)
+        if not self._bereit:
+            return
+        from OCC.Core.AIS import AIS_Shape
+        from OCC.Core.BRep import BRep_Builder
+        from OCC.Core.Graphic3d import Graphic3d_ZLayerId_Topmost
+        from OCC.Core.TopAbs import TopAbs_EDGE
+        from OCC.Core.TopoDS import TopoDS_Compound
+        ctx = self.d.Context
+        if getattr(self, "_auswahl_ais", None) is not None:
+            ctx.Remove(self._auswahl_ais, False)
+            self._auswahl_ais = None
+        kanten = [f for f in self.auswahl3d if f.ShapeType() == TopAbs_EDGE]
+        flaechen = {self.szene.modell.flaechen_index(f) for f in self.auswahl3d if f.ShapeType() != TopAbs_EDGE}
+        self.hebe_flaechen({i for i in flaechen if i is not None})
+        if kanten:
+            bb, comp = BRep_Builder(), TopoDS_Compound()
+            bb.MakeCompound(comp)
+            for k in kanten:
+                bb.Add(comp, k)
+            ais = AIS_Shape(comp)
+            ais.SetColor(_farbe((self.thema or {}).get("hervor", (1, 0.45, 0))))
+            ais.SetWidth(4.0)
+            ais.SetZLayer(Graphic3d_ZLayerId_Topmost)
+            if self.vergleich_trsf is not None:
+                ais.SetLocalTransformation(self.vergleich_trsf)
+            ctx.Display(ais, 0, -1, False)
+            ctx.Deactivate(ais)
+            self._auswahl_ais = ais
+        self._neu_zeichnen()
+
+    def _auswahl_formen(self, flaechen, formen=None, pmi_ids=None):
+        """Formen (in Anzeigekoordinaten) fuer Zoom/Ausrichten: Flaechen, weitere Formen, PMI-Grafik."""
+        from OCC.Core.TopLoc import TopLoc_Location
+        lage = TopLoc_Location(self.vergleich_trsf) if self.vergleich_trsf is not None else None
+        out = []
+        for idx in flaechen:
+            for _ais, f in self._flaechen_ais.get(idx, [])[:1]:
+                out.append(f.Moved(lage) if lage is not None else f)
+        out += list(formen or [])
+        for cid, liste in self._callouts.items():
+            if pmi_ids and self.szene.grafik[cid].pmi_ids & set(pmi_ids):
+                for ais in liste:
+                    if hasattr(ais, "Shape"):
+                        out.append(ais.Shape())
+        return out
+
+    def _pmi_punkte(self, pmi_ids):
+        import numpy as np
+        pts = []
+        for g in self.szene.grafik.values():
+            if pmi_ids and g.pmi_ids & set(pmi_ids):
+                pts += [l for l in g.linien] + [p for p, _ in g.dreiecke]
+                pts += [np.array([ph.ursprung]) for ph in g.platzhalter]
+        return np.vstack(pts) if pts else None
+
+    def zoome_auf(self, flaechen, formen=None, pmi_ids=None):
+        AnsichtBasis.zoome_auf(self, flaechen, formen, pmi_ids)
+        if not self._bereit:
+            return
+        from OCC.Core.Bnd import Bnd_Box
+        from OCC.Core.BRepBndLib import brepbndlib
+        box = Bnd_Box()
+        for f in self._auswahl_formen(flaechen, formen, pmi_ids):
+            brepbndlib.Add(f, box)
+        if box.IsVoid():
+            return
+        x0, y0, z0, x1, y1, z1 = box.Get()
+        gesamt = self._sichtbare_box()
+        g = 0.0
+        if not gesamt.IsVoid():
+            gx0, gy0, gz0, gx1, gy1, gz1 = gesamt.Get()
+            g = max(gx1 - gx0, gy1 - gy0, gz1 - gz0)
+        box.Enlarge(max(max(x1 - x0, y1 - y0, z1 - z0) * 0.6, 0.15 * g, 1.0))
+        self.d.View.FitAll(box, 0.05, False)
+        self.d.View.ZFitAll()
+        self._neu_zeichnen()
+
+    def _normale(self, form):
+        """Aeussere Normale in der Flaechenmitte, Achse eines Kreises, Richtung einer Geraden (gp_Dir) oder None."""
+        from OCC.Core.BRepAdaptor import BRepAdaptor_Curve
+        from OCC.Core.BRepGProp import BRepGProp_Face
+        from OCC.Core.GeomAbs import GeomAbs_Circle, GeomAbs_Line
+        from OCC.Core.gp import gp_Dir, gp_Pnt, gp_Vec
+        from OCC.Core.TopAbs import TopAbs_EDGE, TopAbs_FACE
+        from OCC.Core.TopoDS import topods
+        if form.ShapeType() == TopAbs_FACE:
+            f = topods.Face(form)
+            prop = BRepGProp_Face(f)
+            u0, u1, v0, v1 = prop.Bounds()
+            p, n = gp_Pnt(), gp_Vec()
+            prop.Normal((u0 + u1) / 2, (v0 + v1) / 2, p, n)
+            return gp_Dir(n) if n.Magnitude() > 1e-12 else None
+        if form.ShapeType() == TopAbs_EDGE:
+            c = BRepAdaptor_Curve(topods.Edge(form))
+            if c.GetType() == GeomAbs_Circle:
+                return c.Circle().Axis().Direction()
+            if c.GetType() == GeomAbs_Line:
+                return c.Line().Direction()
+        return None
+
+    def richte_normal_aus(self, flaechen, formen=None, pmi_ids=None):
+        AnsichtBasis.richte_normal_aus(self, flaechen, formen, pmi_ids)
+        if not self._bereit:
+            return
+        import numpy as np
+        normalen = []
+        for f in self._auswahl_formen(flaechen, formen, None):
+            n = self._normale(f)
+            if n is not None:
+                normalen.append(np.array([n.X(), n.Y(), n.Z()]))
+        pts = self._pmi_punkte(pmi_ids) if pmi_ids else None
+        if pts is not None and len(pts) >= 3:
+            mitte = pts.mean(axis=0)
+            _, _, vt = np.linalg.svd(pts - mitte)
+            normalen.append(vt[2])  # Ebene der Beschriftung
+        if not normalen:
+            self.meldung.emit(tr("Keine Fläche oder Beschriftung zum Ausrichten gewählt"))
+            return
+        cam = self.d.View.Camera()
+        zum_auge = -np.array([cam.Direction().X(), cam.Direction().Y(), cam.Direction().Z()])
+        # Mittel der Normalen (Flaechen: aeussere Normale); Beschriftungsebene zum Betrachter hin
+        n = np.sum(normalen, axis=0)
+        if pts is not None and n @ zum_auge < 0:
+            n = -n
+        if np.linalg.norm(n) < 1e-9:
+            n = normalen[0]
+        n = n / np.linalg.norm(n)
+        oben = np.array([cam.Up().X(), cam.Up().Y(), cam.Up().Z()])
+        oben = oben - n * (oben @ n)
+        if np.linalg.norm(oben) < 1e-6:
+            oben = np.array([0.0, 0.0, 1.0]) if abs(n[2]) < 0.9 else np.array([0.0, 1.0, 0.0])
+            oben = oben - n * (oben @ n)
+        self.d.View.SetProj(*map(float, n))
+        self.d.View.SetUp(*map(float, oben / np.linalg.norm(oben)))
+        self.zoome_auf(flaechen, formen, pmi_ids)
 
     def _punkt_unter_maus(self, x, y, form=None):
         """3D-Punkt auf dem Element unter der Maus (Sichtstrahl geschnitten mit dem Element)."""
