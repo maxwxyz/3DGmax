@@ -46,7 +46,7 @@
 |---|---|
 | Alignment: same position, best fit (ICP), three point pairs (core) | 🟡 (point pairs without UI) |
 | Geometry: equal/changed/new/removed per face, exact (B-rep) with mesh preselection | ✅ |
-| Semantic PMI comparison (field by field, datums, faces), "geometry under PMI changed" | ✅ |
+| Semantic PMI comparison (field by field incl. name, datums, faces), "geometry under PMI changed" | ✅ |
 | Change list, review walk-through, comment, review report with SHA-256 | ✅ |
 | Export changes (CSV) | ✅ |
 | Deviation color map (scale, tolerance limit, sign) | ⬜ |

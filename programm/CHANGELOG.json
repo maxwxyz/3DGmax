@@ -29,7 +29,8 @@
    "PDF-Export: eine Seite je gespeicherter Ansicht (Ansichtsname, Modell, Bild, PMI), Vergleichsbericht mit Bild je Änderung, Tabelle der PMI-Änderungen.",
    "Exporte (CSV, PDF, Prüfprotokoll) und Änderungstexte folgen der eingestellten Sprache.",
    "Projektdatei .3dgmax: Modell bzw. Vergleich mit Prüfstand, Kommentaren und Messungen als eine Datei.",
-   "Ordnervergleich: alle Modelle zweier Ordner paarweise mit Übersicht (gleich, geändert, nur alt, nur neu)."
+   "Ordnervergleich: alle Modelle zweier Ordner paarweise mit Übersicht (gleich, geändert, nur alt, nur neu).",
+   "PMI-Liste: Name steht nach der Art und vor dem Wert; der Vergleich meldet auch geänderte PMI-Namen."
   ],
   "en": [
    "First viewer version: load STEP AP242, assembly tree, CAD-style navigation, standard views.",
@@ -60,7 +61,8 @@
    "PDF export: one page per saved view (view name, model, image, PMI), comparison report with one image per change, table of PMI changes.",
    "Exports (CSV, PDF, review report) and change texts follow the selected language.",
    "Project file .3dgmax: model or comparison with review status, comments and measurements in one file.",
-   "Folder comparison: all models of two folders pairwise with overview (equal, changed, only old, only new)."
+   "Folder comparison: all models of two folders pairwise with overview (equal, changed, only old, only new).",
+   "PMI list: name comes after kind and before value; the comparison also reports changed PMI names."
   ]
  },
  "releases": [

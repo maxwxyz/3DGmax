@@ -162,7 +162,7 @@ def test_pmi_liste_name_ansichten_bezuege(app, tmp_path, monkeypatch):
     f = Hauptfenster()
     f.lade(pfad("nist_ftc_10_asme1_ap242-e2.stp"), warten=True)
     p = f.pmi
-    assert p.SPALTEN.index("Name") == 4 and p.SPALTEN.index("Ansichten") == 5
+    assert p.SPALTEN.index("Name") == 2 and p.SPALTEN.index("Wert") == 3 and p.SPALTEN.index("Ansichten") == 5
     p.suche.setText("MBD_E")  # Suche nach Ansicht
     assert 0 < len(p.sichtbare()) <= 3
     p.suche.setText("")

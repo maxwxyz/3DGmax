@@ -124,6 +124,8 @@ def _vergleiche_felder(a: Pmi, b: Pmi, zuordnung, zuordnung_ab=None, geo_status=
         felder.append(("modifikatoren", ", ".join(a.modifikatoren) or "–", ", ".join(b.modifikatoren) or "–"))
     if a.bezug_text() != b.bezug_text():
         felder.append(("bezuege", a.bezug_text() or "–", b.bezug_text() or "–"))
+    if (a.name or "") != (b.name or ""):
+        felder.append(("name", a.name or "–", b.name or "–"))
     fb = _flaechen_in_a(b, zuordnung)
     if (a.flaechen or b.flaechen) and not _gleiche_flaechen(a, b, zuordnung, zuordnung_ab):
         felder.append(("flaechen", str(len(a.flaechen)),

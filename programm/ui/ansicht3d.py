@@ -188,6 +188,10 @@ class AnsichtBasis(QtWidgets.QWidget):
     def schnitt_aus_blick(self) -> bool:
         return False
 
+    def schnitt_anteil_von_punkt(self, achse) -> float | None:
+        """Reglerstellung, bei der die Ebene durch den Auswahlpunkt geht (ohne 3D-Grafik: unbekannt)."""
+        return None
+
     def bild(self, pfad: str) -> bool:
         return False
 
@@ -577,6 +581,7 @@ class OcctAnsicht(AnsichtBasis):
                     "iso": V3d.V3d_XposYnegZpos}[name]
         self.d.View.SetProj(richtung)
         self.alles_zeigen()
+        self._kamera_bewegt()
 
     def _sichtbare_box(self):
         from OCC.Core.Bnd import Bnd_Box
@@ -645,6 +650,12 @@ class OcctAnsicht(AnsichtBasis):
         x0, y0, z0, x1, y1, z1 = box.Get()
         return gp_Pnt((x0 + x1) / 2, (y0 + y1) / 2, (z0 + z1) / 2)
 
+    def _kamera_bewegt(self):
+        """Schnitt aus Blickrichtung folgt der Kamera."""
+        if self.schnitt_zustand is not None and self.schnitt_zustand[0] == "blick":
+            self.schnitt_aus_blick()
+            self.schnitt(*self.schnitt_zustand)
+
     def _drehe(self, dx, dy):
         from OCC.Core.gp import gp_Ax1, gp_Dir, gp_Trsf
         cam = self.d.View.Camera()
@@ -657,6 +668,7 @@ class OcctAnsicht(AnsichtBasis):
         t2.SetRotation(gp_Ax1(p, gp_Dir(seite.X(), seite.Y(), seite.Z())), -dy * 0.008)
         t1.Multiply(t2)
         cam.Transform(t1)
+        self._kamera_bewegt()
         self.d.View.Redraw()
 
     def _verschiebe(self, dx, dy):
@@ -670,6 +682,7 @@ class OcctAnsicht(AnsichtBasis):
         t = gp_Trsf()
         t.SetTranslation(verschiebung)
         cam.Transform(t)
+        self._kamera_bewegt()
         v.Redraw()
 
     def _zoome(self, faktor, x, y):
@@ -684,6 +697,7 @@ class OcctAnsicht(AnsichtBasis):
         cam.Transform(t)
         cam.SetScale(cam.Scale() / faktor)
         v.ZFitAll()
+        self._kamera_bewegt()
         v.Redraw()
 
     # --- Schnitt ---
@@ -986,6 +1000,10 @@ class OcctAnsicht(AnsichtBasis):
             return
         if ctx.HasDetectedShape():
             form = ctx.DetectedShape()
+            if self.vergleich_trsf is not None:
+                # im Vergleich ist der neue Stand ins System des alten verschoben: Form wie angezeigt verwenden
+                from OCC.Core.TopLoc import TopLoc_Location
+                form = form.Moved(TopLoc_Location(self.vergleich_trsf))
             if self.messmodus:
                 p = self._punkt_unter_maus(x, y, form)
                 if p is not None:

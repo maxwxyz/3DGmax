@@ -109,7 +109,7 @@ class PmiPanel(QtWidgets.QWidget):
     gewaehlt = QtCore.Signal(list)  # Liste von Pmi
     befehl = QtCore.Signal(str, object)  # Kontextmenue: ("zoomen"|"ausrichten"|"ansicht", Wert)
 
-    SPALTEN = ("Nr", "Art", "Wert", "Bezüge", "Name", "Ansichten", "Flächen")
+    SPALTEN = ("Nr", "Art", "Name", "Wert", "Bezüge", "Ansichten", "Flächen")
 
     def __init__(self, parent=None):
         super().__init__(parent)
@@ -139,8 +139,8 @@ class PmiPanel(QtWidgets.QWidget):
         self.tabelle.setContextMenuPolicy(QtCore.Qt.ContextMenuPolicy.CustomContextMenu)
         self.tabelle.customContextMenuRequested.connect(self._menue)
         kopf = self.tabelle.horizontalHeader()
-        kopf.setSectionResizeMode(2, QtWidgets.QHeaderView.ResizeMode.Stretch)
-        for i in (0, 1, 3, 4, 5, 6):
+        kopf.setSectionResizeMode(3, QtWidgets.QHeaderView.ResizeMode.Stretch)
+        for i in (0, 1, 2, 4, 5, 6):
             kopf.setSectionResizeMode(i, QtWidgets.QHeaderView.ResizeMode.ResizeToContents)
         lay.addWidget(self.tabelle, 1)
         self.pmi: list = []
@@ -164,13 +164,13 @@ class PmiPanel(QtWidgets.QWidget):
         t.setRowCount(len(pmi))
         for z, p in enumerate(pmi):
             namen = self.ansichten_je_pmi.get(p.nummer, [])
-            werte = (str(p.nummer), tr(ART_TEXT.get(p.art, p.art)), p.wert_text(), p.bezug_text(), p.name,
+            werte = (str(p.nummer), tr(ART_TEXT.get(p.art, p.art)), p.name, p.wert_text(), p.bezug_text(),
                      ", ".join(namen), str(len(p.flaechen)))
             for s, w in enumerate(werte):
                 it = QtWidgets.QTableWidgetItem(w)
                 if s in (0, 6):
                     it.setTextAlignment(QtCore.Qt.AlignmentFlag.AlignRight | QtCore.Qt.AlignmentFlag.AlignVCenter)
-                if s == 2:
+                if s == 3:
                     it.setToolTip(_tooltip(p))
                 if s == 5 and namen:
                     it.setToolTip(tr("In Ansichten: {}").format(", ".join(namen)))
@@ -287,7 +287,7 @@ class PmiPanel(QtWidgets.QWidget):
             self.befehl.emit("ansicht", gewaehlt.data())
 
     def kopiere(self, auswahl: list):
-        zeilen = ["\t".join((str(p.nummer), tr(ART_TEXT.get(p.art, p.art)), p.wert_text(), p.bezug_text(), p.name))
+        zeilen = ["\t".join((str(p.nummer), tr(ART_TEXT.get(p.art, p.art)), p.name, p.wert_text(), p.bezug_text()))
                   for p in auswahl]
         QtWidgets.QApplication.clipboard().setText("\n".join(zeilen))
 

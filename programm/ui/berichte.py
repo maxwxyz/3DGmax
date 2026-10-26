@@ -142,12 +142,12 @@ class PdfBericht:
         return self.pfad
 
 
-PMI_SPALTEN = [("Nr", 0.05), ("Art", 0.10), ("Wert", 0.37), ("Bezüge", 0.13), ("Name", 0.25), ("Flächen", 0.10)]
+PMI_SPALTEN = [("Nr", 0.05), ("Art", 0.10), ("Name", 0.25), ("Wert", 0.37), ("Bezüge", 0.13), ("Flächen", 0.10)]
 
 
 def _pmi_zeilen(pmi_liste):
     from .panels import ART_TEXT
-    return [[str(p.nummer), tr(ART_TEXT.get(p.art, p.art)), p.wert_text(), p.bezug_text(), p.name, str(len(p.flaechen))]
+    return [[str(p.nummer), tr(ART_TEXT.get(p.art, p.art)), p.name, p.wert_text(), p.bezug_text(), str(len(p.flaechen))]
             for p in pmi_liste]
 
 

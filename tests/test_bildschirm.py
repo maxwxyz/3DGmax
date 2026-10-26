@@ -73,6 +73,16 @@ def pruefe_alles():
     a.schnitt("auswahl", a.schnitt_anteil_von_punkt("auswahl") or 0.5)
     ergebnis["schnitt_ebene"] = a._clip is not None
     a.schnitt(None)
+    # Schnitt aus Blickrichtung folgt der Kamera
+    a.schnitt_aus_blick(); a.schnitt("blick", 0.5)
+    n0 = tuple(round(x, 6) for x in a.schnitt_eigen[1])
+    maus(T.MouseButtonPress, mitte, B.MiddleButton)
+    maus(T.MouseButtonPress, mitte, B.LeftButton, beide)
+    maus(T.MouseMove, (mitte[0] + 60, mitte[1] + 30), B.NoButton, beide)
+    maus(T.MouseButtonRelease, (mitte[0] + 60, mitte[1] + 30), B.LeftButton, B.MiddleButton)
+    maus(T.MouseButtonRelease, (mitte[0] + 60, mitte[1] + 30), B.MiddleButton, B.NoButton)
+    ergebnis["schnitt_live"] = tuple(round(x, 6) for x in a.schnitt_eigen[1]) != n0
+    a.schnitt(None)
     ergebnis["liste"] = len(f.pmi.tabelle.selectedIndexes()) >= 0
     # Messmodus: Klick liefert Element und Punkt, Messung wird gezeichnet
     elemente = []
