@@ -28,7 +28,8 @@ def tr_texte() -> set[str]:
     # Texte, die ueber Tabellen laufen (tr(variable))
     from programm.kern.pmi import BEZUG, HINWEIS, MASS, TOLERANZ  # noqa: F401
     from programm.ui import einstellungen, hilfe, messwerkzeug, panels, vergleich_ui
-    from programm.ui import berichte
+    from programm.ui import berichte, ordnervergleich_ui
+    out |= set(ordnervergleich_ui.STATUS_TEXT.values())
     out |= {t for t, _ in berichte.PMI_SPALTEN + berichte.AENDERUNG_SPALTEN} | {"Status", "Alt", "Neu"}
     from programm.kern import pmi_bericht, pruefung
     out |= {pmi_bericht.FEHLER, pmi_bericht.WARNUNG, pmi_bericht.INFO} | set(pmi_bericht.CSV_SPALTEN)

@@ -4,7 +4,7 @@
 </head><body>
 <h1>3DGmax – Anleitung</h1>
 <p>3DGmax zeigt 3D-Modelle mit PMI (Maße, Toleranzen, Bezüge) aus STEP-Dateien (AP242) an. Die PMI liest das
-Programm semantisch, also als auswertbare Werte – nicht nur als Bild. Der Vergleich zweier Stände folgt in der nächsten Version.</p>
+Programm semantisch, also als auswertbare Werte – nicht nur als Bild. Zwei Stände lassen sich in Geometrie und PMI vergleichen und prüfen.</p>
 
 <h2>Modell öffnen</h2>
 <ul>
@@ -65,13 +65,39 @@ Navigation geht dabei weiter. <kbd>Esc</kbd> beendet das Messen.</li>
 <b>CSV speichern</b> (Semikolon, Dezimalkomma – passt für Excel auf Deutsch).</li>
 </ul>
 
+<h2>Zwei Stände vergleichen</h2>
+<ul>
+<li><b>Datei › Vergleichen …</b> (<kbd>Strg</kbd>+<kbd>Umschalt</kbd>+<kbd>V</kbd>): alten und neuen Stand wählen,
+Toleranz (bis hier gilt eine Fläche als gleich) und Suchweite (bis hier als geändert, darüber neu/entfernt).
+Verschobene Stände werden automatisch per Bestpassung ausgerichtet.</li>
+<li>Der neue Stand wird eingefärbt: grau gleich, gelb geändert, grün neu; entfernte Flächen des alten Stands rot.</li>
+<li>Die Leiste <b>Änderungen</b> listet PMI- und Geometrieänderungen nummeriert (alt → neu). Klick springt zur Stelle.</li>
+<li><b>Prüfen starten</b> führt Schritt für Schritt durch; <b>Geprüft</b> (<kbd>G</kbd>) / <b>Abgelehnt</b>
+(<kbd>A</kbd>) springen zur nächsten offenen Änderung, dazu ein Kommentar.</li>
+<li><b>Prüfung abschließen</b>: Prüfer, Ergebnis, Bemerkung → Protokoll (JSON und Text) mit Prüfsumme SHA-256 –
+keine qualifizierte elektronische Signatur.</li>
+<li><b>Ordner vergleichen</b>: alle Modelle zweier Ordner paarweise (Zuordnung über den Dateinamen, Revisionskennung
+am Ende wird ignoriert), Übersicht gleich/geändert/nur alt/nur neu; Doppelklick öffnet den Vergleich.</li>
+</ul>
+
+<h2>Prüfen und Exportieren</h2>
+<ul>
+<li><b>Modell › PMI prüfen</b>: unbenutzte oder fehlende Bezüge, PMI ohne Fläche oder Ansicht, Doppelte,
+Richtungstoleranz ohne Bezug u. a.; Doppelklick wählt die PMI.</li>
+<li><b>Datei › Exportieren</b>: Ansichten als PDF (eine Seite je gespeicherter Ansicht mit Bild und PMI),
+Vergleichsbericht (PDF, Bild je Änderung), PMI-Änderungen (PDF) für Lieferanten, PMI und Änderungen als CSV.
+Exporte folgen der eingestellten Sprache.</li>
+<li><b>Datei › Projekt speichern</b> (<kbd>Strg</kbd>+<kbd>S</kbd>): Modell bzw. Vergleich mit Prüfstand, Kommentaren und
+Messungen als eine Datei <code>.3dgmax</code> (zum Verschicken); öffnen über <b>Datei › Öffnen</b>.</li>
+</ul>
+
 <h2>Bilder</h2>
 <p><b>Datei › Bild speichern</b> speichert die 3D-Ansicht als PNG, <b>Bild in Zwischenablage</b>
 (<kbd>Strg</kbd>+<kbd>Umschalt</kbd>+<kbd>C</kbd>) kopiert sie.</p>
 
 <h2>Grenzen dieser Version</h2>
 <ul>
-<li>Nur STEP. JT, 3D-PDF, QIF und weitere Formate folgen.</li>
+<li>Nur STEP. JT, 3D-PDF, QIF und weitere Formate folgen. Abweichungsfarbkarte und grafischer PMI-Vergleich folgen.</li>
 <li>Bei Teilen, die mehrfach in einer Baugruppe vorkommen, wird eine PMI an allen Vorkommen hervorgehoben.</li>
 </ul>
 

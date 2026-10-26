@@ -151,3 +151,48 @@ def test_exporte_englisch(alt, monkeypatch):
     assert "nominal: 20 → 21" in text and "PMI changed: Dimension" in text
     assert "face(s), largest deviation" in text
     assert pmi_bericht.als_csv(pmi_bericht.tabelle(alt.pmi, alt.ansichten)).startswith("No;Kind;Type;Name;Value")
+
+
+def test_projekt_container(fenster, tmp_path):
+    from programm.kern import messen
+    f = fenster
+    f.starte_vergleich({"alt": pfad("nist_ctc_01_asme1_ap242-e1.stp"), "neu": pfad("varianten/ctc01_pmi.stp"),
+                        "toleranz": 0.01, "suchweite": 2.0}, warten=True)
+    f.vergleich.aenderungen[1].pruefstatus = "abgelehnt"
+    f.vergleich.aenderungen[1].kommentar = "Wert prüfen"
+    f.messen.fuege_hinzu(messen.punkt_abstand(*[__import__("OCC.Core.gp", fromlist=["gp_Pnt"]).gp_Pnt(0, 0, z)
+                                                for z in (0, 5)]))
+    ziel = f.speichere_projekt(str(tmp_path / "test"))
+    assert ziel.endswith(".3dgmax")
+    f.beende_vergleich()
+    f.messen.loesche_alle()
+    f.lade(ziel, warten=True)
+    assert f.vergleich is not None and len(f.vergleich.aenderungen) == 3
+    a = f.vergleich.aenderungen[1]
+    assert a.pruefstatus == "abgelehnt" and a.kommentar == "Wert prüfen"
+    assert len(f.messen.messungen) == 1 and abs(f.messen.messungen[0].wert - 5) < 1e-9
+
+
+def test_ordnervergleich(fenster, tmp_path):
+    import shutil
+    from programm.kern import ordnervergleich as ov
+    a, b = tmp_path / "alt", tmp_path / "neu"
+    a.mkdir()
+    b.mkdir()
+    shutil.copy(pfad("nist_ctc_01_asme1_ap242-e1.stp"), a / "teil_rev_a.stp")
+    shutil.copy(pfad("varianten/ctc01_pmi.stp"), b / "teil_rev_b.stp")
+    shutil.copy(pfad("nist_ctc_01_asme1_ap242-e1.stp"), a / "gleich.stp")
+    shutil.copy(pfad("nist_ctc_01_asme1_ap242-e1.stp"), b / "gleich.stp")
+    shutil.copy(pfad("nist_ctc_01_asme1_ap242-e1.stp"), a / "weg.stp")
+    shutil.copy(pfad("nist_ctc_01_asme1_ap242-e1.stp"), b / "dazu.stp")
+    assert ov.schluessel("teil_rev_a.stp") == ov.schluessel("Teil Rev B.STP") == "teil"
+    d = fenster.zeige_ordnervergleich()
+    d.alt[1].setText(str(a))
+    d.neu[1].setText(str(b))
+    d.starte(warten=True)
+    status = {p.schluessel: p.status for p in d.liste}
+    assert status == {"teil": "geaendert", "gleich": "gleich", "weg": "nur_alt", "dazu": "nur_neu"}
+    zeile = next(i for i, p in enumerate(d.liste) if p.schluessel == "teil")
+    d.tabelle.cellDoubleClicked.emit(zeile, 0)
+    assert fenster.vergleich is not None and len(fenster.vergleich.aenderungen) == 3
+    d.close()

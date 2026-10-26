@@ -4,7 +4,7 @@
 </head><body>
 <h1>3DGmax – Manual</h1>
 <p>3DGmax displays 3D models with PMI (dimensions, tolerances, datums) from STEP files (AP242). PMI is read
-semantically, i.e. as evaluable values – not just as a picture. Comparing two revisions follows in the next version.</p>
+semantically, i.e. as evaluable values – not just as a picture. Two revisions can be compared and reviewed in geometry and PMI.</p>
 
 <h2>Open a model</h2>
 <ul>
@@ -65,12 +65,37 @@ navigation keeps working. <kbd>Esc</kbd> ends measuring.</li>
 (semicolon, decimal comma).</li>
 </ul>
 
+<h2>Compare two revisions</h2>
+<ul>
+<li><b>File › Compare …</b> (<kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>V</kbd>): choose old and new revision, tolerance
+(up to here a face counts as equal) and search distance (up to here as changed, beyond as new/removed). Offset
+revisions are aligned automatically by best fit.</li>
+<li>The new revision is colored: grey equal, yellow changed, green new; removed faces of the old revision red.</li>
+<li>The <b>Changes</b> panel lists PMI and geometry changes numbered (old → new). A click jumps to the location.</li>
+<li><b>Start review</b> steps through; <b>Checked</b> (<kbd>G</kbd>) / <b>Rejected</b> (<kbd>A</kbd>) jump to the next
+open change, plus a comment.</li>
+<li><b>Finish review</b>: reviewer, result, remark → report (JSON and text) with SHA-256 checksum – not a qualified
+electronic signature.</li>
+<li><b>Compare folders</b>: all models of two folders pairwise (pairing by file name, revision suffix ignored),
+overview equal/changed/only old/only new; double-click opens the comparison.</li>
+</ul>
+
+<h2>Check and export</h2>
+<ul>
+<li><b>Model › Check PMI</b>: unused or missing datums, PMI without face or view, duplicates, orientation tolerance
+without datum and more; double-click selects the PMI.</li>
+<li><b>File › Export</b>: views as PDF (one page per saved view with image and PMI), comparison report (PDF, image per
+change), PMI changes (PDF) for suppliers, PMI and changes as CSV. Exports follow the selected language.</li>
+<li><b>File › Save project</b> (<kbd>Ctrl</kbd>+<kbd>S</kbd>): model or comparison with review status, comments and
+measurements as one <code>.3dgmax</code> file (to send); open via <b>File › Open</b>.</li>
+</ul>
+
 <h2>Images</h2>
 <p><b>File › Save image</b> saves the 3D view as PNG, <b>Copy image</b> (<kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>C</kbd>) copies it.</p>
 
 <h2>Limits of this version</h2>
 <ul>
-<li>STEP only. JT, 3D PDF, QIF and other formats will follow.</li>
+<li>STEP only. JT, 3D PDF, QIF and other formats will follow. Deviation color map and graphical PMI comparison will follow.</li>
 <li>For parts used several times in an assembly, a PMI is highlighted on all occurrences.</li>
 </ul>
 

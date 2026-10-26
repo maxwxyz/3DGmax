@@ -27,7 +27,9 @@
    "Eigene Farben für PMI-Beschriftungen und den Hintergrund (Einstellungen).",
    "PMI exportieren (CSV, mit Flächen-IDs und Ansichten), Änderungen exportieren (CSV) und PMI prüfen: unbenutzte/fehlende Bezüge, PMI ohne Fläche oder Ansicht, Doppelte, Lagetoleranz ohne Bezug.",
    "PDF-Export: eine Seite je gespeicherter Ansicht (Ansichtsname, Modell, Bild, PMI), Vergleichsbericht mit Bild je Änderung, Tabelle der PMI-Änderungen.",
-   "Exporte (CSV, PDF, Prüfprotokoll) und Änderungstexte folgen der eingestellten Sprache."
+   "Exporte (CSV, PDF, Prüfprotokoll) und Änderungstexte folgen der eingestellten Sprache.",
+   "Projektdatei .3dgmax: Modell bzw. Vergleich mit Prüfstand, Kommentaren und Messungen als eine Datei.",
+   "Ordnervergleich: alle Modelle zweier Ordner paarweise mit Übersicht (gleich, geändert, nur alt, nur neu)."
   ],
   "en": [
    "First viewer version: load STEP AP242, assembly tree, CAD-style navigation, standard views.",
@@ -56,7 +58,9 @@
    "Custom colors for PMI annotations and the background (settings).",
    "Export PMI (CSV, with face IDs and views), export changes (CSV) and check PMI: unused/missing datums, PMI without face or view, duplicates, orientation tolerance without datum.",
    "PDF export: one page per saved view (view name, model, image, PMI), comparison report with one image per change, table of PMI changes.",
-   "Exports (CSV, PDF, review report) and change texts follow the selected language."
+   "Exports (CSV, PDF, review report) and change texts follow the selected language.",
+   "Project file .3dgmax: model or comparison with review status, comments and measurements in one file.",
+   "Folder comparison: all models of two folders pairwise with overview (equal, changed, only old, only new)."
   ]
  },
  "releases": [

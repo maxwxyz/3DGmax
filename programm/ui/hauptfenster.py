@@ -15,8 +15,8 @@ from .messwerkzeug import MessPanel
 from .vergleich_ui import AbschlussDialog, AenderungenPanel, VergleichDialog, VergleichsLader
 from .panels import AnsichtenPanel, BaumPanel, PmiPanel
 
-DATEIFILTER = "STEP (*.stp *.step *.STP *.STEP)"
-ENDUNGEN = (".stp", ".step")
+DATEIFILTER = "STEP / 3DGmax (*.stp *.step *.STP *.STEP *.3dgmax);;STEP (*.stp *.step *.STP *.STEP);;3DGmax (*.3dgmax)"
+ENDUNGEN = (".stp", ".step", ".3dgmax")
 MAX_ZULETZT = 10
 
 
@@ -180,6 +180,8 @@ class Hauptfenster(QtWidgets.QMainWindow):
         A("vergleichen", tr("Vergleichen …"), lambda: self.starte_vergleich(), "Ctrl+Shift+V",
           tipp=tr("Zwei Stände eines Modells vergleichen (Geometrie und PMI)"), modell=False)
         A("vergleich_beenden", tr("Vergleich beenden"), self.beende_vergleich, tipp=tr("Zurück zur normalen Ansicht"))
+        A("ordnervergleich", tr("Ordner vergleichen …"), self.zeige_ordnervergleich,
+          tipp=tr("Alle Modelle zweier Ordner paarweise vergleichen (Übersicht)"), modell=False)
         A("zoom_auswahl", tr("Auf Auswahl zoomen"), self._zoome_auswahl, "Z",
           tipp=tr("Gewählte Flächen, Kanten, PMI, Messung oder Änderung bildfüllend zeigen"))
         A("normal_auswahl", tr("Normal auf Auswahl ausrichten"), self._normal_auswahl, "N",
@@ -195,6 +197,9 @@ class Hauptfenster(QtWidgets.QMainWindow):
           tipp=tr("Übersicht, Änderungsliste und ein Bild je Änderung"))
         A("pdf_pmi_aenderungen", tr("PMI-Änderungen (PDF) …"), lambda: self.exportiere_pdf("pmi_aenderungen"),
           tipp=tr("Tabelle der PMI-Änderungen alt/neu für Lieferanten und Fertigung"))
+        A("projekt_speichern", tr("Projekt speichern …"), lambda: self.speichere_projekt(),
+          QtGui.QKeySequence.StandardKey.Save,
+          tipp=tr("Modell bzw. Vergleich mit Prüfstand, Kommentaren und Messungen als eine Datei (.3dgmax)"))
         A("bild_speichern", tr("Bild speichern …"), self.bild_speichern, tipp=tr("Aktuelle Ansicht als PNG"))
         A("bild_kopieren", tr("Bild in Zwischenablage"), self.bild_kopieren, "Ctrl+Shift+C",
           tipp=tr("Aktuelle Ansicht in die Zwischenablage"))
@@ -273,8 +278,10 @@ class Hauptfenster(QtWidgets.QMainWindow):
         self.menue_zuletzt = m.addMenu(tr("Zuletzt verwendet"))
         m.addSeparator()
         m.addAction(a["vergleichen"])
+        m.addAction(a["ordnervergleich"])
         m.addAction(a["vergleich_beenden"])
         m.addSeparator()
+        m.addAction(a["projekt_speichern"])
         me = m.addMenu(tr("Exportieren"))
         for n in ("pdf_ansichten", "pdf_vergleich", "pdf_pmi_aenderungen"):
             me.addAction(a[n])
@@ -447,6 +454,8 @@ class Hauptfenster(QtWidgets.QMainWindow):
 
     def lade(self, pfad: str, warten: bool = False):
         """Laedt im Hintergrund; warten=True blockiert bis fertig (Tests, Selbsttest)."""
+        if pfad.lower().endswith(".3dgmax"):
+            return self.oeffne_projekt(pfad, warten)
         self.lade_abbrechen()
         self.statusBar().showMessage(tr("Lade {} …").format(os.path.basename(pfad)))
         self.fortschritt.show()
@@ -479,6 +488,7 @@ class Hauptfenster(QtWidgets.QMainWindow):
         self.fortschritt.hide()
         self.abbrechen.hide()
         self.zeige_ergebnis(erg)
+        self._projekt_messungen()
 
     def zeige_ergebnis(self, erg, vergleich=None):
         if vergleich is None and self.vergleich is not None:
@@ -626,7 +636,56 @@ class Hauptfenster(QtWidgets.QMainWindow):
         self._vlader = None
         self.fortschritt.hide()
         self.abbrechen.hide()
+        if getattr(self, "_projekt", None):
+            from ..kern import projekt
+            projekt.uebernimm_pruefstand(v, self._projekt.get("vergleich", {}).get("aenderungen", []))
         self.zeige_vergleich(v)
+        self._projekt_messungen()
+
+    def zeige_ordnervergleich(self):
+        from .ordnervergleich_ui import OrdnerVergleich
+        d = OrdnerVergleich(self)
+        d.oeffnen.connect(self.zeige_vergleich)
+        d.show()
+        return d
+
+    # --- Projekt ---
+
+    def speichere_projekt(self, pfad: str = "") -> str | None:
+        from ..kern import projekt
+        if self.erg is None:
+            return None
+        quelle = self.vergleich.neu.pfad if self.vergleich else self.erg.pfad
+        pfad = pfad or self._speicherpfad(tr("Projekt speichern"), os.path.splitext(quelle)[0] + ".3dgmax",
+                                          "3DGmax (*.3dgmax)")
+        if not pfad:
+            return None
+        ziel = projekt.speichere(pfad, self.erg.pfad, self.vergleich, self.messen.messungen, VERSION)
+        self.statusBar().showMessage(tr("Projekt gespeichert: {}").format(ziel), 6000)
+        return ziel
+
+    def oeffne_projekt(self, pfad: str, warten: bool = False):
+        from ..kern import projekt
+        try:
+            self._projekt = projekt.lade(pfad)
+        except Exception as e:  # noqa: BLE001 - Fehler dem Nutzer zeigen
+            QtWidgets.QMessageBox.warning(self, tr("Projekt öffnen"), str(e))
+            return
+        d = self._projekt
+        if d["typ"] == "vergleich":
+            v = d["vergleich"]
+            self.starte_vergleich({"alt": d["pfade"]["alt"], "neu": d["pfade"]["neu"], "toleranz": v["toleranz"],
+                                   "suchweite": v["suchweite"]}, warten)
+        else:
+            self.lade(d["pfade"]["modell"], warten)
+
+    def _projekt_messungen(self):
+        d = getattr(self, "_projekt", None)
+        if d and d.get("messungen"):
+            self.messen.messungen = list(d["messungen"])
+            self.messen._fuelle()
+            self.dock_messen.show()
+        self._projekt = None
 
     def zeige_vergleich(self, v):
         self.vergleich = v

@@ -61,8 +61,8 @@
 | PDF: one page per saved view with view name, model name, PMI | ✅ |
 | PDF comparison report (overview, change list, image per change) | ✅ |
 | PMI change table PDF for suppliers/production | ✅ |
-| Project container (ZIP with models, review status, comments) | ⬜ |
-| Folder comparison | ⬜ |
+| Project container (ZIP with models, review status, comments, measurements) | ✅ |
+| Folder comparison | ✅ |
 | Export views as drawings (HLR) PDF/SVG/DXF | ⬜ |
 | Annotate: comments/change proposals on faces, PMI (list and model), changed geometry | ⬜ |
 
