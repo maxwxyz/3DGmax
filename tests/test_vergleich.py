@@ -337,3 +337,27 @@ def test_materialvergleich_im_fenster(fenster):
     f.zeige_material(False)
     assert f.ansicht.material is None
     f.beende_vergleich()
+
+
+def test_verschobene_bohrung_erkannt():
+    from types import SimpleNamespace
+    from OCC.Core.BRepAlgoAPI import BRepAlgoAPI_Cut
+    from OCC.Core.BRepPrimAPI import BRepPrimAPI_MakeBox, BRepPrimAPI_MakeCylinder
+    from OCC.Core.gp import gp_Ax2, gp_Dir, gp_Pnt
+    from programm.kern import vergleich
+    from programm.kern.ausrichten import Ausrichtung
+    from programm.kern.laden import StepModell, _alle_flaechen
+    import numpy as np
+
+    def modell(x):
+        box = BRepPrimAPI_MakeBox(100.0, 60.0, 20.0).Shape()
+        form = BRepAlgoAPI_Cut(box, BRepPrimAPI_MakeCylinder(gp_Ax2(gp_Pnt(x, 30, -1), gp_Dir(0, 0, 1)), 5.0,
+                                                               22.0).Shape()).Shape()
+        m = StepModell("x.stp", None, None, form, _alle_flaechen(form))
+        m._baue_index()
+        return SimpleNamespace(modell=m, pmi=[], pfad="x.stp")
+    alt, neu = modell(30.0), modell(42.0)
+    v = vergleich.vergleiche(alt, neu, 0.01, 2.0, Ausrichtung(np.eye(4), "gleich", 0.0, 1.0))
+    versch = [a for a in v.aenderungen if a.status == vergleich.VERSCHOBEN]
+    assert len(versch) == 1 and "+12.000" in versch[0].beschreibung
+    assert not any(a.status in ("neu", "entfernt") for a in v.aenderungen if a.kategorie == "geometrie")

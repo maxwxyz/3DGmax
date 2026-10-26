@@ -62,9 +62,11 @@ def _gruppen(flaechen: set[int], nachbarn: dict[int, set[int]]) -> list[set[int]
     return sorted(out, key=lambda g: min(g))
 
 
-GEO_TITEL = {GEAENDERT: "Geometrie geändert", NEU: "Geometrie neu", ENTFERNT: "Geometrie entfernt"}
+VERSCHOBEN = "verschoben"
+GEO_TITEL = {GEAENDERT: "Geometrie geändert", NEU: "Geometrie neu", ENTFERNT: "Geometrie entfernt",
+             VERSCHOBEN: "Geometrie verschoben"}
 PMI_TITEL = {"geaendert": "PMI geändert", "neu": "PMI neu", "entfallen": "PMI entfallen",
-             "geometrie": "Geometrie unter PMI geändert"}
+             "geometrie": "Geometrie unter PMI geändert", "verschoben": "PMI verschoben"}
 
 
 def _geo_aenderungen(geo, nachbarn_neu, nachbarn_alt) -> list[Aenderung]:
@@ -81,6 +83,56 @@ def _geo_aenderungen(geo, nachbarn_neu, nachbarn_alt) -> list[Aenderung]:
         out.append(Aenderung(0, GEOMETRIE, ENTFERNT, tr(GEO_TITEL[ENTFERNT]), tr("{} Fläche(n)").format(len(g)),
                              set(), g))
     return out
+
+
+def _kennwerte(flaechen) -> list[tuple]:
+    """(Flaechentyp, Inhalt, Schwerpunkt) je Flaeche, sortiert nach Typ und Inhalt."""
+    import numpy as np
+    from OCC.Core.BRep import BRep_Tool
+    from OCC.Core.BRepAdaptor import BRepAdaptor_Surface
+    from OCC.Core.BRepGProp import brepgprop
+    from OCC.Core.GProp import GProp_GProps
+    out = []
+    for f in flaechen:
+        g = GProp_GProps()
+        brepgprop.SurfaceProperties(f, g)
+        c = g.CentreOfMass()
+        typ = BRepAdaptor_Surface(f, True).GetType() if BRep_Tool.Surface(f) is not None else -1
+        out.append((int(typ), abs(g.Mass()), np.array([c.X(), c.Y(), c.Z()])))
+    return sorted(out, key=lambda k: (k[0], k[1]))
+
+
+def _verschiebungen(aenderungen, alt, neu, ausrichtung, toleranz: float) -> list[Aenderung]:
+    """Paare aus 'neu' und 'entfernt' mit gleicher Form und gleichem Versatz aller Flaechen -> 'verschoben'."""
+    import numpy as np
+    neue = [a for a in aenderungen if a.kategorie == GEOMETRIE and a.status == NEU]
+    weg = [a for a in aenderungen if a.kategorie == GEOMETRIE and a.status == ENTFERNT]
+    if not neue or not weg:
+        return aenderungen
+    m = ausrichtung.matrix
+    kenn_weg = {id(a): _kennwerte([alt.modell.flaechen[i] for i in sorted(a.flaechen_alt)]) for a in weg}
+    genutzt, ersetzt, dazu = set(), set(), []
+    for a in neue:
+        kn = _kennwerte([neu.modell.flaechen[i] for i in sorted(a.flaechen_neu)])
+        kn = [(t, f, c @ m[:3, :3].T + m[:3, 3]) for t, f, c in kn]  # ins System des alten Stands
+        for b in weg:
+            kw = kenn_weg[id(b)]
+            if id(b) in genutzt or len(kw) != len(kn):
+                continue
+            if any(t1 != t2 or abs(f1 - f2) > 1e-3 * max(f1, 1.0) for (t1, f1, _), (t2, f2, _) in zip(kn, kw)):
+                continue
+            versatz = [c1 - c2 for (_, _, c1), (_, _, c2) in zip(kn, kw)]
+            d = np.mean(versatz, axis=0)
+            if np.linalg.norm(d) <= toleranz or max(np.linalg.norm(v - d) for v in versatz) > max(10 * toleranz, 1e-3):
+                continue
+            genutzt.add(id(b))
+            ersetzt |= {id(a), id(b)}
+            dazu.append(Aenderung(0, GEOMETRIE, VERSCHOBEN, tr(GEO_TITEL[VERSCHOBEN]),
+                                  tr("{} Fläche(n) um dX {:+.3f}  dY {:+.3f}  dZ {:+.3f} mm ({:.3f} mm)").format(
+                                      len(a.flaechen_neu), d[0], d[1], d[2], float(np.linalg.norm(d))),
+                                  set(a.flaechen_neu), set(b.flaechen_alt)))
+            break
+    return [a for a in aenderungen if id(a) not in ersetzt] + dazu
 
 
 def _pmi_aenderungen(liste) -> list[Aenderung]:
@@ -109,7 +161,17 @@ def vergleiche(alt, neu, toleranz: float = 0.01, suchweite: float = 2.0, ausrich
                                        geo_status=geo.status_b)
     nachbarn_neu = vergleich_geo._nachbarn(neu.modell.flaechen, neu.modell.flaechen_index)
     nachbarn_alt = vergleich_geo._nachbarn(alt.modell.flaechen, alt.modell.flaechen_index)
-    aenderungen = _pmi_aenderungen(pmi) + _geo_aenderungen(geo, nachbarn_neu, nachbarn_alt)
+    geo_liste = _verschiebungen(_geo_aenderungen(geo, nachbarn_neu, nachbarn_alt), alt, neu, ausrichtung, toleranz)
+    pmi_liste = _pmi_aenderungen(pmi)
+    # PMI, deren Flaechen nur verschoben wurden: "PMI verschoben" statt "Geometrie unter PMI geaendert"
+    for a in pmi_liste:
+        for g in geo_liste:
+            if a.status == "geometrie" and g.status == VERSCHOBEN and a.flaechen_neu and a.flaechen_neu <= g.flaechen_neu:
+                a.status = VERSCHOBEN
+                a.titel = f"{tr('PMI verschoben')}: {a.titel.split(': ', 1)[-1]}"
+                a.beschreibung = g.beschreibung
+                break
+    aenderungen = pmi_liste + geo_liste
     for i, a in enumerate(aenderungen, 1):
         a.nummer = i
     return Vergleich(alt, neu, ausrichtung, geo, pmi, aenderungen, toleranz, suchweite)

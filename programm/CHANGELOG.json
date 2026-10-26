@@ -72,7 +72,8 @@
    "Vorschaubilder der gespeicherten Ansichten (Kantenzeichnung mit PMI, im Hintergrund erzeugt).",
    "Grafische PMI aus der Semantik: PMI ohne Darstellung in der Datei (z. B. QIF) erhalten eine erzeugte Beschriftung mit Hinweislinie in eigener Farbe; PMI-Texte in einer Schrift mit GD&T-Zeichen.",
    "QIF: Flächen mit falsch orientierten Schleifen werden korrigiert (keine Löcher mehr in Bohrungen).",
-   "Vergleich: Material + / − – hinzugekommenes Volumen grün, entferntes rot (exakt über Boolesche Operationen) mit Volumen und Anzahl der Bereiche."
+   "Vergleich: Material + / − – hinzugekommenes Volumen grün, entferntes rot (exakt über Boolesche Operationen) mit Volumen und Anzahl der Bereiche.",
+   "Vergleich erkennt verschobene Elemente (gleiche Form, gleicher Versatz) als „Geometrie verschoben“ mit dX/dY/dZ statt neu + entfernt; zugehörige PMI als „PMI verschoben“."
   ],
   "en": [
    "First viewer version: load STEP AP242, assembly tree, CAD-style navigation, standard views.",
@@ -146,7 +147,8 @@
    "Thumbnails for saved views (edge drawing with PMI, generated in the background).",
    "Graphical PMI from semantics: PMI without presentation in the file (e.g. QIF) get a generated annotation with leader in its own color; PMI texts in a font with GD&T symbols.",
    "QIF: faces with wrongly oriented loops are corrected (no more gaps in holes).",
-   "Comparison: material + / − – added volume green, removed red (exact via Boolean operations) with volume and number of regions."
+   "Comparison: material + / − – added volume green, removed red (exact via Boolean operations) with volume and number of regions.",
+   "Comparison detects moved elements (same shape, same offset) as “geometry moved” with dX/dY/dZ instead of new + removed; their PMI as “PMI moved”."
   ]
  },
  "releases": [

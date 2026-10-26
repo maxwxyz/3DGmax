@@ -69,7 +69,8 @@
 | Export changes (CSV) | ✅ |
 | Deviation color map (scale, tolerance limit, sign, value on click) | ✅ |
 | Display like CATIA Compare Products: added/removed volume (exact, Boolean) | ✅ |
-| Detect moved elements and moved PMI | ⬜ |
+| Detect moved elements (translation) and moved PMI | ✅ |
+| Detect rotated/mirrored elements | ⬜ |
 | Graphical PMI comparison (moved, changed, new, removed) | ⬜ |
 | Assembly comparison | ⬜ |
 | Meshes: STL/OBJ vs. CAD, mesh vs. mesh, fit and compare 3D scans | ⬜ |
