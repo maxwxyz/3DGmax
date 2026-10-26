@@ -1,43 +1,42 @@
-# Übergabe (Stand 2026-10-26)
+# Handoff (2026-10-26)
 
-Branch: `main` (keine weiteren Branches). Version 0.1 + viele unveröffentlichte Einträge in `programm/CHANGELOG.json`
-(Version erhöhen nur mit `pixi run python packaging/release.py minor --git`, dann `git push --follow-tags`).
-**Pause – wartet auf Eingabe des Nutzers.**
+Branch: `main` (no other branches). Version 0.1 plus many unreleased entries in `programm/CHANGELOG.json`
+(bump only via `pixi run python packaging/release.py minor --git`, then `git push --follow-tags`).
 
-## Abgleich Plan / Roadmap
-| Schritt (PLAN.md §5) | Stand |
+## Check against plan / roadmap
+| Step (PLAN.md §5) | Status |
 |---|---|
-| 1 Machbarkeit | ✅ |
-| 2 Viewer | ✅ (offen: Vorschaubilder je Ansicht, Cache/Detailstufen für große Baugruppen) |
-| 3 Messen | ✅ |
-| 4 Vergleich | ✅ Kern + Oberfläche (offen: Abweichungsfarbkarte mit Skala, Punktpaare in der Oberfläche, verschoben-Erkennung, grafischer PMI-Vergleich, Baugruppen, Mesh/Scan) |
-| 5 Ausgaben | ⬜ als Nächstes: PDF je Ansicht, Vergleichsbericht, PMI-Änderungstabelle, Projekt-Container, Ordnervergleich |
-| 6 Formate | ⬜ |
-| 7 JT über TKJT | ⬜ (keine freien JT-Testdateien mit PMI gefunden) |
-Details je Funktion: `docs/Roadmap.md`; Zukunftsthemen: PLAN.md §8–9 (Toleranzzonen, Annotieren, grafische PMI/OCR, FMK).
+| 1 Feasibility | ✅ |
+| 2 Viewer | ✅ (open: view thumbnails, cache/levels of detail for large assemblies) |
+| 3 Measure | ✅ |
+| 4 Compare | ✅ core + UI (open: deviation color map, point pairs in UI, moved detection, graphical PMI compare, assemblies, meshes) |
+| 5 Output | ⬜ **in progress next**: PDF per saved view, comparison report, PMI change table, project container, folder comparison |
+| 6 Formats | ⬜ |
+| 7 JT via TKJT | ⬜ (no free JT test files with PMI found) |
+Details: `docs/Roadmap.md`; future topics: PLAN.md §8 (tolerance zones, annotating, graphical PMI/OCR, tolerance stack-up).
 
-## Umgebung und Befehle
+## Environment and commands
 ```bash
-pixi install                      # Python 3.14, pythonocc-core 8.0.1 (ohne VTK), PySide6 6.12, PyInstaller
-pixi run start                    # App starten
-pixi run test                     # 56 Tests offscreen (~60 s); CI: pixi run test-ci
-DG_BILDSCHIRM=1 pixi run python -m pytest -q tests/test_bildschirm.py   # echte 3D-Ansicht (Mac)
-pixi run python werkzeuge/testmodelle.py          # Varianten von CTC-01 (tests/daten/varianten)
+pixi install                      # Python 3.14, pythonocc-core 8.0.1 (no VTK), PySide6 6.12, PyInstaller
+pixi run start                    # application
+pixi run test                     # offscreen tests (~60 s); CI: pixi run test-ci
+DG_BILDSCHIRM=1 pixi run python -m pytest -q tests/test_bildschirm.py   # real 3D view (Mac)
+pixi run python werkzeuge/testmodelle.py          # CTC-01 variants (tests/daten/varianten)
 pixi run python werkzeuge/bildschirmfotos.py docs/bilder --thema hell|dunkel
-packaging/build_mac.sh [--ohne-tests]             # lokal geprüft: Tests, Bau, Selbsttest, 3D-Bild
+packaging/build_mac.sh [--ohne-tests]             # verified locally: tests, build, self-test, 3D image
 ```
 
-## GitHub-Bau
-Workflow „Apps bauen“ ist korrigiert (Cache, VTK/Qt-DLL-Konflikt Windows, Zeitlimits). **Läufe werden von GitHub
-nicht gestartet (Zahlung/Ausgabenlimit des Kontos).** Nach Klärung: `gh workflow run "Apps bauen" -f plattform=alle -f tests=true`.
+## GitHub build
+Workflow "Apps bauen" fixed (cache, VTK/Qt DLL clash on Windows, timeouts). Repository is public now.
 
-## Testdaten
-- NIST AP242 (daten/nist, nicht im Repo), Auswahl in tests/daten; D2MI 904 rev C ↔ 906 (daten/nist_d2mi).
-- NIST CAD-Archive (native CAD, Zeichnungen) in daten/nist_cad_dl – keine JT/3D-PDF enthalten.
+## Test data
+- NIST AP242 (daten/nist, not in repo), selection in tests/daten; D2MI 904 rev C ↔ 906 (daten/nist_d2mi).
+- NIST CAD archives (native CAD, drawings) in daten/nist_cad_dl – no JT/3D PDF included.
 
-## Erkenntnisse (nicht offensichtlich)
-- OCCT-Viewer auf dem Mac in logischen Punkten; Flächen mit eigener Farbe ohne Ränder → Kanten als eigene Ebene.
-- `ctx.MainSelector()` in pythonocc unbrauchbar → Punkt unter der Maus per Sichtstrahl.
-- Saved Views: Kamera blickt entlang +z der Platzierung. pythonocc ohne VTK (`build = "novtk*"`).
-- Vergleich: Netzabstand nur Vorauswahl; Werte nahe/über Toleranz exakt gegen B-Rep. Feinpassung Punkt-zu-Ebene-ICP.
-- Offscreen-Rendering stürzt auf macOS ab → Tests mit Platzhalter, echter 3D-Test separat.
+## Findings (not obvious)
+- OCCT viewer on macOS uses logical points; faces with custom color draw no boundaries → edges as own layer.
+- `ctx.MainSelector()` unusable in pythonocc → point under the mouse via view ray.
+- Saved views: camera looks along +z of the placement. pythonocc without VTK (`build = "novtk*"`).
+- Comparison: mesh distance is only a preselection; values near/above tolerance exact against the B-rep;
+  fine alignment with point-to-plane ICP.
+- Offscreen rendering crashes on macOS → tests use a placeholder view, real 3D test separate.

@@ -1,22 +1,25 @@
-# 3DGmax – Hinweise für Claude
+# 3DGmax – notes for Claude
 
-3D-PMI-Viewer und -Vergleich (Model Based Definition). Technik: Python 3.14 (pixi), PySide6, OCCT über pythonocc-core; Semantik/Farben/Grafik aus eigenem STEP-Leser.
-**Vor jeder Arbeit `HANDOFF.md` und `PLAN.md` lesen.** Schwesterprojekt: ZGmax (`../Zeichnungsvergleich`).
+3D PMI viewer and comparison (Model Based Definition). Stack: Python 3.14 (pixi), PySide6, OCCT via pythonocc-core;
+semantics, colors and graphical PMI from an own STEP reader. **Read `HANDOFF.md` and `PLAN.md` before any work.**
+Sister project: ZGmax (`../Zeichnungsvergleich`).
 
-## Regeln
-- Nutzer schreibt Deutsch; Antworten auf Deutsch. Fähigkeiten von Bibliotheken nicht erfinden – per Versuch prüfen.
-- Kommentare/Docstrings im Code deutsch ohne Umlaute (ae, oe, ue), kurze Funktionen, keine toten Knöpfe.
-- Oberfläche deutsch, alle Texte über `tr()`, Übersetzung Englisch in einer Datei.
-- Tests vor jedem Commit grün. Commits enden mit `Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>`.
-  **Nach jedem Commit pushen** (`origin` = github.com/maxwxyz/3DGmax, privat).
-- Am Ende jeder Antwort `HANDOFF.md` aktualisieren – **mit Abgleich gegen PLAN.md und docs/Roadmap.md** (was ist
-  fertig, was offen); Unfertiges auf einem Branch `wip/...`, nicht auf `main`.
-- Nach Commit und Push **nicht mehr benötigte Branches löschen** (lokal und auf GitHub).
-- Ist keine Aktion mehr offen: **Pause und auf Eingabe des Nutzers warten** (nicht von selbst weitermachen).
-- Tests: `pixi run test` (offscreen). Neue `tr()`-Texte in `programm/i18n_en.json` eintragen (Test prüft das).
-- Jede sichtbare Änderung in `programm/CHANGELOG.json` unter `unreleased` (de und en, gleiche Reihenfolge).
-  **Version nur mit `packaging/release.py minor|patch|major --git` erhöhen** – das führt das Changelog mit
-  (CHANGELOG.md/CHANGELOG_EN.md) und setzt den Tag; danach pushen (auch Tags).
-- Roadmap `docs/Roadmap.md` (umgesetzt/geplant) bei jeder Funktion mitpflegen.
-- Hilfsskripte setzen `DG_EINSTELLUNGEN=<tmp.ini>`; nie die echten Einstellungen ändern.
-- Bauen: `packaging/build_*.sh|bat [--ohne-tests]`, GitHub-Workflow „Apps bauen“.
+## Rules
+- The user writes German; answer in German. Do not invent library capabilities – verify by experiment.
+- **Repository documents (README, PLAN, docs/, HANDOFF, CHANGELOG.md) and commit messages in English.**
+- Code comments/docstrings German without umlauts (ae, oe, ue), short functions, no dead buttons.
+- UI German by default (system language), all texts via `tr()`, English translation in `programm/i18n_en.json`
+  (a test checks completeness: `pixi run python werkzeuge/tr_texte.py`).
+- Every user-visible change goes into `programm/CHANGELOG.json` under `unreleased` (de and en, same order).
+  **Bump versions only with `pixi run python packaging/release.py minor|patch|major --git`** (keeps CHANGELOG.md
+  English and CHANGELOG_DE.md German, sets the tag); then `git push --follow-tags`.
+- Keep `docs/Roadmap.md` (done/planned) up to date with every feature.
+- Tests green before every commit (`pixi run test`, on-screen: `DG_BILDSCHIRM=1 pixi run python -m pytest -q
+  tests/test_bildschirm.py`). Commits end with `Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>`.
+  **Push after every commit** (`origin` = github.com/maxwxyz/3DGmax, public).
+- Scripts never touch the real user settings: set `DG_EINSTELLUNGEN=<tmp.ini>`.
+- At the end of every answer update `HANDOFF.md` – **including a check against PLAN.md and docs/Roadmap.md**;
+  unfinished work on a `wip/...` branch, not on `main`.
+- After commit and push **delete branches that are no longer needed** (local and on GitHub).
+- When no action is open: **pause and wait for the user's input**.
+- Build: `packaging/build_*.sh|bat [--ohne-tests]`, GitHub workflow "Apps bauen".

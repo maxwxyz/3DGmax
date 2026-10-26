@@ -1,222 +1,171 @@
-# 3DGmax – Plan (Stand 2026-10-25)
+# 3DGmax – Plan
 
-3D-PMI-Viewer und -Vergleich für Model Based Definition. Dieses Dokument ist der Plan vor dem ersten Code: Marktüberblick,
-Technikentscheidung (mit dem, was noch per Versuch zu beweisen ist), Architektur, Schritte mit Abnahmekriterien, Risiken.
+3D PMI viewer and comparison tool for Model Based Definition (MBD). This document records the market overview,
+technical decisions (with what was verified by experiment), architecture, steps with acceptance criteria and risks.
+Feature status: **[docs/Roadmap.md](docs/Roadmap.md)**. UI/UX principles: **[docs/UIUX.md](docs/UIUX.md)**.
+Feasibility results: **[docs/Feasibility.md](docs/Feasibility.md)**.
 
-Kennzeichnung: **[geprüft]** = selbst nachgesehen (Paketindex, Herstellerseite), **[Wissen]** = aus meinem Fachwissen,
-noch nicht mit einem Versuch bestätigt, **[offen]** = muss in Schritt 1 per Versuch geklärt werden.
+Markers: **[verified]** = checked ourselves (package index, vendor page, experiment), **[knowledge]** = from domain
+knowledge, not yet confirmed by experiment, **[open]** = still to be clarified.
 
 ---
 
-## 1. Ähnliche Programme (Recherche)
+## 1. Similar applications (research)
 
-| Programm | Was es kann | Bezug zu uns |
+| Application | What it does | Relevance |
 |---|---|---|
-| **Kisters 3DViewStation** (kommerziell) | Liest PMI aus CATIA, Creo, NX, JT, STEP; gespeicherte PMI-Ansichten; **seit v2024.0 Revisionsvergleich mit PMI-Änderungen (eingefärbt)**, schnell und exakt [geprüft] | Nächster Wettbewerber, Funktionsumfang ähnlich unserem Ziel. Messlatte für Bedienung. |
-| **Kubotek K-Compare** (kommerziell) | Revisionsvergleich von Teilen/Baugruppen, Ergebnisbaum mit Flächen-Hervorhebung, liest AP242-PMI [geprüft]; semantischer PMI-Diff nicht eindeutig belegt | Vorbild für Ergebnisbaum und Flächen-Einfärbung. |
-| **CoreTechnologie 3D_Evolution** (kommerziell) | Konvertiert und **vergleicht PMI Original ↔ Konvertat**, prüft ob PMI semantisch (auswertbar) oder nur grafisch ist [geprüft] | Vergleich Original/Konvertat statt zwei Stände; die Prüfung „semantisch oder nur Grafik“ übernehmen wir als Hinweis je PMI. |
-| **TransMagic MagicCheck** (kommerziell) | Geometrievergleich mit Farbkarte nach Toleranz, Punktliste mit Zahlenwerten [geprüft, Quellen 2012/13] | Vorbild für Abweichungsfarbkarte + Punktbrowser. |
-| **Capvidia MBDVidia / CompareVidia** (kommerziell) | MBD-Prüfung, QIF-Erzeugung, Modellvergleich [Wissen, nicht bestätigt] | Referenz für QIF-Weg. |
-| **NIST STEP File Analyzer and Viewer** (frei, öffentlich) | Zeigt grafische PMI, analysiert **semantische PMI** gegen die CAx-IF-Empfehlungen, Tabelle aller Entitäten [geprüft] | **Unser Prüfmaßstab**: Was wir aus den NIST-Modellen lesen, gleichen wir mit dessen Bericht ab. |
-| **ODA Open STEP Viewer** (frei, nicht quelloffen) | AP242 ed.3, Messen, Kollision, PMI-Anzeige [geprüft] | Gegenprobe bei Darstellungsfragen. |
-| **Siemens JT2Go** (frei) | JT mit PMI ansehen [Wissen]; Vergleich nur in der kostenpflichtigen Teamcenter-Visualisierung | Gegenprobe für JT. |
-| **Open Cascade CAD Assistant** (frei) | OCCT-basierter Viewer für STEP/IGES/glTF u. a. [Wissen] | Zeigt, was OCCT in der Praxis leistet. |
+| **Kisters 3DViewStation** (commercial) | Reads PMI from CATIA, Creo, NX, JT, STEP; saved PMI views; **since v2024.0 revision comparison with PMI changes (colored)**, quick and exact [verified] | Closest competitor, similar scope. Benchmark for usability. |
+| **Kubotek K-Compare** (commercial) | Revision comparison of parts/assemblies, result tree with face highlighting, reads AP242 PMI [verified]; semantic PMI diff not clearly documented | Model for result tree and face coloring. |
+| **CoreTechnologie 3D_Evolution** (commercial) | Converts and **compares PMI original ↔ converted**, checks whether PMI is semantic or graphical only [verified] | Original/converted rather than two revisions; we adopt the "semantic or graphical only" flag per PMI. |
+| **TransMagic MagicCheck** (commercial) | Geometry comparison with color map by tolerance, point list with values [verified, sources 2012/13] | Model for deviation color map + point browser. |
+| **Capvidia MBDVidia / CompareVidia** (commercial) | MBD validation, QIF generation, model comparison [knowledge] | Reference for the QIF path. |
+| **CATIA Compare Products** (commercial) | Visual (fast) and geometric (accurate) comparison, added/removed material as 3D map, adjustable accuracy [verified] | Model for exact vs. approximate comparison display. |
+| **NIST STEP File Analyzer and Viewer** (free) | Shows graphical PMI, analyzes **semantic PMI** against CAx-IF recommended practices [verified] | **Our reference**: what we read from NIST models is checked against its report. |
+| **ODA Open STEP Viewer** (free, closed source) | AP242 ed.3, measuring, clash, PMI display [verified] | Cross-check for display questions. |
+| **Siemens JT2Go** (free) | View JT with PMI [knowledge]; comparison only in paid Teamcenter Visualization | Cross-check for JT. |
 
-**Fazit Markt:** Freie Viewer zeigen PMI, aber **keiner vergleicht zwei Stände semantisch** und führt durch eine
-Prüfung mit Protokoll. Kommerziell kann das im Wesentlichen nur 3DViewStation. Der Mehrwert von 3DGmax liegt genau dort:
-semantischer PMI-Vergleich + Prüfrundgang + Bericht, wie ZGmax für 2D.
+**Conclusion:** free viewers show PMI, but **none compares two revisions semantically** and guides through a review
+with a report. Commercially, essentially only 3DViewStation does. That is where 3DGmax adds value: semantic PMI
+comparison + review walk-through + report, like ZGmax does for 2D drawings.
 
-## 2. Technikentscheidung
+## 2. Technical decisions
 
-### 2.1 Sprache und Oberfläche – bestätigt
-**Python 3.14 + PySide6** wie ZGmax. Gründe: gleiche Werkzeugkette (Tests offscreen, PyInstaller, `tr()`, HANDOFF),
-Teile übertragbar (Prüfrundgang, Protokoll mit SHA-256, Changelog/Version, Anleitung mit Menüreferenz, Container).
+### 2.1 Language and UI – confirmed
+**Python 3.14 + PySide6** as in ZGmax: same toolchain (offscreen tests, PyInstaller, `tr()`, handoff), reusable parts
+(review walk-through, report with SHA-256, changelog/version, manual with menu reference).
 
-### 2.2 Geometriekern – **pythonocc-core über pixi** (nach Versuch in Schritt 1 geändert, siehe docs/Machbarkeit.md)
+### 2.2 Geometry kernel – **pythonocc-core via pixi** (changed after the step 1 experiment)
+- First proposal was OCP (`cadquery-ocp`, pip wheels). Experiment: OCP 8.0.1 cannot look up STEP entities from
+  Python (hash lookups fail) and lacks `TransferBRep` → no mapping STEP face ↔ OCCT face [verified].
+- pythonocc-core 8.0.1.2 (conda-forge) maps all faces [verified]; environment via **pixi**, variant **without VTK**
+  (`build = "novtk*"`), because the VTK variant pulls Qt from conda-forge and clashes with PySide6 DLLs on Windows.
+- Licenses: OCCT LGPL 2.1 with exception, pythonocc LGPL 3, PySide6 LGPL 3, numpy/scipy BSD.
 
-Ursprünglicher Vorschlag (verworfen):
-- **OCCT 8.0.1** ist aktuell. `cadquery-ocp` 8.0.1.1.0 gibt es als **pip-Wheel für Python 3.14 auf macOS (arm64/x86),
-  Windows und Linux**, je ca. 50–70 MB [geprüft]. Damit passt es in eine normale `.venv` wie bei ZGmax.
-- `pythonocc-core` 8.0.1.2 gibt es nur über conda-forge [geprüft] → zusätzliche Umgebung (pixi/conda), PyInstaller
-  aufwendiger. Vorteil wäre nur der fertige Qt-Viewer, den wir selbst in ca. 200 Zeilen bauen.
-- Variante `cadquery-ocp-novtk` ohne VTK [geprüft] → kleinere App, wenn wir den OCCT-Viewer nehmen (s. u.).
-- Lizenzen: OCCT LGPL 2.1 mit Ausnahme, OCP Apache 2.0, PySide6 LGPL 3, numpy/scipy BSD – alles dynamisch gebunden,
-  im Über-Fenster aufführen.
+### 2.3 PMI: own STEP reader, OCCT for cross-checking [verified]
+- OCCT/XCAF reads much semantic PMI, but: pythonocc does not wrap `XCAFDoc_GeomTolerance`; face links via
+  `SET_REPRESENTATION_ITEM` are lost; some dimensions/fits are missing; one inch limit dimension is read wrongly.
+- Therefore 3DGmax reads semantics, presentation (graphical PMI), saved views and colors from the STEP entity graph
+  itself (`programm/kern/p21.py` and following). Result on all NIST AP242 models: 266/266 dimensions,
+  362/362 tolerances, 114/114 datums.
 
-### 2.3 Was OCCT für PMI liefert [Wissen → in Schritt 1 beweisen]
-- `STEPCAFControl_Reader` mit `SetGDTMode`, `SetViewMode`, `SetNameMode`, `SetColorMode`, `SetLayerMode` liest
-  in ein XCAF-Dokument:
-  - **Semantische PMI** über `XCAFDoc_DimTolTool`: Maße (`XCAFDoc_Dimension` → `XCAFDimTolObjects_DimensionObject`:
-    Typ, Nennwert, Ober-/Unterabmaß, Passungsklasse, Modifikatoren), Form- und Lagetoleranzen
-    (`XCAFDoc_GeomTolerance`: Typ, Wert, Zone, Modifikatoren, Bezugssystem), Bezüge (`XCAFDoc_Datum`) und die
-    **zugeordneten Flächen/Kanten** (Verweise auf Teilformen).
-  - **Grafische PMI** (Polylinien/Text der Annotation) als Präsentationsform je Objekt.
-  - **Gespeicherte Ansichten** über `XCAFDoc_ViewTool` (Kamera, Schnittebenen, verknüpfte PMI und Formen).
-- Bekannte Lücke aus dem OCCT-Forum: bei manchen Creo-Exporten kamen Maße mit Wert 0 an [geprüft, Forum]. Deshalb
-  braucht es einen **eigenen Ergänzungsleser**: Wo OCCT nichts liefert, lesen wir die STEP-Entitäten direkt
-  (`Interface_EntityIterator`/`StepData` aus OCCT oder ein schlanker Textparser der Part-21-Datei) und gleichen gegen
-  den NIST-Analyzer ab.
-- Oberflächenangaben (Rauheit) und Hinweistexte: in AP242 möglich, in XCAF nur teilweise abgebildet → [offen].
+### 2.4 Display – **OCCT viewer (AIS/V3d) in a Qt widget**
+Exact B-rep picking, snapping, clip planes with capping, no VTK. Findings: logical points on macOS; faces with custom
+color draw no boundaries (edges as separate layer); offscreen rendering crashes on macOS (tests use a placeholder view).
 
-### 2.4 Darstellung – **OCCT-Viewer (AIS/V3d) im Qt-Widget**, nicht VTK
-| Kriterium | OCCT AIS/V3d | VTK |
-|---|---|---|
-| Picking Fläche/Kante/Ecke der B-Rep | eingebaut (`AIS_Shape` Auswahlmodi) | nur Dreiecke → Rückabbildung selbst bauen |
-| PMI-Darstellung | `PrsDim`/XCAF-Präsentation direkt | alles selbst zeichnen |
-| Schnittebenen mit Kappen | `Graphic3d_ClipPlane` mit Capping | vorhanden |
-| Fang (Kante, Mitte, Fläche) | über Teilformen exakt | nur Netz |
-| Paketgröße | ohne VTK kleiner | +100 MB |
-| Qt-Einbindung | über `winId()` + `Cocoa_Window`/`WNT_Window`/`Xw_Window`, wie CQ-editor [Wissen] | `QVTKRenderWindowInteractor` fertig |
+### 2.5 Other libraries
+numpy, scipy (KD tree, ICP), pypdf (3D streams from PDF, BSD), lxml (QIF), pytest.
 
-Risiko: Einbindung auf macOS (Retina, Metal/OpenGL-Kontext) und offscreen-Tests → Schritt 1 enthält einen Mini-Versuch
-„Würfel im Qt-Fenster anzeigen und anklicken“. Fallback: Offscreen-Rendering von OCCT in ein QImage (langsamer).
+## 3. Formats – feasibility and effort
 
-### 2.5 Weitere Bibliotheken
-numpy, scipy (KD-Baum, Bestpassung/ICP, Zuordnung per Hungarian), lxml (QIF), reportlab oder QPdfWriter (Berichte –
-wie in ZGmax), pypdf (3D-Streams aus PDF, BSD; PyMuPDF wäre AGPL), pytest + pytest-qt.
-
-## 3. Formate – Machbarkeit und Aufwand
-
-| Format | Weg | Geometrie | PMI | Aufwand | Kosten |
+| Format | Approach | Geometry | PMI | Effort | Cost |
 |---|---|---|---|---|---|
-| STEP AP242 / AP214 / AP203 | OCCT STEPCAFControl | ja | semantisch + grafisch (zu prüfen) | Kern | 0 € |
-| IGES, STL, OBJ, glTF/GLB | OCCT (IGESCAFControl, RWStl, RWObj, RWGltf) | ja | – | klein | 0 € |
-| 3MF | eigener Leser (ZIP + XML) oder lib3mf (BSD) | Netz | – | klein | 0 € |
-| **QIF** | lxml + Klassen aus den offiziellen XSD (qifstandards.org, QualityInformationFramework auf GitHub) | QIF-eigene B-Rep oder Verweis auf STEP | **semantisch, sehr sauber** (Characteristics, Datums, Messwerte) | mittel | 0 € |
-| **JT** – Netz | eigener Leser nach ISO 14306 (LSG, Tri-Strip, zlib/LZMA) | Netz | – | groß (Wochen), Versionen 8–10 | 0 € |
-| **JT** – TKJT (wie FreeCAD) | TKJT von Open Cascade (2013–2015), gepflegt in github.com/mmaenz/TKJT (OCCT 7.7, Mac kompiliert, ungetestet); Python-Anbindung selbst bauen (pybind11) | Netz, Baugruppe, Attribute; PMI-Teil vorhanden (`JtElement_MetaData_PMIManager`), Umfang offen | [offen] | mittel–groß (OCCT-8-Anpassung, 3 Plattformen) | 0 €, aber **GPL v2+** [geprüft, Kopf der Quelldateien] |
-| **JT** – mit PMI | Siemens JT Open Toolkit (Mitgliedschaft, kein Listenpreis), Open Cascade JT SDK (kommerziell, Angebot), CAD Exchanger SDK (nur Angebot; ältere Liste 6.000–100.000 $/Jahr laut Wettbewerber), HOOPS Exchange (Angebot) | ja | ja | mittel (C++-Anbindung) | **4- bis 5-stellig pro Jahr** |
-| **3D-PDF U3D** | 3D-Stream mit pypdf herauslösen, U3D (ECMA-363, öffentlich) selbst lesen | Netz | nur Ansichten | mittel | 0 € |
-| **3D-PDF PRC** | PRC (ISO 14739) – kein brauchbarer freier Leser gefunden (Asymptote schreibt nur) | aufwendig | – | groß | sonst SDK (ODA PRC, HOOPS) |
+| STEP AP242 / AP214 / AP203 | OCCT + own entity reader | yes | semantic + graphical | done | 0 |
+| IGES, STL, OBJ, glTF/GLB | OCCT readers (present in pythonocc) | yes | – | small | 0 |
+| 3MF | own reader (ZIP + XML) or lib3mf (BSD) | mesh | – | small | 0 |
+| **QIF** | lxml + classes from the official XSD | QIF B-rep or link to STEP | **semantic, clean** | medium | 0 |
+| **JT** – mesh | own reader per ISO 14306 | mesh | – | large (weeks) | 0 |
+| **JT** – TKJT (as used by FreeCAD) | TKJT by Open Cascade (2013–2015), maintained at github.com/mmaenz/TKJT (OCCT 7.7, compiled on Mac, untested); own Python binding | mesh, structure, attributes; PMI part present, scope [open] | [open] | medium–large | 0, but **GPL v2+** [verified] |
+| **JT** – commercial SDK | Siemens JT Open Toolkit, Open Cascade JT SDK, CAD Exchanger, HOOPS Exchange | yes | yes | medium | quote only |
+| **3D PDF U3D** | extract stream with pypdf, read U3D (ECMA-363) | mesh | views only | medium | 0 |
+| **3D PDF PRC** | no usable free reader found | – | – | large | SDK otherwise |
 
-**Empfehlung:** STEP vollständig, QIF als zweiter semantischer Weg (Schritt 6), JT zunächst nur Netz-Machbarkeit an einer
-Testdatei; JT-PMI erst nach Angebotsvergleich – Entscheidung liegt bei dir. 3D-PDF: U3D-Netz anzeigen, PRC zurückstellen.
-
-## 4. Architektur
+## 4. Architecture
 
 ```
 programm/
-  kern/            ohne Qt, voll testbar
-    laden.py       Formate -> Modell (XCAF-Dokument + eigene Datenklassen), Hintergrund, Abbrechen
-    modell.py      Baugruppe, Teile, Flächen-IDs, Farben, Ebenen
-    pmi.py         PMI-Datenklassen (Mass, Formtoleranz, Bezug, Oberflaeche, Hinweis) + Text-Darstellung
-    pmi_step.py    PMI aus XCAF lesen, Ergaenzung aus STEP-Entitaeten
-    ansichten.py   gespeicherte Ansichten
-    tessel.py      Tessellierung, Cache (Datei-Hash + Feinheit), Detailstufen
-    messen.py      Abstand, Winkel, Radius, Wandstaerke, Fang
-    ausrichten.py  Bestpassung (ICP) und Drei-Punkt-Ausrichtung
-    vergleich_geo.py   Flaechenzuordnung, neu/entfernt/geaendert/gleich, Abweichungskarte
-    vergleich_pmi.py   semantischer PMI-Diff
-    pruefung.py    Aenderungsliste, Status, Protokoll mit SHA-256 (aus ZGmax uebernommen)
-    bericht.py, projekt.py (.3dgmax = ZIP), ordnervergleich.py
-  ui/              PySide6: Hauptfenster, Viewer-Widget, Baum, PMI-Liste, Messen, Vergleich, Pruefen
-tests/  packaging/  docs/
+  kern/                 no Qt, fully testable
+    p21.py              STEP Part 21 entity graph reader
+    laden.py            STEP -> XCAF document, face index, STEP #ID <-> face
+    pmi.py              neutral PMI model + text rendering (symbols, frames)
+    pmi_step.py         dimensions and tolerances from STEP
+    pmi_lesen.py        PMI list, datums, datum targets, notes, XCAF cross-check
+    ansichten.py        saved views (camera, window, PMI per view)
+    praesentation.py    graphical PMI (polylines, triangles, placeholders, file color)
+    baum.py, farben.py  assembly tree, face colors
+    messen.py           distance, angle, radius, wall thickness, coordinates, snapping
+    ausrichten.py       best fit (PCA start, ICP, point-to-plane), three point pairs
+    vergleich_geo.py    face status (equal/changed/new/removed), exact B-rep distance with mesh preselection
+    vergleich_pmi.py    semantic PMI diff (field by field, faces via face mapping)
+    vergleich.py        orchestration, change list
+    pruefung.py         review report with SHA-256
+    pmi_bericht.py      PMI table (CSV), plausibility check, change export
+  ui/                   PySide6: main window, 3D view, navigation (CATIA/classic), panels, measuring, comparison
+tests/  packaging/  werkzeuge/  docs/
 ```
 
-**Kernidee Vergleich:**
-1. *Ausrichten*: Schwerpunkt/Hauptachsen als Startwert, dann ICP auf Abtastpunkten; von Hand über 3 Punktpaare.
-2. *Flächenzuordnung*: persistente IDs, wenn das Modell welche trägt (AP242 hat dafür keinen Pflichtmechanismus – meist
-   nicht vorhanden); sonst Signatur je Fläche (Flächentyp, Parameter wie Radius/Achse/Normale, Fläche, Schwerpunkt,
-   Hüllquader) → Kostenmatrix → Zuordnung. Gleiche Signatur = *gleich*, zugeordnet aber abweichend = *geändert*, Rest
-   *neu*/*entfernt*.
-3. *Abweichungskarte*: Punkte auf Netz A, Abstand zur exakten Fläche B (OCCT-Projektion, beschleunigt mit KD-Baum
-   über Netz B), Farbskala mit Toleranzgrenze.
-4. *PMI-Diff*: PMI auf ein neutrales Schema bringen (Typ, Nennwert, Abmaße, Zone, Modifikatoren, Bezugssystem,
-   zugeordnete Flächen **übersetzt über die Flächenzuordnung**). Zuordnung alt↔neu über Typ + Flächen + Wertnähe;
-   Ergebnis je PMI *neu/entfallen/geändert (Feld für Feld)/gleich*. Das ist die eigentliche Neuheit.
+## 5. Steps with acceptance
 
-## 5. Schritte mit Abnahme
+| # | Content | Acceptance | Status |
+|---|---|---|---|
+| **1 Feasibility** | load NIST AP242, list PMI and views, cross-check, viewer experiment, JT/3D PDF assessment | `docs/Feasibility.md` | ✅ |
+| **2 Viewer** | loading, tree, CAD navigation, display modes, light/dark, saved views, PMI list, PMI↔face, section, intro, translation, F1 manual | NIST FTC usable, views switch PMI correctly | ✅ |
+| **3 Measure** | distance/angle/radius/wall thickness/coordinates with snapping, list, CSV | values match NIST dimensions | ✅ |
+| **4 Compare** | alignment, face status, PMI diff, change list, review walk-through, report | modified NIST variants: all changes found, no false alarms | ✅ (extensions see §8.1) |
+| **5 Output** | PDF per saved view, comparison report with images, PMI change table PDF/CSV, project container, folder comparison, views as drawings (HLR) | report understandable for a supplier | ⬜ next |
+| **6 Formats** | QIF, IGES/STL/OBJ/glTF/3MF, 3D PDF | one test file per format | ⬜ |
+| **7 JT via TKJT** | build TKJT for OCCT 8, Python binding, load JT; build with/without TKJT (open source only on GitHub) | JT file like its STEP counterpart | ⬜ |
+| later | multiple section planes, clipping box, section views from the model | section looks like in CAD | ⬜ |
 
-| # | Inhalt | Abnahme (du prüfst) |
-|---|---|---|
-| **1 Machbarkeit** ✅ (ohne Oberfläche) | `.venv` mit OCP 8.0.1; NIST-Modelle (CTC/FTC/STC, AP242) laden; Skript gibt PMI-Tabelle (Typ, Wert, Toleranz, Bezüge, Anzahl Flächen, semantisch/grafisch) und Ansichten aus; Abgleich mit NIST-Analyzer; Mini-Versuch OCCT-Viewer im Qt-Fenster mit Klick auf Fläche; JT-Netz und U3D an je einer Testdatei anlesen | Übersicht `docs/Machbarkeit.md` mit Tabellen, Abdeckungsquote je Modell, Bildschirmfoto; Entscheidung JT/PDF |
-| **2 Viewer** ✅ | Laden (Drag-and-drop, Zuletzt), Baum, Navigation wie CAD (Maus/Trackpad, Standardansichten, Drehpunkt), Darstellungsarten, hell/dunkel, gespeicherte Ansichten, PMI-Liste mit Filter, Hervorhebung PMI↔Fläche, Schnitt; Einführung, `tr()`, F1-Anleitung | NIST-FTC flüssig bedienbar, Ansichten schalten PMI korrekt |
-| **3 Messen** ✅ | Abstand/Winkel/Radius/Wandstärke/Koordinaten mit Fang, Liste, CSV | Messwerte gegen bekannte NIST-Maße |
-| **4 Vergleich** | Ausrichten, Flächenzuordnung, Farbkarte, PMI-Diff, Änderungsliste, Prüfen starten, Prüfung abschließen | Zwei absichtlich geänderte Stände eines NIST-Modells (Wert, Toleranz, Bezug, Fläche geändert) – alle Änderungen gefunden, keine Falschmeldungen |
-| **5 Ausgaben** | PDF-Bericht mit Bildern, PMI-Änderungstabelle PDF/CSV, Zwischenablage, Projekt-Container, Ordnervergleich, **Ansichten als Zeichnung** (verdeckte Kanten mit OCCT-HLR, PMI-Projektion → PDF/SVG/DXF), Vergleich exportieren | Bericht für einen Lieferanten verständlich |
-| **6 Formate** | QIF, IGES/STL/OBJ/glTF/3MF, JT/3D-PDF je nach Entscheidung | Je Format eine Testdatei in den Tests |
-| **7 JT über TKJT** (nach STEP) | TKJT für OCCT 8 bauen, Python-Anbindung, JT laden (Netz, Struktur, dann PMI); Bau mit/ohne TKJT (siehe 8.3) | NIST- bzw. eigene JT-Datei wie STEP-Gegenstück |
-| **später: Schnittansichten** | Mehrere Schnittebenen/Clipping-Boxen, Schnittansichten aus dem Modell (AP242 Clipping in Saved Views), Schnittkontur hervorheben und als Ansicht speichern/exportieren | Schnitt aus der Datei sieht aus wie im CAD |
+Throughout: tests (core, offscreen UI, stress test, on-screen test), `--selbsttest`, changelog DE/EN via
+`packaging/release.py`, HANDOFF.md, unfinished work on `wip/...`, push after each commit.
 
-Durchgängig: Tests ab Schritt 1 (Kern mit NIST-Dateien, Oberfläche offscreen, Stresstest), `--selbsttest`,
-Changelog DE/EN, HANDOFF.md, unfertiges auf `wip/...`, nach jedem Commit Push.
+## 6. Risks
 
-## 6. Risiken
+1. **Real exports differ from NIST** (CATIA/NX/Creo write PMI differently) – put own anonymized models into tests early.
+2. **Face matching with heavy redesigns** (faces split/merged) – reported as *changed* via deviation, not mismatched.
+3. **Large assemblies** – background tessellation, cache, levels of detail, tessellate instances once.
+4. **JT with PMI** only via TKJT (GPL) or commercial SDK.
 
-1. **PMI-Vollständigkeit in OCCT** (größtes Risiko) – Gegenmaßnahme: Ergänzungsleser + Abgleich mit NIST-Analyzer
-   in Schritt 1, bevor Oberfläche entsteht.
-2. **Echte Exporte weichen von NIST ab** (CATIA/NX/Creo schreiben PMI unterschiedlich) – deine anonymisierten Modelle
-   so früh wie möglich in die Tests.
-3. **Qt + OCCT-Viewer auf macOS/offscreen** – Mini-Versuch in Schritt 1, Fallback Offscreen-Bild.
-4. **Flächenzuordnung bei starken Umbauten** (Flächen geteilt/vereinigt) – als *geändert* mit Abweichungskarte melden
-   statt falsch zuzuordnen.
-5. **Große Baugruppen** – Tessellierung im Hintergrund, Cache, Detailstufen, Instanzen nur einmal tessellieren.
-6. **JT-PMI nur mit Lizenz** – Kosten vor Bau vorlegen.
+## 7. Decisions
 
-## 7. Entscheidungen, die bei dir liegen
+- Geometry kernel: pythonocc via pixi (decided after experiment).
+- Display: OCCT viewer.
+- License: **GPL-3.0-or-later** – compatible with OCCT/pythonocc/PySide6 (LGPL) and TKJT (GPL v2+).
+- JT: TKJT as optional build variant after STEP; GitHub builds open-source-only by default.
 
-- ~~Geometriekern OCP über pip~~ → **pythonocc über pixi** (Versuch: OCP kann STEP-Flächen nicht zuordnen).
-- Darstellung **OCCT-Viewer** (empfohlen) statt VTK.
-- JT: nur Netz frei, PMI nur mit Angebot – erst nach Schritt 1.
-- Projektname/Programmname „3DGmax“, Dateiendung `.3dgmax`?
+## 8. Extensions
 
-## 8. Ergänzungen (2026-10-26)
+### 8.1 Comparison
+- Exact **and** approximate (fast) like CATIA Compare Products: added/removed material as volume, adjustable accuracy;
+  deviation color map with scale and sign.
+- Detect **moved** elements (face/feature rigidly offset) and moved PMI placement.
+- **Graphical PMI comparison** in addition to semantic: match annotations (position, shape), color moved/changed/
+  new/removed in the 3D view.
+- Assembly comparison; manual alignment by point pairs in the UI.
+- Meshes: STL/OBJ vs. CAD, mesh vs. mesh, fit and compare 3D scans (best fit, datum/RPS based).
 
-### 8.1 Ansichten (Captures) durchklicken
-- Gespeicherte Ansichten mit Kamera **und** den jeweils eingeblendeten Annotationen zeigen; vor/zurück durchklicken
-  (Tasten, Knöpfe), Ansicht als Vorschaubild in der Liste. Teilweise erledigt: Kamera (Ort, Richtung, Ausschnitt)
-  und PMI-Filter je Ansicht; offen: Vor/Zurück-Knöpfe, Vorschaubilder, Schnittebenen der Ansicht.
+### 8.2 Saved views and search
+- Thumbnails per view; targeted search (`datum:A`, `value:0.5`, `type:position`).
 
-### 8.2 Suche
-- PMI-Suche nach Name, Maß/Wert, Bezug (vorhanden: Freitext über Wert, Bezüge, Name, Typ); ausbauen zu gezielter
-  Suche (z. B. `bezug:A`, `wert:0.5`, `typ:position`).
-- Suche nach Ansichten/Captures (Name, enthaltene PMI) in der Ansichtsliste.
+### 8.3 Build variants by license
+- **Default (open source, LGPL libraries)** – distributable. **With TKJT (GPL v2+)** – adds JT reading; distribution
+  under GPL-compatible terms with source (fits GPL-3.0-or-later). Switch in build scripts and workflow with step 7.
 
-### 8.3 Bau-Varianten nach Lizenz
-- **Standard (Open Source, LGPL-Bibliotheken):** OCCT, pythonocc, Qt/PySide6 – die App darf weitergegeben werden.
-- **Mit TKJT (GPL v2+):** zusätzlich JT-Lesen. Eine weitergegebene App müsste dann unter einer GPL-kompatiblen Lizenz
-  mit Quelltext stehen; für reine interne Nutzung keine Pflichten. Bau-Skripte und GitHub-Workflow erhalten dafür
-  einen Schalter (Standard: ohne TKJT). Wird mit Schritt 7 umgesetzt, damit es keinen Schalter ohne Funktion gibt.
-- Entschieden (2026-10-26): 3DGmax steht unter **GPL-3.0-or-later** – verträglich mit OCCT/pythonocc/PySide6 (LGPL)
-  und TKJT (GPL v2+), auch bei Weitergabe einer App mit TKJT.
+### 8.4 Make graphical PMI usable
+- Searchable: render annotations offscreen, text recognition (OCR as in ZGmax), map text to the annotation.
+- Convert to semantic PMI: evaluate recognized text + frame structure; mark result as "derived (check)", never as
+  genuine semantics.
 
-## 9. Ergänzungen (2026-10-26, Nutzerwünsche)
+### 8.5 Tolerance zones (future)
+- Generate envelope surfaces for roundness, cylindricity, coaxiality, position, surface/line profile etc. showing how far
+  geometry may deviate from nominal – including datum reference frame, material condition, unequal zones (UZ),
+  projected zones.
 
-Übersicht umgesetzt/geplant: **[docs/Roadmap.md](docs/Roadmap.md)**. UI/UX-Grundsätze: **[docs/UIUX.md](docs/UIUX.md)**.
+### 8.6 Annotating and commenting (future)
+- Comments/change proposals on faces, edges, PMI (list and model), on changed PMI and geometry in a comparison; stored
+  in the project container, exported in reports.
 
-### 9.1 Vergleich ausbauen
-- Geometrie exakt **und** angenähert (schnell) wie CATIA „Compare Products“: hinzugefügtes/entferntes Material als
-  Volumen, einstellbare Genauigkeit; Abweichungsfarbkarte mit Skala und Vorzeichen.
-- Verschobene Elemente erkennen (Fläche/Feature starr versetzt) und als „verschoben“ melden; ebenso PMI-Platzierung.
-- **Grafischer PMI-Vergleich** zusätzlich zum semantischen: Annotationen zuordnen (Lage, Form), verschoben/geändert/
-  neu/entfernt im 3D-Fenster einfärben.
-- Baugruppen vergleichen.
-- Mesh: STL/OBJ gegen CAD, Mesh gegen Mesh, 3D-Scan einpassen (Bestpassung, Bezugssystem/RPS) und vergleichen.
+### 8.7 Reports
+- PDF per saved view: one page per view with view name, model name, date, visible PMI (image + list); plus comparison
+  report and PMI change table (step 5).
 
-### 9.2 Grafische PMI erschließen
-- Durchsuchbar machen: Annotationen offscreen rendern, Texterkennung (wie OCR in ZGmax), Text der Annotation zuordnen.
-- In semantische PMI umwandeln: erkannten Text + Rahmenstruktur (Toleranzrahmen, Bezugsdreieck) auswerten; Ergebnis
-  als „abgeleitet (prüfen)“ kennzeichnen, nie stillschweigend als echte Semantik.
+### 8.8 Tolerance stack-up analysis (future)
+- Dimension chains built from the semantic PMI (select faces/PMI along a chain), worst case, statistical (RSS) and
+  Monte Carlo; GD&T contributions (position, profile, datum shift with material condition); report with contributors.
+- Related: bill of characteristics with balloon numbers for metrology/quality.
 
-### 9.3 Toleranzzonen darstellen (Zukunft)
-- Für Rundheit, Zylindrizität, Koaxialität, Position, Flächen-/Linienprofil u. a. Hüllflächen erzeugen, die zeigen,
-  wie weit die Geometrie vom Nennmaß abweichen darf – inkl. Bezugssystem, Materialbedingung, unsymmetrischer Zonen (UZ),
-  projizierter Zonen.
-
-### 9.4 Annotieren und Kommentieren (Zukunft)
-- Kommentare/Änderungsvorschläge an Flächen, Kanten, PMI (in der Liste und am Modell), an geänderten PMI und
-  geänderter Geometrie im Vergleich; Speicherung im Projekt-Container, Export im Bericht.
-
-### 9.5 Berichte
-- PDF je gespeicherter Ansicht: eine Seite pro Ansicht mit Ansichtsname, Modellname, Datum, sichtbaren PMI (Bild +
-  Liste); dazu Vergleichsbericht und PMI-Änderungstabelle (Schritt 5).
-
-### 9.6 FMK (Zukunft, Umfang klären)
-- Aufnahme als Erweiterung; vor Umsetzung klären, was genau gemeint ist (z. B. Funktionsmaßkonzept, Mess-/
-  Prüfkonzept mit Merkmalsliste) und welche Formate/Vorlagen gelten.
-
-### 9.7 Testdaten
-- NIST: FTC/STC/CTC (AP242), D2MI 827-9999-904 rev C (AP242 mit PMI) ↔ 906 (gleiche Geometrie, ohne PMI),
-  FTC-06 ↔ STC-06 (gleiches Teil, vereinfachte PMI, andere Lage). Eigene Varianten: `werkzeuge/testmodelle.py`.
-- **JT mit PMI: keine freien Dateien gefunden** (NIST veröffentlicht nur STEP/native CAD; JT2Go-Beispiele unterliegen
-  der Siemens-Lizenz). Weg: JT aus eigenem CAD (NX/CATIA) der NIST-Modelle exportieren.
+### 8.9 Test data
+- NIST: FTC/STC/CTC (AP242); D2MI 827-9999-904 rev C (AP242 with PMI) ↔ 906 (same geometry, no PMI); FTC-06 ↔ STC-06
+  (same part, simplified PMI, different position). Own variants: `werkzeuge/testmodelle.py`.
+- **JT with PMI: no freely available files found** (NIST publishes STEP and native CAD only; JT2Go samples are under
+  the Siemens license). Option: export JT of the NIST models from a CAD system.

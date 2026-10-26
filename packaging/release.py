@@ -1,5 +1,5 @@
 """Version erhoehen: 'unreleased' aus programm/CHANGELOG.json wird zur neuen Version (mit Datum);
-CHANGELOG.md (deutsch) und CHANGELOG_EN.md (englisch) werden neu geschrieben.
+CHANGELOG.md (englisch, fuer GitHub) und CHANGELOG_DE.md (deutsch) werden neu geschrieben.
 
 Aufruf: pixi run python packaging/release.py minor|patch|major [--git]
 --git: Commit und Tag v<version> anlegen (Push danach von Hand bzw. durch den Workflow).
@@ -53,12 +53,12 @@ def main(argv):
     daten["unreleased"] = {"de": [], "en": []}
     with open(PFAD, "w", encoding="utf-8") as f:
         json.dump(daten, f, ensure_ascii=False, indent=1)
-    for name, sprache in (("CHANGELOG.md", "de"), ("CHANGELOG_EN.md", "en")):
+    for name, sprache in (("CHANGELOG.md", "en"), ("CHANGELOG_DE.md", "de")):
         with open(os.path.join(WURZEL, name), "w", encoding="utf-8") as f:
             f.write(markdown(daten, sprache))
     print(f"Version {alt} -> {neu}")
     if "--git" in argv:
-        subprocess.run(["git", "add", PFAD, "CHANGELOG.md", "CHANGELOG_EN.md"], cwd=WURZEL, check=True)
+        subprocess.run(["git", "add", PFAD, "CHANGELOG.md", "CHANGELOG_DE.md"], cwd=WURZEL, check=True)
         subprocess.run(["git", "commit", "-m", f"Version {neu}\n\nCo-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>"],
                        cwd=WURZEL, check=True)
         subprocess.run(["git", "tag", f"v{neu}"], cwd=WURZEL, check=True)
