@@ -28,6 +28,23 @@ MASS_VORSATZ = {
 }
 WINKEL_TYPEN = {"Location_Angular", "Size_Angular"}
 
+# Merkmal (Art der Toleranz bzw. des Masses) nach ISO 1101 / ISO 14405; Anzeige ueber tr()
+MERKMAL = {
+    "Size_Diameter": "Durchmesser", "Size_Radius": "Radius", "Size_SphericalDiameter": "Kugeldurchmesser",
+    "Size_SphericalRadius": "Kugelradius", "Size_Thickness": "Dicke", "Size_CurveLength": "Bogenlänge",
+    "Size_Angular": "Winkel (Größe)", "Location_Angular": "Winkel (Lage)", "Location_Oriented": "Winkel (Lage)",
+    "Location_LinearDistance": "Abstand", "Location_CurvedDistance": "Abstand auf Kurve",
+    "Size_ToroidalMinorDiameter": "Torusdurchmesser", "Size_ToroidalMajorDiameter": "Torusdurchmesser",
+    "Size_ToroidalMinorRadius": "Torusradius", "Size_ToroidalMajorRadius": "Torusradius",
+    "Straightness": "Geradheit", "Flatness": "Ebenheit", "CircularityOrRoundness": "Rundheit",
+    "Cylindricity": "Zylinderform", "ProfileOfLine": "Linienform", "ProfileOfSurface": "Flächenform",
+    "Angularity": "Neigung", "Perpendicularity": "Rechtwinkligkeit", "Parallelism": "Parallelität",
+    "Position": "Position", "Concentricity": "Konzentrizität", "Coaxiality": "Koaxialität",
+    "Symmetry": "Symmetrie", "CircularRunout": "Lauf", "TotalRunout": "Gesamtlauf",
+    "Datum": "Bezug", "DatumTarget": "Bezugsstelle",
+}
+MATERIAL = {"M": "Maximum-Material Ⓜ", "L": "Minimum-Material Ⓛ"}
+
 
 @dataclass
 class BezugsRef:
@@ -109,6 +126,50 @@ class Pmi:
         for b in sorted(self.bezuege, key=lambda b: b.stelle):
             teile.append(b.text())
         return " | ".join(teile)
+
+    def merkmal(self) -> str:
+        """Merkmalsschluessel (deutsch, Anzeige ueber tr()); unbekannte Typen unveraendert."""
+        if self.typ in MERKMAL:
+            return MERKMAL[self.typ]
+        if self.typ.startswith("Location_LinearDistance"):
+            return "Abstand"
+        return self.typ
+
+    def abmasse(self) -> tuple[float | None, float | None]:
+        """Oberes und unteres Abmass (bei Grenzmassen aus dem Nennmass gerechnet)."""
+        if self.art != MASS or self.oben is None and self.unten is None:
+            return None, None
+        if self.grenzmass:
+            if self.nennwert is None:
+                return None, None
+            return (None if self.oben is None else self.oben - self.nennwert,
+                    None if self.unten is None else self.unten - self.nennwert)
+        return self.oben or 0.0, self.unten or 0.0
+
+    def grenzen(self) -> tuple[float | None, float | None]:
+        """Hoechstmass und Mindestmass (ohne Passungstabelle: nur aus Abmassen bzw. Grenzmassen)."""
+        if self.art != MASS:
+            return None, None
+        if self.grenzmass:
+            return self.oben, self.unten
+        o, u = self.abmasse()
+        if self.nennwert is None or o is None:
+            return None, None
+        return self.nennwert + o, self.nennwert + u
+
+    def masstoleranz(self) -> float | None:
+        h, m = self.grenzen()
+        return None if h is None or m is None else h - m
+
+    def zonen_text(self) -> str:
+        teile = []
+        if "Diameter" in self.modifikatoren or self.zone == "Diameter":
+            teile.append("⌀")
+        if self.zone == "Projected":
+            teile.append("Ⓟ" + (f" {_zahl(self.zonen_wert)}" if self.zonen_wert else ""))
+        elif self.zone and self.zone != "Diameter":
+            teile.append(self.zone + (f" {_zahl(self.zonen_wert)}" if self.zonen_wert else ""))
+        return " ".join(teile)
 
     def bezug_text(self) -> str:
         return "|".join(b.text() for b in sorted(self.bezuege, key=lambda b: b.stelle))

@@ -37,7 +37,9 @@
    "Grafische PMI wahlweise nur für die gewählten PMI (Umschalt+G); kräftigere Beschriftungslinien.",
    "Spalten der PMI-, Mess- und Änderungstabelle per Drag-and-drop umordnen; die Anordnung wird gemerkt.",
    "Normal ausrichten richtet die Kamera gerade aus: Kanten waagrecht/senkrecht, Beschriftungen lesbar (Schreibebene aus der Datei).",
-   "Drahtmodell: verdeckte Kanten lassen sich durchklicken; Schattiert zeigt keine blassen Kanten mehr."
+   "Drahtmodell: verdeckte Kanten lassen sich durchklicken; Schattiert zeigt keine blassen Kanten mehr.",
+   "PMI-Tabelle: Spalten per Rechtsklick auf den Kopf ein-/ausblenden; neue Spalten Merkmal (z. B. Flächenform, Durchmesser), Nennmaß, Abmaße, Höchst-/Mindestmaß, Maßtoleranz, Toleranzklasse, Toleranzwert, Toleranzzone, Materialbedingung, Modifikatoren.",
+   "Gespeicherte Ansichten: ◀ ▶ und ←/→ gehen alle Ansichten der Reihe nach durch; erneuter Klick stellt die Kamera wieder her."
   ],
   "en": [
    "First viewer version: load STEP AP242, assembly tree, CAD-style navigation, standard views.",
@@ -76,7 +78,9 @@
    "Graphical PMI optionally only for the selected PMI (Shift+G); thicker annotation lines.",
    "Reorder columns of the PMI, measurement and change tables by drag and drop; the order is remembered.",
    "Align normal also straightens the camera: edges horizontal/vertical, annotations readable (writing plane from the file).",
-   "Wireframe: hidden edges can be clicked through; shaded no longer shows faint edges."
+   "Wireframe: hidden edges can be clicked through; shaded no longer shows faint edges.",
+   "PMI table: show/hide columns by right-clicking the header; new columns characteristic (e.g. surface profile, diameter), nominal, deviations, upper/lower limit, size tolerance, tolerance class, tolerance value, tolerance zone, material condition, modifiers.",
+   "Saved views: ◀ ▶ and ←/→ step through all views in order; clicking a view again restores its camera."
   ]
  },
  "releases": [

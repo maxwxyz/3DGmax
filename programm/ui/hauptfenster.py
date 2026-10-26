@@ -149,15 +149,22 @@ class Hauptfenster(QtWidgets.QMainWindow):
         return {"pmi": self.pmi.tabelle, "messen": self.messen.tabelle, "aenderungen": self.aenderungen.tabelle}
 
     def _spalten_verschiebbar(self):
-        """Spalten per Drag-and-drop umordnen; Anordnung wird je Tabelle gemerkt."""
+        """Spalten per Drag-and-drop umordnen, per Rechtsklick ein-/ausblenden; je Tabelle gemerkt."""
+        from .panels import spalten_menue
         for name, t in self._tabellen().items():
             kopf = t.horizontalHeader()
             kopf.setSectionsMovable(True)
-            kopf.setToolTip(tr("Spalten per Drag-and-drop umordnen"))
-            zustand = self.ein.value(f"spalten_{name}")
+            kopf.setToolTip(tr("Spalten per Drag-and-drop umordnen, Rechtsklick: Spalten ein-/ausblenden"))
+            schluessel = f"spalten_{name}_{t.columnCount()}"  # neue Spalten -> alter Zustand passt nicht mehr
+            zustand = self.ein.value(schluessel)
             if zustand:
                 kopf.restoreState(zustand)
-            kopf.sectionMoved.connect(lambda *_a, n=name, k=kopf: self.ein.setValue(f"spalten_{n}", k.saveState()))
+            merken = (lambda n=schluessel, k=kopf: self.ein.setValue(n, k.saveState()))
+            kopf.sectionMoved.connect(lambda *_a, m=merken: m())
+            kopf.setContextMenuPolicy(QtCore.Qt.ContextMenuPolicy.CustomContextMenu)
+            standard = self.pmi.STANDARD if name == "pmi" else None
+            kopf.customContextMenuRequested.connect(
+                lambda pos, tab=t, st=standard, m=merken: spalten_menue(tab, pos, st, m))
 
     @staticmethod
     def _titel(datei: str = "") -> str:

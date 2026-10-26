@@ -157,7 +157,7 @@ def test_exporte_englisch(alt, monkeypatch):
     assert kopf.startswith("No;Category;Status;Title;Description;Old;New")
     assert "nominal: 20 → 21" in text and "PMI changed: Dimension" in text
     assert "face(s), largest deviation" in text
-    assert pmi_bericht.als_csv(pmi_bericht.tabelle(alt.pmi, alt.ansichten)).startswith("No;Kind;Type;Name;Value")
+    assert pmi_bericht.als_csv(pmi_bericht.tabelle(alt.pmi, alt.ansichten)).startswith("No;Kind;Characteristic;Type;Name;Value")
 
 
 def test_projekt_container(fenster, tmp_path):

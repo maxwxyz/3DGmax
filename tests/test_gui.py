@@ -161,7 +161,8 @@ def test_pmi_liste_name_ansichten_bezuege(app, tmp_path, monkeypatch):
     f = Hauptfenster()
     f.lade(pfad("nist_ftc_10_asme1_ap242-e2.stp"), warten=True)
     p = f.pmi
-    assert p.SPALTEN.index("Name") == 2 and p.SPALTEN.index("Wert") == 3 and p.SPALTEN.index("Ansichten") == 5
+    sp = p.SPALTEN
+    assert sp.index("Art") < sp.index("Merkmal") < sp.index("Name") < sp.index("Wert") < sp.index("Ansichten")
     p.suche.setText("MBD_E")  # Suche nach Ansicht
     assert 0 < len(p.sichtbare()) <= 3
     p.suche.setText("")
@@ -170,12 +171,52 @@ def test_pmi_liste_name_ansichten_bezuege(app, tmp_path, monkeypatch):
     assert p.waehle_bezuege([tol]) == 4
     a = next(q for q in p.pmi if q.art == "bezug" and q.name == "A")
     assert p.waehle_mit_bezug([a]) > 10
-    # Ansichten durchklicken
-    f.ansichten.gehe(+1)
-    assert f.ansichten.liste.currentRow() == 1
+    # Ansichten der Reihe nach durchklicken (auch ohne PMI), am Ende wieder vorn
+    n = len(f.erg.ansichten)
+    for erwartet in list(range(1, n + 1)) + [1]:
+        f.ansichten.gehe(+1)
+        assert f.ansichten.liste.currentRow() == erwartet
     f.ansichten.gehe(-1)
-    assert f.ansichten.liste.currentRow() == len(f.erg.ansichten) or f.ansichten.liste.currentRow() >= 1
+    assert f.ansichten.liste.currentRow() == n
+    # Pfeiltaste rechts in der Liste = naechste Ansicht
+    from PySide6 import QtCore, QtGui
+    ev = QtGui.QKeyEvent(QtCore.QEvent.Type.KeyPress, QtCore.Qt.Key.Key_Right, QtCore.Qt.KeyboardModifier.NoModifier)
+    app.sendEvent(f.ansichten.liste, ev)
+    assert f.ansichten.liste.currentRow() == 1
+    # erneuter Klick auf dieselbe Ansicht meldet sie wieder (Kamera zuruecksetzen)
+    gemeldet = []
+    f.ansichten.gewaehlt.connect(gemeldet.append)
+    f.ansichten.liste.itemClicked.emit(f.ansichten.liste.item(1))
+    assert gemeldet and gemeldet[0] is f.erg.ansichten[0]
     f.close()
+
+
+def test_pmi_iso_gps_spalten_und_ausblenden(fenster_ctc01):
+    from programm.kern.pmi import MASS, Pmi
+    from programm.ui.panels import spalten_menue  # noqa: F401
+    f = fenster_ctc01
+    p, t = f.pmi, f.pmi.tabelle
+    kopf = t.horizontalHeader()
+    sp = p.SPALTEN
+    assert not kopf.isSectionHidden(sp.index("Merkmal")) and kopf.isSectionHidden(sp.index("Höchstmaß"))
+    # Merkmal fuer Toleranzen (z. B. Flaechenform/Position) und Masse (Durchmesser)
+    merkmale = {t.item(z, sp.index("Merkmal")).text() for z in range(t.rowCount())}
+    assert {"Position", "Durchmesser"} <= merkmale
+    # Grenzmasse aus Abmassen
+    m = Pmi(MASS, "Size_Diameter", nennwert=10.0, oben=0.1, unten=-0.05)
+    assert m.grenzen() == (10.1, 9.95) and abs(m.masstoleranz() - 0.15) < 1e-12
+    g = Pmi(MASS, "Size_Diameter", nennwert=10.0, oben=10.2, unten=9.9, grenzmass=True)
+    o, u = g.abmasse()
+    assert abs(o - 0.2) < 1e-12 and abs(u + 0.1) < 1e-12 and g.grenzen() == (10.2, 9.9)
+    werte = p._werte(m, [])
+    assert werte["Höchstmaß"] == "10.1" and werte["Oberes Abmaß"] == "+0.1" and werte["Unteres Abmaß"] == "-0.05"
+    # gemerkt: ausgeblendete Spalte bleibt ausgeblendet
+    kopf.setSectionHidden(sp.index("Ansichten"), True)
+    kopf.sectionMoved.emit(0, 0, 0)  # Zustand speichern wie nach Aenderung
+    from programm.ui.hauptfenster import Hauptfenster
+    h = Hauptfenster()
+    assert h.pmi.tabelle.horizontalHeader().isSectionHidden(sp.index("Ansichten"))
+    h.close()
 
 
 def test_3d_auswahl_zoom_normal_und_schnitt(fenster_ctc01):
@@ -215,7 +256,7 @@ def test_pmi_export_und_pruefung(fenster_ctc01, tmp_path):
     ziel = tmp_path / "pmi.csv"
     assert f.exportiere_pmi(str(ziel))
     text = ziel.read_text(encoding="utf-8-sig")
-    assert text.splitlines()[0].startswith("Nr;Art;Typ;Name;Wert") and "MBD_0" in text and "#" in text
+    assert text.splitlines()[0].startswith("Nr;Art;Merkmal;Typ;Name;Wert") and "MBD_0" in text and "#" in text
     assert len(text.splitlines()) == 1 + len(f.erg.pmi)
     fenster = f.pruefe_pmi()
     assert fenster.tabelle.rowCount() > 0

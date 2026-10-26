@@ -5,7 +5,7 @@ from __future__ import annotations
 from PySide6 import QtCore, QtGui, QtWidgets
 
 from ..i18n import tr
-from ..kern.pmi import BEZUG, HINWEIS, MASS, TOLERANZ
+from ..kern.pmi import BEZUG, HINWEIS, MASS, MATERIAL, TOLERANZ
 
 ART_TEXT = {MASS: "Maß", TOLERANZ: "Toleranz", BEZUG: "Bezug", HINWEIS: "Hinweis"}
 
@@ -109,7 +109,12 @@ class PmiPanel(QtWidgets.QWidget):
     gewaehlt = QtCore.Signal(list)  # Liste von Pmi
     befehl = QtCore.Signal(str, object)  # Kontextmenue: ("zoomen"|"ausrichten"|"ansicht", Wert)
 
-    SPALTEN = ("Nr", "Art", "Name", "Wert", "Bezüge", "Ansichten", "Flächen")
+    SPALTEN = ("Nr", "Art", "Merkmal", "Name", "Wert", "Bezüge", "Ansichten", "Flächen", "Nennmaß",
+               "Oberes Abmaß", "Unteres Abmaß", "Höchstmaß", "Mindestmaß", "Maßtoleranz", "Toleranzklasse",
+               "Toleranzwert", "Toleranzzone", "Materialbedingung", "Modifikatoren", "Semantisch")
+    STANDARD = {"Nr", "Art", "Merkmal", "Name", "Wert", "Bezüge", "Ansichten", "Flächen"}  # sichtbar ab Werk
+    RECHTS = {"Nr", "Flächen", "Nennmaß", "Oberes Abmaß", "Unteres Abmaß", "Höchstmaß", "Mindestmaß",
+              "Maßtoleranz", "Toleranzwert"}
 
     def __init__(self, parent=None):
         super().__init__(parent)
@@ -131,6 +136,8 @@ class PmiPanel(QtWidgets.QWidget):
         lay.addWidget(self.hinweis)
         self.tabelle = QtWidgets.QTableWidget(0, len(self.SPALTEN))
         self.tabelle.setHorizontalHeaderLabels([tr(s) for s in self.SPALTEN])
+        for i, name in enumerate(self.SPALTEN):
+            self.tabelle.horizontalHeaderItem(i).setData(QtCore.Qt.ItemDataRole.UserRole, name)
         self.tabelle.verticalHeader().setVisible(False)
         self.tabelle.setSelectionBehavior(QtWidgets.QAbstractItemView.SelectionBehavior.SelectRows)
         self.tabelle.setEditTriggers(QtWidgets.QAbstractItemView.EditTrigger.NoEditTriggers)
@@ -139,9 +146,10 @@ class PmiPanel(QtWidgets.QWidget):
         self.tabelle.setContextMenuPolicy(QtCore.Qt.ContextMenuPolicy.CustomContextMenu)
         self.tabelle.customContextMenuRequested.connect(self._menue)
         kopf = self.tabelle.horizontalHeader()
-        kopf.setSectionResizeMode(3, QtWidgets.QHeaderView.ResizeMode.Stretch)
-        for i in (0, 1, 2, 4, 5, 6):
-            kopf.setSectionResizeMode(i, QtWidgets.QHeaderView.ResizeMode.ResizeToContents)
+        for i, name in enumerate(self.SPALTEN):
+            kopf.setSectionResizeMode(i, QtWidgets.QHeaderView.ResizeMode.Stretch if name == "Wert"
+                                      else QtWidgets.QHeaderView.ResizeMode.ResizeToContents)
+            kopf.setSectionHidden(i, name not in self.STANDARD)
         lay.addWidget(self.tabelle, 1)
         self.pmi: list = []
         self.ansichten_je_pmi: dict[int, list[str]] = {}
@@ -164,19 +172,32 @@ class PmiPanel(QtWidgets.QWidget):
         t.setRowCount(len(pmi))
         for z, p in enumerate(pmi):
             namen = self.ansichten_je_pmi.get(p.nummer, [])
-            werte = (str(p.nummer), tr(ART_TEXT.get(p.art, p.art)), p.name, p.wert_text(), p.bezug_text(),
-                     ", ".join(namen), str(len(p.flaechen)))
-            for s, w in enumerate(werte):
-                it = QtWidgets.QTableWidgetItem(w)
-                if s in (0, 6):
+            werte = self._werte(p, namen)
+            for s, spalte in enumerate(self.SPALTEN):
+                it = QtWidgets.QTableWidgetItem(werte.get(spalte, ""))
+                if spalte in self.RECHTS:
                     it.setTextAlignment(QtCore.Qt.AlignmentFlag.AlignRight | QtCore.Qt.AlignmentFlag.AlignVCenter)
-                if s == 3:
+                if spalte == "Wert":
                     it.setToolTip(_tooltip(p))
-                if s == 5 and namen:
+                if spalte == "Ansichten" and namen:
                     it.setToolTip(tr("In Ansichten: {}").format(", ".join(namen)))
                 t.setItem(z, s, it)
         t.blockSignals(False)
         self._filtern()
+
+    @staticmethod
+    def _werte(p, namen) -> dict[str, str]:
+        hoechst, mindest = p.grenzen()
+        oben, unten = p.abmasse()
+        return {"Nr": str(p.nummer), "Art": tr(ART_TEXT.get(p.art, p.art)), "Merkmal": tr(p.merkmal()),
+                "Name": p.name, "Wert": p.wert_text(), "Bezüge": p.bezug_text(), "Ansichten": ", ".join(namen),
+                "Flächen": str(len(p.flaechen)), "Nennmaß": _z(p.nennwert if p.art == MASS else None),
+                "Oberes Abmaß": _z(oben, True), "Unteres Abmaß": _z(unten, True), "Höchstmaß": _z(hoechst),
+                "Mindestmaß": _z(mindest), "Maßtoleranz": _z(p.masstoleranz()), "Toleranzklasse": p.passung,
+                "Toleranzwert": _z(p.wert if p.art == TOLERANZ else None), "Toleranzzone": p.zonen_text(),
+                "Materialbedingung": tr(MATERIAL[p.material]) if p.material in MATERIAL else "",
+                "Modifikatoren": ", ".join(p.modifikatoren),
+                "Semantisch": tr("ja") if p.semantisch else tr("nein")}
 
     def nur_ansicht(self, nummern: set[int] | None):
         self.nur_nummern = None if nummern is None else set(nummern)
@@ -292,6 +313,43 @@ class PmiPanel(QtWidgets.QWidget):
         QtWidgets.QApplication.clipboard().setText("\n".join(zeilen))
 
 
+def _z(x, vorzeichen: bool = False) -> str:
+    if x is None:
+        return ""
+    t = f"{x:.6f}".rstrip("0").rstrip(".")
+    t = "0" if t in ("-0", "") else t
+    return ("+" + t) if vorzeichen and x > 1e-12 else t
+
+
+def spalten_menue(tabelle, pos, standard: set[str] | None = None, gespeichert=None):
+    """Rechtsklick auf die Spaltenkoepfe: Spalten ein-/ausblenden (mindestens eine bleibt)."""
+    kopf = tabelle.horizontalHeader()
+    m = QtWidgets.QMenu(tabelle)
+    for i in range(tabelle.columnCount()):
+        a = m.addAction(tabelle.horizontalHeaderItem(i).text())
+        a.setCheckable(True)
+        a.setChecked(not kopf.isSectionHidden(i))
+        a.setData(i)
+    a_std = None
+    if standard is not None:
+        m.addSeparator()
+        a_std = m.addAction(tr("Standardspalten"))
+    gewaehlt = m.exec(kopf.mapToGlobal(pos))
+    if gewaehlt is None:
+        return
+    if gewaehlt is a_std:
+        for i in range(tabelle.columnCount()):
+            kopf.setSectionHidden(i, tabelle.horizontalHeaderItem(i).data(QtCore.Qt.ItemDataRole.UserRole)
+                                  not in standard)
+    else:
+        i = gewaehlt.data()
+        sichtbar = sum(not kopf.isSectionHidden(j) for j in range(tabelle.columnCount()))
+        if gewaehlt.isChecked() or sichtbar > 1:
+            kopf.setSectionHidden(i, not gewaehlt.isChecked())
+    if gespeichert is not None:
+        gespeichert()
+
+
 def _tooltip(p) -> str:
     teile = [p.name or p.typ, tr("Typ: {}").format(p.typ)]
     if p.modifikatoren:
@@ -320,9 +378,9 @@ class AnsichtenPanel(QtWidgets.QWidget):
         lay.addWidget(self.liste)
         reihe = QtWidgets.QHBoxLayout()
         self.zurueck = QtWidgets.QPushButton("◀")
-        self.zurueck.setToolTip(tr("Vorherige Ansicht (Bild auf)"))
+        self.zurueck.setToolTip(tr("Vorherige Ansicht (Bild auf, ←)"))
         self.vor = QtWidgets.QPushButton("▶")
-        self.vor.setToolTip(tr("Nächste Ansicht (Bild ab)"))
+        self.vor.setToolTip(tr("Nächste Ansicht (Bild ab, →)"))
         self.zurueck.clicked.connect(lambda: self.gehe(-1))
         self.vor.clicked.connect(lambda: self.gehe(+1))
         reihe.addWidget(self.zurueck)
@@ -330,6 +388,16 @@ class AnsichtenPanel(QtWidgets.QWidget):
         lay.addLayout(reihe)
         self.ansichten: list = []
         self.liste.currentRowChanged.connect(self._zeile)
+        # erneuter Klick auf die aktuelle Ansicht stellt die Kamera wieder her
+        self.liste.itemClicked.connect(lambda it: self._zeile(self.liste.row(it)))
+        self.liste.installEventFilter(self)
+
+    def eventFilter(self, obj, ev):
+        if obj is self.liste and ev.type() == QtCore.QEvent.Type.KeyPress and \
+                ev.key() in (QtCore.Qt.Key.Key_Left, QtCore.Qt.Key.Key_Right):
+            self.gehe(+1 if ev.key() == QtCore.Qt.Key.Key_Right else -1)
+            return True
+        return super().eventFilter(obj, ev)
 
     def zeige(self, ansichten: list):
         self.ansichten = ansichten
@@ -354,18 +422,20 @@ class AnsichtenPanel(QtWidgets.QWidget):
             self.liste.item(z).setHidden(bool(s) and s not in a.name.lower())
 
     def gehe(self, schritt: int):
-        """Naechste/vorherige sichtbare Ansicht mit PMI (Durchklicken der Captures)."""
-        kandidaten = [z for z, a in enumerate(self.ansichten, 1)
-                      if not self.liste.item(z).isHidden() and a.pmi_nummern] or \
-            [z for z in range(1, self.liste.count()) if not self.liste.item(z).isHidden()]
+        """Naechste/vorherige sichtbare Ansicht in Listenreihenfolge (Durchklicken der Captures)."""
+        kandidaten = [z for z in range(1, self.liste.count()) if not self.liste.item(z).isHidden()]
         if not kandidaten:
             return
         jetzt = self.liste.currentRow()
+        if len(kandidaten) == 1 and jetzt == kandidaten[0]:
+            self._zeile(jetzt)  # nur eine Ansicht: Kamera wiederherstellen
+            return
         if schritt > 0:
             ziel = next((z for z in kandidaten if z > jetzt), kandidaten[0])
         else:
             ziel = next((z for z in reversed(kandidaten) if z < jetzt), kandidaten[-1])
         self.liste.setCurrentRow(ziel)
+        self.liste.setFocus()  # danach weiter mit Pfeiltasten
 
     def waehle_name(self, name: str):
         for z, a in enumerate(self.ansichten, 1):

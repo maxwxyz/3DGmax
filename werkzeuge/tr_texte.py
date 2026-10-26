@@ -54,6 +54,8 @@ def tr_texte() -> set[str]:
     for name, text in einstellungen.STEUERUNG_TEXT.values():
         out |= {name, text}
     out |= set(panels.ART_TEXT.values()) | set(panels.PmiPanel.SPALTEN)
+    from programm.kern import pmi as kp
+    out |= set(kp.MERKMAL.values()) | set(kp.MATERIAL.values()) | {"Abstand"}
     for t, x in hilfe.SCHRITTE:
         out |= {t, x}
     return out

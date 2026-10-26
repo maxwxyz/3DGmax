@@ -43,9 +43,13 @@ def tabelle(pmi: list[Pmi], ansichten: list, modell=None) -> list[dict]:
     zeilen = []
     for p in pmi:
         step = [modell.flaeche_zu_step.get(i) for i in sorted(p.flaechen)] if modell is not None else []
-        werte = [("Nr", p.nummer), ("Art", tr(ART_TEXT.get(p.art, p.art))), ("Typ", p.typ), ("Name", p.name),
+        hoechst, mindest = p.grenzen()
+        werte = [("Nr", p.nummer), ("Art", tr(ART_TEXT.get(p.art, p.art))), ("Merkmal", tr(p.merkmal())),
+                 ("Typ", p.typ), ("Name", p.name),
                  ("Wert", p.wert_text()), ("Nennwert", _zahl(p.nennwert)), ("Oben", _zahl(p.oben)),
-                 ("Unten", _zahl(p.unten)), ("Grenzmaß", tr(JA) if p.grenzmass else ""), ("Passung", p.passung),
+                 ("Unten", _zahl(p.unten)), ("Grenzmaß", tr(JA) if p.grenzmass else ""),
+                 ("Höchstmaß", _zahl(hoechst)), ("Mindestmaß", _zahl(mindest)), ("Maßtoleranz", _zahl(p.masstoleranz())),
+                 ("Passung", p.passung),
                  ("Toleranzwert", _zahl(p.wert)), ("Zone", p.zone), ("Zonenwert", _zahl(p.zonen_wert)),
                  ("Material", p.material), ("Modifikatoren", ", ".join(p.modifikatoren)), ("Bezüge", p.bezug_text()),
                  ("Flächen", len(p.flaechen)), ("Flächen (STEP-#ID)", " ".join(f"#{s}" for s in step if s)),
@@ -118,7 +122,8 @@ KATEGORIE = {"geometrie": "Geometrie", "pmi": "PMI"}
 STATUS = {"geaendert": "geändert", "neu": "neu", "entfernt": "entfernt", "entfallen": "entfallen",
           "geometrie": "Geometrie unter PMI geändert"}
 PRUEF = {"offen": "offen", "geprueft": "geprüft", "abgelehnt": "abgelehnt"}
-CSV_SPALTEN = ("Nr", "Art", "Typ", "Name", "Wert", "Nennwert", "Oben", "Unten", "Grenzmaß", "Passung", "Toleranzwert",
+CSV_SPALTEN = ("Nr", "Art", "Merkmal", "Typ", "Name", "Wert", "Nennwert", "Oben", "Unten", "Grenzmaß", "Höchstmaß",
+               "Mindestmaß", "Maßtoleranz", "Passung", "Toleranzwert",
                "Zone", "Zonenwert", "Material", "Modifikatoren", "Bezüge", "Flächen", "Flächen (STEP-#ID)",
                "Ansichten", "Semantisch", "Grafisch", "STEP-#ID", "Kategorie", "Status", "Titel", "Beschreibung",
                "Alt", "Neu", "Bezüge alt", "Bezüge neu", "Flächen neu", "Flächen alt", "Prüfstatus", "Kommentar",
