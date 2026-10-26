@@ -35,7 +35,9 @@
    "Ansicht umdrehen (U): Blick von der Gegenseite.",
    "Manuell ausrichten im Vergleich: Punkte, ebene Flächen und Achsen am neuen und alten Stand paarweise wählen (z. B. drei Flächen), Eindeutigkeit wird geprüft; dann neu vergleichen, Prüfstand bleibt erhalten.",
    "Grafische PMI wahlweise nur für die gewählten PMI (Umschalt+G); kräftigere Beschriftungslinien.",
-   "Spalten der PMI-, Mess- und Änderungstabelle per Drag-and-drop umordnen; die Anordnung wird gemerkt."
+   "Spalten der PMI-, Mess- und Änderungstabelle per Drag-and-drop umordnen; die Anordnung wird gemerkt.",
+   "Normal ausrichten richtet die Kamera gerade aus: Kanten waagrecht/senkrecht, Beschriftungen lesbar (Schreibebene aus der Datei).",
+   "Drahtmodell: verdeckte Kanten lassen sich durchklicken; Schattiert zeigt keine blassen Kanten mehr."
   ],
   "en": [
    "First viewer version: load STEP AP242, assembly tree, CAD-style navigation, standard views.",
@@ -72,7 +74,9 @@
    "Flip view (U): look from the opposite side.",
    "Manual alignment in a comparison: pick points, planar faces and axes pairwise on the new and old revision (e.g. three faces), uniqueness is checked; then compare again, review status is kept.",
    "Graphical PMI optionally only for the selected PMI (Shift+G); thicker annotation lines.",
-   "Reorder columns of the PMI, measurement and change tables by drag and drop; the order is remembered."
+   "Reorder columns of the PMI, measurement and change tables by drag and drop; the order is remembered.",
+   "Align normal also straightens the camera: edges horizontal/vertical, annotations readable (writing plane from the file).",
+   "Wireframe: hidden edges can be clicked through; shaded no longer shows faint edges."
   ]
  },
  "releases": [

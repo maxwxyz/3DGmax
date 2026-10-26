@@ -320,6 +320,8 @@ class OcctAnsicht(AnsichtBasis):
         self.d.Create(window_handle=int(self.viewer.winId()), parent=self.viewer, display_glinfo=False)
         self.d.SetModeShaded()
         self.d.Context.SetAutomaticHilight(True)
+        # Kanten zeichnet die eigene Kantenebene; die Standard-Flaechenraender (blasse Linien) abschalten
+        self.d.Context.DefaultDrawer().SetFaceBoundaryDraw(False)
         self.d.display_triedron()
         self._bereit = True
         self.viewer._inited = True
@@ -615,6 +617,7 @@ class OcctAnsicht(AnsichtBasis):
         for ais in self._teile.values():
             ctx.SetDisplayMode(ais, 0 if self.modus == "draht" else 1, False)
         self._wende_sichtbarkeit_an()
+        self._aktiviere_auswahl()
 
     # --- Kamera ---
 
@@ -899,7 +902,11 @@ class OcctAnsicht(AnsichtBasis):
             if nr in self.versteckt:
                 continue
             ctx.Deactivate(ais)
-            for modus in ((1, 2, 4) if self.messmodus else (2, 4)):  # Punkte, Kanten, Flaechen
+            if self.modus == "draht":
+                arten = (1, 2)  # Drahtmodell: Flaechen nicht waehlbar -> verdeckte Kanten durchklicken
+            else:
+                arten = (1, 2, 4) if self.messmodus else (2, 4)  # Punkte, Kanten, Flaechen
+            for modus in arten:
                 ctx.Activate(ais, modus, False)
 
     def fang_toleranz(self) -> float:
@@ -1185,6 +1192,46 @@ class OcctAnsicht(AnsichtBasis):
                 return c.Line().Direction()
         return None
 
+    def _pmi_ebene(self, pmi_ids):
+        for g in self.szene.grafik.values():
+            if g.ebene is not None and g.pmi_ids & set(pmi_ids):
+                return g.ebene
+        return None
+
+    def _gerade(self, oben, n, formen, pts):
+        """Hochachse auf eine Kantenrichtung der Auswahl (bzw. Hauptachse der Beschriftung) einrasten,
+        damit Kanten waagrecht/senkrecht liegen."""
+        import numpy as np
+        from OCC.Core.BRepAdaptor import BRepAdaptor_Curve
+        from OCC.Core.GeomAbs import GeomAbs_Line
+        from OCC.Core.TopAbs import TopAbs_EDGE
+        from OCC.Core.TopExp import TopExp_Explorer
+        from OCC.Core.TopoDS import topods
+        kandidaten = []
+        for f in formen:
+            ex = TopExp_Explorer(f, TopAbs_EDGE)
+            while ex.More():
+                c = BRepAdaptor_Curve(topods.Edge(ex.Current()))
+                if c.GetType() == GeomAbs_Line:
+                    d = c.Line().Direction()
+                    kandidaten.append(np.array([d.X(), d.Y(), d.Z()]))
+                ex.Next()
+        if not kandidaten and pts is not None and len(pts) >= 3:
+            _, _, vt = np.linalg.svd(pts - pts.mean(axis=0))
+            kandidaten.append(vt[0])  # Schreibrichtung (laengste Ausdehnung)
+        richtungen = []
+        for d in kandidaten:
+            d = d - n * (d @ n)
+            if np.linalg.norm(d) > 1e-6:
+                d = d / np.linalg.norm(d)
+                richtungen += [d, np.cross(n, d)]
+        if not richtungen:
+            return oben
+        o = oben - n * (oben @ n)
+        o = o / (np.linalg.norm(o) or 1.0)
+        beste = max(richtungen, key=lambda d: abs(d @ o))
+        return beste if beste @ o >= 0 else -beste
+
     def richte_normal_aus(self, flaechen, formen=None, pmi_ids=None):
         AnsichtBasis.richte_normal_aus(self, flaechen, formen, pmi_ids)
         if not self._bereit:
@@ -1196,6 +1243,14 @@ class OcctAnsicht(AnsichtBasis):
             if n is not None:
                 normalen.append(np.array([n.X(), n.Y(), n.Z()]))
         pts = self._pmi_punkte(pmi_ids) if pmi_ids else None
+        ebene = self._pmi_ebene(pmi_ids) if pmi_ids else None
+        if ebene is not None and not normalen:
+            # Schreibebene der Beschriftung aus der Datei: Blick auf +z, x nach rechts, y nach oben -> lesbar
+            _o, ex, ey, ez = ebene
+            self.d.View.SetProj(*map(float, ez))
+            self.d.View.SetUp(*map(float, ey))
+            self.zoome_auf(flaechen, formen, pmi_ids)
+            return
         if pts is not None and len(pts) >= 3:
             mitte = pts.mean(axis=0)
             _, _, vt = np.linalg.svd(pts - mitte)
@@ -1213,6 +1268,7 @@ class OcctAnsicht(AnsichtBasis):
             n = normalen[0]
         n = n / np.linalg.norm(n)
         oben = np.array([cam.Up().X(), cam.Up().Y(), cam.Up().Z()])
+        oben = self._gerade(oben, n, self._auswahl_formen(flaechen, formen, None), pts)
         oben = oben - n * (oben @ n)
         if np.linalg.norm(oben) < 1e-6:
             oben = np.array([0.0, 0.0, 1.0]) if abs(n[2]) < 0.9 else np.array([0.0, 1.0, 0.0])

@@ -44,6 +44,7 @@ class Grafik:
     fertig: bool = False  # Datei liefert fertige Grafik (tesselliert oder Kurven)
     doppelt: bool = False  # nur Platzhalter fuer PMI, die schon fertige Grafik haben
     farbe: tuple[float, float, float] | None = None  # Farbe laut Datei (RGB 0..1)
+    ebene: tuple | None = None  # Schreibebene (ursprung, x, y, z) laut Datei, fuer lesbares Ausrichten
     pmi_ids: set[int] = field(default_factory=set)
 
     def leer(self) -> bool:
@@ -97,6 +98,8 @@ class _Leser:
             return
         if e.is_a("REPOSITIONED_TESSELLATED_ITEM"):
             trafo = self.platzierung(e.args("REPOSITIONED_TESSELLATED_ITEM")[-1])
+            if g.ebene is None:
+                g.ebene = trafo
         if e.is_a("TESSELLATED_GEOMETRIC_SET"):
             for r in _eig(e, "TESSELLATED_GEOMETRIC_SET")[0]:
                 self.element(r, g, trafo)
@@ -156,8 +159,10 @@ class _Leser:
             box = self.d.get(r)
             if box is not None and box.is_a("PLANAR_BOX"):
                 b, h, platz = _eig(box, "PLANAR_BOX")[:3]
-                o, x, y, _ = self.platzierung(platz)
+                o, x, y, z = self.platzierung(platz)
                 g.platzhalter.append(Platzhalter(o, x, y, float(b) * self.skala, float(h) * self.skala))
+                if g.ebene is None:
+                    g.ebene = (o, x, y, z)
         if teil.endswith("WITH_LEADER_LINE"):
             for r in args[5] or []:
                 linie = self.d.get(r)
