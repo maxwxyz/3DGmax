@@ -43,11 +43,35 @@ QToolButton:hover {{ background: {t['hover']}; }}
 QToolButton:checked {{ background: {t['wahl']}; color: {t['akzent']}; }}
 QToolButton:disabled, QToolButton:checked:disabled {{ color: {t['aus']}; background: transparent; }}
 QDockWidget {{ color: {t['text']}; }}
-QDockWidget::title {{ background: {t['fenster']}; padding: 5px 8px; font-weight: 600; }}
+QDockWidget::title {{ background: {t['fenster']}; padding: 7px 10px 5px 10px; font-weight: 600; color: {t['text2']}; }}
+QMainWindow::separator {{ background: {t['rand']}; width: 1px; height: 1px; }}
+QMainWindow::separator:hover {{ background: {t['akzent']}; }}
 QTreeWidget, QTableWidget, QListWidget, QTextBrowser {{ background: {t['flaeche']}; color: {t['text']};
     border: 1px solid {t['rand']}; border-radius: 6px; alternate-background-color: {t['fenster']}; }}
+QTreeWidget::item, QListWidget::item {{ padding: 3px 4px; border-radius: 4px; }}
+QTableWidget::item {{ padding: 0px 6px; }}
+QTreeWidget::item:hover, QListWidget::item:hover, QTableWidget::item:hover {{ background: {t['hover']}; }}
 QTreeWidget::item:selected, QTableWidget::item:selected, QListWidget::item:selected {{
     background: {t['wahl']}; color: {t['wahl_text']}; }}
+QTableCornerButton::section {{ background: {t['fenster']}; border: none; }}
+QScrollBar:vertical {{ background: transparent; width: 10px; margin: 2px; }}
+QScrollBar:horizontal {{ background: transparent; height: 10px; margin: 2px; }}
+QScrollBar::handle:vertical, QScrollBar::handle:horizontal {{ background: {t['rand2']}; border-radius: 3px; min-height: 24px; min-width: 24px; }}
+QScrollBar::handle:hover {{ background: {t['leise']}; }}
+QScrollBar::add-line, QScrollBar::sub-line {{ width: 0px; height: 0px; }}
+QScrollBar::add-page, QScrollBar::sub-page {{ background: transparent; }}
+QComboBox {{ background: {t['eingabe']}; color: {t['eingabe_text']}; border: 1px solid {t['rand2']};
+    border-radius: 6px; padding: 4px 8px; }}
+QComboBox:hover {{ border-color: {t['akzent']}; }}
+QComboBox::drop-down {{ border: none; width: 18px; }}
+QComboBox QAbstractItemView {{ background: {t['flaeche']}; color: {t['text']}; border: 1px solid {t['rand']};
+    selection-background-color: {t['wahl']}; selection-color: {t['wahl_text']}; outline: none; }}
+QMenu {{ background: {t['flaeche']}; color: {t['text']}; border: 1px solid {t['rand']}; border-radius: 8px; padding: 4px; }}
+QMenu::item {{ padding: 5px 22px 5px 12px; border-radius: 5px; }}
+QMenu::item:selected {{ background: {t['wahl']}; color: {t['wahl_text']}; }}
+QMenu::item:disabled {{ color: {t['aus']}; }}
+QMenu::separator {{ height: 1px; background: {t['rand']}; margin: 4px 8px; }}
+QToolTip {{ background: {t['flaeche']}; color: {t['text']}; border: 1px solid {t['rand2']}; border-radius: 6px; padding: 4px 6px; }}
 QHeaderView::section {{ background: {t['fenster']}; color: {t['leise']}; border: none;
     border-bottom: 1px solid {t['rand']}; padding: 4px 6px; font-weight: 600; }}
 QLineEdit {{ background: {t['eingabe']}; color: {t['eingabe_text']}; border: 1px solid {t['rand2']};

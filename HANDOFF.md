@@ -17,7 +17,8 @@ Details: `docs/Roadmap.md`; future topics: PLAN.md §8 (tolerance zones, annotat
 PMI editing, CATIA files).
 
 Last session: upright align-normal, wireframe click-through, no faint edges in shaded mode, PMI table ISO GPS
-columns with show/hide via header menu, saved-view stepping fixed (◀ ▶, ←/→, re-click), view cube.
+columns with show/hide via header menu, saved-view stepping fixed (◀ ▶, ←/→, re-click), view cube (styled),
+UI stylesheet polish (compact tables, scroll bars, menus), trackpad pan/rotate direction fixed.
 Open small item: limits from ISO 286 tolerance classes (needs exact tables, not formulas).
 
 ## Environment and commands
@@ -32,7 +33,7 @@ packaging/build_mac.sh [--ohne-tests]             # verified locally: tests, bui
 ```
 
 ## GitHub build
-Workflow "Apps bauen" green on Windows/Linux/macOS (last checked run 40366624656). Repository is public.
+Workflow "Apps bauen" green on Windows/Linux/macOS (last checked run 40369306525). Repository is public.
 
 ## Test data
 - NIST AP242 (daten/nist, not in repo), selection in tests/daten; D2MI 904 rev C ↔ 906 (daten/nist_d2mi).
@@ -42,6 +43,8 @@ Workflow "Apps bauen" green on Windows/Linux/macOS (last checked run 40366624656
 - OCCT viewer on macOS uses logical points; faces with custom color draw no boundaries → edges as own layer;
   the context default face boundaries are switched off (otherwise faint edges in shaded mode).
 - `ctx.MainSelector()` unusable in pythonocc → point under the mouse via view ray.
+- View cube on macOS: drawn in device pixels but picked in logical points → size scaled by devicePixelRatio
+  and pick coordinates mapped from the top-right corner (`_wuerfel_unter_maus`). `Font` enums not wrapped (no bold).
 - View cube: `AIS_ViewCube`, owner via `AIS_ViewCubeOwner.DownCast(ctx.DetectedOwner()).MainOrientation()`;
   re-displayed after `RemoveAll` in `_baue_szene`, hidden for report images.
 - Saved views: camera looks along +z of the placement. Annotation writing plane stored in `Grafik.ebene`

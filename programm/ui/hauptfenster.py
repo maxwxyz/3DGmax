@@ -152,7 +152,13 @@ class Hauptfenster(QtWidgets.QMainWindow):
         """Spalten per Drag-and-drop umordnen, per Rechtsklick ein-/ausblenden; je Tabelle gemerkt."""
         from .panels import spalten_menue
         for name, t in self._tabellen().items():
+            # kompakte Zeilen ohne Gitter
+            t.setShowGrid(False)
+            t.verticalHeader().setDefaultSectionSize(t.fontMetrics().height() + 10)
+            t.verticalHeader().setSectionResizeMode(QtWidgets.QHeaderView.ResizeMode.Fixed)
             kopf = t.horizontalHeader()
+            kopf.setHighlightSections(False)
+            kopf.setDefaultAlignment(QtCore.Qt.AlignmentFlag.AlignLeft | QtCore.Qt.AlignmentFlag.AlignVCenter)
             kopf.setSectionsMovable(True)
             kopf.setToolTip(tr("Spalten per Drag-and-drop umordnen, Rechtsklick: Spalten ein-/ausblenden"))
             schluessel = f"spalten_{name}_{t.columnCount()}"  # neue Spalten -> alter Zustand passt nicht mehr

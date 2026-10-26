@@ -12,6 +12,7 @@ from __future__ import annotations
 
 import contextlib
 import os
+import sys
 
 from PySide6 import QtCore, QtGui, QtWidgets
 
@@ -343,15 +344,44 @@ class OcctAnsicht(AnsichtBasis):
         from OCC.Core.Aspect import Aspect_TOTP_RIGHT_UPPER
         from OCC.Core.Graphic3d import Graphic3d_TMF_TriedronPers, Graphic3d_TransformPers, Graphic3d_Vec2i
         from OCC.Core.TCollection import TCollection_AsciiString
+        from OCC.Core import Prs3d
+        from OCC.Core.Aspect import Aspect_TOL_SOLID
+        from OCC.Core.Prs3d import Prs3d_DatumAspect, Prs3d_LineAspect
         w = AIS_ViewCube()
-        w.SetSize(62)
-        w.SetBoxFacetExtension(10)  # abgeschraegte Ecken und Kanten
-        w.SetBoxEdgeGap(1)
-        w.SetFontHeight(15)
+        # macOS: Wuerfel (Transform-Persistenz) wird in Geraetepixeln gezeichnet, aber in logischen Punkten
+        # gepickt -> auf Retina mitskalieren und beim Picken umrechnen (_wuerfel_unter_maus)
+        k = max(1.0, self.viewer.devicePixelRatioF()) if sys.platform == "darwin" else 1.0
+        self._wuerfel_k = k
+        w.SetSize(56 * k)
+        w.SetBoxFacetExtension(9)  # abgeschraegte Ecken und Kanten
+        w.SetBoxEdgeGap(0)
+        w.SetRoundRadius(0.12)  # leicht gerundet
+        schrift = "Helvetica Neue" if sys.platform == "darwin" else ("Segoe UI" if sys.platform == "win32" else "DejaVu Sans")
+        w.SetFont(TCollection_AsciiString(schrift))
+        w.SetFontHeight(12 * k)
         w.SetDrawAxes(True)
-        w.SetAxesPadding(2)
+        w.SetAxesPadding(4 * k)
+        w.SetAxesRadius(0.9 * k)
+        w.SetAxesConeRadius(2.4 * k)
+        w.SetAxesSphereRadius(2.6 * k)
+        w.SetAxesLabels(TCollection_AsciiString("X"), TCollection_AsciiString("Y"), TCollection_AsciiString("Z"))
+        # Achsen farbig wie ueblich: X rot, Y gruen, Z blau
+        datum = Prs3d_DatumAspect()
+        for teil, pfeil, rgb in ((Prs3d.Prs3d_DatumParts_XAxis, Prs3d.Prs3d_DatumParts_XArrow, (0.86, 0.24, 0.22)),
+                                 (Prs3d.Prs3d_DatumParts_YAxis, Prs3d.Prs3d_DatumParts_YArrow, (0.30, 0.68, 0.30)),
+                                 (Prs3d.Prs3d_DatumParts_ZAxis, Prs3d.Prs3d_DatumParts_ZArrow, (0.25, 0.48, 0.90))):
+            farbe = _farbe(rgb)
+            for t in (teil, pfeil):
+                datum.ShadingAspect(t).SetColor(farbe)
+            text = datum.TextAspect(teil)
+            text.SetColor(farbe)
+            text.SetHeight(12 * k)
+            text.Aspect().SetFont(schrift)  # serifenlos wie die Seitenbeschriftung
+            datum.LineAspect(teil).SetColor(farbe) if datum.LineAspect(teil) else None
+        w.Attributes().SetDatumAspect(datum)
+        _ = Aspect_TOL_SOLID, Prs3d_LineAspect
         w.SetTransformPersistence(Graphic3d_TransformPers(Graphic3d_TMF_TriedronPers, Aspect_TOTP_RIGHT_UPPER,
-                                                          Graphic3d_Vec2i(100, 100)))
+                                                          Graphic3d_Vec2i(int(95 * k), int(95 * k))))
         for name, text in self.WUERFEL_SEITEN:
             w.SetBoxSideLabel(getattr(V3d, name), TCollection_AsciiString(tr(text)))
         w.SetAutoStartAnimation(False)
@@ -363,10 +393,21 @@ class OcctAnsicht(AnsichtBasis):
         w = getattr(self, "_wuerfel", None)
         if w is None:
             return
-        dunkel = sum((self.thema or {}).get("hg_oben", (1, 1, 1))) < 1.5
-        w.SetBoxColor(_farbe((0.36, 0.38, 0.42) if dunkel else (0.86, 0.88, 0.91)))
-        w.SetTextColor(_farbe((0.95, 0.95, 0.95) if dunkel else (0.12, 0.12, 0.14)))
-        w.SetBoxTransparency(0.15)
+        from OCC.Core.Graphic3d import Graphic3d_NameOfMaterial_UserDefined, Graphic3d_MaterialAspect
+        # hell und matt auf hellem wie dunklem Hintergrund (wie gaengige CAD-Wuerfel), Schrift dunkel
+        mat = Graphic3d_MaterialAspect(Graphic3d_NameOfMaterial_UserDefined)
+        mat.SetSpecularColor(_farbe((0.02, 0.02, 0.02)))
+        mat.SetAmbientColor(_farbe((0.75, 0.75, 0.75)))
+        mat.SetDiffuseColor(_farbe((0.55, 0.55, 0.55)))
+        w.SetMaterial(mat)
+        w.SetBoxColor(_farbe((0.97, 0.97, 0.98)))
+        w.SetInnerColor(_farbe((0.78, 0.80, 0.84)))
+        w.SetTextColor(_farbe((0.10, 0.11, 0.13)))
+        w.SetBoxTransparency(0.0)
+        akzent = (self.thema or {}).get("hervor", (1, 0.45, 0))
+        hover = w.DynamicHilightAttributes()
+        if hover is not None:
+            hover.SetColor(_farbe(akzent))
 
     def _zeige_wuerfel(self):
         w = getattr(self, "_wuerfel", None)
@@ -376,15 +417,21 @@ class OcctAnsicht(AnsichtBasis):
             self._faerbe_wuerfel()
             ctx.Display(w, False)
 
-    def _wuerfel_unter_maus(self, x, y):
+    def _wuerfel_unter_maus(self, x, y, zeichnen=False):
         """Teil des Ansichtswuerfels unter der Maus (Owner) oder None."""
         from OCC.Core.AIS import AIS_ViewCubeOwner
         w = getattr(self, "_wuerfel", None)
-        if w is None:
-            return None
         ctx = self.d.Context
-        ctx.MoveTo(int(x), int(y), self.d.View, False)
+        if w is None:
+            ctx.MoveTo(int(x), int(y), self.d.View, zeichnen)
+            return None
+        k = getattr(self, "_wuerfel_k", 1.0)
+        breite = self.viewer.width()
+        # sichtbare Lage (Geraetepixel ab Ecke oben rechts) in die Pick-Lage umrechnen
+        ctx.MoveTo(int(breite - k * (breite - x)), int(k * y), self.d.View, zeichnen)
         if not ctx.HasDetected() or ctx.DetectedInteractive() != w:
+            if k != 1.0:
+                ctx.MoveTo(int(x), int(y), self.d.View, zeichnen)  # sonst normal am echten Ort
             return None
         besitzer = AIS_ViewCubeOwner.DownCast(ctx.DetectedOwner())
         return besitzer if besitzer is not None else None
@@ -1114,7 +1161,7 @@ class OcctAnsicht(AnsichtBasis):
         elif art == "drehpunkt":
             self._setze_drehpunkt(*werte)
         elif art == "hover":
-            self.d.Context.MoveTo(werte[0], werte[1], self.d.View, True)
+            self._wuerfel_unter_maus(werte[0], werte[1], zeichnen=True)  # hebt Wuerfel oder Modell hervor
         elif art == "kontext":
             self.kontextmenue.emit(self.viewer.mapToGlobal(QtCore.QPoint(int(werte[0]), int(werte[1]))))
 
@@ -1137,11 +1184,13 @@ class OcctAnsicht(AnsichtBasis):
         trackpad = not pixel.isNull() and ev.phase() != QtCore.Qt.ScrollPhase.NoScrollPhase
         if trackpad:
             r = 1.0
+            # Zwei Finger: Modell folgt den Fingern wie beim Ziehen mit der Maus (macOS liefert die Richtung
+            # schon passend zum "natuerlichen" Scrollen)
             if ev.modifiers() & QtCore.Qt.KeyboardModifier.AltModifier:
                 self._mitte_cache = self._mitte()
-                self._drehe(-pixel.x() * r, -pixel.y() * r)
+                self._drehe(pixel.x() * r, pixel.y() * r)
             else:
-                self._verschiebe(-pixel.x() * r, -pixel.y() * r)
+                self._verschiebe(pixel.x() * r, pixel.y() * r)
         else:
             for b in self.nav.rad(ev.angleDelta().y() / 120.0, x, y):
                 self._fuehre_aus(b)
