@@ -2,14 +2,14 @@
 
 Branch: `main` (no other branches). Version 0.1 plus many unreleased entries in `programm/CHANGELOG.json`
 (bump only via `pixi run python packaging/release.py minor --git`, then `git push --follow-tags`).
-Tests: 98 offscreen + on-screen test green; GitHub workflow "Apps bauen" green on Windows/Linux/macOS.
+Tests: 105 offscreen + on-screen test green; GitHub workflow "Apps bauen" green on Windows/Linux/macOS.
 
 ## Check against plan / roadmap
 | Step (PLAN.md §5) | Status |
 |---|---|
 | 1 Feasibility | ✅ |
 | 2 Viewer | ✅ incl. view cube, quick measure, model properties, camera history, perspective, exploded view, section box, thumbnails (open: LOD for large assemblies, multiple section planes) |
-| 3 Measure | ✅ incl. analyses (draft, curvature, wall thickness), measurement report |
+| 3 Measure | ✅ incl. analyses (draft, curvature, wall thickness), measurement report, tolerance zones, tolerance stack-up 1D, comments, create PMI with advisor |
 | 4 Compare | ✅ incl. manual alignment, deviation color map, material + / −, moved geometry/PMI, assembly comparison, graphical PMI changes (open: rotated elements, per-instance geometry, graphical-only notes) |
 | 5 Output | ✅ PDF per view, comparison PDF, PMI change PDF, bill of characteristics, measurement report, drawings (HLR, PDF/SVG/DXF with PMI), project container (incl. own views), folder comparison |
 | 6 Formats | 🟡 STEP, IGES, STL, OBJ, glTF/GLB, 3MF, QIF 3.0 (B-rep + semantic PMI) done; open: PRC/3D PDF (§8.15), QIF graphics/views |
@@ -49,7 +49,9 @@ packaging/build_mac.sh [--ohne-tests]             # tests, build, self-test, 3D 
 ## Module map (new this session)
 kern: norm (ASME/ISO), merkmale (bill of characteristics), iso286, abweichung (color map + Skala), analyse,
 eigenschaften, schnellinfo, stueckliste, vergleich_volumen (material), vergleich_baugruppe, qif, zeichnung (HLR),
-pmi_erzeugen (generated PMI). ui: eigenschaften_ui, stueckliste_ui, analyse_ui; laden.lade_modell dispatches formats.
+pmi_erzeugen (generated PMI), kommentare, toleranzzone, toleranzkette, pmi_vorschlag (tolerancing advisor).
+ui: eigenschaften_ui, stueckliste_ui, analyse_ui, kommentar_ui, toleranzkette_ui, pmi_anlegen_ui;
+laden.lade_modell dispatches formats.
 
 ## Findings (not obvious)
 - OCCT viewer on macOS uses logical points; 2D/transform-persistent objects (view cube, color scale, pivot cross)
@@ -83,9 +85,11 @@ download them at test time or skip the test when they are missing.
 
 Work packages, in this order (each: implement, test, changelog, roadmap, commit, push):
 1. PRC reader stage 1–2 (PLAN §8.15): extract PRC streams from 3D PDFs (pypdf), parse the PRC file structure, bit
-   reader and sections per the published PRC specification (ISO 14739-1 / Adobe PRC Format Specification), read the
-   product tree and tessellations into mesh faces (kern/prc.py, laden.lade_modell for .prc and .pdf). Test data: NIST
-   STC v4 PDFs from nist.gov (US government work, public domain) downloaded in a test fixture, skip if offline.
+   reader and sections, read the product tree and tessellations into mesh faces (kern/prc.py, laden.lade_modell for
+   .prc and .pdf). The archived Adobe spec lacks the bit/double encoding pages (see PLAN §8.15): use ISO 14739-1 if
+   available, otherwise the LGPL PRC writer of Asymptote as encoding reference (LGPL is GPL-compatible; credit it in
+   the file header and README). Test data: NIST STC v4 PDFs from nist.gov (US government work, public domain)
+   downloaded in a test fixture, skip if offline.
 2. Generated graphical PMI stage 2 (PLAN §8.16, kern/pmi_erzeugen.py): annotation planes from saved views or face
    normals, feature control frames and datum symbols as vector line graphics (Grafik.linien), overlap-free layout;
    used in 3D, drawings (kern/zeichnung.py) and reports.

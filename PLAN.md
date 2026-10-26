@@ -249,6 +249,12 @@ ISO variants of the NIST models (built in a CAD system and exported), CAx-IF tes
   3. Markups (PMI): tessellated leaders/texts as graphical PMI, views; semantic markups where present.
   4. Exact B-rep (NURBS, analytic surfaces, topology) → OCCT faces, so measuring and comparison use exact geometry.
 - Effort: large (several weeks). Order: 1–2 first (mesh view of 3D PDFs), then 3, then 4.
+- Specification status [verified 2026-10-26]: the Adobe "PRC Format Specification" (Acrobat 9 SDK) is only partly
+  available as an archived HTML copy (web.archive.org, livedocs.adobe.com/.../PRC_Format_Specification/); the pages for
+  the bit-level writing (WriteBits, unsigned integers, the double encoding table) and the compressed tessellation were
+  not archived. Options: buy ISO 14739-1:2014, or use the LGPL PRC writer in Asymptote (prc/ directory) as a reference
+  for the encodings – LGPL code may be used in this GPL project with attribution. Extracted test streams
+  (STC_06–10.prc, PRC version 7095) are in daten/prc (local only).
 
 ### 8.16 Generate graphical PMI from semantic PMI (requested)
 Files with semantic PMI but no presentation (or QIF/STEP from systems that drop the graphics) should still show and
