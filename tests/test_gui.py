@@ -323,3 +323,53 @@ def test_fenster_und_spalten_beim_beenden_gemerkt(app, tmp_path, monkeypatch):
     assert g.pmi.tabelle.horizontalHeader().visualIndex(4) == 0
     assert not g.dock_baum.isVisibleTo(g)
     g.close()
+
+
+def test_baumsuche_ausblenden_pmi_filter_bezugssystem(fenster_ctc01):
+    from PySide6 import QtCore
+    f = fenster_ctc01
+    b = f.baum
+    b.suche.setText("SOLID")
+    wurzel = b.baum.topLevelItem(0)
+    assert not wurzel.isHidden()
+    namen = []
+
+    def sammle(it):
+        if not it.isHidden():
+            namen.append(it.text(0))
+        for i in range(it.childCount()):
+            sammle(it.child(i))
+    sammle(wurzel)
+    assert "SOLID" in namen and not any("COMPOUND" in n for n in namen)
+    b.suche.setText("")
+    # Auswahl ausblenden: Haken im Baum folgt
+    solid = next(k for k in f.erg.baum.blaetter() if not k.hilfsgeometrie)
+    f.ansicht.setze_auswahl([f.erg.modell.flaechen[0]])
+    f._teil_befehl("ausblenden")
+    assert solid.nummer in f.ansicht.versteckt and f.ansicht.auswahl3d == []
+    f.baum.alle_zeigen()
+    assert solid.nummer not in f.ansicht.versteckt
+    # PMI-Filter steuert die 3D-Anzeige
+    f.pmi.art.setCurrentIndex(f.pmi.art.findData("toleranz"))
+    tol = {p.step_id for p in f.erg.pmi if p.art == "toleranz" and p.step_id}
+    assert f.ansicht.pmi_ids_sichtbar == tol
+    f.pmi.art.setCurrentIndex(0)
+    assert f.ansicht.pmi_ids_sichtbar is None
+    # Bezugssystem einer Toleranz A|B|C
+    t = next(p for p in f.erg.pmi if p.bezug_text() == "A|B|C")
+    f.pmi.waehle(lambda p: p is t)
+    drf = f.ansicht.bezugssystem
+    assert [(n, s) for n, s, _ in drf] == [("A", 1), ("B", 2), ("C", 3)] and all(fl for _, _, fl in drf)
+    f.pmi.waehle(lambda p: False)
+    assert f.ansicht.bezugssystem == []
+    assert QtCore  # noqa: B018
+
+
+def test_kamera_aktionen_vorhanden(fenster_ctc01):
+    f = fenster_ctc01
+    for n in ("kamera_zurueck", "kamera_vor", "perspektive"):
+        assert f.aktionen[n].isEnabled()
+    f.aktionen["perspektive"].trigger()
+    assert f.ansicht.perspektive and str(f.ein.value("perspektive")).lower() in ("true", "1")
+    f.aktionen["perspektive"].trigger()
+    assert not f.ansicht.perspektive

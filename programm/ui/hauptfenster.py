@@ -154,6 +154,32 @@ class Hauptfenster(QtWidgets.QMainWindow):
         self.start.zeige_zuletzt(self.zuletzt())
         self._spalten_verschiebbar()
         self._fenster_herstellen()
+        an = str(self.ein.value("perspektive", False)).lower() in ("true", "1")
+        self.aktionen["perspektive"].setChecked(an)
+        self.ansicht.setze_perspektive(an)
+
+    def _kamera_zurueck(self):
+        if not self.ansicht.kamera_zurueck():
+            self.statusBar().showMessage(tr("Keine frühere Ansicht"), 3000)
+
+    def _kamera_vor(self):
+        if not self.ansicht.kamera_vor():
+            self.statusBar().showMessage(tr("Keine spätere Ansicht"), 3000)
+
+    def _perspektive(self):
+        an = self.aktionen["perspektive"].isChecked()
+        self.ein.setValue("perspektive", an)
+        self.ansicht.setze_perspektive(an)
+
+    def spalten_anpassen(self):
+        """Tabellen ohne gemerkte Breiten an den Inhalt anpassen (begrenzt, damit nichts ausufert)."""
+        for t in self._tabellen().values():
+            if t.property("breiten_gemerkt") or t.rowCount() == 0:
+                continue
+            t.resizeColumnsToContents()
+            kopf = t.horizontalHeader()
+            for i in range(t.columnCount()):
+                kopf.resizeSection(i, min(kopf.sectionSize(i) + 8, 320))
 
     def _fenster_herstellen(self):
         """Fenstergroesse und Anordnung der Seitenleisten wie beim letzten Beenden."""
@@ -187,11 +213,18 @@ class Hauptfenster(QtWidgets.QMainWindow):
             kopf.setHighlightSections(False)
             kopf.setDefaultAlignment(QtCore.Qt.AlignmentFlag.AlignLeft | QtCore.Qt.AlignmentFlag.AlignVCenter)
             kopf.setSectionsMovable(True)
-            kopf.setToolTip(tr("Spalten per Drag-and-drop umordnen, Rechtsklick: Spalten ein-/ausblenden"))
-            schluessel = f"spalten_{name}_{t.columnCount()}"  # neue Spalten -> alter Zustand passt nicht mehr
+            kopf.setToolTip(tr("Spalten ziehen zum Umordnen, Trennlinie ziehen für die Breite, Rechtsklick: Spalten ein-/ausblenden"))
+            # Version 2: Breiten ziehbar (fruehere Zustaende hatten automatische Breiten)
+            schluessel = f"spalten_{name}_{t.columnCount()}_2"  # neue Spalten -> alter Zustand passt nicht mehr
             zustand = self.ein.value(schluessel)
             if zustand:
                 kopf.restoreState(zustand)
+                t.setProperty("breiten_gemerkt", True)
+            # Breiten per Ziehen, Doppelklick auf die Trennlinie passt an den Inhalt an
+            kopf.setSectionResizeMode(QtWidgets.QHeaderView.ResizeMode.Interactive)
+            kopf.setStretchLastSection(True)
+            kopf.sectionResized.connect(lambda *_a, tab=t: QtWidgets.QApplication.mouseButtons()
+                                        != QtCore.Qt.MouseButton.NoButton and tab.setProperty("breiten_gemerkt", True))
             merken = (lambda n=schluessel, k=kopf: self.ein.setValue(n, k.saveState()))
             self._spalten_merken.append(merken)
             kopf.sectionMoved.connect(lambda *_a, m=merken: m())
@@ -248,8 +281,8 @@ class Hauptfenster(QtWidgets.QMainWindow):
         A("normal_auswahl", tr("Normal auf Auswahl ausrichten"), self._normal_auswahl, "N",
           tipp=tr("Blick senkrecht auf die gewählte Fläche (Mittel bei mehreren) oder Beschriftung"))
         A("auswahl_aufheben", tr("Auswahl aufheben"), self._auswahl_aufheben, tipp=tr("Gewählte Flächen und Kanten abwählen"))
-        A("teil_ausblenden", tr("Teil ausblenden"), lambda: self._teil_befehl("ausblenden"),
-          tipp=tr("Das Teil der gewählten Fläche ausblenden"))
+        A("teil_ausblenden", tr("Auswahl ausblenden"), lambda: self._teil_befehl("ausblenden"), "H",
+          tipp=tr("Die Teile der gewählten Flächen und Kanten ausblenden"))
         A("teil_isolieren", tr("Teil isolieren"), lambda: self._teil_befehl("isolieren"),
           tipp=tr("Nur das Teil der gewählten Fläche zeigen"))
         A("pdf_ansichten", tr("Ansichten als PDF …"), lambda: self.exportiere_pdf("ansichten"),
@@ -277,6 +310,11 @@ class Hauptfenster(QtWidgets.QMainWindow):
             A("ansicht_" + n, namen[n], lambda _=False, n=n: self.ansicht.standard(n), str(i),
               tipp=tr("Standardansicht: {}").format(namen[n]))
         A("alles", tr("Ganzes Modell zeigen"), self.ansicht.alles_zeigen, "F", tipp=tr("Alles einpassen"))
+        A("kamera_zurueck", tr("Ansicht zurück"), self._kamera_zurueck, "Alt+Left",
+          tipp=tr("Vorherige Kameraposition"))
+        A("kamera_vor", tr("Ansicht vor"), self._kamera_vor, "Alt+Right", tipp=tr("Nächste Kameraposition"))
+        A("perspektive", tr("Perspektive"), self._perspektive, "P", pruefbar=True,
+          tipp=tr("Zentralperspektive statt Parallelprojektion"))
         A("drehpunkt", tr("Drehpunkt zurücksetzen"), self.ansicht.drehpunkt_zuruecksetzen,
           tipp=tr("Drehen wieder um die Mitte (Doppelklick setzt einen Drehpunkt)"))
         gruppe = QtGui.QActionGroup(self)
@@ -304,7 +342,8 @@ class Hauptfenster(QtWidgets.QMainWindow):
             sg.addAction(a)
         self.aktionen["schnitt_aus"].setChecked(True)
         A("schnitt_umkehren", tr("Schnittseite umkehren"), self._schnitt_umkehren, pruefbar=True)
-        A("alle_zeigen", tr("Alle Teile zeigen"), self.baum.alle_zeigen, tipp=tr("Ausgeblendete Teile wieder zeigen"))
+        A("alle_zeigen", tr("Alle Teile zeigen"), self.baum.alle_zeigen, "Shift+H",
+          tipp=tr("Ausgeblendete Teile wieder zeigen"))
         A("isolieren", tr("Gewählte Teile isolieren"), self._isolieren, "I")
         A("transparent", tr("Gewählte Teile transparent"), self._transparent, "T")
         A("pmi_suche", tr("PMI suchen"), self._suche_fokus, QtGui.QKeySequence.StandardKey.Find)
@@ -371,6 +410,10 @@ class Hauptfenster(QtWidgets.QMainWindow):
         m.addAction(a["zoom_auswahl"])
         m.addAction(a["normal_auswahl"])
         m.addAction(a["umdrehen"])
+        m.addAction(a["kamera_zurueck"])
+        m.addAction(a["kamera_vor"])
+        m.addAction(a["perspektive"])
+        m.addSeparator()
         m.addAction(a["ansicht_vor"])
         m.addAction(a["ansicht_zurueck"])
         m.addAction(a["drehpunkt"])
@@ -456,6 +499,7 @@ class Hauptfenster(QtWidgets.QMainWindow):
     def _verbinde(self):
         self.start.oeffnen.connect(self.oeffnen)
         self.pmi.gewaehlt.connect(self._pmi_gewaehlt)
+        self.pmi.filter_geaendert.connect(self._pmi_filter)
         self.pmi.befehl.connect(self._pmi_befehl)
         self.ansichten.gewaehlt.connect(self._ansicht_gewaehlt)
         self.ansicht.flaeche_gewaehlt.connect(self._flaeche_gewaehlt)
@@ -571,7 +615,9 @@ class Hauptfenster(QtWidgets.QMainWindow):
         self._modell_da(True)
         self.ansicht.zeige(szene)
         self.baum.zeige(erg.baum)
+        self._ansicht_pmi_ids = None
         self.pmi.zeige(erg.pmi, erg.ansichten)
+        self.spalten_anpassen()
         self.ansichten.zeige(erg.ansichten)
         self._merke_zuletzt(erg.pfad)
         n = len(erg.pmi)
@@ -672,6 +718,7 @@ class Hauptfenster(QtWidgets.QMainWindow):
             flaechen |= p.flaechen
         self.ansicht.hebe_flaechen(flaechen)
         self.ansicht.hebe_pmi({p.step_id for p in liste if p.step_id})
+        self.ansicht.zeige_bezugssystem(self._bezugssystem(liste))
         if len(liste) == 1:
             p = liste[0]
             self.statusBar().showMessage(f"{p.nummer}: {p.wert_text()}  ({tr('{} Flächen').format(len(p.flaechen))})")
@@ -689,13 +736,34 @@ class Hauptfenster(QtWidgets.QMainWindow):
     def _grafik_pmi_gewaehlt(self, ids):
         self.pmi.waehle(lambda p: p.step_id in ids)
 
+    def _bezugssystem(self, liste) -> list:
+        """Bezugselemente einer einzeln gewaehlten Toleranz: [(Name, Stelle 1..3, Flaechen)]."""
+        if len(liste) != 1 or not liste[0].bezuege or self.erg is None:
+            return []
+        bezuege = {p.name: p for p in self.erg.pmi if p.art == "bezug" and p.typ == "Datum"}
+        out = []
+        for b in sorted(liste[0].bezuege, key=lambda b: b.stelle):
+            for name in b.name.split("-"):  # gemeinsamer Bezug A-B: beide Elemente
+                p = bezuege.get(name)
+                if p is not None and p.flaechen:
+                    out.append((name, b.stelle, set(p.flaechen)))
+        return out
+
+    def _pmi_filter(self, ids):
+        """3D zeigt die PMI, die die Liste nach Art/Suche zeigt; ohne Filter wie die gewaehlte Ansicht."""
+        self._pmi_filter_ids = ids
+        ansicht_ids = getattr(self, "_ansicht_pmi_ids", None)
+        self.ansicht.zeige_pmi(ansicht_ids if ids is None else ids)
+
     def _ansicht_gewaehlt(self, ansicht):
+        self._ansicht_pmi_ids = None if ansicht is None else set(ansicht.pmi_ids)
         if ansicht is None:
             self.pmi.nur_ansicht(None)
-            self.ansicht.zeige_pmi(None)
+            self.ansicht.zeige_pmi(getattr(self, "_pmi_filter_ids", None))
             return
         self.pmi.nur_ansicht(set(ansicht.pmi_nummern))
-        self.ansicht.zeige_pmi(ansicht.pmi_ids)
+        self.ansicht.zeige_pmi(ansicht.pmi_ids if getattr(self, "_pmi_filter_ids", None) is None
+                               else self._pmi_filter_ids)
         self.ansicht.kamera(ansicht)
         self.statusBar().showMessage(tr("Ansicht {}: {} von {} PMI").format(
             ansicht.name, len(ansicht.pmi_nummern), len(self.erg.pmi) if self.erg else 0), 6000)
@@ -823,6 +891,7 @@ class Hauptfenster(QtWidgets.QMainWindow):
         entfernt = [v.alt.modell.flaechen[i] for i, st in v.geo.status_a.items() if st == "entfernt"]
         self.ansicht.zeige_vergleich(v.geo.status_b, entfernt, v.ausrichtung.gp_trsf())
         self.aenderungen.zeige(v, self.thema)
+        self.spalten_anpassen()
         self.dock_aenderungen.show()
         self.dock_aenderungen.raise_()
         for n in self.VERGLEICH_AKTIONEN:
@@ -1026,6 +1095,15 @@ class Hauptfenster(QtWidgets.QMainWindow):
             return None
         from OCC.Core.TopAbs import TopAbs_FACE
         from OCC.Core.TopExp import TopExp_Explorer
+        if form.ShapeType() != TopAbs_FACE:
+            # Kante/Punkt: Teil, das dieses Element enthaelt (Lage ignoriert)
+            for k in self.erg.baum.blaetter():
+                ex = TopExp_Explorer(k.form, form.ShapeType())
+                while ex.More():
+                    if ex.Current().IsPartner(form):
+                        return k
+                    ex.Next()
+            return None
         ziel = self.erg.modell.flaechen_index(form)
         for k in self.erg.baum.blaetter():
             ex = TopExp_Explorer(k.form, TopAbs_FACE)
@@ -1036,14 +1114,13 @@ class Hauptfenster(QtWidgets.QMainWindow):
         return None
 
     def _teil_befehl(self, art):
-        from OCC.Core.TopAbs import TopAbs_FACE
-        knoten = {k.nummer for f in self.ansicht.auswahl3d if f.ShapeType() == TopAbs_FACE
-                  for k in [self._knoten_von(f)] if k is not None}
+        knoten = {k.nummer for f in self.ansicht.auswahl3d for k in [self._knoten_von(f)] if k is not None}
         if not knoten:
-            self.statusBar().showMessage(tr("Erst eine Fläche des Teils wählen"), 4000)
+            self.statusBar().showMessage(tr("Erst eine Fläche oder Kante des Teils wählen"), 4000)
             return
         if art == "ausblenden":
-            self.ansicht.knoten_sichtbar(knoten, False)
+            self.baum.setze_sichtbar(knoten, False)
+            self.ansicht.setze_auswahl([])
         else:
             self.ansicht.isoliere(knoten)
 

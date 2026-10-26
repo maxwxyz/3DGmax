@@ -522,5 +522,19 @@
 "Länge": "Length",
 "Durchmesser/Radius": "Diameter/radius",
 "Flächeninhalt": "Area",
-"Achsabstand": "Axis distance"
+"Achsabstand": "Axis distance",
+"Ansicht vor": "View forward",
+"Ansicht zurück": "View back",
+"Auswahl ausblenden": "Hide selection",
+"Breiten an Inhalt anpassen": "Fit widths to content",
+"Die Teile der gewählten Flächen und Kanten ausblenden": "Hide the parts of the selected faces and edges",
+"Erst eine Fläche oder Kante des Teils wählen": "Select a face or edge of the part first",
+"Keine frühere Ansicht": "No earlier view",
+"Keine spätere Ansicht": "No later view",
+"Nächste Kameraposition": "Next camera position",
+"Perspektive": "Perspective",
+"Spalten ziehen zum Umordnen, Trennlinie ziehen für die Breite, Rechtsklick: Spalten ein-/ausblenden": "Drag columns to reorder, drag the divider for the width, right-click: show/hide columns",
+"Teil suchen": "Search part",
+"Vorherige Kameraposition": "Previous camera position",
+"Zentralperspektive statt Parallelprojektion": "Perspective instead of parallel projection"
 }

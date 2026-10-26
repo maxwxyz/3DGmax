@@ -21,6 +21,11 @@ class BaumPanel(QtWidgets.QWidget):
         super().__init__(parent)
         lay = QtWidgets.QVBoxLayout(self)
         lay.setContentsMargins(6, 6, 6, 6)
+        self.suche = QtWidgets.QLineEdit()
+        self.suche.setPlaceholderText(tr("Teil suchen"))
+        self.suche.setClearButtonEnabled(True)
+        self.suche.textChanged.connect(self._filtern)
+        lay.addWidget(self.suche)
         self.baum = QtWidgets.QTreeWidget()
         self.baum.setHeaderHidden(True)
         self.baum.setContextMenuPolicy(QtCore.Qt.ContextMenuPolicy.CustomContextMenu)
@@ -87,6 +92,39 @@ class BaumPanel(QtWidgets.QWidget):
         self._transparent = (self._transparent | nummern) if an else (self._transparent - nummern)
         self.transparent.emit(nummern, an)
 
+    def _filtern(self):
+        """Nur Eintraege zeigen, deren Name den Suchtext enthaelt (mit ihren uebergeordneten Baugruppen)."""
+        s = self.suche.text().strip().lower()
+
+        def pruefe(it) -> bool:
+            treffer = not s or s in it.text(0).lower()
+            kinder = [pruefe(it.child(i)) for i in range(it.childCount())]
+            sichtbar = treffer or any(kinder)
+            it.setHidden(not sichtbar)
+            if s and any(kinder):
+                it.setExpanded(True)
+            return sichtbar
+
+        for i in range(self.baum.topLevelItemCount()):
+            pruefe(self.baum.topLevelItem(i))
+
+    def setze_sichtbar(self, nummern: set[int], sichtbar: bool):
+        """Teile ein-/ausblenden und die Haken im Baum mitfuehren."""
+        zustand = QtCore.Qt.CheckState.Checked if sichtbar else QtCore.Qt.CheckState.Unchecked
+
+        def gehe(it):
+            k = it.data(0, QtCore.Qt.ItemDataRole.UserRole)
+            if k is not None and not k.kinder and k.nummer in nummern:
+                it.setCheckState(0, zustand)
+            for i in range(it.childCount()):
+                gehe(it.child(i))
+
+        self.baum.blockSignals(True)
+        for i in range(self.baum.topLevelItemCount()):
+            gehe(self.baum.topLevelItem(i))
+        self.baum.blockSignals(False)
+        self.sichtbar_geaendert.emit(set(nummern), sichtbar)
+
     def alle_zeigen(self):
         self.baum.blockSignals(True)
         for i in range(self.baum.topLevelItemCount()):
@@ -107,6 +145,7 @@ class PmiPanel(QtWidgets.QWidget):
     """Tabelle aller PMI mit Artfilter, Suche (Wert, Bezug, Name, Ansicht) und Kontextmenue."""
 
     gewaehlt = QtCore.Signal(list)  # Liste von Pmi
+    filter_geaendert = QtCore.Signal(object)  # STEP-#IDs der gefilterten PMI oder None (kein Art-/Suchfilter)
     befehl = QtCore.Signal(str, object)  # Kontextmenue: ("zoomen"|"ausrichten"|"ansicht", Wert)
 
     SPALTEN = ("Nr", "Art", "Merkmal", "Name", "Wert", "Bezüge", "Ansichten", "Flächen", "Nennmaß",
@@ -223,6 +262,8 @@ class PmiPanel(QtWidgets.QWidget):
             self.tabelle.setRowHidden(z, not zeigen)
             sichtbar += zeigen
         self.hinweis.setText(tr("{} von {} PMI").format(sichtbar, len(self.pmi)))
+        aktiv = self.art.currentData() is not None or bool(self.suche.text().strip())
+        self.filter_geaendert.emit({p.step_id for p in self.sichtbare() if p.step_id} if aktiv else None)
 
     def sichtbare(self) -> list:
         return [p for z, p in enumerate(self.pmi) if not self.tabelle.isRowHidden(z)]
@@ -330,14 +371,16 @@ def spalten_menue(tabelle, pos, standard: set[str] | None = None, gespeichert=No
         a.setCheckable(True)
         a.setChecked(not kopf.isSectionHidden(i))
         a.setData(i)
-    a_std = None
-    if standard is not None:
-        m.addSeparator()
-        a_std = m.addAction(tr("Standardspalten"))
+    m.addSeparator()
+    a_breite = m.addAction(tr("Breiten an Inhalt anpassen"))
+    a_std = m.addAction(tr("Standardspalten")) if standard is not None else None
     gewaehlt = m.exec(kopf.mapToGlobal(pos))
     if gewaehlt is None:
         return
-    if gewaehlt is a_std:
+    if gewaehlt is a_breite:
+        tabelle.resizeColumnsToContents()
+        tabelle.setProperty("breiten_gemerkt", True)
+    elif gewaehlt is a_std:
         for i in range(tabelle.columnCount()):
             kopf.setSectionHidden(i, tabelle.horizontalHeaderItem(i).data(QtCore.Qt.ItemDataRole.UserRole)
                                   not in standard)

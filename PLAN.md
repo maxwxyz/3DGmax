@@ -211,3 +211,20 @@ UI rule: no extra panels – information appears where the eye already is (statu
 8. Exploded view and parts list (BOM with properties) for assemblies.
 9. Analyses: draft angle, curvature, wall thickness map (color maps like the deviation map).
 10. Limits from ISO 286 tolerance classes (exact tables).
+
+### 8.13 ASME Y14.5 vs. ISO GPS – what depends on the standard
+STEP AP242 uses the same semantic entities for both systems; the file rarely states which one applies (sometimes in
+notes, e.g. "ISO 8015", "ASME Y14.5-2009"). Reading, listing, comparing and the deviation map are standard-neutral.
+Standard-dependent are [knowledge]:
+- **Size and form:** ASME Rule #1 (envelope by default) vs. ISO 8015 independence principle (envelope only with Ⓔ);
+  ISO 14405 size modifiers (LP, LS, GG, GX, GN, CC …). Matters for tolerance zones (§8.5), stack-up (§8.8) and the
+  advisor (§8.10).
+- **Characteristics:** concentricity and symmetry were removed in ASME Y14.5-2018 but remain in ISO 1101; ISO zone
+  modifiers (UZ, CZ, SZ, ACS, LE, NC, OZ) vs. ASME (U for unequal profile, "all around/all over").
+- **Plausibility rules:** some rules differ (e.g. concentricity → ASME 2018 warns, ISO ok); rules get a standard flag.
+- **Terms and symbols in the UI:** ISO terms (Flächenform, Lauf …) vs. ASME terms (profile of a surface, runout).
+- **General tolerances:** ISO 2768 / ISO 22081 vs. title block tolerances – only as notes in STEP.
+Plan: detect the standard from notes/modifiers, otherwise a per-model setting (ISO GPS / ASME, default from settings);
+show it in model properties; standard-specific rules and terms switch with it.
+Test data: the NIST test cases are ASME based (Y14.5-1994/2009); no free ISO GPS AP242 set is known. Options: own
+ISO variants of the NIST models (built in a CAD system and exported), CAx-IF test models (members only), vendor samples.

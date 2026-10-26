@@ -48,7 +48,12 @@
    "Schnellmessung unten rechts in der Statusleiste: Länge, ⌀/R, Bogenwinkel, Flächeninhalt, Abstand, Ebenenabstand, Winkel, Achsabstand, Koordinaten und PMI-Kurzinfo zur Auswahl; Rechtsklick wählt die Angaben.",
    "Modelleigenschaften (Strg+I): Volumen, Oberfläche, Masse mit einstellbarer Dichte, Schwerpunkt, Gesamtgröße, Dateikopf und Produkte – für gewählte Teile oder das ganze Modell.",
    "Fenstergröße, Anordnung der Seitenleisten sowie Reihenfolge, Sichtbarkeit und Breite der Tabellenspalten werden beim Beenden gemerkt.",
-   "Optik: Kantenglättung, serifenlose Beschriftung von Messungen und erzeugten PMI-Texten, Ansichtswürfel kleiner, geschlossen und halbdurchsichtig (deckend beim Überfahren)."
+   "Optik: Kantenglättung, serifenlose Beschriftung von Messungen und erzeugten PMI-Texten, Ansichtswürfel kleiner, geschlossen und halbdurchsichtig (deckend beim Überfahren).",
+   "Kamera: Ansicht zurück/vor (Alt+←/→) über alle Kamerabewegungen, Perspektive ein/aus (P, wird gemerkt).",
+   "Auswahl ausblenden (H) für Teile gewählter Flächen und Kanten, Alle Teile zeigen (Umschalt+H); Haken im Strukturbaum folgen. Suchfeld im Strukturbaum.",
+   "3D-Ansicht zeigt nur die PMI, die die Liste nach Art oder Suche zeigt.",
+   "Bezugssystem: bei einer gewählten Toleranz werden die Bezugselemente farbig (primär rot, sekundär grün, tertiär blau) und beschriftet gezeigt.",
+   "Spaltenbreiten per Ziehen der Trennlinie, Doppelklick oder Kopf-Kontextmenü passt an den Inhalt an; Breiten werden gemerkt."
   ],
   "en": [
    "First viewer version: load STEP AP242, assembly tree, CAD-style navigation, standard views.",
@@ -98,7 +103,12 @@
    "Quick measure at the bottom right of the status bar: length, ⌀/R, arc angle, area, distance, plane distance, angle, axis distance, coordinates and PMI summary for the selection; right-click chooses the items.",
    "Model properties (Ctrl+I): volume, surface area, mass with adjustable density, center of gravity, overall size, file header and products – for selected parts or the whole model.",
    "Window size, side panel layout and the order, visibility and width of table columns are remembered on exit.",
-   "Look: anti-aliasing, sans-serif labels for measurements and generated PMI texts, view cube smaller, closed and semi-transparent (opaque on hover)."
+   "Look: anti-aliasing, sans-serif labels for measurements and generated PMI texts, view cube smaller, closed and semi-transparent (opaque on hover).",
+   "Camera: view back/forward (Alt+←/→) over all camera moves, perspective on/off (P, remembered).",
+   "Hide selection (H) for parts of selected faces and edges, show all parts (Shift+H); tree check boxes follow. Search field in the structure tree.",
+   "The 3D view shows only the PMI the list shows by type or search.",
+   "Datum reference frame: for a selected tolerance the datum features are shown in color (primary red, secondary green, tertiary blue) with labels.",
+   "Column widths by dragging the divider, double-click or header menu fits to content; widths are remembered."
   ]
  },
  "releases": [

@@ -16,12 +16,13 @@ Branch: `main` (no other branches). Version 0.1 plus many unreleased entries in 
 Details: `docs/Roadmap.md`; future topics: PLAN.md §8 (tolerance zones, annotating, graphical PMI/OCR, tolerance stack-up,
 PMI editing, CATIA files).
 
-Last session: deviation color map (kern/abweichung.py: signed, exact projection with trim check, legend via
-AIS_ColorScale, value on click), PLAN §8.12 gap analysis vs common viewers, quick measure in the status bar
-(kern/schnellinfo.py), model properties dialog (kern/eigenschaften.py, ui/eigenschaften_ui.py), window/dock/column
-state saved on exit, MSAA, sans-serif labels, subtler view cube (hover opacity).
-**Not visually checked** (screen was locked): new cube look and MSAA – check with a screenshot first.
-Next per PLAN §8.12: camera perspective/undo, hide selected + tree search + 3D PMI follows filter, DRF display.
+Last session: deviation color map, quick measure, model properties, PLAN §8.12 items done: camera back/forward
+(Alt+←/→, history in OcctAnsicht._verlauf, recorded 450 ms after the camera rests), perspective (P), hide selection
+(H) synced with the tree, tree search, 3D PMI follows the list filter, datum reference frame colors/labels, draggable
+column widths. PLAN §8.13: ASME vs ISO GPS (no free ISO test files known).
+**Not visually checked** (screen was locked): view cube look, MSAA, DRF colors/labels, legend – screenshot first.
+Next: PLAN §8.12 items 7–10 (bill of characteristics, exploded view/BOM, analyses, ISO 286), §8.13 standard awareness,
+then step 6 formats.
 
 ## Environment and commands
 ```bash

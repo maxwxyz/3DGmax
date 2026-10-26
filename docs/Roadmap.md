@@ -19,8 +19,9 @@
 | Large assemblies: tessellation cache, levels of detail | ⬜ |
 | Model properties: volume, area, mass (density), center of gravity, overall size, file header | ✅ |
 | Anti-aliasing, sans-serif labels, subtle view cube; window/panel/column layout remembered | ✅ |
-| Camera: perspective/orthographic, view undo/redo, smooth transitions | ⬜ |
-| Hide selected in 3D, tree search; 3D PMI follows list filter | ⬜ |
+| Camera: perspective/orthographic, view back/forward | ✅ |
+| Smooth camera transitions | ⬜ |
+| Hide selected in 3D, tree search; 3D PMI follows list filter | ✅ |
 | Exploded view, parts list (BOM) with properties | ⬜ |
 | Analyses: draft angle, curvature, wall thickness map | ⬜ |
 
@@ -33,6 +34,7 @@
 | List with name, views, search, filter, context menu; count in current view | ✅ |
 | Table columns: move, show/hide; ISO GPS columns (characteristic, nominal, deviations, limits, size tolerance, class, zone, material condition) | ✅ |
 | Limits from ISO 286 tolerance classes (e.g. H7) | ⬜ |
+| Standard awareness ASME Y14.5 / ISO GPS (detect or set per model, rules and terms) | ⬜ |
 | PMI color: high contrast / from file / custom | ✅ |
 | PMI export CSV (values, datums, face IDs, views) | ✅ |
 | Plausibility check (unused/missing datums, without face/view, duplicates, rules) | ✅ |
@@ -43,7 +45,7 @@
 | Show tolerance zones as envelope surfaces (incl. datums, unequal zones) | 💡 |
 | Tolerance stack-up analysis (dimension chains, worst case, RSS, Monte Carlo) | 💡 |
 | Bill of characteristics with balloon numbers | ⬜ |
-| Datum reference frame display for a selected tolerance | ⬜ |
+| Datum reference frame display for a selected tolerance | ✅ |
 | Create and edit PMI, tolerancing advisor with contextual suggestions | 💡 |
 
 ## Measuring

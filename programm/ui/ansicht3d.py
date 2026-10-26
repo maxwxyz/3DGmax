@@ -81,6 +81,8 @@ class AnsichtBasis(QtWidgets.QWidget):
         self.vergleich_entfernt: list = []
         self.vergleich_trsf = None
         self.abweichung = None  # (Karte, Toleranz, Grenze) der Farbkarte
+        self.perspektive = False
+        self.bezugssystem: list = []
         self.letzter_zoom = None
         self.letzte_ausrichtung = None
         self.auswahl3d: list = []  # gewaehlte Flaechen/Kanten (TopoDS)
@@ -101,6 +103,10 @@ class AnsichtBasis(QtWidgets.QWidget):
 
     def zeige_pmi(self, ids: set[int] | None):
         self.pmi_ids_sichtbar = None if ids is None else set(ids)
+
+    def zeige_bezugssystem(self, bezuege: list):
+        """Bezugssystem einer Toleranz: [(Name, Stelle 1..3, Flaechen)] farbig mit Beschriftung; [] blendet aus."""
+        self.bezugssystem = list(bezuege)
 
     def hebe_pmi(self, ids: set[int]):
         self.pmi_ids_hervor = set(ids)
@@ -224,6 +230,17 @@ class AnsichtBasis(QtWidgets.QWidget):
     def drehpunkt_zuruecksetzen(self):
         pass
 
+    def setze_perspektive(self, an: bool):
+        """Zentralperspektive statt Parallelprojektion."""
+        self.perspektive = an
+
+    def kamera_zurueck(self) -> bool:
+        """Vorherige Kamera (Ansicht zurueck); False wenn es keine gibt."""
+        return False
+
+    def kamera_vor(self) -> bool:
+        return False
+
 
 class PlatzhalterAnsicht(AnsichtBasis):
     """Ersatz ohne 3D-Grafik (Tests, Rechner ohne OpenGL)."""
@@ -241,6 +258,8 @@ class PlatzhalterAnsicht(AnsichtBasis):
 
 # ----------------------------------------------------------------------------- OCCT
 
+# Bezugssystem: primaer, sekundaer, tertiaer (gut unterscheidbar, auch neben der Hervorhebung in Orange)
+BEZUG_FARBEN = {1: (0.85, 0.20, 0.25), 2: (0.20, 0.65, 0.35), 3: (0.25, 0.45, 0.90)}
 SCHRIFT = "Helvetica Neue" if sys.platform == "darwin" else ("Segoe UI" if sys.platform == "win32" else "DejaVu Sans")
 
 
@@ -314,6 +333,13 @@ class OcctAnsicht(AnsichtBasis):
         self._clip = None
         self._drehpunkt = None
         self.nav = Navigation(self.navigation)
+        # Kameraverlauf fuer Ansicht zurueck/vor: gemerkt, wenn die Kamera kurz ruht
+        self._verlauf: list[tuple] = []
+        self._verlauf_pos = -1
+        self._verlauf_uhr = QtCore.QTimer(self)
+        self._verlauf_uhr.setSingleShot(True)
+        self._verlauf_uhr.setInterval(450)
+        self._verlauf_uhr.timeout.connect(self._kamera_merken)
 
     # --- Start und Grundlagen ---
 
@@ -566,11 +592,14 @@ class OcctAnsicht(AnsichtBasis):
             self._kanten[k.nummer] = kanten
         self._mess_ais = []
         self._karte_ais = []
+        self._bezug_ais = []
         self._baue_entfernt()
         self._baue_grafik()
         self._baue_abweichung()
         self._wende_darstellung_an()
         self._wende_sichtbarkeit_an()
+        self._verlauf, self._verlauf_pos = [], -1
+        self.setze_perspektive(self.perspektive)
         self.standard(self.letzte_ansicht if self.letzte_ansicht in STANDARDANSICHTEN else "iso")
         self._drehpunkt = None
 
@@ -804,8 +833,11 @@ class OcctAnsicht(AnsichtBasis):
         self._neu_zeichnen()
 
     def _grundfarbe(self, idx):
-        """Farbe einer Flaeche ohne Hervorhebung: Vergleichsstatus, sonst Dateifarbe, sonst None (Grundfarbe)."""
+        """Farbe einer Flaeche ohne Hervorhebung: Bezugssystem, Vergleichsstatus, Dateifarbe, sonst None."""
         t = self.thema or {}
+        for _name, stelle, flaechen in self.bezugssystem:
+            if idx in flaechen:
+                return BEZUG_FARBEN.get(stelle, BEZUG_FARBEN[3])
         grund = t.get("modell", (0.78, 0.8, 0.84))
         if self.vergleich_status is not None:
             st = _status_farbe(t, self.vergleich_status.get(idx, "gleich"))
@@ -836,6 +868,62 @@ class OcctAnsicht(AnsichtBasis):
     def zeige_pmi(self, ids):
         super().zeige_pmi(ids)
         self._wende_sichtbarkeit_an()
+
+    def zeige_bezugssystem(self, bezuege):
+        alt = {i for _n, _s, f in self.bezugssystem for i in f}
+        super().zeige_bezugssystem(bezuege)
+        if not self._bereit or self.szene is None:
+            return
+        from OCC.Core.AIS import AIS_TextLabel
+        from OCC.Core.Graphic3d import Graphic3d_ZLayerId_Topmost
+        from OCC.Core.gp import gp_Pnt
+        from OCC.Core.TCollection import TCollection_ExtendedString
+        ctx = self.d.Context
+        for lab in getattr(self, "_bezug_ais", []):
+            ctx.Remove(lab, False)
+        self._bezug_ais = []
+        neu = {i for _n, _s, f in self.bezugssystem for i in f}
+        t = self.thema or {}
+        geaendert = set()
+        for idx in alt | neu:
+            for ais, f in self._flaechen_ais.get(idx, []):
+                farbe = t.get("hervor", (1, 0.45, 0)) if idx in self.hervor else \
+                    (self._grundfarbe(idx) or t.get("modell", (0.78, 0.8, 0.84)))
+                ais.SetCustomColor(f, _farbe(farbe))
+                geaendert.add(ais)
+        for ais in geaendert:
+            ctx.Redisplay(ais, False)
+        for name, stelle, flaechen in self.bezugssystem:
+            mitte = self._mitte_von(flaechen)
+            if mitte is None:
+                continue
+            lab = AIS_TextLabel()
+            lab.SetFont(SCHRIFT)
+            lab.SetText(TCollection_ExtendedString(f"{name} ({stelle}.)", True))
+            lab.SetPosition(gp_Pnt(*mitte))
+            lab.SetColor(_farbe(BEZUG_FARBEN.get(stelle, BEZUG_FARBEN[3])))
+            lab.SetHeight(18)
+            lab.SetZLayer(Graphic3d_ZLayerId_Topmost)
+            ctx.Display(lab, False)
+            ctx.Deactivate(lab)
+            self._bezug_ais.append(lab)
+        self._neu_zeichnen()
+
+    def _mitte_von(self, flaechen):
+        from OCC.Core.BRepGProp import brepgprop
+        from OCC.Core.GProp import GProp_GProps
+        p = GProp_GProps()
+        n = 0
+        for idx in flaechen:
+            for _ais, f in self._flaechen_ais.get(idx, [])[:1]:
+                brepgprop.SurfaceProperties(f, p)
+                n += 1
+        if not n:
+            return None
+        c = p.CentreOfMass()
+        if self.vergleich_trsf is not None:
+            c = c.Transformed(self.vergleich_trsf)
+        return (c.X(), c.Y(), c.Z())
 
     def hebe_pmi(self, ids):
         super().hebe_pmi(ids)
@@ -913,6 +1001,7 @@ class OcctAnsicht(AnsichtBasis):
             self.d.View.FitAll(box, 0.08, False)
         self.d.View.ZFitAll()
         self._neu_zeichnen()
+        self._kamera_bewegt()
 
     def kamera(self, ansicht):
         super().kamera(ansicht)
@@ -936,6 +1025,7 @@ class OcctAnsicht(AnsichtBasis):
         cam.SetScale(max(ansicht.hoehe or ansicht.breite, (ansicht.breite or ansicht.hoehe) * hoehe / breite))
         v.ZFitAll()
         self._neu_zeichnen()
+        self._kamera_bewegt()
 
     def drehpunkt_zuruecksetzen(self):
         self._drehpunkt = None
@@ -958,8 +1048,78 @@ class OcctAnsicht(AnsichtBasis):
         x0, y0, z0, x1, y1, z1 = box.Get()
         return gp_Pnt((x0 + x1) / 2, (y0 + y1) / 2, (z0 + z1) / 2)
 
-    def _kamera_bewegt(self):
-        """Schnitt aus Blickrichtung folgt der Kamera."""
+    # --- Kameraverlauf und Projektion ---
+
+    def _kamera_jetzt(self) -> tuple:
+        cam = self.d.View.Camera()
+        e, c, u = cam.Eye(), cam.Center(), cam.Up()
+        return (e.X(), e.Y(), e.Z()), (c.X(), c.Y(), c.Z()), (u.X(), u.Y(), u.Z()), cam.Scale()
+
+    @staticmethod
+    def _gleich(a, b) -> bool:
+        if a is None or b is None:
+            return False
+        flach = [x for t in a[:3] for x in t] + [a[3]], [x for t in b[:3] for x in t] + [b[3]]
+        return all(abs(x - y) <= 1e-6 * max(1.0, abs(x)) for x, y in zip(*flach))
+
+    def _kamera_merken(self):
+        if not self._bereit or self.szene is None:
+            return
+        jetzt = self._kamera_jetzt()
+        if self._verlauf_pos >= 0 and self._gleich(self._verlauf[self._verlauf_pos], jetzt):
+            return
+        del self._verlauf[self._verlauf_pos + 1:]
+        self._verlauf.append(jetzt)
+        self._verlauf = self._verlauf[-50:]
+        self._verlauf_pos = len(self._verlauf) - 1
+
+    def _kamera_setzen(self, k):
+        from OCC.Core.gp import gp_Dir, gp_Pnt
+        cam = self.d.View.Camera()
+        cam.SetEye(gp_Pnt(*k[0]))
+        cam.SetCenter(gp_Pnt(*k[1]))
+        cam.SetUp(gp_Dir(*k[2]))
+        cam.SetScale(k[3])
+        self.d.View.ZFitAll()
+        self._verlauf_uhr.stop()
+        self._kamera_bewegt(merken=False)
+        self.d.View.Redraw()
+
+    def kamera_zurueck(self) -> bool:
+        if not self._bereit:
+            return False
+        self._verlauf_uhr.stop()
+        self._kamera_merken()  # laufende Bewegung zuerst abschliessen
+        if self._verlauf_pos <= 0:
+            return False
+        self._verlauf_pos -= 1
+        self._kamera_setzen(self._verlauf[self._verlauf_pos])
+        return True
+
+    def kamera_vor(self) -> bool:
+        if not self._bereit or self._verlauf_pos >= len(self._verlauf) - 1:
+            return False
+        self._verlauf_pos += 1
+        self._kamera_setzen(self._verlauf[self._verlauf_pos])
+        return True
+
+    def setze_perspektive(self, an: bool):
+        super().setze_perspektive(an)
+        if not self._bereit:
+            return
+        from OCC.Core.Graphic3d import Graphic3d_Camera
+        cam = self.d.View.Camera()
+        cam.SetProjectionType(Graphic3d_Camera.Projection_Perspective if an else
+                              Graphic3d_Camera.Projection_Orthographic)
+        if an:
+            cam.SetFOVy(30.0)
+        self.d.View.ZFitAll()
+        self.d.View.Redraw()
+
+    def _kamera_bewegt(self, merken: bool = True):
+        """Schnitt aus Blickrichtung folgt der Kamera; Kamera fuer Ansicht zurueck/vor merken."""
+        if merken and self._bereit:
+            self._verlauf_uhr.start()
         if self.schnitt_zustand is not None and self.schnitt_zustand[0] == "blick":
             self.schnitt_aus_blick()
             self.schnitt(*self.schnitt_zustand)

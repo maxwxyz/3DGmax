@@ -72,6 +72,16 @@ def pruefe_alles():
     maus(T.MouseButtonRelease, (w[0] + 60, w[1]))
     d = cam.Direction()
     ergebnis["wuerfel_ziehen"] = (d.X(), d.Y(), d.Z()) != d0
+    # Kameraverlauf: vorne -> oben, zurueck -> vorne, vor -> oben; Perspektive umschaltbar
+    a.standard("vorne"); a._kamera_merken()
+    a.standard("oben"); a._kamera_merken()
+    ok = a.kamera_zurueck() and abs(cam.Direction().Y() - 1.0) < 1e-6
+    ok = ok and a.kamera_vor() and abs(cam.Direction().Z() + 1.0) < 1e-6
+    a.setze_perspektive(True)
+    from OCC.Core.Graphic3d import Graphic3d_Camera
+    ok = ok and cam.ProjectionType() == Graphic3d_Camera.Projection_Perspective
+    a.setze_perspektive(False)
+    ergebnis["kameraverlauf"] = ok
     s0 = cam.Scale()
     rad = QtGui.QWheelEvent(QtCore.QPointF(*mitte), a.viewer.mapToGlobal(QtCore.QPointF(*mitte)), QtCore.QPoint(), QtCore.QPoint(0, 240),
                             QtCore.Qt.MouseButton.NoButton, QtCore.Qt.KeyboardModifier.NoModifier, QtCore.Qt.ScrollPhase.NoScrollPhase, False)
