@@ -11,7 +11,8 @@ from ..i18n import tr
 from ..kern import pruefung
 
 STATUS_TEXT = {"geaendert": "geändert", "neu": "neu", "entfernt": "entfernt", "entfallen": "entfallen",
-               "geometrie": "Geometrie unter PMI geändert", "verschoben": "verschoben"}
+               "geometrie": "Geometrie unter PMI geändert", "verschoben": "verschoben",
+               "grafik": "Darstellung geändert"}
 PRUEF_TEXT = {"offen": "offen", "geprueft": "geprüft", "abgelehnt": "abgelehnt"}
 KATEGORIE_TEXT = {"geometrie": "Geometrie", "pmi": "PMI", "baugruppe": "Baugruppe"}
 

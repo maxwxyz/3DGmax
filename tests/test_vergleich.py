@@ -382,3 +382,25 @@ def test_baugruppenvergleich(fenster):
     sichtbar = [z for z in range(f.aenderungen.tabelle.rowCount()) if not f.aenderungen.tabelle.isRowHidden(z)]
     assert len(sichtbar) == 4
     f.beende_vergleich()
+
+
+def test_pmi_darstellung_verschoben():
+    import copy
+    from types import SimpleNamespace
+    import numpy as np
+    from programm.kern import vergleich, vergleich_pmi
+    from programm.kern.ausrichten import Ausrichtung
+    from programm.ui.lader import lade_alles
+    from tests.conftest import pfad
+    e = lade_alles(pfad("nist_ctc_01_asme1_ap242-e1.stp"))
+    neu_grafik = copy.deepcopy(e.grafik)
+    ziel = next(g for g in neu_grafik.values() if g.linien and g.pmi_ids and not g.erzeugt)
+    ziel.linien = [l + np.array([5.0, 0, 0]) for l in ziel.linien]  # Beschriftung 5 mm verschoben
+    ziel.dreiecke = [(p + np.array([5.0, 0, 0]), t) for p, t in ziel.dreiecke]
+    alt = SimpleNamespace(grafik=e.grafik)
+    neu = SimpleNamespace(grafik=neu_grafik)
+    liste = vergleich_pmi.vergleiche_pmi(e.pmi, e.pmi)
+    gefunden = vergleich._grafik_aenderungen(liste, alt, neu, Ausrichtung(np.eye(4), "gleich", 0, 1), 0.01)
+    assert gefunden and all(a.status == vergleich.GRAFIK for a in gefunden)
+    assert any("dX +5.00" in a.beschreibung for a in gefunden)
+    assert vergleich._grafik_aenderungen(liste, alt, alt, Ausrichtung(np.eye(4), "gleich", 0, 1), 0.01) == []

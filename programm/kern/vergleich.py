@@ -65,8 +65,10 @@ def _gruppen(flaechen: set[int], nachbarn: dict[int, set[int]]) -> list[set[int]
 VERSCHOBEN = "verschoben"
 GEO_TITEL = {GEAENDERT: "Geometrie geändert", NEU: "Geometrie neu", ENTFERNT: "Geometrie entfernt",
              VERSCHOBEN: "Geometrie verschoben"}
+GRAFIK = "grafik"
 PMI_TITEL = {"geaendert": "PMI geändert", "neu": "PMI neu", "entfallen": "PMI entfallen",
-             "geometrie": "Geometrie unter PMI geändert", "verschoben": "PMI verschoben"}
+             "geometrie": "Geometrie unter PMI geändert", "verschoben": "PMI verschoben",
+             GRAFIK: "PMI-Darstellung geändert"}
 
 
 def _geo_aenderungen(geo, nachbarn_neu, nachbarn_alt) -> list[Aenderung]:
@@ -171,6 +173,44 @@ def _baugruppen_aenderungen(alt, neu, ausrichtung, toleranz) -> list[Aenderung]:
     return out
 
 
+def _grafik_punkte(grafik: dict, step_id: int):
+    import numpy as np
+    pts = [np.asarray(l, float) for g in grafik.values() if step_id in g.pmi_ids and not g.erzeugt for l in g.linien]
+    pts += [np.asarray(p, float) for g in grafik.values() if step_id in g.pmi_ids and not g.erzeugt
+            for p, _ in g.dreiecke]
+    return np.vstack(pts) if pts else None
+
+
+def _grafik_aenderungen(liste, alt, neu, ausrichtung, toleranz) -> list[Aenderung]:
+    """Semantisch gleiche PMI, deren Darstellung verschoben oder in der Form geaendert ist."""
+    import numpy as np
+    ga, gn = getattr(alt, "grafik", None) or {}, getattr(neu, "grafik", None) or {}
+    if not ga or not gn:
+        return []
+    m = ausrichtung.matrix
+    out = []
+    for x in liste:
+        if x.status != vergleich_pmi.GLEICH or x.alt is None or x.neu is None:
+            continue
+        pa, pn = _grafik_punkte(ga, x.alt.step_id), _grafik_punkte(gn, x.neu.step_id)
+        if pa is None or pn is None:
+            continue
+        pn = pn @ m[:3, :3].T + m[:3, 3]
+        versatz = pn.mean(axis=0) - pa.mean(axis=0)
+        groesse_a, groesse_n = np.ptp(pa, axis=0), np.ptp(pn, axis=0)
+        grenze = max(10 * toleranz, 0.05)
+        if np.linalg.norm(groesse_n - groesse_a) > grenze or len(pa) != len(pn):
+            text = tr("Darstellung geändert (Größe {:.1f} → {:.1f} mm)").format(float(np.linalg.norm(groesse_a)),
+                                                                             float(np.linalg.norm(groesse_n)))
+        elif np.linalg.norm(versatz) > grenze:
+            text = tr("Beschriftung verschoben um dX {:+.2f}  dY {:+.2f}  dZ {:+.2f} mm").format(*versatz)
+        else:
+            continue
+        out.append(Aenderung(0, PMI, GRAFIK, f"{tr(PMI_TITEL[GRAFIK])}: {x.neu.wert_text()}", text,
+                             set(x.neu.flaechen), set(x.alt.flaechen), x.alt, x.neu))
+    return out
+
+
 def _pmi_aenderungen(liste) -> list[Aenderung]:
     out = []
     for x in liste:
@@ -207,6 +247,7 @@ def vergleiche(alt, neu, toleranz: float = 0.01, suchweite: float = 2.0, ausrich
                 a.titel = f"{tr('PMI verschoben')}: {a.titel.split(': ', 1)[-1]}"
                 a.beschreibung = g.beschreibung
                 break
+    pmi_liste += _grafik_aenderungen(pmi, alt, neu, ausrichtung, toleranz)
     aenderungen = _baugruppen_aenderungen(alt, neu, ausrichtung, toleranz) + pmi_liste + geo_liste
     for i, a in enumerate(aenderungen, 1):
         a.nummer = i

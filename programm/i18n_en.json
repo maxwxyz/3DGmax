@@ -669,5 +669,9 @@
 "Teil geändert": "Part changed",
 "Teil umbenannt": "Part renamed",
 "Lage dX {:+.3f}  dY {:+.3f}  dZ {:+.3f} mm": "Position dX {:+.3f}  dY {:+.3f}  dZ {:+.3f} mm",
-"Volumen {:.1f} → {:.1f} mm³": "Volume {:.1f} → {:.1f} mm³"
+"Volumen {:.1f} → {:.1f} mm³": "Volume {:.1f} → {:.1f} mm³",
+"Darstellung geändert (Größe {:.1f} → {:.1f} mm)": "Presentation changed (size {:.1f} → {:.1f} mm)",
+"Beschriftung verschoben um dX {:+.2f}  dY {:+.2f}  dZ {:+.2f} mm": "Annotation moved by dX {:+.2f}  dY {:+.2f}  dZ {:+.2f} mm",
+"PMI-Darstellung geändert": "PMI presentation changed",
+"Darstellung geändert": "presentation changed"
 }

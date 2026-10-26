@@ -71,7 +71,8 @@
 | Display like CATIA Compare Products: added/removed volume (exact, Boolean) | ✅ |
 | Detect moved elements (translation) and moved PMI | ✅ |
 | Detect rotated/mirrored elements | ⬜ |
-| Graphical PMI comparison (moved, changed, new, removed) | ⬜ |
+| Graphical PMI comparison: moved or reshaped presentation of equal PMI | ✅ |
+| Graphical-only PMI (notes without semantics) matched and compared by text/position | ⬜ |
 | Assembly comparison (parts new/removed/moved/changed/renamed) | ✅ |
 | Geometry comparison per part instance (instances currently share one face set) | ⬜ |
 | Meshes: STL/OBJ vs. CAD, mesh vs. mesh, fit and compare 3D scans | ⬜ |
