@@ -254,7 +254,9 @@ ISO variants of the NIST models (built in a CAD system and exported), CAx-IF tes
   the bit-level writing (WriteBits, unsigned integers, the double encoding table) and the compressed tessellation were
   not archived. Options: buy ISO 14739-1:2014, or use the LGPL PRC writer in Asymptote (prc/ directory) as a reference
   for the encodings – LGPL code may be used in this GPL project with attribution. Extracted test streams
-  (STC_06–10.prc, PRC version 7095) are in daten/prc (local only).
+  (STC_06–10.prc, PRC version 7095) are in daten/prc (local only). The Asymptote code covers writing (bit stream,
+  unsigned/signed integers, the frequent-double table) but not reading the highly compressed tessellation that CAD
+  exporters use; plan: port the bit/double decoding first, then probe which representation the NIST files carry.
 
 ### 8.16 Generate graphical PMI from semantic PMI (requested)
 Files with semantic PMI but no presentation (or QIF/STEP from systems that drop the graphics) should still show and
