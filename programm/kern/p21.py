@@ -179,7 +179,10 @@ _KOPF = re.compile(r"^#(\d+)\s*=\s*(.*)$", re.S)
 
 def lese(pfad: str) -> P21Datei:
     with open(pfad, encoding="latin-1") as f:
-        text = f.read()
+        return lese_text(f.read())
+
+
+def lese_text(text: str) -> P21Datei:
     text = re.sub(r"/\*.*?\*/", "", text, flags=re.S)
     schema = ""
     m = re.search(r"FILE_SCHEMA\s*\(\s*\(\s*'([^']*)'", text)
