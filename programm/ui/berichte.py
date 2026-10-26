@@ -323,3 +323,51 @@ def messungen_pdf(fenster, pfad: str, bild: bool = True) -> str:
                " | ".join(f"{x:.3f}, {y:.3f}, {z:.3f}" for x, y, z in m.punkte)] for m in liste]
     bericht.tabelle([(tr(t), w) for t, w in MESS_SPALTEN], zeilen or [["–", tr("keine Messungen"), "", "", ""]])
     return bericht.fertig()
+
+
+def zeichnung_pdf(svg, pfad: str, titel: str, zeile: str) -> str:
+    """Zeichnung(en) (SVG, vektoriell) auf A3 quer mit einfachem Schriftfeld; svg: Text oder Liste
+    [(svg, titel, zeile)] fuer mehrere Seiten."""
+    from PySide6 import QtCore, QtGui, QtSvg
+    schreiber = QtGui.QPdfWriter(pfad)
+    schreiber.setPageSize(QtGui.QPageSize(QtGui.QPageSize.PageSizeId.A3))
+    schreiber.setPageOrientation(QtGui.QPageLayout.Orientation.Landscape)
+    schreiber.setPageMargins(QtCore.QMarginsF(10, 10, 10, 10), QtGui.QPageLayout.Unit.Millimeter)
+    schreiber.setTitle(titel)
+    seiten = svg if isinstance(svg, list) else [(svg, titel, zeile)]
+    maler = QtGui.QPainter(schreiber)
+    for i, (inhalt, t, z) in enumerate(seiten):
+        if i:
+            schreiber.newPage()
+        _zeichnung_seite(maler, schreiber, inhalt, t, z)
+    maler.end()
+    return pfad
+
+
+def _zeichnung_seite(maler, schreiber, svg, titel, zeile):
+    from PySide6 import QtCore, QtGui, QtSvg
+    flaeche = QtCore.QRectF(0, 0, schreiber.width(), schreiber.height())
+    feld_h = flaeche.height() * 0.07
+    zeichnung = flaeche.adjusted(0, 0, 0, -feld_h * 1.2)
+    renderer = QtSvg.QSvgRenderer(QtCore.QByteArray(svg.encode("utf-8")))
+    groesse = renderer.defaultSize()
+    if groesse.width() > 0 and groesse.height() > 0:
+        k = min(zeichnung.width() / groesse.width(), zeichnung.height() / groesse.height())
+        ziel = QtCore.QRectF(zeichnung.x(), zeichnung.y(), groesse.width() * k, groesse.height() * k)
+        renderer.render(maler, ziel)
+    feld = QtCore.QRectF(flaeche.right() - flaeche.width() * 0.42, flaeche.bottom() - feld_h, flaeche.width() * 0.42,
+                         feld_h)
+    maler.setPen(QtGui.QPen(QtGui.QColor("black"), max(schreiber.resolution() / 150, 1)))
+    maler.drawRect(feld)
+    schrift = QtGui.QFont("Helvetica")
+    schrift.setPointSizeF(11)
+    schrift.setBold(True)
+    maler.setFont(schrift)
+    rand = feld.height() * 0.12
+    maler.drawText(feld.adjusted(rand, rand, -rand, -feld.height() / 2), QtCore.Qt.AlignmentFlag.AlignLeft |
+                   QtCore.Qt.AlignmentFlag.AlignVCenter, titel)
+    schrift.setBold(False)
+    schrift.setPointSizeF(8)
+    maler.setFont(schrift)
+    maler.drawText(feld.adjusted(rand, feld.height() / 2, -rand, -rand), QtCore.Qt.AlignmentFlag.AlignLeft |
+                   QtCore.Qt.AlignmentFlag.AlignVCenter, zeile)

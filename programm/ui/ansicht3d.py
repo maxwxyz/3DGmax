@@ -110,6 +110,10 @@ class AnsichtBasis(QtWidgets.QWidget):
         """Ballonnummern [(Nummer, (x, y, z))] an den Merkmalen; [] blendet aus."""
         self.ballone = list(ballone)
 
+    def oben_richtung(self) -> tuple[float, float, float]:
+        """Richtung, die im Bild nach oben zeigt."""
+        return (0.0, 1.0, 0.0)
+
     def blick_zum_betrachter(self) -> tuple[float, float, float]:
         """Richtung vom Modell zum Betrachter (fuer Entformung 'Blickrichtung')."""
         return (0.0, 0.0, 1.0)
@@ -963,6 +967,12 @@ class OcctAnsicht(AnsichtBasis):
         b, h = max(self.viewer.width(), 1), max(self.viewer.height(), 1)
         a.hoehe, a.breite, a.abstand = cam.Scale(), cam.Scale() * b / h, cam.Distance()
         return a
+
+    def oben_richtung(self):
+        if not self._bereit:
+            return super().oben_richtung()
+        u = self.d.View.Camera().Up()
+        return (u.X(), u.Y(), u.Z())
 
     def blick_zum_betrachter(self):
         if not self._bereit:

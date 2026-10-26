@@ -470,3 +470,24 @@ def test_eigene_ansicht_messprotokoll_projekt(fenster_ctc01, tmp_path):
     f.oeffne_projekt(projekt, warten=True)
     namen = [x.name for x in f.erg.ansichten]
     assert "Toleranzen oben" in namen and f.messen.messungen
+
+
+def test_zeichnung_export(fenster_ctc01, tmp_path):
+    f = fenster_ctc01
+    for endung in ("pdf", "svg", "dxf"):
+        pfad = f.exportiere_zeichnung("blatt", str(tmp_path / f"z.{endung}"))
+        assert pfad and (tmp_path / f"z.{endung}").stat().st_size > 1000
+    assert f.exportiere_zeichnung("aktuell", str(tmp_path / "a.svg"))
+
+
+def test_zeichnung_mit_pmi(fenster_ctc01, tmp_path):
+    f = fenster_ctc01
+    assert f.aktionen["zeichnung_pmi"].isChecked()
+    svg = f.exportiere_zeichnung("aktuell", str(tmp_path / "a.svg"))
+    text = open(svg, encoding="utf-8").read()
+    assert "#1d4ed8" in text  # PMI-Linien der aktuellen Ansicht
+    pdf = f.exportiere_zeichnung("ansichten", str(tmp_path / "v.pdf"))
+    assert pdf and (tmp_path / "v.pdf").stat().st_size > 1000
+    f.aktionen["zeichnung_pmi"].setChecked(False)
+    svg = f.exportiere_zeichnung("aktuell", str(tmp_path / "b.svg"))
+    assert "#1d4ed8" not in open(svg, encoding="utf-8").read()

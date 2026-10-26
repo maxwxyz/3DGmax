@@ -636,5 +636,20 @@
 "Umbenennen": "Rename",
 "keine Messungen": "no measurements",
 "＋ Merken": "＋ Remember",
-"Punkte (mm)": "Points (mm)"
+"Punkte (mm)": "Points (mm)",
+"Zeichnung: Normansichten …": "Drawing: standard views …",
+"Vorder-, Drauf- und Seitenansicht nach Projektionsmethode der Norm plus Iso, verdeckte Kanten gestrichelt – als PDF, SVG oder DXF": "Front, top and side view by the projection method of the standard plus iso, hidden edges dashed – as PDF, SVG or DXF",
+"Zeichnung: aktuelle Ansicht …": "Drawing: current view …",
+"Kantenansicht in der aktuellen Blickrichtung mit den sichtbaren PMI – als PDF, SVG oder DXF": "Edge view in the current view direction with the visible PMI – as PDF, SVG or DXF",
+"Zeichnung: gespeicherte Ansichten (PDF) …": "Drawing: saved views (PDF) …",
+"Eine Zeichnungsseite je gespeicherter Ansicht, aus deren Kamera und mit deren PMI": "One drawing page per saved view, from its camera and with its PMI",
+"PMI in Zeichnungen": "PMI in drawings",
+"Grafische PMI der Ansicht in die Zeichnung übernehmen": "Include the graphical PMI of the view in the drawing",
+"Zeichnung speichern": "Save drawing",
+"Projektionsmethode 3 (ASME)": "Third angle projection (ASME)",
+"Projektionsmethode 1 (ISO E)": "First angle projection (ISO E)",
+"aktuelle Blickrichtung": "current view direction",
+"Maße in mm": "Dimensions in mm",
+"Zeichnung gespeichert: {}": "Drawing saved: {}",
+"Ansicht": "View"
 }

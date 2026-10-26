@@ -249,3 +249,13 @@ ISO variants of the NIST models (built in a CAD system and exported), CAx-IF tes
   3. Markups (PMI): tessellated leaders/texts as graphical PMI, views; semantic markups where present.
   4. Exact B-rep (NURBS, analytic surfaces, topology) → OCCT faces, so measuring and comparison use exact geometry.
 - Effort: large (several weeks). Order: 1–2 first (mesh view of 3D PDFs), then 3, then 4.
+
+### 8.16 Generate graphical PMI from semantic PMI (requested)
+Files with semantic PMI but no presentation (or QIF/STEP from systems that drop the graphics) should still show and
+print annotations. Today 3DGmax writes generated texts only into the placeholders the file provides. Plan:
+1. Placement: annotation plane from the saved view (or the face normal), anchor at the toleranced feature (face
+   centroid / axis end), text outside the model silhouette, avoid overlaps (simple greedy layout).
+2. Content: dimension text (nominal, deviations, fit), feature control frame (symbol, zone, value, modifiers,
+   datums) and datum feature symbols drawn as vector graphics (frames, triangles), leaders to the feature.
+3. Use in 3D view, drawings (§ HLR export) and reports; mark as "generated" (different color) so it is never
+   mistaken for the author's presentation.

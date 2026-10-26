@@ -67,7 +67,8 @@
    "QIF 3.0 lesen: exakte B-Rep (Ebenen, Zylinder, Kegel, Kugeln, Tori, NURBS) und semantische PMI (Maße, Form- und Lagetoleranzen, Bezüge, Bezugssysteme) mit Flächenverknüpfung; Norm aus der Datei.",
    "Gezielte PMI-Suche: bezug:A, wert:0.5, typ:position, art:toleranz, ansicht:…, name:…, nr:…, ballon:… (auch englische Schlüssel), kombinierbar mit freiem Text.",
    "Eigene Ansichten: „＋ Merken“ speichert Kamera, sichtbare PMI und Messungen; umbenennen, löschen, im Projekt gespeichert und im Ansichten-PDF enthalten.",
-   "Messprotokoll als PDF (Datei › Exportieren): Bild mit den Messungen und Tabelle mit Werten, Elementen und Punkten."
+   "Messprotokoll als PDF (Datei › Exportieren): Bild mit den Messungen und Tabelle mit Werten, Elementen und Punkten.",
+   "Zeichnungen (HLR) als PDF, SVG oder DXF: Normansichten nach Projektionsmethode der Norm (ISO 1 / ASME 3) plus Iso, aktuelle Ansicht oder je gespeicherter Ansicht eine Seite aus deren Kamera; verdeckte Kanten gestrichelt, grafische PMI der Ansicht wahlweise (Standard an), Schriftfeld."
   ],
   "en": [
    "First viewer version: load STEP AP242, assembly tree, CAD-style navigation, standard views.",
@@ -136,7 +137,8 @@
    "Read QIF 3.0: exact B-rep (planes, cylinders, cones, spheres, tori, NURBS) and semantic PMI (dimensions, geometric tolerances, datums, datum reference frames) linked to faces; standard from the file.",
    "Targeted PMI search: datum:A, value:0.5, type:position, kind:tolerance, view:…, name:…, no:…, balloon:… (German keys too), combinable with free text.",
    "Own views: “＋ Remember” stores camera, visible PMI and measurements; rename, delete, saved in the project and included in the views PDF.",
-   "Measurement report as PDF (File › Export): image with the measurements and table with values, elements and points."
+   "Measurement report as PDF (File › Export): image with the measurements and table with values, elements and points.",
+   "Drawings (HLR) as PDF, SVG or DXF: standard views by the projection method of the standard (ISO first angle / ASME third angle) plus iso, current view or one page per saved view from its camera; hidden edges dashed, graphical PMI of the view optional (default on), title block."
   ]
  },
  "releases": [

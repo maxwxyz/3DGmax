@@ -278,3 +278,22 @@ def test_qif_brep_und_pmi():
     pos = next(p for p in e.pmi if p.typ == "Position")
     assert pos.wert == 0.75 and pos.bezug_text() == "A|B|C" and pos.flaechen
     assert e.norm.art == "asme" and "QIF" in e.norm.grund
+
+
+def test_zeichnung_hlr_svg_dxf(ctc01):
+    from programm.kern import zeichnung as z
+    vorne = z.projiziere(ctc01.form, (0, 1, 0), (0, 0, 1), "vorne")
+    assert vorne.linien[z.SICHTBAR] and vorne.linien[z.VERDECKT]
+    lo, hi = vorne.grenzen()
+    assert abs((hi[0] - lo[0]) - 800) < 0.5 and abs((hi[1] - lo[1]) - 150) < 0.5  # Breite x Hoehe der Platte
+    iso = z.blatt(ctc01.form, "iso")
+    asme = z.blatt(ctc01.form, "asme")
+    oben_iso = next(a for a in iso if a.name == "oben")
+    oben_asme = next(a for a in asme if a.name == "oben")
+    assert oben_iso.versatz[1] < 0 < oben_asme.versatz[1]  # Methode 1: Draufsicht unten, Methode 3: oben
+    assert {a.name for a in iso} == {"vorne", "oben", "links", "iso"}
+    assert {a.name for a in asme} == {"vorne", "oben", "rechts", "iso"}
+    svg = z.als_svg(iso, "CTC-01")
+    assert svg.startswith("<svg") and "stroke-dasharray" in svg
+    dxf = z.als_dxf(iso)
+    assert "LINE" in dxf and "VERDECKT" in dxf and dxf.rstrip().endswith("EOF")

@@ -160,6 +160,7 @@ class Hauptfenster(QtWidgets.QMainWindow):
         self.start.zeige_zuletzt(self.zuletzt())
         self._spalten_verschiebbar()
         self._fenster_herstellen()
+        self.aktionen["zeichnung_pmi"].setChecked(str(self.ein.value("zeichnung_pmi", True)).lower() in ("true", "1"))
         an = str(self.ein.value("perspektive", False)).lower() in ("true", "1")
         self.aktionen["perspektive"].setChecked(an)
         self.ansicht.setze_perspektive(an)
@@ -320,6 +321,17 @@ class Hauptfenster(QtWidgets.QMainWindow):
           tipp=tr("Nummern der Merkmale (Maße, Form- und Lagetoleranzen) im Modell, wie in der Merkmalsliste"))
         A("merkmale_csv", tr("Merkmalsliste (CSV) …"), lambda: self.exportiere_merkmale(),
           tipp=tr("Prüfbare Merkmale mit Ballonnummer, Grenzen und Spalten für Messwerte"))
+        A("zeichnung_blatt", tr("Zeichnung: Normansichten …"), lambda: self.exportiere_zeichnung("blatt"),
+          tipp=tr("Vorder-, Drauf- und Seitenansicht nach Projektionsmethode der Norm plus Iso, verdeckte Kanten "
+                  "gestrichelt – als PDF, SVG oder DXF"))
+        A("zeichnung_aktuell", tr("Zeichnung: aktuelle Ansicht …"), lambda: self.exportiere_zeichnung("aktuell"),
+          tipp=tr("Kantenansicht in der aktuellen Blickrichtung mit den sichtbaren PMI – als PDF, SVG oder DXF"))
+        A("zeichnung_ansichten", tr("Zeichnung: gespeicherte Ansichten (PDF) …"),
+          lambda: self.exportiere_zeichnung("ansichten"),
+          tipp=tr("Eine Zeichnungsseite je gespeicherter Ansicht, aus deren Kamera und mit deren PMI"))
+        A("zeichnung_pmi", tr("PMI in Zeichnungen"), lambda: self.ein.setValue(
+            "zeichnung_pmi", self.aktionen["zeichnung_pmi"].isChecked()), pruefbar=True,
+          tipp=tr("Grafische PMI der Ansicht in die Zeichnung übernehmen"))
         A("pdf_messungen", tr("Messprotokoll (PDF) …"), lambda: self.exportiere_pdf("messungen"),
           tipp=tr("Bild mit den Messungen und Tabelle der Messwerte"))
         A("merkmale_pdf", tr("Merkmalsliste (PDF) …"), lambda: self.exportiere_pdf("merkmale"),
@@ -422,6 +434,9 @@ class Hauptfenster(QtWidgets.QMainWindow):
         m.addAction(a["projekt_speichern"])
         me = m.addMenu(tr("Exportieren"))
         for n in ("pdf_ansichten", "merkmale_pdf", "pdf_messungen", "pdf_vergleich", "pdf_pmi_aenderungen"):
+            me.addAction(a[n])
+        me.addSeparator()
+        for n in ("zeichnung_blatt", "zeichnung_aktuell", "zeichnung_ansichten", "zeichnung_pmi"):
             me.addAction(a[n])
         me.addSeparator()
         for n in ("pmi_export", "merkmale_csv", "aenderungen_export"):
@@ -1333,6 +1348,80 @@ class Hauptfenster(QtWidgets.QMainWindow):
             QtWidgets.QApplication.restoreOverrideCursor()
         self.statusBar().showMessage(tr("PDF gespeichert: {}").format(pfad), 8000)
         return pfad
+
+    def exportiere_zeichnung(self, art: str, pfad: str = "") -> str | None:
+        """Kantenzeichnung (HLR) der sichtbaren Teile als PDF, SVG oder DXF (nach Endung)."""
+        import datetime
+        from OCC.Core.BRep import BRep_Builder
+        from OCC.Core.TopoDS import TopoDS_Compound
+        from ..kern import norm, zeichnung
+        from . import berichte
+        if self.erg is None:
+            return None
+        basis = os.path.splitext(self.erg.pfad)[0] + {"blatt": "_zeichnung", "aktuell": "_ansicht",
+                                                      "ansichten": "_ansichten_zeichnung"}[art]
+        filter_text = "PDF (*.pdf)" if art == "ansichten" else "PDF (*.pdf);;SVG (*.svg);;DXF (*.dxf)"
+        pfad = pfad or self._speicherpfad(tr("Zeichnung speichern"), basis + ".pdf", filter_text)
+        if not pfad:
+            return None
+        form = TopoDS_Compound()
+        bb = BRep_Builder()
+        bb.MakeCompound(form)
+        for k in self.erg.baum.blaetter():
+            if not k.hilfsgeometrie and k.nummer not in self.ansicht.versteckt:
+                bb.Add(form, k.form)
+        QtWidgets.QApplication.setOverrideCursor(QtCore.Qt.CursorShape.WaitCursor)
+        try:
+            art_norm = self.erg.pmi[0].norm if self.erg.pmi else norm.ISO
+            mit_pmi = self.aktionen["zeichnung_pmi"].isChecked()
+            name = os.path.basename(self.erg.pfad)
+            pmi_text = {p.step_id: p.wert_text() for p in self.erg.pmi if p.step_id}
+            if art == "ansichten":
+                seiten = []
+                for a in self.erg.ansichten:
+                    z = zeichnung.projiziere(form, a.richtung, a.oben, a.name)
+                    if mit_pmi:
+                        zeichnung.pmi_hinzu(z, self._grafik_fuer(a.pmi_ids), pmi_text, a.richtung, a.oben)
+                    seiten.append((zeichnung.als_svg([z], a.name), f"{name} – {a.name}",
+                                   f"{tr('{} PMI').format(len(a.pmi_nummern))} · {tr('Maße in mm')} · 3DGmax {VERSION}"))
+                if not pfad.lower().endswith(".pdf"):
+                    pfad += ".pdf"
+                if seiten:
+                    berichte.zeichnung_pdf(seiten, pfad, name, "")
+                self.statusBar().showMessage(tr("Zeichnung gespeichert: {}").format(pfad), 8000)
+                return pfad if seiten else None
+            if art == "blatt":
+                ansichten = zeichnung.blatt(form, art_norm)
+                methode = tr("Projektionsmethode 3 (ASME)") if art_norm == norm.ASME else tr("Projektionsmethode 1 (ISO E)")
+            else:
+                richtung = tuple(-c for c in self.ansicht.blick_zum_betrachter())
+                oben = self.ansicht.oben_richtung()
+                ansichten = [zeichnung.projiziere(form, richtung, oben, tr("Ansicht"))]
+                if mit_pmi and self.ansicht.grafik_an:
+                    zeichnung.pmi_hinzu(ansichten[0], self._grafik_fuer(self.ansicht.pmi_ids_sichtbar), pmi_text,
+                                        richtung, oben)
+                methode = tr("aktuelle Blickrichtung")
+            endung = os.path.splitext(pfad)[1].lower()
+            if endung == ".svg":
+                with open(pfad, "w", encoding="utf-8") as f:
+                    f.write(zeichnung.als_svg(ansichten, name))
+            elif endung == ".dxf":
+                with open(pfad, "w", encoding="ascii", errors="replace") as f:
+                    f.write(zeichnung.als_dxf(ansichten))
+            else:
+                if not pfad.lower().endswith(".pdf"):
+                    pfad += ".pdf"
+                zeile = f"{methode} · {tr('Maße in mm')} · 3DGmax {VERSION} · {datetime.date.today().isoformat()}"
+                berichte.zeichnung_pdf(zeichnung.als_svg(ansichten, name), pfad, name, zeile)
+        finally:
+            QtWidgets.QApplication.restoreOverrideCursor()
+        self.statusBar().showMessage(tr("Zeichnung gespeichert: {}").format(pfad), 8000)
+        return pfad
+
+    def _grafik_fuer(self, pmi_ids) -> list:
+        """Grafiken (Callouts) zu PMI-IDs; None = alle."""
+        return [g for g in self.erg.grafik.values()
+                if not g.leer() and (pmi_ids is None or g.pmi_ids & set(pmi_ids))]
 
     def exportiere_merkmale(self, pfad: str = "") -> str | None:
         from ..kern import merkmale

@@ -10,7 +10,7 @@ Branch: `main` (no other branches). Version 0.1 plus many unreleased entries in 
 | 2 Viewer | ✅ incl. view cube, quick measure, model properties (open: PLAN §8.12 items 4–10, thumbnails, LOD) |
 | 3 Measure | ✅ |
 | 4 Compare | ✅ incl. manual alignment, deviation color map (open: moved detection, graphical PMI compare, assemblies, meshes) |
-| 5 Output | ✅ PDF per view, comparison PDF, PMI change PDF, project container, folder comparison (open: views as drawings HLR) |
+| 5 Output | ✅ PDF per view, comparison PDF, PMI change PDF, bill of characteristics, measurement report, drawings (HLR), project container, folder comparison |
 | 6 Formats | 🟡 IGES, STL, OBJ, glTF/GLB, 3MF, QIF (B-rep + semantic PMI) done; open: PRC/3D PDF (§8.15), QIF graphics/views |
 | 7 JT via TKJT | ⬜ (no free JT test files with PMI found) |
 Details: `docs/Roadmap.md`; future topics: PLAN.md §8 (tolerance zones, annotating, graphical PMI/OCR, tolerance stack-up,
@@ -43,7 +43,11 @@ Then QIF (kern/qif.py): own B-rep builder (surfaces/curves -> OCCT, ShapeFix_Wir
 Modified() to keep the QIF face ids), semantic PMI (characteristics, datums, DRF), units per value (linearUnit).
 Test files: NIST QIF from qif-community (licence not stated) only local in daten/qif; test skips without them.
 Validated: CTC-01 and FTC-06 volume/size identical to STEP; FTC-08/09 QIF are other model revisions (scaled).
-Next: PRC/3D PDF reader (PLAN §8.15, NIST STC PDFs contain PRC), QIF graphical PMI and views, JT via TKJT
+Then: targeted PMI search, own views + measurement report PDF, drawings (kern/zeichnung.py: HLRBRep exact, standard
+sheet by projection method, SVG/DXF own writers, PDF via QSvgRenderer on A3 with title block; PMI graphics projected,
+placeholder texts as SVG/DXF text).
+Next: PRC/3D PDF reader (PLAN §8.15, NIST STC PDFs contain PRC), generated graphical PMI (§8.16), QIF graphical PMI
+and views, JT via TKJT
 (step 7; free JT file without PMI: daten/nist_cad_dl/nist-cad-models-mtc-assembly.zip -> NX/NIST mtc crada assembly.jt).
 
 ## Environment and commands
