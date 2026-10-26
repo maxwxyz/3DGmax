@@ -71,6 +71,8 @@ class AnsichtBasis(QtWidgets.QWidget):
         self.messmodus = False
         self.messungen: list = []
         self.pmi_kontrast = True  # PMI-Farbe ans Farbschema anpassen (sonst Farbe aus der Datei)
+        self.pmi_eigene_farbe = None  # (r, g, b) oder None
+        self.hintergrund = None  # ((r, g, b) oben, (r, g, b) unten) oder None = Farbschema
         self.vergleich_status: dict | None = None
         self.vergleich_entfernt: list = []
         self.vergleich_trsf = None
@@ -143,9 +145,15 @@ class AnsichtBasis(QtWidgets.QWidget):
         self.pmi_kontrast = an
 
     def pmi_farbe(self, g) -> tuple:
-        """Anzeigefarbe einer Annotation: Schemafarbe (gut lesbar) oder Farbe aus der Datei."""
+        """Anzeigefarbe einer Annotation: eigene Farbe, Schemafarbe (gut lesbar) oder Farbe aus der Datei."""
+        if self.pmi_eigene_farbe is not None:
+            return self.pmi_eigene_farbe
         schema = (self.thema or {}).get("pmi", (0.05, 0.2, 0.55))
         return schema if self.pmi_kontrast or g.farbe is None else g.farbe
+
+    def setze_farben(self, pmi_eigen, hintergrund):
+        self.pmi_eigene_farbe = pmi_eigen
+        self.hintergrund = hintergrund
 
     def zeige_messungen(self, messungen: list):
         self.messungen = list(messungen)
@@ -308,7 +316,8 @@ class OcctAnsicht(AnsichtBasis):
         if not self._bereit or not thema:
             return
         from OCC.Core.Aspect import Aspect_GFM_VER
-        self.d.View.SetBgGradientColors(_farbe(thema["hg_oben"]), _farbe(thema["hg_unten"]), Aspect_GFM_VER, True)
+        oben, unten = self.hintergrund or (thema["hg_oben"], thema["hg_unten"])
+        self.d.View.SetBgGradientColors(_farbe(oben), _farbe(unten), Aspect_GFM_VER, True)
         if self.szene is not None:
             self._baue_szene()
 
@@ -792,6 +801,11 @@ class OcctAnsicht(AnsichtBasis):
     def setze_pmi_kontrast(self, an: bool):
         super().setze_pmi_kontrast(an)
         self._wende_sichtbarkeit_an()
+
+    def setze_farben(self, pmi_eigen, hintergrund):
+        super().setze_farben(pmi_eigen, hintergrund)
+        if self._bereit:
+            self.setze_thema(self.thema)
 
     def _aktiviere_auswahl(self):
         if not self._bereit:

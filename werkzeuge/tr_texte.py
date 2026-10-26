@@ -28,7 +28,10 @@ def tr_texte() -> set[str]:
     # Texte, die ueber Tabellen laufen (tr(variable))
     from programm.kern.pmi import BEZUG, HINWEIS, MASS, TOLERANZ  # noqa: F401
     from programm.ui import einstellungen, hilfe, messwerkzeug, panels, vergleich_ui
-    from programm.kern import pruefung
+    from programm.kern import pmi_bericht, pruefung
+    out |= {pmi_bericht.FEHLER, pmi_bericht.WARNUNG, pmi_bericht.INFO, "Maß ohne Wert", "Keine Fläche zugeordnet",
+            "Nur grafisch (Hinweis ohne auswertbare Semantik)", "Toleranzwert 0 ohne Materialbedingung",
+            "Positionstoleranz ohne Bezug (nur als Muster sinnvoll)"}
     for tabelle in (vergleich_ui.STATUS_TEXT, vergleich_ui.PRUEF_TEXT, vergleich_ui.KATEGORIE_TEXT):
         out |= set(tabelle.values())
     out |= set(pruefung.ERGEBNISSE) | {"Ausrichten …", "Geometrie vergleichen …", "PMI vergleichen …",

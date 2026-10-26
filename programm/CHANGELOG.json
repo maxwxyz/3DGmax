@@ -23,7 +23,9 @@
    "PMI-Liste: Spalten Name und Ansichten (durchsuchbar), Rechtsklick: Bezüge wählen, Toleranzen mit Bezug, zoomen, ausrichten, in Ansicht zeigen, kopieren.",
    "Gespeicherte Ansichten durchklicken (◀ ▶, Bild auf/ab) und suchen; Statuszeile zeigt „n von N PMI“.",
    "Flächen und Kanten im Modell wählen (Strg/Umschalt für mehrere); Rechtsklick-Menü im 3D-Fenster; Normal auf Auswahl ausrichten (N).",
-   "Schnitt an gewählter Fläche/Kante und aus Blickrichtung; Regler nur bei aktivem Schnitt."
+   "Schnitt an gewählter Fläche/Kante und aus Blickrichtung; Regler nur bei aktivem Schnitt.",
+   "Eigene Farben für PMI-Beschriftungen und den Hintergrund (Einstellungen).",
+   "PMI exportieren (CSV, mit Flächen-IDs und Ansichten), Änderungen exportieren (CSV) und PMI prüfen: unbenutzte/fehlende Bezüge, PMI ohne Fläche oder Ansicht, Doppelte, Lagetoleranz ohne Bezug."
   ],
   "en": [
    "First viewer version: load STEP AP242, assembly tree, CAD-style navigation, standard views.",
@@ -48,7 +50,9 @@
    "PMI list: columns name and views (searchable); right-click: select datums, tolerances using a datum, zoom, align, show in view, copy.",
    "Browse saved views (◀ ▶, Page Up/Down) and search them; status bar shows “n of N PMI”.",
    "Select faces and edges in the model (Ctrl/Shift for several); right-click menu in the 3D window; align normal to selection (N).",
-   "Section at the selected face/edge and from the view direction; slider only while a section is active."
+   "Section at the selected face/edge and from the view direction; slider only while a section is active.",
+   "Custom colors for PMI annotations and the background (settings).",
+   "Export PMI (CSV, with face IDs and views), export changes (CSV) and check PMI: unused/missing datums, PMI without face or view, duplicates, orientation tolerance without datum."
   ]
  },
  "releases": [

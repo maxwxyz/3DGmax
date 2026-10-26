@@ -192,3 +192,46 @@ def test_3d_auswahl_zoom_normal_und_schnitt(fenster_ctc01):
     f.ansicht.setze_auswahl([])
     f.aktionen["schnitt_auswahl"].trigger()  # ohne Auswahl: Hinweis, kein Schnitt
     assert f.ansicht.schnitt_zustand is None
+
+
+def test_eigene_farben(fenster_ctc01):
+    f = fenster_ctc01
+    g = next(iter(f.erg.grafik.values()))
+    f.wende_einstellungen_an({"navigation": "catia", "thema": f.ein.value("thema", "auto"),
+                              "sprache": f.ein.value("sprache", "auto"), "pmi_kontrast": True,
+                              "pmi_eigen": True, "pmi_eigene_farbe": "#ff0000",
+                              "hg_eigen": True, "hg_oben": "#000000", "hg_unten": "#ffffff"})
+    assert f.ansicht.pmi_farbe(g) == (1.0, 0.0, 0.0)
+    assert f.ansicht.hintergrund == ((0.0, 0.0, 0.0), (1.0, 1.0, 1.0))
+    from programm.ui.einstellungen import EinstellungenDialog
+    d = EinstellungenDialog(f.ein, f)
+    assert d.werte()["pmi_eigen"] and d.werte()["hg_eigen"]
+
+
+def test_pmi_export_und_pruefung(fenster_ctc01, tmp_path):
+    f = fenster_ctc01
+    ziel = tmp_path / "pmi.csv"
+    assert f.exportiere_pmi(str(ziel))
+    text = ziel.read_text(encoding="utf-8-sig")
+    assert text.splitlines()[0].startswith("Nr;Art;Typ;Name;Wert") and "MBD_0" in text and "#" in text
+    assert len(text.splitlines()) == 1 + len(f.erg.pmi)
+    fenster = f.pruefe_pmi()
+    assert fenster.tabelle.rowCount() > 0
+    fenster.tabelle.cellDoubleClicked.emit(0, 0)
+    assert f.pmi.gewaehlte()
+    fenster.close()
+
+
+def test_pmi_pruefung_regeln():
+    from programm.kern.pmi import BEZUG, TOLERANZ, BezugsRef, Pmi
+    from programm.kern.pmi_bericht import pruefe
+    pmi = [Pmi(BEZUG, typ="Datum", name="A", flaechen={1}, nummer=1),
+           Pmi(BEZUG, typ="Datum", name="B", flaechen={2}, nummer=2),
+           Pmi(TOLERANZ, typ="Perpendicularity", wert=0.1, flaechen={3}, nummer=3),
+           Pmi(TOLERANZ, typ="Flatness", wert=0.1, flaechen={4}, nummer=4, bezuege=[BezugsRef("A")]),
+           Pmi(TOLERANZ, typ="Position", wert=0.2, flaechen={5}, nummer=5, bezuege=[BezugsRef("C")])]
+    texte = {b.text for b in pruefe(pmi)}
+    assert "Bezug B wird von keiner Toleranz verwendet" in texte
+    assert any("nicht definierte Bezüge: C" in t for t in texte)
+    assert any("Richtungs-/Lauftoleranz ohne Bezug" in t for t in texte)
+    assert any("Formtoleranz mit Bezug" in t for t in texte)

@@ -100,6 +100,7 @@ class Hauptfenster(QtWidgets.QMainWindow):
         self.ansicht.setze_thema(self.thema)
         self.ansicht.setze_navigation(self.ein.value("navigation", "catia"))
         self.ansicht.setze_pmi_kontrast(self.ein.value("pmi_kontrast", True, type=bool))
+        self._farben_anwenden()
         self.start = Startseite()
         self.stapel = QtWidgets.QStackedWidget()
         self.stapel.addWidget(self.start)
@@ -231,6 +232,12 @@ class Hauptfenster(QtWidgets.QMainWindow):
         A("isolieren", tr("Gewählte Teile isolieren"), self._isolieren, "I")
         A("transparent", tr("Gewählte Teile transparent"), self._transparent, "T")
         A("pmi_suche", tr("PMI suchen"), self._suche_fokus, QtGui.QKeySequence.StandardKey.Find)
+        A("pmi_export", tr("PMI exportieren (CSV) …"), lambda: self.exportiere_pmi(),
+          tipp=tr("Alle PMI mit Werten, Bezügen, Flächen und Ansichten als Tabelle"))
+        A("pmi_pruefen", tr("PMI prüfen …"), self.pruefe_pmi,
+          tipp=tr("Unbenutzte oder fehlende Bezüge, PMI ohne Fläche, Doppelte und andere Unstimmigkeiten"))
+        A("aenderungen_export", tr("Änderungen exportieren (CSV) …"), lambda: self.exportiere_aenderungen(),
+          tipp=tr("Änderungsliste des Vergleichs mit Alt/Neu als Tabelle"))
         A("ansicht_vor", tr("Nächste gespeicherte Ansicht"), lambda: self.ansichten.gehe(+1), "PgDown")
         A("ansicht_zurueck", tr("Vorherige gespeicherte Ansicht"), lambda: self.ansichten.gehe(-1), "PgUp")
         A("messen", tr("Messen"), self._messen_umschalten, "M", pruefbar=True,
@@ -302,6 +309,9 @@ class Hauptfenster(QtWidgets.QMainWindow):
             m.addAction(a[n])
         m.addSeparator()
         m.addAction(a["pmi_suche"])
+        m.addAction(a["pmi_pruefen"])
+        m.addAction(a["pmi_export"])
+        m.addAction(a["aenderungen_export"])
         m = mb.addMenu(tr("&Werkzeuge"))
         m.addAction(a["messen"])
         m.addAction(a["messen_ende"])
@@ -389,6 +399,7 @@ class Hauptfenster(QtWidgets.QMainWindow):
             self.dock_messen.hide()
             self.messen.setze_modus(None)
         self.aktionen["vergleich_beenden"].setEnabled(da and self.vergleich is not None)
+        self.aktionen["aenderungen_export"].setEnabled(da and self.vergleich is not None)
 
     # --- Laden ---
 
@@ -613,6 +624,7 @@ class Hauptfenster(QtWidgets.QMainWindow):
         self.dock_aenderungen.show()
         self.dock_aenderungen.raise_()
         self.aktionen["vergleich_beenden"].setEnabled(True)
+        self.aktionen["aenderungen_export"].setEnabled(True)
         self.setWindowTitle(self._titel(f"{os.path.basename(v.alt.pfad)} → {os.path.basename(v.neu.pfad)}"))
         self.statusBar().showMessage(tr("Vergleich fertig: {} Änderungen").format(len(v.aenderungen)), 8000)
 
@@ -624,6 +636,7 @@ class Hauptfenster(QtWidgets.QMainWindow):
         self.aenderungen.zeige(None)
         self.dock_aenderungen.hide()
         self.aktionen["vergleich_beenden"].setEnabled(False)
+        self.aktionen["aenderungen_export"].setEnabled(False)
         if neu_zeigen and self.erg is not None:
             self.setWindowTitle(self._titel(os.path.basename(self.erg.pfad)))
 
@@ -750,6 +763,48 @@ class Hauptfenster(QtWidgets.QMainWindow):
             std.addAction(a["ansicht_" + n])
         m.exec(pos)
 
+    def _speicherpfad(self, titel, vorschlag, filter_text):
+        pfad, _ = QtWidgets.QFileDialog.getSaveFileName(self, titel, vorschlag, filter_text)
+        return pfad
+
+    def exportiere_pmi(self, pfad: str = "") -> bool:
+        from ..kern import pmi_bericht
+        if self.erg is None:
+            return False
+        pfad = pfad or self._speicherpfad(tr("PMI exportieren"), os.path.splitext(self.erg.pfad)[0] + "_pmi.csv",
+                                          "CSV (*.csv)")
+        if not pfad:
+            return False
+        text = pmi_bericht.als_csv(pmi_bericht.tabelle(self.erg.pmi, self.erg.ansichten, self.erg.modell))
+        with open(pfad, "w", encoding="utf-8-sig", newline="") as f:
+            f.write(text)
+        self.statusBar().showMessage(tr("Exportiert: {}").format(pfad), 6000)
+        return True
+
+    def exportiere_aenderungen(self, pfad: str = "") -> bool:
+        from ..kern import pmi_bericht
+        if self.vergleich is None:
+            return False
+        pfad = pfad or self._speicherpfad(tr("Änderungen exportieren"),
+                                          os.path.splitext(self.vergleich.neu.pfad)[0] + "_aenderungen.csv",
+                                          "CSV (*.csv)")
+        if not pfad:
+            return False
+        with open(pfad, "w", encoding="utf-8-sig", newline="") as f:
+            f.write(pmi_bericht.vergleich_csv(self.vergleich))
+        self.statusBar().showMessage(tr("Exportiert: {}").format(pfad), 6000)
+        return True
+
+    def pruefe_pmi(self):
+        from ..kern import pmi_bericht
+        from .pmi_pruefen import PruefFenster
+        if self.erg is None:
+            return None
+        fenster = PruefFenster(pmi_bericht.pruefe(self.erg.pmi, self.erg.ansichten), self)
+        fenster.pmi_waehlen.connect(lambda nummern: self.pmi.waehle(lambda p: p.nummer in nummern))
+        fenster.show()
+        return fenster
+
     def _pmi_befehl(self, art, wert):
         if art == "zoomen":
             flaechen = set().union(*(p.flaechen for p in wert)) if wert else set()
@@ -857,6 +912,10 @@ class Hauptfenster(QtWidgets.QMainWindow):
         self.ansicht.setze_navigation(w["navigation"])
         self.ein.setValue("pmi_kontrast", w.get("pmi_kontrast", True))
         self.ansicht.setze_pmi_kontrast(w.get("pmi_kontrast", True))
+        for k in ("pmi_eigen", "pmi_eigene_farbe", "hg_eigen", "hg_oben", "hg_unten"):
+            if k in w:
+                self.ein.setValue(k, w[k])
+        self._farben_anwenden()
         if w["thema"] != self.ein.value("thema", "auto"):
             self.setze_thema(w["thema"])
             self.aktionen["thema_" + w["thema"]].setChecked(True)
@@ -865,6 +924,14 @@ class Hauptfenster(QtWidgets.QMainWindow):
             self.aktionen["sprache_" + w["sprache"]].setChecked(True)
             QtWidgets.QMessageBox.information(self, tr("Sprache"),
                                               tr("Die Sprache wird beim nächsten Start übernommen."))
+
+    def _farben_anwenden(self):
+        from .einstellungen import rgb
+        e = self.ein
+        pmi = rgb(e.value("pmi_eigene_farbe", "#d4145a")) if e.value("pmi_eigen", False, type=bool) else None
+        hg = (rgb(e.value("hg_oben", "#dfe5ee")), rgb(e.value("hg_unten", "#a9b3c2"))) \
+            if e.value("hg_eigen", False, type=bool) else None
+        self.ansicht.setze_farben(pmi, hg)
 
     def zeige_anleitung(self):
         from .hilfe import HilfeFenster
