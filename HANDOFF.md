@@ -2,7 +2,7 @@
 
 Branch: `main` (no other branches). Version 0.1 plus many unreleased entries in `programm/CHANGELOG.json`
 (bump only via `pixi run python packaging/release.py minor --git`, then `git push --follow-tags`).
-Tests: 105 offscreen + on-screen test green; GitHub workflow "Apps bauen" green on Windows/Linux/macOS.
+Tests: 111 offscreen + on-screen test green; GitHub workflow "Apps bauen" green on Windows/Linux/macOS.
 
 ## Check against plan / roadmap
 | Step (PLAN.md §5) | Status |
@@ -12,7 +12,7 @@ Tests: 105 offscreen + on-screen test green; GitHub workflow "Apps bauen" green 
 | 3 Measure | ✅ incl. analyses (draft, curvature, wall thickness), measurement report, tolerance zones, tolerance stack-up 1D, comments, create PMI with advisor |
 | 4 Compare | ✅ incl. manual alignment, deviation color map, material + / −, moved geometry/PMI, assembly comparison, graphical PMI changes (open: rotated elements, per-instance geometry, graphical-only notes) |
 | 5 Output | ✅ PDF per view, comparison PDF, PMI change PDF, bill of characteristics, measurement report, drawings (HLR, PDF/SVG/DXF with PMI), project container (incl. own views), folder comparison |
-| 6 Formats | 🟡 STEP, IGES, STL, OBJ, glTF/GLB, 3MF, QIF 3.0 (B-rep + semantic PMI) done; open: PRC/3D PDF (§8.15), QIF graphics/views |
+| 6 Formats | 🟡 STEP, IGES, STL, OBJ, glTF/GLB, 3MF, PLY, QIF 3.0 (B-rep + semantic PMI) done; open: PRC/3D PDF (§8.15), QIF graphics/views, point clouds |
 | 7 JT via TKJT | ⬜ (free JT without PMI: `NIST mtc crada assembly.jt` in daten/nist_cad_dl/nist-cad-models-mtc-assembly.zip) |
 Details: `docs/Roadmap.md`; future topics: PLAN.md §8 (8.5 tolerance zones, 8.6 annotating, 8.8 stack-up,
 8.10 PMI editing/advisor, 8.11 CATIA, 8.15 PRC/3D PDF, 8.16 generated PMI stage 2).
@@ -45,6 +45,10 @@ packaging/build_mac.sh [--ohne-tests]             # tests, build, self-test, 3D 
   (daten/nist_cad_dl: STC v4 PDFs contain PRC streams; MTC assembly contains a JT), QIF 3.0 of six NIST models
   (daten/qif, from github.com/QualityInformationFramework/qif-community – licence not stated, therefore not in the repo;
   the QIF test skips without them).
+
+Latest additions: PMI edit/delete (✎, project overrides `pmi_aenderungen`), smooth camera transitions
+(`_mit_fahrt`), ISO 14405 modifiers in dimension text, color map over all instances, PLY reader, notes compared by
+text, part numbers in the parts list, geometry/standard check rules (`pmi_bericht._norm_regeln`).
 
 ## Module map (new this session)
 kern: norm (ASME/ISO), merkmale (bill of characteristics), iso286, abweichung (color map + Skala), analyse,
