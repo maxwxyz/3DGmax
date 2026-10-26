@@ -179,3 +179,44 @@ Changelog DE/EN, HANDOFF.md, unfertiges auf `wip/...`, nach jedem Commit Push.
   einen Schalter (Standard: ohne TKJT). Wird mit Schritt 7 umgesetzt, damit es keinen Schalter ohne Funktion gibt.
 - Entschieden (2026-10-26): 3DGmax steht unter **GPL-3.0-or-later** – verträglich mit OCCT/pythonocc/PySide6 (LGPL)
   und TKJT (GPL v2+), auch bei Weitergabe einer App mit TKJT.
+
+## 9. Ergänzungen (2026-10-26, Nutzerwünsche)
+
+Übersicht umgesetzt/geplant: **[docs/Roadmap.md](docs/Roadmap.md)**. UI/UX-Grundsätze: **[docs/UIUX.md](docs/UIUX.md)**.
+
+### 9.1 Vergleich ausbauen
+- Geometrie exakt **und** angenähert (schnell) wie CATIA „Compare Products“: hinzugefügtes/entferntes Material als
+  Volumen, einstellbare Genauigkeit; Abweichungsfarbkarte mit Skala und Vorzeichen.
+- Verschobene Elemente erkennen (Fläche/Feature starr versetzt) und als „verschoben“ melden; ebenso PMI-Platzierung.
+- **Grafischer PMI-Vergleich** zusätzlich zum semantischen: Annotationen zuordnen (Lage, Form), verschoben/geändert/
+  neu/entfernt im 3D-Fenster einfärben.
+- Baugruppen vergleichen.
+- Mesh: STL/OBJ gegen CAD, Mesh gegen Mesh, 3D-Scan einpassen (Bestpassung, Bezugssystem/RPS) und vergleichen.
+
+### 9.2 Grafische PMI erschließen
+- Durchsuchbar machen: Annotationen offscreen rendern, Texterkennung (wie OCR in ZGmax), Text der Annotation zuordnen.
+- In semantische PMI umwandeln: erkannten Text + Rahmenstruktur (Toleranzrahmen, Bezugsdreieck) auswerten; Ergebnis
+  als „abgeleitet (prüfen)“ kennzeichnen, nie stillschweigend als echte Semantik.
+
+### 9.3 Toleranzzonen darstellen (Zukunft)
+- Für Rundheit, Zylindrizität, Koaxialität, Position, Flächen-/Linienprofil u. a. Hüllflächen erzeugen, die zeigen,
+  wie weit die Geometrie vom Nennmaß abweichen darf – inkl. Bezugssystem, Materialbedingung, unsymmetrischer Zonen (UZ),
+  projizierter Zonen.
+
+### 9.4 Annotieren und Kommentieren (Zukunft)
+- Kommentare/Änderungsvorschläge an Flächen, Kanten, PMI (in der Liste und am Modell), an geänderten PMI und
+  geänderter Geometrie im Vergleich; Speicherung im Projekt-Container, Export im Bericht.
+
+### 9.5 Berichte
+- PDF je gespeicherter Ansicht: eine Seite pro Ansicht mit Ansichtsname, Modellname, Datum, sichtbaren PMI (Bild +
+  Liste); dazu Vergleichsbericht und PMI-Änderungstabelle (Schritt 5).
+
+### 9.6 FMK (Zukunft, Umfang klären)
+- Aufnahme als Erweiterung; vor Umsetzung klären, was genau gemeint ist (z. B. Funktionsmaßkonzept, Mess-/
+  Prüfkonzept mit Merkmalsliste) und welche Formate/Vorlagen gelten.
+
+### 9.7 Testdaten
+- NIST: FTC/STC/CTC (AP242), D2MI 827-9999-904 rev C (AP242 mit PMI) ↔ 906 (gleiche Geometrie, ohne PMI),
+  FTC-06 ↔ STC-06 (gleiches Teil, vereinfachte PMI, andere Lage). Eigene Varianten: `werkzeuge/testmodelle.py`.
+- **JT mit PMI: keine freien Dateien gefunden** (NIST veröffentlicht nur STEP/native CAD; JT2Go-Beispiele unterliegen
+  der Siemens-Lizenz). Weg: JT aus eigenem CAD (NX/CATIA) der NIST-Modelle exportieren.

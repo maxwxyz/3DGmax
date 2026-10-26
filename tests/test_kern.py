@@ -115,3 +115,17 @@ def test_ansicht_blickrichtung_lesbar(ftc10):
             assert a.breite > 0 and a.abstand > 0
             zum_modell = [m - o for m, o in zip(mitte, a.ort)]
             assert sum(r * z for r, z in zip(a.richtung, zum_modell)) > 0, a.name  # Kamera blickt aufs Modell
+
+
+def test_release_versionssprung():
+    import importlib.util
+    import os
+    from tests.conftest import WURZEL
+    spec = importlib.util.spec_from_file_location("release", os.path.join(WURZEL, "packaging", "release.py"))
+    release = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(release)
+    assert release.naechste("0.1", "minor") == "0.2"
+    assert release.naechste("0.9", "major") == "1.0"
+    assert release.naechste("1.2", "patch") == "1.2.1"
+    text = release.markdown({"releases": [{"version": "0.2", "date": "2026-10-26", "de": ["A"], "en": ["B"]}]}, "de")
+    assert "## 0.2 (2026-10-26)" in text and "- A" in text

@@ -1,44 +1,43 @@
 # Übergabe (Stand 2026-10-26)
 
-Branch: `main`. Schritte 1 (Machbarkeit), 2 (Viewer) und 3 (Messen) fertig. **Pause nach Schritt 3** (Nutzerwunsch).
-Version 0.1 + unveröffentlichte Einträge in `programm/CHANGELOG.json`.
+Branch: `main` (keine weiteren Branches). Version 0.1 + viele unveröffentlichte Einträge in `programm/CHANGELOG.json`
+(Version erhöhen nur mit `pixi run python packaging/release.py minor --git`, dann `git push --follow-tags`).
+**Pause – wartet auf Eingabe des Nutzers.**
+
+## Abgleich Plan / Roadmap
+| Schritt (PLAN.md §5) | Stand |
+|---|---|
+| 1 Machbarkeit | ✅ |
+| 2 Viewer | ✅ (offen: Vorschaubilder je Ansicht, Cache/Detailstufen für große Baugruppen) |
+| 3 Messen | ✅ |
+| 4 Vergleich | ✅ Kern + Oberfläche (offen: Abweichungsfarbkarte mit Skala, Punktpaare in der Oberfläche, verschoben-Erkennung, grafischer PMI-Vergleich, Baugruppen, Mesh/Scan) |
+| 5 Ausgaben | ⬜ als Nächstes: PDF je Ansicht, Vergleichsbericht, PMI-Änderungstabelle, Projekt-Container, Ordnervergleich |
+| 6 Formate | ⬜ |
+| 7 JT über TKJT | ⬜ (keine freien JT-Testdateien mit PMI gefunden) |
+Details je Funktion: `docs/Roadmap.md`; Zukunftsthemen: PLAN.md §8–9 (Toleranzzonen, Annotieren, grafische PMI/OCR, FMK).
 
 ## Umgebung und Befehle
 ```bash
 pixi install                      # Python 3.14, pythonocc-core 8.0.1 (ohne VTK), PySide6 6.12, PyInstaller
-pixi run start                    # App starten (Datei dahinter möglich)
-pixi run test                     # alle Tests offscreen (~9 s); CI: pixi run test-ci (ausführlich, Zeitlimit)
-DG_BILDSCHIRM=1 pixi run python -m pytest -q tests/test_bildschirm.py   # echte 3D-Ansicht (Mac mit Bildschirm)
-pixi run selbsttest               # bzw. App mit --selbsttest; --bild out.png datei.stp speichert die 3D-Ansicht
+pixi run start                    # App starten
+pixi run test                     # 56 Tests offscreen (~60 s); CI: pixi run test-ci
+DG_BILDSCHIRM=1 pixi run python -m pytest -q tests/test_bildschirm.py   # echte 3D-Ansicht (Mac)
+pixi run python werkzeuge/testmodelle.py          # Varianten von CTC-01 (tests/daten/varianten)
 pixi run python werkzeuge/bildschirmfotos.py docs/bilder --thema hell|dunkel
-pixi run python packaging/make_icon.py   # Symbole aus packaging/logo.svg
-packaging/build_mac.sh [--ohne-tests]    # bzw. build_linux.sh / build_windows.bat → dist/
+packaging/build_mac.sh [--ohne-tests]             # lokal geprüft: Tests, Bau, Selbsttest, 3D-Bild
 ```
 
-## Aufbau
-- `programm/kern/`: `p21.py` (STEP-Graph), `laden.py`, `pmi*.py` (Semantik, Hinweise, Bezugsstellen), `ansichten.py`,
-  `praesentation.py` (grafische PMI inkl. Dateifarbe), `baum.py`, `farben.py`, `messen.py`.
-- `programm/ui/`: `hauptfenster.py`, `ansicht3d.py` (OCCT-Viewer), `navigation.py` (CATIA/klassisch, testbar),
-  `messwerkzeug.py`, `einstellungen.py`, `panels.py`, `lader.py`, `hilfe.py`, `thema.py`.
+## GitHub-Bau
+Workflow „Apps bauen“ ist korrigiert (Cache, VTK/Qt-DLL-Konflikt Windows, Zeitlimits). **Läufe werden von GitHub
+nicht gestartet (Zahlung/Ausgabenlimit des Kontos).** Nach Klärung: `gh workflow run "Apps bauen" -f plattform=alle -f tests=true`.
+
+## Testdaten
+- NIST AP242 (daten/nist, nicht im Repo), Auswahl in tests/daten; D2MI 904 rev C ↔ 906 (daten/nist_d2mi).
+- NIST CAD-Archive (native CAD, Zeichnungen) in daten/nist_cad_dl – keine JT/3D-PDF enthalten.
 
 ## Erkenntnisse (nicht offensichtlich)
-- OCCT-Viewer auf dem Mac rechnet in logischen Punkten.
-- Flächen mit eigener Farbe zeichnen keine Ränder → Kanten als eigene AIS-Ebene.
-- `ctx.MainSelector()` ist in pythonocc nicht nutzbar → Punkt unter der Maus per Sichtstrahl (`_punkt_unter_maus`).
-- Saved Views: Kamera blickt entlang **+z** der Platzierung (sonst Schrift gespiegelt), Fenster = PLANAR_BOX.
-- pythonocc mit VTK zieht unter Windows/Linux Qt aus conda → DLL-Konflikt mit PySide6 → `build = "novtk*"`.
+- OCCT-Viewer auf dem Mac in logischen Punkten; Flächen mit eigener Farbe ohne Ränder → Kanten als eigene Ebene.
+- `ctx.MainSelector()` in pythonocc unbrauchbar → Punkt unter der Maus per Sichtstrahl.
+- Saved Views: Kamera blickt entlang +z der Platzierung. pythonocc ohne VTK (`build = "novtk*"`).
+- Vergleich: Netzabstand nur Vorauswahl; Werte nahe/über Toleranz exakt gegen B-Rep. Feinpassung Punkt-zu-Ebene-ICP.
 - Offscreen-Rendering stürzt auf macOS ab → Tests mit Platzhalter, echter 3D-Test separat.
-
-## GitHub-Bau
-- Workflow „Apps bauen“ (Plattform wählbar, Tests an/aus, Zeitlimit 60 min/Job, Tests mit 300 s je Test).
-- Korrigiert: setup-pixi-Cache, VTK/Qt-DLL-Konflikt (Windows), Hänger abgesichert (modale Dialoge in Tests).
-- **Läufe seit 26.10. nicht gestartet: GitHub-Konto (Zahlung/Ausgabenlimit) – Nutzer muss das klären.**
-  Danach: `gh workflow run "Apps bauen" -f plattform=alle -f tests=true` und Ergebnis prüfen.
-- Lokal gebaut und geprüft: macOS-arm64 (Selbsttest, 3D-Bild aus der .app, Symbol).
-
-## Offen / nächster Schritt
-- Schritt 4: Vergleich zweier Stände (Ausrichten, Flächenzuordnung, Farbkarte, PMI-Diff, Änderungsliste, Prüfen).
-- Aus PLAN.md 8.1/8.2: Ansichten vor/zurück + Vorschaubilder, gezielte Suche (bezug:/wert:/typ:), Ansichtssuche.
-- JT über TKJT (GPL v2+) als Bau-Variante – mit Schritt 7.
-- Lizenz von 3DGmax festlegen (Vorschlag wie ZGmax: AGPL-3.0; verträglich mit TKJT).
-- Nutzer: JT-, 3D-PDF- und eigene STEP-Beispiele liefern.
