@@ -50,6 +50,7 @@ class AnsichtBasis(QtWidgets.QWidget):
     pmi_gewaehlt = QtCore.Signal(set)  # STEP-#IDs der angeklickten grafischen PMI
     element_gewaehlt = QtCore.Signal(object, object)  # Messmodus: TopoDS-Form, Punkt (x, y, z)
     auswahl_geaendert = QtCore.Signal(list)  # 3D-Auswahl (Flaechen/Kanten)
+    ausricht_punkt = QtCore.Signal(str, object, object)  # "neu"/"alt", Form, Punkt (x, y, z) in Anzeigekoordinaten
     kontextmenue = QtCore.Signal(object)  # globale Bildschirmposition (QPoint)
     meldung = QtCore.Signal(str)
 
@@ -61,6 +62,7 @@ class AnsichtBasis(QtWidgets.QWidget):
         self.pmi_ids_sichtbar: set[int] | None = None  # None = alle
         self.pmi_ids_hervor: set[int] = set()
         self.grafik_an = True
+        self.grafik_nur_auswahl = False  # nur die gewaehlten PMI als Grafik zeigen
         self.hilfsgeometrie_an = False
         self.versteckt: set[int] = set()
         self.transparent: set[int] = set()
@@ -80,6 +82,7 @@ class AnsichtBasis(QtWidgets.QWidget):
         self.letzte_ausrichtung = None
         self.auswahl3d: list = []  # gewaehlte Flaechen/Kanten (TopoDS)
         self.schnitt_eigen = None  # (punkt, normale) fuer Schnitt an Auswahl / aus Blickrichtung
+        self.ausricht_alt = None  # Form des alten Stands im Modus "manuell ausrichten", sonst None
 
     # --- Schnittstelle (Unterklassen ergaenzen die Darstellung) ---
 
@@ -99,8 +102,9 @@ class AnsichtBasis(QtWidgets.QWidget):
     def hebe_pmi(self, ids: set[int]):
         self.pmi_ids_hervor = set(ids)
 
-    def setze_grafik(self, an: bool):
+    def setze_grafik(self, an: bool, nur_auswahl: bool = False):
         self.grafik_an = an
+        self.grafik_nur_auswahl = nur_auswahl
 
     def setze_hilfsgeometrie(self, an: bool):
         self.hilfsgeometrie_an = an
@@ -191,6 +195,14 @@ class AnsichtBasis(QtWidgets.QWidget):
     def schnitt_anteil_von_punkt(self, achse) -> float | None:
         """Reglerstellung, bei der die Ebene durch den Auswahlpunkt geht (ohne 3D-Grafik: unbekannt)."""
         return None
+
+    def setze_ausrichtmodus(self, alt_form):
+        """Manuell ausrichten: alten Stand halbdurchsichtig zeigen, Klicks liefern Punkte an 'neu' und 'alt'."""
+        self.ausricht_alt = alt_form
+
+    def umdrehen(self):
+        """Blick von der Gegenseite (180 Grad um die Hochachse)."""
+        self.umgedreht = not getattr(self, "umgedreht", False)
 
     def bild(self, pfad: str) -> bool:
         return False
@@ -420,6 +432,40 @@ class OcctAnsicht(AnsichtBasis):
         if self._bereit and self.szene is not None:
             self._baue_szene()
 
+    def setze_ausrichtmodus(self, alt_form):
+        super().setze_ausrichtmodus(alt_form)
+        if not self._bereit:
+            return
+        from OCC.Core.AIS import AIS_Shape
+        ctx = self.d.Context
+        if getattr(self, "_alt_ais", None) is not None:
+            ctx.Remove(self._alt_ais, False)
+            self._alt_ais = None
+        if alt_form is not None:
+            ais = AIS_Shape(alt_form)
+            ais.SetColor(_farbe((0.25, 0.55, 0.95)))
+            ctx.Display(ais, 1, -1, False)
+            ctx.SetTransparency(ais, 0.6, False)
+            ctx.Deactivate(ais)
+            for modus in (1, 2, 4):
+                ctx.Activate(ais, modus, False)
+            self._alt_ais = ais
+        self.messmodus = alt_form is not None or self.messmodus
+        self._aktiviere_auswahl()
+        self._neu_zeichnen()
+
+    def umdrehen(self):
+        super().umdrehen()
+        if not self._bereit:
+            return
+        from OCC.Core.gp import gp_Pnt
+        cam = self.d.View.Camera()
+        c, e = cam.Center(), cam.Eye()
+        cam.SetEye(gp_Pnt(2 * c.X() - e.X(), 2 * c.Y() - e.Y(), 2 * c.Z() - e.Z()))
+        self.d.View.ZFitAll()
+        self._kamera_bewegt()
+        self._neu_zeichnen()
+
     def _baue_grafik(self):
         from OCC.Core.AIS import AIS_Shape, AIS_TextLabel
         from OCC.Core.Graphic3d import Graphic3d_ZLayerId_Top
@@ -434,7 +480,7 @@ class OcctAnsicht(AnsichtBasis):
             if form is not None:
                 ais = AIS_Shape(form)
                 ais.SetColor(farbe)
-                ais.SetWidth(1.4)
+                ais.SetWidth(2.0)
                 liste.append(ais)
             for ph, text in texte:
                 lab = AIS_TextLabel()
@@ -484,7 +530,8 @@ class OcctAnsicht(AnsichtBasis):
         for cid, liste in self._callouts.items():
             normal = _farbe(self.pmi_farbe(self.szene.grafik[cid]))
             g = self.szene.grafik[cid]
-            zeigen = self.grafik_an and (self.pmi_ids_sichtbar is None or bool(g.pmi_ids & self.pmi_ids_sichtbar))
+            zeigen = self.grafik_an and not self.grafik_nur_auswahl and \
+                (self.pmi_ids_sichtbar is None or bool(g.pmi_ids & self.pmi_ids_sichtbar))
             hervor = bool(g.pmi_ids & self.pmi_ids_hervor)
             zeigen = zeigen or hervor
             for ais in liste:
@@ -534,8 +581,8 @@ class OcctAnsicht(AnsichtBasis):
         super().hebe_pmi(ids)
         self._wende_sichtbarkeit_an()
 
-    def setze_grafik(self, an):
-        super().setze_grafik(an)
+    def setze_grafik(self, an, nur_auswahl=False):
+        super().setze_grafik(an, nur_auswahl)
         self._wende_sichtbarkeit_an()
 
     def setze_hilfsgeometrie(self, an):
@@ -997,6 +1044,16 @@ class OcctAnsicht(AnsichtBasis):
         cid = next((c for a, c in self._ais_callout.items() if a == obj), None)
         if cid is not None:
             self.pmi_gewaehlt.emit(set(self.szene.grafik[cid].pmi_ids))
+            return
+        if self.ausricht_alt is not None and ctx.HasDetectedShape():
+            form = ctx.DetectedShape()
+            seite = "alt" if obj == getattr(self, "_alt_ais", None) else "neu"
+            if seite == "neu" and self.vergleich_trsf is not None:
+                from OCC.Core.TopLoc import TopLoc_Location
+                form = form.Moved(TopLoc_Location(self.vergleich_trsf))
+            p = self._punkt_unter_maus(x, y, form)
+            if p is not None:
+                self.ausricht_punkt.emit(seite, form, (p.X(), p.Y(), p.Z()))
             return
         if ctx.HasDetectedShape():
             form = ctx.DetectedShape()

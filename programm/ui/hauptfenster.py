@@ -12,7 +12,7 @@ from ..version import VERSION
 from . import ansicht3d, thema
 from .lader import Lader
 from .messwerkzeug import MessPanel
-from .vergleich_ui import AbschlussDialog, AenderungenPanel, VergleichDialog, VergleichsLader
+from .vergleich_ui import AbschlussDialog, AenderungenPanel, AusrichtPanel, VergleichDialog, VergleichsLader
 from .panels import AnsichtenPanel, BaumPanel, PmiPanel
 
 DATEIFILTER = "STEP / 3DGmax (*.stp *.step *.STP *.STEP *.3dgmax);;STEP (*.stp *.step *.STP *.STEP);;3DGmax (*.3dgmax)"
@@ -143,6 +143,21 @@ class Hauptfenster(QtWidgets.QMainWindow):
         self._verbinde()
         self._modell_da(False)
         self.start.zeige_zuletzt(self.zuletzt())
+        self._spalten_verschiebbar()
+
+    def _tabellen(self):
+        return {"pmi": self.pmi.tabelle, "messen": self.messen.tabelle, "aenderungen": self.aenderungen.tabelle}
+
+    def _spalten_verschiebbar(self):
+        """Spalten per Drag-and-drop umordnen; Anordnung wird je Tabelle gemerkt."""
+        for name, t in self._tabellen().items():
+            kopf = t.horizontalHeader()
+            kopf.setSectionsMovable(True)
+            kopf.setToolTip(tr("Spalten per Drag-and-drop umordnen"))
+            zustand = self.ein.value(f"spalten_{name}")
+            if zustand:
+                kopf.restoreState(zustand)
+            kopf.sectionMoved.connect(lambda *_a, n=name, k=kopf: self.ein.setValue(f"spalten_{n}", k.saveState()))
 
     @staticmethod
     def _titel(datei: str = "") -> str:
@@ -180,6 +195,10 @@ class Hauptfenster(QtWidgets.QMainWindow):
         A("vergleichen", tr("Vergleichen …"), lambda: self.starte_vergleich(), "Ctrl+Shift+V",
           tipp=tr("Zwei Stände eines Modells vergleichen (Geometrie und PMI)"), modell=False)
         A("vergleich_beenden", tr("Vergleich beenden"), self.beende_vergleich, tipp=tr("Zurück zur normalen Ansicht"))
+        A("manuell_ausrichten", tr("Manuell ausrichten …"), self.starte_manuell_ausrichten,
+          tipp=tr("Punktpaare am neuen und alten Stand wählen, wenn die automatische Ausrichtung nicht passt"))
+        A("umdrehen", tr("Ansicht umdrehen"), lambda: self.ansicht.umdrehen(), "U",
+          tipp=tr("Von der Gegenseite schauen (180° um die Hochachse)"))
         A("ordnervergleich", tr("Ordner vergleichen …"), self.zeige_ordnervergleich,
           tipp=tr("Alle Modelle zweier Ordner paarweise vergleichen (Übersicht)"), modell=False)
         A("zoom_auswahl", tr("Auf Auswahl zoomen"), self._zoome_auswahl, "Z",
@@ -222,6 +241,8 @@ class Hauptfenster(QtWidgets.QMainWindow):
             a = A("darstellung_" + n, text, lambda _=False, n=n: self.ansicht.darstellung(n), k, pruefbar=True)
             gruppe.addAction(a)
         self.aktionen["darstellung_kanten"].setChecked(True)
+        A("grafik_auswahl", tr("Nur gewählte PMI zeigen"), self._grafik_umschalten, "Shift+G", pruefbar=True,
+          tipp=tr("Beschriftungen nur für die in der Liste gewählten PMI zeigen"))
         A("grafik", tr("Grafische PMI zeigen"), self._grafik_umschalten, "G", pruefbar=True,
           tipp=tr("PMI-Beschriftungen im 3D-Modell ein/aus"))
         self.aktionen["grafik"].setChecked(True)
@@ -270,6 +291,9 @@ class Hauptfenster(QtWidgets.QMainWindow):
         A("neu", tr("Was ist neu"), self.zeige_neu, modell=False)
         A("ueber", tr("Über 3DGmax"), self.zeige_ueber, modell=False)
 
+    VERGLEICH_AKTIONEN = ("vergleich_beenden", "aenderungen_export", "pdf_vergleich", "pdf_pmi_aenderungen",
+                          "manuell_ausrichten")
+
     def _baue_menues(self):
         mb = self.menuBar()
         a = self.aktionen
@@ -279,6 +303,7 @@ class Hauptfenster(QtWidgets.QMainWindow):
         m.addSeparator()
         m.addAction(a["vergleichen"])
         m.addAction(a["ordnervergleich"])
+        m.addAction(a["manuell_ausrichten"])
         m.addAction(a["vergleich_beenden"])
         m.addSeparator()
         m.addAction(a["projekt_speichern"])
@@ -301,6 +326,7 @@ class Hauptfenster(QtWidgets.QMainWindow):
         m.addAction(a["alles"])
         m.addAction(a["zoom_auswahl"])
         m.addAction(a["normal_auswahl"])
+        m.addAction(a["umdrehen"])
         m.addAction(a["ansicht_vor"])
         m.addAction(a["ansicht_zurueck"])
         m.addAction(a["drehpunkt"])
@@ -309,6 +335,7 @@ class Hauptfenster(QtWidgets.QMainWindow):
             m.addAction(a["darstellung_" + n])
         m.addSeparator()
         m.addAction(a["grafik"])
+        m.addAction(a["grafik_auswahl"])
         m.addAction(a["hilfsgeometrie"])
         m.addSeparator()
         ms = m.addMenu(tr("Schnitt"))
@@ -417,8 +444,7 @@ class Hauptfenster(QtWidgets.QMainWindow):
         if not da:
             self.dock_messen.hide()
             self.messen.setze_modus(None)
-        self.aktionen["vergleich_beenden"].setEnabled(da and self.vergleich is not None)
-        for n in ("aenderungen_export", "pdf_vergleich", "pdf_pmi_aenderungen"):
+        for n in self.VERGLEICH_AKTIONEN:
             self.aktionen[n].setEnabled(da and self.vergleich is not None)
 
     # --- Laden ---
@@ -606,6 +632,9 @@ class Hauptfenster(QtWidgets.QMainWindow):
             ex = TopExp_Explorer(k.form, TopAbs_FACE)
             while ex.More():
                 if self.erg.modell.flaechen_index(ex.Current()) == ziel:
+                    if self.vergleich is not None:  # wie angezeigt: ins System des alten Stands verschoben
+                        from OCC.Core.TopLoc import TopLoc_Location
+                        return k.form.Moved(TopLoc_Location(self.vergleich.ausrichtung.gp_trsf()))
                     return k.form
                 ex.Next()
         return None
@@ -695,11 +724,48 @@ class Hauptfenster(QtWidgets.QMainWindow):
         self.aenderungen.zeige(v, self.thema)
         self.dock_aenderungen.show()
         self.dock_aenderungen.raise_()
-        self.aktionen["vergleich_beenden"].setEnabled(True)
-        for n in ("aenderungen_export", "pdf_vergleich", "pdf_pmi_aenderungen"):
+        for n in self.VERGLEICH_AKTIONEN:
             self.aktionen[n].setEnabled(True)
         self.setWindowTitle(self._titel(f"{os.path.basename(v.alt.pfad)} → {os.path.basename(v.neu.pfad)}"))
         self.statusBar().showMessage(tr("Vergleich fertig: {} Änderungen").format(len(v.aenderungen)), 8000)
+
+    def starte_manuell_ausrichten(self):
+        if self.vergleich is None:
+            return None
+        v = self.vergleich
+        self._ausricht = AusrichtPanel(v.ausrichtung.matrix, self.ansicht.fang_toleranz, self)
+        self.ansicht.setze_ausrichtmodus(v.alt.modell.form)
+        self.ansicht.ausricht_punkt.connect(self._ausricht.punkt)
+        self._ausricht.ausrichten.connect(self._neu_ausrichten)
+        self._ausricht.beendet.connect(self._ausrichten_beenden)
+        self._ausricht.show()
+        return self._ausricht
+
+    def _ausrichten_beenden(self):
+        try:
+            self.ansicht.ausricht_punkt.disconnect(self._ausricht.punkt)
+        except (RuntimeError, TypeError):
+            pass
+        self.ansicht.setze_ausrichtmodus(None)
+        self.ansicht.setze_messmodus(self.messen.modus is not None)
+
+    def _neu_ausrichten(self, ausrichtung, warten: bool = False):
+        """Vergleich mit der manuell bestimmten Ausrichtung neu rechnen (Pruefstand wird uebernommen)."""
+        v = self.vergleich
+        self._projekt = {"vergleich": {"aenderungen": [{"nr": a.nummer, "titel": a.titel, "pruefstatus": a.pruefstatus,
+                                                         "kommentar": a.kommentar} for a in v.aenderungen]}}
+        werte = {"alt": v.alt.pfad, "neu": v.neu.pfad, "toleranz": v.toleranz, "suchweite": v.suchweite}
+        self.statusBar().showMessage(tr("Vergleiche …"))
+        self.fortschritt.show()
+        self._vlader = VergleichsLader(werte, v.alt, self, neu_geladen=v.neu, ausrichtung=ausrichtung)
+        self._vlader.stand.connect(lambda t: self.statusBar().showMessage(t))
+        self._vlader.fertig.connect(self._vergleich_fertig)
+        self._vlader.fehler.connect(self._ladefehler)
+        self._vlader.start()
+        if warten:
+            self._vlader.wait()
+            QtWidgets.QApplication.processEvents()
+            QtWidgets.QApplication.processEvents()
 
     def beende_vergleich(self, neu_zeigen: bool = True):
         if self.vergleich is None:
@@ -708,8 +774,7 @@ class Hauptfenster(QtWidgets.QMainWindow):
         self.ansicht.zeige_vergleich(None)
         self.aenderungen.zeige(None)
         self.dock_aenderungen.hide()
-        self.aktionen["vergleich_beenden"].setEnabled(False)
-        for n in ("aenderungen_export", "pdf_vergleich", "pdf_pmi_aenderungen"):
+        for n in self.VERGLEICH_AKTIONEN:
             self.aktionen[n].setEnabled(False)
         if neu_zeigen and self.erg is not None:
             self.setWindowTitle(self._titel(os.path.basename(self.erg.pfad)))
@@ -832,6 +897,7 @@ class Hauptfenster(QtWidgets.QMainWindow):
         m.addSeparator()
         m.addAction(a["messen"])
         m.addAction(a["alles"])
+        m.addAction(a["umdrehen"])
         std = m.addMenu(tr("Standardansicht"))
         for n in ansicht3d.STANDARDANSICHTEN:
             std.addAction(a["ansicht_" + n])
@@ -914,7 +980,9 @@ class Hauptfenster(QtWidgets.QMainWindow):
             self.ansichten.waehle_name(wert)
 
     def _grafik_umschalten(self):
-        self.ansicht.setze_grafik(self.aktionen["grafik"].isChecked())
+        an = self.aktionen["grafik"].isChecked()
+        self.aktionen["grafik_auswahl"].setEnabled(an and self.erg is not None)
+        self.ansicht.setze_grafik(an, self.aktionen["grafik_auswahl"].isChecked())
 
     def _hilfe_umschalten(self):
         self.ansicht.setze_hilfsgeometrie(self.aktionen["hilfsgeometrie"].isChecked())

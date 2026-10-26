@@ -30,6 +30,8 @@ def tr_texte() -> set[str]:
     from programm.ui import einstellungen, hilfe, messwerkzeug, panels, vergleich_ui
     from programm.ui import berichte, ordnervergleich_ui
     out |= set(ordnervergleich_ui.STATUS_TEXT.values())
+    from programm.ui import vergleich_ui as vu
+    out |= set(vu.AusrichtPanel.ART_TEXT.values()) | {"Ausrichtung nicht eindeutig – weitere Elemente wählen"}
     out |= {t for t, _ in berichte.PMI_SPALTEN + berichte.AENDERUNG_SPALTEN} | {"Status", "Alt", "Neu"}
     from programm.kern import pmi_bericht, pruefung
     out |= {pmi_bericht.FEHLER, pmi_bericht.WARNUNG, pmi_bericht.INFO} | set(pmi_bericht.CSV_SPALTEN)

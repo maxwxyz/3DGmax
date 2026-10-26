@@ -313,3 +313,96 @@ def richte_nach_punkten(paare_b: list, paare_a: list) -> Ausrichtung:
     m = kabsch(b, a)
     rest = np.linalg.norm(b @ m[:3, :3].T + m[:3, 3] - a, axis=1)
     return Ausrichtung(m, "punkte", float(rest.mean()), float(np.mean(rest < 0.05)))
+
+
+# --- Manuell: Elementpaare (Punkt, Ebene, Achse) ---
+
+PUNKT, EBENE, ACHSE = "punkt", "ebene", "achse"
+
+
+def element_von(form, punkt, gefangen: bool = False):
+    """Element fuer die Ausrichtung: gefangener Punkt -> Punkt, ebene Flaeche -> Ebene,
+    Zylinder/Kegel/Kreiskante -> Achse, sonst Punkt (Klickpunkt). Rueckgabe (art, ort (3,), richtung (3,)|None)."""
+    from OCC.Core.BRepAdaptor import BRepAdaptor_Curve, BRepAdaptor_Surface
+    from OCC.Core.GeomAbs import GeomAbs_Circle, GeomAbs_Cone, GeomAbs_Cylinder, GeomAbs_Plane
+    from OCC.Core.TopAbs import TopAbs_EDGE, TopAbs_FACE, TopAbs_REVERSED
+    from OCC.Core.TopoDS import topods
+    p = np.asarray(punkt, float)
+    if gefangen or form is None:
+        return PUNKT, p, None
+    if form.ShapeType() == TopAbs_FACE:
+        s = BRepAdaptor_Surface(topods.Face(form))
+        if s.GetType() == GeomAbs_Plane:
+            n = s.Plane().Axis().Direction()
+            v = np.array([n.X(), n.Y(), n.Z()])
+            return EBENE, p, (-v if form.Orientation() == TopAbs_REVERSED else v)
+        if s.GetType() in (GeomAbs_Cylinder, GeomAbs_Cone):
+            ax = (s.Cylinder() if s.GetType() == GeomAbs_Cylinder else s.Cone()).Axis()
+            o, d = ax.Location(), ax.Direction()
+            return ACHSE, np.array([o.X(), o.Y(), o.Z()]), np.array([d.X(), d.Y(), d.Z()])
+    if form.ShapeType() == TopAbs_EDGE:
+        c = BRepAdaptor_Curve(topods.Edge(form))
+        if c.GetType() == GeomAbs_Circle:
+            ax = c.Circle().Axis()
+            o, d = ax.Location(), ax.Direction()
+            return ACHSE, np.array([o.X(), o.Y(), o.Z()]), np.array([d.X(), d.Y(), d.Z()])
+    return PUNKT, p, None
+
+
+def _rotation(v: np.ndarray) -> np.ndarray:
+    """Rodrigues: Drehvektor -> Drehmatrix."""
+    w = float(np.linalg.norm(v))
+    if w < 1e-15:
+        return np.eye(3)
+    k = v / w
+    kx = np.array([[0, -k[2], k[1]], [k[2], 0, -k[0]], [-k[1], k[0], 0]])
+    return np.eye(3) + np.sin(w) * kx + (1 - np.cos(w)) * kx @ kx
+
+
+def _reste(x, paare, gewicht_richtung=50.0):
+    r, t = _rotation(x[:3]), x[3:]
+    out = []
+    for art, (ob, db), (oa, da) in paare:
+        pb = r @ ob + t
+        if art == PUNKT:
+            out += list(pb - oa)
+        elif art == EBENE:
+            out.append(float(da @ (pb - oa)))
+            out += list(gewicht_richtung * (r @ db - da))
+        else:  # Achse: Richtung (Vorzeichen egal) und Abstand des Achspunkts zur Gegenachse
+            rb = r @ db
+            rb = rb if rb @ da >= 0 else -rb
+            out += list(gewicht_richtung * (rb - da))
+            d = pb - oa
+            out += list(d - da * (d @ da))
+    return np.array(out)
+
+
+def richte_nach_elementen(paare: list) -> Ausrichtung:
+    """paare: [(art, (ort_b, richtung_b), (ort_a, richtung_a))] mit B im Originalsystem.
+    Loest die starre Abbildung B -> A; ValueError, wenn die Elemente die Lage nicht eindeutig festlegen."""
+    from scipy.optimize import least_squares
+    if not paare:
+        raise ValueError("Ausrichtung nicht eindeutig – weitere Elemente wählen")
+    pkt = [(ob, oa) for art, (ob, _), (oa, _) in paare if art == PUNKT]
+    start = np.zeros(6)
+    if len(pkt) >= 3:
+        m = kabsch(np.array([b for b, _ in pkt]), np.array([a for _, a in pkt]))
+        from scipy.spatial.transform import Rotation
+        start[:3] = Rotation.from_matrix(m[:3, :3]).as_rotvec()
+        start[3:] = m[:3, 3]
+    ergebnis = None
+    for versuch in range(8):  # mehrere Startwerte gegen Nebenminima (z. B. 180 Grad gedreht)
+        x0 = start.copy() if versuch == 0 else np.concatenate([np.random.default_rng(versuch).normal(size=3) * 1.5,
+                                                               start[3:]])
+        loes = least_squares(_reste, x0, args=(paare,), method="lm" if len(_reste(x0, paare)) >= 6 else "trf")
+        if ergebnis is None or loes.cost < ergebnis.cost:
+            ergebnis = loes
+        if loes.cost < 1e-12:
+            break
+    rang = np.linalg.matrix_rank(ergebnis.jac, tol=1e-6)
+    if rang < 6:
+        raise ValueError("Ausrichtung nicht eindeutig – weitere Elemente wählen")
+    m = _matrix(_rotation(ergebnis.x[:3]), ergebnis.x[3:])
+    rest = float(np.sqrt(2 * ergebnis.cost / max(len(ergebnis.fun), 1)))
+    return Ausrichtung(m, "punkte", rest, 1.0 if rest < 0.05 else 0.0)

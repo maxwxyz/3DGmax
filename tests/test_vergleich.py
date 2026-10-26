@@ -212,3 +212,53 @@ def test_pmi_name_wird_verglichen():
     b = Pmi(TOLERANZ, typ="Flatness", name="Ebenheit Dichtfläche", wert=0.1, flaechen={1}, nummer=1)
     r = vergleiche_pmi([a], [b])
     assert r[0].status == "geaendert" and r[0].felder == [("name", "Flatness.1", "Ebenheit Dichtfläche")]
+
+
+def test_manuell_ausrichten(fenster):
+    """Punktpaare: neuer Stand um 20 mm in x verschoben -> drei Paare -> Ausrichtung findet die Verschiebung."""
+    import numpy as np
+    f = fenster
+    f.starte_vergleich({"alt": pfad("nist_ctc_01_asme1_ap242-e1.stp"), "neu": pfad("varianten/ctc01_pmi.stp"),
+                        "toleranz": 0.01, "suchweite": 2.0}, warten=True)
+    panel = f.starte_manuell_ausrichten()
+    assert f.ansicht.ausricht_alt is not None
+    from OCC.Core.BRepBuilderAPI import BRepBuilderAPI_MakeVertex
+    from OCC.Core.gp import gp_Pnt
+    panel.fang.setChecked(False)
+    for p in ([0, 0, 0], [50, 0, 0], [0, 30, 10]):
+        neu = (p[0] + 20.0, p[1], p[2])  # Anzeigekoordinaten des neuen Stands (aktuell Einheitsmatrix)
+        panel.punkt("neu", BRepBuilderAPI_MakeVertex(gp_Pnt(*neu)).Vertex(), neu)
+        panel.punkt("alt", BRepBuilderAPI_MakeVertex(gp_Pnt(*p)).Vertex(), tuple(p))
+    assert panel.los.isEnabled()
+    a = panel.berechne()
+    assert np.allclose(a.matrix[:3, 3], [-20, 0, 0], atol=1e-6)
+    f._neu_ausrichten(a, warten=True)
+    assert f.vergleich.ausrichtung.methode == "punkte"
+    panel.close()
+    assert f.ansicht.ausricht_alt is None
+    f.aktionen["umdrehen"].trigger()
+    assert getattr(f.ansicht, "umgedreht", False)
+
+
+def test_ausrichten_nach_ebenen_und_achsen():
+    """Drei Ebenen (3-2-1) bzw. Ebene + zwei Achsen legen die Lage fest; zwei Ebenen nicht."""
+    import numpy as np
+    from programm.kern import ausrichten as au
+    from scipy.spatial.transform import Rotation
+    r = Rotation.from_rotvec([0.3, -0.2, 0.9]).as_matrix()
+    t = np.array([12.0, -4.0, 7.0])
+
+    def b_von(o, d):  # Element im neuen Stand (B) aus dem alten (A): B = R^-1 (A - t)
+        return (r.T @ (o - t), None if d is None else r.T @ d)
+
+    ebenen = [(np.array([0, 0, 0.0]), np.array([0, 0, 1.0])), (np.array([0, 0, 0.0]), np.array([1, 0, 0.0])),
+              (np.array([0, 0, 0.0]), np.array([0, 1, 0.0]))]
+    paare = [(au.EBENE, b_von(o, d), (o, d)) for o, d in ebenen]
+    a = au.richte_nach_elementen(paare)
+    assert np.allclose(a.matrix[:3, :3], r, atol=1e-6) and np.allclose(a.matrix[:3, 3], t, atol=1e-6)
+    achsen = [(np.array([10, 0, 0.0]), np.array([0, 0, 1.0])), (np.array([0, 20, 0.0]), np.array([0, 0, 1.0]))]
+    paare2 = [paare[0]] + [(au.ACHSE, b_von(o, d), (o, d)) for o, d in achsen]
+    a2 = au.richte_nach_elementen(paare2)
+    assert np.allclose(a2.matrix[:3, 3], t, atol=1e-5)
+    with pytest.raises(ValueError):
+        au.richte_nach_elementen(paare[:2])

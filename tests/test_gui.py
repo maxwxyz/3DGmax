@@ -28,9 +28,8 @@ def test_laden_fuellt_alles(fenster_ctc01):
     assert f.baum.baum.topLevelItemCount() == 1
     # "Schnittseite umkehren" ist ohne aktiven Schnitt bewusst ausgegraut
     # ohne aktiven Schnitt bzw. Vergleich bewusst ausgegraut
-    assert all(a.isEnabled() for n, a in f.aktionen.items()
-               if n not in ("schnitt_umkehren", "vergleich_beenden", "aenderungen_export", "pdf_vergleich",
-                            "pdf_pmi_aenderungen"))
+    aus = {"schnitt_umkehren"} | set(f.VERGLEICH_AKTIONEN)
+    assert all(a.isEnabled() for n, a in f.aktionen.items() if n not in aus)
     assert not f.aktionen["schnitt_umkehren"].isEnabled()
     assert os.path.basename(f.zuletzt()[0]) == "nist_ctc_01_asme1_ap242-e1.stp"
 
@@ -238,3 +237,16 @@ def test_pmi_pruefung_regeln():
     assert any("nicht definierte Bezüge: C" in t for t in texte)
     assert any("Richtungs-/Lauftoleranz ohne Bezug" in t for t in texte)
     assert any("Formtoleranz mit Bezug" in t for t in texte)
+
+
+def test_spalten_verschiebbar_und_gemerkt(app, tmp_path, monkeypatch):
+    monkeypatch.setenv("DG_EINSTELLUNGEN", str(tmp_path / "e.ini"))
+    from programm.ui.hauptfenster import Hauptfenster
+    f = Hauptfenster()
+    kopf = f.pmi.tabelle.horizontalHeader()
+    assert kopf.sectionsMovable()
+    kopf.moveSection(kopf.visualIndex(3), 0)  # "Wert" nach vorne
+    f.close()
+    g = Hauptfenster()
+    assert g.pmi.tabelle.horizontalHeader().visualIndex(3) == 0
+    g.close()

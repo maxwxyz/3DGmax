@@ -88,10 +88,12 @@ class VergleichsLader(QtCore.QThread):
     fehler = QtCore.Signal(str)
     stand = QtCore.Signal(str)
 
-    def __init__(self, werte: dict, alt_geladen=None, parent=None):
+    def __init__(self, werte: dict, alt_geladen=None, parent=None, neu_geladen=None, ausrichtung=None):
         super().__init__(parent)
         self.werte = werte
         self.alt_geladen = alt_geladen
+        self.neu_geladen = neu_geladen
+        self.ausrichtung = ausrichtung
         self.abgebrochen = False
 
     def run(self):
@@ -102,8 +104,9 @@ class VergleichsLader(QtCore.QThread):
             alt = self.alt_geladen if self.alt_geladen is not None and \
                 os.path.samefile(self.alt_geladen.pfad, w["alt"]) else lade_alles(w["alt"], self.stand.emit)
             self.stand.emit(tr("Neuen Stand laden …"))
-            neu = lade_alles(w["neu"], self.stand.emit)
-            v = vergleich.vergleiche(alt, neu, w["toleranz"], w["suchweite"], fortschritt=lambda t: self.stand.emit(tr(t)))
+            neu = self.neu_geladen if self.neu_geladen is not None else lade_alles(w["neu"], self.stand.emit)
+            v = vergleich.vergleiche(alt, neu, w["toleranz"], w["suchweite"], ausrichtung=self.ausrichtung,
+                                     fortschritt=lambda t: self.stand.emit(tr(t)))
         except Exception as e:  # noqa: BLE001 - Fehler dem Nutzer zeigen
             if not self.abgebrochen:
                 self.fehler.emit(f"{e}\n\n{traceback.format_exc(limit=3)}")
@@ -359,3 +362,128 @@ class AbschlussDialog(QtWidgets.QDialog):
     def werte(self) -> dict:
         return {"pruefer": self.pruefer.text().strip(), "ergebnis": self.ergebnis.currentData(),
                 "bemerkung": self.bemerkung.toPlainText().strip()}
+
+
+class AusrichtPanel(QtWidgets.QDialog):
+    """Manuell ausrichten: Elementpaare neu -> alt (Punkte, ebene Flaechen, Achsen), bis die Lage eindeutig ist."""
+
+    ausrichten = QtCore.Signal(object)  # kern.ausrichten.Ausrichtung (B -> A)
+    beendet = QtCore.Signal()
+
+    ART_TEXT = {"punkt": "Punkt", "ebene": "Ebene", "achse": "Achse"}
+
+    def __init__(self, trsf_jetzt, toleranz=lambda: 1.0, parent=None):
+        super().__init__(parent)
+        import numpy as np
+        self.setWindowTitle(tr("Manuell ausrichten"))
+        self.setMinimumWidth(560)
+        self.m_jetzt = np.asarray(trsf_jetzt, float)  # aktuelle Abbildung B -> Anzeige (A)
+        self.toleranz = toleranz
+        self.paare: list = []  # (art, (ort_b, richtung_b) Original B, (ort_a, richtung_a))
+        self.offen = None  # Element neu (Originalsystem), wartet auf Gegenstueck
+        self.ergebnis = None
+        lay = QtWidgets.QVBoxLayout(self)
+        hinweis = QtWidgets.QLabel(tr("Abwechselnd ein Element am neuen Stand und das passende am alten Stand (blau, "
+                                      "durchscheinend) anklicken: Punkte (Fang an Ecken, Kantenmitten, Kreismitten), "
+                                      "ebene Flächen oder Achsen (Bohrung, Kreiskante). Z. B. drei Flächen oder drei "
+                                      "Punkte – so viele, bis die Lage eindeutig ist."))
+        hinweis.setWordWrap(True)
+        lay.addWidget(hinweis)
+        self.stand = QtWidgets.QLabel("")
+        self.stand.setObjectName("leise")
+        self.stand.setWordWrap(True)
+        lay.addWidget(self.stand)
+        self.fang = QtWidgets.QCheckBox(tr("Fangen an Endpunkt, Mitte, Kreismitte"))
+        self.fang.setChecked(True)
+        lay.addWidget(self.fang)
+        self.tabelle = QtWidgets.QTableWidget(0, 4)
+        self.tabelle.setHorizontalHeaderLabels([tr("Nr"), tr("Art"), tr("Neu"), tr("Alt")])
+        self.tabelle.verticalHeader().setVisible(False)
+        self.tabelle.setEditTriggers(QtWidgets.QAbstractItemView.EditTrigger.NoEditTriggers)
+        self.tabelle.horizontalHeader().setSectionResizeMode(QtWidgets.QHeaderView.ResizeMode.Stretch)
+        lay.addWidget(self.tabelle, 1)
+        reihe = QtWidgets.QHBoxLayout()
+        self.weg = QtWidgets.QPushButton(tr("Letztes entfernen"))
+        self.los = QtWidgets.QPushButton(tr("Ausrichten und neu vergleichen"))
+        self.los.setObjectName("primaer")
+        ende = QtWidgets.QPushButton(tr("Abbrechen"))
+        for k in (self.weg, ende, self.los):
+            reihe.addWidget(k)
+        lay.addLayout(reihe)
+        self.weg.clicked.connect(self.entferne_letztes)
+        self.los.clicked.connect(self._ausrichten)
+        ende.clicked.connect(self.close)
+        self._zeige()
+
+    def punkt(self, seite: str, form, punkt):
+        import numpy as np
+        from OCC.Core.gp import gp_Pnt
+        from ..kern import ausrichten, messen
+        p = gp_Pnt(*punkt)
+        gefangen = False
+        if self.fang.isChecked():
+            art_fang, p = messen.fange(form, p, self.toleranz())
+            gefangen = not art_fang.startswith("auf ")
+        art, ort, richtung = ausrichten.element_von(form, (p.X(), p.Y(), p.Z()), gefangen)
+        if seite == "neu":
+            inv = np.linalg.inv(self.m_jetzt)
+            self.offen = (art, (inv[:3, :3] @ ort + inv[:3, 3], None if richtung is None else inv[:3, :3] @ richtung))
+        elif self.offen is not None:
+            if self.offen[0] != art:
+                self.stand.setText(tr("Gegenstück muss dieselbe Art haben ({}), gewählt: {}").format(
+                    tr(self.ART_TEXT[self.offen[0]]), tr(self.ART_TEXT[art])))
+                return
+            self.paare.append((art, self.offen[1], (ort, richtung)))
+            self.offen = None
+        self._zeige()
+
+    def entferne_letztes(self):
+        if self.offen is not None:
+            self.offen = None
+        elif self.paare:
+            self.paare.pop()
+        self._zeige()
+
+    def _zeige(self):
+        from ..kern import ausrichten
+        self.tabelle.setRowCount(len(self.paare))
+        for z, (art, (ob, _), (oa, _)) in enumerate(self.paare):
+            werte = (str(z + 1), tr(self.ART_TEXT[art]), ", ".join(f"{x:.2f}" for x in ob),
+                     ", ".join(f"{x:.2f}" for x in oa))
+            for s, w in enumerate(werte):
+                self.tabelle.setItem(z, s, QtWidgets.QTableWidgetItem(w))
+        self.ergebnis = None
+        if self.paare:
+            try:
+                self.ergebnis = ausrichten.richte_nach_elementen(self.paare)
+            except ValueError:
+                self.ergebnis = None
+        if self.offen is not None:
+            text = tr("Jetzt das passende Element am alten Stand (blau) wählen: {}").format(
+                tr(self.ART_TEXT[self.offen[0]]))
+        elif self.ergebnis is not None:
+            text = tr("Lage eindeutig (Rest {:.4f} mm) – weitere Elemente verbessern die Ausrichtung").format(
+                self.ergebnis.mittel)
+        else:
+            text = tr("{} Paare – Lage noch nicht eindeutig, nächstes Element am neuen Stand wählen").format(
+                len(self.paare))
+        self.stand.setText(text)
+        self.los.setEnabled(self.ergebnis is not None)
+        self.weg.setEnabled(bool(self.paare) or self.offen is not None)
+
+    def berechne(self):
+        from ..kern import ausrichten
+        return ausrichten.richte_nach_elementen(self.paare)
+
+    def _ausrichten(self):
+        try:
+            a = self.berechne()
+        except ValueError as e:
+            self.stand.setText(tr(str(e)))
+            return
+        self.ausrichten.emit(a)
+        self.close()
+
+    def closeEvent(self, ev):
+        self.beendet.emit()
+        super().closeEvent(ev)

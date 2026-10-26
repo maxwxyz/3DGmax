@@ -13,7 +13,7 @@
 | Thumbnails per saved view | ⬜ |
 | Section X/Y/Z, at selected face/edge, from view direction, slider | ✅ |
 | Multiple section planes, clipping box, section views from the model, section contour as view | ⬜ |
-| 3D selection of faces/edges (multiple), context menu, zoom to selection, align normal | ✅ |
+| 3D selection of faces/edges (multiple), context menu, zoom to selection, align normal, flip view | ✅ |
 | Large assemblies: tessellation cache, levels of detail | ⬜ |
 
 ## PMI
@@ -44,7 +44,7 @@
 ## Comparison
 | Feature | Status |
 |---|---|
-| Alignment: same position, best fit (ICP), three point pairs (core) | 🟡 (point pairs without UI) |
+| Alignment: same position, best fit (ICP), manual point pairs with snapping (UI) | ✅ |
 | Geometry: equal/changed/new/removed per face, exact (B-rep) with mesh preselection | ✅ |
 | Semantic PMI comparison (field by field incl. name, datums, faces), "geometry under PMI changed" | ✅ |
 | Change list, review walk-through, comment, review report with SHA-256 | ✅ |
