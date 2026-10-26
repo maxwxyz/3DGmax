@@ -291,3 +291,35 @@ def test_spalten_verschiebbar_und_gemerkt(app, tmp_path, monkeypatch):
     g = Hauptfenster()
     assert g.pmi.tabelle.horizontalHeader().visualIndex(3) == 0
     g.close()
+
+
+def test_schnellmessung_statusleiste_und_eigenschaften(fenster_ctc01):
+    from programm.kern.messen import art_von
+    f = fenster_ctc01
+    zyl = [x for x in f.erg.modell.flaechen if art_von(x) == "Zylinder"]
+    f.ansicht.setze_auswahl([zyl[0]])
+    assert "mm²" in f.schnell.text() and "Zylinder" in f.schnell.text()
+    f.pmi.tabelle.selectRow(12)  # Toleranz: PMI-Info ersetzt die 3D-Auswahl
+    assert "13:" in f.schnell.text() and "Zylinder" not in f.schnell.text()
+    f.ein.setValue("schnellinfo_aus", ["pmi"])
+    f._schnell_zeigen()
+    assert f.schnell.text() == ""
+    f.ein.setValue("schnellinfo_aus", [])
+    d = f.zeige_eigenschaften(nur_anlegen=True)
+    assert "kg" in d.masse.text() and "800.000 × 450.000 × 150.000" in d.als_text()
+
+
+def test_fenster_und_spalten_beim_beenden_gemerkt(app, tmp_path, monkeypatch):
+    monkeypatch.setenv("DG_EINSTELLUNGEN", str(tmp_path / "e.ini"))
+    from programm.ui.hauptfenster import Hauptfenster
+    f = Hauptfenster()
+    kopf = f.pmi.tabelle.horizontalHeader()
+    kopf.blockSignals(True)  # nur beim Beenden speichern
+    kopf.moveSection(kopf.visualIndex(4), 0)
+    kopf.blockSignals(False)
+    f.dock_baum.hide()
+    f.close()
+    g = Hauptfenster()
+    assert g.pmi.tabelle.horizontalHeader().visualIndex(4) == 0
+    assert not g.dock_baum.isVisibleTo(g)
+    g.close()

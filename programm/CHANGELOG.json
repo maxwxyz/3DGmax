@@ -44,7 +44,11 @@
    "Ansichtswürfel überarbeitet: hell, matt, leicht gerundet, Achsen farbig (X rot, Y grün, Z blau), serifenlose Beschriftung, Hover-Hervorhebung, schärfer auf Retina.",
    "Oberfläche aufgeräumt: kompakte Tabellenzeilen ohne Gitter, schmale Scrollbalken, einheitliche Auswahlfelder, Menüs und Tooltips.",
    "Trackpad: Schieben mit zwei Fingern und Drehen mit zwei Fingern + Alt nicht mehr gespiegelt.",
-   "Vergleich: Abweichungs-Farbkarte (Abstand neu zu alt mit Vorzeichen, grün innerhalb der Toleranz, rot Aufmaß, blau Untermaß) mit Legende, automatischer oder eigener Skala und Wert per Klick."
+   "Vergleich: Abweichungs-Farbkarte (Abstand neu zu alt mit Vorzeichen, grün innerhalb der Toleranz, rot Aufmaß, blau Untermaß) mit Legende, automatischer oder eigener Skala und Wert per Klick.",
+   "Schnellmessung unten rechts in der Statusleiste: Länge, ⌀/R, Bogenwinkel, Flächeninhalt, Abstand, Ebenenabstand, Winkel, Achsabstand, Koordinaten und PMI-Kurzinfo zur Auswahl; Rechtsklick wählt die Angaben.",
+   "Modelleigenschaften (Strg+I): Volumen, Oberfläche, Masse mit einstellbarer Dichte, Schwerpunkt, Gesamtgröße, Dateikopf und Produkte – für gewählte Teile oder das ganze Modell.",
+   "Fenstergröße, Anordnung der Seitenleisten sowie Reihenfolge, Sichtbarkeit und Breite der Tabellenspalten werden beim Beenden gemerkt.",
+   "Optik: Kantenglättung, serifenlose Beschriftung von Messungen und erzeugten PMI-Texten, Ansichtswürfel kleiner, geschlossen und halbdurchsichtig (deckend beim Überfahren)."
   ],
   "en": [
    "First viewer version: load STEP AP242, assembly tree, CAD-style navigation, standard views.",
@@ -90,7 +94,11 @@
    "View cube reworked: light, matte, slightly rounded, colored axes (X red, Y green, Z blue), sans-serif labels, hover highlight, sharp on Retina.",
    "UI tidied up: compact table rows without grid, slim scroll bars, consistent combo boxes, menus and tooltips.",
    "Trackpad: two-finger pan and two-finger + Alt rotate no longer mirrored.",
-   "Comparison: deviation color map (signed distance new to old, green within tolerance, red excess, blue missing material) with legend, automatic or custom scale and value on click."
+   "Comparison: deviation color map (signed distance new to old, green within tolerance, red excess, blue missing material) with legend, automatic or custom scale and value on click.",
+   "Quick measure at the bottom right of the status bar: length, ⌀/R, arc angle, area, distance, plane distance, angle, axis distance, coordinates and PMI summary for the selection; right-click chooses the items.",
+   "Model properties (Ctrl+I): volume, surface area, mass with adjustable density, center of gravity, overall size, file header and products – for selected parts or the whole model.",
+   "Window size, side panel layout and the order, visibility and width of table columns are remembered on exit.",
+   "Look: anti-aliasing, sans-serif labels for measurements and generated PMI texts, view cube smaller, closed and semi-transparent (opaque on hover)."
   ]
  },
  "releases": [

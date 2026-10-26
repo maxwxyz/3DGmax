@@ -101,3 +101,46 @@ def test_messwerkzeug_in_oberflaeche(fenster_ctc01, tmp_path):
     assert f.messen.modus is None and not f.ansicht.messmodus
     f.messen.loesche_alle()
     assert not f.ansicht.messungen
+
+
+def test_schnellinfo_kreis_zylinder_abstaende(ctc01):
+    from programm.kern import schnellinfo as s
+    from programm.kern.messen import art_von
+    F = ctc01.flaechen
+    zyl = [f for f in F if art_von(f) == "Zylinder"]
+    eb = [f for f in F if art_von(f) == "Ebene"]
+    eins = dict(s.info([zyl[0]]))
+    assert eins["art"] == "Zylinder" and eins["rund"].startswith(("R ", "⌀ ")) and "mm²" in eins["flaeche"]
+    zwei = s.info([zyl[0], zyl[2]])
+    assert any(k == "achse" for k, _ in zwei) and any(k == "abstand" for k, _ in zwei)
+    ebenen = s.info([eb[0], eb[1]])
+    assert any(k == "winkel" or "Ebenenabstand" in t for k, t in ebenen)
+    viele = dict(s.info(zyl[:3]))
+    assert "Σ" in viele["flaeche"]
+    assert s.info([]) == [] and set(s.GRUPPEN) >= {"laenge", "rund", "abstand", "achse", "pmi"}
+
+
+def test_schnellinfo_kanten(ctc01):
+    from OCC.Core.TopAbs import TopAbs_EDGE
+    from OCC.Core.TopExp import TopExp_Explorer
+    from OCC.Core.TopoDS import topods
+    from programm.kern import schnellinfo as s
+    arten = set()
+    ex = TopExp_Explorer(ctc01.form, TopAbs_EDGE)
+    while ex.More():
+        info = dict(s.info([topods.Edge(ex.Current())]))
+        if info:
+            arten.add(info["art"])
+            assert "laenge" in info
+        ex.Next()
+    assert {"Gerade", "Bogen"} <= arten
+
+
+def test_modelleigenschaften(ctc01):
+    from programm.kern import eigenschaften as e
+    w = e.berechne(ctc01.form)
+    assert w.koerper == 1 and w.flaechen == 117
+    assert abs(w.groesse[0] - 800) < 1e-6 and abs(w.groesse[1] - 450) < 1e-6 and abs(w.groesse[2] - 150) < 1e-6
+    assert 1.4e7 < w.volumen < 1.5e7 and abs(w.masse(7.85) - w.volumen * 7.85e-6) < 1e-9
+    k = e.lies_kopf(ctc01.pfad, ctc01.datei)
+    assert k.schema.startswith("AP242") and k.zeit.startswith("2021") and k.produkte

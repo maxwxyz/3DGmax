@@ -56,6 +56,8 @@ def tr_texte() -> set[str]:
     out |= set(panels.ART_TEXT.values()) | set(panels.PmiPanel.SPALTEN)
     from programm.kern import pmi as kp
     out |= set(kp.MERKMAL.values()) | set(kp.MATERIAL.values()) | {"Abstand"}
+    from programm.kern import schnellinfo
+    out |= set(schnellinfo.GRUPPEN.values())
     for t, x in hilfe.SCHRITTE:
         out |= {t, x}
     return out

@@ -181,3 +181,33 @@ Throughout: tests (core, offscreen UI, stress test, on-screen test), `--selbstte
   could violate license terms. Legal options to evaluate: licensed SDKs that include CATIA readers (e.g. CAD Exchanger,
   HOOPS Exchange, Spatial 3D InterOp) with their costs and redistribution terms, or reading the lightweight
   representations CATIA exports (STEP AP242, JT, 3DXML). Decision only after cost/license review.
+
+### 8.12 Essential viewer functions – gap analysis against common viewers
+Compared with JT2Go, F3D, ODA/other STEP viewers, Kisters 3DViewStation, Teamcenter Visualization, Fusion and
+Onshape [knowledge], 3DGmax was missing these everyday functions for engineers (viewing, measuring, reading PMI).
+UI rule: no extra panels – information appears where the eye already is (status bar, tooltip, context menu).
+
+**Now (implemented next):**
+1. **Selection info / quick measure** in the status bar (right), live for the current selection, items can be
+   switched off by right-click:
+   - one edge: length; line → length; closed circle → ⌀, circumference; arc → R, angle, arc length
+   - one face: type and area; cylinder → ⌀ (closed) or R (open) and axis; cone → half angle; sphere → ⌀;
+     torus → radii
+   - one vertex: coordinates
+   - two elements: minimum distance; planes → angle (parallel planes: distance); cylinders/axes → axis distance
+     and angle; point–plane/point–axis distance
+   - selected PMI: kind, characteristic, value, limits (upper/lower), datums
+2. **Model properties** (dialog, also for selected parts): volume, surface area, mass with adjustable density,
+   center of gravity, overall size (bounding box L × W × H), counts (solids, faces), file header (schema,
+   originating system, author, organization, date), length unit.
+3. Visual polish: anti-aliasing, sans-serif labels (measurements, generated PMI texts), subtler view cube
+   (transparent, opaque on hover, closed corners).
+
+**Next:**
+4. Camera: perspective/orthographic, previous/next camera (view undo), smooth transitions.
+5. Hide selected in 3D, tree search/filter; 3D PMI follows the list filter (type, search).
+6. Datum reference frame display for a selected tolerance (datum features highlighted A/B/C in color).
+7. Bill of characteristics with balloon numbers (export, PDF) – see §8.7.
+8. Exploded view and parts list (BOM with properties) for assemblies.
+9. Analyses: draft angle, curvature, wall thickness map (color maps like the deviation map).
+10. Limits from ISO 286 tolerance classes (exact tables).

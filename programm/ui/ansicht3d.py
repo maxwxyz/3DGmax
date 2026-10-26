@@ -241,6 +241,9 @@ class PlatzhalterAnsicht(AnsichtBasis):
 
 # ----------------------------------------------------------------------------- OCCT
 
+SCHRIFT = "Helvetica Neue" if sys.platform == "darwin" else ("Segoe UI" if sys.platform == "win32" else "DejaVu Sans")
+
+
 def _farbe(rgb):
     from OCC.Core.Quantity import Quantity_Color, Quantity_TOC_RGB
     return Quantity_Color(float(rgb[0]), float(rgb[1]), float(rgb[2]), Quantity_TOC_RGB)
@@ -331,6 +334,10 @@ class OcctAnsicht(AnsichtBasis):
         self.d.Context.SetAutomaticHilight(True)
         # Kanten zeichnet die eigene Kantenebene; die Standard-Flaechenraender (blasse Linien) abschalten
         self.d.Context.DefaultDrawer().SetFaceBoundaryDraw(False)
+        try:
+            self.d.View.ChangeRenderingParams().NbMsaaSamples = 4  # Kantenglaettung
+        except Exception:  # noqa: BLE001 - aeltere Treiber ohne MSAA
+            pass
         self._baue_wuerfel()
         self._bereit = True
         self.viewer._inited = True
@@ -359,13 +366,12 @@ class OcctAnsicht(AnsichtBasis):
         # gepickt -> auf Retina mitskalieren und beim Picken umrechnen (_wuerfel_unter_maus)
         k = max(1.0, self.viewer.devicePixelRatioF()) if sys.platform == "darwin" else 1.0
         self._wuerfel_k = k
-        w.SetSize(56 * k)
-        w.SetBoxFacetExtension(9)  # abgeschraegte Ecken und Kanten
+        w.SetSize(48 * k)
+        w.SetBoxFacetExtension(7 * k)  # abgeschraegte Ecken und Kanten
         w.SetBoxEdgeGap(0)
-        w.SetRoundRadius(0.12)  # leicht gerundet
-        schrift = "Helvetica Neue" if sys.platform == "darwin" else ("Segoe UI" if sys.platform == "win32" else "DejaVu Sans")
+        schrift = SCHRIFT
         w.SetFont(TCollection_AsciiString(schrift))
-        w.SetFontHeight(12 * k)
+        w.SetFontHeight(11 * k)
         w.SetDrawAxes(True)
         w.SetAxesPadding(4 * k)
         w.SetAxesRadius(0.9 * k)
@@ -388,7 +394,7 @@ class OcctAnsicht(AnsichtBasis):
         w.Attributes().SetDatumAspect(datum)
         _ = Aspect_TOL_SOLID, Prs3d_LineAspect
         w.SetTransformPersistence(Graphic3d_TransformPers(Graphic3d_TMF_TriedronPers, Aspect_TOTP_RIGHT_UPPER,
-                                                          Graphic3d_Vec2i(int(95 * k), int(95 * k))))
+                                                          Graphic3d_Vec2i(int(80 * k), int(80 * k))))
         for name, text in self.WUERFEL_SEITEN:
             w.SetBoxSideLabel(getattr(V3d, name), TCollection_AsciiString(tr(text)))
         w.SetAutoStartAnimation(False)
@@ -410,7 +416,7 @@ class OcctAnsicht(AnsichtBasis):
         w.SetBoxColor(_farbe((0.97, 0.97, 0.98)))
         w.SetInnerColor(_farbe((0.78, 0.80, 0.84)))
         w.SetTextColor(_farbe((0.10, 0.11, 0.13)))
-        w.SetBoxTransparency(0.0)
+        w.SetBoxTransparency(0.0 if getattr(self, "_wuerfel_hover", False) else 0.55)  # dezent, beim Hovern deckend
         akzent = (self.thema or {}).get("hervor", (1, 0.45, 0))
         hover = w.DynamicHilightAttributes()
         if hover is not None:
@@ -436,7 +442,12 @@ class OcctAnsicht(AnsichtBasis):
         breite = self.viewer.width()
         # sichtbare Lage (Geraetepixel ab Ecke oben rechts) in die Pick-Lage umrechnen
         ctx.MoveTo(int(breite - k * (breite - x)), int(k * y), self.d.View, zeichnen)
-        if not ctx.HasDetected() or ctx.DetectedInteractive() != w:
+        treffer = ctx.HasDetected() and ctx.DetectedInteractive() == w
+        if zeichnen and treffer != getattr(self, "_wuerfel_hover", False):
+            self._wuerfel_hover = treffer
+            w.SetBoxTransparency(0.0 if treffer else 0.55)
+            ctx.Redisplay(w, True)
+        if not treffer:
             if k != 1.0:
                 ctx.MoveTo(int(x), int(y), self.d.View, zeichnen)  # sonst normal am echten Ort
             return None
@@ -663,7 +674,7 @@ class OcctAnsicht(AnsichtBasis):
         schrift = "Helvetica Neue" if sys.platform == "darwin" else ("Segoe UI" if sys.platform == "win32" else "DejaVu Sans")
         from OCC.Core.Prs3d import Prs3d_TextAspect
         text = Prs3d_TextAspect()
-        text.Aspect().SetFont(schrift)
+        text.Aspect().SetFont(SCHRIFT)
         text.SetColor(_farbe((0.95, 0.95, 0.95) if dunkel else (0.1, 0.1, 0.12)))
         text.SetHeight(int(13 * k))
         skala.Attributes().SetTextAspect(text)
@@ -732,6 +743,7 @@ class OcctAnsicht(AnsichtBasis):
                 liste.append(ais)
             for ph, text in texte:
                 lab = AIS_TextLabel()
+                lab.SetFont(SCHRIFT)
                 lab.SetText(TCollection_ExtendedString(text, True))
                 o = ph.ursprung
                 lab.SetPosition(gp_Pnt(float(o[0]), float(o[1]), float(o[2])))
@@ -1198,6 +1210,7 @@ class OcctAnsicht(AnsichtBasis):
                 a.SetWidth(2.0)
                 self._mess_ais.append(a)
             lab = AIS_TextLabel()
+            lab.SetFont(SCHRIFT)
             mitte = pts[0] if len(pts) == 1 else gp_Pnt((pts[0].X() + pts[1].X()) / 2,
                                                       (pts[0].Y() + pts[1].Y()) / 2, (pts[0].Z() + pts[1].Z()) / 2)
             lab.SetPosition(mitte)

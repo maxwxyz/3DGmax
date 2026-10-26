@@ -17,6 +17,12 @@
 | View cube with axes (chamfered edges/corners, click aligns, drag rotates) | ✅ |
 | Wireframe: click through to hidden edges | ✅ |
 | Large assemblies: tessellation cache, levels of detail | ⬜ |
+| Model properties: volume, area, mass (density), center of gravity, overall size, file header | ✅ |
+| Anti-aliasing, sans-serif labels, subtle view cube; window/panel/column layout remembered | ✅ |
+| Camera: perspective/orthographic, view undo/redo, smooth transitions | ⬜ |
+| Hide selected in 3D, tree search; 3D PMI follows list filter | ⬜ |
+| Exploded view, parts list (BOM) with properties | ⬜ |
+| Analyses: draft angle, curvature, wall thickness map | ⬜ |
 
 ## PMI
 | Feature | Status |
@@ -36,13 +42,15 @@
 | Convert graphical PMI into semantic PMI | 💡 |
 | Show tolerance zones as envelope surfaces (incl. datums, unequal zones) | 💡 |
 | Tolerance stack-up analysis (dimension chains, worst case, RSS, Monte Carlo) | 💡 |
-| Bill of characteristics with balloon numbers | 💡 |
+| Bill of characteristics with balloon numbers | ⬜ |
+| Datum reference frame display for a selected tolerance | ⬜ |
 | Create and edit PMI, tolerancing advisor with contextual suggestions | 💡 |
 
 ## Measuring
 | Feature | Status |
 |---|---|
 | Distance, angle, radius/Ø, wall thickness, coordinates; snapping; list, CSV, copy | ✅ |
+| Quick measure in the status bar for the selection (length, Ø/R, area, distances, axis distance, angle, PMI info) | ✅ |
 | Save measurement as view, measurements in reports | ⬜ |
 
 ## Comparison

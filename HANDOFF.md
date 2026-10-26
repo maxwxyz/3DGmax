@@ -7,19 +7,21 @@ Branch: `main` (no other branches). Version 0.1 plus many unreleased entries in 
 | Step (PLAN.md §5) | Status |
 |---|---|
 | 1 Feasibility | ✅ |
-| 2 Viewer | ✅ incl. view cube, upright align-normal, wireframe click-through (open: view thumbnails, cache/levels of detail) |
+| 2 Viewer | ✅ incl. view cube, quick measure, model properties (open: PLAN §8.12 items 4–10, thumbnails, LOD) |
 | 3 Measure | ✅ |
-| 4 Compare | ✅ incl. manual alignment by points/planes/axes (open: deviation color map, moved detection, graphical PMI compare, assemblies, meshes) |
+| 4 Compare | ✅ incl. manual alignment, deviation color map (open: moved detection, graphical PMI compare, assemblies, meshes) |
 | 5 Output | ✅ PDF per view, comparison PDF, PMI change PDF, project container, folder comparison (open: views as drawings HLR) |
 | 6 Formats | ⬜ **next**: QIF, IGES/STL/OBJ/glTF/3MF |
 | 7 JT via TKJT | ⬜ (no free JT test files with PMI found) |
 Details: `docs/Roadmap.md`; future topics: PLAN.md §8 (tolerance zones, annotating, graphical PMI/OCR, tolerance stack-up,
 PMI editing, CATIA files).
 
-Last session: upright align-normal, wireframe click-through, no faint edges in shaded mode, PMI table ISO GPS
-columns with show/hide via header menu, saved-view stepping fixed (◀ ▶, ←/→, re-click), view cube (styled),
-UI stylesheet polish (compact tables, scroll bars, menus), trackpad pan/rotate direction fixed.
-Open small item: limits from ISO 286 tolerance classes (needs exact tables, not formulas).
+Last session: deviation color map (kern/abweichung.py: signed, exact projection with trim check, legend via
+AIS_ColorScale, value on click), PLAN §8.12 gap analysis vs common viewers, quick measure in the status bar
+(kern/schnellinfo.py), model properties dialog (kern/eigenschaften.py, ui/eigenschaften_ui.py), window/dock/column
+state saved on exit, MSAA, sans-serif labels, subtler view cube (hover opacity).
+**Not visually checked** (screen was locked): new cube look and MSAA – check with a screenshot first.
+Next per PLAN §8.12: camera perspective/undo, hide selected + tree search + 3D PMI follows filter, DRF display.
 
 ## Environment and commands
 ```bash
@@ -43,6 +45,8 @@ Workflow "Apps bauen" green on Windows/Linux/macOS (last checked run 40369306525
 - OCCT viewer on macOS uses logical points; faces with custom color draw no boundaries → edges as own layer;
   the context default face boundaries are switched off (otherwise faint edges in shaded mode).
 - `ctx.MainSelector()` unusable in pythonocc → point under the mouse via view ray.
+- AIS_Triangulation only accepts display mode 0 (`ctx.Display(ais, 0, -1, False)`); vertex colors packed
+  RGBA bytes as signed int32. AIS_ColorScale needs its own Prs3d_TextAspect (TextAspect() is None).
 - View cube on macOS: drawn in device pixels but picked in logical points → size scaled by devicePixelRatio
   and pick coordinates mapped from the top-right corner (`_wuerfel_unter_maus`). `Font` enums not wrapped (no bold).
 - View cube: `AIS_ViewCube`, owner via `AIS_ViewCubeOwner.DownCast(ctx.DetectedOwner()).MainOrientation()`;

@@ -136,6 +136,15 @@ class Hauptfenster(QtWidgets.QMainWindow):
         self.abbrechen.clicked.connect(self.lade_abbrechen)
         self.statusBar().addPermanentWidget(self.fortschritt)
         self.statusBar().addPermanentWidget(self.abbrechen)
+        # Schnellmessung rechts: Kennwerte der Auswahl, Rechtsklick waehlt die Angaben
+        self.schnell = QtWidgets.QLabel("")
+        self.schnell.setObjectName("schnell")
+        self.schnell.setTextInteractionFlags(QtCore.Qt.TextInteractionFlag.TextSelectableByMouse)
+        self.schnell.setContextMenuPolicy(QtCore.Qt.ContextMenuPolicy.CustomContextMenu)
+        self.schnell.customContextMenuRequested.connect(self._schnell_menue)
+        self.schnell.setToolTip(tr("Schnellmessung der Auswahl – Rechtsklick: Angaben wählen"))
+        self.statusBar().addPermanentWidget(self.schnell)
+        self._schnell_formen, self._schnell_pmi = [], []
 
         self._baue_aktionen()
         self._baue_menues()
@@ -144,6 +153,23 @@ class Hauptfenster(QtWidgets.QMainWindow):
         self._modell_da(False)
         self.start.zeige_zuletzt(self.zuletzt())
         self._spalten_verschiebbar()
+        self._fenster_herstellen()
+
+    def _fenster_herstellen(self):
+        """Fenstergroesse und Anordnung der Seitenleisten wie beim letzten Beenden."""
+        geometrie, zustand = self.ein.value("fenster_geometrie"), self.ein.value("fenster_zustand_1")
+        if geometrie:
+            self.restoreGeometry(geometrie)
+        if zustand:
+            self.restoreState(zustand)
+        self.dock_aenderungen.hide()  # nur im Vergleich
+
+    def _fenster_merken(self):
+        for merken in self._spalten_merken:
+            merken()
+        self.ein.setValue("fenster_geometrie", self.saveGeometry())
+        self.ein.setValue("fenster_zustand_1", self.saveState())
+        self.ein.sync()
 
     def _tabellen(self):
         return {"pmi": self.pmi.tabelle, "messen": self.messen.tabelle, "aenderungen": self.aenderungen.tabelle}
@@ -151,6 +177,7 @@ class Hauptfenster(QtWidgets.QMainWindow):
     def _spalten_verschiebbar(self):
         """Spalten per Drag-and-drop umordnen, per Rechtsklick ein-/ausblenden; je Tabelle gemerkt."""
         from .panels import spalten_menue
+        self._spalten_merken = []
         for name, t in self._tabellen().items():
             # kompakte Zeilen ohne Gitter
             t.setShowGrid(False)
@@ -166,7 +193,9 @@ class Hauptfenster(QtWidgets.QMainWindow):
             if zustand:
                 kopf.restoreState(zustand)
             merken = (lambda n=schluessel, k=kopf: self.ein.setValue(n, k.saveState()))
+            self._spalten_merken.append(merken)
             kopf.sectionMoved.connect(lambda *_a, m=merken: m())
+            kopf.sectionResized.connect(lambda *_a, m=merken: m())
             kopf.setContextMenuPolicy(QtCore.Qt.ContextMenuPolicy.CustomContextMenu)
             standard = self.pmi.STANDARD if name == "pmi" else None
             kopf.customContextMenuRequested.connect(
@@ -180,7 +209,7 @@ class Hauptfenster(QtWidgets.QMainWindow):
 
     def _dock(self, titel, widget, bereich):
         d = QtWidgets.QDockWidget(titel, self)
-        d.setObjectName(titel)
+        d.setObjectName("dock_" + type(widget).__name__)  # sprachunabhaengig (Fensterzustand merken)
         d.setWidget(widget)
         d.setFeatures(QtWidgets.QDockWidget.DockWidgetFeature.DockWidgetMovable |
                       QtWidgets.QDockWidget.DockWidgetFeature.DockWidgetClosable)
@@ -232,6 +261,8 @@ class Hauptfenster(QtWidgets.QMainWindow):
         A("projekt_speichern", tr("Projekt speichern …"), lambda: self.speichere_projekt(),
           QtGui.QKeySequence.StandardKey.Save,
           tipp=tr("Modell bzw. Vergleich mit Prüfstand, Kommentaren und Messungen als eine Datei (.3dgmax)"))
+        A("eigenschaften", tr("Modelleigenschaften …"), self.zeige_eigenschaften, "Ctrl+I",
+          tipp=tr("Volumen, Masse, Schwerpunkt, Größe, Dateikopf – für gewählte Teile oder das ganze Modell"))
         A("bild_speichern", tr("Bild speichern …"), self.bild_speichern, tipp=tr("Aktuelle Ansicht als PNG"))
         A("bild_kopieren", tr("Bild in Zwischenablage"), self.bild_kopieren, "Ctrl+Shift+C",
           tipp=tr("Aktuelle Ansicht in die Zwischenablage"))
@@ -364,6 +395,8 @@ class Hauptfenster(QtWidgets.QMainWindow):
         for n in ("sprache_auto", "sprache_de", "sprache_en"):
             msp.addAction(a[n])
         m = mb.addMenu(tr("&Modell"))
+        m.addAction(a["eigenschaften"])
+        m.addSeparator()
         for n in ("alle_zeigen", "isolieren", "transparent", "teil_ausblenden", "teil_isolieren", "auswahl_aufheben"):
             m.addAction(a[n])
         m.addSeparator()
@@ -428,6 +461,7 @@ class Hauptfenster(QtWidgets.QMainWindow):
         self.ansicht.flaeche_gewaehlt.connect(self._flaeche_gewaehlt)
         self.ansicht.pmi_gewaehlt.connect(self._grafik_pmi_gewaehlt)
         self.ansicht.meldung.connect(lambda t: self.statusBar().showMessage(t, 5000))
+        self.ansicht.auswahl_geaendert.connect(self._schnell_auswahl)
         self.baum.sichtbar_geaendert.connect(self.ansicht.knoten_sichtbar)
         self.baum.isolieren.connect(self.ansicht.isoliere)
         self.baum.transparent.connect(self.ansicht.knoten_transparent)
@@ -555,6 +589,8 @@ class Hauptfenster(QtWidgets.QMainWindow):
     def schliesse_modell(self):
         self.beende_vergleich(neu_zeigen=False)
         self.messen.loesche_alle()
+        self._schnell_formen, self._schnell_pmi = [], []
+        self._schnell_zeigen()
         self.erg = None
         self.ansicht.zeige(None)
         self.baum.zeige(None)
@@ -577,7 +613,60 @@ class Hauptfenster(QtWidgets.QMainWindow):
 
     # --- Auswahl ---
 
+    # --- Schnellmessung ---
+
+    def _schnell_aus(self) -> set[str]:
+        wert = self.ein.value("schnellinfo_aus", []) or []
+        return {wert} if isinstance(wert, str) else set(wert)  # QSettings liefert eine Einzelangabe als Text
+
+    def _schnell_auswahl(self, formen):
+        self._schnell_formen = list(formen)
+        if formen:
+            self._schnell_pmi = []  # die zuletzt getroffene Auswahl zaehlt
+        self._schnell_zeigen()
+
+    def _schnell_zeigen(self):
+        from ..kern import schnellinfo
+        aus = self._schnell_aus()
+        if "alles" in aus:
+            self.schnell.setText("")
+            return
+        teile = schnellinfo.info(self._schnell_formen) + schnellinfo.pmi_info(self._schnell_pmi)
+        self.schnell.setText("   ·   ".join(t for k, t in teile if k not in aus))
+
+    def _schnell_menue(self, pos):
+        from ..kern import schnellinfo
+        aus = self._schnell_aus()
+        m = QtWidgets.QMenu(self)
+        a_alles = m.addAction(tr("Schnellmessung zeigen"))
+        a_alles.setCheckable(True)
+        a_alles.setChecked("alles" not in aus)
+        m.addSeparator()
+        for schluessel, text in schnellinfo.GRUPPEN.items():
+            a = m.addAction(tr(text))
+            a.setCheckable(True)
+            a.setChecked(schluessel not in aus)
+            a.setData(schluessel)
+            a.setEnabled("alles" not in aus)
+        a_kopie = m.addAction(tr("Kopieren"))
+        a_kopie.setEnabled(bool(self.schnell.text()))
+        m.insertSeparator(a_kopie)
+        gewaehlt = m.exec(self.schnell.mapToGlobal(pos))
+        if gewaehlt is None:
+            return
+        if gewaehlt is a_kopie:
+            QtWidgets.QApplication.clipboard().setText(self.schnell.text().replace("   ·   ", "\n"))
+            return
+        schluessel = "alles" if gewaehlt is a_alles else gewaehlt.data()
+        aus = aus - {schluessel} if gewaehlt.isChecked() else aus | {schluessel}
+        self.ein.setValue("schnellinfo_aus", sorted(aus))
+        self._schnell_zeigen()
+
     def _pmi_gewaehlt(self, liste):
+        self._schnell_pmi = list(liste)
+        if liste:
+            self._schnell_formen = []
+        self._schnell_zeigen()
         flaechen = set()
         for p in liste:
             flaechen |= p.flaechen
@@ -905,6 +994,33 @@ class Hauptfenster(QtWidgets.QMainWindow):
         self.ansicht.setze_auswahl([])
         self.pmi.waehle(lambda p: False)
 
+    def zeige_eigenschaften(self, nur_anlegen: bool = False):
+        """Kennwerte der gewaehlten Teile (Baum oder 3D-Auswahl), sonst des ganzen Modells."""
+        if self.erg is None:
+            return None
+        from OCC.Core.BRep import BRep_Builder
+        from OCC.Core.TopoDS import TopoDS_Compound
+        from .eigenschaften_ui import EigenschaftenDialog
+        nummern = self.baum.gewaehlte_blaetter()
+        for f in self.ansicht.auswahl3d:
+            k = self._knoten_von(f)
+            if k is not None:
+                nummern.add(k.nummer)
+        teile = [k for k in self.erg.baum.blaetter() if k.nummer in nummern and not k.hilfsgeometrie]
+        if teile:
+            form = TopoDS_Compound()
+            bb = BRep_Builder()
+            bb.MakeCompound(form)
+            for k in teile:
+                bb.Add(form, k.form)
+            umfang = tr("{} gewählte Teile").format(len(teile)) if len(teile) > 1 else teile[0].name
+        else:
+            form, umfang = self.erg.modell.form, tr("ganzes Modell")
+        d = EigenschaftenDialog(form, self.erg.pfad, self.erg.modell.datei, self.ein, umfang, self)
+        if not nur_anlegen:
+            d.exec()
+        return d
+
     def _knoten_von(self, form):
         if self.erg is None:
             return None
@@ -944,6 +1060,7 @@ class Hauptfenster(QtWidgets.QMainWindow):
             m.addAction(a[n])
         m.addSeparator()
         m.addAction(a["messen"])
+        m.addAction(a["eigenschaften"])
         m.addAction(a["alles"])
         m.addAction(a["umdrehen"])
         std = m.addMenu(tr("Standardansicht"))
@@ -1173,6 +1290,7 @@ class Hauptfenster(QtWidgets.QMainWindow):
             self.zeige_neu()
 
     def closeEvent(self, ev):
+        self._fenster_merken()
         self.lade_abbrechen()
         if self._vlader is not None and self._vlader.isRunning():
             self._vlader.abgebrochen = True
