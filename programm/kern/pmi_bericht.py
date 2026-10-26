@@ -20,6 +20,7 @@ MIT_BEZUG = {"Position", "Perpendicularity", "Parallelism", "Angularity", "Conce
 OHNE_BEZUG = {"Flatness", "Straightness", "CircularityOrRoundness", "Cylindricity"}
 
 FEHLER, WARNUNG, INFO = "Fehler", "Warnung", "Hinweis"  # Schluessel; Anzeige ueber tr()
+HINWEIS_STUFE = WARNUNG
 
 
 @dataclass
@@ -70,9 +71,48 @@ def als_csv(zeilen: list[dict]) -> str:
     return puffer.getvalue()
 
 
-def pruefe(pmi: list[Pmi], ansichten: list | None = None) -> list[Befund]:
-    """Unstimmigkeiten und Unplausibles in der PMI eines Modells."""
-    out: list[Befund] = []
+def _flaechenarten(p: Pmi, modell) -> set[str]:
+    """Arten der zugeordneten Flaechen ('Ebene', 'Zylinder', ...); leer ohne Modell."""
+    if modell is None or not p.flaechen:
+        return set()
+    from .messen import art_von
+    return {art_von(modell.flaechen[i]) for i in p.flaechen if i < len(modell.flaechen)}
+
+
+def _norm_regeln(pmi: list[Pmi], modell) -> list[Befund]:
+    """Regeln, die von der Geometrie oder der Norm abhaengen (ISO GPS / ASME)."""
+    out = []
+    bezugsflaechen = {p.name: _flaechenarten(p, modell) for p in pmi if p.art == BEZUG and p.typ == "Datum"}
+    for p in pmi:
+        arten = _flaechenarten(p, modell)
+        if p.art == TOLERANZ and p.typ == "Position" and arten and arten <= {"Zylinder", "Kegel"} and \
+                "Diameter" not in p.modifikatoren and p.zone != "Diameter":
+            out.append(Befund(HINWEIS_STUFE, tr("Position einer Achse ohne ⌀-Zone (zylindrische Zone üblich)"),
+                              [p.nummer]))
+        if p.art == TOLERANZ and p.typ in ("Flatness", "Straightness") and p.material in ("M", "L") and \
+                arten == {"Ebene"}:
+            out.append(Befund(FEHLER, tr("{}: Ⓜ/Ⓛ an einer Fläche ohne Größenmaß nicht zulässig").format(
+                tr(p.merkmal())), [p.nummer]))
+        if p.art == TOLERANZ and p.typ in ("CircularRunout", "TotalRunout") and arten and \
+                not arten & {"Zylinder", "Kegel", "Kugel", "Torus", "Ebene"}:
+            out.append(Befund(WARNUNG, tr("Lauftoleranz an einer Fläche ohne Drehachse"), [p.nummer]))
+        if p.art == TOLERANZ:
+            for b in p.bezuege:
+                if any(m in ("MaximumMaterialRequirement", "LeastMaterialRequirement") for m in b.modifikatoren):
+                    for name in b.name.split("-"):
+                        if bezugsflaechen.get(name) == {"Ebene"}:
+                            out.append(Befund(WARNUNG, tr("Bezug {} ist eine Ebene: Ⓜ/Ⓛ am Bezug ohne Wirkung").format(
+                                name), [p.nummer]))
+        if p.art == MASS and p.norm == "iso" and p.passung and p.typ in ("Size_Diameter", "Size_Thickness") and \
+                not ({"Envelope", "E"} & set(p.modifikatoren)):
+            out.append(Befund(INFO, tr("Passmaß ohne Ⓔ: nach ISO 8015 ohne Hüllbedingung (Form nicht begrenzt)"),
+                              [p.nummer]))
+    return out
+
+
+def pruefe(pmi: list[Pmi], ansichten: list | None = None, modell=None) -> list[Befund]:
+    """Unstimmigkeiten und Unplausibles in der PMI eines Modells (modell: fuer geometrieabhaengige Regeln)."""
+    out: list[Befund] = _norm_regeln(pmi, modell)
     bezuege = {p.name: p for p in pmi if p.art == BEZUG and p.typ == "Datum"}
     benutzt: set[str] = set()
     for p in pmi:

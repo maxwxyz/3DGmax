@@ -40,7 +40,7 @@
 | ISO 286: letters a, b, j, t–zc, sizes above 500 mm, fits H7/g6 as pair | ⬜ |
 | Standard awareness ASME Y14.5 / ISO GPS (detect, fallback ISO, per-model override, terms, rule, envelope note) | ✅ |
 | ISO 14405 modifier display | ✅ |
-| More standard-specific check rules | ⬜ |
+| Standard- and geometry-dependent check rules (stage 1) | ✅ |
 | PMI color: high contrast / from file / custom | ✅ |
 | PMI export CSV (values, datums, face IDs, views) | ✅ |
 | Plausibility check (unused/missing datums, without face/view, duplicates, rules) | ✅ |

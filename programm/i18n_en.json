@@ -762,5 +762,10 @@
 "geändert, Datei: {}": "changed, file: {}",
 "Weiche Kamerafahrten": "Smooth camera transitions",
 "Standardansichten und Würfelklicks fahren weich an statt zu springen": "Standard views and cube clicks move smoothly instead of jumping",
-"Sachnummer": "Part number"
+"Sachnummer": "Part number",
+"Position einer Achse ohne ⌀-Zone (zylindrische Zone üblich)": "Position of an axis without ⌀ zone (cylindrical zone usual)",
+"{}: Ⓜ/Ⓛ an einer Fläche ohne Größenmaß nicht zulässig": "{}: Ⓜ/Ⓛ not allowed on a surface without size",
+"Lauftoleranz an einer Fläche ohne Drehachse": "Run-out on a face without an axis of revolution",
+"Bezug {} ist eine Ebene: Ⓜ/Ⓛ am Bezug ohne Wirkung": "Datum {} is a plane: Ⓜ/Ⓛ on the datum has no effect",
+"Passmaß ohne Ⓔ: nach ISO 8015 ohne Hüllbedingung (Form nicht begrenzt)": "Fit without Ⓔ: under ISO 8015 no envelope requirement (form not limited)"
 }

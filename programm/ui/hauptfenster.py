@@ -1831,7 +1831,7 @@ class Hauptfenster(QtWidgets.QMainWindow):
         from .pmi_pruefen import PruefFenster
         if self.erg is None:
             return None
-        fenster = PruefFenster(pmi_bericht.pruefe(self.erg.pmi, self.erg.ansichten), self)
+        fenster = PruefFenster(pmi_bericht.pruefe(self.erg.pmi, self.erg.ansichten, self.erg.modell), self)
         fenster.pmi_waehlen.connect(lambda nummern: self.pmi.waehle(lambda p: p.nummer in nummern))
         fenster.show()
         return fenster

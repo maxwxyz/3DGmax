@@ -381,3 +381,22 @@ def test_sachnummern_aus_step_produkten():
     assert sl.sachnummern(d) == {"Deckel": "4711-01"}
     liste = sl.ergaenze_sachnummern([sl.Position(1, "Deckel", 1, 1.0, 1.0)], d)
     assert liste[0].sachnummer == "4711-01" and sl.zeilen(liste, 7.85)[0][1] == "4711-01"
+
+
+def test_pruefregeln_mit_geometrie(ctc01):
+    from programm.kern import pmi_bericht as pb
+    from programm.kern.messen import art_von
+    from programm.kern.pmi import MASS, TOLERANZ, BEZUG, BezugsRef, Pmi
+    zyl = {i for i, f in enumerate(ctc01.flaechen) if art_von(f) == "Zylinder"}
+    eben = [i for i, f in enumerate(ctc01.flaechen) if art_von(f) == "Ebene"]
+    liste = [Pmi(TOLERANZ, "Position", wert=0.1, flaechen={min(zyl)}, nummer=1),
+             Pmi(TOLERANZ, "Flatness", wert=0.05, material="M", flaechen={eben[0]}, nummer=2),
+             Pmi(BEZUG, "Datum", "A", flaechen={eben[0]}, nummer=3),
+             Pmi(TOLERANZ, "Perpendicularity", wert=0.1, flaechen={eben[1]}, nummer=4,
+                 bezuege=[BezugsRef("A", 1, ["MaximumMaterialRequirement"])]),
+             Pmi(MASS, "Size_Diameter", nennwert=10.0, passung="H7", flaechen={min(zyl)}, nummer=5, norm="iso")]
+    texte = {b.text for b in pb.pruefe(liste, None, ctc01)}
+    assert any("⌀-Zone" in t for t in texte) and any("Ⓜ/Ⓛ an einer Fläche" in t for t in texte)
+    assert any("Bezug A ist eine Ebene" in t for t in texte) and any("ISO 8015" in t for t in texte)
+    liste[4].norm = "asme"
+    assert not any("ISO 8015" in b.text for b in pb.pruefe(liste, None, ctc01))
