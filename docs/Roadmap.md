@@ -33,6 +33,7 @@
 | Show tolerance zones as envelope surfaces (incl. datums, unequal zones) | 💡 |
 | Tolerance stack-up analysis (dimension chains, worst case, RSS, Monte Carlo) | 💡 |
 | Bill of characteristics with balloon numbers | 💡 |
+| Create and edit PMI, tolerancing advisor with contextual suggestions | 💡 |
 
 ## Measuring
 | Feature | Status |
@@ -74,6 +75,7 @@
 | IGES, STL, OBJ, glTF/GLB, 3MF | ⬜ |
 | JT via TKJT (GPL v2+), build with/without TKJT | ⬜ (step 7) |
 | 3D PDF (U3D/PRC) | ⬜ (sample files missing) |
+| CATIA V5/V6 CATPart/CATProduct | 💡 (only via licensed SDK or CATIA exports; legal review first) |
 
 ## Operation
 | Feature | Status |

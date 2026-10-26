@@ -169,3 +169,15 @@ Throughout: tests (core, offscreen UI, stress test, on-screen test), `--selbstte
   (same part, simplified PMI, different position). Own variants: `werkzeuge/testmodelle.py`.
 - **JT with PMI: no freely available files found** (NIST publishes STEP and native CAD only; JT2Go samples are under
   the Siemens license). Option: export JT of the NIST models from a CAD system.
+
+### 8.10 Create and edit PMI (future)
+- Edit existing PMI and create new PMI on existing models (semantic, linked to faces), write back to STEP AP242.
+- **Tolerancing advisor:** contextual suggestions based on the selection (e.g. hole pattern → position with ⌀ zone and
+  Ⓜ, planar datum face → flatness, mating cylinder → fit), checking consistency with the datum reference frame and
+  the plausibility rules (§ PMI check).
+
+### 8.11 Open CATIA V5/V6 files (CATPart, CATProduct) – feasibility only
+- Native CATIA formats are proprietary and undocumented. No free, legally safe reader exists; reverse engineering
+  could violate license terms. Legal options to evaluate: licensed SDKs that include CATIA readers (e.g. CAD Exchanger,
+  HOOPS Exchange, Spatial 3D InterOp) with their costs and redistribution terms, or reading the lightweight
+  representations CATIA exports (STEP AP242, JT, 3DXML). Decision only after cost/license review.

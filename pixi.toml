@@ -14,9 +14,10 @@ pythonocc-core = { version = "8.0.1.*", build = "novtk*" }  # ohne VTK: sonst Qt
 numpy = "*"
 scipy = "*"
 lxml = "*"
+# PySide6 aus conda-forge (nicht PyPI): sonst DLL-Konflikt mit den conda-Laufzeitbibliotheken unter Windows
+pyside6 = "6.11.*"
 
 [pypi-dependencies]
-pyside6 = "==6.12.*"
 pypdf = "*"
 
 [feature.dev.dependencies]
