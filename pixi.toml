@@ -10,7 +10,7 @@ platforms = [
 
 [dependencies]
 python = "3.14.*"
-pythonocc-core = "8.0.1.*"
+pythonocc-core = { version = "8.0.1.*", build = "novtk*" }  # ohne VTK: sonst Qt aus conda, DLL-Konflikt mit PySide6
 numpy = "*"
 scipy = "*"
 lxml = "*"
@@ -24,7 +24,6 @@ pyinstaller = "6.*"
 
 [feature.dev.pypi-dependencies]
 pytest = "*"
-pytest-qt = "*"
 
 [environments]
 default = { features = ["dev"] }
