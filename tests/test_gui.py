@@ -138,3 +138,15 @@ def test_version_im_titel_und_autor(fenster_ctc01):
     assert VERSION in fenster_ctc01.windowTitle()
     assert "nist_ctc_01" in fenster_ctc01.windowTitle()
     assert "Max Wilfinger" in ueber_html()
+
+
+def test_pmi_farbe_kontrast_oder_datei(fenster_ctc01):
+    f = fenster_ctc01
+    g = next(iter(f.erg.grafik.values()))
+    assert g.farbe is not None  # Farbe aus der Datei gelesen
+    assert f.ansicht.pmi_kontrast  # Standard: an das Schema angepasst
+    assert f.ansicht.pmi_farbe(g) == f.thema["pmi"]
+    f.wende_einstellungen_an({"navigation": "catia", "thema": f.ein.value("thema", "auto"),
+                              "sprache": f.ein.value("sprache", "auto"), "pmi_kontrast": False})
+    assert f.ansicht.pmi_farbe(g) == g.farbe
+    assert f.ein.value("pmi_kontrast", type=bool) is False

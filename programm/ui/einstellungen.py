@@ -37,6 +37,9 @@ class EinstellungenDialog(QtWidgets.QDialog):
         for schluessel, name in (("auto", "Wie System"), ("hell", "Hell"), ("dunkel", "Dunkel")):
             self.thema.addItem(tr(name), schluessel)
         form.addRow(tr("Farbschema"), self.thema)
+        self.kontrast = QtWidgets.QCheckBox(tr("PMI-Farbe für guten Kontrast anpassen"))
+        self.kontrast.setToolTip(tr("Aus: Farben aus der Datei (z. B. weiß aus CATIA), auch wenn sie schlecht lesbar sind"))
+        form.addRow(tr("PMI-Farbe"), self.kontrast)
         self.sprache = QtWidgets.QComboBox()
         for schluessel, name in (("auto", tr("Wie System")), ("de", "Deutsch"), ("en", "English")):
             self.sprache.addItem(name, schluessel)
@@ -49,6 +52,7 @@ class EinstellungenDialog(QtWidgets.QDialog):
         self._setze(self.steuerung, ein.value("navigation", "catia"))
         self._setze(self.thema, ein.value("thema", "auto"))
         self._setze(self.sprache, ein.value("sprache", "auto"))
+        self.kontrast.setChecked(ein.value("pmi_kontrast", True, type=bool))
         self._hilfe()
 
     @staticmethod
@@ -61,4 +65,4 @@ class EinstellungenDialog(QtWidgets.QDialog):
 
     def werte(self) -> dict:
         return {"navigation": self.steuerung.currentData(), "thema": self.thema.currentData(),
-                "sprache": self.sprache.currentData()}
+                "sprache": self.sprache.currentData(), "pmi_kontrast": self.kontrast.isChecked()}

@@ -43,6 +43,7 @@ class Grafik:
     hinweislinien: list[np.ndarray] = field(default_factory=list)  # nur zu Platzhaltern
     fertig: bool = False  # Datei liefert fertige Grafik (tesselliert oder Kurven)
     doppelt: bool = False  # nur Platzhalter fuer PMI, die schon fertige Grafik haben
+    farbe: tuple[float, float, float] | None = None  # Farbe laut Datei (RGB 0..1)
     pmi_ids: set[int] = field(default_factory=set)
 
     def leer(self) -> bool:
@@ -167,6 +168,24 @@ class _Leser:
                 if len(pts) > 1:
                     g.hinweislinien.append(np.array(pts))
 
+    def stilfarbe(self, ref, tiefe=0):
+        """Erste Farbe in einem Darstellungsstil (Kurven- oder Flaechenstil)."""
+        from .farben import VORDEFINIERT
+        e = self.d.get(ref) if isinstance(ref, Ref) else None
+        if e is None or tiefe > 8:
+            return None
+        if e.is_a("COLOUR_RGB"):
+            return tuple(float(x) for x in e.args("COLOUR_RGB")[1:4])
+        if e.is_a("DRAUGHTING_PRE_DEFINED_COLOUR"):
+            return VORDEFINIERT.get(e.args("DRAUGHTING_PRE_DEFINED_COLOUR")[0])
+        for werte in e.parts.values():
+            for w in werte:
+                for r in (w if isinstance(w, list) else [w]):
+                    f = self.stilfarbe(r, tiefe + 1) if isinstance(r, Ref) else None
+                    if f is not None:
+                        return f
+        return None
+
     def annotation(self, ref, g: Grafik):
         e = self.d.get(ref)
         if e is None:
@@ -174,6 +193,10 @@ class _Leser:
         teil = next((t for t in ANNOTATIONEN if e.is_a(t)), None)
         if teil is None:
             return
+        if g.farbe is None:
+            stile = e.args("STYLED_ITEM")[1] if e.is_a("STYLED_ITEM") else e.args(teil)[1]
+            for st in stile or []:
+                g.farbe = g.farbe or self.stilfarbe(st)
         if teil.startswith("ANNOTATION_PLACEHOLDER"):
             self.platzhalter(e, g, teil)
         else:

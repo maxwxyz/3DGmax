@@ -98,6 +98,7 @@ class Hauptfenster(QtWidgets.QMainWindow):
         self.ansicht = ansicht3d.erzeuge(self)
         self.ansicht.setze_thema(self.thema)
         self.ansicht.setze_navigation(self.ein.value("navigation", "catia"))
+        self.ansicht.setze_pmi_kontrast(self.ein.value("pmi_kontrast", True, type=bool))
         self.start = Startseite()
         self.stapel = QtWidgets.QStackedWidget()
         self.stapel.addWidget(self.start)
@@ -602,6 +603,8 @@ class Hauptfenster(QtWidgets.QMainWindow):
     def wende_einstellungen_an(self, w: dict):
         self.ein.setValue("navigation", w["navigation"])
         self.ansicht.setze_navigation(w["navigation"])
+        self.ein.setValue("pmi_kontrast", w.get("pmi_kontrast", True))
+        self.ansicht.setze_pmi_kontrast(w.get("pmi_kontrast", True))
         if w["thema"] != self.ein.value("thema", "auto"):
             self.setze_thema(w["thema"])
             self.aktionen["thema_" + w["thema"]].setChecked(True)

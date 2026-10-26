@@ -1,46 +1,44 @@
 # Übergabe (Stand 2026-10-26)
 
-Branch: `main`. Schritt 1 (Machbarkeit) und Schritt 2 (Viewer) fertig. Version 0.1 (+ unveröffentlichte Einträge in
-`programm/CHANGELOG.json`).
+Branch: `main`. Schritte 1 (Machbarkeit), 2 (Viewer) und 3 (Messen) fertig. **Pause nach Schritt 3** (Nutzerwunsch).
+Version 0.1 + unveröffentlichte Einträge in `programm/CHANGELOG.json`.
 
 ## Umgebung und Befehle
 ```bash
-pixi install                      # Python 3.14, pythonocc-core 8.0.1, PySide6 6.12, PyInstaller
-pixi run start                    # App starten (optional Datei dahinter: pixi run start datei.stp)
-pixi run test                     # alle Tests offscreen (Kern, Oberfläche, Stresstest), ~7 s
+pixi install                      # Python 3.14, pythonocc-core 8.0.1 (ohne VTK), PySide6 6.12, PyInstaller
+pixi run start                    # App starten (Datei dahinter möglich)
+pixi run test                     # alle Tests offscreen (~9 s); CI: pixi run test-ci (ausführlich, Zeitlimit)
 DG_BILDSCHIRM=1 pixi run python -m pytest -q tests/test_bildschirm.py   # echte 3D-Ansicht (Mac mit Bildschirm)
-pixi run selbsttest
-pixi run python werkzeuge/bildschirmfotos.py docs/bilder --thema hell   # Doku-Bilder (DG_LANG=en für englisch)
-pixi run python werkzeuge/tr_texte.py   # alle tr()-Texte; Test prüft, dass i18n_en.json vollständig ist
+pixi run selbsttest               # bzw. App mit --selbsttest; --bild out.png datei.stp speichert die 3D-Ansicht
+pixi run python werkzeuge/bildschirmfotos.py docs/bilder --thema hell|dunkel
+pixi run python packaging/make_icon.py   # Symbole aus packaging/logo.svg
 packaging/build_mac.sh [--ohne-tests]    # bzw. build_linux.sh / build_windows.bat → dist/
 ```
-GitHub: Actions → „Apps bauen“ (Plattform wählbar, Tests an/aus). Nutzt pixi (`prefix-dev/setup-pixi`).
 
 ## Aufbau
-- `programm/kern/`: `p21.py` (STEP-Graph), `laden.py`, `pmi*.py`, `ansichten.py`, `praesentation.py` (grafische PMI),
-  `baum.py`, `farben.py` (Farben aus STEP – pythonocc-Bindung für XCAF-Farben unbrauchbar).
-- `programm/ui/`: `hauptfenster.py`, `ansicht3d.py` (OCCT-Viewer + eigene Navigation; `PlatzhalterAnsicht` offscreen),
-  `panels.py`, `lader.py` (Hintergrund), `hilfe.py` (Anleitung mit automatischer Menüreferenz), `thema.py`.
-- Einstellungen: QSettings „3DGmax“; Tests/Skripte setzen `DG_EINSTELLUNGEN=<ini>` (echte nie berühren).
+- `programm/kern/`: `p21.py` (STEP-Graph), `laden.py`, `pmi*.py` (Semantik, Hinweise, Bezugsstellen), `ansichten.py`,
+  `praesentation.py` (grafische PMI inkl. Dateifarbe), `baum.py`, `farben.py`, `messen.py`.
+- `programm/ui/`: `hauptfenster.py`, `ansicht3d.py` (OCCT-Viewer), `navigation.py` (CATIA/klassisch, testbar),
+  `messwerkzeug.py`, `einstellungen.py`, `panels.py`, `lader.py`, `hilfe.py`, `thema.py`.
 
 ## Erkenntnisse (nicht offensichtlich)
-- OCCT-Viewer auf dem Mac rechnet in logischen Punkten (keine Retina-Skalierung der Mauskoordinaten).
-- Flächen mit eigener Farbe (`AIS_ColoredShape.SetCustomColor`) zeichnen keine Ränder → Kanten als eigene AIS-Ebene.
-- Offscreen-Rendering von OCCT stürzt auf macOS ab → Tests nutzen den Platzhalter, echter 3D-Test separat.
-- Gebaute App braucht OCCT-Ressourcen (`occt_resources`, gesetzt in `packaging/start_3dgmax.py`). Größe: 492 MB
-  (.app), 145 MB (ZIP) – verkleinern möglich (nur benötigte OCC.Core-Module).
+- OCCT-Viewer auf dem Mac rechnet in logischen Punkten.
+- Flächen mit eigener Farbe zeichnen keine Ränder → Kanten als eigene AIS-Ebene.
+- `ctx.MainSelector()` ist in pythonocc nicht nutzbar → Punkt unter der Maus per Sichtstrahl (`_punkt_unter_maus`).
+- Saved Views: Kamera blickt entlang **+z** der Platzierung (sonst Schrift gespiegelt), Fenster = PLANAR_BOX.
+- pythonocc mit VTK zieht unter Windows/Linux Qt aus conda → DLL-Konflikt mit PySide6 → `build = "novtk*"`.
+- Offscreen-Rendering stürzt auf macOS ab → Tests mit Platzhalter, echter 3D-Test separat.
+
+## GitHub-Bau
+- Workflow „Apps bauen“ (Plattform wählbar, Tests an/aus, Zeitlimit 60 min/Job, Tests mit 300 s je Test).
+- Korrigiert: setup-pixi-Cache, VTK/Qt-DLL-Konflikt (Windows), Hänger abgesichert (modale Dialoge in Tests).
+- **Läufe seit 26.10. nicht gestartet: GitHub-Konto (Zahlung/Ausgabenlimit) – Nutzer muss das klären.**
+  Danach: `gh workflow run "Apps bauen" -f plattform=alle -f tests=true` und Ergebnis prüfen.
+- Lokal gebaut und geprüft: macOS-arm64 (Selbsttest, 3D-Bild aus der .app, Symbol).
 
 ## Offen / nächster Schritt
-- Schritt 3: Messen (Abstand, Winkel, Radius, Wandstärke, Koordinaten, Fang, Liste, CSV).
-- Viewer-Feinschliff: App-Symbol fehlt; „Ganzes Modell zeigen“ bezieht die PMI-Grafik mit ein (Modell wirkt klein);
-  gespeicherte Ansicht stellt nur Richtung ein, nicht Ausschnitt/Zoom der Datei; Hinweise (Notes) und
-  Bezugsstellen als eigene Listeneinträge; GitHub-Bau noch nicht erfolgreich durchgelaufen (siehe unten).
+- Schritt 4: Vergleich zweier Stände (Ausrichten, Flächenzuordnung, Farbkarte, PMI-Diff, Änderungsliste, Prüfen).
+- Aus PLAN.md 8.1/8.2: Ansichten vor/zurück + Vorschaubilder, gezielte Suche (bezug:/wert:/typ:), Ansichtssuche.
+- JT über TKJT (GPL v2+) als Bau-Variante – mit Schritt 7.
+- Lizenz von 3DGmax festlegen (Vorschlag wie ZGmax: AGPL-3.0; verträglich mit TKJT).
 - Nutzer: JT-, 3D-PDF- und eigene STEP-Beispiele liefern.
-
-## GitHub-Bau (Stand 2026-10-26)
-- Lauf 1: Fehler in der Workflow-Einstellung (setup-pixi: Cache ohne Installation) → behoben.
-- Lauf 2: Windows-Tests scheiterten (`DLL load failed while importing QtCore`): pythonocc-Variante mit VTK zog Qt aus
-  conda-forge nach → behoben durch `build = "novtk*"` in pixi.toml (alle Plattformen), pytest-qt entfernt.
-- Lauf 3 (40296935931): **nicht gestartet – GitHub-Ausgabenlimit/Zahlung des Kontos**. Nach Klärung unter
-  „Billing & plans“: Actions → „Apps bauen“ erneut starten (`gh workflow run "Apps bauen" -f plattform=alle -f tests=true`).
-- Lokal gebaut und geprüft: macOS-arm64 (`packaging/build_mac.sh`, Selbsttest und `--bild` aus der .app OK).

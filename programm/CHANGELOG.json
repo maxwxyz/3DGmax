@@ -14,7 +14,8 @@
    "Gespeicherte Ansichten übernehmen Kameraort und Ausschnitt aus der Datei; Beschriftungen nicht mehr gespiegelt.",
    "„Ganzes Modell zeigen“ passt auf die Teile ein (ohne weit abstehende Beschriftungen).",
    "Hinweise (Notizen) und Bezugsstellen (z. B. A1) als eigene Einträge in der PMI-Liste.",
-   "Drehpunkt setzen und Bildmitte (Mitteltaste) funktionieren zuverlässig."
+   "Drehpunkt setzen und Bildmitte (Mitteltaste) funktionieren zuverlässig.",
+   "PMI-Beschriftungen standardmäßig in gut lesbarer Farbe für hell und dunkel; abschaltbar (dann Farbe aus der Datei)."
   ],
   "en": [
    "First viewer version: load STEP AP242, assembly tree, CAD-style navigation, standard views.",
@@ -30,7 +31,8 @@
    "Saved views take camera position and window from the file; annotations no longer mirrored.",
    "“Fit all” fits the parts (without far-reaching annotations).",
    "Notes and datum targets (e.g. A1) as separate entries in the PMI list.",
-   "Setting the pivot and the view centre (middle button) work reliably."
+   "Setting the pivot and the view centre (middle button) work reliably.",
+   "PMI annotations by default in a well readable color for light and dark; can be switched off (then file color)."
   ]
  },
  "releases": [

@@ -68,6 +68,7 @@ class AnsichtBasis(QtWidgets.QWidget):
         self.navigation = "catia"
         self.messmodus = False
         self.messungen: list = []
+        self.pmi_kontrast = True  # PMI-Farbe ans Farbschema anpassen (sonst Farbe aus der Datei)
 
     # --- Schnittstelle (Unterklassen ergaenzen die Darstellung) ---
 
@@ -128,6 +129,14 @@ class AnsichtBasis(QtWidgets.QWidget):
 
     def setze_messmodus(self, an: bool):
         self.messmodus = an
+
+    def setze_pmi_kontrast(self, an: bool):
+        self.pmi_kontrast = an
+
+    def pmi_farbe(self, g) -> tuple:
+        """Anzeigefarbe einer Annotation: Schemafarbe (gut lesbar) oder Farbe aus der Datei."""
+        schema = (self.thema or {}).get("pmi", (0.05, 0.2, 0.55))
+        return schema if self.pmi_kontrast or g.farbe is None else g.farbe
 
     def zeige_messungen(self, messungen: list):
         self.messungen = list(messungen)
@@ -388,8 +397,8 @@ class OcctAnsicht(AnsichtBasis):
             else:
                 ctx.Erase(ais, False)
         hervor_farbe = _farbe((self.thema or {}).get("pmi_hervor", (0.85, 0.25, 0.0)))
-        normal = _farbe((self.thema or {}).get("pmi", (0.05, 0.2, 0.55)))
         for cid, liste in self._callouts.items():
+            normal = _farbe(self.pmi_farbe(self.szene.grafik[cid]))
             g = self.szene.grafik[cid]
             zeigen = self.grafik_an and (self.pmi_ids_sichtbar is None or bool(g.pmi_ids & self.pmi_ids_sichtbar))
             hervor = bool(g.pmi_ids & self.pmi_ids_hervor)
@@ -642,6 +651,10 @@ class OcctAnsicht(AnsichtBasis):
     def setze_messmodus(self, an: bool):
         super().setze_messmodus(an)
         self._aktiviere_auswahl()
+
+    def setze_pmi_kontrast(self, an: bool):
+        super().setze_pmi_kontrast(an)
+        self._wende_sichtbarkeit_an()
 
     def _aktiviere_auswahl(self):
         if not self._bereit:
