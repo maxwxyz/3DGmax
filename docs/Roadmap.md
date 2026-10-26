@@ -83,7 +83,8 @@
 | Project container (ZIP with models, review status, comments, measurements) | ✅ |
 | Folder comparison | ✅ |
 | Export views as drawings (HLR) PDF/SVG/DXF: standard views by projection method, current view, saved views with their PMI | ✅ |
-| Generate graphical PMI from semantic PMI (placement, leaders, frames) for files without presentation | ⬜ |
+| Generate graphical PMI from semantic PMI – stage 1: leader + label, stacked, own color (3D, drawings) | ✅ |
+| Generated PMI stage 2: annotation planes, frames/datum symbols as vector graphics, layout optimization | ⬜ |
 | Drawing: dimensions/frames as DXF dimension entities, sheet formats and scales | ⬜ |
 | Annotate: comments/change proposals on faces, PMI (list and model), changed geometry | ⬜ |
 

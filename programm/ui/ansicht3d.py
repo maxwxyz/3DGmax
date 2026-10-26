@@ -180,7 +180,10 @@ class AnsichtBasis(QtWidgets.QWidget):
         self.pmi_kontrast = an
 
     def pmi_farbe(self, g) -> tuple:
-        """Anzeigefarbe einer Annotation: eigene Farbe, Schemafarbe (gut lesbar) oder Farbe aus der Datei."""
+        """Anzeigefarbe einer Annotation: eigene Farbe, Schemafarbe (gut lesbar) oder Farbe aus der Datei;
+        aus der Semantik erzeugte Beschriftungen immer in eigener Farbe."""
+        if getattr(g, "erzeugt", False):
+            return ERZEUGT_FARBE
         if self.pmi_eigene_farbe is not None:
             return self.pmi_eigene_farbe
         schema = (self.thema or {}).get("pmi", (0.05, 0.2, 0.55))
@@ -291,6 +294,32 @@ class PlatzhalterAnsicht(AnsichtBasis):
 
 # ----------------------------------------------------------------------------- OCCT
 
+_PMI_SCHRIFT = []
+
+
+def pmi_schrift() -> str:
+    """Schrift fuer PMI-Texte: die verfuegbare Schrift mit den meisten GD&T-Zeichen (⌀ ⌖ ⌓ ⏥ ⟂ ...)."""
+    if not _PMI_SCHRIFT:
+        zeichen = "⌀⌖⌓⏥⟂∥◎⌰Ⓜ⌒○⌭∠↗⌯Ⓛ"
+        beste, punkte = SCHRIFT, -1
+        # serifenlose zuerst; die erste mit fast allen Zeichen gewinnt, sonst die mit den meisten
+        for name in ("Segoe UI Symbol", "Apple Symbols", "DejaVu Sans", "Noto Sans Symbols", "Arial Unicode MS",
+                     "STIX Two Math", SCHRIFT):
+            info = QtGui.QFontInfo(QtGui.QFont(name))
+            if info.family().lower() != name.lower():
+                continue  # nicht installiert
+            roh = QtGui.QRawFont.fromFont(QtGui.QFont(name))
+            n = sum(roh.supportsCharacter(ord(c)) for c in zeichen)
+            if n >= len(zeichen) - 2:
+                beste, punkte = name, n
+                break
+            if n > punkte:
+                beste, punkte = name, n
+        _PMI_SCHRIFT.append(beste)
+    return _PMI_SCHRIFT[0]
+
+
+ERZEUGT_FARBE = (0.50, 0.28, 0.72)  # aus der Semantik erzeugte PMI (nicht aus der Datei)
 # Bezugssystem: primaer, sekundaer, tertiaer (gut unterscheidbar, auch neben der Hervorhebung in Orange)
 BEZUG_FARBEN = {1: (0.85, 0.20, 0.25), 2: (0.20, 0.65, 0.35), 3: (0.25, 0.45, 0.90)}
 SCHRIFT = "Helvetica Neue" if sys.platform == "darwin" else ("Segoe UI" if sys.platform == "win32" else "DejaVu Sans")
@@ -816,10 +845,18 @@ class OcctAnsicht(AnsichtBasis):
                 liste.append(ais)
             for ph, text in texte:
                 lab = AIS_TextLabel()
-                lab.SetFont(SCHRIFT)
-                lab.SetText(TCollection_ExtendedString(text, True))
+                lab.SetFont(pmi_schrift())
+                lab.SetText(TCollection_ExtendedString(text if not g.erzeugt else f" {text} ", True))
                 o = ph.ursprung
                 lab.SetPosition(gp_Pnt(float(o[0]), float(o[1]), float(o[2])))
+                if g.erzeugt:  # erzeugte Beschriftung: zum Betrachter, Textfeld in eigener Farbe
+                    from OCC.Core.Aspect import Aspect_TODT_SUBTITLE
+                    lab.SetDisplayType(Aspect_TODT_SUBTITLE)
+                    lab.SetColorSubTitle(_farbe(ERZEUGT_FARBE))
+                    lab.SetColor(_farbe((1.0, 1.0, 1.0)))
+                    lab.SetHeight(14)
+                    liste.append(lab)
+                    continue
                 z = ph.x[1] * ph.y[2] - ph.x[2] * ph.y[1], ph.x[2] * ph.y[0] - ph.x[0] * ph.y[2], \
                     ph.x[0] * ph.y[1] - ph.x[1] * ph.y[0]
                 try:
@@ -838,6 +875,7 @@ class OcctAnsicht(AnsichtBasis):
     # --- Sichtbarkeit und Hervorhebung ---
 
     def _wende_sichtbarkeit_an(self):
+        from OCC.Core.AIS import AIS_TextLabel
         if not self._bereit or self.szene is None:
             return
         ctx = self.d.Context
@@ -869,7 +907,11 @@ class OcctAnsicht(AnsichtBasis):
             zeigen = (zeigen or hervor) and self.explosion <= 0  # Beschriftungen passen nur zur Einbaulage
             for ais in liste:
                 if zeigen:
-                    ais.SetColor(hervor_farbe if hervor else normal)
+                    farbe = hervor_farbe if hervor else normal
+                    if g.erzeugt and ais.DynamicType().Name() == "AIS_TextLabel":
+                        AIS_TextLabel.DownCast(ais).SetColorSubTitle(farbe)  # Text bleibt weiss im Farbfeld
+                    else:
+                        ais.SetColor(farbe)
                     ctx.Display(ais, False)
                     ctx.Redisplay(ais, False)
                 else:

@@ -297,3 +297,17 @@ def test_zeichnung_hlr_svg_dxf(ctc01):
     assert svg.startswith("<svg") and "stroke-dasharray" in svg
     dxf = z.als_dxf(iso)
     assert "LINE" in dxf and "VERDECKT" in dxf and dxf.rstrip().endswith("EOF")
+
+
+def test_grafische_pmi_aus_semantik(ctc01):
+    import numpy as np
+    from programm.kern import pmi_erzeugen
+    from programm.kern.pmi_lesen import lies_pmi
+    pmi = lies_pmi(ctc01)
+    neu = pmi_erzeugen.ergaenze(pmi, {}, ctc01)  # so tun, als haette die Datei keine Darstellung
+    mit_flaechen = [p for p in pmi if p.step_id and p.flaechen and p.art != "hinweis"]
+    assert len(neu) == len(mit_flaechen) and all(g.erzeugt and g.linien and g.platzhalter for g in neu.values())
+    orte = np.array([g.platzhalter[0].ursprung for g in neu.values()])
+    abstaende = np.linalg.norm(orte[:, None] - orte[None], axis=2) + np.eye(len(orte)) * 1e9
+    assert abstaende.min() > 3.9 * next(iter(neu.values())).platzhalter[0].hoehe  # keine Ueberdeckung
+    assert pmi_erzeugen.ergaenze(pmi, neu, ctc01) == {}  # schon dargestellt: nichts Neues

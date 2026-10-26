@@ -45,6 +45,7 @@ class Grafik:
     doppelt: bool = False  # nur Platzhalter fuer PMI, die schon fertige Grafik haben
     farbe: tuple[float, float, float] | None = None  # Farbe laut Datei (RGB 0..1)
     ebene: tuple | None = None  # Schreibebene (ursprung, x, y, z) laut Datei, fuer lesbares Ausrichten
+    erzeugt: bool = False  # von 3DGmax aus der Semantik erzeugt (nicht aus der Datei)
     pmi_ids: set[int] = field(default_factory=set)
 
     def leer(self) -> bool:

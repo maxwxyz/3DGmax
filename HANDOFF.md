@@ -46,7 +46,10 @@ Validated: CTC-01 and FTC-06 volume/size identical to STEP; FTC-08/09 QIF are ot
 Then: targeted PMI search, own views + measurement report PDF, drawings (kern/zeichnung.py: HLRBRep exact, standard
 sheet by projection method, SVG/DXF own writers, PDF via QSvgRenderer on A3 with title block; PMI graphics projected,
 placeholder texts as SVG/DXF text).
-Next: PRC/3D PDF reader (PLAN §8.15, NIST STC PDFs contain PRC), generated graphical PMI (§8.16), QIF graphical PMI
+Then thumbnails (panels.VorschauLader, HLR in a QThread) and generated graphical PMI stage 1 (kern/pmi_erzeugen.py:
+leader from face centroid outward + label, Grafik.erzeugt, violet subtitle labels; ansicht3d.pmi_schrift() picks a
+font with GD&T glyphs – Apple Symbols on macOS). QIF faces with wrong loop orientation are rebuilt (_gut/_repariere).
+Next: PRC/3D PDF reader (PLAN §8.15, NIST STC PDFs contain PRC), generated PMI stage 2 (§8.16), QIF graphical PMI
 and views, JT via TKJT
 (step 7; free JT file without PMI: daten/nist_cad_dl/nist-cad-models-mtc-assembly.zip -> NX/NIST mtc crada assembly.jt).
 

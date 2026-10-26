@@ -36,6 +36,8 @@ def lade_alles(pfad: str, fortschritt=lambda text: None) -> Ergebnis:
     fortschritt(tr("Struktur und Grafik …"))
     grafik = lies_grafik(modell.datei, _laengen_skala(modell.datei)) if modell.datei else {}
     pmi = ergaenze_hinweise(pmi, grafik)
+    from ..kern import pmi_erzeugen
+    grafik.update(pmi_erzeugen.ergaenze(pmi, grafik, modell))  # Darstellung fuer PMI ohne Grafik in der Datei
     ansichten = lies_ansichten(modell, pmi)
     from ..kern import norm
     erkannt = norm.erkenne(pfad, pmi)

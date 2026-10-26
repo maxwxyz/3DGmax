@@ -239,7 +239,7 @@ class QifDokument:
         """Alle Koerper als OCCT-Form; Rueckgabe (form, {QIF-Flaechen-ID: TopoDS_Face}, Namen je Koerper)."""
         from OCC.Core.BRepBuilderAPI import BRepBuilderAPI_MakeEdge, BRepBuilderAPI_MakeFace, BRepBuilderAPI_Sewing
         from OCC.Core.ShapeExtend import ShapeExtend_WireData
-        from OCC.Core.ShapeFix import ShapeFix_Face, ShapeFix_Wire
+        from OCC.Core.ShapeFix import ShapeFix_Wire
         from OCC.Core.TopAbs import TopAbs_FACE
         from OCC.Core.TopExp import TopExp_Explorer
         from OCC.Core.TopoDS import topods
@@ -302,9 +302,18 @@ class QifDokument:
             if not mf.IsDone():
                 fehler += 1
                 continue
-            fix = ShapeFix_Face(mf.Face())
-            fix.Perform()
-            flaechen[fid] = fix.Face()
+            flaeche_neu = _repariere(mf.Face())
+            if not _gut(flaeche_neu) and draehte:
+                # Schleifen gegen die Flaechenrichtung: mit umgedrehten Draehten neu aufbauen
+                umgedreht = BRepBuilderAPI_MakeFace(geom, aussen[0].Reversed(), True) if aussen else None
+                if umgedreht is not None and umgedreht.IsDone():
+                    for art, d in draehte:
+                        if d is not aussen[0]:
+                            umgedreht.Add(d.Reversed())
+                    zweite = _repariere(umgedreht.Face())
+                    if _gut(zweite):
+                        flaeche_neu = zweite
+            flaechen[fid] = flaeche_neu
         naht = BRepBuilderAPI_Sewing(1e-3 * f if f > 1 else 1e-3)
         for fl in flaechen.values():
             naht.Add(fl)
@@ -435,6 +444,29 @@ QIF_ARTEN = {
     "Concentricity": (TOLERANZ, "Concentricity"), "Symmetry": (TOLERANZ, "Symmetry"),
     "CircularRunout": (TOLERANZ, "CircularRunout"), "TotalRunout": (TOLERANZ, "TotalRunout"),
 }
+
+
+def _repariere(flaeche):
+    from OCC.Core.ShapeFix import ShapeFix_Face
+    fix = ShapeFix_Face(flaeche)
+    fix.Perform()
+    return fix.Face()
+
+
+def _gut(flaeche) -> bool:
+    """Flaeche mit positivem Inhalt und erfolgreich vernetzt (sonst sind die Schleifen falsch orientiert)."""
+    from OCC.Core.BRep import BRep_Tool
+    from OCC.Core.BRepGProp import brepgprop
+    from OCC.Core.BRepMesh import BRepMesh_IncrementalMesh
+    from OCC.Core.GProp import GProp_GProps
+    from OCC.Core.TopLoc import TopLoc_Location
+    g = GProp_GProps()
+    brepgprop.SurfaceProperties(flaeche, g)
+    if g.Mass() <= 0:
+        return False
+    BRepMesh_IncrementalMesh(flaeche, 0.1, False, 0.5, True)
+    tri = BRep_Tool.Triangulation(flaeche, TopLoc_Location())
+    return tri is not None and tri.NbTriangles() > 0
 
 
 def _alle(form, art, explorer):
