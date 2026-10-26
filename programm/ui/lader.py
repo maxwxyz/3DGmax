@@ -17,6 +17,7 @@ class Ergebnis:
     baum: object
     farben: dict
     grafik: dict
+    norm: object = None  # kern.norm.Norm (erkannt)
 
 
 def lade_alles(pfad: str, fortschritt=lambda text: None) -> Ergebnis:
@@ -36,7 +37,10 @@ def lade_alles(pfad: str, fortschritt=lambda text: None) -> Ergebnis:
     grafik = lies_grafik(modell.datei, _laengen_skala(modell.datei)) if modell.datei else {}
     pmi = ergaenze_hinweise(pmi, grafik)
     ansichten = lies_ansichten(modell, pmi)
-    return Ergebnis(pfad, modell, pmi, ansichten, lies_baum(modell), flaechen_farben(modell), grafik)
+    from ..kern import norm
+    erkannt = norm.erkenne(pfad, pmi)
+    norm.setze(pmi, erkannt.art)
+    return Ergebnis(pfad, modell, pmi, ansichten, lies_baum(modell), flaechen_farben(modell), grafik, erkannt)
 
 
 class Lader(QtCore.QThread):

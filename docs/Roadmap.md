@@ -8,7 +8,7 @@
 | Load STEP AP242/AP214/AP203 (background, cancel, drag and drop, recent files) | ✅ |
 | Assembly tree: show/hide, isolate, transparent, auxiliary geometry | ✅ |
 | Navigation CATIA style (default) and classic, trackpad, standard views, pivot/view center | ✅ |
-| Pivot stays fixed during zoom/pan, shown as line cross | ⬜ (next) |
+| Pivot stays fixed during zoom/pan, shown as line cross while orbiting/panning | ✅ |
 | Display shaded/with edges/wireframe, light/dark, custom background colors | ✅ |
 | Saved views: camera, window, PMI per view, browse (◀ ▶), search | ✅ |
 | Thumbnails per saved view | ⬜ |
@@ -35,7 +35,8 @@
 | List with name, views, search, filter, context menu; count in current view | ✅ |
 | Table columns: move, show/hide; ISO GPS columns (characteristic, nominal, deviations, limits, size tolerance, class, zone, material condition) | ✅ |
 | Limits from ISO 286 tolerance classes (e.g. H7) | ⬜ |
-| Standard awareness ASME Y14.5 / ISO GPS (detect or set per model, rules and terms) | ⬜ |
+| Standard awareness ASME Y14.5 / ISO GPS (detect, fallback ISO, per-model override, terms, rule, envelope note) | ✅ |
+| More standard-specific rules and ISO 14405 modifier display | ⬜ |
 | PMI color: high contrast / from file / custom | ✅ |
 | PMI export CSV (values, datums, face IDs, views) | ✅ |
 | Plausibility check (unused/missing datums, without face/view, duplicates, rules) | ✅ |
@@ -45,7 +46,7 @@
 | Convert graphical PMI into semantic PMI | 💡 |
 | Show tolerance zones as envelope surfaces (incl. datums, unequal zones) | 💡 |
 | Tolerance stack-up analysis (dimension chains, worst case, RSS, Monte Carlo) | 💡 |
-| Bill of characteristics with balloon numbers | ⬜ |
+| Bill of characteristics with balloon numbers (table column, 3D balloons, CSV, PDF) | ✅ |
 | Datum reference frame display for a selected tolerance | ✅ |
 | Create and edit PMI, tolerancing advisor with contextual suggestions | 💡 |
 

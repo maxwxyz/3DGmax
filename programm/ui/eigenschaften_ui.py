@@ -13,7 +13,7 @@ from ..kern import eigenschaften as ek
 class EigenschaftenDialog(QtWidgets.QDialog):
     """Kennwerte fuer das ganze Modell oder die gewaehlten Teile; Dichte einstellbar (wird gemerkt)."""
 
-    def __init__(self, form, pfad: str, datei, einstellungen, umfang: str, parent=None):
+    def __init__(self, form, pfad: str, datei, einstellungen, umfang: str, parent=None, norm_text: str = ""):
         super().__init__(parent)
         self.setWindowTitle(tr("Modelleigenschaften"))
         self.ein = einstellungen
@@ -43,7 +43,7 @@ class EigenschaftenDialog(QtWidgets.QDialog):
             (tr("Körper / Flächen"), f"{w.koerper} / {w.flaechen}"),
         ]
         k = self.kopf
-        datei_zeilen = [(tr("Schema"), k.schema), (tr("Erstellt"), k.zeit), (tr("Autor"), k.autor),
+        datei_zeilen = [(tr("Norm"), norm_text), (tr("Schema"), k.schema), (tr("Erstellt"), k.zeit), (tr("Autor"), k.autor),
                         (tr("Organisation"), k.organisation), (tr("System"), k.system or k.praeprozessor),
                         (tr("Beschreibung"), k.beschreibung)]
         datei_zeilen += [(tr("Produkt"), " – ".join(x for x in p if x)) for p in k.produkte[:8]]

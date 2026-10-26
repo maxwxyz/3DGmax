@@ -83,6 +83,7 @@ class AnsichtBasis(QtWidgets.QWidget):
         self.abweichung = None  # (Karte, Toleranz, Grenze) der Farbkarte
         self.perspektive = False
         self.bezugssystem: list = []
+        self.ballone: list = []
         self.letzter_zoom = None
         self.letzte_ausrichtung = None
         self.auswahl3d: list = []  # gewaehlte Flaechen/Kanten (TopoDS)
@@ -103,6 +104,14 @@ class AnsichtBasis(QtWidgets.QWidget):
 
     def zeige_pmi(self, ids: set[int] | None):
         self.pmi_ids_sichtbar = None if ids is None else set(ids)
+
+    def zeige_ballone(self, ballone: list):
+        """Ballonnummern [(Nummer, (x, y, z))] an den Merkmalen; [] blendet aus."""
+        self.ballone = list(ballone)
+
+    def mitte_von(self, flaechen):
+        """Schwerpunkt von Flaechen (Index) oder None."""
+        return None
 
     def zeige_bezugssystem(self, bezuege: list):
         """Bezugssystem einer Toleranz: [(Name, Stelle 1..3, Flaechen)] farbig mit Beschriftung; [] blendet aus."""
@@ -227,7 +236,7 @@ class AnsichtBasis(QtWidgets.QWidget):
         img = self.grab().toImage()
         return img
 
-    def drehpunkt_zuruecksetzen(self):
+    def drehpunkt_zuruecksetzen(self, melden: bool = True):
         pass
 
     def setze_perspektive(self, an: bool):
@@ -548,6 +557,7 @@ class OcctAnsicht(AnsichtBasis):
 
         ctx = self.d.Context
         ctx.RemoveAll(False)
+        self._drehpunkt_ais = None
         self._zeige_wuerfel()
         self._teile, self._kanten, self._flaechen_ais, self._hilfe = {}, {}, {}, []
         self._callouts, self._ais_callout = {}, {}
@@ -593,9 +603,12 @@ class OcctAnsicht(AnsichtBasis):
         self._mess_ais = []
         self._karte_ais = []
         self._bezug_ais = []
+        self._ballon_ais = []
         self._baue_entfernt()
         self._baue_grafik()
         self._baue_abweichung()
+        if self.ballone:
+            self.zeige_ballone(self.ballone)
         self._wende_darstellung_an()
         self._wende_sichtbarkeit_an()
         self._verlauf, self._verlauf_pos = [], -1
@@ -899,9 +912,13 @@ class OcctAnsicht(AnsichtBasis):
                 continue
             lab = AIS_TextLabel()
             lab.SetFont(SCHRIFT)
-            lab.SetText(TCollection_ExtendedString(f"{name} ({stelle}.)", True))
+            lab.SetText(TCollection_ExtendedString(f" {name} ({stelle}.) ", True))
             lab.SetPosition(gp_Pnt(*mitte))
-            lab.SetColor(_farbe(BEZUG_FARBEN.get(stelle, BEZUG_FARBEN[3])))
+            # weisse Schrift auf Feld in Bezugsfarbe: lesbar auch auf der gleichfarbigen Flaeche
+            from OCC.Core.Aspect import Aspect_TODT_SUBTITLE
+            lab.SetDisplayType(Aspect_TODT_SUBTITLE)
+            lab.SetColorSubTitle(_farbe(tuple(c * 0.8 for c in BEZUG_FARBEN.get(stelle, BEZUG_FARBEN[3]))))
+            lab.SetColor(_farbe((1.0, 1.0, 1.0)))
             lab.SetHeight(18)
             lab.SetZLayer(Graphic3d_ZLayerId_Topmost)
             ctx.Display(lab, False)
@@ -909,7 +926,41 @@ class OcctAnsicht(AnsichtBasis):
             self._bezug_ais.append(lab)
         self._neu_zeichnen()
 
-    def _mitte_von(self, flaechen):
+    def zeige_ballone(self, ballone):
+        super().zeige_ballone(ballone)
+        if not self._bereit:
+            return
+        from OCC.Core.AIS import AIS_TextLabel
+        from OCC.Core.Aspect import Aspect_TODT_SUBTITLE
+        from OCC.Core.Graphic3d import Graphic3d_ZLayerId_Topmost
+        from OCC.Core.gp import gp_Pnt
+        from OCC.Core.TCollection import TCollection_ExtendedString
+        ctx = self.d.Context
+        for lab in getattr(self, "_ballon_ais", []):
+            ctx.Remove(lab, False)
+        self._ballon_ais = []
+        for nummer, ort in self.ballone:
+            lab = AIS_TextLabel()
+            lab.SetFont(SCHRIFT)
+            lab.SetText(TCollection_ExtendedString(f" {nummer} ", True))
+            p = gp_Pnt(*ort)
+            if self.vergleich_trsf is not None:
+                p = p.Transformed(self.vergleich_trsf)
+            lab.SetPosition(p)
+            lab.SetDisplayType(Aspect_TODT_SUBTITLE)
+            lab.SetColorSubTitle(_farbe((0.15, 0.40, 0.85)))
+            lab.SetColor(_farbe((1.0, 1.0, 1.0)))
+            lab.SetHeight(15)
+            lab.SetZLayer(Graphic3d_ZLayerId_Topmost)
+            ctx.Display(lab, False)
+            ctx.Deactivate(lab)
+            self._ballon_ais.append(lab)
+        self._neu_zeichnen()
+
+    def mitte_von(self, flaechen):
+        return self._mitte_von(flaechen, lage=False) if self._bereit else None
+
+    def _mitte_von(self, flaechen, lage: bool = True):
         from OCC.Core.BRepGProp import brepgprop
         from OCC.Core.GProp import GProp_GProps
         p = GProp_GProps()
@@ -921,7 +972,7 @@ class OcctAnsicht(AnsichtBasis):
         if not n:
             return None
         c = p.CentreOfMass()
-        if self.vergleich_trsf is not None:
+        if lage and self.vergleich_trsf is not None:
             c = c.Transformed(self.vergleich_trsf)
         return (c.X(), c.Y(), c.Z())
 
@@ -994,6 +1045,8 @@ class OcctAnsicht(AnsichtBasis):
         """Auf die sichtbaren Teile einpassen (PMI-Beschriftungen ragen oft weit hinaus)."""
         if not self._bereit:
             return
+        if self._drehpunkt is not None:
+            self.drehpunkt_zuruecksetzen(melden=False)  # neuer Ausschnitt: Drehen wieder um die Bildmitte
         box = self._sichtbare_box()
         if box.IsVoid():
             self.d.View.FitAll(0.05, False)
@@ -1027,9 +1080,12 @@ class OcctAnsicht(AnsichtBasis):
         self._neu_zeichnen()
         self._kamera_bewegt()
 
-    def drehpunkt_zuruecksetzen(self):
+    def drehpunkt_zuruecksetzen(self, melden: bool = True):
         self._drehpunkt = None
-        self.meldung.emit(tr("Drehpunkt: Mitte des Modells"))
+        if self._bereit:
+            self._zeige_drehpunkt()
+        if melden:
+            self.meldung.emit(tr("Drehpunkt: Mitte des Modells"))
 
     def _mitte(self):
         from OCC.Core.gp import gp_Pnt
@@ -1293,15 +1349,17 @@ class OcctAnsicht(AnsichtBasis):
 
     @contextlib.contextmanager
     def _ohne_wuerfel(self):
-        """Ansichtswuerfel fuer Bilder (Berichte) kurz ausblenden."""
-        w = getattr(self, "_wuerfel", None)
-        if w is not None:
-            self.d.Context.Erase(w, False)
+        """Ansichtswuerfel und Drehpunktkreuz fuer Bilder (Berichte) kurz ausblenden."""
+        weg = [a for a in (getattr(self, "_wuerfel", None), getattr(self, "_drehpunkt_ais", None)) if a is not None]
+        for a in weg:
+            self.d.Context.Erase(a, False)
         try:
             yield
         finally:
-            if w is not None:
-                self.d.Context.Display(w, False)
+            for a in weg:
+                self.d.Context.Display(a, False)
+                self.d.Context.Deactivate(a)
+            if weg:
                 self._neu_zeichnen()
 
     # --- Maus und Trackpad ---
@@ -1403,6 +1461,8 @@ class OcctAnsicht(AnsichtBasis):
                 befehle = self.nav.bewegen(knoepfe, umschalt, x, y)
             elif typ == E.MouseButtonRelease:
                 befehle = self.nav.loslassen(knopf, knoepfe, x, y)
+                if not knoepfe and getattr(self, "_drehpunkt_ais", None) is not None:
+                    self._zeige_drehpunkt(an=False)
             else:
                 befehle = self.nav.doppelklick(knopf, x, y)
             for b in befehle:
@@ -1422,6 +1482,8 @@ class OcctAnsicht(AnsichtBasis):
 
     def _fuehre_aus(self, befehl):
         art, *werte = befehl
+        if art in ("drehen", "schieben") and getattr(self, "_drehpunkt_ais", None) is None:
+            self._zeige_drehpunkt(an=True)  # Kreuz zeigt, um welchen Punkt gedreht wird
         if art == "drehen":
             self._drehe(*werte)
         elif art == "schieben":
@@ -1449,8 +1511,11 @@ class OcctAnsicht(AnsichtBasis):
         t = gp_Trsf()
         t.SetTranslation(gp_Vec(cam.Center(), p))
         cam.Transform(t)
+        # Punkt bleibt Drehpunkt, auch wenn danach gezoomt oder verschoben wird
+        self._drehpunkt = p
+        self._zeige_drehpunkt()
         self.d.View.Redraw()
-        self.meldung.emit(tr("Bildmitte versetzt"))
+        self.meldung.emit(tr("Bildmitte und Drehpunkt versetzt"))
 
     def _rad(self, ev):
         x, y = self._px(ev.position())
@@ -1748,10 +1813,44 @@ class OcctAnsicht(AnsichtBasis):
         ext.Perform()
         return ext.PointOnShape2(1) if ext.IsDone() and ext.NbSolution() > 0 else None
 
+    def _zeige_drehpunkt(self, an: bool = False):
+        """Drehpunkt als kleines Linienkreuz in X, Y, Z (feste Groesse in Pixeln) – nur waehrend Drehen/Schieben."""
+        from OCC.Core.AIS import AIS_Shape
+        from OCC.Core.BRep import BRep_Builder
+        from OCC.Core.BRepBuilderAPI import BRepBuilderAPI_MakeEdge
+        from OCC.Core.Graphic3d import Graphic3d_TMF_ZoomPers, Graphic3d_TransformPers, Graphic3d_ZLayerId_Topmost
+        from OCC.Core.gp import gp_Pnt
+        from OCC.Core.TopoDS import TopoDS_Compound
+        ctx = self.d.Context
+        if getattr(self, "_drehpunkt_ais", None) is not None:
+            ctx.Remove(self._drehpunkt_ais, False)
+            self._drehpunkt_ais = None
+        punkt = self._mitte_cache if getattr(self, "_mitte_cache", None) is not None else self._drehpunkt
+        if not an or punkt is None:
+            self._neu_zeichnen()
+            return
+        k = max(1.0, self.viewer.devicePixelRatioF()) if sys.platform == "darwin" else 1.0
+        l = 11.0 * k  # halbe Armlaenge in Pixeln (Zoom-Persistenz: Einheiten = Pixel)
+        kreuz = TopoDS_Compound()
+        bb = BRep_Builder()
+        bb.MakeCompound(kreuz)
+        for d in ((l, 0, 0), (0, l, 0), (0, 0, l)):
+            bb.Add(kreuz, BRepBuilderAPI_MakeEdge(gp_Pnt(-d[0], -d[1], -d[2]), gp_Pnt(*d)).Edge())
+        ais = AIS_Shape(kreuz)
+        ais.SetColor(_farbe((self.thema or {}).get("hervor", (1.0, 0.45, 0.0))))
+        ais.SetWidth(2.0 * k)
+        ais.SetTransformPersistence(Graphic3d_TransformPers(Graphic3d_TMF_ZoomPers, punkt))
+        ais.SetZLayer(Graphic3d_ZLayerId_Topmost)
+        ctx.Display(ais, 0, -1, False)
+        ctx.Deactivate(ais)
+        self._drehpunkt_ais = ais
+        self._neu_zeichnen()
+
     def _setze_drehpunkt(self, x, y):
         p = self._punkt_unter_maus(x, y)
         if p is not None:
             self._drehpunkt = p
+            self._zeige_drehpunkt()
             self.meldung.emit(tr("Drehpunkt gesetzt: {:.1f}, {:.1f}, {:.1f}").format(p.X(), p.Y(), p.Z()))
         else:
             self.drehpunkt_zuruecksetzen()

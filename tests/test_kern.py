@@ -129,3 +129,50 @@ def test_release_versionssprung():
     assert release.naechste("1.2", "patch") == "1.2.1"
     text = release.markdown({"releases": [{"version": "0.2", "date": "2026-10-26", "de": ["A"], "en": ["B"]}]}, "de")
     assert "## 0.2 (2026-10-26)" in text and "- A" in text
+
+
+def test_normerkennung_asme_iso_rueckfall(ctc01, ftc10):
+    from programm.kern import norm
+    from tests.conftest import pfad
+    assert norm.erkenne(ftc10.pfad).art == norm.ASME and "Y14" in norm.erkenne(ftc10.pfad).grund
+    assert norm.erkenne(ctc01.pfad).art == norm.ASME  # nur Dateiname "asme1"
+    n = norm.erkenne(pfad("varianten/ctc01_geo.stp"))
+    assert n.art == norm.ISO and not n.erkannt  # kein Hinweis: ISO GPS
+    assert norm.erkenne("x.stp", text="#1=DOCUMENT('ISO 1101','Geometric Tolerancing Standard','',#2);").art == norm.ISO
+    assert norm.erkenne("teil_asme.stp", text="NOTE('ISO 8015 APPLIES')").art == norm.ISO  # Text schlaegt Dateiname
+
+
+def test_norm_begriffe_huelle_und_regel():
+    from programm.kern import pmi_bericht
+    from programm.kern.pmi import MASS, TOLERANZ, Pmi
+    t = Pmi(TOLERANZ, "ProfileOfSurface", wert=0.2)
+    assert t.merkmal() == "Flächenform"
+    t.norm = "asme"
+    assert t.merkmal() == "Flächenprofil"
+    d = Pmi(MASS, "Size_Diameter", nennwert=10.0, oben=0.1, unten=0.0)
+    assert "ISO 8015" in d.huelle_text()
+    d.norm = "asme"
+    assert "Rule #1" in d.huelle_text()
+    k = Pmi(TOLERANZ, "Concentricity", wert=0.1, nummer=1, norm="asme")
+    assert any("2018" in b.text for b in pmi_bericht.pruefe([k]))
+    k.norm = "iso"
+    assert not any("2018" in b.text for b in pmi_bericht.pruefe([k]))
+
+
+def test_merkmalsliste_ballone(ctc01):
+    from programm.kern import merkmale
+    from programm.kern.ansichten import _laengen_skala
+    from programm.kern.pmi_lesen import lies_pmi
+    from programm.kern.praesentation import lies_grafik
+    pmi = lies_pmi(ctc01)
+    liste = merkmale.liste(pmi)
+    assert liste and all(m.pmi.art in ("mass", "toleranz") for m in liste)
+    assert [m.ballon for m in liste] == list(range(1, len(liste) + 1))
+    assert not any(p.art == "bezug" for p in (m.pmi for m in liste))
+    text = merkmale.als_csv(liste)
+    assert text.splitlines()[0].startswith("Ballon;Nr;Merkmal") and len(text.splitlines()) == len(liste) + 1
+    grafik = lies_grafik(ctc01.datei, _laengen_skala(ctc01.datei))
+    orte = [merkmale.anker(m.pmi, grafik) for m in liste]
+    assert sum(o is not None for o in orte) >= len(liste) * 0.8
+    tol = next(m for m in liste if m.pmi.art == "toleranz" and m.pmi.wert)
+    assert tol.grenzen() == (tol.pmi.wert, 0.0)

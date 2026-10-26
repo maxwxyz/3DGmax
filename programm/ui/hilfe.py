@@ -175,7 +175,7 @@ def ueber_html() -> str:
     zeilen = "".join(f"<tr><td>{html.escape(n)}</td><td>{html.escape(l)}</td>"
                      f"<td><a href='{u}'>{html.escape(u)}</a></td></tr>" for n, l, u in LIZENZEN)
     return (f"<h2>3DGmax {VERSION}</h2><p>{tr('3D-Modelle mit PMI ansehen, messen und vergleichen.')}</p>"
-            f"<p>© {COPYRIGHT_JAHRE} {AUTOR} · {tr('Autor')}: {AUTOR}</p>"
+            f"<p>© {COPYRIGHT_JAHRE} {AUTOR}</p>"
             f"<p>{tr('Lizenz')}: <a href='https://www.gnu.org/licenses/gpl-3.0.html'>GNU GPL v3 {tr('oder später')}</a>"
             f" (GPL-3.0-or-later). {tr('Ohne Gewährleistung.')}</p>"
             f"<p>Python {platform.python_version()} · {platform.system()} {platform.machine()}</p>"

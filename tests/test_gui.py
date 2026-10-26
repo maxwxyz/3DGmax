@@ -373,3 +373,29 @@ def test_kamera_aktionen_vorhanden(fenster_ctc01):
     assert f.ansicht.perspektive and str(f.ein.value("perspektive")).lower() in ("true", "1")
     f.aktionen["perspektive"].trigger()
     assert not f.ansicht.perspektive
+
+
+def test_norm_menue_und_ballone(fenster_ctc01, tmp_path):
+    f = fenster_ctc01
+    assert "ASME" in f.pmi.hinweis.text() and f.aktionen["norm_auto"].isChecked()
+    f.setze_norm("iso")
+    assert "ISO GPS" in f.pmi.hinweis.text() and all(p.norm == "iso" for p in f.erg.pmi)
+    f.setze_norm("auto")
+    assert all(p.norm == "asme" for p in f.erg.pmi)
+    f.aktionen["ballone"].setChecked(True)
+    f.zeige_ballone_aktuell()
+    assert len(f.ansicht.ballone) >= 10
+    spalte = f.pmi.SPALTEN.index("Ballon")
+    assert not f.pmi.tabelle.horizontalHeader().isSectionHidden(spalte)
+    assert f.pmi.tabelle.item(0, spalte).text() in ("", "1")
+    f.pmi.art.setCurrentIndex(f.pmi.art.findData("toleranz"))  # Filter: nur Ballone der Toleranzen
+    n_tol = len(f.ansicht.ballone)
+    assert 0 < n_tol < len(f.pmi.merkmale)
+    f.pmi.art.setCurrentIndex(0)
+    f.aktionen["ballone"].setChecked(False)
+    f.zeige_ballone_aktuell()
+    assert f.ansicht.ballone == []
+    csv_pfad = f.exportiere_merkmale(str(tmp_path / "m.csv"))
+    assert open(csv_pfad, encoding="utf-8-sig").read().startswith("Ballon;")
+    pdf = f.exportiere_pdf("merkmale", str(tmp_path / "m.pdf"))
+    assert pdf and (tmp_path / "m.pdf").stat().st_size > 1000

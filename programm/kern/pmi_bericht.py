@@ -90,6 +90,9 @@ def pruefe(pmi: list[Pmi], ansichten: list | None = None) -> list[Befund]:
             out.append(Befund(WARNUNG, tr("Positionstoleranz ohne Bezug (nur als Muster sinnvoll)"), [p.nummer]))
         if p.typ in OHNE_BEZUG and p.bezuege:
             out.append(Befund(WARNUNG, tr("{}: Formtoleranz mit Bezug").format(p.typ), [p.nummer]))
+        if p.norm == "asme" and p.typ in ("Concentricity", "Symmetry"):
+            out.append(Befund(WARNUNG, tr("{}: in ASME Y14.5-2018 entfallen – Position, Profil oder Lauf verwenden")
+                              .format(tr(p.merkmal())), [p.nummer]))
         if p.wert is not None and p.wert <= 0 and p.material != "M" and p.material != "L":
             out.append(Befund(WARNUNG, tr("Toleranzwert 0 ohne Materialbedingung"), [p.nummer]))
     for name, p in sorted(bezuege.items()):

@@ -260,6 +260,10 @@ class Hauptfenster(QtWidgets.QMainWindow):
         if slot:
             a.triggered.connect(slot)
         a.setProperty("braucht_modell", modell)
+        # macOS: Ueber, Einstellungen, Beenden gehoeren ins Programmmenue; sonst keine Raterei nach dem Text
+        rolle = {"ueber": QtGui.QAction.MenuRole.AboutRole, "einstellungen": QtGui.QAction.MenuRole.PreferencesRole,
+                 "beenden": QtGui.QAction.MenuRole.QuitRole}.get(name, QtGui.QAction.MenuRole.NoRole)
+        a.setMenuRole(rolle)
         self.aktionen[name] = a
         return a
 
@@ -294,6 +298,18 @@ class Hauptfenster(QtWidgets.QMainWindow):
         A("projekt_speichern", tr("Projekt speichern …"), lambda: self.speichere_projekt(),
           QtGui.QKeySequence.StandardKey.Save,
           tipp=tr("Modell bzw. Vergleich mit Prüfstand, Kommentaren und Messungen als eine Datei (.3dgmax)"))
+        for n, text in (("auto", tr("Norm automatisch erkennen")), ("iso", "ISO GPS"), ("asme", "ASME Y14.5")):
+            A("norm_" + n, text, lambda _=False, n=n: self.setze_norm(n), pruefbar=True,
+              tipp=tr("Normsystem für Begriffe, Prüfregeln und Hüllbedingung (ohne Hinweis in der Datei: ISO GPS)"))
+        gruppe = QtGui.QActionGroup(self)
+        for n in ("auto", "iso", "asme"):
+            gruppe.addAction(self.aktionen["norm_" + n])
+        A("ballone", tr("Ballonnummern zeigen"), self.zeige_ballone_aktuell, "B", pruefbar=True,
+          tipp=tr("Nummern der Merkmale (Maße, Form- und Lagetoleranzen) im Modell, wie in der Merkmalsliste"))
+        A("merkmale_csv", tr("Merkmalsliste (CSV) …"), lambda: self.exportiere_merkmale(),
+          tipp=tr("Prüfbare Merkmale mit Ballonnummer, Grenzen und Spalten für Messwerte"))
+        A("merkmale_pdf", tr("Merkmalsliste (PDF) …"), lambda: self.exportiere_pdf("merkmale"),
+          tipp=tr("Übersichtsbild mit Ballonnummern und Merkmalstabelle"))
         A("eigenschaften", tr("Modelleigenschaften …"), self.zeige_eigenschaften, "Ctrl+I",
           tipp=tr("Volumen, Masse, Schwerpunkt, Größe, Dateikopf – für gewählte Teile oder das ganze Modell"))
         A("bild_speichern", tr("Bild speichern …"), self.bild_speichern, tipp=tr("Aktuelle Ansicht als PNG"))
@@ -391,10 +407,10 @@ class Hauptfenster(QtWidgets.QMainWindow):
         m.addSeparator()
         m.addAction(a["projekt_speichern"])
         me = m.addMenu(tr("Exportieren"))
-        for n in ("pdf_ansichten", "pdf_vergleich", "pdf_pmi_aenderungen"):
+        for n in ("pdf_ansichten", "merkmale_pdf", "pdf_vergleich", "pdf_pmi_aenderungen"):
             me.addAction(a[n])
         me.addSeparator()
-        for n in ("pmi_export", "aenderungen_export"):
+        for n in ("pmi_export", "merkmale_csv", "aenderungen_export"):
             me.addAction(a[n])
         for n in ("bild_speichern", "bild_kopieren"):
             m.addAction(a[n])
@@ -423,6 +439,7 @@ class Hauptfenster(QtWidgets.QMainWindow):
         m.addSeparator()
         m.addAction(a["grafik"])
         m.addAction(a["grafik_auswahl"])
+        m.addAction(a["ballone"])
         m.addAction(a["hilfsgeometrie"])
         m.addSeparator()
         ms = m.addMenu(tr("Schnitt"))
@@ -439,6 +456,9 @@ class Hauptfenster(QtWidgets.QMainWindow):
             msp.addAction(a[n])
         m = mb.addMenu(tr("&Modell"))
         m.addAction(a["eigenschaften"])
+        mn = m.addMenu(tr("Norm"))
+        for n in ("norm_auto", "norm_iso", "norm_asme"):
+            mn.addAction(a[n])
         m.addSeparator()
         for n in ("alle_zeigen", "isolieren", "transparent", "teil_ausblenden", "teil_isolieren", "auswahl_aufheben"):
             m.addAction(a[n])
@@ -616,6 +636,7 @@ class Hauptfenster(QtWidgets.QMainWindow):
         self.ansicht.zeige(szene)
         self.baum.zeige(erg.baum)
         self._ansicht_pmi_ids = None
+        self._wende_norm_an(erg, self._norm_wahl(erg.pfad))
         self.pmi.zeige(erg.pmi, erg.ansichten)
         self.spalten_anpassen()
         self.ansichten.zeige(erg.ansichten)
@@ -736,6 +757,36 @@ class Hauptfenster(QtWidgets.QMainWindow):
     def _grafik_pmi_gewaehlt(self, ids):
         self.pmi.waehle(lambda p: p.step_id in ids)
 
+    # --- Normsystem ---
+
+    def _norm_wahl(self, pfad: str) -> str:
+        return str(self.ein.value("norm/" + os.path.abspath(pfad).replace("/", "|"), "auto"))
+
+    def _wende_norm_an(self, erg, wahl: str):
+        """Norm an die PMI geben: Wahl des Nutzers oder erkannt (Rueckfall ISO GPS)."""
+        from ..kern import norm
+        erkannt = erg.norm or norm.Norm(norm.ISO, "", False)
+        art = erkannt.art if wahl == "auto" else wahl
+        norm.setze(erg.pmi, art)
+        if wahl != "auto":
+            text = tr("{} (gewählt)").format(norm.NAME[art])
+        elif erkannt.erkannt:
+            text = tr("{} (erkannt)").format(norm.NAME[art])
+        else:
+            text = tr("{} (Standard, kein Hinweis in der Datei)").format(norm.NAME[art])
+        self.norm_text = text
+        self.pmi.norm_text = text
+        self.pmi.setToolTip(tr("Norm: {}").format(text) + (f"\n{erkannt.grund}" if erkannt.grund else ""))
+        self.aktionen["norm_" + wahl].setChecked(True)
+
+    def setze_norm(self, wahl: str):
+        if self.erg is None:
+            return
+        self.ein.setValue("norm/" + os.path.abspath(self.erg.pfad).replace("/", "|"), wahl)
+        self._wende_norm_an(self.erg, wahl)
+        self.pmi.zeige(self.erg.pmi, self.erg.ansichten)
+        self.statusBar().showMessage(tr("Norm: {}").format(self.norm_text), 6000)
+
     def _bezugssystem(self, liste) -> list:
         """Bezugselemente einer einzeln gewaehlten Toleranz: [(Name, Stelle 1..3, Flaechen)]."""
         if len(liste) != 1 or not liste[0].bezuege or self.erg is None:
@@ -754,6 +805,8 @@ class Hauptfenster(QtWidgets.QMainWindow):
         self._pmi_filter_ids = ids
         ansicht_ids = getattr(self, "_ansicht_pmi_ids", None)
         self.ansicht.zeige_pmi(ansicht_ids if ids is None else ids)
+        if "ballone" in self.aktionen and self.aktionen["ballone"].isChecked():
+            self.zeige_ballone_aktuell()
 
     def _ansicht_gewaehlt(self, ansicht):
         self._ansicht_pmi_ids = None if ansicht is None else set(ansicht.pmi_ids)
@@ -1085,7 +1138,8 @@ class Hauptfenster(QtWidgets.QMainWindow):
             umfang = tr("{} gewählte Teile").format(len(teile)) if len(teile) > 1 else teile[0].name
         else:
             form, umfang = self.erg.modell.form, tr("ganzes Modell")
-        d = EigenschaftenDialog(form, self.erg.pfad, self.erg.modell.datei, self.ein, umfang, self)
+        d = EigenschaftenDialog(form, self.erg.pfad, self.erg.modell.datei, self.ein, umfang, self,
+                                norm_text=getattr(self, "norm_text", ""))
         if not nur_anlegen:
             d.exec()
         return d
@@ -1179,10 +1233,11 @@ class Hauptfenster(QtWidgets.QMainWindow):
 
     def exportiere_pdf(self, art: str, pfad: str = "") -> str | None:
         from . import berichte
-        if self.erg is None or (art != "ansichten" and self.vergleich is None):
+        if self.erg is None or (art not in ("ansichten", "merkmale") and self.vergleich is None):
             return None
         basis = os.path.splitext((self.vergleich.neu.pfad if self.vergleich else self.erg.pfad))[0]
-        endung = {"ansichten": "_ansichten.pdf", "vergleich": "_vergleich.pdf", "pmi_aenderungen": "_pmi_aenderungen.pdf"}[art]
+        endung = {"ansichten": "_ansichten.pdf", "vergleich": "_vergleich.pdf", "pmi_aenderungen": "_pmi_aenderungen.pdf",
+                  "merkmale": "_merkmale.pdf"}[art]
         pfad = pfad or self._speicherpfad(tr("PDF speichern"), basis + endung, "PDF (*.pdf)")
         if not pfad:
             return None
@@ -1191,6 +1246,8 @@ class Hauptfenster(QtWidgets.QMainWindow):
         try:
             if art == "ansichten":
                 berichte.ansichten_pdf(self, pfad)
+            elif art == "merkmale":
+                berichte.merkmale_pdf(self, pfad)
             elif art == "vergleich":
                 berichte.vergleich_pdf(self, pfad)
             else:
@@ -1199,6 +1256,40 @@ class Hauptfenster(QtWidgets.QMainWindow):
             QtWidgets.QApplication.restoreOverrideCursor()
         self.statusBar().showMessage(tr("PDF gespeichert: {}").format(pfad), 8000)
         return pfad
+
+    def exportiere_merkmale(self, pfad: str = "") -> str | None:
+        from ..kern import merkmale
+        if self.erg is None:
+            return None
+        pfad = pfad or self._speicherpfad(tr("Merkmalsliste speichern"),
+                                          os.path.splitext(self.erg.pfad)[0] + "_merkmale.csv", "CSV (*.csv)")
+        if not pfad:
+            return None
+        with open(pfad, "w", encoding="utf-8-sig", newline="") as f:
+            f.write(merkmale.als_csv(merkmale.liste(self.erg.pmi), self.erg.ansichten))
+        self.statusBar().showMessage(tr("Merkmalsliste gespeichert: {}").format(pfad), 8000)
+        return pfad
+
+    def zeige_ballone_aktuell(self):
+        """Ballone fuer die Merkmale, die die PMI-Liste gerade zeigt (Ansicht, Art, Suche)."""
+        from ..kern import merkmale
+        if self.erg is None or not self.aktionen["ballone"].isChecked():
+            self.ansicht.zeige_ballone([])
+            return
+        sichtbar = {p.nummer for p in self.pmi.sichtbare()}
+        ballone = []
+        for m in merkmale.liste(self.erg.pmi):
+            if m.pmi.nummer in sichtbar:
+                ort = merkmale.anker(m.pmi, self.erg.grafik, self.ansicht.mitte_von)
+                if ort is not None:
+                    ballone.append((m.ballon, ort))
+        self.ansicht.zeige_ballone(ballone)
+        spalte = self.pmi.SPALTEN.index("Ballon")
+        kopf = self.pmi.tabelle.horizontalHeader()
+        if kopf.isSectionHidden(spalte):
+            from .panels import _breite_nach_inhalt
+            kopf.setSectionHidden(spalte, False)
+            _breite_nach_inhalt(self.pmi.tabelle, spalte)
 
     def pruefe_pmi(self):
         from ..kern import pmi_bericht

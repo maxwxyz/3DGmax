@@ -44,6 +44,10 @@ MERKMAL = {
     "Datum": "Bezug", "DatumTarget": "Bezugsstelle",
 }
 MATERIAL = {"M": "Maximum-Material Ⓜ", "L": "Minimum-Material Ⓛ"}
+# ASME-Begriffe, wo sie von ISO 1101 abweichen (Anzeige ueber tr())
+MERKMAL_ASME = {"ProfileOfSurface": "Flächenprofil", "ProfileOfLine": "Linienprofil", "CircularRunout": "Rundlauf",
+                "Cylindricity": "Zylindrizität", "Angularity": "Winkligkeit"}
+GROESSENMASSE = {"Size_Diameter", "Size_Radius", "Size_SphericalDiameter", "Size_SphericalRadius", "Size_Thickness"}
 
 
 @dataclass
@@ -85,6 +89,7 @@ class Pmi:
     dezimalen: int | None = None  # Nachkommastellen laut Datei
     step_id: int = 0  # Entitaet in der STEP-Datei (0 = unbekannt)
     nummer: int = 0  # laufende Nummer in der Liste
+    norm: str = "iso"  # iso | asme (Begriffe, Regeln; siehe kern.norm)
 
     # --- Darstellung ---
 
@@ -128,7 +133,9 @@ class Pmi:
         return " | ".join(teile)
 
     def merkmal(self) -> str:
-        """Merkmalsschluessel (deutsch, Anzeige ueber tr()); unbekannte Typen unveraendert."""
+        """Merkmalsschluessel (deutsch, Anzeige ueber tr()) nach der Norm des Modells; unbekannte Typen unveraendert."""
+        if self.norm == "asme" and self.typ in MERKMAL_ASME:
+            return MERKMAL_ASME[self.typ]
         if self.typ in MERKMAL:
             return MERKMAL[self.typ]
         if self.typ.startswith("Location_LinearDistance"):
@@ -160,6 +167,16 @@ class Pmi:
     def masstoleranz(self) -> float | None:
         h, m = self.grenzen()
         return None if h is None or m is None else h - m
+
+    def huelle_text(self) -> str:
+        """Geltung der Huellbedingung fuer Groessenmasse: ASME Rule #1 vs. ISO 8015 (Unabhaengigkeit)."""
+        if self.art != MASS or self.typ not in GROESSENMASSE:
+            return ""
+        if self.norm == "asme":
+            return "Hüllbedingung gilt (ASME Rule #1)"
+        if "Envelope" in self.modifikatoren or "E" in self.modifikatoren:
+            return "Hüllbedingung Ⓔ"
+        return "Unabhängigkeitsprinzip (ISO 8015) – Form nicht begrenzt"
 
     def zonen_text(self) -> str:
         teile = []

@@ -55,7 +55,10 @@ def tr_texte() -> set[str]:
         out |= {name, text}
     out |= set(panels.ART_TEXT.values()) | set(panels.PmiPanel.SPALTEN)
     from programm.kern import pmi as kp
-    out |= set(kp.MERKMAL.values()) | set(kp.MATERIAL.values()) | {"Abstand"}
+    out |= set(kp.MERKMAL.values()) | set(kp.MATERIAL.values()) | {"Abstand"} | set(kp.MERKMAL_ASME.values())
+    out |= {"Hüllbedingung gilt (ASME Rule #1)", "Hüllbedingung Ⓔ", "Unabhängigkeitsprinzip (ISO 8015) – Form nicht begrenzt"}
+    from programm.kern import merkmale as km
+    out |= set(km.SPALTEN)
     from programm.kern import schnellinfo
     out |= set(schnellinfo.GRUPPEN.values())
     for t, x in hilfe.SCHRITTE:

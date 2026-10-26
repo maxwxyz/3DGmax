@@ -82,6 +82,20 @@ def pruefe_alles():
     ok = ok and cam.ProjectionType() == Graphic3d_Camera.Projection_Perspective
     a.setze_perspektive(False)
     ergebnis["kameraverlauf"] = ok
+    # Drehpunkt per Mitteltaste: bleibt beim Zoomen und Verschieben fest, Kreuz sichtbar
+    a.standard("iso")
+    mitte_px = (a.viewer.width() / 2, a.viewer.height() / 2)
+    a._zentriere(*mitte_px)
+    dp = a._drehpunkt
+    a._zoome(1.3, mitte_px[0] + 120, mitte_px[1] + 60)
+    a._verschiebe(40, -25)
+    ergebnis["drehpunkt_fest"] = dp is not None and a._mitte() is dp and a._drehpunkt_ais is None
+    a._mitte_cache = a._mitte()
+    a._fuehre_aus(("drehen", 5, 0))  # Kreuz nur waehrend des Drehens
+    ergebnis["kreuz_beim_drehen"] = a._drehpunkt_ais is not None
+    a._zeige_drehpunkt(an=False)
+    a.alles_zeigen()
+    ergebnis["drehpunkt_zurueck"] = a._drehpunkt is None and a._drehpunkt_ais is None
     s0 = cam.Scale()
     rad = QtGui.QWheelEvent(QtCore.QPointF(*mitte), a.viewer.mapToGlobal(QtCore.QPointF(*mitte)), QtCore.QPoint(), QtCore.QPoint(0, 240),
                             QtCore.Qt.MouseButton.NoButton, QtCore.Qt.KeyboardModifier.NoModifier, QtCore.Qt.ScrollPhase.NoScrollPhase, False)

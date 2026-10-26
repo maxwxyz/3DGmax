@@ -273,3 +273,32 @@ def pmi_aenderungen_pdf(vergleich, pfad: str) -> str:
                ("Kommentar", 0.14)]
     bericht.tabelle([(tr(t), w) for t, w in spalten], zeilen or [["–", tr("keine PMI-Änderungen"), "", "", "", "", ""]])
     return bericht.fertig()
+
+
+MERKMAL_BREITEN = (0.05, 0.04, 0.12, 0.17, 0.07, 0.07, 0.07, 0.08, 0.09, 0.05, 0.07, 0.04, 0.08)
+
+
+def merkmale_pdf(fenster, pfad: str, bild: bool = True) -> str:
+    """Merkmalsliste mit Ballonnummern: Uebersichtsbild mit Ballonen, dann Tabelle mit Spalten fuer Messwerte."""
+    from ..kern import merkmale
+    erg = fenster.erg
+    modell = os.path.basename(erg.pfad)
+    liste = merkmale.liste(erg.pmi)
+    bericht = PdfBericht(pfad, tr("Merkmalsliste – {}").format(modell))
+    bericht.ueberschrift(tr("Merkmalsliste"))
+    bericht.absatz(tr("Modell: {} · {} Merkmale · Norm: {}").format(
+        modell, len(liste), getattr(fenster, "norm_text", "") or "–"))
+    if bild:
+        war_an = fenster.aktionen["ballone"].isChecked()
+        fenster.aktionen["ballone"].setChecked(True)
+        fenster.zeige_ballone_aktuell()
+        with _BreiteAnsicht(fenster):
+            fenster.ansicht.alles_zeigen()
+            _warte()
+            bericht.bild(fenster.ansicht.bild_qimage(), 0.62)
+        fenster.aktionen["ballone"].setChecked(war_an)
+        fenster.zeige_ballone_aktuell()
+        bericht.neue_seite()
+    spalten = [(tr(t), b) for t, b in zip(merkmale.SPALTEN, MERKMAL_BREITEN)]
+    bericht.tabelle(spalten, merkmale.zeilen(liste, erg.ansichten) or [["–"] + [""] * (len(spalten) - 1)])
+    return bericht.fertig()

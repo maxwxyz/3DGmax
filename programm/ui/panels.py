@@ -148,11 +148,11 @@ class PmiPanel(QtWidgets.QWidget):
     filter_geaendert = QtCore.Signal(object)  # STEP-#IDs der gefilterten PMI oder None (kein Art-/Suchfilter)
     befehl = QtCore.Signal(str, object)  # Kontextmenue: ("zoomen"|"ausrichten"|"ansicht", Wert)
 
-    SPALTEN = ("Nr", "Art", "Merkmal", "Name", "Wert", "Bezüge", "Ansichten", "Flächen", "Nennmaß",
+    SPALTEN = ("Nr", "Ballon", "Art", "Merkmal", "Name", "Wert", "Bezüge", "Ansichten", "Flächen", "Nennmaß",
                "Oberes Abmaß", "Unteres Abmaß", "Höchstmaß", "Mindestmaß", "Maßtoleranz", "Toleranzklasse",
                "Toleranzwert", "Toleranzzone", "Materialbedingung", "Modifikatoren", "Semantisch")
     STANDARD = {"Nr", "Art", "Merkmal", "Name", "Wert", "Bezüge", "Ansichten", "Flächen"}  # sichtbar ab Werk
-    RECHTS = {"Nr", "Flächen", "Nennmaß", "Oberes Abmaß", "Unteres Abmaß", "Höchstmaß", "Mindestmaß",
+    RECHTS = {"Nr", "Ballon", "Flächen", "Nennmaß", "Oberes Abmaß", "Unteres Abmaß", "Höchstmaß", "Mindestmaß",
               "Maßtoleranz", "Toleranzwert"}
 
     def __init__(self, parent=None):
@@ -191,6 +191,9 @@ class PmiPanel(QtWidgets.QWidget):
             kopf.setSectionHidden(i, name not in self.STANDARD)
         lay.addWidget(self.tabelle, 1)
         self.pmi: list = []
+        self.norm_text = ""  # z. B. "ASME Y14.5 (erkannt)", Anzeige neben der Anzahl
+        self.merkmale: list = []
+        self.ballon: dict[int, int] = {}  # PMI-Nummer -> Ballonnummer
         self.ansichten_je_pmi: dict[int, list[str]] = {}
         self.ansichten: list = []
         self.nur_nummern: set[int] | None = None
@@ -199,7 +202,10 @@ class PmiPanel(QtWidgets.QWidget):
         self.tabelle.itemSelectionChanged.connect(self._auswahl)
 
     def zeige(self, pmi: list, ansichten: list | None = None):
+        from ..kern import merkmale
         self.pmi = pmi
+        self.merkmale = merkmale.liste(pmi)
+        self.ballon = merkmale.ballon_je_pmi(self.merkmale)
         self.ansichten = list(ansichten or [])
         self.ansichten_je_pmi = {}
         for a in self.ansichten:
@@ -211,7 +217,7 @@ class PmiPanel(QtWidgets.QWidget):
         t.setRowCount(len(pmi))
         for z, p in enumerate(pmi):
             namen = self.ansichten_je_pmi.get(p.nummer, [])
-            werte = self._werte(p, namen)
+            werte = self._werte(p, namen, self.ballon)
             for s, spalte in enumerate(self.SPALTEN):
                 it = QtWidgets.QTableWidgetItem(werte.get(spalte, ""))
                 if spalte in self.RECHTS:
@@ -225,10 +231,11 @@ class PmiPanel(QtWidgets.QWidget):
         self._filtern()
 
     @staticmethod
-    def _werte(p, namen) -> dict[str, str]:
+    def _werte(p, namen, ballon: dict | None = None) -> dict[str, str]:
+        ballon = ballon or {}
         hoechst, mindest = p.grenzen()
         oben, unten = p.abmasse()
-        return {"Nr": str(p.nummer), "Art": tr(ART_TEXT.get(p.art, p.art)), "Merkmal": tr(p.merkmal()),
+        return {"Nr": str(p.nummer), "Ballon": str(ballon.get(p.nummer, "")), "Art": tr(ART_TEXT.get(p.art, p.art)), "Merkmal": tr(p.merkmal()),
                 "Name": p.name, "Wert": p.wert_text(), "Bezüge": p.bezug_text(), "Ansichten": ", ".join(namen),
                 "Flächen": str(len(p.flaechen)), "Nennmaß": _z(p.nennwert if p.art == MASS else None),
                 "Oberes Abmaß": _z(oben, True), "Unteres Abmaß": _z(unten, True), "Höchstmaß": _z(hoechst),
@@ -261,7 +268,8 @@ class PmiPanel(QtWidgets.QWidget):
             zeigen = self._passt(p)
             self.tabelle.setRowHidden(z, not zeigen)
             sichtbar += zeigen
-        self.hinweis.setText(tr("{} von {} PMI").format(sichtbar, len(self.pmi)))
+        text = tr("{} von {} PMI").format(sichtbar, len(self.pmi))
+        self.hinweis.setText(f"{text}   ·   {self.norm_text}" if self.norm_text and self.pmi else text)
         aktiv = self.art.currentData() is not None or bool(self.suche.text().strip())
         self.filter_geaendert.emit({p.step_id for p in self.sichtbare() if p.step_id} if aktiv else None)
 
@@ -362,6 +370,13 @@ def _z(x, vorzeichen: bool = False) -> str:
     return ("+" + t) if vorzeichen and x > 1e-12 else t
 
 
+def _breite_nach_inhalt(tabelle, i: int, grenze: int = 320):
+    """Neu eingeblendete Spalte auf Inhalt und Kopf verbreitern (begrenzt)."""
+    tabelle.resizeColumnToContents(i)
+    kopf = tabelle.horizontalHeader()
+    kopf.resizeSection(i, min(max(kopf.sectionSize(i) + 8, kopf.sectionSizeHint(i)), grenze))
+
+
 def spalten_menue(tabelle, pos, standard: set[str] | None = None, gespeichert=None):
     """Rechtsklick auf die Spaltenkoepfe: Spalten ein-/ausblenden (mindestens eine bleibt)."""
     kopf = tabelle.horizontalHeader()
@@ -382,13 +397,18 @@ def spalten_menue(tabelle, pos, standard: set[str] | None = None, gespeichert=No
         tabelle.setProperty("breiten_gemerkt", True)
     elif gewaehlt is a_std:
         for i in range(tabelle.columnCount()):
+            war_aus = kopf.isSectionHidden(i)
             kopf.setSectionHidden(i, tabelle.horizontalHeaderItem(i).data(QtCore.Qt.ItemDataRole.UserRole)
                                   not in standard)
+            if war_aus and not kopf.isSectionHidden(i):
+                _breite_nach_inhalt(tabelle, i)
     else:
         i = gewaehlt.data()
         sichtbar = sum(not kopf.isSectionHidden(j) for j in range(tabelle.columnCount()))
         if gewaehlt.isChecked() or sichtbar > 1:
             kopf.setSectionHidden(i, not gewaehlt.isChecked())
+        if gewaehlt.isChecked():
+            _breite_nach_inhalt(tabelle, i)
     if gespeichert is not None:
         gespeichert()
 
@@ -398,6 +418,8 @@ def _tooltip(p) -> str:
     if p.modifikatoren:
         teile.append(tr("Modifikatoren: {}").format(", ".join(p.modifikatoren)))
     teile.append(tr("Flächen: {}").format(len(p.flaechen)))
+    if p.huelle_text():
+        teile.append(tr(p.huelle_text()))
     if not p.semantisch:
         teile.append(tr("nur grafisch (keine auswertbare Semantik)"))
     return "\n".join(teile)

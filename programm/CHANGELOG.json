@@ -53,7 +53,11 @@
    "Auswahl ausblenden (H) für Teile gewählter Flächen und Kanten, Alle Teile zeigen (Umschalt+H); Haken im Strukturbaum folgen. Suchfeld im Strukturbaum.",
    "3D-Ansicht zeigt nur die PMI, die die Liste nach Art oder Suche zeigt.",
    "Bezugssystem: bei einer gewählten Toleranz werden die Bezugselemente farbig (primär rot, sekundär grün, tertiär blau) und beschriftet gezeigt.",
-   "Spaltenbreiten per Ziehen der Trennlinie, Doppelklick oder Kopf-Kontextmenü passt an den Inhalt an; Breiten werden gemerkt."
+   "Spaltenbreiten per Ziehen der Trennlinie, Doppelklick oder Kopf-Kontextmenü passt an den Inhalt an; Breiten werden gemerkt.",
+   "Normerkennung ASME Y14.5 / ISO GPS aus der Datei (ohne Hinweis: ISO GPS), änderbar unter Modell › Norm; Begriffe, Prüfregel (Konzentrizität/Symmetrie in ASME 2018) und Hinweis zur Hüllbedingung je Norm.",
+   "Merkmalsliste mit Ballonnummern: Spalte Ballon in der PMI-Tabelle, Ballone im Modell (B), Export als CSV und PDF mit Spalten für Messwerte.",
+   "Drehpunkt: Klick mit der Mitteltaste setzt einen festen Drehpunkt, der beim Zoomen und Verschieben bleibt; beim Drehen und Verschieben zeigt ein kleines Kreuz den Punkt.",
+   "Bezugssystem-Beschriftung weiß auf farbigem Feld; eingeblendete Spalten passen sich dem Inhalt an; Über-Dialog nur mit Copyright, auf macOS im Programmmenü."
   ],
   "en": [
    "First viewer version: load STEP AP242, assembly tree, CAD-style navigation, standard views.",
@@ -108,7 +112,11 @@
    "Hide selection (H) for parts of selected faces and edges, show all parts (Shift+H); tree check boxes follow. Search field in the structure tree.",
    "The 3D view shows only the PMI the list shows by type or search.",
    "Datum reference frame: for a selected tolerance the datum features are shown in color (primary red, secondary green, tertiary blue) with labels.",
-   "Column widths by dragging the divider, double-click or header menu fits to content; widths are remembered."
+   "Column widths by dragging the divider, double-click or header menu fits to content; widths are remembered.",
+   "Standard detection ASME Y14.5 / ISO GPS from the file (without a hint: ISO GPS), changeable under Model › Standard; terms, check rule (concentricity/symmetry in ASME 2018) and envelope note per standard.",
+   "Bill of characteristics with balloon numbers: balloon column in the PMI table, balloons in the model (B), export as CSV and PDF with columns for measured values.",
+   "Pivot: middle-button click sets a fixed pivot that stays while zooming and panning; a small cross shows it while orbiting and panning.",
+   "Datum labels white on a colored box; shown columns fit their content; About dialog with copyright only, on macOS in the application menu."
   ]
  },
  "releases": [
