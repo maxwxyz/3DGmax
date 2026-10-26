@@ -34,5 +34,13 @@ GitHub: Actions → „Apps bauen“ (Plattform wählbar, Tests an/aus). Nutzt p
 - Schritt 3: Messen (Abstand, Winkel, Radius, Wandstärke, Koordinaten, Fang, Liste, CSV).
 - Viewer-Feinschliff: App-Symbol fehlt; „Ganzes Modell zeigen“ bezieht die PMI-Grafik mit ein (Modell wirkt klein);
   gespeicherte Ansicht stellt nur Richtung ein, nicht Ausschnitt/Zoom der Datei; Hinweise (Notes) und
-  Bezugsstellen als eigene Listeneinträge; Windows/Linux-Bau auf GitHub noch nicht gelaufen (erster Lauf angestoßen).
+  Bezugsstellen als eigene Listeneinträge; GitHub-Bau noch nicht erfolgreich durchgelaufen (siehe unten).
 - Nutzer: JT-, 3D-PDF- und eigene STEP-Beispiele liefern.
+
+## GitHub-Bau (Stand 2026-10-26)
+- Lauf 1: Fehler in der Workflow-Einstellung (setup-pixi: Cache ohne Installation) → behoben.
+- Lauf 2: Windows-Tests scheiterten (`DLL load failed while importing QtCore`): pythonocc-Variante mit VTK zog Qt aus
+  conda-forge nach → behoben durch `build = "novtk*"` in pixi.toml (alle Plattformen), pytest-qt entfernt.
+- Lauf 3 (40296935931): **nicht gestartet – GitHub-Ausgabenlimit/Zahlung des Kontos**. Nach Klärung unter
+  „Billing & plans“: Actions → „Apps bauen“ erneut starten (`gh workflow run "Apps bauen" -f plattform=alle -f tests=true`).
+- Lokal gebaut und geprüft: macOS-arm64 (`packaging/build_mac.sh`, Selbsttest und `--bild` aus der .app OK).
