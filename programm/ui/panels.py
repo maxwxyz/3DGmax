@@ -226,6 +226,11 @@ class PmiPanel(QtWidgets.QWidget):
                     it.setTextAlignment(QtCore.Qt.AlignmentFlag.AlignRight | QtCore.Qt.AlignmentFlag.AlignVCenter)
                 if spalte == "Wert":
                     it.setToolTip(_tooltip(p))
+                    if p.bearbeitet or p.quelle == "eigen":
+                        it.setText(f"{it.text()}  ✎")  # in 3DGmax angelegt oder geaendert
+                        herkunft = tr("eigene PMI") if p.quelle == "eigen" else tr("geändert, Datei: {}").format(
+                            ", ".join(f"{k}={v}" for k, v in (p.original or {}).items()))
+                        it.setToolTip(f"{_tooltip(p)}\n{herkunft}")
                 if spalte == "Ansichten" and namen:
                     it.setToolTip(tr("In Ansichten: {}").format(", ".join(namen)))
                 t.setItem(z, s, it)
@@ -386,6 +391,10 @@ class PmiPanel(QtWidgets.QWidget):
             menue_ansicht.addAction(n).setData(n)
         menue_ansicht.setEnabled(bool(namen))
         m.addSeparator()
+        a_bearb = m.addAction(tr("Bearbeiten …"))
+        a_bearb.setEnabled(len(auswahl) == 1 and auswahl[0].art in (MASS, TOLERANZ))
+        a_weg = m.addAction(tr("Eigene PMI löschen"))
+        a_weg.setEnabled(bool(auswahl) and all(p.quelle == "eigen" for p in auswahl))
         a_kopie = m.addAction(tr("Kopieren"))
         for a in (a_zoom, a_normal, a_kopie):
             a.setEnabled(bool(auswahl))
@@ -404,6 +413,10 @@ class PmiPanel(QtWidgets.QWidget):
             self.waehle_mit_bezug(auswahl)
         elif gewaehlt is a_kopie:
             self.kopiere(auswahl)
+        elif gewaehlt is a_bearb:
+            self.befehl.emit("bearbeiten", auswahl[0])
+        elif gewaehlt is a_weg:
+            self.befehl.emit("loeschen", auswahl)
         elif gewaehlt.data():
             self.befehl.emit("ansicht", gewaehlt.data())
 

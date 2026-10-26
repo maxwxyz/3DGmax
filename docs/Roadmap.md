@@ -54,7 +54,8 @@
 | Bill of characteristics with balloon numbers (table column, 3D balloons, CSV, PDF) | ✅ |
 | Datum reference frame display for a selected tolerance | ✅ |
 | Create PMI with tolerancing advisor (stage 1: rules per selection, own PMI in project) | ✅ |
-| Edit existing PMI, write PMI back to STEP AP242, advisor stage 2 (DRF consistency, fits from mating parts) | ⬜ |
+| Edit existing PMI (values, fit, material condition; saved in the project) | ✅ |
+| Write PMI back to STEP AP242, advisor stage 2 (DRF consistency, fits from mating parts) | ⬜ |
 
 ## Measuring
 | Feature | Status |

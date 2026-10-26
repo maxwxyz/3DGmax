@@ -150,6 +150,16 @@ class AnsichtBasis(QtWidgets.QWidget):
         """Kommentar-Markierungen [(Nummer, (x, y, z), erledigt)]."""
         self.kommentar_marken = list(marken)
 
+    def aktualisiere_pmi_texte(self, pmi: list):
+        """Texte geaenderter PMI in den (Platzhalter-)Beschriftungen nachziehen."""
+        if self.szene is not None:
+            self.szene.pmi_text.update({p.step_id: p.wert_text() for p in pmi if p.step_id})
+
+    def entferne_grafik(self, pmi_ids: set):
+        if self.szene is not None:
+            for cid in [c for c, g in self.szene.grafik.items() if g.pmi_ids & pmi_ids]:
+                del self.szene.grafik[cid]
+
     def ergaenze_grafik(self, neue: dict, pmi: list):
         """Weitere Callouts in die Szene aufnehmen (Grafik und Texte)."""
         if self.szene is not None:
@@ -879,6 +889,31 @@ class OcctAnsicht(AnsichtBasis):
     def _baue_grafik(self):
         for cid, g in self.szene.grafik.items():
             self._baue_callout(cid, g)
+
+    def _entferne_callouts(self, cids):
+        ctx = self.d.Context
+        for cid in cids:
+            for ais in self._callouts.pop(cid, []):
+                ctx.Remove(ais, False)
+                self._ais_callout.pop(ais, None)
+
+    def aktualisiere_pmi_texte(self, pmi):
+        super().aktualisiere_pmi_texte(pmi)
+        if not self._bereit or self.szene is None:
+            return
+        ids = {p.step_id for p in pmi}
+        cids = [c for c, g in self.szene.grafik.items() if g.pmi_ids & ids and g.platzhalter]
+        self._entferne_callouts(cids)
+        for cid in cids:
+            self._baue_callout(cid, self.szene.grafik[cid])
+        self._wende_sichtbarkeit_an()
+
+    def entferne_grafik(self, pmi_ids):
+        if self._bereit and self.szene is not None:
+            self._entferne_callouts([c for c, g in self.szene.grafik.items() if g.pmi_ids & pmi_ids])
+        super().entferne_grafik(pmi_ids)
+        if self._bereit:
+            self._wende_sichtbarkeit_an()
 
     def ergaenze_grafik(self, neue: dict, pmi: list):
         """Weitere Callouts (z. B. fuer neu angelegte PMI) ohne Neuaufbau der Szene hinzufuegen."""

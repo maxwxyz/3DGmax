@@ -574,3 +574,21 @@ def test_pmi_anlegen_berater_projekt(fenster_ctc01, tmp_path):
     f.oeffne_projekt(projekt, warten=True)
     eigene = [p for p in f.erg.pmi if p.quelle == "eigen"]
     assert [p.typ for p in eigene] == ["Size_Diameter", "Position"]
+
+
+def test_pmi_bearbeiten_und_loeschen(fenster_ctc01, tmp_path):
+    f = fenster_ctc01
+    m = next(p for p in f.erg.pmi if p.typ == "Size_Diameter" and p.nennwert)
+    alt = m.wert_text()
+    f.bearbeite_pmi(m, {"nennwert": m.nennwert, "oben": 0.3, "unten": -0.1, "passung": ""})
+    assert m.bearbeitet and m.original and m.wert_text() != alt and "+0.3" in m.wert_text()
+    projekt = f.speichere_projekt(str(tmp_path / "p.3dgmax"))
+    f.oeffne_projekt(projekt, warten=True)
+    m2 = next(p for p in f.erg.pmi if p.step_id == m.step_id)
+    assert m2.oben == 0.3 and m2.bearbeitet
+    loch = next(p for p in f.erg.pmi if p.typ == "Size_Diameter" and p.flaechen)
+    f.ansicht.setze_auswahl([f.erg.modell.flaechen[i] for i in sorted(loch.flaechen)])
+    neue = f.pmi_anlegen(uebernehmen=["Position"])
+    n = len(f.erg.pmi)
+    f.loesche_eigene_pmi(neue)
+    assert len(f.erg.pmi) == n - 1 and not any(neue[0].step_id in g.pmi_ids for g in f.erg.grafik.values())

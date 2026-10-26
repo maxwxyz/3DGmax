@@ -752,5 +752,12 @@
 "Welle/Zapfen: Passmaß h7": "Shaft/pin: fit h7",
 "Winkel zwischen den Flächen": "Angle between the faces",
 "{} PMI angelegt (eigene, werden im Projekt gespeichert)": "{} PMI created (own, saved with the project)",
-"Übernehmen": "Use"
+"Übernehmen": "Use",
+"Bearbeiten …": "Edit …",
+"Eigene PMI löschen": "Delete own PMI",
+"PMI bearbeiten": "Edit PMI",
+"PMI {} geändert: {}": "PMI {} changed: {}",
+"ohne": "none",
+"eigene PMI": "own PMI",
+"geändert, Datei: {}": "changed, file: {}"
 }

@@ -37,7 +37,7 @@ def _eindeutig(namen: list[str]) -> list[str]:
 
 def speichere(pfad: str, modell_pfad: str | None = None, vergleich=None, messungen: list | None = None,
               version: str = "", ansichten: list | None = None, kommentare: list | None = None,
-              eigene_pmi: list | None = None) -> str:
+              eigene_pmi: list | None = None, pmi_aenderungen: list | None = None) -> str:
     """Modell oder Vergleich mit Pruefstand und Messungen als .3dgmax speichern."""
     if not pfad.lower().endswith(ENDUNG):
         pfad += ENDUNG
@@ -45,7 +45,8 @@ def speichere(pfad: str, modell_pfad: str | None = None, vergleich=None, messung
              [asdict(m) for m in (messungen or [])],
              "ansichten": [_ansicht_json(a) for a in (ansichten or []) if getattr(a, "eigen", False)],
              "kommentare": [asdict(k) for k in (kommentare or [])],
-             "eigene_pmi": [_pmi_json(p) for p in (eigene_pmi or [])]}
+             "eigene_pmi": [_pmi_json(p) for p in (eigene_pmi or [])],
+             "pmi_aenderungen": list(pmi_aenderungen or [])}
     if vergleich is not None:
         quellen = [vergleich.alt.pfad, vergleich.neu.pfad]
         alt, neu = _eindeutig([os.path.basename(q) for q in quellen])

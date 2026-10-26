@@ -68,3 +68,53 @@ class PmiAnlegenDialog(QtWidgets.QDialog):
                 p.wert = wert
             out.append(p)
         return out
+
+
+class PmiBearbeitenDialog(QtWidgets.QDialog):
+    """Werte einer Mass- oder Toleranz-PMI aendern."""
+
+    def __init__(self, p, parent=None):
+        super().__init__(parent)
+        self.p = p
+        self.setWindowTitle(tr("PMI bearbeiten"))
+        lay = QtWidgets.QFormLayout(self)
+        lay.addRow(QtWidgets.QLabel(f"{p.nummer}: {tr(p.merkmal())} – {p.wert_text()}"))
+        self.felder = {}
+
+        def zahl(wert, name, text):
+            f = QtWidgets.QLineEdit("" if wert is None else f"{wert:g}")
+            lay.addRow(tr(text), f)
+            self.felder[name] = f
+
+        if p.art == MASS:
+            zahl(p.nennwert, "nennwert", "Nennmaß")
+            zahl(p.oben, "oben", "Oberes Abmaß")
+            zahl(p.unten, "unten", "Unteres Abmaß")
+            self.passung = QtWidgets.QLineEdit(p.passung)
+            lay.addRow(tr("Toleranzklasse"), self.passung)
+        else:
+            zahl(p.wert, "wert", "Toleranzwert")
+            self.material = QtWidgets.QComboBox()
+            for k, text in (("", "ohne"), ("M", "Maximum-Material Ⓜ"), ("L", "Minimum-Material Ⓛ")):
+                self.material.addItem(tr(text), k)
+            self.material.setCurrentIndex(max(self.material.findData(p.material), 0))
+            lay.addRow(tr("Materialbedingung"), self.material)
+        knoepfe = QtWidgets.QDialogButtonBox(QtWidgets.QDialogButtonBox.StandardButton.Ok |
+                                             QtWidgets.QDialogButtonBox.StandardButton.Cancel)
+        knoepfe.accepted.connect(self.accept)
+        knoepfe.rejected.connect(self.reject)
+        lay.addRow(knoepfe)
+
+    def werte(self) -> dict:
+        out = {}
+        for name, f in self.felder.items():
+            t = f.text().replace(",", ".").strip()
+            try:
+                out[name] = float(t) if t else None
+            except ValueError:
+                out[name] = getattr(self.p, name)
+        if self.p.art == MASS:
+            out["passung"] = self.passung.text().strip()
+        else:
+            out["material"] = self.material.currentData()
+        return out

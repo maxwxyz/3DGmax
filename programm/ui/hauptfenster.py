@@ -1152,7 +1152,9 @@ class Hauptfenster(QtWidgets.QMainWindow):
             return None
         ziel = projekt.speichere(pfad, self.erg.pfad, self.vergleich, self.messen.messungen, VERSION,
                                  self.erg.ansichten, self.kommentare.kommentare,
-                                 [p for p in self.erg.pmi if p.quelle == "eigen"])
+                                 [p for p in self.erg.pmi if p.quelle == "eigen"],
+                                 [{"step_id": p.step_id, "werte": {k: getattr(p, k) for k in p.original}}
+                                  for p in self.erg.pmi if p.quelle != "eigen" and p.bearbeitet and p.original])
         self.statusBar().showMessage(tr("Projekt gespeichert: {}").format(ziel), 6000)
         return ziel
 
@@ -1179,6 +1181,11 @@ class Hauptfenster(QtWidgets.QMainWindow):
             self.dock_messen.show()
         if d and d.get("eigene_pmi") and self.erg is not None:
             self.fuege_pmi_hinzu(d["eigene_pmi"])
+        if d and d.get("pmi_aenderungen") and self.erg is not None:
+            nach_id = {p.step_id: p for p in self.erg.pmi}
+            for a in d["pmi_aenderungen"]:
+                if a.get("step_id") in nach_id:
+                    self.bearbeite_pmi(nach_id[a["step_id"]], a.get("werte", {}))
         if d and d.get("kommentare"):
             self.kommentare.setze(d["kommentare"])
             self.dock_kommentare.show()
@@ -1708,6 +1715,29 @@ class Hauptfenster(QtWidgets.QMainWindow):
             neue = [v.pmi for v in vorschlaege if v.pmi.typ in uebernehmen]
         return self.fuege_pmi_hinzu(neue)
 
+    def bearbeite_pmi(self, p, werte: dict):
+        """Werte einer PMI aendern; Dateiwerte bleiben als Ursprung gemerkt (Projekt speichert die Aenderung)."""
+        if p.quelle != "eigen" and not getattr(p, "original", None):
+            p.original = {k: getattr(p, k) for k in werte}
+        for k, v in werte.items():
+            setattr(p, k, v)
+        p.bearbeitet = True
+        self.ansicht.aktualisiere_pmi_texte([p])
+        self.pmi.zeige(self.erg.pmi, self.erg.ansichten)
+        self.pmi.waehle(lambda q: q is p)
+        self.statusBar().showMessage(tr("PMI {} geändert: {}").format(p.nummer, p.wert_text()), 6000)
+
+    def loesche_eigene_pmi(self, liste):
+        weg = {id(p) for p in liste if p.quelle == "eigen"}
+        if not weg:
+            return
+        ids = {p.step_id for p in liste if id(p) in weg}
+        self.erg.pmi = [p for p in self.erg.pmi if id(p) not in weg]
+        for cid in [c for c, g in self.erg.grafik.items() if g.pmi_ids & ids]:
+            del self.erg.grafik[cid]
+        self.ansicht.entferne_grafik(ids)
+        self.pmi.zeige(self.erg.pmi, self.erg.ansichten)
+
     def fuege_pmi_hinzu(self, neue: list) -> list:
         """Eigene PMI ins Modell: Nummer, Kennung, Norm, erzeugte Darstellung, Liste aktualisieren."""
         from ..kern import pmi_erzeugen
@@ -1807,6 +1837,13 @@ class Hauptfenster(QtWidgets.QMainWindow):
         elif art == "zone":
             self.aktionen["toleranzzone"].setChecked(True)
             self._zone_aktualisieren(wert)
+        elif art == "bearbeiten":
+            from .pmi_anlegen_ui import PmiBearbeitenDialog
+            d = PmiBearbeitenDialog(wert, self)
+            if d.exec() == QtWidgets.QDialog.DialogCode.Accepted:
+                self.bearbeite_pmi(wert, d.werte())
+        elif art == "loeschen":
+            self.loesche_eigene_pmi(wert)
 
     def _grafik_umschalten(self):
         an = self.aktionen["grafik"].isChecked()

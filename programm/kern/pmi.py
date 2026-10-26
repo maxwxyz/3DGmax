@@ -90,6 +90,8 @@ class Pmi:
     step_id: int = 0  # Entitaet in der STEP-Datei (0 = unbekannt)
     nummer: int = 0  # laufende Nummer in der Liste
     norm: str = "iso"  # iso | asme (Begriffe, Regeln; siehe kern.norm)
+    bearbeitet: bool = False  # Werte in 3DGmax geaendert
+    original: dict | None = None  # Werte laut Datei vor der Bearbeitung
 
     # --- Darstellung ---
 
