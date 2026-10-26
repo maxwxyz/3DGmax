@@ -118,3 +118,23 @@ def test_uebersetzung_vollstaendig():
 def test_selbsttest():
     from programm.app import selbsttest
     assert selbsttest() == 0
+
+
+def test_einstellungen_standard_catia_und_umschalten(fenster):
+    from programm.ui.einstellungen import EinstellungenDialog
+    assert fenster.ansicht.navigation == "catia"
+    d = EinstellungenDialog(fenster.ein, fenster)
+    assert d.werte()["navigation"] == "catia"
+    w = d.werte()
+    w["navigation"] = "klassisch"
+    fenster.wende_einstellungen_an(w)
+    assert fenster.ansicht.navigation == "klassisch"
+    assert fenster.ein.value("navigation") == "klassisch"
+
+
+def test_version_im_titel_und_autor(fenster_ctc01):
+    from programm.ui.hilfe import ueber_html
+    from programm.version import VERSION
+    assert VERSION in fenster_ctc01.windowTitle()
+    assert "nist_ctc_01" in fenster_ctc01.windowTitle()
+    assert "Max Wilfinger" in ueber_html()

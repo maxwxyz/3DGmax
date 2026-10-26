@@ -27,7 +27,9 @@ def tr_texte() -> set[str]:
                     out.add(k.args[0].value)
     # Texte, die ueber Tabellen laufen (tr(variable))
     from programm.kern.pmi import BEZUG, HINWEIS, MASS, TOLERANZ  # noqa: F401
-    from programm.ui import hilfe, panels
+    from programm.ui import einstellungen, hilfe, panels
+    for name, text in einstellungen.STEUERUNG_TEXT.values():
+        out |= {name, text}
     out |= set(panels.ART_TEXT.values()) | set(panels.PmiPanel.SPALTEN)
     for t, x in hilfe.SCHRITTE:
         out |= {t, x}

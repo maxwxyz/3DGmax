@@ -20,10 +20,12 @@ app = QtWidgets.QApplication([])
 from programm.ui.hauptfenster import Hauptfenster
 f = Hauptfenster(); f.resize(1200, 800); f.show()
 ergebnis = {}
-def maus(typ, pos, knopf=QtCore.Qt.MouseButton.LeftButton):
+B = QtCore.Qt.MouseButton
+def maus(typ, pos, knopf=B.LeftButton, knoepfe=None):
     v = f.ansicht.viewer
-    ev = QtGui.QMouseEvent(typ, QtCore.QPointF(*pos), v.mapToGlobal(QtCore.QPointF(*pos)), knopf,
-                           knopf if typ != QtCore.QEvent.Type.MouseButtonRelease else QtCore.Qt.MouseButton.NoButton,
+    if knoepfe is None:
+        knoepfe = knopf if typ != QtCore.QEvent.Type.MouseButtonRelease else B.NoButton
+    ev = QtGui.QMouseEvent(typ, QtCore.QPointF(*pos), v.mapToGlobal(QtCore.QPointF(*pos)), knopf, knoepfe,
                            QtCore.Qt.KeyboardModifier.NoModifier)
     QtWidgets.QApplication.sendEvent(v, ev)
 def los():
@@ -34,8 +36,19 @@ def pruefe():
     mitte = (a.viewer.width() / 2, a.viewer.height() / 2)
     e0 = cam.Eye().Coord()
     T = QtCore.QEvent.Type
-    maus(T.MouseButtonPress, mitte); maus(T.MouseMove, (mitte[0] + 80, mitte[1] + 20)); maus(T.MouseButtonRelease, (mitte[0] + 80, mitte[1] + 20))
+    # CATIA: Mitte halten + links halten, ziehen = drehen
+    beide = B.MiddleButton | B.LeftButton
+    maus(T.MouseButtonPress, mitte, B.MiddleButton)
+    maus(T.MouseButtonPress, mitte, B.LeftButton, beide)
+    maus(T.MouseMove, (mitte[0] + 80, mitte[1] + 20), B.NoButton, beide)
+    maus(T.MouseButtonRelease, (mitte[0] + 80, mitte[1] + 20), B.LeftButton, B.MiddleButton)
+    maus(T.MouseButtonRelease, (mitte[0] + 80, mitte[1] + 20), B.MiddleButton, B.NoButton)
     ergebnis["drehen"] = cam.Eye().Coord() != e0
+    c0 = cam.Center().Coord()
+    maus(T.MouseButtonPress, mitte, B.MiddleButton)
+    maus(T.MouseMove, (mitte[0] + 60, mitte[1]), B.NoButton, B.MiddleButton)
+    maus(T.MouseButtonRelease, (mitte[0] + 60, mitte[1]), B.MiddleButton, B.NoButton)
+    ergebnis["schieben"] = cam.Center().Coord() != c0
     s0 = cam.Scale()
     rad = QtGui.QWheelEvent(QtCore.QPointF(*mitte), a.viewer.mapToGlobal(QtCore.QPointF(*mitte)), QtCore.QPoint(), QtCore.QPoint(0, 240),
                             QtCore.Qt.MouseButton.NoButton, QtCore.Qt.KeyboardModifier.NoModifier, QtCore.Qt.ScrollPhase.NoScrollPhase, False)

@@ -1,12 +1,8 @@
 """3D-Ansicht: OCCT-Viewer im Qt-Fenster mit Navigation wie in CAD-Programmen.
 
-Navigation (geht immer, egal welches Werkzeug):
-- Linke Maustaste ziehen: drehen um den Drehpunkt
-- Mittlere oder rechte Maustaste ziehen, Umschalt + links: verschieben
-- Mausrad: zoomen an der Mausposition; Trackpad: zwei Finger verschieben, Aufziehen zoomt,
-  Wahltaste/Alt + zwei Finger dreht
-- Doppelklick: Drehpunkt auf den Punkt unter der Maus (ins Leere: Mitte des Modells)
-- Klick: Flaeche oder grafische PMI waehlen
+Maussteuerung siehe navigation.py (Standard: CATIA, wahlweise klassisch in den Einstellungen).
+Trackpad (beide Modi): zwei Finger verschieben, Aufziehen zoomt, Wahltaste/Alt + zwei Finger dreht.
+Linksklick waehlt Flaeche oder grafische PMI.
 
 Ohne Grafik (Tests mit QT_QPA_PLATFORM=offscreen) wird PlatzhalterAnsicht verwendet: gleiche
 Schnittstelle, merkt sich nur den Zustand.
@@ -19,6 +15,7 @@ import os
 from PySide6 import QtCore, QtGui, QtWidgets
 
 from ..i18n import tr
+from .navigation import Navigation
 
 STANDARDANSICHTEN = ("vorne", "hinten", "oben", "unten", "links", "rechts", "iso")
 DARSTELLUNGEN = ("kanten", "schattiert", "draht")
@@ -67,6 +64,7 @@ class AnsichtBasis(QtWidgets.QWidget):
         self.schnitt_zustand = None  # (achse, anteil, umgekehrt) oder None
         self.letzte_ansicht = "iso"
         self.thema: dict = {}
+        self.navigation = "catia"
 
     # --- Schnittstelle (Unterklassen ergaenzen die Darstellung) ---
 
@@ -121,6 +119,9 @@ class AnsichtBasis(QtWidgets.QWidget):
 
     def setze_thema(self, thema: dict):
         self.thema = thema
+
+    def setze_navigation(self, modus: str):
+        self.navigation = modus
 
     def bild(self, pfad: str) -> bool:
         return False
@@ -214,8 +215,7 @@ class OcctAnsicht(AnsichtBasis):
         self._ais_callout: dict = {}
         self._clip = None
         self._drehpunkt = None
-        self._maus = None  # (knopf, x, y, start_x, start_y)
-        self._gezogen = False
+        self.nav = Navigation(self.navigation)
 
     # --- Start und Grundlagen ---
 
@@ -488,6 +488,8 @@ class OcctAnsicht(AnsichtBasis):
         from OCC.Core.gp import gp_Pnt
         if self._drehpunkt is not None:
             return self._drehpunkt
+        if self.navigation == "catia":
+            return self.d.View.Camera().Center()
         from OCC.Core.Bnd import Bnd_Box
         from OCC.Core.BRepBndLib import brepbndlib
         box = Bnd_Box()
@@ -591,27 +593,31 @@ class OcctAnsicht(AnsichtBasis):
         # OCCT rechnet in logischen Punkten (Cocoa_Window), nicht in Geraetepixeln
         return int(pos.x()), int(pos.y())
 
+    def setze_navigation(self, modus: str):
+        super().setze_navigation(modus)
+        self.nav = Navigation(modus)
+
     def eventFilter(self, obj, ev):
         if obj is not self.viewer or not self._bereit:
             return False
         typ = ev.type()
         E = QtCore.QEvent.Type
-        if typ == E.MouseButtonPress:
+        if typ in (E.MouseButtonPress, E.MouseMove, E.MouseButtonRelease, E.MouseButtonDblClick):
             x, y = self._px(ev.position())
-            self._maus = (ev.button(), x, y)
-            self._start = (x, y)
-            self._gezogen = False
-            self._mitte_cache = self._mitte()
-            return True
-        if typ == E.MouseMove:
-            return self._bewege(ev)
-        if typ == E.MouseButtonRelease:
-            if self._maus and not self._gezogen and ev.button() == QtCore.Qt.MouseButton.LeftButton:
-                self._klick(*self._px(ev.position()))
-            self._maus = None
-            return True
-        if typ == E.MouseButtonDblClick:
-            self._setze_drehpunkt(*self._px(ev.position()))
+            knopf, knoepfe = int(ev.button().value), int(ev.buttons().value)
+            umschalt = int(ev.modifiers().value)
+            if typ == E.MouseButtonPress:
+                if self.nav.start is None:
+                    self._mitte_cache = self._mitte()
+                befehle = self.nav.druecken(knopf, knoepfe, umschalt, x, y)
+            elif typ == E.MouseMove:
+                befehle = self.nav.bewegen(knoepfe, umschalt, x, y)
+            elif typ == E.MouseButtonRelease:
+                befehle = self.nav.loslassen(knopf, knoepfe, x, y)
+            else:
+                befehle = self.nav.doppelklick(knopf, x, y)
+            for b in befehle:
+                self._fuehre_aus(b)
             return True
         if typ == E.Wheel:
             return self._rad(ev)
@@ -625,26 +631,37 @@ class OcctAnsicht(AnsichtBasis):
             return True
         return False
 
-    def _bewege(self, ev):
-        x, y = self._px(ev.position())
-        if self._maus is None:
-            self.d.Context.MoveTo(x, y, self.d.View, True)
-            return True
-        knopf, lx, ly = self._maus
-        if abs(x - self._start[0]) + abs(y - self._start[1]) > 4:
-            self._gezogen = True
-        if not self._gezogen:
-            return True
-        dx, dy = x - lx, y - ly
-        Q = QtCore.Qt
-        schieben = knopf in (Q.MouseButton.MiddleButton, Q.MouseButton.RightButton) or \
-            ev.modifiers() & Q.KeyboardModifier.ShiftModifier
-        if schieben:
-            self._verschiebe(dx, dy)
-        else:
-            self._drehe(dx, dy)
-        self._maus = (knopf, x, y)
-        return True
+    def _fuehre_aus(self, befehl):
+        art, *werte = befehl
+        if art == "drehen":
+            self._drehe(*werte)
+        elif art == "schieben":
+            self._verschiebe(*werte)
+        elif art == "zoomen":
+            self._zoome(*werte)
+        elif art == "klick":
+            self._klick(*werte)
+        elif art == "zentrieren":
+            self._zentriere(*werte)
+        elif art == "drehpunkt":
+            self._setze_drehpunkt(*werte)
+        elif art == "hover":
+            self.d.Context.MoveTo(werte[0], werte[1], self.d.View, True)
+
+    def _zentriere(self, x, y):
+        """CATIA: Punkt unter der Maus wird Bildmitte (und Drehzentrum)."""
+        from OCC.Core.gp import gp_Trsf, gp_Vec
+        ctx = self.d.Context
+        ctx.MoveTo(x, y, self.d.View, False)
+        sel = ctx.MainSelector()
+        if not (ctx.HasDetected() and sel.NbPicked() > 0):
+            return
+        cam = self.d.View.Camera()
+        t = gp_Trsf()
+        t.SetTranslation(gp_Vec(cam.Center(), sel.PickedPoint(1)))
+        cam.Transform(t)
+        self.d.View.Redraw()
+        self.meldung.emit(tr("Bildmitte versetzt"))
 
     def _rad(self, ev):
         x, y = self._px(ev.position())
@@ -658,9 +675,8 @@ class OcctAnsicht(AnsichtBasis):
             else:
                 self._verschiebe(-pixel.x() * r, -pixel.y() * r)
         else:
-            schritte = ev.angleDelta().y() / 120.0
-            if schritte:
-                self._zoome(1.2 ** schritte, x, y)
+            for b in self.nav.rad(ev.angleDelta().y() / 120.0, x, y):
+                self._fuehre_aus(b)
         return True
 
     def _geste(self, ev):

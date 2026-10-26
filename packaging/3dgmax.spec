@@ -13,7 +13,8 @@ OCCT_RES = next((p for p in (os.path.join(PREFIX, "share", "opencascade", "resou
                              os.path.join(PREFIX, "Library", "share", "opencascade", "resources"))
                  if os.path.isdir(p)), None)
 
-datas = [(os.path.join(SRC, f), ".") for f in ("Anleitung.html", "Manual.html", "i18n_en.json", "CHANGELOG.json")]
+datas = [(os.path.join(SRC, f), ".") for f in ("Anleitung.html", "Manual.html", "i18n_en.json", "CHANGELOG.json",
+                                               "icon.png", "icon.ico", "icon.icns")]
 datas += [(os.path.join(SRC, "beispiele"), os.path.join("programm", "beispiele"))]   # fuer --selbsttest
 if OCCT_RES:
     for teil in ("Shaders", "StdResource", "XSMessage", "SHMessage", "XSTEPResource", "XmlOcafResource",
@@ -34,13 +35,13 @@ a = Analysis([os.path.join(ROOT, "packaging", "start_3dgmax.py")], pathex=[ROOT]
              hiddenimports=hidden, excludes=excludes, noarchive=False)
 pyz = PYZ(a.pure)
 exe = EXE(pyz, a.scripts, [], exclude_binaries=True, name="3DGmax", console=False, upx=False,
-          argv_emulation=False)
+          argv_emulation=False, icon=os.path.join(SRC, "icon.icns" if sys.platform == "darwin" else "icon.ico"))
 coll = COLLECT(exe, a.binaries, a.datas, name="3DGmax", upx=False)
 
 if sys.platform == "darwin":
     doc_types = [{"CFBundleTypeName": "STEP-Modell", "CFBundleTypeRole": "Viewer", "LSHandlerRank": "Alternate",
                   "CFBundleTypeExtensions": ["stp", "step"]}]
-    app = BUNDLE(coll, name="3DGmax.app", bundle_identifier="de.3dgmax.app",
+    app = BUNDLE(coll, name="3DGmax.app", bundle_identifier="de.3dgmax.app", icon=os.path.join(SRC, "icon.icns"),
                  info_plist={"CFBundleShortVersionString": VERSION, "CFBundleVersion": VERSION,
                              "CFBundleDisplayName": "3DGmax", "NSHighResolutionCapable": True,
                              "LSMinimumSystemVersion": "14.0", "CFBundleDocumentTypes": doc_types,

@@ -13,6 +13,8 @@ from ..i18n import tr
 from ..version import VERSION, aenderungen_html
 
 MARKE = "<!--MENUEBEFEHLE-->"
+AUTOR = "Max Wilfinger"
+COPYRIGHT_JAHRE = "2026"
 
 LIZENZEN = (
     ("Open CASCADE Technology 8.0", "LGPL 2.1 mit Ausnahme", "https://dev.opencascade.org"),
@@ -98,9 +100,10 @@ SCHRITTE = (
      "Öffnen Sie eine STEP-Datei (AP242 mit PMI) über „Datei › Öffnen“ oder ziehen Sie sie ins Fenster. "
      "Links sehen Sie die Struktur, rechts die PMI-Liste."),
     ("2 · Bewegen",
-     "Linke Maustaste ziehen: drehen. Mittlere/rechte Taste oder Umschalt: verschieben. Mausrad: zoomen. "
+     "Wie in CATIA: Mitteltaste ziehen verschiebt, Mitteltaste halten und links oder rechts zusätzlich halten "
+     "dreht, Mitteltaste halten und links/rechts einmal klicken, dann ziehen zoomt. Mausrad zoomt ebenfalls. "
      "Trackpad: zwei Finger verschieben, aufziehen zoomt, mit Wahltaste/Alt drehen. "
-     "Doppelklick setzt den Drehpunkt, F passt alles ein, Tasten 1–7 wählen Standardansichten."),
+     "F passt alles ein, Tasten 1–7 wählen Standardansichten. Andere Steuerung: Datei › Einstellungen."),
     ("3 · PMI prüfen",
      "Klick auf eine PMI in der Liste hebt die zugehörigen Flächen orange hervor. Klick auf eine Fläche zeigt "
      "ihre PMI. „Gespeicherte Ansichten“ zeigen die Ansichten aus dem Modell mit ihren PMI. F1 öffnet die Anleitung."),
@@ -172,6 +175,7 @@ def ueber_html() -> str:
     zeilen = "".join(f"<tr><td>{html.escape(n)}</td><td>{html.escape(l)}</td>"
                      f"<td><a href='{u}'>{html.escape(u)}</a></td></tr>" for n, l, u in LIZENZEN)
     return (f"<h2>3DGmax {VERSION}</h2><p>{tr('3D-Modelle mit PMI ansehen, messen und vergleichen.')}</p>"
+            f"<p>© {COPYRIGHT_JAHRE} {AUTOR} · {tr('Autor')}: {AUTOR}</p>"
             f"<p>Python {platform.python_version()} · {platform.system()} {platform.machine()}</p>"
             f"<h3>{tr('Verwendete Bibliotheken und Lizenzen')}</h3><table>{zeilen}</table>"
             f"<p>{tr('Testmodelle: NIST MBE PMI Validation and Conformance Testing (gemeinfrei).')}</p>")

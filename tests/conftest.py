@@ -57,3 +57,21 @@ def fenster(app, tmp_path, monkeypatch):
 def fenster_ctc01(fenster):
     fenster.lade(pfad("nist_ctc_01_asme1_ap242-e1.stp"), warten=True)
     return fenster
+
+
+@pytest.fixture(autouse=True)
+def keine_modalen_dialoge(monkeypatch):
+    """Modale Dialoge wuerden ohne Bildschirm ewig warten (CI) -> sofort zurueck, Meldung merken."""
+    from PySide6 import QtWidgets
+    meldungen = []
+
+    def merke(*args, **kw):
+        meldungen.append(args[2] if len(args) > 2 else "")
+        return QtWidgets.QMessageBox.StandardButton.Ok
+
+    for name in ("warning", "information", "critical", "question"):
+        monkeypatch.setattr(QtWidgets.QMessageBox, name, merke)
+    monkeypatch.setattr(QtWidgets.QDialog, "exec", lambda self: 0)
+    monkeypatch.setattr(QtWidgets.QFileDialog, "getOpenFileName", lambda *a, **k: ("", ""))
+    monkeypatch.setattr(QtWidgets.QFileDialog, "getSaveFileName", lambda *a, **k: ("", ""))
+    return meldungen

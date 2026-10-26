@@ -37,6 +37,11 @@ def main(argv=None) -> int:
     QtCore.QCoreApplication.setOrganizationName("3DGmax")
     QtCore.QCoreApplication.setApplicationName("3DGmax")
     app = QtWidgets.QApplication.instance() or QtWidgets.QApplication(sys.argv[:1])
+    from PySide6 import QtGui
+    from .i18n import HIER
+    symbol = os.path.join(HIER, "icon.png")
+    if os.path.isfile(symbol):
+        app.setWindowIcon(QtGui.QIcon(symbol))
     from .ui.hauptfenster import Hauptfenster
     fenster = Hauptfenster()
     fenster.show()

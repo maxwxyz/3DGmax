@@ -85,7 +85,7 @@ class Startseite(QtWidgets.QWidget):
 class Hauptfenster(QtWidgets.QMainWindow):
     def __init__(self):
         super().__init__()
-        self.setWindowTitle("3DGmax")
+        self.setWindowTitle(self._titel())
         self.setAcceptDrops(True)
         self.resize(1400, 860)
         self.ein = einstellungen()
@@ -96,6 +96,7 @@ class Hauptfenster(QtWidgets.QMainWindow):
 
         self.ansicht = ansicht3d.erzeuge(self)
         self.ansicht.setze_thema(self.thema)
+        self.ansicht.setze_navigation(self.ein.value("navigation", "catia"))
         self.start = Startseite()
         self.stapel = QtWidgets.QStackedWidget()
         self.stapel.addWidget(self.start)
@@ -127,6 +128,10 @@ class Hauptfenster(QtWidgets.QMainWindow):
         self._verbinde()
         self._modell_da(False)
         self.start.zeige_zuletzt(self.zuletzt())
+
+    @staticmethod
+    def _titel(datei: str = "") -> str:
+        return f"3DGmax {VERSION}" + (f" – {datei}" if datei else "")
 
     # --- Aufbau ---
 
@@ -161,6 +166,9 @@ class Hauptfenster(QtWidgets.QMainWindow):
         A("bild_kopieren", tr("Bild in Zwischenablage"), self.bild_kopieren, "Ctrl+Shift+C",
           tipp=tr("Aktuelle Ansicht in die Zwischenablage"))
         A("schliessen", tr("Modell schließen"), self.schliesse_modell, QtGui.QKeySequence.StandardKey.Close)
+        A("einstellungen", tr("Einstellungen …"), self.zeige_einstellungen, QtGui.QKeySequence.StandardKey.Preferences,
+          tipp=tr("Kamerasteuerung, Farbschema, Sprache"), modell=False)
+        self.aktionen["einstellungen"].setMenuRole(QtGui.QAction.MenuRole.PreferencesRole)
         A("beenden", tr("Beenden"), self.close, QtGui.QKeySequence.StandardKey.Quit, modell=False)
         namen = {"vorne": tr("Vorne"), "hinten": tr("Hinten"), "oben": tr("Oben"), "unten": tr("Unten"),
                  "links": tr("Links"), "rechts": tr("Rechts"), "iso": tr("Isometrisch")}
@@ -220,6 +228,8 @@ class Hauptfenster(QtWidgets.QMainWindow):
             m.addAction(a[n])
         m.addSeparator()
         m.addAction(a["schliessen"])
+        m.addSeparator()
+        m.addAction(a["einstellungen"])
         m.addAction(a["beenden"])
         m = mb.addMenu(tr("&Ansicht"))
         for n in ansicht3d.STANDARDANSICHTEN:
@@ -381,7 +391,7 @@ class Hauptfenster(QtWidgets.QMainWindow):
 
     def zeige_ergebnis(self, erg):
         self.erg = erg
-        self.setWindowTitle(f"3DGmax – {os.path.basename(erg.pfad)}")
+        self.setWindowTitle(self._titel(os.path.basename(erg.pfad)))
         szene = ansicht3d.Szene(erg.modell, erg.baum, erg.farben, erg.grafik, erg.pmi)
         self._modell_da(True)
         self.ansicht.zeige(szene)
@@ -406,7 +416,7 @@ class Hauptfenster(QtWidgets.QMainWindow):
         self.baum.zeige(None)
         self.pmi.zeige([])
         self.ansichten.zeige([])
-        self.setWindowTitle("3DGmax")
+        self.setWindowTitle(self._titel())
         self._modell_da(False)
 
     # --- Drag-and-drop ---
@@ -525,6 +535,25 @@ class Hauptfenster(QtWidgets.QMainWindow):
         self.ein.setValue("sprache", name)
         QtWidgets.QMessageBox.information(self, tr("Sprache"),
                                           tr("Die Sprache wird beim nächsten Start übernommen."))
+
+    def zeige_einstellungen(self):
+        from .einstellungen import EinstellungenDialog
+        d = EinstellungenDialog(self.ein, self)
+        if d.exec() != QtWidgets.QDialog.DialogCode.Accepted:
+            return
+        self.wende_einstellungen_an(d.werte())
+
+    def wende_einstellungen_an(self, w: dict):
+        self.ein.setValue("navigation", w["navigation"])
+        self.ansicht.setze_navigation(w["navigation"])
+        if w["thema"] != self.ein.value("thema", "auto"):
+            self.setze_thema(w["thema"])
+            self.aktionen["thema_" + w["thema"]].setChecked(True)
+        if w["sprache"] != self.ein.value("sprache", "auto"):
+            self.ein.setValue("sprache", w["sprache"])
+            self.aktionen["sprache_" + w["sprache"]].setChecked(True)
+            QtWidgets.QMessageBox.information(self, tr("Sprache"),
+                                              tr("Die Sprache wird beim nächsten Start übernommen."))
 
     def zeige_anleitung(self):
         from .hilfe import HilfeFenster
