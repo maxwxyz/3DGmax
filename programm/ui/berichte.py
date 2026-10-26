@@ -371,3 +371,26 @@ def _zeichnung_seite(maler, schreiber, svg, titel, zeile):
     maler.setFont(schrift)
     maler.drawText(feld.adjusted(rand, feld.height() / 2, -rand, -rand), QtCore.Qt.AlignmentFlag.AlignLeft |
                    QtCore.Qt.AlignmentFlag.AlignVCenter, zeile)
+
+
+KOMMENTAR_BREITEN = (0.05, 0.12, 0.08, 0.42, 0.10, 0.12, 0.06, 0.05)
+
+
+def kommentare_pdf(fenster, pfad: str, bild: bool = True) -> str:
+    """Kommentarliste: Bild mit den Markierungen und Tabelle (Art, Status, Text, Autor, Datum, Bezug)."""
+    from ..kern import kommentare as km
+    liste = list(fenster.kommentare.kommentare)
+    modell = os.path.basename(fenster.erg.pfad)
+    bericht = PdfBericht(pfad, tr("Kommentare – {}").format(modell))
+    bericht.ueberschrift(tr("Kommentare"))
+    offen = sum(1 for k in liste if k.status != "erledigt")
+    bericht.absatz(tr("Modell: {} · {} Kommentare, davon {} offen").format(modell, len(liste), offen))
+    if bild and liste:
+        with _BreiteAnsicht(fenster):
+            fenster.ansicht.alles_zeigen()
+            _warte()
+            bericht.bild(fenster.ansicht.bild_qimage(), 0.55)
+    spalten = [(tr(t), b) for t, b in zip(km.SPALTEN[:8], KOMMENTAR_BREITEN)]
+    zeilen = [z[:8] for z in km.zeilen(liste)]
+    bericht.tabelle(spalten, zeilen or [["–", tr("keine Kommentare")] + [""] * 6])
+    return bericht.fertig()

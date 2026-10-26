@@ -514,3 +514,24 @@ def test_schnittbox_aktion(fenster_ctc01):
     f.aktionen["schnittbox"].setChecked(False)
     f._schnittbox()
     assert f.ansicht.box is None
+
+
+def test_kommentare_anlegen_projekt_export(fenster_ctc01, tmp_path):
+    f = fenster_ctc01
+    assert f.neuer_kommentar("ohne Auswahl") is None
+    f.ansicht.setze_auswahl([f.erg.modell.flaechen[5]])
+    k = f.neuer_kommentar("Fase prüfen", "frage")
+    assert k.nummer == 1 and k.flaechen == [5] and f.ansicht.kommentar_marken
+    f.ansicht.setze_auswahl([])
+    f.pmi.waehle(lambda p: p.nummer == 3)
+    k2 = f.neuer_kommentar("Toleranz zu eng?", "vorschlag")
+    assert k2.nummer == 2 and k2.pmi == [3]
+    f.kommentare.tabelle.selectRow(0)
+    f.kommentare._erledigt()
+    assert f.kommentare.kommentare[0].status == "erledigt"
+    assert open(f.exportiere_kommentare(str(tmp_path / "k.csv")), encoding="utf-8-sig").read().count("\n") == 3
+    assert f.exportiere_pdf("kommentare", str(tmp_path / "k.pdf"))
+    projekt = f.speichere_projekt(str(tmp_path / "p.3dgmax"))
+    f.kommentare.setze([])
+    f.oeffne_projekt(projekt, warten=True)
+    assert [k.text for k in f.kommentare.kommentare] == ["Fase prüfen", "Toleranz zu eng?"]

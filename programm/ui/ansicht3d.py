@@ -87,6 +87,7 @@ class AnsichtBasis(QtWidgets.QWidget):
         self.explosion = 0.0
         self.material = None
         self.box = None  # Schnittbox ((x0, y0, z0), (x1, y1, z1)) oder None
+        self.kommentar_marken: list = []
         self.letzter_zoom = None
         self.letzte_ausrichtung = None
         self.auswahl3d: list = []  # gewaehlte Flaechen/Kanten (TopoDS)
@@ -143,6 +144,10 @@ class AnsichtBasis(QtWidgets.QWidget):
     def blick_zum_betrachter(self) -> tuple[float, float, float]:
         """Richtung vom Modell zum Betrachter (fuer Entformung 'Blickrichtung')."""
         return (0.0, 0.0, 1.0)
+
+    def zeige_kommentare(self, marken: list):
+        """Kommentar-Markierungen [(Nummer, (x, y, z), erledigt)]."""
+        self.kommentar_marken = list(marken)
 
     def setze_explosion(self, anteil: float):
         """Explosionsansicht: Teile vom Mittelpunkt weg verschieben (0 = aus, 1 = weit)."""
@@ -685,12 +690,15 @@ class OcctAnsicht(AnsichtBasis):
         self._bezug_ais = []
         self._ballon_ais = []
         self._material_ais = []
+        self._kommentar_ais = []
         self._baue_entfernt()
         self._baue_grafik()
         self._baue_abweichung()
         if self.ballone:
             self.zeige_ballone(self.ballone)
         self._baue_material()
+        if self.kommentar_marken:
+            self.zeige_kommentare(self.kommentar_marken)
         if self.explosion > 0:
             self.setze_explosion(self.explosion)
         self._wende_darstellung_an()
@@ -1085,6 +1093,37 @@ class OcctAnsicht(AnsichtBasis):
                     a.SetLocalTransformation(t)
                     ctx.Redisplay(a, False)
         self._wende_sichtbarkeit_an()
+
+    def zeige_kommentare(self, marken):
+        super().zeige_kommentare(marken)
+        if not self._bereit:
+            return
+        from OCC.Core.AIS import AIS_TextLabel
+        from OCC.Core.Aspect import Aspect_TODT_SUBTITLE
+        from OCC.Core.Graphic3d import Graphic3d_ZLayerId_Topmost
+        from OCC.Core.gp import gp_Pnt
+        from OCC.Core.TCollection import TCollection_ExtendedString
+        ctx = self.d.Context
+        for lab in getattr(self, "_kommentar_ais", []):
+            ctx.Remove(lab, False)
+        self._kommentar_ais = []
+        for nummer, ort, erledigt in self.kommentar_marken:
+            lab = AIS_TextLabel()
+            lab.SetFont(SCHRIFT)
+            lab.SetText(TCollection_ExtendedString(f" K{nummer} " + ("✓ " if erledigt else ""), True))
+            p = gp_Pnt(*map(float, ort))
+            if self.vergleich_trsf is not None:
+                p = p.Transformed(self.vergleich_trsf)
+            lab.SetPosition(p)
+            lab.SetDisplayType(Aspect_TODT_SUBTITLE)
+            lab.SetColorSubTitle(_farbe((0.45, 0.47, 0.5) if erledigt else (0.93, 0.55, 0.10)))
+            lab.SetColor(_farbe((1.0, 1.0, 1.0)))
+            lab.SetHeight(14)
+            lab.SetZLayer(Graphic3d_ZLayerId_Topmost)
+            ctx.Display(lab, False)
+            ctx.Deactivate(lab)
+            self._kommentar_ais.append(lab)
+        self._neu_zeichnen()
 
     def schnittbox(self, box):
         super().schnittbox(box)

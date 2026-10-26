@@ -120,10 +120,14 @@ class Hauptfenster(QtWidgets.QMainWindow):
         self.dock_messen = self._dock(tr("Messen"), self.messen, QtCore.Qt.DockWidgetArea.RightDockWidgetArea)
         self.tabifyDockWidget(self.dock_pmi, self.dock_messen)
         from .analyse_ui import AnalysePanel
+        from .kommentar_ui import KommentarPanel
         self.analyse = AnalysePanel()
+        self.kommentare = KommentarPanel()
         self.aenderungen = AenderungenPanel()
         self.dock_analyse = self._dock(tr("Analyse"), self.analyse, QtCore.Qt.DockWidgetArea.RightDockWidgetArea)
         self.dock_analyse.hide()
+        self.dock_kommentare = self._dock(tr("Kommentare"), self.kommentare, QtCore.Qt.DockWidgetArea.RightDockWidgetArea)
+        self.dock_kommentare.hide()
         self.dock_aenderungen = self._dock(tr("Änderungen"), self.aenderungen,
                                            QtCore.Qt.DockWidgetArea.RightDockWidgetArea)
         self.tabifyDockWidget(self.dock_pmi, self.dock_aenderungen)
@@ -315,6 +319,12 @@ class Hauptfenster(QtWidgets.QMainWindow):
           tipp=tr("Explosionsansicht: Teile auseinanderziehen (Regler daneben); PMI und Messen ruhen solange"))
         A("stueckliste", tr("Stückliste …"), self.zeige_stueckliste,
           tipp=tr("Teile mit Anzahl, Volumen und Masse – Export als CSV"))
+        A("kommentar", tr("Kommentar …"), lambda: self.neuer_kommentar(), "K",
+          tipp=tr("Kommentar, Frage oder Änderungsvorschlag an den gewählten Flächen oder PMI"))
+        A("kommentare_csv", tr("Kommentare (CSV) …"), lambda: self.exportiere_kommentare(),
+          tipp=tr("Alle Kommentare mit Art, Status, Autor, Datum und Bezug"))
+        A("pdf_kommentare", tr("Kommentare (PDF) …"), lambda: self.exportiere_pdf("kommentare"),
+          tipp=tr("Bild mit den Kommentar-Markierungen und Liste der Kommentare"))
         A("analyse", tr("Analyse …"), self.zeige_analyse_leiste,
           tipp=tr("Entformungsschräge, Krümmungsradius oder Wandstärke als Farbkarte"))
         A("ballone", tr("Ballonnummern zeigen"), self.zeige_ballone_aktuell, "B", pruefbar=True,
@@ -435,13 +445,14 @@ class Hauptfenster(QtWidgets.QMainWindow):
         m.addSeparator()
         m.addAction(a["projekt_speichern"])
         me = m.addMenu(tr("Exportieren"))
-        for n in ("pdf_ansichten", "merkmale_pdf", "pdf_messungen", "pdf_vergleich", "pdf_pmi_aenderungen"):
+        for n in ("pdf_ansichten", "merkmale_pdf", "pdf_messungen", "pdf_kommentare", "pdf_vergleich",
+                  "pdf_pmi_aenderungen"):
             me.addAction(a[n])
         me.addSeparator()
         for n in ("zeichnung_blatt", "zeichnung_aktuell", "zeichnung_ansichten", "zeichnung_pmi"):
             me.addAction(a[n])
         me.addSeparator()
-        for n in ("pmi_export", "merkmale_csv", "aenderungen_export"):
+        for n in ("pmi_export", "merkmale_csv", "kommentare_csv", "aenderungen_export"):
             me.addAction(a[n])
         for n in ("bild_speichern", "bild_kopieren"):
             m.addAction(a[n])
@@ -492,6 +503,7 @@ class Hauptfenster(QtWidgets.QMainWindow):
         m.addAction(a["stueckliste"])
         m.addAction(a["explosion"])
         m.addAction(a["analyse"])
+        m.addAction(a["kommentar"])
         mn = m.addMenu(tr("Norm"))
         for n in ("norm_auto", "norm_iso", "norm_asme"):
             mn.addAction(a[n])
@@ -508,7 +520,7 @@ class Hauptfenster(QtWidgets.QMainWindow):
         m.addAction(a["messen_ende"])
         self.menue_fenster = mb.addMenu(tr("&Fenster"))
         for d in (self.dock_baum, self.dock_ansichten, self.dock_pmi, self.dock_messen, self.dock_analyse,
-                  self.dock_aenderungen):
+                  self.dock_kommentare, self.dock_aenderungen):
             self.menue_fenster.addAction(d.toggleViewAction())
         m = mb.addMenu(tr("&Hilfe"))
         for n in ("anleitung", "einfuehrung", "neu", "ueber"):
@@ -570,6 +582,9 @@ class Hauptfenster(QtWidgets.QMainWindow):
         self.pmi.befehl.connect(self._pmi_befehl)
         self.ansichten.gewaehlt.connect(self._ansicht_gewaehlt)
         self.ansichten.merken.connect(lambda: self.merke_ansicht())
+        self.kommentare.neu.connect(lambda: self.neuer_kommentar())
+        self.kommentare.geaendert.connect(self._kommentare_zeigen)
+        self.kommentare.gewaehlt.connect(self._kommentar_gewaehlt)
         self.ansichten.entfernen.connect(self._ansicht_entfernen)
         self.ansicht.flaeche_gewaehlt.connect(self._flaeche_gewaehlt)
         self.ansicht.pmi_gewaehlt.connect(self._grafik_pmi_gewaehlt)
@@ -688,6 +703,8 @@ class Hauptfenster(QtWidgets.QMainWindow):
         if self.aktionen["schnittbox"].isChecked():
             self.aktionen["schnittbox"].setChecked(False)
             self.ansicht.schnittbox(None)
+        if self.erg is not None and erg.pfad != self.erg.pfad:
+            self.kommentare.setze([])  # Kommentare gehoeren zum vorigen Modell
         if vergleich is None and self.ansicht.abweichung is not None:
             self.ansicht.zeige_analyse(None)  # Analyse gehoert zum alten Modell
         self.erg = erg
@@ -867,6 +884,75 @@ class Hauptfenster(QtWidgets.QMainWindow):
 
     # --- Eigene Ansichten ---
 
+    # --- Kommentare ---
+
+    def _kommentar_ziel(self):
+        """(Ort, Flaechen, PMI-Nummern, Beschreibung) der aktuellen Auswahl oder None."""
+        import numpy as np
+        from ..kern import merkmale, pmi_erzeugen
+        flaechen = {i for f in self.ansicht.auswahl3d for i in [self.erg.modell.flaechen_index(f)] if i is not None}
+        pmi = list(self._schnell_pmi)
+        ort = None
+        if self.ansicht.auswahl3d:
+            ort = pmi_erzeugen._schwerpunkt(list(self.ansicht.auswahl3d))
+        elif pmi:
+            ort = merkmale.anker(pmi[0], self.erg.grafik, self.ansicht.mitte_von)
+            flaechen |= set(pmi[0].flaechen)
+            if ort is None and pmi[0].flaechen:
+                ort = pmi_erzeugen._schwerpunkt([self.erg.modell.flaechen[i] for i in pmi[0].flaechen])
+        if ort is None:
+            return None
+        teile = []
+        if pmi:
+            teile.append(tr("PMI {}").format(", ".join(str(p.nummer) for p in pmi)))
+        if flaechen:
+            teile.append(tr("{} Flächen").format(len(flaechen)))
+        return tuple(np.asarray(ort, float)), flaechen, [p.nummer for p in pmi], " · ".join(teile)
+
+    def neuer_kommentar(self, text: str = "", art: str = "kommentar"):
+        """Kommentar an der Auswahl; ohne Text fragt ein Dialog nach Art und Text."""
+        from ..kern.kommentare import Kommentar
+        from .kommentar_ui import KommentarDialog
+        if self.erg is None:
+            return None
+        ziel = self._kommentar_ziel()
+        if ziel is None:
+            self.statusBar().showMessage(tr("Erst Flächen oder eine PMI wählen, dann kommentieren"), 5000)
+            return None
+        ort, flaechen, pmi, beschreibung = ziel
+        if not text:
+            d = KommentarDialog(beschreibung, self)
+            if d.exec() != QtWidgets.QDialog.DialogCode.Accepted or not d.text.toPlainText().strip():
+                return None
+            text, art = d.text.toPlainText().strip(), d.art.currentData()
+        k = Kommentar.neu(self.kommentare.naechste_nummer(), text, ort, art, flaechen, pmi)
+        self.kommentare.fuege_hinzu(k)
+        self.dock_kommentare.show()
+        self.dock_kommentare.raise_()
+        return k
+
+    def _kommentare_zeigen(self):
+        self.ansicht.zeige_kommentare([(k.nummer, k.ort, k.status == "erledigt") for k in self.kommentare.kommentare])
+
+    def _kommentar_gewaehlt(self, k):
+        if k is None:
+            return
+        self.ansicht.hebe_flaechen(set(k.flaechen))
+        if k.flaechen:
+            self.ansicht.zoome_auf(set(k.flaechen))
+
+    def exportiere_kommentare(self, pfad: str = "") -> str | None:
+        from ..kern import kommentare as km
+        if self.erg is None:
+            return None
+        pfad = pfad or self._speicherpfad(tr("Kommentare speichern"),
+                                          os.path.splitext(self.erg.pfad)[0] + "_kommentare.csv", "CSV (*.csv)")
+        if not pfad:
+            return None
+        with open(pfad, "w", encoding="utf-8-sig", newline="") as f:
+            f.write(km.als_csv(self.kommentare.kommentare))
+        return pfad
+
     def merke_ansicht(self, name: str = ""):
         """Aktuelle Kamera mit den sichtbaren PMI und Messungen als eigene Ansicht."""
         if self.erg is None:
@@ -1032,7 +1118,7 @@ class Hauptfenster(QtWidgets.QMainWindow):
         if not pfad:
             return None
         ziel = projekt.speichere(pfad, self.erg.pfad, self.vergleich, self.messen.messungen, VERSION,
-                                 self.erg.ansichten)
+                                 self.erg.ansichten, self.kommentare.kommentare)
         self.statusBar().showMessage(tr("Projekt gespeichert: {}").format(ziel), 6000)
         return ziel
 
@@ -1057,6 +1143,9 @@ class Hauptfenster(QtWidgets.QMainWindow):
             self.messen.messungen = list(d["messungen"])
             self.messen._fuelle()
             self.dock_messen.show()
+        if d and d.get("kommentare"):
+            self.kommentare.setze(d["kommentare"])
+            self.dock_kommentare.show()
         if d and d.get("ansichten") and self.erg is not None:
             self.erg.ansichten.extend(d["ansichten"])
             self._ansichten_neu(None)
@@ -1387,11 +1476,12 @@ class Hauptfenster(QtWidgets.QMainWindow):
 
     def exportiere_pdf(self, art: str, pfad: str = "") -> str | None:
         from . import berichte
-        if self.erg is None or (art not in ("ansichten", "merkmale", "messungen") and self.vergleich is None):
+        if self.erg is None or (art not in ("ansichten", "merkmale", "messungen", "kommentare") and
+                                self.vergleich is None):
             return None
         basis = os.path.splitext((self.vergleich.neu.pfad if self.vergleich else self.erg.pfad))[0]
         endung = {"ansichten": "_ansichten.pdf", "vergleich": "_vergleich.pdf", "pmi_aenderungen": "_pmi_aenderungen.pdf",
-                  "merkmale": "_merkmale.pdf", "messungen": "_messprotokoll.pdf"}[art]
+                  "merkmale": "_merkmale.pdf", "messungen": "_messprotokoll.pdf", "kommentare": "_kommentare.pdf"}[art]
         pfad = pfad or self._speicherpfad(tr("PDF speichern"), basis + endung, "PDF (*.pdf)")
         if not pfad:
             return None
@@ -1404,6 +1494,8 @@ class Hauptfenster(QtWidgets.QMainWindow):
                 berichte.merkmale_pdf(self, pfad)
             elif art == "messungen":
                 berichte.messungen_pdf(self, pfad)
+            elif art == "kommentare":
+                berichte.kommentare_pdf(self, pfad)
             elif art == "vergleich":
                 berichte.vergleich_pdf(self, pfad)
             else:

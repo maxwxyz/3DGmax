@@ -151,7 +151,7 @@ Throughout: tests (core, offscreen UI, stress test, on-screen test), `--selbstte
   geometry may deviate from nominal – including datum reference frame, material condition, unequal zones (UZ),
   projected zones.
 
-### 8.6 Annotating and commenting (future)
+### 8.6 Annotating and commenting (done: comments on faces/PMI with markers, status, project, CSV/PDF)
 - Comments/change proposals on faces, edges, PMI (list and model), on changed PMI and geometry in a comparison; stored
   in the project container, exported in reports.
 

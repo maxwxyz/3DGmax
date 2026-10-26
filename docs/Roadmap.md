@@ -90,7 +90,7 @@
 | Generate graphical PMI from semantic PMI – stage 1: leader + label, stacked, own color (3D, drawings) | ✅ |
 | Generated PMI stage 2: annotation planes, frames/datum symbols as vector graphics, layout optimization | ⬜ |
 | Drawing: dimensions/frames as DXF dimension entities, sheet formats and scales | ⬜ |
-| Annotate: comments/change proposals on faces, PMI (list and model), changed geometry | ⬜ |
+| Annotate: comments/questions/change proposals on faces and PMI, markers, status, project, CSV/PDF | ✅ |
 
 ## Formats
 | Format | Status |

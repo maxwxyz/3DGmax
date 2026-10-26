@@ -59,6 +59,8 @@ def tr_texte() -> set[str]:
     out |= {"Hüllbedingung gilt (ASME Rule #1)", "Hüllbedingung Ⓔ", "Unabhängigkeitsprinzip (ISO 8015) – Form nicht begrenzt"}
     from programm.kern import merkmale as km
     out |= set(km.SPALTEN)
+    from programm.kern import kommentare as kk
+    out |= set(kk.ART.values()) | set(kk.STATUS.values()) | set(kk.SPALTEN)
     from programm.kern import stueckliste as ks
     out |= set(ks.SPALTEN) | {"Abweichung"}
     from programm.ui import analyse_ui

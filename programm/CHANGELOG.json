@@ -77,7 +77,8 @@
    "Baugruppenvergleich: Teile neu, entfernt, verschoben (mit Versatz), geändert (Volumen) und umbenannt; eigener Filter „Baugruppe“ in der Änderungsliste.",
    "Automatische Ausrichtung bleibt bei gleicher Lage, sobald die Hälfte der Oberfläche schon exakt aufliegt (Baugruppen mit Änderungen werden nicht mehr verzogen).",
    "Grafischer PMI-Vergleich: bei semantisch gleicher PMI wird eine verschobene oder in der Form geänderte Beschriftung als „PMI-Darstellung geändert“ gemeldet.",
-   "Schnittbox um die Auswahl: nur der Bereich um gewählte Flächen bleibt sichtbar (Schnittflächen farbig)."
+   "Schnittbox um die Auswahl: nur der Bereich um gewählte Flächen bleibt sichtbar (Schnittflächen farbig).",
+   "Kommentare (K): Kommentar, Frage oder Änderungsvorschlag an Flächen oder PMI, Markierung K1, K2 … im Modell, Liste mit Status offen/erledigt, im Projekt gespeichert, Export CSV und PDF."
   ],
   "en": [
    "First viewer version: load STEP AP242, assembly tree, CAD-style navigation, standard views.",
@@ -156,7 +157,8 @@
    "Assembly comparison: parts new, removed, moved (with offset), changed (volume) and renamed; own filter “Assembly” in the change list.",
    "Automatic alignment keeps the same placement once half of the surface already coincides (assemblies with changes are no longer skewed).",
    "Graphical PMI comparison: for semantically equal PMI a moved or reshaped annotation is reported as “PMI presentation changed”.",
-   "Section box around the selection: only the region around selected faces stays visible (capped sections)."
+   "Section box around the selection: only the region around selected faces stays visible (capped sections).",
+   "Comments (K): comment, question or change proposal on faces or PMI, markers K1, K2 … in the model, list with status open/done, saved in the project, export CSV and PDF."
   ]
  },
  "releases": [

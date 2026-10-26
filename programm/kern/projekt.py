@@ -36,13 +36,14 @@ def _eindeutig(namen: list[str]) -> list[str]:
 
 
 def speichere(pfad: str, modell_pfad: str | None = None, vergleich=None, messungen: list | None = None,
-              version: str = "", ansichten: list | None = None) -> str:
+              version: str = "", ansichten: list | None = None, kommentare: list | None = None) -> str:
     """Modell oder Vergleich mit Pruefstand und Messungen als .3dgmax speichern."""
     if not pfad.lower().endswith(ENDUNG):
         pfad += ENDUNG
     daten = {"format": FORMAT, "programm": f"3DGmax {version}".strip(), "messungen":
              [asdict(m) for m in (messungen or [])],
-             "ansichten": [_ansicht_json(a) for a in (ansichten or []) if getattr(a, "eigen", False)]}
+             "ansichten": [_ansicht_json(a) for a in (ansichten or []) if getattr(a, "eigen", False)],
+             "kommentare": [asdict(k) for k in (kommentare or [])]}
     if vergleich is not None:
         quellen = [vergleich.alt.pfad, vergleich.neu.pfad]
         alt, neu = _eindeutig([os.path.basename(q) for q in quellen])
@@ -77,6 +78,8 @@ def lade(pfad: str, ziel: str | None = None) -> dict:
     daten["pfade"] = {k: os.path.join(ziel, v) for k, v in daten["modelle"].items()}
     daten["messungen"] = [Messung(**m) for m in daten.get("messungen", [])]
     from .ansichten import Ansicht
+    from .kommentare import von_dict
+    daten["kommentare"] = [von_dict(k) for k in daten.get("kommentare", [])]
     daten["ansichten"] = [Ansicht(**{**a, "pmi_ids": set(a.get("pmi_ids", [])), "ort": tuple(a["ort"]),
                                      "richtung": tuple(a["richtung"]), "oben": tuple(a["oben"])})
                           for a in daten.get("ansichten", [])]
