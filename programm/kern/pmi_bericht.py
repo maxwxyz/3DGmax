@@ -121,7 +121,7 @@ def pruefe(pmi: list[Pmi], ansichten: list | None = None) -> list[Befund]:
     return sorted(out, key=lambda b: (rang[b.stufe], b.nummern[:1]))
 
 
-KATEGORIE = {"geometrie": "Geometrie", "pmi": "PMI"}
+KATEGORIE = {"geometrie": "Geometrie", "pmi": "PMI", "baugruppe": "Baugruppe"}
 STATUS = {"geaendert": "geändert", "neu": "neu", "entfernt": "entfernt", "entfallen": "entfallen",
           "geometrie": "Geometrie unter PMI geändert", "verschoben": "verschoben"}
 PRUEF = {"offen": "offen", "geprueft": "geprüft", "abgelehnt": "abgelehnt"}

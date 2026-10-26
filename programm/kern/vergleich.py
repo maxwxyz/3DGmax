@@ -9,7 +9,7 @@ from dataclasses import dataclass, field
 from . import ausrichten, vergleich_geo, vergleich_pmi
 from .vergleich_geo import ENTFERNT, GEAENDERT, GLEICH, NEU
 
-GEOMETRIE, PMI = "geometrie", "pmi"
+GEOMETRIE, PMI, BAUGRUPPE = "geometrie", "pmi", "baugruppe"
 PRUEF_STATUS = ("offen", "geprueft", "abgelehnt")
 
 
@@ -135,6 +135,42 @@ def _verschiebungen(aenderungen, alt, neu, ausrichtung, toleranz: float) -> list
     return [a for a in aenderungen if id(a) not in ersetzt] + dazu
 
 
+BG_TITEL = {"neu": "Teil neu", "entfernt": "Teil entfernt", "verschoben": "Teil verschoben",
+            "geaendert": "Teil geändert", "umbenannt": "Teil umbenannt"}
+
+
+def _flaechen_von(modell, knoten) -> set[int]:
+    from OCC.Core.TopAbs import TopAbs_FACE
+    from OCC.Core.TopExp import TopExp_Explorer
+    out, ex = set(), TopExp_Explorer(knoten.form, TopAbs_FACE)
+    while ex.More():
+        i = modell.flaechen_index(ex.Current())
+        if i is not None:
+            out.add(i)
+        ex.Next()
+    return out
+
+
+def _baugruppen_aenderungen(alt, neu, ausrichtung, toleranz) -> list[Aenderung]:
+    """Teile neu/entfernt/verschoben/geaendert/umbenannt, wenn einer der Staende mehrere Teile hat."""
+    from . import vergleich_baugruppe as vb
+    anzahl = lambda e: sum(1 for k in e.baum.blaetter() if not k.hilfsgeometrie)  # noqa: E731
+    if getattr(alt, "baum", None) is None or getattr(neu, "baum", None) is None or max(anzahl(alt), anzahl(neu)) < 2:
+        return []
+    out = []
+    for x in vb.vergleiche(alt.baum, neu.baum, ausrichtung.matrix, toleranz):
+        teile = []
+        if x.versatz is not None and x.status in (vb.VERSCHOBEN, vb.GEAENDERT):
+            d = x.versatz
+            teile.append(tr("Lage dX {:+.3f}  dY {:+.3f}  dZ {:+.3f} mm").format(*d))
+        if x.status == vb.GEAENDERT:
+            teile.append(tr("Volumen {:.1f} → {:.1f} mm³").format(x.alt.volumen, x.neu.volumen))
+        out.append(Aenderung(0, BAUGRUPPE, x.status, f"{tr(BG_TITEL[x.status])}: {x.name}", " · ".join(teile),
+                             _flaechen_von(neu.modell, x.neu.knoten) if x.neu else set(),
+                             _flaechen_von(alt.modell, x.alt.knoten) if x.alt else set()))
+    return out
+
+
 def _pmi_aenderungen(liste) -> list[Aenderung]:
     out = []
     for x in liste:
@@ -171,7 +207,7 @@ def vergleiche(alt, neu, toleranz: float = 0.01, suchweite: float = 2.0, ausrich
                 a.titel = f"{tr('PMI verschoben')}: {a.titel.split(': ', 1)[-1]}"
                 a.beschreibung = g.beschreibung
                 break
-    aenderungen = pmi_liste + geo_liste
+    aenderungen = _baugruppen_aenderungen(alt, neu, ausrichtung, toleranz) + pmi_liste + geo_liste
     for i, a in enumerate(aenderungen, 1):
         a.nummer = i
     return Vergleich(alt, neu, ausrichtung, geo, pmi, aenderungen, toleranz, suchweite)

@@ -662,5 +662,12 @@
 "Geometrie verschoben": "Geometry moved",
 "{} Fläche(n) um dX {:+.3f}  dY {:+.3f}  dZ {:+.3f} mm ({:.3f} mm)": "{} face(s) by dX {:+.3f}  dY {:+.3f}  dZ {:+.3f} mm ({:.3f} mm)",
 "verschoben": "moved",
-"PMI verschoben": "PMI moved"
+"PMI verschoben": "PMI moved",
+"Teil neu": "Part new",
+"Teil entfernt": "Part removed",
+"Teil verschoben": "Part moved",
+"Teil geändert": "Part changed",
+"Teil umbenannt": "Part renamed",
+"Lage dX {:+.3f}  dY {:+.3f}  dZ {:+.3f} mm": "Position dX {:+.3f}  dY {:+.3f}  dZ {:+.3f} mm",
+"Volumen {:.1f} → {:.1f} mm³": "Volume {:.1f} → {:.1f} mm³"
 }

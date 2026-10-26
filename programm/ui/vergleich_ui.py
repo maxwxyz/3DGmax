@@ -13,7 +13,7 @@ from ..kern import pruefung
 STATUS_TEXT = {"geaendert": "geändert", "neu": "neu", "entfernt": "entfernt", "entfallen": "entfallen",
                "geometrie": "Geometrie unter PMI geändert", "verschoben": "verschoben"}
 PRUEF_TEXT = {"offen": "offen", "geprueft": "geprüft", "abgelehnt": "abgelehnt"}
-KATEGORIE_TEXT = {"geometrie": "Geometrie", "pmi": "PMI"}
+KATEGORIE_TEXT = {"geometrie": "Geometrie", "pmi": "PMI", "baugruppe": "Baugruppe"}
 
 
 class VergleichDialog(QtWidgets.QDialog):
@@ -182,6 +182,7 @@ class AenderungenPanel(QtWidgets.QWidget):
         oben = QtWidgets.QHBoxLayout()
         self.filter = QtWidgets.QComboBox()
         for text, wert in ((tr("Alle Änderungen"), None), (tr("Offen"), "offen"), (tr("Geometrie"), "geometrie"),
+                           (tr("Baugruppe"), "baugruppe"),
                            (tr("PMI"), "pmi")):
             self.filter.addItem(text, wert)
         self.start = QtWidgets.QPushButton(tr("Prüfen starten"))
@@ -295,7 +296,7 @@ class AenderungenPanel(QtWidgets.QWidget):
         self._knoepfe()
 
     def _zeile(self, z, a):
-        titel = a.titel if a.kategorie == "geometrie" else \
+        titel = a.titel if a.kategorie in ("geometrie", "baugruppe") else \
             f"{tr(STATUS_TEXT.get(a.status, a.status))}: {a.titel.split(': ', 1)[-1]}"
         werte = (str(a.nummer), tr(KATEGORIE_TEXT[a.kategorie]), tr(titel) if a.kategorie == "geometrie" else titel,
                  tr(PRUEF_TEXT[a.pruefstatus]))

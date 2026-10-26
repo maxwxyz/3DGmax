@@ -72,7 +72,8 @@
 | Detect moved elements (translation) and moved PMI | ✅ |
 | Detect rotated/mirrored elements | ⬜ |
 | Graphical PMI comparison (moved, changed, new, removed) | ⬜ |
-| Assembly comparison | ⬜ |
+| Assembly comparison (parts new/removed/moved/changed/renamed) | ✅ |
+| Geometry comparison per part instance (instances currently share one face set) | ⬜ |
 | Meshes: STL/OBJ vs. CAD, mesh vs. mesh, fit and compare 3D scans | ⬜ |
 
 ## Reports and exchange

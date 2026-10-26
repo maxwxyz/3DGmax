@@ -285,9 +285,10 @@ def richte_aus(flaechen_a, flaechen_b, toleranz: float = 0.05, anzahl: int = 600
     a, _ = abtasten(netze_a, anzahl)
     b, _ = abtasten(tesselliere(flaechen_b), anzahl, zufall=2)
     netz = NetzAbstand(netze_a)
-    # Lage gilt als gleich, wenn die meisten Punkte schon nahe liegen (geaenderte Bereiche duerfen abweichen)
+    # Lage gilt als gleich, wenn mindestens die Haelfte der Punkte schon exakt aufliegt: dann teilen beide Staende
+    # das Koordinatensystem, und eine Bestpassung wuerde geaenderte Bereiche nur auf alles verteilen
     mittel, anteil = guete(b, netz, np.eye(4), toleranz)
-    if anteil > 0.8:
+    if anteil > 0.5:
         return Ausrichtung(np.eye(4), "gleich", mittel, anteil)
     ca, va = _hauptachsen(a)
     cb, vb = _hauptachsen(b)

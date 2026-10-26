@@ -1,7 +1,8 @@
 """Kleine Test-Baugruppe als STEP AP242 erzeugen (Explosionsansicht, Stueckliste, Baugruppenvergleich).
 
-Aufruf: pixi run python werkzeuge/baugruppe.py   -> tests/daten/baugruppe.stp
+Aufruf: pixi run python werkzeuge/baugruppe.py   -> tests/daten/baugruppe.stp, tests/daten/baugruppe_b.stp
 Aufbau: Grundplatte, Deckel, 4x dieselbe Schraube (ein Produkt, vier Exemplare), Unterbaugruppe "Halter" mit Winkel.
+Variante B: Deckel 5 statt 4 mm dick, eine Schraube entfaellt, Halter 10 mm verschoben, neues Teil "Stift".
 """
 
 from __future__ import annotations
@@ -27,7 +28,7 @@ def _lage(x, y, z):
     return TopLoc_Location(t)
 
 
-def erzeuge(ziel: str = ZIEL) -> str:
+def erzeuge(ziel: str = ZIEL, variante: bool = False) -> str:
     from OCC.Core.BRepAlgoAPI import BRepAlgoAPI_Cut
     from OCC.Core.BRepPrimAPI import BRepPrimAPI_MakeBox, BRepPrimAPI_MakeCylinder
     from OCC.Core.gp import gp_Ax2, gp_Dir, gp_Pnt
@@ -47,7 +48,7 @@ def erzeuge(ziel: str = ZIEL) -> str:
     for x, y in ((15, 15), (105, 15), (15, 65), (105, 65)):
         loch = BRepPrimAPI_MakeCylinder(gp_Ax2(gp_Pnt(x, y, -1), gp_Dir(0, 0, 1)), 3.3, 12.0).Shape()
         platte = BRepAlgoAPI_Cut(platte, loch).Shape()
-    deckel = BRepPrimAPI_MakeBox(gp_Pnt(10, 10, 0), 100.0, 60.0, 4.0).Shape()
+    deckel = BRepPrimAPI_MakeBox(gp_Pnt(10, 10, 0), 100.0, 60.0, 5.0 if variante else 4.0).Shape()
     schraube = BRepPrimAPI_MakeCylinder(3.0, 25.0).Shape()
     kopf = BRepPrimAPI_MakeCylinder(gp_Ax2(gp_Pnt(0, 0, 25), gp_Dir(0, 0, 1)), 5.0, 4.0).Shape()
     from OCC.Core.BRepAlgoAPI import BRepAlgoAPI_Fuse
@@ -66,12 +67,17 @@ def erzeuge(ziel: str = ZIEL) -> str:
         teile[name] = lab
     for name, lage in (("Grundplatte", (0, 0, 0)), ("Deckel", (0, 0, 10))):
         _name(st.AddComponent(wurzel, teile[name], _lage(*lage)), name)
-    for i, (x, y) in enumerate(((15, 15), (105, 15), (15, 65), (105, 65)), 1):
+    schrauben = ((15, 15), (105, 15), (15, 65)) if variante else ((15, 15), (105, 15), (15, 65), (105, 65))
+    for i, (x, y) in enumerate(schrauben, 1):
         _name(st.AddComponent(wurzel, teile["Schraube M6x25"], _lage(x, y, -12)), f"Schraube M6x25:{i}")
     halter = st.NewShape()
     _name(halter, "Halter")
     _name(st.AddComponent(halter, teile["Winkel"], _lage(0, 0, 0)), "Winkel")
-    _name(st.AddComponent(wurzel, halter, _lage(45, 85, 0)), "Halter")
+    _name(st.AddComponent(wurzel, halter, _lage(55 if variante else 45, 85, 0)), "Halter")
+    if variante:
+        stift = st.AddShape(BRepPrimAPI_MakeCylinder(2.0, 15.0).Shape(), False)
+        _name(stift, "Stift 4x15")
+        _name(st.AddComponent(wurzel, stift, _lage(60, 40, 14)), "Stift 4x15")
     st.UpdateAssemblies()
 
     Interface_Static.SetCVal("write.step.schema", "AP242DIS")
@@ -88,3 +94,4 @@ def erzeuge(ziel: str = ZIEL) -> str:
 if __name__ == "__main__":
     sys.path.insert(0, WURZEL)
     print(erzeuge())
+    print(erzeuge(os.path.join(WURZEL, "tests", "daten", "baugruppe_b.stp"), variante=True))

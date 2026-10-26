@@ -361,3 +361,24 @@ def test_verschobene_bohrung_erkannt():
     versch = [a for a in v.aenderungen if a.status == vergleich.VERSCHOBEN]
     assert len(versch) == 1 and "+12.000" in versch[0].beschreibung
     assert not any(a.status in ("neu", "entfernt") for a in v.aenderungen if a.kategorie == "geometrie")
+
+
+def test_baugruppenvergleich(fenster):
+    from programm.kern import vergleich_baugruppe as vb
+    from programm.ui.lader import lade_alles
+    from tests.conftest import pfad
+    a, b = lade_alles(pfad("baugruppe.stp")), lade_alles(pfad("baugruppe_b.stp"))
+    erg = {(x.status, x.name) for x in vb.vergleiche(a.baum, b.baum)}
+    assert erg == {(vb.GEAENDERT, "Deckel"), (vb.VERSCHOBEN, "Winkel"), (vb.ENTFERNT, "Schraube M6x25"),
+                   (vb.NEU, "Stift 4x15")}
+    assert vb.vergleiche(a.baum, a.baum) == []
+    f = fenster
+    f.lade(pfad("baugruppe.stp"), warten=True)
+    f.starte_vergleich({"alt": pfad("baugruppe.stp"), "neu": pfad("baugruppe_b.stp"), "toleranz": 0.01,
+                        "suchweite": 2.0}, warten=True)
+    bg = [x for x in f.vergleich.aenderungen if x.kategorie == "baugruppe"]
+    assert len(bg) == 4 and any("dX +10.000" in x.beschreibung for x in bg)
+    f.aenderungen.filter.setCurrentIndex(f.aenderungen.filter.findData("baugruppe"))
+    sichtbar = [z for z in range(f.aenderungen.tabelle.rowCount()) if not f.aenderungen.tabelle.isRowHidden(z)]
+    assert len(sichtbar) == 4
+    f.beende_vergleich()
