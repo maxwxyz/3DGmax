@@ -57,6 +57,19 @@ def pruefe_alles():
     maus(T.MouseMove, (mitte[0] + 60, mitte[1]), B.NoButton, B.MiddleButton)
     maus(T.MouseButtonRelease, (mitte[0] + 60, mitte[1]), B.MiddleButton, B.NoButton)
     ergebnis["schieben"] = cam.Center().Coord() != c0
+    # Ansichtswuerfel: Klick auf die Ecke (Mitte des Wuerfels in Iso) richtet aus, Ziehen dreht
+    a.standard("vorne")
+    w = (a.viewer.width() - 100, 100)
+    maus(T.MouseButtonPress, w); maus(T.MouseButtonRelease, w)
+    d = cam.Direction()
+    ergebnis["wuerfel_klick"] = abs(d.Y() - 1.0) < 1e-6  # Klick auf "Vorne": Blick entlang +Y
+    d0 = (d.X(), d.Y(), d.Z())
+    maus(T.MouseButtonPress, w)
+    for i in range(1, 6):
+        maus(T.MouseMove, (w[0] + 12 * i, w[1]), B.NoButton, B.LeftButton)
+    maus(T.MouseButtonRelease, (w[0] + 60, w[1]))
+    d = cam.Direction()
+    ergebnis["wuerfel_ziehen"] = (d.X(), d.Y(), d.Z()) != d0
     s0 = cam.Scale()
     rad = QtGui.QWheelEvent(QtCore.QPointF(*mitte), a.viewer.mapToGlobal(QtCore.QPointF(*mitte)), QtCore.QPoint(), QtCore.QPoint(0, 240),
                             QtCore.Qt.MouseButton.NoButton, QtCore.Qt.KeyboardModifier.NoModifier, QtCore.Qt.ScrollPhase.NoScrollPhase, False)

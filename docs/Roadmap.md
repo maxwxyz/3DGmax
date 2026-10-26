@@ -13,7 +13,9 @@
 | Thumbnails per saved view | ⬜ |
 | Section X/Y/Z, at selected face/edge, from view direction, slider | ✅ |
 | Multiple section planes, clipping box, section views from the model, section contour as view | ⬜ |
-| 3D selection of faces/edges (multiple), context menu, zoom to selection, align normal, flip view | ✅ |
+| 3D selection of faces/edges (multiple), context menu, zoom to selection, align normal (upright: edges level, annotations readable), flip view | ✅ |
+| View cube with axes (chamfered edges/corners, click aligns, drag rotates) | ✅ |
+| Wireframe: click through to hidden edges | ✅ |
 | Large assemblies: tessellation cache, levels of detail | ⬜ |
 
 ## PMI
@@ -23,6 +25,8 @@
 | Graphical PMI from the file, placeholder texts generated from semantics | ✅ |
 | PMI ↔ face in both directions, select datums / tolerances using a datum | ✅ |
 | List with name, views, search, filter, context menu; count in current view | ✅ |
+| Table columns: move, show/hide; ISO GPS columns (characteristic, nominal, deviations, limits, size tolerance, class, zone, material condition) | ✅ |
+| Limits from ISO 286 tolerance classes (e.g. H7) | ⬜ |
 | PMI color: high contrast / from file / custom | ✅ |
 | PMI export CSV (values, datums, face IDs, views) | ✅ |
 | Plausibility check (unused/missing datums, without face/view, duplicates, rules) | ✅ |

@@ -10,6 +10,7 @@ Schnittstelle, merkt sich nur den Zustand.
 
 from __future__ import annotations
 
+import contextlib
 import os
 
 from PySide6 import QtCore, QtGui, QtWidgets
@@ -322,12 +323,105 @@ class OcctAnsicht(AnsichtBasis):
         self.d.Context.SetAutomaticHilight(True)
         # Kanten zeichnet die eigene Kantenebene; die Standard-Flaechenraender (blasse Linien) abschalten
         self.d.Context.DefaultDrawer().SetFaceBoundaryDraw(False)
-        self.d.display_triedron()
+        self._baue_wuerfel()
         self._bereit = True
         self.viewer._inited = True
         self.setze_thema(self.thema)
         if self.szene is not None:
             self._baue_szene()
+
+    # --- Ansichtswuerfel (mit Achsenkreuz) ---
+
+    WUERFEL_SEITEN = (("V3d_Yneg", "Vorne"), ("V3d_Ypos", "Hinten"), ("V3d_Zpos", "Oben"),
+                      ("V3d_Zneg", "Unten"), ("V3d_Xneg", "Links"), ("V3d_Xpos", "Rechts"))
+
+    def _baue_wuerfel(self):
+        """Wuerfel oben rechts: abgeschraegte Kanten/Ecken, beschriftete Seiten, Achsen X/Y/Z.
+        Klick auf Seite/Kante/Ecke richtet die Kamera aus, Ziehen dreht die Kamera."""
+        from OCC.Core import V3d
+        from OCC.Core.AIS import AIS_ViewCube
+        from OCC.Core.Aspect import Aspect_TOTP_RIGHT_UPPER
+        from OCC.Core.Graphic3d import Graphic3d_TMF_TriedronPers, Graphic3d_TransformPers, Graphic3d_Vec2i
+        from OCC.Core.TCollection import TCollection_AsciiString
+        w = AIS_ViewCube()
+        w.SetSize(62)
+        w.SetBoxFacetExtension(10)  # abgeschraegte Ecken und Kanten
+        w.SetBoxEdgeGap(1)
+        w.SetFontHeight(15)
+        w.SetDrawAxes(True)
+        w.SetAxesPadding(2)
+        w.SetTransformPersistence(Graphic3d_TransformPers(Graphic3d_TMF_TriedronPers, Aspect_TOTP_RIGHT_UPPER,
+                                                          Graphic3d_Vec2i(100, 100)))
+        for name, text in self.WUERFEL_SEITEN:
+            w.SetBoxSideLabel(getattr(V3d, name), TCollection_AsciiString(tr(text)))
+        w.SetAutoStartAnimation(False)
+        self._wuerfel = w
+        self._wuerfel_ziehen = None
+        self._faerbe_wuerfel()
+
+    def _faerbe_wuerfel(self):
+        w = getattr(self, "_wuerfel", None)
+        if w is None:
+            return
+        dunkel = sum((self.thema or {}).get("hg_oben", (1, 1, 1))) < 1.5
+        w.SetBoxColor(_farbe((0.36, 0.38, 0.42) if dunkel else (0.86, 0.88, 0.91)))
+        w.SetTextColor(_farbe((0.95, 0.95, 0.95) if dunkel else (0.12, 0.12, 0.14)))
+        w.SetBoxTransparency(0.15)
+
+    def _zeige_wuerfel(self):
+        w = getattr(self, "_wuerfel", None)
+        if w is not None:
+            ctx = self.d.Context
+            ctx.Remove(w, False)
+            self._faerbe_wuerfel()
+            ctx.Display(w, False)
+
+    def _wuerfel_unter_maus(self, x, y):
+        """Teil des Ansichtswuerfels unter der Maus (Owner) oder None."""
+        from OCC.Core.AIS import AIS_ViewCubeOwner
+        w = getattr(self, "_wuerfel", None)
+        if w is None:
+            return None
+        ctx = self.d.Context
+        ctx.MoveTo(int(x), int(y), self.d.View, False)
+        if not ctx.HasDetected() or ctx.DetectedInteractive() != w:
+            return None
+        besitzer = AIS_ViewCubeOwner.DownCast(ctx.DetectedOwner())
+        return besitzer if besitzer is not None else None
+
+    def wuerfel_ausrichten(self, orientierung):
+        """Kamera auf eine Wuerfelseite, -kante oder -ecke ausrichten und einpassen."""
+        self.d.View.SetProj(orientierung)
+        self.alles_zeigen()
+        self._kamera_bewegt()
+
+    def _wuerfel_maus(self, typ, ev, x, y) -> bool:
+        """Maus auf dem Wuerfel: Klick richtet aus, Ziehen dreht. True = Ereignis verbraucht."""
+        E = QtCore.QEvent.Type
+        links = QtCore.Qt.MouseButton.LeftButton
+        if typ == E.MouseButtonPress and ev.button() == links and self.nav.start is None:
+            besitzer = self._wuerfel_unter_maus(x, y)
+            if besitzer is None:
+                return False
+            self._mitte_cache = self._mitte()
+            self._wuerfel_ziehen = [x, y, False, besitzer.MainOrientation()]
+            return True
+        z = self._wuerfel_ziehen
+        if z is None:
+            return False
+        if typ == E.MouseMove:
+            dx, dy = x - z[0], y - z[1]
+            if z[2] or abs(dx) + abs(dy) > 3:
+                z[2] = True
+                self._drehe(dx, dy)
+                z[0], z[1] = x, y
+            return True
+        if typ == E.MouseButtonRelease and ev.button() == links:
+            self._wuerfel_ziehen = None
+            if not z[2]:
+                self.wuerfel_ausrichten(z[3])
+            return True
+        return typ == E.MouseButtonDblClick
 
     def _neu_zeichnen(self):
         if self._bereit:
@@ -343,6 +437,9 @@ class OcctAnsicht(AnsichtBasis):
         self.d.View.SetBgGradientColors(_farbe(oben), _farbe(unten), Aspect_GFM_VER, True)
         if self.szene is not None:
             self._baue_szene()
+        else:
+            self._zeige_wuerfel()
+            self._neu_zeichnen()
 
     # --- Szene ---
 
@@ -360,6 +457,7 @@ class OcctAnsicht(AnsichtBasis):
 
         ctx = self.d.Context
         ctx.RemoveAll(False)
+        self._zeige_wuerfel()
         self._teile, self._kanten, self._flaechen_ais, self._hilfe = {}, {}, {}, []
         self._callouts, self._ais_callout = {}, {}
         self._entferne_schnitt()
@@ -850,8 +948,9 @@ class OcctAnsicht(AnsichtBasis):
     def bild(self, pfad):
         if not self._bereit:
             return False
-        self._neu_zeichnen()
-        return bool(self.d.View.Dump(pfad))
+        with self._ohne_wuerfel():
+            self._neu_zeichnen()
+            return bool(self.d.View.Dump(pfad))
 
     def bild_qimage(self):
         """Bildschirmabgriff der 3D-Ansicht in Geraeteaufloesung (Retina), sonst View.Dump."""
@@ -859,17 +958,31 @@ class OcctAnsicht(AnsichtBasis):
         import tempfile
         if not self._bereit:
             return QtGui.QImage()
-        self._neu_zeichnen()
-        QtWidgets.QApplication.processEvents()
-        oben_links = self.viewer.mapToGlobal(QtCore.QPoint(0, 0))
-        bildschirm = self.viewer.screen()
-        lokal = oben_links - bildschirm.geometry().topLeft()
-        img = bildschirm.grabWindow(0, lokal.x(), lokal.y(), self.viewer.width(), self.viewer.height()).toImage()
-        if not img.isNull() and img.width() > 10:
-            return img
-        pfad = os.path.join(tempfile.mkdtemp(), "ansicht.png")
-        self.d.View.Dump(pfad)
-        return QtGui.QImage(pfad)
+        with self._ohne_wuerfel():
+            self._neu_zeichnen()
+            QtWidgets.QApplication.processEvents()
+            oben_links = self.viewer.mapToGlobal(QtCore.QPoint(0, 0))
+            bildschirm = self.viewer.screen()
+            lokal = oben_links - bildschirm.geometry().topLeft()
+            img = bildschirm.grabWindow(0, lokal.x(), lokal.y(), self.viewer.width(), self.viewer.height()).toImage()
+            if not img.isNull() and img.width() > 10:
+                return img
+            pfad = os.path.join(tempfile.mkdtemp(), "ansicht.png")
+            self.d.View.Dump(pfad)
+            return QtGui.QImage(pfad)
+
+    @contextlib.contextmanager
+    def _ohne_wuerfel(self):
+        """Ansichtswuerfel fuer Bilder (Berichte) kurz ausblenden."""
+        w = getattr(self, "_wuerfel", None)
+        if w is not None:
+            self.d.Context.Erase(w, False)
+        try:
+            yield
+        finally:
+            if w is not None:
+                self.d.Context.Display(w, False)
+                self._neu_zeichnen()
 
     # --- Maus und Trackpad ---
 
@@ -957,6 +1070,8 @@ class OcctAnsicht(AnsichtBasis):
         E = QtCore.QEvent.Type
         if typ in (E.MouseButtonPress, E.MouseMove, E.MouseButtonRelease, E.MouseButtonDblClick):
             x, y = self._px(ev.position())
+            if self._wuerfel_maus(typ, ev, x, y):
+                return True
             knopf, knoepfe = int(ev.button().value), int(ev.buttons().value)
             umschalt = int(ev.modifiers().value)
             if typ == E.MouseButtonPress:

@@ -39,7 +39,8 @@
    "Normal ausrichten richtet die Kamera gerade aus: Kanten waagrecht/senkrecht, Beschriftungen lesbar (Schreibebene aus der Datei).",
    "Drahtmodell: verdeckte Kanten lassen sich durchklicken; Schattiert zeigt keine blassen Kanten mehr.",
    "PMI-Tabelle: Spalten per Rechtsklick auf den Kopf ein-/ausblenden; neue Spalten Merkmal (z. B. Flächenform, Durchmesser), Nennmaß, Abmaße, Höchst-/Mindestmaß, Maßtoleranz, Toleranzklasse, Toleranzwert, Toleranzzone, Materialbedingung, Modifikatoren.",
-   "Gespeicherte Ansichten: ◀ ▶ und ←/→ gehen alle Ansichten der Reihe nach durch; erneuter Klick stellt die Kamera wieder her."
+   "Gespeicherte Ansichten: ◀ ▶ und ←/→ gehen alle Ansichten der Reihe nach durch; erneuter Klick stellt die Kamera wieder her.",
+   "Ansichtswürfel mit Achsenkreuz oben rechts in der 3D-Ansicht (abgeschrägte Kanten/Ecken, Beschriftung): Klick richtet die Kamera aus, Ziehen dreht; ersetzt die Ansichtsknöpfe in der Werkzeugleiste."
   ],
   "en": [
    "First viewer version: load STEP AP242, assembly tree, CAD-style navigation, standard views.",
@@ -80,7 +81,8 @@
    "Align normal also straightens the camera: edges horizontal/vertical, annotations readable (writing plane from the file).",
    "Wireframe: hidden edges can be clicked through; shaded no longer shows faint edges.",
    "PMI table: show/hide columns by right-clicking the header; new columns characteristic (e.g. surface profile, diameter), nominal, deviations, upper/lower limit, size tolerance, tolerance class, tolerance value, tolerance zone, material condition, modifiers.",
-   "Saved views: ◀ ▶ and ←/→ step through all views in order; clicking a view again restores its camera."
+   "Saved views: ◀ ▶ and ←/→ step through all views in order; clicking a view again restores its camera.",
+   "View cube with axes at the top right of the 3D view (chamfered edges/corners, labels): click aligns the camera, drag rotates; replaces the view buttons in the toolbar."
   ]
  },
  "releases": [

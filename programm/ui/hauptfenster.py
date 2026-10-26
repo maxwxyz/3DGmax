@@ -385,9 +385,7 @@ class Hauptfenster(QtWidgets.QMainWindow):
         tb.addAction(a["oeffnen"])
         tb.addAction(a["vergleichen"])
         tb.addSeparator()
-        for n in ("vorne", "oben", "rechts", "iso"):
-            tb.addAction(a["ansicht_" + n])
-        tb.addAction(a["alles"])
+        tb.addAction(a["alles"])  # Standardansichten: Ansichtswuerfel in der 3D-Ansicht und Menue Ansicht
         tb.addSeparator()
         for n in ansicht3d.DARSTELLUNGEN:
             tb.addAction(a["darstellung_" + n])
