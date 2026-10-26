@@ -1,6 +1,5 @@
 """Messen: Rechnungen gegen NIST-Masse und das Werkzeug in der Oberflaeche."""
 
-import itertools
 
 import pytest
 
@@ -51,7 +50,6 @@ def test_fang_endpunkt():
 
 def test_wandstaerke_quader():
     from OCC.Core.BRepPrimAPI import BRepPrimAPI_MakeBox
-    from OCC.Core.gp import gp_Pnt
     from OCC.Core.TopAbs import TopAbs_FACE
     from OCC.Core.TopExp import TopExp_Explorer
     box = BRepPrimAPI_MakeBox(10, 20, 7).Shape()

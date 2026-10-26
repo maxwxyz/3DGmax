@@ -328,7 +328,7 @@ def messungen_pdf(fenster, pfad: str, bild: bool = True) -> str:
 def zeichnung_pdf(svg, pfad: str, titel: str, zeile: str) -> str:
     """Zeichnung(en) (SVG, vektoriell) auf A3 quer mit einfachem Schriftfeld; svg: Text oder Liste
     [(svg, titel, zeile)] fuer mehrere Seiten."""
-    from PySide6 import QtCore, QtGui, QtSvg
+    from PySide6 import QtCore, QtGui
     schreiber = QtGui.QPdfWriter(pfad)
     schreiber.setPageSize(QtGui.QPageSize(QtGui.QPageSize.PageSizeId.A3))
     schreiber.setPageOrientation(QtGui.QPageLayout.Orientation.Landscape)

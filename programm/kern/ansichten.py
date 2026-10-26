@@ -9,9 +9,8 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 
 from .laden import StepModell
-from .p21 import DMIA_PH, Entity, P21Datei, Ref, Typed
+from .p21 import DMIA_PH, Entity, P21Datei, Ref
 from .pmi import Pmi
-from .pmi_step import laenge_mm
 
 KAMERA_TYPEN = ("CAMERA_MODEL_D3", "CAMERA_MODEL_D3_MULTI_CLIPPING")
 

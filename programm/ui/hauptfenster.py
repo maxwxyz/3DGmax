@@ -1686,7 +1686,7 @@ class Hauptfenster(QtWidgets.QMainWindow):
 
     def pmi_anlegen(self, uebernehmen: list | None = None):
         """Vorschlaege fuer die gewaehlten Flaechen; uebernehmen=None fragt per Dialog (sonst Liste der Vorschlaege)."""
-        from ..kern import pmi_erzeugen, pmi_vorschlag
+        from ..kern import pmi_vorschlag
         from .pmi_anlegen_ui import PmiAnlegenDialog
         if self.erg is None:
             return []

@@ -23,11 +23,6 @@ def _k(e) -> str:
     return e.tag.replace(NS, "") if isinstance(e.tag, str) else ""
 
 
-def _f(e, pfad: str, standard=None):
-    x = e.find(pfad.replace("/", "/" + NS).join(["", ""]) if False else _p(pfad))
-    return standard if x is None or x.text is None else x.text
-
-
 def _p(pfad: str) -> str:
     return "/".join(NS + teil for teil in pfad.split("/"))
 
@@ -145,7 +140,7 @@ def flaeche(e, f: float):
 
 def _kurve_kern(c, art: str, f: float):
     """Kern einer 3D-Kurve -> (Geom_Curve, u0, u1)."""
-    from OCC.Core.Geom import Geom_BSplineCurve, Geom_Circle, Geom_Ellipse, Geom_TrimmedCurve
+    from OCC.Core.Geom import Geom_BSplineCurve, Geom_Circle, Geom_Ellipse
     from OCC.Core.GC import GC_MakeSegment
     from OCC.Core.gp import gp_Circ, gp_Elips, gp_Pnt
     from OCC.Core.TColgp import TColgp_Array1OfPnt
