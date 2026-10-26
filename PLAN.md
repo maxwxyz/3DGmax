@@ -228,3 +228,13 @@ Plan: detect the standard from notes/modifiers, otherwise a per-model setting (I
 show it in model properties; standard-specific rules and terms switch with it.
 Test data: the NIST test cases are ASME based (Y14.5-1994/2009); no free ISO GPS AP242 set is known. Options: own
 ISO variants of the NIST models (built in a CAD system and exported), CAx-IF test models (members only), vendor samples.
+
+### 8.14 Open feedback (next session, before §8.12/8.13 continue)
+- Columns shown via the header menu are too narrow: fit them to their content automatically when shown.
+- About dialog: drop the author line, the copyright is enough. On macOS the About entry belongs in the application
+  menu (Qt `QAction.MenuRole.AboutRole`, likewise Preferences/Quit), not in Help.
+- Rotation center set with the middle mouse button must stay where it is while zooming and panning (today zoom/pan
+  move it unpredictably). Show it as a small line cross like CATIA while it is set.
+- In progress when paused: standard detection ASME/ISO (fallback **ISO GPS**; NIST files carry hints such as
+  "ASME Y14.5M-1994 APPLIES" in notes, some only "asme1" in names) and bill of characteristics with balloon numbers
+  (numbering, table column, CSV/PDF, balloons in 3D via AIS_TextLabel subtitle style at the callout position).

@@ -8,6 +8,7 @@
 | Load STEP AP242/AP214/AP203 (background, cancel, drag and drop, recent files) | ✅ |
 | Assembly tree: show/hide, isolate, transparent, auxiliary geometry | ✅ |
 | Navigation CATIA style (default) and classic, trackpad, standard views, pivot/view center | ✅ |
+| Pivot stays fixed during zoom/pan, shown as line cross | ⬜ (next) |
 | Display shaded/with edges/wireframe, light/dark, custom background colors | ✅ |
 | Saved views: camera, window, PMI per view, browse (◀ ▶), search | ✅ |
 | Thumbnails per saved view | ⬜ |

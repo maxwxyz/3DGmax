@@ -21,8 +21,14 @@ Last session: deviation color map, quick measure, model properties, PLAN §8.12 
 (H) synced with the tree, tree search, 3D PMI follows the list filter, datum reference frame colors/labels, draggable
 column widths. PLAN §8.13: ASME vs ISO GPS (no free ISO test files known).
 **Not visually checked** (screen was locked): view cube look, MSAA, DRF colors/labels, legend – screenshot first.
-Next: PLAN §8.12 items 7–10 (bill of characteristics, exploded view/BOM, analyses, ISO 286), §8.13 standard awareness,
-then step 6 formats.
+**Paused at the user's request.** Next session, in this order:
+1. PLAN §8.14 feedback: auto-fit newly shown columns; About without author, macOS app menu roles; rotation center
+   fixed during zoom/pan plus CATIA-like cross marker.
+2. Standard detection ASME/ISO with fallback ISO GPS (PLAN §8.13): scan note texts/file strings ("ASME Y14.5",
+   "ISO 8015", "ISO 1101", "ISO 2768"), per-model override, shown in model properties; ASME vs ISO terms for the
+   characteristic column, rule differences (concentricity/symmetry ASME 2018), envelope note (Rule #1 vs ISO 8015).
+3. Bill of characteristics with balloon numbers (PLAN §8.12 item 7): numbering, table column, CSV/PDF, 3D balloons.
+Nothing of 2/3 is implemented yet (only the scan of the NIST files for standard hints).
 
 ## Environment and commands
 ```bash
