@@ -1869,6 +1869,10 @@ class OcctAnsicht(AnsichtBasis):
             form = ctx.DetectedShape()
         px, py, pz, vx, vy, vz = self.d.View.ConvertWithProj(int(x), int(y))
         strahl = gp_Lin(gp_Pnt(px, py, pz), gp_Dir(vx, vy, vz))
+        from OCC.Core.BRep import BRep_Tool
+        from OCC.Core.TopoDS import topods
+        if form.ShapeType() == TopAbs_FACE and BRep_Tool.Surface(topods.Face(form)) is None:
+            return _netz_treffer(form, (px, py, pz), (vx, vy, vz))  # Netzflaeche (STL, OBJ ...)
         if form.ShapeType() == TopAbs_FACE:
             schnitt = IntCurvesFace_ShapeIntersector()
             schnitt.Load(form, 1e-6)
@@ -1921,6 +1925,19 @@ class OcctAnsicht(AnsichtBasis):
             self.meldung.emit(tr("Drehpunkt gesetzt: {:.1f}, {:.1f}, {:.1f}").format(p.X(), p.Y(), p.Z()))
         else:
             self.drehpunkt_zuruecksetzen()
+
+
+def _netz_treffer(flaeche, ursprung, richtung):
+    """Erster Schnitt eines Strahls mit den Dreiecken einer Netzflaeche (gp_Pnt) oder None."""
+    from OCC.Core.gp import gp_Pnt
+    from ..kern.abweichung import Karte
+    from ..kern.ausrichten import tesselliere
+    pts, tri = tesselliere([flaeche])[0]
+    if not len(tri):
+        return None
+    import numpy as np
+    treffer = Karte([(pts, tri)], [np.zeros(len(pts))], 0.0).am_strahl(ursprung, richtung)
+    return None if treffer is None else gp_Pnt(*map(float, treffer[0]))
 
 
 def _kanten_von(form):

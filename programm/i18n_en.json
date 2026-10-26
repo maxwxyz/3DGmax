@@ -615,5 +615,11 @@
 "eben": "planar",
 "{} Positionen, {} Teile · Dichte {:.3f} g/cm³ (wie in den Modelleigenschaften)": "{} items, {} parts · density {:.3f} g/cm³ (as in the model properties)",
 "{} {} bei ({:.2f}, {:.2f}, {:.2f})": "{} {} at ({:.2f}, {:.2f}, {:.2f})",
-"{}: Abmaße {:+.4g} / {:+.4g} mm nach ISO 286": "{}: deviations {:+.4g} / {:+.4g} mm per ISO 286"
+"{}: Abmaße {:+.4g} / {:+.4g} mm nach ISO 286": "{}: deviations {:+.4g} / {:+.4g} mm per ISO 286",
+"Alle Modelle": "All models",
+"Modell öffnen": "Open model",
+"Netz": "Mesh",
+"Netz ohne exakte Fläche": "Mesh without exact surface",
+"Netze": "Meshes",
+"{} Dreiecke": "{} triangles"
 }

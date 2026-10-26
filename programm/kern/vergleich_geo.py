@@ -83,6 +83,8 @@ def _auf_flaeche(punkte: np.ndarray, flaeche_idx: np.ndarray, flaechen) -> np.nd
     for j, (p, fi) in enumerate(zip(punkte, flaeche_idx)):
         if fi not in flaechen_geom:
             flaechen_geom[fi] = BRep_Tool.Surface(flaechen[fi])
+        if flaechen_geom[fi] is None:
+            continue  # Netzflaeche: Knoten liegen schon auf der Oberflaeche
         pr = GeomAPI_ProjectPointOnSurf(gp_Pnt(*p), flaechen_geom[fi])
         if pr.IsDone() and pr.NbPoints() > 0:
             q = pr.NearestPoint()
@@ -112,6 +114,8 @@ def _exakt(punkt, kandidaten, flaechen, ganze_form=None) -> tuple[float, int]:
     v = BRepBuilderAPI_MakeVertex(gp_Pnt(*punkt)).Vertex()
     beste, beste_f = np.inf, -1
     for fi in kandidaten:
+        if BRep_Tool.Surface(flaechen[fi]) is None:
+            continue  # Netzflaeche: nur Netzabstand
         e = BRepExtrema_DistShapeShape(v, flaechen[fi], Extrema_ExtFlag_MIN)
         if e.IsDone() and e.NbSolution() and e.Value() < beste:
             beste, beste_f = e.Value(), fi

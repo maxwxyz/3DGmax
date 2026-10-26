@@ -25,12 +25,12 @@ def lade_alles(pfad: str, fortschritt=lambda text: None) -> Ergebnis:
     from ..kern.ansichten import _laengen_skala, lies_ansichten
     from ..kern.baum import lies_baum
     from ..kern.farben import flaechen_farben
-    from ..kern.laden import lade_step
+    from ..kern.laden import lade_modell
     from ..kern.pmi_lesen import ergaenze_hinweise, lies_pmi
     from ..kern.praesentation import lies_grafik
 
     fortschritt(tr("Geometrie lesen …"))
-    modell = lade_step(pfad)
+    modell = lade_modell(pfad)
     fortschritt(tr("PMI lesen …"))
     pmi = lies_pmi(modell)
     fortschritt(tr("Struktur und Grafik …"))

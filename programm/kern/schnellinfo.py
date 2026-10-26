@@ -17,6 +17,7 @@ from OCC.Core.GeomAbs import (GeomAbs_Circle, GeomAbs_Cone, GeomAbs_Cylinder, Ge
                               GeomAbs_Plane, GeomAbs_Sphere, GeomAbs_Torus)
 from OCC.Core.GProp import GProp_GProps
 from OCC.Core.TopAbs import TopAbs_EDGE, TopAbs_FACE, TopAbs_VERTEX
+from OCC.Core.TopLoc import TopLoc_Location
 from OCC.Core.TopoDS import topods
 
 from ..i18n import tr
@@ -70,6 +71,12 @@ def _kante(form) -> list[tuple[str, str]]:
 
 def _flaeche(form) -> list[tuple[str, str]]:
     f = topods.Face(form)
+    if BRep_Tool.Surface(f) is None:
+        loc = TopLoc_Location()
+        tri = BRep_Tool.Triangulation(f, loc)
+        n = tri.NbTriangles() if tri is not None else 0
+        return [("art", tr("Netz")), ("flaeche", tr("{} Dreiecke").format(n)),
+                ("flaeche", tr("Fläche {} mm²").format(f"{_inhalt(f):.2f}"))]
     s = BRepAdaptor_Surface(f, True)
     typ = s.GetType()
     out = [("art", tr(art_von(f)))]
@@ -92,6 +99,8 @@ def _flaeche(form) -> list[tuple[str, str]]:
 def _achse(form):
     """gp_Ax1 von Zylinder, Kegel, Kreis, Gerade oder None."""
     t = form.ShapeType()
+    if t == TopAbs_FACE and BRep_Tool.Surface(topods.Face(form)) is None:
+        return None
     if t == TopAbs_FACE:
         s = BRepAdaptor_Surface(topods.Face(form), True)
         if s.GetType() == GeomAbs_Cylinder:
@@ -110,7 +119,8 @@ def _achse(form):
 
 
 def _ist_ebene(form) -> bool:
-    return form.ShapeType() == TopAbs_FACE and BRepAdaptor_Surface(topods.Face(form), True).GetType() == GeomAbs_Plane
+    return form.ShapeType() == TopAbs_FACE and BRep_Tool.Surface(topods.Face(form)) is not None and \
+        BRepAdaptor_Surface(topods.Face(form), True).GetType() == GeomAbs_Plane
 
 
 def _zwei(a, b) -> list[tuple[str, str]]:

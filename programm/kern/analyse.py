@@ -73,10 +73,16 @@ def berechne(art: str, teile: list, richtung=(0.0, 0.0, 1.0), feinheit: float = 
             netze.append((pts, tri))
             werte.append(np.zeros(0))
             continue
+        geom = BRep_Tool.Surface(flaeche)
+        if geom is None:
+            # Netzflaeche: Entformung aus den Dreiecksnormalen, Kruemmung/Wandstaerke nicht bestimmbar
+            netze.append((pts, tri))
+            werte.append(_entformung_netz(pts, tri, d, flaeche) if art == ENTFORMUNG
+                         else np.full(len(pts), np.nan))
+            continue
         eben = BRepAdaptor_Surface(flaeche, True).GetType() == GeomAbs_Plane
         if eben and art != KRUEMMUNG:
             pts, tri = verfeinere(pts, tri, laenge)
-        geom = BRep_Tool.Surface(flaeche)
         props = BRepLProp_SLProps(BRepAdaptor_Surface(flaeche, True), 2, 1e-7)
         w = np.full(len(pts), np.nan)
         for j, p in enumerate(pts):
@@ -110,6 +116,18 @@ def berechne(art: str, teile: list, richtung=(0.0, 0.0, 1.0), feinheit: float = 
         werte.append(w)
     fortschritt(1.0)
     return Karte(netze, werte, feinheit)
+
+
+def _entformung_netz(pts, tri, d, flaeche) -> np.ndarray:
+    """Entformungswinkel je Knoten aus gemittelten Dreiecksnormalen (Netze ohne exakte Flaeche)."""
+    n = np.cross(pts[tri[:, 1]] - pts[tri[:, 0]], pts[tri[:, 2]] - pts[tri[:, 0]])
+    if flaeche.Orientation() == TopAbs_REVERSED:
+        n = -n
+    knoten = np.zeros_like(pts)
+    for k in range(3):
+        np.add.at(knoten, tri[:, k], n)
+    knoten /= np.maximum(np.linalg.norm(knoten, axis=1), 1e-30)[:, None]
+    return np.degrees(np.arcsin(np.clip(knoten @ d, -1.0, 1.0)))
 
 
 # --- Skalen ---

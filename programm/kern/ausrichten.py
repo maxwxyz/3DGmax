@@ -331,6 +331,9 @@ def element_von(form, punkt, gefangen: bool = False):
     if gefangen or form is None:
         return PUNKT, p, None
     if form.ShapeType() == TopAbs_FACE:
+        from OCC.Core.BRep import BRep_Tool
+        if BRep_Tool.Surface(topods.Face(form)) is None:
+            return PUNKT, p, None  # Netzflaeche: nur der Klickpunkt
         s = BRepAdaptor_Surface(topods.Face(form))
         if s.GetType() == GeomAbs_Plane:
             n = s.Plane().Axis().Direction()

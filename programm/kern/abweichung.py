@@ -93,6 +93,8 @@ def _diagonale(netze) -> float:
 def _ist_ebene(flaeche) -> bool:
     from OCC.Core.BRepAdaptor import BRepAdaptor_Surface
     from OCC.Core.GeomAbs import GeomAbs_Plane
+    if BRep_Tool.Surface(flaeche) is None:
+        return False  # Netzflaeche
     return BRepAdaptor_Surface(flaeche, True).GetType() == GeomAbs_Plane
 
 
@@ -142,6 +144,8 @@ class _Flaeche:
         """(Abstand mit Vorzeichen, |Abstand|) oder None; innen=True: Fusspunkt muss in der Berandung liegen."""
         from OCC.Core.gp import gp_Pnt2d
         from OCC.Core.TopAbs import TopAbs_OUT
+        if self.geom is None:
+            return None  # Netzflaeche: Wert kommt aus dem Netzabstand
         pr = GeomAPI_ProjectPointOnSurf(gp_Pnt(*p), self.geom)
         if not pr.IsDone() or pr.NbPoints() == 0:
             return None
@@ -162,6 +166,21 @@ class _Flaeche:
         diff = np.asarray(p) - (s.X(), s.Y(), s.Z())
         abstand = float(pr.LowerDistance())
         return (abstand if float(np.dot(diff, (n.X(), n.Y(), n.Z()))) >= 0 else -abstand), abstand
+
+
+def _netz_wert(netz: NetzAbstand, p, alt_f, k: int = 64):
+    """Abstand mit Vorzeichen zu Netzflaechen: viele Kandidatendreiecke exakt, Vorzeichen aus der Dreiecksnormale."""
+    for anzahl in (k, 8 * k):  # schmale, lange Dreiecke (Zylinder in STL): Mittelpunkte liegen weit weg
+        _, kand = netz.baum.query(p, k=min(anzahl, len(netz.a)))
+        d, q, fl = netz._naechste(np.asarray(p, float)[None], np.atleast_2d(kand))
+        if d[0] < 1e-6:
+            break
+    t = netz.letzte_dreiecke[0]
+    n = np.cross(netz.b[t] - netz.a[t], netz.c[t] - netz.a[t])
+    if alt_f[int(fl[0])].Orientation() == TopAbs_REVERSED:
+        n = -n
+    vz = 1.0 if float(np.dot(np.asarray(p) - q[0], n)) >= 0 else -1.0
+    return vz * float(d[0]), float(d[0])
 
 
 def _beste(p, kand, flaechen: dict, alt_f, rand: float):
@@ -226,6 +245,8 @@ def berechne(modell_alt, modell_neu, ausrichtung: Ausrichtung | None = None, fei
                     vz = 1.0 if seite is None or seite[0] >= 0 else -1.0
                     if beste is None or dj < beste[1]:
                         beste = (vz * dj, dj)
+            if beste is None:
+                beste = _netz_wert(netz_alt, p[j], alt_f)  # Netzflaechen ohne exakte Geometrie
             w[j] = beste[0] if beste is not None else float(d[j])
         netze.append((p, tri))
         werte.append(w)

@@ -90,9 +90,9 @@
 |---|---|
 | STEP AP242/AP214/AP203 | ✅ |
 | QIF | ⬜ |
-| IGES, STL, OBJ, glTF/GLB, 3MF | ⬜ |
+| IGES, STL, OBJ, glTF/GLB, 3MF (meshes: view, measure, analyze, compare against CAD) | ✅ |
 | JT via TKJT (GPL v2+), build with/without TKJT | ⬜ (step 7) |
-| 3D PDF (U3D/PRC) | ⬜ (sample files missing) |
+| 3D PDF / PRC: mesh, graphical and semantic PMI, B-rep (own reader, PLAN §8.15; NIST STC PDFs as test data) | ⬜ |
 | CATIA V5/V6 CATPart/CATProduct | 💡 (only via licensed SDK or CATIA exports; legal review first) |
 
 ## Operation

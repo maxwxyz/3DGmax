@@ -15,8 +15,10 @@ from .messwerkzeug import MessPanel
 from .vergleich_ui import AbschlussDialog, AenderungenPanel, AusrichtPanel, VergleichDialog, VergleichsLader
 from .panels import AnsichtenPanel, BaumPanel, PmiPanel
 
-DATEIFILTER = "STEP / 3DGmax (*.stp *.step *.STP *.STEP *.3dgmax);;STEP (*.stp *.step *.STP *.STEP);;3DGmax (*.3dgmax)"
-ENDUNGEN = (".stp", ".step", ".3dgmax")
+DATEIFILTER = ("{} (*.stp *.step *.p21 *.igs *.iges *.stl *.obj *.gltf *.glb *.3mf *.3dgmax);;"
+               "STEP (*.stp *.step *.p21);;IGES (*.igs *.iges);;{} (*.stl *.obj *.gltf *.glb *.3mf);;"
+               "3DGmax (*.3dgmax)")  # Platzhalter: uebersetzte Namen
+ENDUNGEN = (".stp", ".step", ".p21", ".igs", ".iges", ".stl", ".obj", ".gltf", ".glb", ".3mf", ".3dgmax")
 MAX_ZULETZT = 10
 
 
@@ -609,7 +611,8 @@ class Hauptfenster(QtWidgets.QMainWindow):
     def oeffnen(self, pfad: str = ""):
         if not pfad:
             start = os.path.dirname(self.zuletzt()[0]) if self.zuletzt() else ""
-            pfad, _ = QtWidgets.QFileDialog.getOpenFileName(self, tr("STEP-Datei öffnen"), start, DATEIFILTER)
+            pfad, _ = QtWidgets.QFileDialog.getOpenFileName(self, tr("Modell öffnen"), start,
+                                                        DATEIFILTER.format(tr("Alle Modelle"), tr("Netze")))
             if not pfad:
                 return
         self.lade(pfad)

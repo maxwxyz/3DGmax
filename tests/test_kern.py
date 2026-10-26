@@ -233,3 +233,28 @@ def test_iso286_grenzabmasse():
     assert iso286.abmasse_um("H7/g6", 10) is None
     p = Pmi(MASS, "Size_Diameter", nennwert=20.0, passung="H7")
     assert p.grenzen() == (20.021, 20.0)
+
+
+def test_formate_laden_und_netze():
+    import numpy as np
+    from programm.kern import abweichung, analyse, schnellinfo
+    from programm.kern.baum import lies_baum
+    from programm.kern.eigenschaften import berechne
+    from programm.kern.laden import ist_netz, lade_modell
+    from tests.conftest import pfad
+    groesse = (120.0, 105.0, 37.0)  # Test-Baugruppe; Winkel liegt in der Unterbaugruppe bei y = 85..105
+    for name, netz in (("igs", False), ("stl", True), ("obj", True), ("gltf", True), ("glb", True), ("3mf", True)):
+        m = lade_modell(pfad(f"formate/baugruppe.{name}"))
+        assert ist_netz(m) == netz, name
+        assert np.allclose(berechne(m.form).groesse, groesse, atol=0.05), (name, berechne(m.form).groesse)
+    winkel = next(k for k in lies_baum(lade_modell(pfad("baugruppe.stp"))).blaetter() if k.name == "Winkel")
+    assert np.allclose(berechne(winkel.form).kleinst, (45, 85, 0))  # Lage der Unterbaugruppe beachtet
+    stl = lade_modell(pfad("formate/baugruppe.stl"))
+    info = dict(schnellinfo.info(stl.flaechen))
+    assert info["art"] == "Netz" and any("mm²" in t for _, t in schnellinfo.info(stl.flaechen))
+    w = analyse.berechne(analyse.ENTFORMUNG, [stl.form]).alle()
+    assert np.isfinite(w).any()
+    cad = lade_modell(pfad("nist_ctc_01_asme1_ap242-e1.stp"))
+    k = abweichung.berechne(stl, lade_modell(pfad("formate/baugruppe.stl")))  # Netz gegen Netz: kein Absturz
+    assert np.nanmax(np.abs(k.alle())) < 0.01
+    assert cad.flaechen

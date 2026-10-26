@@ -60,14 +60,14 @@ numpy, scipy (KD tree, ICP), pypdf (3D streams from PDF, BSD), lxml (QIF), pytes
 | Format | Approach | Geometry | PMI | Effort | Cost |
 |---|---|---|---|---|---|
 | STEP AP242 / AP214 / AP203 | OCCT + own entity reader | yes | semantic + graphical | done | 0 |
-| IGES, STL, OBJ, glTF/GLB | OCCT readers (present in pythonocc) | yes | – | small | 0 |
-| 3MF | own reader (ZIP + XML) or lib3mf (BSD) | mesh | – | small | 0 |
+| IGES, STL, OBJ, glTF/GLB | OCCT readers (present in pythonocc) **[done]** | yes | – | small | 0 |
+| 3MF | own reader (ZIP + XML) **[done]** | mesh | – | small | 0 |
 | **QIF** | lxml + classes from the official XSD | QIF B-rep or link to STEP | **semantic, clean** | medium | 0 |
 | **JT** – mesh | own reader per ISO 14306 | mesh | – | large (weeks) | 0 |
 | **JT** – TKJT (as used by FreeCAD) | TKJT by Open Cascade (2013–2015), maintained at github.com/mmaenz/TKJT (OCCT 7.7, compiled on Mac, untested); own Python binding | mesh, structure, attributes; PMI part present, scope [open] | [open] | medium–large | 0, but **GPL v2+** [verified] |
 | **JT** – commercial SDK | Siemens JT Open Toolkit, Open Cascade JT SDK, CAD Exchanger, HOOPS Exchange | yes | yes | medium | quote only |
 | **3D PDF U3D** | extract stream with pypdf, read U3D (ECMA-363) | mesh | views only | medium | 0 |
-| **3D PDF PRC** | no usable free reader found | – | – | large | SDK otherwise |
+| **3D PDF PRC** | no usable free reader found; own reader per the published PRC specification (ISO 14739-1), see §8.15 | B-rep, tessellation | graphical markups, semantic if present | large | 0 |
 
 ## 4. Architecture
 
@@ -238,3 +238,14 @@ ISO variants of the NIST models (built in a CAD system and exported), CAx-IF tes
 - In progress when paused: standard detection ASME/ISO (fallback **ISO GPS**; NIST files carry hints such as
   "ASME Y14.5M-1994 APPLIES" in notes, some only "asme1" in names) and bill of characteristics with balloon numbers
   (numbering, table column, CSV/PDF, balloons in 3D via AIS_TextLabel subtitle style at the callout position).
+
+### 8.15 PRC and 3D PDF (requested; B-rep preferred, mesh as fallback)
+- Test data found: the NIST STC 06–10 PDFs (nist-stc-pmi-v4.zip) each contain a PRC stream (`/Subtype /PRC`, e.g.
+  STC_06: 4.4 MB, PRC version 7095) [verified: extracted with pypdf].
+- No free PRC reader exists (Asymptote only writes PRC; HOOPS Exchange is commercial). Own reader per the published
+  PRC specification (Adobe PRC Format Specification / ISO 14739-1):
+  1. Extract PRC (and U3D) streams from 3D PDFs; PRC file structure, sections, zlib, bit reader, schema.
+  2. Product tree and tessellation (`PRC_TYPE_TESS_3D`, also the highly compressed tessellation) → mesh display.
+  3. Markups (PMI): tessellated leaders/texts as graphical PMI, views; semantic markups where present.
+  4. Exact B-rep (NURBS, analytic surfaces, topology) → OCCT faces, so measuring and comparison use exact geometry.
+- Effort: large (several weeks). Order: 1–2 first (mesh view of 3D PDFs), then 3, then 4.

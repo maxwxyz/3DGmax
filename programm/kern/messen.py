@@ -25,7 +25,7 @@ from OCC.Core.TopoDS import topods
 
 ARTEN = ("abstand", "winkel", "radius", "wandstaerke", "koordinaten")
 # Woerter, die in Beschreibungen vorkommen (die Oberflaeche uebersetzt sie)
-WOERTER = ("Ebene", "Zylinder", "Kegel", "Kugel", "Torus", "Fläche", "Gerade", "Kreis", "Kante", "Punkt",
+WOERTER = ("Netz", "Netz ohne exakte Fläche", "Ebene", "Zylinder", "Kegel", "Kugel", "Torus", "Fläche", "Gerade", "Kreis", "Kante", "Punkt",
            "Element", "Endpunkt", "Mitte", "Kreismitte", "Gegenfläche", "auf", "Ergänzung")
 ELEMENTE_NOETIG = {"abstand": 2, "winkel": 2, "radius": 1, "wandstaerke": 1, "koordinaten": 1}
 
@@ -52,9 +52,16 @@ def _p(pnt: gp_Pnt) -> tuple[float, float, float]:
     return (pnt.X(), pnt.Y(), pnt.Z())
 
 
+def hat_geometrie(form) -> bool:
+    """False fuer Netzflaechen (STL, OBJ, glTF, 3MF): nur Dreiecke, keine exakte Flaeche."""
+    return form.ShapeType() != TopAbs_FACE or BRep_Tool.Surface(topods.Face(form)) is not None
+
+
 def art_von(form) -> str:
     """Kurzbeschreibung eines Elements: Ebene, Zylinder, Kreis, Gerade, Punkt ..."""
     t = form.ShapeType()
+    if t == TopAbs_FACE and not hat_geometrie(form):
+        return "Netz"
     if t == TopAbs_FACE:
         typ = BRepAdaptor_Surface(topods.Face(form)).GetType()
         return {GeomAbs_Plane: "Ebene", GeomAbs_Cylinder: "Zylinder", GeomAbs_Cone: "Kegel",
@@ -117,6 +124,8 @@ def punkt_abstand(p1: gp_Pnt, p2: gp_Pnt) -> Messung:
 def _richtung(form) -> tuple[gp_Dir, str] | None:
     """Richtung eines Elements: Normale einer Ebene, Achse von Zylinder/Kegel, Richtung einer Geraden."""
     t = form.ShapeType()
+    if t == TopAbs_FACE and not hat_geometrie(form):
+        return None
     if t == TopAbs_FACE:
         s = BRepAdaptor_Surface(topods.Face(form))
         typ = s.GetType()
@@ -159,6 +168,8 @@ def radius(form) -> Messung:
         k = c.Circle()
         r, mitte = k.Radius(), k.Location()
     elif t == TopAbs_FACE:
+        if not hat_geometrie(form):
+            raise ValueError("Netz ohne exakte Fläche")
         s = BRepAdaptor_Surface(topods.Face(form))
         typ = s.GetType()
         if typ == GeomAbs_Cylinder:
@@ -192,6 +203,8 @@ def _mittelpunkt(form) -> gp_Pnt:
 def normale_innen(flaeche, punkt: gp_Pnt) -> gp_Dir:
     """Richtung ins Material an einem Punkt der Flaeche (Gegenrichtung der aeusseren Normale)."""
     f = topods.Face(flaeche)
+    if BRep_Tool.Surface(f) is None:
+        raise ValueError("Netz ohne exakte Fläche")
     sas = ShapeAnalysis_Surface(BRep_Tool.Surface(f))
     uv = sas.ValueOfUV(punkt, 1e-6)
     p, n = gp_Pnt(), gp_Vec()

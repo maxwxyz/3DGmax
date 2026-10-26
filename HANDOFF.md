@@ -11,7 +11,7 @@ Branch: `main` (no other branches). Version 0.1 plus many unreleased entries in 
 | 3 Measure | ✅ |
 | 4 Compare | ✅ incl. manual alignment, deviation color map (open: moved detection, graphical PMI compare, assemblies, meshes) |
 | 5 Output | ✅ PDF per view, comparison PDF, PMI change PDF, project container, folder comparison (open: views as drawings HLR) |
-| 6 Formats | ⬜ **next**: QIF, IGES/STL/OBJ/glTF/3MF |
+| 6 Formats | 🟡 IGES, STL, OBJ, glTF/GLB, 3MF done; open: QIF, PRC/3D PDF (§8.15) |
 | 7 JT via TKJT | ⬜ (no free JT test files with PMI found) |
 Details: `docs/Roadmap.md`; future topics: PLAN.md §8 (tolerance zones, annotating, graphical PMI/OCR, tolerance stack-up,
 PMI editing, CATIA files).
@@ -35,7 +35,11 @@ color map via abweichung.Skala). Test assembly: werkzeuge/baugruppe.py -> tests/
 Then ISO 286 (kern/iso286.py): IT table and fundamental deviations up to 500 mm, hole rules (mirror, delta, M6
 250–315 exception); cross-checked against the MIT-licensed isofits tables (1334 equal, 6 differ = errors in that
 data, inconsistent with its own IT values); Pmi.abmasse() falls back to the class.
-Next: step 6 formats (STL/OBJ/glTF/IGES, then QIF).
+Then step 6 formats: kern/laden.lade_modell (IGES via XCAF, STL/OBJ/glTF/GLB via OCCT mesh readers, own 3MF
+reader), mesh faces have no surface (guards in messen, schnellinfo, abweichung, vergleich_geo, analyse, ausrichten,
+ray picking `_netz_treffer`); test files from werkzeuge/formate.py (tests/daten/formate). Fixed nested assembly
+placement in kern/baum.py.
+Next: QIF (no test files yet – find free samples), PRC/3D PDF reader (PLAN §8.15, NIST STC PDFs contain PRC).
 
 ## Environment and commands
 ```bash

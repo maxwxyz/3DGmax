@@ -45,8 +45,11 @@ def _name(st, label) -> str:
     return name if name and not name.startswith("=>") else ""
 
 
-def _knoten(st, label, zaehler) -> Knoten:
+def _knoten(st, label, zaehler, lage=None) -> Knoten:
+    """lage: aufsummierte Lage der uebergeordneten Baugruppen (Unterbaugruppen liefern nur ihre eigene)."""
     form = st.GetShape(label)
+    if lage is not None and not lage.IsIdentity():
+        form = form.Moved(lage)
     ref = TDF_Label()
     proto = ref if st.IsComponent(label) and st.GetReferredShape(label, ref) else label
     k = Knoten(_name(st, label) or "Teil", form, baugruppe=st.IsAssembly(proto))
@@ -55,7 +58,7 @@ def _knoten(st, label, zaehler) -> Knoten:
     if k.baugruppe:
         teile = TDF_LabelSequence()
         st.GetComponents(proto, teile)
-        k.kinder = [_knoten(st, teile.Value(i), zaehler) for i in range(1, teile.Length() + 1)]
+        k.kinder = [_knoten(st, teile.Value(i), zaehler, form.Location()) for i in range(1, teile.Length() + 1)]
     k.hilfsgeometrie = not k.kinder and not _hat_flaechen(form)
     return k
 

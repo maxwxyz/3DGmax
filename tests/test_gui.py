@@ -422,3 +422,16 @@ def test_explosion_stueckliste_analyse(fenster, tmp_path):
     assert f.ansicht.abweichung is not None and "Entformung" in f.ansicht.abweichung[3].titel
     f.analyse_aus()
     assert f.ansicht.abweichung is None
+
+
+def test_netz_laden_schnellmessung_eigenschaften(fenster):
+    from tests.conftest import pfad
+    f = fenster
+    f.lade(pfad("formate/baugruppe.stl"), warten=True)
+    assert f.erg is not None and len(f.erg.modell.flaechen) == 1 and f.erg.pmi == []
+    f.ansicht.setze_auswahl([f.erg.modell.flaechen[0]])
+    assert "Netz" in f.schnell.text() and "Dreiecke" in f.schnell.text()
+    d = f.zeige_eigenschaften(nur_anlegen=True)
+    assert "120.000 × 105.000 × 37.000" in d.als_text()
+    f.lade(pfad("formate/baugruppe.igs"), warten=True)
+    assert len(f.erg.modell.flaechen) > 20
