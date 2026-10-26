@@ -25,7 +25,8 @@
 | Smooth camera transitions | ✅ |
 | Hide selected in 3D, tree search; 3D PMI follows list filter | ✅ |
 | Exploded view (slider), parts list (BOM) with quantity, volume, mass, CSV | ✅ |
-| Exploded view by assembly levels / along axes, BOM with STEP properties (material, part number) | ⬜ |
+| Exploded view by assembly levels (staged), BOM with part number | ✅ |
+| Exploded view along axes, BOM with material property | ⬜ |
 | Analyses: draft angle, curvature radius, wall thickness map (value on click) | ✅ |
 
 ## PMI

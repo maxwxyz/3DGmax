@@ -2,13 +2,13 @@
 
 Branch: `main` (no other branches). Version 0.1 plus many unreleased entries in `programm/CHANGELOG.json`
 (bump only via `pixi run python packaging/release.py minor --git`, then `git push --follow-tags`).
-Tests: 111 offscreen + on-screen test green; GitHub workflow "Apps bauen" green on Windows/Linux/macOS.
+Tests: 113 offscreen + on-screen test green; GitHub workflow "Apps bauen" green on Windows/Linux/macOS.
 
 ## Check against plan / roadmap
 | Step (PLAN.md §5) | Status |
 |---|---|
 | 1 Feasibility | ✅ |
-| 2 Viewer | ✅ incl. view cube, quick measure, model properties, camera history, perspective, exploded view, section box, thumbnails (open: LOD for large assemblies, multiple section planes) |
+| 2 Viewer | ✅ incl. view cube, quick measure, model properties, camera history, perspective, exploded view (staged by assembly levels), section box, thumbnails (open: LOD for large assemblies, multiple section planes, explosion along axes) |
 | 3 Measure | ✅ incl. analyses (draft, curvature, wall thickness), measurement report, tolerance zones, tolerance stack-up 1D, comments, create PMI with advisor |
 | 4 Compare | ✅ incl. manual alignment, deviation color map, material + / −, moved geometry/PMI, assembly comparison, graphical PMI changes (open: rotated elements, per-instance geometry, graphical-only notes) |
 | 5 Output | ✅ PDF per view, comparison PDF, PMI change PDF, bill of characteristics, measurement report, drawings (HLR, PDF/SVG/DXF with PMI), project container (incl. own views), folder comparison |
@@ -48,7 +48,7 @@ packaging/build_mac.sh [--ohne-tests]             # tests, build, self-test, 3D 
 
 Latest additions: PMI edit/delete (✎, project overrides `pmi_aenderungen`), smooth camera transitions
 (`_mit_fahrt`), ISO 14405 modifiers in dimension text, color map over all instances, PLY reader, notes compared by
-text, part numbers in the parts list, geometry/standard check rules (`pmi_bericht._norm_regeln`).
+text, part numbers in the parts list, geometry/standard check rules (`pmi_bericht._norm_regeln`), exploded view staged by assembly levels (`kern/explosion.py`).
 
 ## Module map (new this session)
 kern: norm (ASME/ISO), merkmale (bill of characteristics), iso286, abweichung (color map + Skala), analyse,

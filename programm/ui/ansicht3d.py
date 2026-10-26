@@ -1176,25 +1176,20 @@ class OcctAnsicht(AnsichtBasis):
         from OCC.Core.Bnd import Bnd_Box
         from OCC.Core.BRepBndLib import brepbndlib
         from OCC.Core.gp import gp_Trsf, gp_Vec
-        mitten, alle = {}, Bnd_Box()
+        from ..kern.explosion import versaetze
+        mitten = {}
         for nr, ais in self._teile.items():
             box = Bnd_Box()
             brepbndlib.Add(ais.Shape(), box)
-            if box.IsVoid():
-                continue
-            x0, y0, z0, x1, y1, z1 = box.Get()
-            mitten[nr] = ((x0 + x1) / 2, (y0 + y1) / 2, (z0 + z1) / 2)
-            alle.Add(box)
-        if alle.IsVoid():
-            return
-        x0, y0, z0, x1, y1, z1 = alle.Get()
-        c = ((x0 + x1) / 2, (y0 + y1) / 2, (z0 + z1) / 2)
+            if not box.IsVoid():
+                x0, y0, z0, x1, y1, z1 = box.Get()
+                mitten[nr] = ((x0 + x1) / 2, (y0 + y1) / 2, (z0 + z1) / 2)
+        wege = versaetze(self.szene.baum, mitten, self.explosion)
         ctx = self.d.Context
         for nr, ais in self._teile.items():
             t = gp_Trsf()
-            if nr in mitten and self.explosion > 0:
-                m = mitten[nr]
-                t.SetTranslation(gp_Vec(*((m[i] - c[i]) * 1.6 * self.explosion for i in range(3))))
+            if nr in wege:
+                t.SetTranslation(gp_Vec(*wege[nr]))
             if self.vergleich_trsf is not None:
                 t = t.Multiplied(self.vergleich_trsf)
             for a in (ais, self._kanten.get(nr)):
