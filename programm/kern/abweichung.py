@@ -8,7 +8,8 @@ Projektion unplausibel ist (Fortsetzung der Flaeche ausserhalb ihrer Berandung),
 
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
+from typing import Callable
 
 import numpy as np
 
@@ -265,3 +266,24 @@ def stufen(toleranz: float, grenze: float, je_seite: int = 4) -> list[float]:
     """Grenzen der Legende: -grenze .. -toleranz | +toleranz .. +grenze (gleich viele Stufen je Seite)."""
     aussen = np.linspace(toleranz, grenze, je_seite + 1)
     return [-float(x) for x in aussen[::-1]] + [float(x) for x in aussen]
+
+
+GRAU = (0.62, 0.63, 0.66)  # kein Wert (z. B. keine Gegenflaeche gefunden)
+
+
+@dataclass
+class Skala:
+    """Farbskala einer Farbkarte: Titel, Stufengrenzen (Legende), Farbe je Wert, Text je Wert (Klick)."""
+    titel: str
+    grenzen: list[float]
+    farbe: Callable[[float], tuple]
+    wert_text: Callable[[float], str] = lambda w: f"{w:+.4f} mm"
+    beschriftung: list[str] = field(default_factory=list)  # Texte an den Grenzen (leer = Zahlen)
+    name: str = "Abweichung"  # fuer die Klickanzeige (Anzeige ueber tr())
+
+    def texte(self) -> list[str]:
+        return self.beschriftung or [f"{g:+.3f}".replace("+0.000", "0") for g in self.grenzen]
+
+
+def abweichungs_skala(toleranz: float, grenze: float, titel: str = "Abweichung (mm)") -> Skala:
+    return Skala(titel, stufen(toleranz, grenze), lambda w: GRAU if w != w else farbe(w, toleranz, grenze))

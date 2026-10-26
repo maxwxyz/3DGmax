@@ -117,7 +117,11 @@ class Hauptfenster(QtWidgets.QMainWindow):
         self.messen = MessPanel()
         self.dock_messen = self._dock(tr("Messen"), self.messen, QtCore.Qt.DockWidgetArea.RightDockWidgetArea)
         self.tabifyDockWidget(self.dock_pmi, self.dock_messen)
+        from .analyse_ui import AnalysePanel
+        self.analyse = AnalysePanel()
         self.aenderungen = AenderungenPanel()
+        self.dock_analyse = self._dock(tr("Analyse"), self.analyse, QtCore.Qt.DockWidgetArea.RightDockWidgetArea)
+        self.dock_analyse.hide()
         self.dock_aenderungen = self._dock(tr("Änderungen"), self.aenderungen,
                                            QtCore.Qt.DockWidgetArea.RightDockWidgetArea)
         self.tabifyDockWidget(self.dock_pmi, self.dock_aenderungen)
@@ -304,6 +308,12 @@ class Hauptfenster(QtWidgets.QMainWindow):
         gruppe = QtGui.QActionGroup(self)
         for n in ("auto", "iso", "asme"):
             gruppe.addAction(self.aktionen["norm_" + n])
+        A("explosion", tr("Explosion"), self._explosion_umschalten, "X", pruefbar=True,
+          tipp=tr("Explosionsansicht: Teile auseinanderziehen (Regler daneben); PMI und Messen ruhen solange"))
+        A("stueckliste", tr("Stückliste …"), self.zeige_stueckliste,
+          tipp=tr("Teile mit Anzahl, Volumen und Masse – Export als CSV"))
+        A("analyse", tr("Analyse …"), self.zeige_analyse_leiste,
+          tipp=tr("Entformungsschräge, Krümmungsradius oder Wandstärke als Farbkarte"))
         A("ballone", tr("Ballonnummern zeigen"), self.zeige_ballone_aktuell, "B", pruefbar=True,
           tipp=tr("Nummern der Merkmale (Maße, Form- und Lagetoleranzen) im Modell, wie in der Merkmalsliste"))
         A("merkmale_csv", tr("Merkmalsliste (CSV) …"), lambda: self.exportiere_merkmale(),
@@ -456,6 +466,9 @@ class Hauptfenster(QtWidgets.QMainWindow):
             msp.addAction(a[n])
         m = mb.addMenu(tr("&Modell"))
         m.addAction(a["eigenschaften"])
+        m.addAction(a["stueckliste"])
+        m.addAction(a["explosion"])
+        m.addAction(a["analyse"])
         mn = m.addMenu(tr("Norm"))
         for n in ("norm_auto", "norm_iso", "norm_asme"):
             mn.addAction(a[n])
@@ -471,7 +484,8 @@ class Hauptfenster(QtWidgets.QMainWindow):
         m.addAction(a["messen"])
         m.addAction(a["messen_ende"])
         self.menue_fenster = mb.addMenu(tr("&Fenster"))
-        for d in (self.dock_baum, self.dock_ansichten, self.dock_pmi, self.dock_messen, self.dock_aenderungen):
+        for d in (self.dock_baum, self.dock_ansichten, self.dock_pmi, self.dock_messen, self.dock_analyse,
+                  self.dock_aenderungen):
             self.menue_fenster.addAction(d.toggleViewAction())
         m = mb.addMenu(tr("&Hilfe"))
         for n in ("anleitung", "einfuehrung", "neu", "ueber"):
@@ -515,6 +529,16 @@ class Hauptfenster(QtWidgets.QMainWindow):
         self.schnitt_regler_aktion = tb.addWidget(self.schnitt_regler)
         self.schnitt_regler_aktion.setVisible(False)  # nur bei aktivem Schnitt
         self._schnitt_achse = None
+        tb.addAction(a["explosion"])
+        self.explosion_regler = QtWidgets.QSlider(QtCore.Qt.Orientation.Horizontal)
+        self.explosion_regler.setRange(0, 100)
+        self.explosion_regler.setValue(50)
+        self.explosion_regler.setMaximumWidth(140)
+        self.explosion_regler.setToolTip(tr("Abstand der Teile in der Explosionsansicht"))
+        self.explosion_regler.valueChanged.connect(lambda w: self.ansicht.setze_explosion(w / 100.0))
+        self.explosion_regler.sliderReleased.connect(self._explosion_einpassen)
+        self.explosion_regler_aktion = tb.addWidget(self.explosion_regler)
+        self.explosion_regler_aktion.setVisible(False)  # nur bei aktiver Explosionsansicht
 
     def _verbinde(self):
         self.start.oeffnen.connect(self.oeffnen)
@@ -539,6 +563,8 @@ class Hauptfenster(QtWidgets.QMainWindow):
         self.aenderungen.abschliessen.connect(self.schliesse_pruefung_ab)
         self.aenderungen.beenden.connect(self.beende_vergleich)
         self.aenderungen.karte.connect(self.zeige_farbkarte)
+        self.analyse.berechnen.connect(self.starte_analyse)
+        self.analyse.aus.connect(self.analyse_aus)
 
     def _modell_da(self, da: bool):
         for a in self.aktionen.values():
@@ -629,6 +655,11 @@ class Hauptfenster(QtWidgets.QMainWindow):
     def zeige_ergebnis(self, erg, vergleich=None):
         if vergleich is None and self.vergleich is not None:
             self.beende_vergleich(neu_zeigen=False)
+        if self.aktionen["explosion"].isChecked():
+            self.aktionen["explosion"].setChecked(False)
+            self._explosion_umschalten()
+        if vergleich is None and self.ansicht.abweichung is not None:
+            self.ansicht.zeige_analyse(None)  # Analyse gehoert zum alten Modell
         self.erg = erg
         self.setWindowTitle(self._titel(os.path.basename(erg.pfad)))
         szene = ansicht3d.Szene(erg.modell, erg.baum, erg.farben, erg.grafik, erg.pmi)
@@ -697,6 +728,9 @@ class Hauptfenster(QtWidgets.QMainWindow):
         aus = self._schnell_aus()
         if "alles" in aus:
             self.schnell.setText("")
+            return
+        if self.ansicht.explosion > 0 and len(self._schnell_formen) >= 2:
+            self.schnell.setText(tr("Explosionsansicht: Abstände erst nach dem Zurücksetzen"))
             return
         teile = schnellinfo.info(self._schnell_formen) + schnellinfo.pmi_info(self._schnell_pmi)
         self.schnell.setText("   ·   ".join(t for k, t in teile if k not in aus))
@@ -1269,6 +1303,71 @@ class Hauptfenster(QtWidgets.QMainWindow):
             f.write(merkmale.als_csv(merkmale.liste(self.erg.pmi), self.erg.ansichten))
         self.statusBar().showMessage(tr("Merkmalsliste gespeichert: {}").format(pfad), 8000)
         return pfad
+
+    def zeige_stueckliste(self, nur_anlegen: bool = False):
+        if self.erg is None:
+            return None
+        from .stueckliste_ui import StuecklisteFenster
+        f = StuecklisteFenster(self.erg.baum, self.ein, os.path.splitext(self.erg.pfad)[0] + "_stueckliste.csv", self)
+        f.isolieren.connect(self.ansicht.isoliere)
+        f.isolieren.connect(lambda _n: self.statusBar().showMessage(
+            tr("Teil isoliert – Umschalt+H zeigt wieder alle Teile"), 6000))
+        if not nur_anlegen:
+            f.show()
+        self._stueckliste = f
+        return f
+
+    # --- Analyse ---
+
+    def zeige_analyse_leiste(self):
+        self.dock_analyse.show()
+        self.dock_analyse.raise_()
+
+    def starte_analyse(self, art: str, werte: dict, warten: bool = False):
+        from .analyse_ui import AnalyseLader
+        if self.erg is None:
+            return
+        if self.vergleich is not None:
+            self.statusBar().showMessage(tr("Analysen im Vergleich nicht möglich – erst Vergleich beenden"), 6000)
+            return
+        richtung = {"+x": (1, 0, 0), "-x": (-1, 0, 0), "+y": (0, 1, 0), "-y": (0, -1, 0), "+z": (0, 0, 1),
+                    "-z": (0, 0, -1)}.get(werte.get("richtung"), None) or self.ansicht.blick_zum_betrachter()
+        teile = [k.form for k in self.erg.baum.blaetter()
+                 if not k.hilfsgeometrie and k.nummer not in self.ansicht.versteckt]
+        lader = AnalyseLader(art, teile, richtung, self)
+        lader.stand.connect(lambda p: self.statusBar().showMessage(tr("Analyse … {} %").format(p)))
+        lader.fehler.connect(lambda t: QtWidgets.QMessageBox.warning(self, tr("Analyse"), t))
+        lader.fertig.connect(lambda k, a=art, w=dict(werte): self._analyse_fertig(a, w, k))
+        self._analyse_lader = lader
+        self.analyse.start.setEnabled(False)
+        lader.start()
+        if warten:
+            lader.wait()
+            QtWidgets.QApplication.processEvents()
+
+    def _analyse_fertig(self, art, werte, karte):
+        from ..kern import analyse as an
+        self.analyse.start.setEnabled(True)
+        skala = {an.ENTFORMUNG: lambda: an.skala_entformung(werte["mindest"]),
+                 an.KRUEMMUNG: lambda: an.skala_kruemmung(werte["klein"], werte["gross"]),
+                 an.WANDSTAERKE: lambda: an.skala_wandstaerke(karte.alle())}[art]()
+        self.ansicht.zeige_analyse(karte, skala)
+        self.statusBar().showMessage(tr("Analyse fertig – Klick ins Modell zeigt den Wert"), 8000)
+
+    def analyse_aus(self):
+        self.ansicht.zeige_analyse(None)
+
+    def _explosion_einpassen(self):
+        """Alle Teile im Bild halten; ein gesetzter Drehpunkt bleibt dabei erhalten."""
+        self.ansicht.alles_zeigen()
+
+    def _explosion_umschalten(self):
+        an = self.aktionen["explosion"].isChecked()
+        self.explosion_regler_aktion.setVisible(an)
+        self.ansicht.setze_explosion(self.explosion_regler.value() / 100.0 if an else 0.0)
+        self._explosion_einpassen()
+        if an and self.erg is not None and len([k for k in self.erg.baum.blaetter() if not k.hilfsgeometrie]) < 2:
+            self.statusBar().showMessage(tr("Das Modell hat nur ein Teil – die Explosion zeigt nichts Neues"), 6000)
 
     def zeige_ballone_aktuell(self):
         """Ballone fuer die Merkmale, die die PMI-Liste gerade zeigt (Ansicht, Art, Suche)."""

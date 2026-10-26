@@ -23,8 +23,9 @@
 | Camera: perspective/orthographic, view back/forward | ✅ |
 | Smooth camera transitions | ⬜ |
 | Hide selected in 3D, tree search; 3D PMI follows list filter | ✅ |
-| Exploded view, parts list (BOM) with properties | ⬜ |
-| Analyses: draft angle, curvature, wall thickness map | ⬜ |
+| Exploded view (slider), parts list (BOM) with quantity, volume, mass, CSV | ✅ |
+| Exploded view by assembly levels / along axes, BOM with STEP properties (material, part number) | ⬜ |
+| Analyses: draft angle, curvature radius, wall thickness map (value on click) | ✅ |
 
 ## PMI
 | Feature | Status |

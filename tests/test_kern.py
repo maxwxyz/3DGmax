@@ -176,3 +176,41 @@ def test_merkmalsliste_ballone(ctc01):
     assert sum(o is not None for o in orte) >= len(liste) * 0.8
     tol = next(m for m in liste if m.pmi.art == "toleranz" and m.pmi.wert)
     assert tol.grenzen() == (tol.pmi.wert, 0.0)
+
+
+def test_stueckliste_baugruppe():
+    from programm.kern import stueckliste as sl
+    from programm.ui.lader import lade_alles
+    from tests.conftest import pfad
+    e = lade_alles(pfad("baugruppe.stp"))
+    liste = sl.positionen(e.baum)
+    namen = {p.name: p for p in liste}
+    assert set(namen) == {"Grundplatte", "Deckel", "Schraube M6x25", "Winkel"}
+    assert namen["Schraube M6x25"].anzahl == 4 and len(namen["Schraube M6x25"].nummern) == 4
+    assert namen["Winkel"].baugruppen == ["Halter"]
+    assert abs(namen["Deckel"].volumen - 100 * 60 * 4) < 1e-6
+    text = sl.als_csv(liste, 7.85)
+    assert text.splitlines()[0].startswith("Pos;Benennung;Anzahl") and len(text.splitlines()) == 5
+
+
+def test_analysen_entformung_kruemmung_wandstaerke():
+    import math
+    import numpy as np
+    from programm.kern import analyse as an
+    from programm.ui.lader import lade_alles
+    from tests.conftest import pfad
+    e = lade_alles(pfad("baugruppe.stp"))
+    deckel = next(k.form for k in e.baum.blaetter() if k.name == "Deckel")
+    # Quader 100 x 60 x 4: Deckflaeche +90°, Boden -90°, Seiten 0° (zu wenig Schraege)
+    w = an.berechne(an.ENTFORMUNG, [deckel], (0, 0, 1)).alle()
+    assert np.isclose(w.max(), 90) and np.isclose(w.min(), -90) and np.any(np.abs(w) < 1e-6)
+    sk = an.skala_entformung(1.0)
+    assert sk.farbe(0.0) == (0.90, 0.20, 0.20) and sk.farbe(45.0) != sk.farbe(-45.0)
+    d = an.berechne(an.WANDSTAERKE, [deckel]).alle()
+    f = d[np.isfinite(d)]
+    assert len(f) and np.isclose(np.percentile(f, 10), 4.0, atol=1e-3)  # Dicke 4 mm
+    schraube = next(k.form for k in e.baum.blaetter() if k.name.startswith("Schraube"))
+    r = an.berechne(an.KRUEMMUNG, [schraube]).alle()
+    endlich = r[np.isfinite(r)]
+    assert np.any(np.isclose(endlich, 3.0)) and np.any(np.isinf(r))  # Schaft R3, Stirnflaechen eben
+    assert an.skala_kruemmung().wert_text(math.inf) == "eben"

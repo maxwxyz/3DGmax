@@ -399,3 +399,26 @@ def test_norm_menue_und_ballone(fenster_ctc01, tmp_path):
     assert open(csv_pfad, encoding="utf-8-sig").read().startswith("Ballon;")
     pdf = f.exportiere_pdf("merkmale", str(tmp_path / "m.pdf"))
     assert pdf and (tmp_path / "m.pdf").stat().st_size > 1000
+
+
+def test_explosion_stueckliste_analyse(fenster, tmp_path):
+    from tests.conftest import pfad
+    f = fenster
+    f.lade(pfad("baugruppe.stp"), warten=True)
+    f.aktionen["explosion"].setChecked(True)
+    f._explosion_umschalten()
+    assert f.ansicht.explosion > 0 and f.explosion_regler_aktion.isVisible() is not None
+    f.aktionen["explosion"].setChecked(False)
+    f._explosion_umschalten()
+    assert f.ansicht.explosion == 0
+    s = f.zeige_stueckliste(nur_anlegen=True)
+    assert s.tabelle.rowCount() == 4
+    assert s.speichere(str(tmp_path / "bom.csv")) and (tmp_path / "bom.csv").stat().st_size > 50
+    gemeldet = []
+    s.isolieren.connect(gemeldet.append)
+    s.tabelle.cellDoubleClicked.emit(2, 0)
+    assert gemeldet and len(gemeldet[0]) in (1, 4)
+    f.starte_analyse("entformung", {"richtung": "+z", "mindest": 1.0, "klein": 1, "gross": 50}, warten=True)
+    assert f.ansicht.abweichung is not None and "Entformung" in f.ansicht.abweichung[3].titel
+    f.analyse_aus()
+    assert f.ansicht.abweichung is None

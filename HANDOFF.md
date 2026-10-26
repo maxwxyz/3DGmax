@@ -28,7 +28,11 @@ Standard' > text hints > ISO 14405/ASME modifiers > file name; fallback ISO GPS;
 Model › Standard; Pmi.norm drives terms, ASME-2018 rule, envelope note); bill of characteristics (kern/merkmale.py,
 balloon column, 3D balloons with B, CSV and PDF export).
 Visual checks were done with View.Dump (screen locked); the cube look on a real screen is still unchecked.
-Next: PLAN §8.12 items 8–10 (exploded view/BOM, analyses, ISO 286), then step 6 formats.
+Then: exploded view (OcctAnsicht.setze_explosion: radial offsets via SetLocalTransformation, PMI hidden, measuring
+blocked; fit includes local transforms), parts list (kern/stueckliste.py, ui/stueckliste_ui.py; groups by base name +
+TShape), analyses (kern/analyse.py: draft, curvature radius, wall thickness by ray; ui/analyse_ui.py dock; generic
+color map via abweichung.Skala). Test assembly: werkzeuge/baugruppe.py -> tests/daten/baugruppe.stp.
+Next: PLAN §8.12 item 10 (ISO 286 limits, needs exact tables), then step 6 formats (STL/OBJ/glTF/IGES, QIF).
 
 ## Environment and commands
 ```bash

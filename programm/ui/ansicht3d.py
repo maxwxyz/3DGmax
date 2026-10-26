@@ -84,6 +84,7 @@ class AnsichtBasis(QtWidgets.QWidget):
         self.perspektive = False
         self.bezugssystem: list = []
         self.ballone: list = []
+        self.explosion = 0.0
         self.letzter_zoom = None
         self.letzte_ausrichtung = None
         self.auswahl3d: list = []  # gewaehlte Flaechen/Kanten (TopoDS)
@@ -108,6 +109,14 @@ class AnsichtBasis(QtWidgets.QWidget):
     def zeige_ballone(self, ballone: list):
         """Ballonnummern [(Nummer, (x, y, z))] an den Merkmalen; [] blendet aus."""
         self.ballone = list(ballone)
+
+    def blick_zum_betrachter(self) -> tuple[float, float, float]:
+        """Richtung vom Modell zum Betrachter (fuer Entformung 'Blickrichtung')."""
+        return (0.0, 0.0, 1.0)
+
+    def setze_explosion(self, anteil: float):
+        """Explosionsansicht: Teile vom Mittelpunkt weg verschieben (0 = aus, 1 = weit)."""
+        self.explosion = max(0.0, min(1.0, anteil))
 
     def mitte_von(self, flaechen):
         """Schwerpunkt von Flaechen (Index) oder None."""
@@ -195,7 +204,13 @@ class AnsichtBasis(QtWidgets.QWidget):
 
     def zeige_abweichung(self, karte, toleranz: float = 0.01, grenze: float = 0.1):
         """Abweichungs-Farbkarte (kern.abweichung.Karte) statt der Statusfarben zeigen; None blendet sie aus."""
-        self.abweichung = None if karte is None else (karte, toleranz, grenze)
+        from ..kern import abweichung as ab
+        self.abweichung = None if karte is None else (karte, toleranz, grenze,
+                                                      ab.abweichungs_skala(toleranz, grenze, tr("Abweichung (mm)")))
+
+    def zeige_analyse(self, karte, skala=None):
+        """Analyse-Farbkarte (Entformung, Kruemmung, Wandstaerke) mit eigener Skala; None blendet aus."""
+        self.abweichung = None if karte is None else (karte, None, None, skala)
 
     def zoome_auf(self, flaechen: set[int], formen: list | None = None, pmi_ids: set | None = None):
         """Ausschnitt auf Flaechen (Index im angezeigten Modell), weitere Formen und PMI-Grafik setzen."""
@@ -609,6 +624,8 @@ class OcctAnsicht(AnsichtBasis):
         self._baue_abweichung()
         if self.ballone:
             self.zeige_ballone(self.ballone)
+        if self.explosion > 0:
+            self.setze_explosion(self.explosion)
         self._wende_darstellung_an()
         self._wende_sichtbarkeit_an()
         self._verlauf, self._verlauf_pos = [], -1
@@ -643,6 +660,13 @@ class OcctAnsicht(AnsichtBasis):
         if self._bereit and self.szene is not None:
             self._baue_szene()
 
+    def zeige_analyse(self, karte, skala=None):
+        super().zeige_analyse(karte, skala)
+        if self._bereit:
+            self._baue_abweichung()
+            self._wende_sichtbarkeit_an()
+            self._neu_zeichnen()
+
     def zeige_abweichung(self, karte, toleranz=0.01, grenze=0.1):
         super().zeige_abweichung(karte, toleranz, grenze)
         if self._bereit:
@@ -660,14 +684,13 @@ class OcctAnsicht(AnsichtBasis):
         from OCC.Core.TColStd import TColStd_HArray1OfInteger, TColStd_SequenceOfExtendedString
         from OCC.Core.TCollection import TCollection_ExtendedString
         from OCC.Core.gp import gp_Pnt
-        from ..kern import abweichung as ab
         ctx = self.d.Context
         for alt in getattr(self, "_karte_ais", []):
             ctx.Remove(alt, False)
         self._karte_ais = []
         if self.abweichung is None:
             return
-        karte, tol, grenze = self.abweichung
+        karte, _tol, _grenze, sk = self.abweichung
         pts, tris, werte = karte.gesamt()
         if not len(tris):
             return
@@ -678,7 +701,7 @@ class OcctAnsicht(AnsichtBasis):
             netz.SetTriangle(i, Poly_Triangle(int(t[0]) + 1, int(t[1]) + 1, int(t[2]) + 1))
         farben = TColStd_HArray1OfInteger(1, len(pts))
         for i, w in enumerate(werte, 1):
-            r, g, b = ab.farbe(float(w), tol, grenze)
+            r, g, b = sk.farbe(float(w))
             c = int(r * 255) | int(g * 255) << 8 | int(b * 255) << 16 | 255 << 24  # RGBA als Bytes
             farben.SetValue(i, c - (1 << 32))  # als vorzeichenbehaftete 32-Bit-Zahl
         flaeche = AIS_Triangulation(netz)
@@ -691,8 +714,8 @@ class OcctAnsicht(AnsichtBasis):
         ctx.Display(flaeche, 0, -1, False)  # AIS_Triangulation kennt nur Modus 0
         ctx.Deactivate(flaeche)
         self._karte_ais.append(flaeche)
-        # Legende unten links: Stufen von -Grenze bis +Grenze, Mitte = innerhalb Toleranz
-        grenzen = ab.stufen(tol, grenze)
+        # Legende unten links nach den Stufen der Skala
+        grenzen = sk.grenzen
         k = max(1.0, self.viewer.devicePixelRatioF()) if sys.platform == "darwin" else 1.0
         skala = AIS_ColorScale()
         skala.SetRange(grenzen[0], grenzen[-1])
@@ -700,20 +723,19 @@ class OcctAnsicht(AnsichtBasis):
         skala.SetColorType(Aspect_TOCSD_USER)
         for i in range(len(grenzen) - 1):
             mitte = (grenzen[i] + grenzen[i + 1]) / 2
-            skala.SetIntervalColor(_farbe(ab.farbe(mitte, tol, grenze)), i + 1)
+            skala.SetIntervalColor(_farbe(sk.farbe(mitte)), i + 1)
         texte = TColStd_SequenceOfExtendedString()
-        for g in grenzen:
-            texte.Append(TCollection_ExtendedString(f"{g:+.3f}".replace("+0.000", "0"), True))
+        for t in sk.texte():
+            texte.Append(TCollection_ExtendedString(t, True))
         skala.SetLabelType(Aspect_TOCSD_USER)
         skala.SetLabels(texte)
         skala.SetLabelAtBorder(True)
-        skala.SetTitle(TCollection_ExtendedString(tr("Abweichung (mm)"), True))
+        skala.SetTitle(TCollection_ExtendedString(sk.titel, True))
         skala.SetTextHeight(int(13 * k))
         dunkel = sum((self.thema or {}).get("hg_oben", (1, 1, 1))) < 1.5
         skala.SetColor(_farbe((0.95, 0.95, 0.95) if dunkel else (0.1, 0.1, 0.12)))  # Schriftfarbe
         # Breite = Farbbalken + Beschriftung (OCCT begrenzt den Balken auf 20 px)
         skala.SetSize(int(110 * k), int(260 * k))
-        schrift = "Helvetica Neue" if sys.platform == "darwin" else ("Segoe UI" if sys.platform == "win32" else "DejaVu Sans")
         from OCC.Core.Prs3d import Prs3d_TextAspect
         text = Prs3d_TextAspect()
         text.Aspect().SetFont(SCHRIFT)
@@ -835,7 +857,7 @@ class OcctAnsicht(AnsichtBasis):
             zeigen = self.grafik_an and not self.grafik_nur_auswahl and \
                 (self.pmi_ids_sichtbar is None or bool(g.pmi_ids & self.pmi_ids_sichtbar))
             hervor = bool(g.pmi_ids & self.pmi_ids_hervor)
-            zeigen = zeigen or hervor
+            zeigen = (zeigen or hervor) and self.explosion <= 0  # Beschriftungen passen nur zur Einbaulage
             for ais in liste:
                 if zeigen:
                     ais.SetColor(hervor_farbe if hervor else normal)
@@ -925,6 +947,46 @@ class OcctAnsicht(AnsichtBasis):
             ctx.Deactivate(lab)
             self._bezug_ais.append(lab)
         self._neu_zeichnen()
+
+    def blick_zum_betrachter(self):
+        if not self._bereit:
+            return super().blick_zum_betrachter()
+        d = self.d.View.Camera().Direction()
+        return (-d.X(), -d.Y(), -d.Z())
+
+    def setze_explosion(self, anteil):
+        super().setze_explosion(anteil)
+        if not self._bereit or self.szene is None:
+            return
+        from OCC.Core.Bnd import Bnd_Box
+        from OCC.Core.BRepBndLib import brepbndlib
+        from OCC.Core.gp import gp_Trsf, gp_Vec
+        mitten, alle = {}, Bnd_Box()
+        for nr, ais in self._teile.items():
+            box = Bnd_Box()
+            brepbndlib.Add(ais.Shape(), box)
+            if box.IsVoid():
+                continue
+            x0, y0, z0, x1, y1, z1 = box.Get()
+            mitten[nr] = ((x0 + x1) / 2, (y0 + y1) / 2, (z0 + z1) / 2)
+            alle.Add(box)
+        if alle.IsVoid():
+            return
+        x0, y0, z0, x1, y1, z1 = alle.Get()
+        c = ((x0 + x1) / 2, (y0 + y1) / 2, (z0 + z1) / 2)
+        ctx = self.d.Context
+        for nr, ais in self._teile.items():
+            t = gp_Trsf()
+            if nr in mitten and self.explosion > 0:
+                m = mitten[nr]
+                t.SetTranslation(gp_Vec(*((m[i] - c[i]) * 1.6 * self.explosion for i in range(3))))
+            if self.vergleich_trsf is not None:
+                t = t.Multiplied(self.vergleich_trsf)
+            for a in (ais, self._kanten.get(nr)):
+                if a is not None:
+                    a.SetLocalTransformation(t)
+                    ctx.Redisplay(a, False)
+        self._wende_sichtbarkeit_an()
 
     def zeige_ballone(self, ballone):
         super().zeige_ballone(ballone)
@@ -1035,9 +1097,10 @@ class OcctAnsicht(AnsichtBasis):
         from OCC.Core.BRepBndLib import brepbndlib
         from OCC.Core.TopLoc import TopLoc_Location
         box = Bnd_Box()
-        lage = TopLoc_Location(self.vergleich_trsf) if self.vergleich_trsf is not None else None
         for nr, ais in self._teile.items():
             if nr not in self.versteckt:
+                # angezeigte Lage: Vergleichsausrichtung und Explosion stecken in der lokalen Transformation
+                lage = TopLoc_Location(ais.LocalTransformation()) if ais.HasTransformation() else None
                 brepbndlib.Add(ais.Shape().Moved(lage) if lage is not None else ais.Shape(), box)
         return box
 
@@ -1548,7 +1611,8 @@ class OcctAnsicht(AnsichtBasis):
             treffer = self.abweichung_bei(x, y)
             if treffer is not None:
                 p, w = treffer
-                self.meldung.emit(tr("Abweichung {:+.4f} mm bei ({:.2f}, {:.2f}, {:.2f})").format(w, *p))
+                sk = self.abweichung[3]
+                self.meldung.emit(tr("{} {} bei ({:.2f}, {:.2f}, {:.2f})").format(tr(sk.name), sk.wert_text(w), *p))
                 return
         ctx.MoveTo(x, y, self.d.View, False)
         if not ctx.HasDetected():
@@ -1577,6 +1641,9 @@ class OcctAnsicht(AnsichtBasis):
                 # im Vergleich ist der neue Stand ins System des alten verschoben: Form wie angezeigt verwenden
                 from OCC.Core.TopLoc import TopLoc_Location
                 form = form.Moved(TopLoc_Location(self.vergleich_trsf))
+            if self.messmodus and self.explosion > 0:
+                self.meldung.emit(tr("In der Explosionsansicht wird nicht gemessen – erst zurücksetzen"))
+                return
             if self.messmodus:
                 p = self._punkt_unter_maus(x, y, form)
                 if p is not None:
