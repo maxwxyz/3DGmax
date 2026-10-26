@@ -1,0 +1,28 @@
+{
+ "unreleased": {
+  "de": [
+   "Erste Version des Viewers: STEP AP242 laden, Baugruppenbaum, Navigation wie in CAD-Programmen, Standardansichten.",
+   "PMI-Liste mit Filter und Suche; PMI anklicken hebt die zugehörigen Flächen hervor, Fläche anklicken zeigt ihre PMI.",
+   "Gespeicherte Ansichten aus dem Modell mit den jeweils sichtbaren PMI.",
+   "Grafische PMI aus der Datei; Platzhalter-Texte werden aus der Semantik erzeugt.",
+   "Schnittebene, Darstellungsarten (schattiert, mit Kanten, Drahtmodell), helles und dunkles Farbschema.",
+   "Einführung beim ersten Start, Anleitung (F1) auf Deutsch und Englisch."
+  ],
+  "en": [
+   "First viewer version: load STEP AP242, assembly tree, CAD-style navigation, standard views.",
+   "PMI list with filter and search; clicking a PMI highlights its faces, clicking a face shows its PMI.",
+   "Saved views from the model with the PMI visible in each view.",
+   "Graphical PMI from the file; placeholder texts are generated from the semantics.",
+   "Section plane, display modes (shaded, with edges, wireframe), light and dark theme.",
+   "Introduction on first start, manual (F1) in German and English."
+  ]
+ },
+ "releases": [
+  {
+   "version": "0.1",
+   "date": "2026-10-26",
+   "de": ["Machbarkeit: STEP AP242 mit semantischer PMI lesen (ohne Oberfläche)."],
+   "en": ["Feasibility: read STEP AP242 with semantic PMI (no user interface)."]
+  }
+ ]
+}

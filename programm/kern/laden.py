@@ -48,6 +48,15 @@ class StepModell:
         """Index einer Flaeche (Lage wird ignoriert), None wenn unbekannt."""
         return self._index.get(_schluessel(face))
 
+    def form_von_step(self, eid: int):
+        """OCCT-Form, in die eine STEP-Entitaet uebertragen wurde (oder None)."""
+        ws = self._reader.ChangeReader().WS()
+        num = ws.NumberFromLabel(f"#{eid}")
+        if num <= 0:
+            return None
+        sh = transferbrep.ShapeResult(ws.TransferReader().TransientProcess(), ws.Model().Value(num))
+        return None if sh is None or sh.IsNull() else sh
+
     def _baue_index(self):
         self._index = {_schluessel(f): i for i, f in enumerate(self.flaechen)}
 
@@ -120,6 +129,7 @@ def lade_step(pfad: str) -> StepModell:
     form = _freie_formen(st)
     modell = StepModell(pfad, doc, st, form, _alle_flaechen(form))
     modell._baue_index()
+    modell._reader = reader
     modell.datei = p21.lese(pfad)
     _step_flaechen(reader, modell.datei, modell)
     modell.ladezeit = time.perf_counter() - t0
