@@ -301,3 +301,39 @@ def test_farbkarte_im_vergleich(fenster):
     f.zeige_farbkarte(False)
     assert f.ansicht.abweichung is None
     f.beende_vergleich()
+
+
+def test_materialvergleich_bohrung_aufgeweitet():
+    import math
+    from OCC.Core.BRepAlgoAPI import BRepAlgoAPI_Cut
+    from OCC.Core.BRepPrimAPI import BRepPrimAPI_MakeBox, BRepPrimAPI_MakeCylinder
+    from OCC.Core.gp import gp_Ax2, gp_Dir, gp_Pnt
+    from programm.kern import vergleich_volumen as vv
+
+    def platte(r):
+        box = BRepPrimAPI_MakeBox(100.0, 60.0, 20.0).Shape()
+        loch = BRepPrimAPI_MakeCylinder(gp_Ax2(gp_Pnt(50, 30, -1), gp_Dir(0, 0, 1)), r, 22.0).Shape()
+        return BRepAlgoAPI_Cut(box, loch).Shape()
+    m = vv.berechne(platte(10.0), platte(10.5))
+    soll = math.pi * (10.5 ** 2 - 10.0 ** 2) * 20
+    assert abs(m.vol_weg - soll) < 1e-3 * soll and m.vol_dazu < 1e-6 and m.teile_weg == 1
+    m = vv.berechne(platte(10.5), platte(10.0))
+    assert abs(m.vol_dazu - soll) < 1e-3 * soll and m.vol_weg < 1e-6
+    selbst = vv.berechne(platte(10.0), platte(10.0))
+    assert selbst.dazu is None and selbst.weg is None
+
+
+def test_materialvergleich_im_fenster(fenster):
+    from tests.conftest import pfad
+    f = fenster
+    f.lade(pfad("nist_ctc_01_asme1_ap242-e1.stp"), warten=True)
+    f.starte_vergleich({"alt": pfad("nist_ctc_01_asme1_ap242-e1.stp"), "neu": pfad("varianten/ctc01_pmi.stp"),
+                        "toleranz": 0.01, "suchweite": 2.0}, warten=True)
+    f.aenderungen.material_an.blockSignals(True)
+    f.aenderungen.material_an.setChecked(True)
+    f.aenderungen.material_an.blockSignals(False)
+    f.zeige_material(True, warten=True)
+    assert getattr(f.vergleich, "material", None) is not None
+    f.zeige_material(False)
+    assert f.ansicht.material is None
+    f.beende_vergleich()

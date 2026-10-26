@@ -71,7 +71,8 @@
    "Zeichnungen (HLR) als PDF, SVG oder DXF: Normansichten nach Projektionsmethode der Norm (ISO 1 / ASME 3) plus Iso, aktuelle Ansicht oder je gespeicherter Ansicht eine Seite aus deren Kamera; verdeckte Kanten gestrichelt, grafische PMI der Ansicht wahlweise (Standard an), Schriftfeld.",
    "Vorschaubilder der gespeicherten Ansichten (Kantenzeichnung mit PMI, im Hintergrund erzeugt).",
    "Grafische PMI aus der Semantik: PMI ohne Darstellung in der Datei (z. B. QIF) erhalten eine erzeugte Beschriftung mit Hinweislinie in eigener Farbe; PMI-Texte in einer Schrift mit GD&T-Zeichen.",
-   "QIF: Flächen mit falsch orientierten Schleifen werden korrigiert (keine Löcher mehr in Bohrungen)."
+   "QIF: Flächen mit falsch orientierten Schleifen werden korrigiert (keine Löcher mehr in Bohrungen).",
+   "Vergleich: Material + / − – hinzugekommenes Volumen grün, entferntes rot (exakt über Boolesche Operationen) mit Volumen und Anzahl der Bereiche."
   ],
   "en": [
    "First viewer version: load STEP AP242, assembly tree, CAD-style navigation, standard views.",
@@ -144,7 +145,8 @@
    "Drawings (HLR) as PDF, SVG or DXF: standard views by the projection method of the standard (ISO first angle / ASME third angle) plus iso, current view or one page per saved view from its camera; hidden edges dashed, graphical PMI of the view optional (default on), title block.",
    "Thumbnails for saved views (edge drawing with PMI, generated in the background).",
    "Graphical PMI from semantics: PMI without presentation in the file (e.g. QIF) get a generated annotation with leader in its own color; PMI texts in a font with GD&T symbols.",
-   "QIF: faces with wrongly oriented loops are corrected (no more gaps in holes)."
+   "QIF: faces with wrongly oriented loops are corrected (no more gaps in holes).",
+   "Comparison: material + / − – added volume green, removed red (exact via Boolean operations) with volume and number of regions."
   ]
  },
  "releases": [

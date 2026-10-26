@@ -138,6 +138,26 @@ class KartenLader(QtCore.QThread):
         self.fertig.emit(karte)
 
 
+class MaterialLader(QtCore.QThread):
+    """Materialvergleich (Boolesche Operationen) im Hintergrund."""
+
+    fertig = QtCore.Signal(object)
+    fehler = QtCore.Signal(str)
+
+    def __init__(self, vergleich, parent=None):
+        super().__init__(parent)
+        self.vergleich = vergleich
+
+    def run(self):
+        from ..kern import vergleich_volumen
+        v = self.vergleich
+        try:
+            self.fertig.emit(vergleich_volumen.berechne(v.alt.modell.form, v.neu.modell.form, v.ausrichtung.gp_trsf(),
+                                                        v.toleranz))
+        except Exception as e:  # noqa: BLE001 - Fehler dem Nutzer zeigen
+            self.fehler.emit(tr(str(e)))
+
+
 class AenderungenPanel(QtWidgets.QWidget):
     """Nummerierte Aenderungen, Pruefstatus, Kommentar, Pruefrundgang, Abweichungs-Farbkarte."""
 
@@ -145,6 +165,7 @@ class AenderungenPanel(QtWidgets.QWidget):
     abschliessen = QtCore.Signal()
     beenden = QtCore.Signal()
     karte = QtCore.Signal(bool, float)  # Farbkarte an/aus, Skalenende (0 = automatisch)
+    material = QtCore.Signal(bool)  # Materialvergleich an/aus
 
     def __init__(self, parent=None):
         super().__init__(parent)
@@ -184,6 +205,11 @@ class AenderungenPanel(QtWidgets.QWidget):
         reihe_karte.addWidget(QtWidgets.QLabel(tr("Skala ±")))
         reihe_karte.addWidget(self.skala)
         lay.addLayout(reihe_karte)
+        self.material_an = QtWidgets.QCheckBox(tr("Material + / − (Volumen)"))
+        self.material_an.setToolTip(tr("Hinzugekommenes Material grün, entferntes rot (exakt über Boolesche "
+                                       "Operationen); Werte in der Statusleiste"))
+        self.material_an.toggled.connect(self.material.emit)
+        lay.addWidget(self.material_an)
         self.karte_an.toggled.connect(lambda an: self.karte.emit(an, self.skala.value()))
         self.skala.editingFinished.connect(
             lambda: self.karte_an.isChecked() and self.karte.emit(True, self.skala.value()))
@@ -242,9 +268,10 @@ class AenderungenPanel(QtWidgets.QWidget):
 
     def zeige(self, vergleich, farben: dict | None = None):
         self.vergleich = vergleich
-        self.karte_an.blockSignals(True)
-        self.karte_an.setChecked(False)  # neuer Vergleich: Farbkarte aus
-        self.karte_an.blockSignals(False)
+        for box in (self.karte_an, self.material_an):  # neuer Vergleich: Farbkarte und Material aus
+            box.blockSignals(True)
+            box.setChecked(False)
+            box.blockSignals(False)
         t = self.tabelle
         t.blockSignals(True)
         if vergleich is None:

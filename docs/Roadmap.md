@@ -68,7 +68,7 @@
 | Change list, review walk-through, comment, review report with SHA-256 | ✅ |
 | Export changes (CSV) | ✅ |
 | Deviation color map (scale, tolerance limit, sign, value on click) | ✅ |
-| Display like CATIA Compare Products: added/removed volume, visual (fast) and exact | ⬜ |
+| Display like CATIA Compare Products: added/removed volume (exact, Boolean) | ✅ |
 | Detect moved elements and moved PMI | ⬜ |
 | Graphical PMI comparison (moved, changed, new, removed) | ⬜ |
 | Assembly comparison | ⬜ |

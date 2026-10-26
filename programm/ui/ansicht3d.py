@@ -85,6 +85,7 @@ class AnsichtBasis(QtWidgets.QWidget):
         self.bezugssystem: list = []
         self.ballone: list = []
         self.explosion = 0.0
+        self.material = None
         self.letzter_zoom = None
         self.letzte_ausrichtung = None
         self.auswahl3d: list = []  # gewaehlte Flaechen/Kanten (TopoDS)
@@ -109,6 +110,10 @@ class AnsichtBasis(QtWidgets.QWidget):
     def zeige_ballone(self, ballone: list):
         """Ballonnummern [(Nummer, (x, y, z))] an den Merkmalen; [] blendet aus."""
         self.ballone = list(ballone)
+
+    def zeige_material(self, dazu, weg):
+        """Materialvergleich: hinzugekommenes (gruen) und entferntes Volumen (rot); beide None blendet aus."""
+        self.material = None if dazu is None and weg is None else (dazu, weg)
 
     def oben_richtung(self) -> tuple[float, float, float]:
         """Richtung, die im Bild nach oben zeigt."""
@@ -206,6 +211,7 @@ class AnsichtBasis(QtWidgets.QWidget):
         self.vergleich_status = None if status is None else dict(status)
         if status is None:
             self.abweichung = None
+            self.material = None
         self.vergleich_entfernt = list(entfernt_formen or [])
         self.vergleich_trsf = trsf
 
@@ -657,11 +663,13 @@ class OcctAnsicht(AnsichtBasis):
         self._karte_ais = []
         self._bezug_ais = []
         self._ballon_ais = []
+        self._material_ais = []
         self._baue_entfernt()
         self._baue_grafik()
         self._baue_abweichung()
         if self.ballone:
             self.zeige_ballone(self.ballone)
+        self._baue_material()
         if self.explosion > 0:
             self.setze_explosion(self.explosion)
         self._wende_darstellung_an()
@@ -890,7 +898,8 @@ class OcctAnsicht(AnsichtBasis):
                 ctx.Erase(ais, False)
             else:
                 ctx.Display(ais, False)
-                ctx.SetTransparency(ais, 0.65 if nr in self.transparent else 0.0, False)
+                durchsichtig = nr in self.transparent or self.material is not None  # Material davor sichtbar
+                ctx.SetTransparency(ais, 0.7 if durchsichtig else 0.0, False)
         self._aktiviere_auswahl()
         for ais in self._hilfe:
             if self.hilfsgeometrie_an:
@@ -1055,6 +1064,31 @@ class OcctAnsicht(AnsichtBasis):
                     a.SetLocalTransformation(t)
                     ctx.Redisplay(a, False)
         self._wende_sichtbarkeit_an()
+
+    def zeige_material(self, dazu, weg):
+        super().zeige_material(dazu, weg)
+        if self._bereit:
+            self._baue_material()
+            self._wende_sichtbarkeit_an()
+            self._neu_zeichnen()
+
+    def _baue_material(self):
+        from OCC.Core.AIS import AIS_Shape
+        ctx = self.d.Context
+        for alt in getattr(self, "_material_ais", []):
+            ctx.Remove(alt, False)
+        self._material_ais = []
+        if self.material is None:
+            return
+        t = self.thema or {}
+        for form, farbe in zip(self.material, (t.get("v_neu", (0.15, 0.7, 0.3)), t.get("v_entfernt", (0.9, 0.15, 0.15)))):
+            if form is None:
+                continue
+            ais = AIS_Shape(form)
+            ais.SetColor(_farbe(farbe))
+            ctx.Display(ais, 1, -1, False)
+            ctx.Deactivate(ais)
+            self._material_ais.append(ais)
 
     def zeige_ballone(self, ballone):
         super().zeige_ballone(ballone)

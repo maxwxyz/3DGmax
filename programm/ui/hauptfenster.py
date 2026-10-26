@@ -584,6 +584,7 @@ class Hauptfenster(QtWidgets.QMainWindow):
         self.aenderungen.abschliessen.connect(self.schliesse_pruefung_ab)
         self.aenderungen.beenden.connect(self.beende_vergleich)
         self.aenderungen.karte.connect(self.zeige_farbkarte)
+        self.aenderungen.material.connect(self.zeige_material)
         self.analyse.berechnen.connect(self.starte_analyse)
         self.analyse.aus.connect(self.analyse_aus)
 
@@ -1136,6 +1137,36 @@ class Hauptfenster(QtWidgets.QMainWindow):
         lo, hi = karte.bereich()
         self.statusBar().showMessage(tr("Farbkarte: Abweichung {:+.3f} bis {:+.3f} mm, Skala ±{:.3f} mm, "
                                         "Toleranz ±{:.3f} mm").format(lo, hi, grenze, v.toleranz), 10000)
+
+    def zeige_material(self, an: bool, warten: bool = False):
+        """Hinzugekommenes/entferntes Volumen im Vergleich (einmal je Vergleich berechnet)."""
+        v = self.vergleich
+        if v is None:
+            return
+        if not an:
+            self.ansicht.zeige_material(None, None)
+            return
+        m = getattr(v, "material", None)
+        if m is None:
+            from .vergleich_ui import MaterialLader
+            lader = MaterialLader(v, self)
+            lader.fehler.connect(lambda t: self.statusBar().showMessage(tr("Materialvergleich: {}").format(t), 8000))
+            lader.fertig.connect(lambda m, v=v: self._material_fertig(v, m))
+            self._material_lader = lader
+            self.statusBar().showMessage(tr("Materialvergleich läuft …"))
+            lader.start()
+            if warten:
+                lader.wait()
+                QtWidgets.QApplication.processEvents()
+            return
+        self.ansicht.zeige_material(m.dazu, m.weg)
+        self.statusBar().showMessage(tr("Material: +{:.2f} mm³ ({} Bereiche) hinzu, −{:.2f} mm³ ({} Bereiche) entfernt")
+                                     .format(m.vol_dazu, m.teile_dazu, m.vol_weg, m.teile_weg), 12000)
+
+    def _material_fertig(self, v, m):
+        v.material = m
+        if self.vergleich is v and self.aenderungen.material_an.isChecked():
+            self.zeige_material(True)
 
     def _farbkarte_fertig(self, v, karte):
         v.karte = karte

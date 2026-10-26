@@ -651,5 +651,12 @@
 "aktuelle Blickrichtung": "current view direction",
 "Maße in mm": "Dimensions in mm",
 "Zeichnung gespeichert: {}": "Drawing saved: {}",
-"Ansicht": "View"
+"Ansicht": "View",
+"Material + / − (Volumen)": "Material + / − (volume)",
+"Hinzugekommenes Material grün, entferntes rot (exakt über Boolesche Operationen); Werte in der Statusleiste": "Added material green, removed red (exact via Boolean operations); values in the status bar",
+"Materialvergleich: {}": "Material comparison: {}",
+"Materialvergleich läuft …": "Material comparison running …",
+"Material: +{:.2f} mm³ ({} Bereiche) hinzu, −{:.2f} mm³ ({} Bereiche) entfernt": "Material: +{:.2f} mm³ ({} regions) added, −{:.2f} mm³ ({} regions) removed",
+"Materialvergleich braucht geschlossene Körper": "Material comparison needs closed solids",
+"Boolesche Operation fehlgeschlagen": "Boolean operation failed"
 }
