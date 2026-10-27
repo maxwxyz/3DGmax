@@ -158,6 +158,25 @@ Throughout: tests (core, offscreen UI, stress test, on-screen test), `--selbstte
 - Generate envelope surfaces for roundness, cylindricity, coaxiality, position, surface/line profile etc. showing how far
   geometry may deviate from nominal – including datum reference frame, material condition, unequal zones (UZ),
   projected zones.
+- **Stage 2 (requested 2026-10-27):** derive the possible deviations from every geometric tolerance where it makes
+  technical sense, and show them as zone geometry:
+  - Coaxiality / concentricity / position with ⌀: zone cylinder (⌀ t) around the datum axis or the true position for
+    the derived axis; in addition the space the feature surface may occupy (inner and outer envelope cylinders from
+    size tolerance plus zone), so one sees where axis *and* surface can lie.
+  - Profile of a surface / line: two offset surfaces ±t/2; unequal zone (ISO `UZ`, ASME Ⓤ) shifts the pair by the
+    given offset; with datums the zone is fixed in location to the datum system, without datums only form.
+  - Orientation (parallelism, perpendicularity, angularity): two planes / a cylinder oriented to the datum, free in
+    location; runout (circular, total): zone around the datum axis.
+  - Modifiers: Ⓜ/Ⓛ – zone at MMC and at LMC (bonus tolerance) and the virtual condition envelope; Ⓟ projected zone
+    extended beyond the face by the projected length; Ⓔ envelope = maximum material boundary; Ⓕ, CZ/SZ, ACS/ALS
+    as far as the zone geometry changes.
+  - Size tolerances: maximum and minimum material envelopes (offsets to the limits).
+  - Scope: the selected PMI, all PMI on the selected faces, or all PMI of the model at once (with a legend and per
+    characteristic colors); optional exaggeration factor as today.
+  - General tolerances as an option: ISO 2768-1 (f/m/c/v) and -2 (H/K/L), ISO 22081 general geometrical
+    specification (profile tolerance to the datum system) – user picks the class (or it is read from the title
+    block note), applied to faces without an explicit tolerance; shown in a distinct color and marked "general".
+  - Reused by §8.20 (each zone bounds the small displacement torsor of its feature).
 
 ### 8.6 Annotating and commenting (done: comments on faces/PMI with markers, status, project, CSV/PDF)
 - Comments/change proposals on faces, edges, PMI (list and model), on changed PMI and geometry in a comparison; stored
@@ -171,6 +190,7 @@ Throughout: tests (core, offscreen UI, stress test, on-screen test), `--selbstte
 - Dimension chains built from the semantic PMI (select faces/PMI along a chain), worst case, statistical (RSS) and
   Monte Carlo; GD&T contributions (position, profile, datum shift with material condition); report with contributors.
 - Related: bill of characteristics with balloon numbers for metrology/quality.
+- 3D analysis of assemblies with materials, temperature and wiggle: see §8.20.
 
 ### 8.9 Test data
 - NIST: FTC/STC/CTC (AP242); D2MI 827-9999-904 rev C (AP242 with PMI) ↔ 906 (same geometry, no PMI); FTC-06 ↔ STC-06
@@ -332,3 +352,43 @@ print annotations. Today 3DGmax writes generated texts only into the placeholder
 - Test files: NIST QIF models from github.com/QualityInformationFramework/qif-community, downloaded in tests
   (`tests/conftest.testdatei`), never committed.
 
+### 8.20 3D tolerance analysis of assemblies (requested 2026-10-27; reference: 3DCS)
+Request: build assemblies, set up functional dimension chains ("Funktionsmaßketten", FMK – assumed meaning) from the
+PMI, recognize or assign materials, take temperatures and thermal expansion into account, compute stack-ups, and
+move parts within their tolerances (1:1 and exaggerated) in worst case or per tolerance / chain ("wiggle") to find
+and judge errors in chains.
+
+Research (2026-10-27, vendor statements and literature, not verified by experiment):
+- 3DCS Variation Analyst (DCS, commercial, CAD-integrated): model = *moves* (how parts are located in the assembly,
+  locators preferably on the GD&T datum features), *tolerances* (taken from the PMI), *measures* (gaps, flush,
+  distances). Analyses: Monte Carlo (Cp, Cpk, Ppk, % out of spec, recommended GD&T value), High-Low-Median
+  sensitivity (contribution from the tolerance range) and GeoFactor (geometric amplification of each tolerance);
+  "contributor analysis" ranks the drivers. Sources: 3dcs.com, "What's new in 3DCS 7700", reseller listings.
+- Methods in the literature: tolerance chart / 1D chains, vector loops (assembly constraints as closed loops),
+  small displacement torsors (SDT) and the unified Jacobian-torsor model, combined with Monte Carlo; a comparison
+  of methods on the same open-loop assembly gave noticeably different results – choose and document the method.
+  No usable open-source implementation was found.
+- Statistics: worst case (arithmetic) vs. statistical (RSS / error propagation; means at nominal and symmetric
+  distributions are assumptions); DIN 7186 (statistical tolerancing) is withdrawn, process capability per the
+  ISO 22514 / DIN ISO 21747 family. Non-linear and multi-dimensional chains need sampling instead of linear sums.
+- Thermal expansion: ΔL = α · L · ΔT relative to the ISO 1 reference temperature of 20 °C; for parts of different
+  materials the difference of the expansions enters the chain (deterministic shift per operating temperature).
+
+Plan (each stage usable on its own; builds on §8.5 zones and the 1D chain of §8.8):
+1. **Assembly model:** use STEP assemblies as loaded; additionally assemble parts in the project (place a part,
+   mate datum features: plane–plane, pin–hole, pin–slot, 3-2-1 locating), stored in the project container.
+2. **Materials:** read STEP material/density properties where present, otherwise assign from a small library
+   (E-modulus, α, density; user extensible); temperature per part or per case (assembly, operation, min/max).
+3. **Chains:** 1D chains as today but picked in the model (faces/PMI along the chain, direction from the geometry);
+   then 3D: each toleranced feature gets a torsor bounded by its tolerance zone (form, orientation, location,
+   size, datum shift with Ⓜ/Ⓛ), mates propagate the deviations, measures are distances/gaps/angles between
+   features; thermal expansion and general tolerances (§8.5) as further contributors.
+4. **Analysis:** worst case (extremes of the linearized torsor model, checked by sampling), RSS, Monte Carlo with
+   distributions (normal, uniform, shifted mean, Cpk), result Cp/Cpk/% out of spec, contributor ranking (range
+   and sensitivity), recommended tolerance changes.
+5. **Wiggle:** move the parts within their tolerance freedom – per tolerance, per chain or the worst-case
+   combination – 1:1 or exaggerated by a factor, animated, with gaps/interferences highlighted; slider per
+   contributor.
+6. **Report:** chain, contributors, histograms, worst-case configuration images (PDF/CSV), stored in the project.
+- Effort: large (months for 3D); order: zones (§8.5 stage 2) → picked 1D chains with temperature → 3D torsor model
+  and Monte Carlo → wiggle → assembly mating UI.

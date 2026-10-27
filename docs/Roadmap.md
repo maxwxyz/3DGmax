@@ -54,8 +54,11 @@
 | Semantic-only PMI: optional generated display in the view (see generated PMI stage 2) | ✅ |
 | Show tolerance zones as envelope surfaces (offsets ±t/2, ⌀ zone cylinder, exaggeration) | ✅ |
 | Tolerance zones: datum-oriented zones, unequal/offset zones (UZ), projected zones, material conditions | ⬜ |
+| Tolerance zones for the selected faces or all PMI at once; general tolerances (ISO 2768, ISO 22081) as option | ⬜ |
 | Tolerance stack-up 1D (dimension chain from PMI, worst case, RSS, Monte Carlo, CSV) | ✅ |
-| Tolerance stack-up 3D (geometric tolerances, chain from the model, sensitivity) | 💡 |
+| Tolerance stack-up 3D (geometric tolerances, chain from the model, sensitivity) – PLAN §8.20 | ⬜ |
+| Assemblies built in the project (mates on datum features), materials and thermal expansion in chains | ⬜ |
+| Wiggle: move parts within their tolerances (per tolerance/chain/worst case, 1:1 or exaggerated) | ⬜ |
 | Bill of characteristics with balloon numbers (table column, 3D balloons, CSV, PDF) | ✅ |
 | Datum reference frame display for a selected tolerance | ✅ |
 | Create PMI with tolerancing advisor (stage 1: rules per selection, own PMI in project) | ✅ |

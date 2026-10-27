@@ -70,13 +70,18 @@ planes and the view cube, and `DG_BILDSCHIRM=1 pytest tests/test_bildschirm.py` 
 | 7 JT via TKJT | ⬜ (free JT without PMI: `NIST mtc crada assembly.jt` in daten/nist_cad_dl/nist-cad-models-mtc-assembly.zip) |
 Details: `docs/Roadmap.md`; future topics: PLAN.md §8 (8.5 tolerance zones, 8.6 annotating, 8.8 stack-up,
 8.10 PMI editing/advisor, 8.11 CATIA, 8.15 PRC/3D PDF, 8.16 generated PMI, 8.17 open formats, 8.18 PMI as semantics or
-graphics only, 8.19 QIF graphics).
+graphics only, 8.19 QIF graphics, 8.20 3D tolerance analysis).
 
 ## Next (in this order)
 1. Visual check of the cloud work on the Mac (see return handoff above).
-2. Hatched section views; change list entries per instance.
-3. STEP-XML (§8.17, needs sample files) and further open formats; PRC compressed tessellation and B-rep.
-4. Step 7 JT via TKJT (GPL v2+, build option).
+2. Tolerance zones stage 2 (PLAN §8.5, requested next): zones for all geometric tolerances incl. UZ, Ⓜ/Ⓛ, Ⓟ,
+   datum-oriented; scope selected PMI / selected faces / all; general tolerances ISO 2768 / ISO 22081 as option.
+3. Start-up time: measure on the real machines first (Python part is ~0.9 s on Linux; 3D init, Defender/Gatekeeper
+   and the PyInstaller folder unknown), then lazy imports (scipy) and an early splash.
+4. 3D tolerance analysis with assemblies, materials, temperature and wiggle (PLAN §8.20, large).
+5. Hatched section views; change list entries per instance.
+6. STEP-XML (§8.17, needs sample files) and further open formats; PRC compressed tessellation and B-rep.
+7. Step 7 JT via TKJT (GPL v2+, build option).
 
 ## Environment and commands
 ```bash
