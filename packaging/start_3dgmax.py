@@ -23,7 +23,51 @@ def occt_umgebung():
     os.environ.setdefault("CSF_UnitsDefinition", os.path.join(res, "UnitsAPI", "Units.dat"))
 
 
+def _protokoll_pfad() -> str:
+    import tempfile
+    ordner = os.path.join(os.environ.get("LOCALAPPDATA") or tempfile.gettempdir(), "3DGmax")
+    os.makedirs(ordner, exist_ok=True)
+    return os.path.join(ordner, "start_fehler.log")
+
+
+def _melde(text: str):
+    """Fehler sichtbar machen: die App hat keine Konsole (Windows-Meldungsfenster, sonst stderr)."""
+    if sys.platform == "win32":
+        import ctypes
+        ctypes.windll.user32.MessageBoxW(None, text, "3DGmax", 0x10)
+    else:
+        print(text, file=sys.stderr)
+
+
+def _aus_zip_gestartet() -> bool:
+    """Explorer startet eine EXE aus einem ZIP ohne die DLLs daneben (nur die EXE liegt dann in Temp)."""
+    basis = getattr(sys, "_MEIPASS", None)
+    return bool(basis) and not os.path.isdir(os.path.join(basis, "occt_resources"))
+
+
+def starte() -> int:
+    if _aus_zip_gestartet():
+        _melde("3DGmax wurde direkt aus dem ZIP-Archiv gestartet. Bitte das ZIP zuerst vollständig entpacken "
+               "(Alle extrahieren) und dann 3DGmax.exe im entpackten Ordner starten.\n\n"
+               "3DGmax was started from inside the ZIP archive. Please extract the whole ZIP first "
+               "(Extract all) and start 3DGmax.exe from the extracted folder.")
+        return 1
+    import faulthandler
+    protokoll = _protokoll_pfad()
+    absturz = open(protokoll + ".absturz", "w", encoding="utf-8")  # noqa: SIM115 - offen bis Programmende
+    faulthandler.enable(absturz)  # harte Abstuerze (z. B. OpenGL-Treiber) landen hier
+    try:
+        occt_umgebung()
+        from programm.app import main
+        return main()
+    except Exception:  # noqa: BLE001 - jeder Startfehler soll sichtbar werden
+        import traceback
+        with open(protokoll, "w", encoding="utf-8") as f:
+            f.write(traceback.format_exc())
+        _melde(f"3DGmax konnte nicht starten / could not start.\n\n{traceback.format_exc(limit=3)}\n"
+               f"Protokoll / log: {protokoll}")
+        return 1
+
+
 if __name__ == "__main__":
-    occt_umgebung()
-    from programm.app import main
-    sys.exit(main())
+    sys.exit(starte())
