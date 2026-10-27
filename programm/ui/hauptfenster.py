@@ -98,9 +98,37 @@ class Startseite(QtWidgets.QWidget):
         self.zuletzt_titel.setVisible(bool(pfade))
 
 
+FENSTER: list = []  # offene Hauptfenster (Datei > Neues Fenster); haelt sie am Leben
+_KOPPLUNG = {"uhr": None, "zuletzt": {}}
+
+
+def _fenster_uhr() -> QtCore.QTimer:
+    """Gemeinsamer Takt fuer gekoppelte Fensterkameras: die zuletzt bewegte Kamera gilt fuer alle."""
+    if _KOPPLUNG["uhr"] is None:
+        uhr = QtCore.QTimer()
+        uhr.setInterval(60)
+        uhr.timeout.connect(kameras_abgleichen)
+        _KOPPLUNG["uhr"] = uhr
+    return _KOPPLUNG["uhr"]
+
+
+def kameras_abgleichen():
+    zuletzt = _KOPPLUNG["zuletzt"]
+    ansichten = [f.ansicht for f in FENSTER if f.erg is not None]
+    bewegt = next((a for a in ansichten if a.kamera_daten() is not None and id(a) in zuletzt
+                   and a.kamera_daten() != zuletzt[id(a)]), None)
+    if bewegt is not None:
+        k = bewegt.kamera_daten()
+        for a in ansichten:
+            if a is not bewegt:
+                a.setze_kamera_daten(k)
+    _KOPPLUNG["zuletzt"] = {id(a): a.kamera_daten() for a in ansichten}
+
+
 class Hauptfenster(QtWidgets.QMainWindow):
     def __init__(self):
         super().__init__()
+        FENSTER.append(self)
         self.setWindowTitle(self._titel())
         self.setAcceptDrops(True)
         self.resize(1400, 860)
@@ -400,6 +428,12 @@ class Hauptfenster(QtWidgets.QMainWindow):
         A = self._aktion
         A("oeffnen", tr("Öffnen …"), lambda: self.oeffnen(""), QtGui.QKeySequence.StandardKey.Open,
           tipp=tr("STEP-Datei öffnen"), modell=False)
+        A("neues_fenster", tr("Neues Fenster"), lambda: self.neues_fenster(), QtGui.QKeySequence.StandardKey.New,
+          tipp=tr("Weiteres Fenster für ein anderes Modell (Einstellungen und zuletzt verwendet gemeinsam)"),
+          modell=False)
+        A("in_neuem_fenster", tr("In neuem Fenster öffnen …"), lambda: self.neues_fenster(""), modell=False)
+        A("kameras_koppeln", tr("Kameras der Fenster koppeln"), self._fenster_koppeln, pruefbar=True, modell=False,
+          tipp=tr("Drehen und Zoomen wirkt in allen Fenstern gleich (z. B. zwei Modelle nebeneinander)"))
         A("vergleichen", tr("Vergleichen …"), lambda: self.starte_vergleich(), "Ctrl+Shift+V",
           tipp=tr("Zwei Stände eines Modells vergleichen (Geometrie und PMI)"), modell=False)
         A("vergleich_beenden", tr("Vergleich beenden"), self.beende_vergleich, tipp=tr("Zurück zur normalen Ansicht"))
@@ -599,6 +633,8 @@ class Hauptfenster(QtWidgets.QMainWindow):
         a = self.aktionen
         m = mb.addMenu(tr("&Datei"))
         m.addAction(a["oeffnen"])
+        m.addAction(a["neues_fenster"])
+        m.addAction(a["in_neuem_fenster"])
         self.menue_zuletzt = m.addMenu(tr("Zuletzt verwendet"))
         self._beispiel_menue(m.addMenu(tr("Beispiele")))
         m.addSeparator()
@@ -706,6 +742,8 @@ class Hauptfenster(QtWidgets.QMainWindow):
                   self.dock_kommentare, self.dock_aenderungen, self.dock_scan, self.dock_kollision,
                   self.dock_zusammenbau):
             self.menue_fenster.addAction(d.toggleViewAction())
+        self.menue_fenster.addSeparator()
+        self.menue_fenster.addAction(a["kameras_koppeln"])
         m = mb.addMenu(tr("&Hilfe"))
         for n in ("befehlssuche", "anleitung", "einfuehrung", "neu", "ueber"):
             m.addAction(a[n])
@@ -3386,7 +3424,39 @@ class Hauptfenster(QtWidgets.QMainWindow):
             self.ein.setValue("version_gesehen", VERSION)
             self.zeige_neu()
 
+    def neues_fenster(self, pfad: str | None = None):
+        """Weiteres Hauptfenster; pfad "" fragt nach einer Datei, None oeffnet leer."""
+        if pfad == "":
+            start = os.path.dirname(self.zuletzt()[0]) if self.zuletzt() else ""
+            pfad, _ = QtWidgets.QFileDialog.getOpenFileName(self, tr("In neuem Fenster öffnen"), start,
+                                                            DATEIFILTER.format(tr("Alle Modelle"), tr("Netze")))
+            if not pfad:
+                return None
+        f = Hauptfenster()
+        f.move(self.pos() + QtCore.QPoint(40, 40))
+        f.show()
+        if pfad:
+            f.lade(pfad)
+        return f
+
+    def _fenster_koppeln(self):
+        """Kameras aller Fenster koppeln (an/aus fuer alle)."""
+        an = self.aktionen["kameras_koppeln"].isChecked()
+        for f in FENSTER:
+            a = f.aktionen.get("kameras_koppeln")
+            if a is not None and a.isChecked() != an:
+                a.blockSignals(True)
+                a.setChecked(an)
+                a.blockSignals(False)
+        uhr = _fenster_uhr()
+        if an:
+            uhr.start()
+        else:
+            uhr.stop()
+
     def closeEvent(self, ev):
+        if self in FENSTER:
+            FENSTER.remove(self)
         self._fenster_merken()
         if getattr(self, "_vorschau", None) is not None and self._vorschau.isRunning():
             self._vorschau.abbrechen = True

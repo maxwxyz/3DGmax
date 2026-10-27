@@ -1311,3 +1311,25 @@ def test_kollision_tiefe_kurven_pdf_projekt(fenster, tmp_path):
     f.oeffne_projekt(projekt, warten=True)
     assert f.kollision.befunde and f.kollision.befunde[0].status == "akzeptiert"
     assert f.kollision.befunde[0].kommentar == "Senkung fehlt"
+
+
+def test_neues_fenster_und_gekoppelte_kameras(fenster):
+    from programm.ui import hauptfenster as hf
+    f = fenster
+    f.lade(pfad("baugruppe.stp"), warten=True)
+    g = f.neues_fenster()
+    try:
+        assert g is not f and g in hf.FENSTER and f in hf.FENSTER
+        g.lade(pfad("baugruppe_b.stp"), warten=True)
+        g.aktionen["kameras_koppeln"].trigger()
+        assert f.aktionen["kameras_koppeln"].isChecked() and hf._fenster_uhr().isActive()
+        hf.kameras_abgleichen()
+        k = ((3.0, 2.0, 1.0), (0.0, 0.0, 0.0), (0.0, 0.0, 1.0), 40.0)
+        g.ansicht.setze_kamera_daten(k)
+        hf.kameras_abgleichen()
+        assert f.ansicht.kamera_daten() == k
+        g.aktionen["kameras_koppeln"].trigger()
+        assert not hf._fenster_uhr().isActive()
+    finally:
+        g.close()
+    assert g not in hf.FENSTER and f in hf.FENSTER and f.erg is not None

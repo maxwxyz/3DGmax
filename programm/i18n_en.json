@@ -1280,5 +1280,11 @@
 "Kollisionen – {}": "Clashes – {}",
 "Modell: {} · {} · Kontakt bis {:g} mm, Mindestabstand {:g} mm, Höchstabstand {:g} mm": "Model: {} · {} · contact up to {:g} mm, minimum distance {:g} mm, maximum distance {:g} mm",
 "Tiefe": "Depth",
-"Volumen der Durchdringung in mm³; Tiefe = kleinste Kante des orientierten Hüllquaders der Durchdringung. Fett: offene Kollisionen.": "Volume of the penetration in mm³; depth = smallest edge of the oriented bounding box of the penetration. Bold: open clashes."
+"Volumen der Durchdringung in mm³; Tiefe = kleinste Kante des orientierten Hüllquaders der Durchdringung. Fett: offene Kollisionen.": "Volume of the penetration in mm³; depth = smallest edge of the oriented bounding box of the penetration. Bold: open clashes.",
+"Neues Fenster": "New window",
+"Weiteres Fenster für ein anderes Modell (Einstellungen und zuletzt verwendet gemeinsam)": "Another window for another model (settings and recent files shared)",
+"In neuem Fenster öffnen …": "Open in new window …",
+"In neuem Fenster öffnen": "Open in new window",
+"Kameras der Fenster koppeln": "Couple the cameras of the windows",
+"Drehen und Zoomen wirkt in allen Fenstern gleich (z. B. zwei Modelle nebeneinander)": "Rotating and zooming act the same in all windows (e.g. two models side by side)"
 }

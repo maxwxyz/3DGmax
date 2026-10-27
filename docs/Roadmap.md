@@ -189,7 +189,7 @@
 | Release script: bump version, keep changelog DE/EN | ✅ |
 | Tests: core, offscreen UI, stress test, on-screen test | ✅ |
 | Examples for the main functions (File › Examples, free test data, no copies in the repository) – PLAN §8.24 | ✅ |
-| Several models side by side: File › New window, optional linked cameras – PLAN §8.26 | ⬜ |
+| Several models side by side: File › New window, open in new window, linked cameras – PLAN §8.26 | ✅ |
 | Wireframe with high-contrast edges (setting, default on); calmer, more legible view cube | ✅ |
 | Status-bar progress with Cancel for all background jobs (load, compare, analysis, colour map, material, scan) | ✅ |
 | Closable tabs of stacked side panels; smooth side-panel resizing (batched 3D buffer resize) | ✅ |
