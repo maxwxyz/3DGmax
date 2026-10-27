@@ -457,6 +457,17 @@ class Baugruppe:
             zeilen += bedingungen(v.art, mb if v.teil == teil else ma, ma if v.teil == teil else mb)
         return freiheitsgrade(zeilen)
 
+    def bewege_frei(self, teil: int, werte: list[float], start: np.ndarray, basis: np.ndarray | None = None):
+        """Teil nur entlang seiner offenen Freiheitsgrade bewegen: werte je Freiheitsgrad (mm bzw. Grad) ab der
+        Startlage; die Verbindungen bleiben erfuellt (Bewegungen im Nullraum ihrer Bedingungen)."""
+        basis = self.freiheitsgrade(teil) if basis is None else basis
+        m = np.eye(4)
+        for z, w in zip(basis, werte):
+            if abs(w) > 1e-12:
+                m = bewegung(z, w) @ m
+        self.lagen[teil] = m @ start
+        return self.lagen[teil]
+
     def teile(self) -> list[int]:
         return sorted({t for v in self.verbindungen for t in (v.teil, v.gegen_teil)})
 

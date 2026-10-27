@@ -121,3 +121,16 @@ def test_umkehren_und_tauschen():
     assert (v1.teil, v1.gegen_teil) == (3, 2) and b.tauschen(1) is None
     assert (v1.teil, v1.gegen_teil) == (2, 3) and vb.erfuellt(v1.art, *b.merkmale(v1), v1.versatz)
     assert not b.fest(2)
+
+
+def test_bewegen_nur_in_offenen_freiheitsgraden():
+    b, f = _baugruppe()
+    teil = 4  # Schraube: offen nur die Drehung um die eigene Achse
+    basis = b.freiheitsgrade(teil)
+    assert len(basis) == 1
+    start = b.lage(teil).copy()
+    b.bewege_frei(teil, [90.0], start, basis)
+    assert not b.verletzt()  # Verbindungen bleiben erfuellt
+    assert not np.allclose(b.lage(teil), start)
+    b.bewege_frei(teil, [0.0], start, basis)
+    assert np.allclose(b.lage(teil), start)

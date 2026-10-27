@@ -82,7 +82,8 @@
 | UI/UX plan (`docs/UI_UX_Plan.md`); stage 1: command search Ctrl/⌘+K, task start page, menu cleanup | ✅ |
 | UI scaling option (90–150 %, as in ZGmax) | ✅ |
 | UI/UX stage 2: workspaces; stage 3: inspector and guided flows | ⬜ |
-| Assembly: dragger (gizmo with arrows and rings) moving the selected part only along its open DOF | ⬜ |
+| Assembly: move the selected part only along its open DOF (numeric fields per DOF) | ✅ |
+| Assembly: 3D dragger (gizmo with arrows and rings) for the same moves | ⬜ |
 | Assembly: 3-2-1 template, dragging with live snapping, STEP kinematics | ⬜ |
 | Tolerance stack-up 3D (geometric tolerances, chain from the model, sensitivity) – PLAN §8.20 | ⬜ |
 | Assemblies built in the project (mates on datum features), materials and thermal expansion in chains | ⬜ |

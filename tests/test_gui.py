@@ -1274,3 +1274,19 @@ def test_toleranzkette_stufe4_verfahren_verteilen(fenster):
     assert abs(k._ist[0].toleranz - 0.1) < 1e-12  # Ist unveraendert
     k.beende_planspiel(False)
     assert abs(k.glieder[0].toleranz - 0.1) < 1e-12
+
+
+def test_zusammenbau_teil_frei_bewegen(fenster):
+    f = fenster
+    assert f.oeffne_beispiel("zusammenbau", warten=True)
+    z = f.zusammenbau
+    z.wiggle_an.setChecked(False)
+    schraube = next(n for n in z._teil_nummern if not f.baugruppe.fest(n))
+    z.teile.selectRow(z._teil_nummern.index(schraube))
+    assert z.bewegen_box.isVisibleTo(z) and len(z._frei_felder) == 1 and z._frei_felder[0].suffix() == " °"
+    vorher = f.baugruppe.lage(schraube).copy()
+    z._frei_felder[0].setValue(45.0)
+    assert not f.baugruppe.verletzt() and f.ansicht.teil_lagen[schraube] is not None
+    z._frei_zuruecksetzen()
+    import numpy as np
+    assert np.allclose(f.baugruppe.lage(schraube), vorher)

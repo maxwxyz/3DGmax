@@ -1263,5 +1263,8 @@
 "Mittenverschiebung": "Mean shift",
 "Varianzen addieren, Schlussmaß ±3σ": "Add the variances, closing dimension ±3σ",
 "Zuschlag auf das RSS (Bender 1962: 1,5) für zu optimistisch angegebene Toleranzen": "Margin on the RSS (Bender 1962: 1.5) for tolerances stated too optimistically",
-"Je Glied darf die Mitte um den Anteil m der halben Toleranz wandern (arithmetisch), der Rest streut statistisch": "Per link the mean may shift by the share m of the half tolerance (arithmetic), the rest varies statistically"
+"Je Glied darf die Mitte um den Anteil m der halben Toleranz wandern (arithmetisch), der Rest streut statistisch": "Per link the mean may shift by the share m of the half tolerance (arithmetic), the rest varies statistically",
+"Teil bewegen – nur in offenen Freiheitsgraden": "Move part – only in open degrees of freedom",
+"Verschiebt bzw. dreht das gewählte Teil nur so, wie seine Verbindungen es erlauben; die Verbindungen bleiben erfüllt": "Moves or rotates the selected part only as its connections allow; the connections stay satisfied",
+"Zurück zur Ausgangslage": "Back to the starting position"
 }

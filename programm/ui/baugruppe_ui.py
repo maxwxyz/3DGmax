@@ -28,6 +28,8 @@ class BaugruppePanel(QtWidgets.QWidget):
     wiggle = QtCore.Signal(object)  # Knotennummer oder None (aus)
     toleranz = QtCore.Signal(int, float)  # Nummer der Verbindung, neuer Spielraum (mm)
     umkehren = QtCore.Signal(int)  # Nummer der Verbindung
+    frei_bewegen = QtCore.Signal(list)  # Werte je offenem Freiheitsgrad (mm bzw. Grad) fuer das gewaehlte Teil
+    frei_zurueck = QtCore.Signal()
     tauschen = QtCore.Signal(int)
     mass_anlegen = QtCore.Signal()
     mass_entfernen = QtCore.Signal(int)  # Nummer der Messgroesse
@@ -99,6 +101,13 @@ class BaugruppePanel(QtWidgets.QWidget):
         self.teile = _tabelle(self.TEIL_SPALTEN)
         self.teile.itemSelectionChanged.connect(self._teil_gewaehlt)
         lay.addWidget(self.teile, 1)
+        self.bewegen_box = QtWidgets.QGroupBox(tr("Teil bewegen – nur in offenen Freiheitsgraden"))
+        self.bewegen_box.setToolTip(tr("Verschiebt bzw. dreht das gewählte Teil nur so, wie seine Verbindungen es "
+                                       "erlauben; die Verbindungen bleiben erfüllt"))
+        self._bewegen_lay = QtWidgets.QFormLayout(self.bewegen_box)
+        self._frei_felder: list[QtWidgets.QDoubleSpinBox] = []
+        self.bewegen_box.hide()
+        lay.addWidget(self.bewegen_box)
         reihe = QtWidgets.QHBoxLayout()
         self.wiggle_an = QtWidgets.QPushButton(tr("▶ Wiggle"))
         self.wiggle_an.setCheckable(True)
@@ -313,3 +322,30 @@ class BaugruppePanel(QtWidgets.QWidget):
 
     def _teil_gewaehlt(self, *_):
         self.wiggle.emit(self.gewaehltes_teil() if self.wiggle_an.isChecked() else None)
+
+    def zeige_freiheitsgrade(self, texte: list[str], drehung: list[bool]):
+        """Je offenem Freiheitsgrad ein Feld (mm bzw. Grad); leer blendet die Gruppe aus."""
+        while self._bewegen_lay.rowCount():
+            self._bewegen_lay.removeRow(0)
+        self._frei_felder = []
+        for text, dreht in zip(texte, drehung):
+            feld = QtWidgets.QDoubleSpinBox()
+            feld.setRange(-360.0, 360.0) if dreht else feld.setRange(-10000.0, 10000.0)
+            feld.setDecimals(2 if dreht else 3)
+            feld.setSingleStep(5.0 if dreht else 0.5)
+            feld.setSuffix(" °" if dreht else " mm")
+            feld.valueChanged.connect(lambda _w: self.frei_bewegen.emit([f.value() for f in self._frei_felder]))
+            self._frei_felder.append(feld)
+            self._bewegen_lay.addRow(text, feld)
+        if texte:
+            zurueck = QtWidgets.QPushButton(tr("Zurück zur Ausgangslage"))
+            zurueck.clicked.connect(self._frei_zuruecksetzen)
+            self._bewegen_lay.addRow("", zurueck)
+        self.bewegen_box.setVisible(bool(texte))
+
+    def _frei_zuruecksetzen(self):
+        for f in self._frei_felder:
+            f.blockSignals(True)
+            f.setValue(0.0)
+            f.blockSignals(False)
+        self.frei_zurueck.emit()

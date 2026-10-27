@@ -600,7 +600,8 @@ Plan (each stage usable on its own; builds on §8.5 zones and the 1D chain of §
      aligned instead of opposed – e.g. washer upside down), flip the axis direction of a coaxial/pin–slot connection
      (part turned end for end); button and context menu "Umkehren" in the connections table, the part is snapped
      again and the open DOF are recomputed; stored in the project.
-  2. **Move the selected part with a dragger** while the "Verbindungen" tab is open: a small gizmo at the part
+  2. (Done 2026-10-28 numerically: one field per open DOF, `Baugruppe.bewege_frei`; the 3D gizmo below remains.)
+     **Move the selected part with a dragger** while the "Verbindungen" tab is open: a small gizmo at the part
      (arrows for translation, rings for rotation, CATIA-compass-like) that offers **only the open degrees of freedom**
      of that part (null space of its connection rows, `Baugruppe.freiheitsgrade`) – a screw with head contact and
      coaxial shank shows only the ring about its axis, a part with one plane contact two arrows in the plane and the

@@ -169,6 +169,9 @@ class Hauptfenster(QtWidgets.QMainWindow):
         self.zusammenbau.wiggle.connect(self._wiggle)
         self.zusammenbau.toleranz.connect(self._spielraum)
         self.zusammenbau.umkehren.connect(lambda n: self._verbindung_aendern(self.baugruppe.umkehren, n))
+        self.zusammenbau.teile.itemSelectionChanged.connect(self._frei_anzeigen)
+        self.zusammenbau.frei_bewegen.connect(self._frei_bewegen)
+        self.zusammenbau.frei_zurueck.connect(lambda: self._frei_bewegen([]))
         self.zusammenbau.tauschen.connect(lambda n: self._verbindung_aendern(self.baugruppe.tauschen, n))
         self.zusammenbau.mass_anlegen.connect(self.messgroesse_auswahl)
         self.zusammenbau.mass_entfernen.connect(self._messgroesse_entfernen)
@@ -3043,6 +3046,28 @@ class Hauptfenster(QtWidgets.QMainWindow):
             text += " · " + tr("nicht mehr erfüllt: {}").format(", ".join(str(x.nummer) for x in verletzt))
         self.statusBar().showMessage(text, 8000)
         return v
+
+    def _frei_anzeigen(self):
+        """Gewaehltes Teil: Felder je offenem Freiheitsgrad; die Lage beim Waehlen ist der Ausgangspunkt."""
+        import numpy as np
+        from ..kern import verbindung as vb
+        teil = self.zusammenbau.gewaehltes_teil()
+        if teil is None or self.baugruppe.fest(teil):
+            self._frei = None
+            self.zusammenbau.zeige_freiheitsgrade([], [])
+            return
+        basis = self.baugruppe.freiheitsgrade(teil)
+        self._frei = (teil, basis, np.array(self.baugruppe.lage(teil)))
+        self.zusammenbau.zeige_freiheitsgrade(vb.beschreibe(basis),
+                                              [vb._gerade_ausrichten(z[:3], z[3:])[0] == "drehung" for z in basis])
+
+    def _frei_bewegen(self, werte: list):
+        frei = getattr(self, "_frei", None)
+        if frei is None:
+            return
+        teil, basis, start = frei
+        self.baugruppe.bewege_frei(teil, werte, start, basis)
+        self.ansicht.setze_teil_lagen(self.baugruppe.lagen)
 
     def _verbindung_aendern(self, aktion, nummer: int):
         """Umkehren oder Tauschen; danach melden, welche Verbindungen nicht mehr erfuellt sind."""
