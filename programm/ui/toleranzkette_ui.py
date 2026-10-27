@@ -956,7 +956,7 @@ class ToleranzketteFenster(QtWidgets.QDialog):
             art.addItem(tr(text), schluessel)
         art.setCurrentIndex(max(0, art.findData(g.verteilung)))
         art.setToolTip(tr("Serie: normal (Toleranz = ±3σ · Cp); Kleinserie: Dreieck; Einzelteil: gleichverteilt; "
-                          "Trapez: dazwischen"))
+                          "Trapez: dazwischen; Betrag 1./2. Art: Form-, Lauf- und Positionsabweichungen ab 0 (schief)"))
         art.currentIndexChanged.connect(lambda _i, g=g, a=art: self._setze(g, "verteilung", a.currentData()))
         t.setCellWidget(z, SP_VERTEILUNG, art)
         if g.verteilung == "trapez":

@@ -5,7 +5,9 @@ Jedes Glied ist ein Mass mit Nennmass, Hoechst- und Mindestmass und Richtung (+1
 (Scholz, Tabelle der Verteilungsfaktoren): normal mit sigma = T / (6 * Cp) (Serie; Cp je Glied oder der Kette),
 Dreieck sigma = T / (2 * Wurzel 6) (Kleinserie), Trapez mit flachem Anteil a sigma = T/2 * Wurzel((1 + a^2) / 6),
 gleichverteilt sigma = T / (2 * Wurzel 3) (Einzelteil) - T = Toleranzbreite; aus Messwerten (ab zwei Werten):
-Normalverteilung mit Mittelwert und Standardabweichung der Stichprobe (Versatz = Mittelwert - Toleranzmitte). Das statistische Ergebnis ist +-3 sigma
+Normalverteilung mit Mittelwert und Standardabweichung der Stichprobe (Versatz = Mittelwert - Toleranzmitte);
+Betragsverteilung 1. Art (gefaltete Normalverteilung, z. B. Ebenheit, Rundlauf) und 2. Art (Rayleigh, z. B. Position
+in der Ebene) ab dem Mindestmass: 99,73 % liegen innerhalb der Toleranz, der Mittelwert liegt unter der Toleranzmitte. Das statistische Ergebnis ist +-3 sigma
 des Schlussmasses, der Anteil eines Glieds sein Varianzanteil.
 
 Korrelation: Glieder derselben Gruppe (gleiches Teil, gleiche Aufspannung oder Prozess) streuen gemeinsam mit dem
@@ -39,7 +41,10 @@ import numpy as np
 from ..i18n import tr
 
 VERTEILUNG = {"normal": "Normal (Serie)", "dreieck": "Dreieck (Kleinserie)", "trapez": "Trapez",
-              "gleich": "Gleich (Einzelteil)", "messwerte": "Aus Messwerten"}
+              "gleich": "Gleich (Einzelteil)", "betrag": "Betrag 1. Art (Form, Lauf)",
+              "rayleigh": "Betrag 2. Art (Position)", "messwerte": "Aus Messwerten"}
+# Betragsverteilungen: Toleranz T = k * sigma der zugrunde liegenden Normalverteilung (99,73 % innerhalb)
+BETRAG_K = {"betrag": 3.0, "rayleigh": math.sqrt(-2 * math.log(0.0027))}
 MINDEST_BEITRAGSLEISTER = 4  # ab hier ist das statistische Ergebnis anwendbar
 QUELLE = {"pmi": "PMI", "lage": "Lagetoleranz", "allgemein": "Allgemeintoleranz", "ohne": "ohne Toleranz",
           "bereich": "Längenbereich", "eigen": "eigene Angabe"}
@@ -77,6 +82,10 @@ class Glied:
     @property
     def wirk_versatz(self) -> float:
         """Mittelwert des Prozesses gegen die Toleranzmitte: aus den Messwerten oder der eingegebene Versatz."""
+        if self.verteilung in BETRAG_K:  # schief: Mittelwert der Betragsverteilung ab dem Mindestmass
+            s = self.toleranz / BETRAG_K[self.verteilung]
+            mittel = s * (math.sqrt(2 / math.pi) if self.verteilung == "betrag" else math.sqrt(math.pi / 2))
+            return self.mindest + mittel - self.mitte + self.versatz
         return float(np.mean(self.messwerte)) - self.mitte if self.gemessen else self.versatz
 
     @property
@@ -105,11 +114,19 @@ class Glied:
             return t / 2 * math.sqrt((1 + self.form ** 2) / 6)
         if self.gemessen:
             return float(np.std(self.messwerte, ddof=1))
+        if self.verteilung in BETRAG_K:
+            s = t / BETRAG_K[self.verteilung]
+            return s * math.sqrt(1 - 2 / math.pi if self.verteilung == "betrag" else (4 - math.pi) / 2)
         return t / (6 * (self.cp or cp_kette))
 
     def ziehe(self, rng, n: int, cp_kette: float = 1.0) -> np.ndarray:
         """n Zufallswerte des Glieds (ohne Richtung)."""
         m, h = self.mitte + self.wirk_versatz, self.toleranz / 2
+        if self.verteilung in BETRAG_K:
+            s = self.toleranz / BETRAG_K[self.verteilung]
+            x = np.abs(rng.standard_normal(n)) if self.verteilung == "betrag" else \
+                np.hypot(rng.standard_normal(n), rng.standard_normal(n))
+            return self.mindest + self.versatz + s * x
         if self.verteilung == "gleich":
             return rng.uniform(m - h, m + h, n)
         if self.verteilung == "dreieck":

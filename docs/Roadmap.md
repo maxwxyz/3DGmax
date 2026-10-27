@@ -74,7 +74,8 @@
 | Stack-up: distribution fitted from measured values (paste/CSV) | ✅ |
 | Stack-up: several saved what-if scenarios with comparison | ✅ |
 | Stack-up: correlated links (groups with ρ, covariances, rank-correlated Monte Carlo) | ✅ |
-| Stack-up: more distributions (beta, DIN histogram) | ⬜ |
+| Stack-up: folded normal and Rayleigh distributions (form/runout/position) | ✅ |
+| Stack-up: more distributions (beta, DIN histogram) | 💡 |
 | Stack-up: link shown as a line in 3D while walking the chain | ✅ |
 | Stack-up: wiggle of the closing faces by the worst-case extremes | ⬜ |
 | Stack-up: median planes as chain ends, chains across assembly parts | ⬜ |

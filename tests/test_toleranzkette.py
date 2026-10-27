@@ -296,3 +296,15 @@ def test_korrelierte_glieder():
     a[0].rho, a[1].rho, a[1].richtung = 0.25, 1.0, 1
     assert abs(tk.korrelation(a)[0, 1] - 0.5) < 1e-12 and tk.korrelation(a)[0, 2] == 0
     assert frei.rss < tk.berechne(a).rss < voll.rss
+
+
+def test_betragsverteilungen():
+    import numpy as np
+    for art in ("betrag", "rayleigh"):
+        g = tk.Glied("Ebenheit", 0, 0.05, 0.0, verteilung=art)
+        x = g.ziehe(np.random.default_rng(3), 400_000)
+        assert abs(np.mean(x <= 0.05) - 0.9973) < 0.001 and x.min() >= 0
+        assert abs(x.mean() - (g.mitte + g.wirk_versatz)) < 2e-4 and abs(x.std() - g.sigma()) < 2e-4
+        assert g.wirk_versatz < 0  # Mittelwert unter der Toleranzmitte
+    e = tk.berechne([tk.Glied("a", 10, 10.1, 9.9), tk.Glied("Lauf", 0, 0.05, 0.0, -1, verteilung="betrag")])
+    assert abs(e.mc_mittel - e.mitte) < 1e-3 and e.mitte > 10 - 0.025
