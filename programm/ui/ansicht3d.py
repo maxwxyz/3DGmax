@@ -1439,8 +1439,8 @@ class OcctAnsicht(AnsichtBasis):
         super().hebe_pmi(ids)
         self._wende_sichtbarkeit_an()
 
-    def setze_grafik(self, an, nur_auswahl=False):
-        super().setze_grafik(an, nur_auswahl)
+    def setze_grafik(self, an, nur_auswahl=False, erzeugt=True):
+        super().setze_grafik(an, nur_auswahl, erzeugt)
         self._wende_sichtbarkeit_an()
 
     def setze_hilfsgeometrie(self, an):

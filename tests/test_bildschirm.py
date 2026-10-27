@@ -147,6 +147,18 @@ def pruefe_alles():
     maus(T.MouseButtonPress, mitte); maus(T.MouseButtonRelease, mitte)
     ergebnis["punkt_unter_maus"] = a._punkt_unter_maus(*mitte) is not None  # Drehpunkt, Bildmitte
     ergebnis["messklick"] = bool(elemente) and len(f.messen.messungen) == 1 and bool(a._mess_ais)
+    # Grafik-Schalter (G, erzeugte PMI) und mehrere Schnittebenen in der echten 3D-Ansicht
+    f.aktionen["grafik_erzeugt"].trigger(); f.aktionen["grafik"].trigger()  # bei Grafik aus ist "erzeugt" gesperrt
+    aus = not a.grafik_an and not a.erzeugt_an
+    f.aktionen["grafik"].trigger(); f.aktionen["grafik_erzeugt"].trigger()
+    ergebnis["grafik_schalter"] = aus and a.grafik_an and a.erzeugt_an
+    f.aktionen["schnitt_x"].trigger(); f.aktionen["schnitt_merken"].trigger(); f.aktionen["schnitt_y"].trigger()
+    f.aktionen["schnitt_kette"].trigger()
+    ergebnis["schnitt_kette"] = len(a._clips) == 1 and a._clips[0].NbChainNextPlanes() == 2
+    f.aktionen["schnitt_kette"].trigger()
+    ergebnis["schnitt_zwei"] = len(a._clips) == 2
+    f.aktionen["schnitt_aus"].trigger()
+    ergebnis["schnitt_aus"] = a._clips == [] and a.schnitt_ebenen == []
     pfad = os.path.join(tempfile.mkdtemp(), "b.png")
     ergebnis["bild"] = f.ansicht.bild(pfad) and os.path.getsize(pfad) > 1000
     print("ERGEBNIS", ergebnis, flush=True)
@@ -162,4 +174,4 @@ def test_navigation_und_klick():
     zeile = next((z for z in r.stdout.splitlines() if z.startswith("ERGEBNIS")), "")
     assert zeile, r.stdout[-2000:] + r.stderr[-2000:]
     erg = eval(zeile.split(" ", 1)[1])  # noqa: S307 - eigene Ausgabe
-    assert all(v for k, v in erg.items() if k != "text"), erg
+    assert all(v for k, v in erg.items() if k != "text"), [k for k, v in erg.items() if not v and k != "text"]

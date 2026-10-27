@@ -100,7 +100,8 @@
    "Mehrere Schnittebenen: bis zu drei Ebenen festhalten, wahlweise nur den gemeinsamen Bereich wegschneiden (z. B. Viertelschnitt); Schnittkontur aller Ebenen als SVG, DXF oder PDF exportieren.",
    "Seitenleisten lassen sich zuverlässig und flüssig breiter ziehen: breitere Griffkante, die 3D-Ansicht zeichnet beim Ziehen gesammelt neu, Spaltenbreiten werden erst nach dem Ziehen gespeichert.",
    "Ansichtswürfel besser lesbar: deckend (keine gespiegelte Rückseite mehr), größere schwarze Beschriftung, Hervorhebung beim Überfahren in ruhigem Blau statt Türkis.",
-   "PMI-Texte in der 3D-Ansicht in richtiger Größe (QIF-Texte waren zu klein); erzeugte PMI liegen im Bild nie über dem Modell, Texte passen in die Rahmenfelder."
+   "PMI-Texte in der 3D-Ansicht in richtiger Größe (QIF-Texte waren zu klein); erzeugte PMI liegen im Bild nie über dem Modell, Texte passen in die Rahmenfelder.",
+   "Behoben: „Grafische PMI zeigen“ (G) und „Erzeugte PMI-Darstellung zeigen“ lösten in der 3D-Ansicht einen Fehler aus."
   ],
   "en": [
    "First viewer version: load STEP AP242, assembly tree, CAD-style navigation, standard views.",
@@ -202,7 +203,8 @@
    "Multiple section planes: keep up to three planes, optionally cut away only the common region (e.g. quarter section); export the section contour of all planes as SVG, DXF or PDF.",
    "Side panels resize reliably and smoothly: wider drag handle, the 3D view redraws once after the drag steps, column widths are saved after dragging.",
    "View cube easier to read: opaque (no mirrored back side), larger black labels, hover highlight in calm blue instead of cyan.",
-   "PMI texts in the 3D view at the right size (QIF texts were too small); generated PMI never lie over the model in the picture, texts fit into the frame compartments."
+   "PMI texts in the 3D view at the right size (QIF texts were too small); generated PMI never lie over the model in the picture, texts fit into the frame compartments.",
+   "Fixed: “Show graphical PMI” (G) and “Show generated PMI display” raised an error in the 3D view."
   ]
  },
  "releases": [
