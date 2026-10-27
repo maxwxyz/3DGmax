@@ -545,7 +545,31 @@ def test_toleranzzone_anzeigen(fenster_ctc01):
     assert f.ansicht.zone_formen
     f.pmi.waehle(lambda p: False)
     assert f.ansicht.zone_formen == []
+    # ohne PMI-Auswahl: Zonen der PMI an den gewaehlten Flaechen
+    p = next(p for p in f.erg.pmi if p.typ == "Flatness")
+    f.ansicht.setze_auswahl([f.erg.modell.flaechen[i] for i in p.flaechen])
+    assert f.ansicht.zone_formen and set(f.ansicht.zone_rollen) == {"zone"}
+    f.ansicht.setze_auswahl([])
     f.aktionen["toleranzzone"].setChecked(False)
+    # alle Zonen des Modells, mit Allgemeintoleranzen (Dialog ohne Bildschirm: Wert direkt setzen)
+    from PySide6 import QtWidgets
+    from programm.kern.toleranzzone import Allgemein
+    from programm.ui.allgemein_ui import AllgemeinDialog
+    d = AllgemeinDialog(None, Allgemein("m", "K"))
+    assert d.wert() == Allgemein("m", "K")
+    f.aktionen["toleranzzonen_alle"].setChecked(True)
+    f._zone_aktualisieren([])
+    anzahl = len(f.ansicht.zone_formen)
+    assert anzahl > 10 and "zone" in f.ansicht.zone_rollen and "allgemein" not in f.ansicht.zone_rollen
+    f._allgemein = Allgemein("m", "K")
+    f._zone_aktualisieren([])
+    assert "allgemein" in f.ansicht.zone_rollen and len(f.ansicht.zone_formen) > anzahl
+    assert "ISO 2768-mK" in f.statusBar().currentMessage()
+    f.waehle_allgemeintoleranzen()  # Dialog abgebrochen: Auswahl bleibt
+    assert f._allgemein == Allgemein("m", "K")
+    f.aktionen["toleranzzonen_alle"].setChecked(False)
+    f._zone_aktualisieren([])
+    assert f.ansicht.zone_formen == [] and isinstance(d, QtWidgets.QDialog)
 
 
 def test_toleranzkette_fenster(fenster_ctc01, tmp_path):

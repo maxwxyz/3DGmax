@@ -94,6 +94,7 @@ class AnsichtBasis(QtWidgets.QWidget):
         self.box = None  # Schnittbox ((x0, y0, z0), (x1, y1, z1)) oder None
         self.kommentar_marken: list = []
         self.zone_formen: list = []
+        self.zone_rollen: list[str] = []
         self.letzter_zoom = None
         self.letzte_ausrichtung = None
         self.auswahl3d: list = []  # gewaehlte Flaechen/Kanten (TopoDS)
@@ -172,9 +173,10 @@ class AnsichtBasis(QtWidgets.QWidget):
             self.szene.grafik.update(neue)
             self.szene.pmi_text.update({p.step_id: p.wert_text() for p in pmi if p.step_id})
 
-    def zeige_zone(self, formen: list):
-        """Toleranzzone (Formen) halbdurchsichtig zeigen; [] blendet aus."""
+    def zeige_zone(self, formen: list, rollen: list | None = None):
+        """Toleranzzonen (Formen) halbdurchsichtig zeigen, Farbe je Rolle (kern.toleranzzone); [] blendet aus."""
         self.zone_formen = list(formen)
+        self.zone_rollen = list(rollen or ["zone"] * len(self.zone_formen))
 
     def setze_explosion(self, anteil: float):
         """Explosionsansicht: Teile vom Mittelpunkt weg verschieben (0 = aus, 1 = weit)."""
@@ -1125,7 +1127,8 @@ class OcctAnsicht(AnsichtBasis):
                 ctx.Erase(ais, False)
             else:
                 ctx.Display(ais, False)
-                durchsichtig = nr in self.transparent or self.material is not None  # Material davor sichtbar
+                # Material davor bzw. Toleranzzonen im Bauteil (Bohrungen) sichtbar
+                durchsichtig = nr in self.transparent or self.material is not None or bool(self.zone_formen)
                 ctx.SetTransparency(ais, 0.7 if durchsichtig else 0.0, False)
         self._aktiviere_auswahl()
         for ais in self._hilfe:
@@ -1323,8 +1326,11 @@ class OcctAnsicht(AnsichtBasis):
             self._kommentar_ais.append(lab)
         self._neu_zeichnen()
 
-    def zeige_zone(self, formen):
-        super().zeige_zone(formen)
+    ZONEN_FARBE = {"zone": ((0.10, 0.70, 0.45), 0.45), "bonus": ((0.95, 0.62, 0.15), 0.6),
+                   "huelle": ((0.25, 0.55, 0.95), 0.75), "allgemein": ((0.60, 0.45, 0.85), 0.6)}
+
+    def zeige_zone(self, formen, rollen=None):
+        super().zeige_zone(formen, rollen)
         if not self._bereit:
             return
         from OCC.Core.AIS import AIS_Shape
@@ -1332,15 +1338,17 @@ class OcctAnsicht(AnsichtBasis):
         for a in getattr(self, "_zone_ais", []):
             ctx.Remove(a, False)
         self._zone_ais = []
-        for f in self.zone_formen:
+        for f, rolle in zip(self.zone_formen, self.zone_rollen):
+            farbe, durchsicht = self.ZONEN_FARBE.get(rolle, self.ZONEN_FARBE["zone"])
             ais = AIS_Shape(f)
-            ais.SetColor(_farbe((0.10, 0.70, 0.45)))
+            ais.SetColor(_farbe(farbe))
             if self.vergleich_trsf is not None:
                 ais.SetLocalTransformation(self.vergleich_trsf)
             ctx.Display(ais, 1, -1, False)
-            ctx.SetTransparency(ais, 0.45, False)
+            ctx.SetTransparency(ais, durchsicht, False)
             ctx.Deactivate(ais)
             self._zone_ais.append(ais)
+        self._wende_sichtbarkeit_an()  # Bauteile durchscheinend, solange Zonen gezeigt werden
         self._neu_zeichnen()
 
     def schnittbox(self, box):

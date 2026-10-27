@@ -21,7 +21,9 @@ PMI text size and generated PMI placement after the Xvfb check (`a259428`); fix:
 raised a TypeError in the 3D view (`1942fbd`); graphical-only PMI evaluated in the table (§8.18, `6108e44`,
 kern/pmi_ableiten.py, marked "≈ derived"); PRC model edges from the tessellation wire indices (commit "PRC: model
 edges from the tessellation wire indices"). PLAN §8.17 records the STEP AP242 XML research (structure/PDM model with
-external geometry, no free samples – deferred).
+external geometry, no free samples – deferred). Then: per-instance status colors in comparison, tolerance zones
+stage 2 (§8.5: patterns, Ⓜ/Ⓛ bonus, surface space, Ⓟ, UZ, size envelopes, general tolerances ISO 2768/22081,
+scope selection/faces/all), plans §8.20 (3D tolerance analysis) and §8.21 (clash/band/intersection, DOF).
 
 **Visual check in the cloud:** Xvfb + Mesa are available (`xvfb-run -a -s "-screen 0 1600x1000x24" ...`, then
 `View.Dump`), so real 3D renders were checked for PRC (model, markups, edges), QIF graphics, generated PMI, section
@@ -31,6 +33,8 @@ planes and the view cube, and `DG_BILDSCHIRM=1 pytest tests/test_bildschirm.py` 
 - Font and glyph appearance of AIS_TextLabel texts (Mesa uses other fonts), MSAA and line widths on a real GPU.
 - Capping with chained section planes on thin parts.
 - Contrast of the 1 px model edges on PRC files with grey face colors.
+- Tolerance zones stage 2: colors/transparency of zone, bonus, surface space and general tolerances; "all zones" on
+  large models (FTC-10: many profile zones overlap) – maybe needs filtering by characteristic.
 - Windows app start (user reported that nothing happens after SmartScreen): the new build writes
   `%LOCALAPPDATA%\3DGmax\start_fehler.log` (and `start_fehler.log.absturz` for native crashes); ask for the log.
   Starting the exe from inside the ZIP or a long first start (Defender scanning the DLLs) are likely causes.
@@ -75,8 +79,8 @@ graphics only, 8.19 QIF graphics, 8.20 3D tolerance analysis,
 
 ## Next (in this order)
 1. Visual check of the cloud work on the Mac (see return handoff above).
-2. Tolerance zones stage 2 (PLAN §8.5, requested next): zones for all geometric tolerances incl. UZ, Ⓜ/Ⓛ, Ⓟ,
-   datum-oriented; scope selected PMI / selected faces / all; general tolerances ISO 2768 / ISO 22081 as option.
+2. Tolerance zones: check stage 2 on the real screen; then zones placed by the datum system (PLAN §8.5 open
+   points) and a sample file with an unequal zone (UZ) to verify the displacement interpretation.
 3. Start-up time: measure on the real machines first (Python part is ~0.9 s on Linux; 3D init, Defender/Gatekeeper
    and the PyInstaller folder unknown), then lazy imports (scipy) and an early splash.
 4. 3D tolerance analysis with assemblies, materials, temperature and wiggle (PLAN §8.20, large).

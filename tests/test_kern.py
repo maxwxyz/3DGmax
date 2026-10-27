@@ -357,8 +357,6 @@ def test_grafische_pmi_ebene_aus_ansicht():
 
 
 def test_toleranzzonen(ctc01):
-    from OCC.Core.BRepBuilderAPI import BRepBuilderAPI_MakeFace
-    from OCC.Core.gp import gp_Pln, gp_Pnt, gp_Dir
     from programm.kern import toleranzzone as tz
     from programm.kern.pmi import TOLERANZ, Pmi
     from programm.kern.pmi_lesen import lies_pmi
@@ -367,13 +365,86 @@ def test_toleranzzonen(ctc01):
     z = tz.zone(eben, ctc01, 2.0)
     assert z.art == "flaechen" and len(z.formen) == 2 * len(eben.flaechen) and z.faktor == 10.0 and z.breite == 0.2
     assert tz.zone(eben, ctc01).faktor == 1.0
-    # Durchmesserzone an einer Bohrung: Zylinder
-    loch = next(p for p in pmi if p.typ == "Size_Diameter" and p.flaechen)
+    # Durchmesserzone an einer Bohrung: Zonenzylinder und die beiden Huellen der Flaeche (Mass + Lage)
+    loch = next(p for p in pmi if p.typ == "Size_Diameter" and p.flaechen and p.grenzen()[0] is not None)
+    hoechst, mindest = loch.grenzen()
     pos = Pmi(TOLERANZ, "Position", wert=0.1, modifikatoren=["Diameter"], flaechen=set(loch.flaechen))
-    z = tz.zone(pos, ctc01)
-    assert z.art == "zylinder" and len(z.formen) == 1
-    assert tz.zone(Pmi("mass", "Size_Diameter", wert=0.1, flaechen={1}), ctc01) is None
-    assert BRepBuilderAPI_MakeFace(gp_Pln(gp_Pnt(0, 0, 0), gp_Dir(0, 0, 1))).IsDone()
+    z = tz.zone(pos, ctc01, alle_pmi=pmi)
+    assert z.art == "zylinder" and z.rollen.count(tz.ZONE) >= 1 and z.rollen.count(tz.HUELLE) >= 2
+    assert f"⌀{mindest - 0.1:.4g}" in z.hinweise[-1] and f"⌀{hoechst + 0.1:.4g}" in z.hinweise[-1]
+    # Masstoleranz: Huellen bei Hoechst- und Mindestmass
+    z = tz.zone(loch, ctc01)
+    assert z.art == "mass" and len(z.formen) == 2 * len(loch.flaechen)
+    assert tz.zone(Pmi("mass", "Location_LinearDistance", nennwert=5, oben=0.1, unten=-0.1, flaechen={1}),
+                   ctc01) is None
+
+
+def test_toleranzzonen_unsymmetrisch(ctc01):
+    """UZ: ISO verschiebt die Zonenmitte, ASME (U) gibt den Anteil ausserhalb des Materials an."""
+    from OCC.Core.BRepExtrema import BRepExtrema_DistShapeShape
+    from programm.kern import toleranzzone as tz
+    from programm.kern.pmi import TOLERANZ, Pmi
+    eben = next(i for i, f in enumerate(ctc01.flaechen) if tz._achse([f]) is None)
+    f = ctc01.flaechen[eben]
+    for norm, erwartet in (("iso", (0.2, 0.0)), ("asme", (0.1, 0.1))):
+        p = Pmi(TOLERANZ, "ProfileOfSurface", wert=0.2, modifikatoren=["UZ 0.1"], flaechen={eben}, norm=norm)
+        assert tz.unsymmetrisch(p) == 0.1
+        aussen, innen = tz._grenzen_aussen_innen(p, 0.2)
+        assert (round(aussen, 6), round(-innen, 6)) == erwartet
+        z = tz.zone(p, ctc01)
+        assert len(z.formen) == 2 and z.hinweise
+        abstaende = sorted(round(BRepExtrema_DistShapeShape(f, x).Value(), 6) for x in z.formen)
+        assert abstaende == sorted(erwartet)
+
+
+def test_toleranzzonen_material_projiziert_muster(ftc10, ftc07):
+    from programm.kern import toleranzzone as tz
+    from programm.kern.pmi_lesen import lies_pmi
+    pmi = lies_pmi(ftc10)
+    # Lochmuster mit M: je Bohrung Zone, Bonuszone und zwei Huellen; Huelle innen = virtuelle Grenze (MMC - t)
+    m = next(p for p in pmi if p.material == "M" and p.wert and len(p.flaechen) > 2)
+    z = tz.zone(m, ftc10, alle_pmi=pmi)
+    n = len(tz._achsen([ftc10.flaechen[i] for i in m.flaechen]))
+    assert n > 1 and z.rollen.count(tz.ZONE) == n and z.rollen.count(tz.BONUS) == n and z.hinweise[0]
+    # Nulltoleranz mit M/L: die Zone besteht nur aus dem Bonus
+    null = next(p for p in pmi if p.material and p.wert == 0 and p.flaechen)
+    z = tz.zone(null, ftc10, alle_pmi=pmi)
+    assert tz.ZONE not in z.rollen and tz.BONUS in z.rollen
+    assert len(tz.zonen([null], ftc10, 1.0, pmi)) == 1
+    # projizierte Zone liegt ausserhalb des Elements (ausserhalb des Materials)
+    pmi7 = lies_pmi(ftc07)
+    proj = next(p for p in pmi7 if p.zone == "Projected" and p.flaechen)
+    z = tz.zone(proj, ftc07, alle_pmi=pmi7)
+    from OCC.Core.GProp import GProp_GProps
+    from OCC.Core.BRepGProp import brepgprop
+    g = GProp_GProps()
+    brepgprop.VolumeProperties(z.formen[0], g)
+    mitte = g.CentreOfMass()
+    assert not tz._im_material(ftc07, (mitte.X(), mitte.Y(), mitte.Z()))
+    # alle Zonen gemeinsam: eine Ueberhoehung
+    alle = tz.zonen(pmi, ftc10, 1.0, pmi)
+    assert len(alle) > 30 and len({round(z.faktor, 6) for _, z in alle}) == 1
+
+
+def test_allgemeintoleranzen(ctc01):
+    from programm.kern import toleranzzone as tz
+    from programm.kern.pmi import Pmi
+    from programm.kern.pmi_lesen import lies_pmi
+    assert tz.iso2768_laenge("m", 25) == 0.2 and tz.iso2768_laenge("f", 150) == 0.2
+    assert tz.iso2768_laenge("v", 2) is None and tz.iso2768_ebenheit("K", 50) == 0.2
+    a = tz.allgemein_aus_hinweisen([Pmi("hinweis", nur_grafik_text="TOLERANCES ISO 2768-mK")])
+    assert (a.laenge, a.form, a.profil) == ("m", "K", None) and a.text() == "ISO 2768-mK"
+    a = tz.allgemein_aus_hinweisen([Pmi("hinweis", nur_grafik_text="ISO 22081 - 0.5 A B C")])
+    assert a.profil == 0.5
+    assert tz.allgemein_aus_hinweisen([Pmi("hinweis", nur_grafik_text="DEBURR")]) is None
+    pmi = lies_pmi(ctc01)
+    z = tz.allgemein_zone(ctc01, pmi, tz.Allgemein("m", "K"))
+    belegt = {i for p in pmi if p.art in ("mass", "toleranz") for i in p.flaechen}
+    assert z.art == "allgemein" and set(z.rollen) == {tz.ALLGEMEIN}
+    assert 0 < len(z.formen) <= 2 * (len(ctc01.flaechen) - len(belegt))
+    z = tz.allgemein_zone(ctc01, pmi, tz.Allgemein(profil=0.5))
+    frei = len(ctc01.flaechen) - len(belegt)
+    assert z.breite == 0.5 and 0.9 * 2 * frei <= len(z.formen) <= 2 * frei  # Versatz an Kegelspitzen entfaellt
 
 
 def test_toleranzkette():

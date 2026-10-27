@@ -53,8 +53,9 @@
 | Graphical PMI with stroked text (PRC, STEP tessellated): values via OCR | 💡 |
 | Semantic-only PMI: optional generated display in the view (see generated PMI stage 2) | ✅ |
 | Show tolerance zones as envelope surfaces (offsets ±t/2, ⌀ zone cylinder, exaggeration) | ✅ |
-| Tolerance zones: datum-oriented zones, unequal/offset zones (UZ), projected zones, material conditions | ⬜ |
-| Tolerance zones for the selected faces or all PMI at once; general tolerances (ISO 2768, ISO 22081) as option | ⬜ |
+| Tolerance zones stage 2: unequal zones (UZ/Ⓤ), projected zones, Ⓜ/Ⓛ bonus zone, space of the surface (size + location), size envelopes, patterns per feature | ✅ |
+| Tolerance zones for the selected PMI, the selected faces or all PMI at once; general tolerances (ISO 2768-1/-2, ISO 22081) | ✅ |
+| Tolerance zones placed by the datum reference frame (orientation zones floating, datum shift with Ⓜ) | ⬜ |
 | Tolerance stack-up 1D (dimension chain from PMI, worst case, RSS, Monte Carlo, CSV) | ✅ |
 | Tolerance stack-up 3D (geometric tolerances, chain from the model, sensitivity) – PLAN §8.20 | ⬜ |
 | Assemblies built in the project (mates on datum features), materials and thermal expansion in chains | ⬜ |

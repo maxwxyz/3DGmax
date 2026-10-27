@@ -157,6 +157,8 @@ class Hauptfenster(QtWidgets.QMainWindow):
         self.schnell.setToolTip(tr("Schnellmessung der Auswahl – Rechtsklick: Angaben wählen"))
         self.statusBar().addPermanentWidget(self.schnell)
         self._schnell_formen, self._schnell_pmi = [], []
+        self._allgemein = None  # gewaehlte Allgemeintoleranzen (kern.toleranzzone.Allgemein)
+        self._zonen_alle = (None, None)  # (Schluessel, Ergebnis) der Darstellung aller Zonen
 
         self._baue_aktionen()
         self._baue_menues()
@@ -348,7 +350,13 @@ class Hauptfenster(QtWidgets.QMainWindow):
         A("analyse", tr("Analyse …"), self.zeige_analyse_leiste,
           tipp=tr("Entformungsschräge, Krümmungsradius oder Wandstärke als Farbkarte"))
         A("toleranzzone", tr("Toleranzzone zeigen"), lambda: self._zone_aktualisieren(self.pmi.gewaehlte()),
-          pruefbar=True, tipp=tr("Zone der gewählten Toleranz als Hüllgeometrie (schmale Zonen überhöht)"))
+          pruefbar=True, tipp=tr("Zonen der gewählten Toleranzen (oder der PMI an den gewählten Flächen) als "
+                                 "Hüllgeometrie: grün Zone, orange Bonus bei Ⓜ/Ⓛ, blau Raum der Fläche "
+                                 "(schmale Zonen überhöht)"))
+        A("toleranzzonen_alle", tr("Alle Toleranzzonen zeigen"), lambda: self._zone_aktualisieren(self.pmi.gewaehlte()),
+          pruefbar=True, tipp=tr("Zonen aller Toleranzen und Maße des Modells, mit Allgemeintoleranzen (violett)"))
+        A("allgemeintoleranzen", tr("Allgemeintoleranzen …"), self.waehle_allgemeintoleranzen,
+          tipp=tr("ISO 2768 / ISO 22081 für Flächen ohne eigene Angabe (Zonendarstellung)"))
         A("ballone", tr("Ballonnummern zeigen"), self.zeige_ballone_aktuell, "B", pruefbar=True,
           tipp=tr("Nummern der Merkmale (Maße, Form- und Lagetoleranzen) im Modell, wie in der Merkmalsliste"))
         A("merkmale_csv", tr("Merkmalsliste (CSV) …"), lambda: self.exportiere_merkmale(),
@@ -519,6 +527,8 @@ class Hauptfenster(QtWidgets.QMainWindow):
         m.addAction(a["grafik_erzeugt"])
         m.addAction(a["ballone"])
         m.addAction(a["toleranzzone"])
+        m.addAction(a["toleranzzonen_alle"])
+        m.addAction(a["allgemeintoleranzen"])
         m.addAction(a["hilfsgeometrie"])
         m.addSeparator()
         ms = m.addMenu(tr("Schnitt"))
@@ -634,6 +644,7 @@ class Hauptfenster(QtWidgets.QMainWindow):
         self.ansicht.pmi_gewaehlt.connect(self._grafik_pmi_gewaehlt)
         self.ansicht.meldung.connect(lambda t: self.statusBar().showMessage(t, 5000))
         self.ansicht.auswahl_geaendert.connect(self._schnell_auswahl)
+        self.ansicht.auswahl_geaendert.connect(lambda _f: self._zone_aktualisieren(self.pmi.gewaehlte()))
         self.baum.sichtbar_geaendert.connect(self.ansicht.knoten_sichtbar)
         self.baum.isolieren.connect(self.ansicht.isoliere)
         self.baum.transparent.connect(self.ansicht.knoten_transparent)
@@ -750,6 +761,7 @@ class Hauptfenster(QtWidgets.QMainWindow):
             self.ansicht.schnittbox(None)
         if self.erg is not None and erg.pfad != self.erg.pfad:
             self.kommentare.setze([])  # Kommentare gehoeren zum vorigen Modell
+            self._allgemein = None  # Allgemeintoleranzen gehoeren zum vorigen Modell
         if vergleich is None and self.ansicht.abweichung is not None:
             self.ansicht.zeige_analyse(None)  # Analyse gehoert zum alten Modell
         self.erg = erg
@@ -867,10 +879,10 @@ class Hauptfenster(QtWidgets.QMainWindow):
         self.ansicht.hebe_flaechen(flaechen)
         self.ansicht.hebe_pmi({p.step_id for p in liste if p.step_id})
         self.ansicht.zeige_bezugssystem(self._bezugssystem(liste))
-        self._zone_aktualisieren(liste)
         if len(liste) == 1:
             p = liste[0]
             self.statusBar().showMessage(f"{p.nummer}: {p.wert_text()}  ({tr('{} Flächen').format(len(p.flaechen))})")
+        self._zone_aktualisieren(liste)  # danach: die Erklaerung der Zone ersetzt die Auswahlmeldung
 
     def _flaeche_gewaehlt(self, idx):
         if idx < 0 or self.erg is None:
@@ -916,27 +928,70 @@ class Hauptfenster(QtWidgets.QMainWindow):
         self.statusBar().showMessage(tr("Norm: {}").format(self.norm_text), 6000)
 
     def _zone_aktualisieren(self, liste):
-        """Toleranzzone der einzeln gewaehlten Toleranz zeigen (wenn eingeschaltet)."""
+        """Toleranzzonen zeigen: alle (Schalter), sonst die gewaehlten PMI oder die PMI an gewaehlten Flaechen."""
         from ..kern import toleranzzone
-        if not self.aktionen["toleranzzone"].isChecked() or len(liste) != 1 or self.erg is None:
+        alle = self.aktionen["toleranzzonen_alle"].isChecked()
+        if self.erg is None or not (alle or self.aktionen["toleranzzone"].isChecked()):
             self.ansicht.zeige_zone([])
             return
+        if alle:
+            liste = list(self.erg.pmi)
+        elif not liste and self.ansicht.auswahl3d:
+            idx = {i for f in self.ansicht.auswahl3d for i in [self.erg.modell.flaechen_index(f)] if i is not None}
+            liste = [p for p in self.erg.pmi if p.flaechen & idx]
         from OCC.Core.Bnd import Bnd_Box
         from OCC.Core.BRepBndLib import brepbndlib
         box = Bnd_Box()
         brepbndlib.Add(self.erg.modell.form, box)
         x0, y0, z0, x1, y1, z1 = box.Get()
         mindest = max(x1 - x0, y1 - y0, z1 - z0) / 250  # schmalere Zonen werden ueberhoeht
-        z = toleranzzone.zone(liste[0], self.erg.modell, mindest)
-        if z is None:
-            self.ansicht.zeige_zone([])
-            self.statusBar().showMessage(tr("Für diese PMI gibt es keine Zonendarstellung"), 5000)
+        schluessel = (id(self.erg), repr(self._allgemein), tuple(p.wert_text() for p in self.erg.pmi)) if alle \
+            else None
+        if schluessel is not None and self._zonen_alle[0] == schluessel:
+            ergebnis, zonen = self._zonen_alle[1]  # alle Zonen nicht bei jeder Auswahl neu berechnen
+        else:
+            ergebnis = toleranzzone.zonen(liste, self.erg.modell, mindest, self.erg.pmi)
+            zonen = [z for _p, z in ergebnis]
+            faktor = zonen[0].faktor if zonen else None
+            if alle and self._allgemein is not None:
+                z = toleranzzone.allgemein_zone(self.erg.modell, self.erg.pmi, self._allgemein, mindest, faktor)
+                if z is not None:
+                    zonen.append(z)
+            if schluessel is not None:
+                self._zonen_alle = (schluessel, (ergebnis, zonen))
+        formen = [f for z in zonen for f in z.formen]
+        rollen = [r for z in zonen for r in z.rollen]
+        self.ansicht.zeige_zone(formen, rollen)
+        if not zonen:
+            if liste:
+                self.statusBar().showMessage(tr("Für diese PMI gibt es keine Zonendarstellung"), 5000)
             return
-        self.ansicht.zeige_zone(z.formen)
-        text = tr("Toleranzzone {:.4g} mm").format(z.breite)
-        if z.faktor > 1.01:
-            text += " " + tr("(Darstellung {:.0f}-fach überhöht)").format(z.faktor)
-        self.statusBar().showMessage(text, 8000)
+        if len(ergebnis) == 1 and len(zonen) == 1:
+            z = zonen[0]
+            text = tr("Toleranzzone {:.4g} mm").format(z.breite)
+        else:
+            text = tr("{} Toleranzzonen").format(len(ergebnis))
+        # Erklaerungen: die der einzelnen Zone, bei vielen nur die der Allgemeintoleranzen
+        hinweise = [h for z in zonen if len(ergebnis) == 1 or z.art == "allgemein" for h in z.hinweise]
+        if hinweise:
+            text += " · " + "; ".join(hinweise)
+        if max(z.faktor for z in zonen) > 1.01:
+            text += " " + tr("(Darstellung {:.0f}-fach überhöht)").format(max(z.faktor for z in zonen))
+        self.statusBar().showMessage(text, 12000)
+
+    def waehle_allgemeintoleranzen(self):
+        from ..kern import toleranzzone
+        from .allgemein_ui import AllgemeinDialog
+        if self.erg is None:
+            return
+        d = AllgemeinDialog(self._allgemein, toleranzzone.allgemein_aus_hinweisen(self.erg.pmi),
+                            self)
+        if d.exec() != QtWidgets.QDialog.DialogCode.Accepted:
+            return
+        self._allgemein = d.wert()
+        if self._allgemein is not None:
+            self.aktionen["toleranzzonen_alle"].setChecked(True)
+        self._zone_aktualisieren(self.pmi.gewaehlte())
 
     def _bezugssystem(self, liste) -> list:
         """Bezugselemente einer einzeln gewaehlten Toleranz: [(Name, Stelle 1..3, Flaechen)]."""

@@ -177,6 +177,15 @@ Throughout: tests (core, offscreen UI, stress test, on-screen test), `--selbstte
     specification (profile tolerance to the datum system) – user picks the class (or it is read from the title
     block note), applied to faces without an explicit tolerance; shown in a distinct color and marked "general".
   - Reused by §8.20 (each zone bounds the small displacement torsor of its feature).
+  - **Done (2026-10-27):** `kern/toleranzzone.py` – axes grouped per feature (patterns), zone cylinder, bonus zone
+    with Ⓜ/Ⓛ (also zero tolerance at MMC/LMC), envelopes of the surface from size limits plus tolerance (virtual
+    condition), projected zone placed on the open end (solid classifier), unequal zones, size envelopes, general
+    tolerances ISO 2768-1/-2 and ISO 22081 (`Allgemein`, detected from notes), common exaggeration for "all"
+    (median width). UI: View › "Show tolerance zone(s)", "Show all tolerance zones", "General tolerances …"; the
+    part turns translucent while zones are shown. Interpretation of the STEP `unequally_disposed_geometric_tolerance`
+    displacement is taken per standard (ISO: shift of the zone centre; ASME Ⓤ: amount outside the material) –
+    **not verified against a sample file** (no test file with UZ). Open: zones placed by the datum system
+    (orientation zones floating in location, datum shift), line profile per section, ACS/ALS, CZ/SZ.
 
 ### 8.6 Annotating and commenting (done: comments on faces/PMI with markers, status, project, CSV/PDF)
 - Comments/change proposals on faces, edges, PMI (list and model), on changed PMI and geometry in a comparison; stored
