@@ -28,6 +28,11 @@ Done in this local session (commit):
 - Assembly: move along open DOF (numeric) – `26e9369`; ISO 286 j/J, a/A, fit pairs – `5a2a691`; plausibility: closed
   dimension chains – `3c66888`; explosion along X/Y/Z – `dfd8bb8`; clashes: depth, curves, PDF, project – `643aa2e`;
   several windows with coupled cameras – `1c1068a`; scan check aligned by hand from point pairs ("By hand …") – `9b015a9`.
+- Plausibility: basic dimensions with tolerance, location toleranced twice, pattern dimension on different sizes, datum
+  target counts – `391bb1f`; clashes: free range of motion along open DOF up to the first collision – `277b113`.
+- Stack-up: distribution from measured values (paste/CSV) – `3ce67f1`; several saved what-if scenarios with comparison
+  (stored in `.3dgkette`, not in the project) – `76e8b6a`; correlated links (groups with ρ) – `c95fdb3`; folded normal
+  and Rayleigh distributions – `6ea8727`.
 
 **Deferred questions for the user** (do not block on them):
 - UI/UX stage 2 (workspaces) changes the layout a lot – implement only after you have read `docs/UI_UX_Plan.md`?
