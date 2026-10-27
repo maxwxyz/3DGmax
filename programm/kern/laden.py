@@ -149,7 +149,8 @@ ENDUNGEN_IGES = (".igs", ".iges")
 ENDUNGEN_NETZ = (".stl", ".obj", ".gltf", ".glb", ".3mf", ".ply")
 ENDUNGEN_QIF = (".qif",)
 ENDUNGEN_PRC = (".prc", ".pdf")
-ENDUNGEN = ENDUNGEN_STEP + ENDUNGEN_IGES + ENDUNGEN_NETZ + ENDUNGEN_QIF + ENDUNGEN_PRC
+ENDUNGEN_STEPZ = (".stpz", ".stepz", ".stp.gz", ".step.gz")
+ENDUNGEN = ENDUNGEN_STEP + ENDUNGEN_IGES + ENDUNGEN_NETZ + ENDUNGEN_QIF + ENDUNGEN_PRC + ENDUNGEN_STEPZ
 
 
 def _modell_aus_doc(pfad: str, doc, t0: float) -> StepModell:
@@ -333,6 +334,35 @@ def _lade_qif(pfad: str, doc, t0: float) -> StepModell:
     return modell
 
 
+def _entpacke_stepz(pfad: str) -> str:
+    """STEPZ (ZIP mit einer Part-21-Datei, oder gzip) in eine temporaere STEP-Datei entpacken; Pfad dorthin."""
+    import gzip
+    import os
+    import shutil
+    import tempfile
+    import zipfile
+    ordner = tempfile.mkdtemp(prefix="3dgmax_stepz_")
+    basis = os.path.basename(pfad)
+    for e in ENDUNGEN_STEPZ:
+        if basis.lower().endswith(e):
+            basis = basis[:-len(e)]
+    ziel = os.path.join(ordner, basis + ".stp")
+    if zipfile.is_zipfile(pfad):
+        with zipfile.ZipFile(pfad) as z:
+            namen = [n for n in z.namelist() if n.lower().endswith(ENDUNGEN_STEP) and not n.endswith("/")]
+            if not namen:
+                raise LadeFehler(f"Keine STEP-Datei im Archiv: {pfad}")
+            with z.open(namen[0]) as quelle, open(ziel, "wb") as f:
+                shutil.copyfileobj(quelle, f)
+    else:
+        try:
+            with gzip.open(pfad, "rb") as quelle, open(ziel, "wb") as f:
+                shutil.copyfileobj(quelle, f)
+        except OSError as e:
+            raise LadeFehler(f"STEPZ nicht lesbar: {pfad}") from e
+    return ziel
+
+
 def _lade_prc(pfad: str, doc, t0: float) -> StepModell:
     """PRC oder 3D-PDF: Flaechennetze je Tessellationsflaeche; Markups und Ansichten liest prc.py."""
     from OCC.Core.TCollection import TCollection_ExtendedString
@@ -374,6 +404,15 @@ def _lade_prc(pfad: str, doc, t0: float) -> StepModell:
 def lade_modell(pfad: str) -> StepModell:
     """Modell nach Endung laden: STEP (mit PMI), IGES, STL, OBJ, glTF/GLB, 3MF (Netze, ohne PMI). Laengen in mm."""
     import os
+    if pfad.lower().endswith(ENDUNGEN_STEPZ):
+        entpackt = _entpacke_stepz(pfad)
+        try:
+            modell = lade_step(entpackt)
+        finally:
+            import shutil
+            shutil.rmtree(os.path.dirname(entpackt), ignore_errors=True)
+        modell.pfad = pfad
+        return modell
     endung = os.path.splitext(pfad)[1].lower()
     if endung in ENDUNGEN_STEP or endung not in ENDUNGEN:
         return lade_step(pfad)

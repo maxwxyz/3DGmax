@@ -400,3 +400,20 @@ def test_pruefregeln_mit_geometrie(ctc01):
     assert any("Bezug A ist eine Ebene" in t for t in texte) and any("ISO 8015" in t for t in texte)
     liste[4].norm = "asme"
     assert not any("ISO 8015" in b.text for b in pb.pruefe(liste, None, ctc01))
+
+
+def test_stepz_zip_und_gzip(tmp_path):
+    """STEPZ: ZIP mit einer Part-21-Datei oder gzip; geladen wie STEP, Pfad bleibt die Originaldatei."""
+    import gzip
+    import zipfile
+    from programm.kern.laden import lade_modell
+    quelle = pfad("nist_ftc_07_asme1_ap242-e2.stp")
+    daten = open(quelle, "rb").read()
+    z = tmp_path / "teil.stpz"
+    with zipfile.ZipFile(z, "w", zipfile.ZIP_DEFLATED) as a:
+        a.writestr("teil.stp", daten)
+    g = tmp_path / "teil.stp.gz"
+    g.write_bytes(gzip.compress(daten))
+    for p in (z, g):
+        m = lade_modell(str(p))
+        assert m.pfad == str(p) and len(m.flaechen) > 100 and m.datei is not None

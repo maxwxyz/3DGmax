@@ -68,7 +68,7 @@ numpy, scipy (KD tree, ICP), pypdf (3D streams from PDF, BSD), lxml (QIF), pytes
 | **JT** – commercial SDK | Siemens JT Open Toolkit, Open Cascade JT SDK, CAD Exchanger, HOOPS Exchange | yes | yes | medium | quote only |
 | **3D PDF U3D** | extract stream with pypdf, read U3D (ECMA-363) | mesh | views only | medium | 0 |
 | **3D PDF PRC** | own reader (kern/prc.py) per the public ISO working draft N570, see §8.15 **[done: tessellation, markups, views]** | tessellation (B-rep open) | graphical markups (semantic open) | large | 0 |
-| **STEPZ** | ZIP/gzip around a Part 21 file, unpack and load | as STEP | as STEP | small | 0 |
+| **STEPZ** | ZIP/gzip around a Part 21 file, unpack and load **[done]** | as STEP | as STEP | small | 0 |
 | **STEP-XML** (ISO 10303-28) | own reader mapping the XML entity graph onto the Part 21 model (p21.py), then the STEP path | as STEP | as STEP | medium–large | 0 |
 
 ## 4. Architecture
@@ -104,7 +104,7 @@ tests/  packaging/  werkzeuge/  docs/
 | **3 Measure** | distance/angle/radius/wall thickness/coordinates with snapping, list, CSV | values match NIST dimensions | ✅ |
 | **4 Compare** | alignment, face status, PMI diff, change list, review walk-through, report | modified NIST variants: all changes found, no false alarms | ✅ (extensions see §8.1) |
 | **5 Output** | PDF per saved view, comparison report with images, PMI change table PDF/CSV, project container, folder comparison, views as drawings (HLR) | report understandable for a supplier | ⬜ next |
-| **6 Formats** | QIF, IGES/STL/OBJ/glTF/3MF, 3D PDF | one test file per format | 🟡 (QIF, meshes, IGES, 3D PDF/PRC done; STEPZ, STEP-XML open) |
+| **6 Formats** | QIF, IGES/STL/OBJ/glTF/3MF, 3D PDF | one test file per format | 🟡 (QIF, meshes, IGES, 3D PDF/PRC, STEPZ done; STEP-XML open) |
 | **7 JT via TKJT** | build TKJT for OCCT 8, Python binding, load JT; build with/without TKJT (open source only on GitHub) | JT file like its STEP counterpart | ⬜ |
 | later | multiple section planes, clipping box, section views from the model | section looks like in CAD | ⬜ |
 
@@ -283,7 +283,8 @@ print annotations. Today 3DGmax writes generated texts only into the placeholder
    mistaken for the author's presentation.
 
 ### 8.17 More open formats (requested)
-- STEPZ (`.stpz`, `.stepz`, `.stp.gz`): ZIP or gzip around a Part 21 file – unpack to a temporary file, load as STEP.
+- STEPZ (`.stpz`, `.stepz`, `.stp.gz`): ZIP or gzip around a Part 21 file – unpack to a temporary file, load as STEP
+  **[done]**.
 - STEP-XML (ISO 10303-28, `.stpx`/`.stpxz`): XML representation of the same entity graph; plan: map the XML onto
   `p21.P21Datei` so the PMI, view and color readers work unchanged; geometry via OCCT after writing a temporary
   Part 21 file (OCCT has no Part 28 reader) [open: verify which AP242 XML schema variants exist in practice].

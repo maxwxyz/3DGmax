@@ -91,7 +91,8 @@
    "Stückliste mit Sachnummer aus den STEP-Produktdaten (wo vorhanden).",
    "PMI-Prüfung mit Geometrie- und Normregeln: Position einer Achse ohne ⌀-Zone, Ⓜ/Ⓛ bei Ebenheit einer Fläche oder am ebenen Bezug, Lauf ohne Drehachse, Passmaß ohne Ⓔ nach ISO 8015.",
    "Explosionsansicht nach Baugruppenebenen: Unterbaugruppen öffnen sich zuerst als Einheit, danach ihre Teile.",
-   "3D-PDF und PRC öffnen: Modell als Flächennetz mit Farben, grafische PMI (Markups) und gespeicherte Ansichten mit Kamera; Zeichnungen und Ansichtsbilder auch für Netzmodelle (STL, OBJ, PRC) mit verdeckten Kanten."
+   "3D-PDF und PRC öffnen: Modell als Flächennetz mit Farben, grafische PMI (Markups) und gespeicherte Ansichten mit Kamera; Zeichnungen und Ansichtsbilder auch für Netzmodelle (STL, OBJ, PRC) mit verdeckten Kanten.",
+   "STEPZ öffnen (gezipptes oder gzip-komprimiertes STEP: .stpz, .stepz, .stp.gz) mit allen PMI, Ansichten und Farben."
   ],
   "en": [
    "First viewer version: load STEP AP242, assembly tree, CAD-style navigation, standard views.",
@@ -184,7 +185,8 @@
    "Parts list with part number from the STEP product data (where present).",
    "PMI check with geometry and standard rules: axis position without ⌀ zone, Ⓜ/Ⓛ on flatness of a surface or on a planar datum, run-out without axis, fit without Ⓔ under ISO 8015.",
    "Exploded view by assembly levels: sub-assemblies open first as a unit, then their parts.",
-   "Open 3D PDF and PRC: model as a colored mesh, graphical PMI (markups) and saved views with camera; drawings and view thumbnails also for mesh models (STL, OBJ, PRC) with hidden edges."
+   "Open 3D PDF and PRC: model as a colored mesh, graphical PMI (markups) and saved views with camera; drawings and view thumbnails also for mesh models (STL, OBJ, PRC) with hidden edges.",
+   "Open STEPZ (zipped or gzip-compressed STEP: .stpz, .stepz, .stp.gz) with all PMI, views and colors."
   ]
  },
  "releases": [

@@ -112,7 +112,8 @@
 | JT via TKJT (GPL v2+), build with/without TKJT | ⬜ (step 7) |
 | 3D PDF / PRC stage 1–3: structure, schema, tessellation as colored mesh, markups as graphical PMI, saved views with camera (own reader, PLAN §8.15; NIST STC PDFs downloaded in tests) | ✅ |
 | 3D PDF / PRC: highly compressed tessellation, exact B-rep, semantic PMI from markup user data; U3D | ⬜ |
-| STEPZ (zipped STEP), STEP-XML (ISO 10303-28) and other open CAD formats | ⬜ |
+| STEPZ (zipped or gzip STEP) | ✅ |
+| STEP-XML (ISO 10303-28) and other open CAD formats | ⬜ |
 | CATIA V5/V6 CATPart/CATProduct | 💡 (only via licensed SDK or CATIA exports; legal review first) |
 
 ## Operation

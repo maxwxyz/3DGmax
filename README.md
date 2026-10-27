@@ -7,7 +7,7 @@ picture) and compares two revisions of a model in geometry **and** PMI, with a g
 ![3DGmax comparing two revisions](docs/bilder/vergleich_hell.png)
 
 ## Features
-**Formats** – STEP AP242/AP214/AP203 with semantic and graphical PMI and saved views, QIF 3.0 (exact B-rep and
+**Formats** – STEP AP242/AP214/AP203 (also zipped as STEPZ) with semantic and graphical PMI and saved views, QIF 3.0 (exact B-rep and
 semantic PMI), 3D PDF / PRC (mesh, graphical PMI, saved views), IGES, and meshes STL, OBJ, glTF/GLB, 3MF, PLY; ASME Y14.5 or ISO GPS detected from the file (default ISO GPS).
 
 **Viewing** – CATIA-style navigation (classic optional), view cube, view back/forward, perspective, section planes and
