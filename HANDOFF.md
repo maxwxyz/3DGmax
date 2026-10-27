@@ -1,4 +1,9 @@
-# Handoff (2026-10-26)
+# Handoff (2026-10-27)
+
+## Return handoff from the cloud
+_Empty – the cloud session fills this in when it stops (see "Cloud session prompt" below)._
+
+Status before the cloud session: everything on `main` committed and pushed, local macOS build done on 2026-10-27.
 
 Branch: `main` (no other branches). Version 0.1 plus many unreleased entries in `programm/CHANGELOG.json`
 (bump only via `pixi run python packaging/release.py minor --git`, then `git push --follow-tags`).
@@ -103,4 +108,18 @@ Work packages, in this order (each: implement, test, changelog, roadmap, commit,
    QIF test files: download NIST QIF samples from github.com/QualityInformationFramework/qif-community at test time.
 5. Multiple section planes (2–3 planes combined) and section contour export to DXF/SVG (kern/zeichnung.py).
 Not for the cloud: JT/TKJT build (step 7), CATIA formats (licence review), visual UI polish (needs a screen).
+
+Work on `main` (commit and push after every finished package; unfinished work on a `wip/...` branch). When you stop
+(all packages done or usage almost used up), hand back to the local Mac session: rewrite the section
+"Return handoff from the cloud" at the top of HANDOFF.md with: packages done (commit hashes), what is unfinished and
+on which branch, what could not be verified without a screen or without local data (daten/), new findings, and the
+recommended next local steps (always including a visual check on the real screen). Update the plan/roadmap check
+table, then commit and push. Do not bump the version.
 ```
+
+## After the cloud (local Mac)
+1. `git pull`, read "Return handoff from the cloud", run `pixi install` and `pixi run test`.
+2. Visual check on the real screen: view cube, MSAA, explosion levels, everything the cloud marked as unverified
+   (generated PMI, section planes, QIF graphics).
+3. Tests with local data (`daten/`: NIST AP242, D2MI, QIF, STC PDFs with PRC).
+4. Then: step 7 JT via TKJT, local build `packaging/build_mac.sh`.
