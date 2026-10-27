@@ -251,6 +251,7 @@ class ToleranzketteFenster(QtWidgets.QDialog):
         self._ist: list[tk.Glied] | None = None  # Planspiel: Kopie der echten Kette
         self._ist_cp = 1.0
         self.e_ist = None
+        self.szenarien: dict[str, tuple[float, list]] = {}  # gemerkte Planspiele: Name -> (Cp, Glieder)
         self.werkstoffe: dict = {}  # Bauteil -> {"name": Werkstoff, "alpha": 1e-6/K}
         self.teil_von = lambda flaechen: ""  # Bauteil zu Flaechen (setzt das Hauptfenster)
         self.e_temp: list = []  # (Temperatur, Ergebnis) bei Waermeausdehnung
@@ -265,6 +266,7 @@ class ToleranzketteFenster(QtWidgets.QDialog):
         lay.addWidget(hinweis)
         lay.addLayout(self._baue_eingaben())
         self.plan_leiste = self._baue_planleiste()
+        self._szenarien_liste()
         lay.addWidget(self.plan_leiste)
         self.tabelle = QtWidgets.QTableWidget(0, len(tk.SPALTEN))
         self.tabelle.setHorizontalHeaderLabels([tr(s) for s in tk.SPALTEN])
@@ -391,6 +393,18 @@ class ToleranzketteFenster(QtWidgets.QDialog):
         self.verteilen.setToolTip(tr("Nicht feste Toleranzen so setzen, dass das Schlussmaß die Zielbreite erreicht"))
         self.verteilen.clicked.connect(self._verteilen_dialog)
         reihe.addWidget(self.verteilen)
+        self.szenario = QtWidgets.QComboBox()
+        self.szenario.setToolTip(tr("Gemerktes Szenario ins Planspiel laden"))
+        self.szenario.activated.connect(lambda i: self.lade_szenario(self.szenario.itemData(i)))
+        reihe.addWidget(self.szenario)
+        merken = QtWidgets.QPushButton(tr("Merken …"))
+        merken.setToolTip(tr("Planspiel als Szenario unter einem Namen merken (wird mit der Kette gespeichert)"))
+        merken.clicked.connect(lambda: self.merke_szenario())
+        reihe.addWidget(merken)
+        self.vergleichen = QtWidgets.QPushButton(tr("Vergleichen …"))
+        self.vergleichen.setToolTip(tr("Ist und alle gemerkten Szenarien nebeneinander"))
+        self.vergleichen.clicked.connect(lambda: self.zeige_szenarien())
+        reihe.addWidget(self.vergleichen)
         self.uebernehmen = QtWidgets.QPushButton(tr("Übernehmen"))
         self.uebernehmen.setToolTip(tr("Planspiel wird zur Kette"))
         self.verwerfen = QtWidgets.QPushButton(tr("Verwerfen"))
@@ -627,8 +641,9 @@ class ToleranzketteFenster(QtWidgets.QDialog):
 
     def als_datei(self):
         from ..kern import kette_datei
-        return kette_datei.KettenDatei(self.glieder, self.cp.value(), self.anforderung_werte(), self.temperaturen(),
-                                       dict(self.werkstoffe), self.modell_pfad)
+        glieder, cp = (self._ist, self._ist_cp) if self.im_planspiel else (self.glieder, self.cp.value())
+        return kette_datei.KettenDatei(glieder, cp, self.anforderung_werte(), self.temperaturen(),
+                                       dict(self.werkstoffe), self.modell_pfad, szenarien=dict(self.szenarien))
 
     def lade_datei(self, k):
         """Kettendatei uebernehmen (Glieder, Cp, Anforderung, Temperaturen, Werkstoffe)."""
@@ -649,6 +664,8 @@ class ToleranzketteFenster(QtWidgets.QDialog):
             self.t2.setValue(k.temperaturen[1])
         self.waerme.setChecked(bool(k.temperaturen))
         self.glieder = list(k.glieder)
+        self.szenarien = dict(k.szenarien)
+        self._szenarien_liste()
         self._fuelle()
 
     def speichere_kette(self, pfad: str = "") -> str | None:
@@ -669,6 +686,8 @@ class ToleranzketteFenster(QtWidgets.QDialog):
         self._ist = None
         self.plan_leiste.hide()
         self.glieder = []
+        self.szenarien = {}
+        self._szenarien_liste()
         self._fuelle()
 
     def ergaenze(self, glieder: list):
@@ -731,6 +750,85 @@ class ToleranzketteFenster(QtWidgets.QDialog):
         self.e_ist = None
         self.plan_leiste.hide()
         self._fuelle()
+
+    # --- Szenarien ---
+
+    def _szenarien_liste(self):
+        self.szenario.blockSignals(True)
+        self.szenario.clear()
+        self.szenario.addItem(tr("Szenario …"), None)
+        for name in self.szenarien:
+            self.szenario.addItem(name, name)
+        self.szenario.blockSignals(False)
+        self.vergleichen.setEnabled(bool(self.szenarien))
+
+    def merke_szenario(self, name: str = "") -> str | None:
+        """Aktuelles Planspiel unter einem Namen merken (gleicher Name ersetzt)."""
+        if not self.im_planspiel:
+            return None
+        if not name:
+            name, ok = QtWidgets.QInputDialog.getText(self, tr("Szenario merken"), tr("Name"),
+                                                      text=tr("Szenario {}").format(len(self.szenarien) + 1))
+            if not ok or not name.strip():
+                return None
+        self.szenarien[name.strip()] = (self.cp.value(), copy.deepcopy(self.glieder))
+        self._szenarien_liste()
+        self.szenario.setCurrentIndex(self.szenario.findData(name.strip()))
+        return name.strip()
+
+    def lade_szenario(self, name):
+        if name not in self.szenarien:
+            return
+        self.starte_planspiel()
+        cp, glieder = self.szenarien[name]
+        if len(glieder) != len(self._ist):  # Kette inzwischen geaendert: Zeilen passen nicht mehr
+            QtWidgets.QMessageBox.information(self, tr("Szenario"), tr("Die Kette hat inzwischen andere Glieder – "
+                                                                       "das Szenario passt nicht mehr."))
+            return
+        self.glieder = copy.deepcopy(glieder)
+        self.cp.blockSignals(True)
+        self.cp.setValue(cp)
+        self.cp.blockSignals(False)
+        self._fuelle()
+
+    def szenario_zeilen(self) -> tuple[list[str], list[list[str]]]:
+        """Vergleich Ist und gemerkte Szenarien: anwendbares Verfahren, Bereich, Breite, Cpk, ausserhalb."""
+        anforderung = self.anforderung_werte()
+        para = self._methode_parameter()
+        ist = self._ist if self.im_planspiel else self.glieder
+        ist_cp = self._ist_cp if self.im_planspiel else self.cp.value()
+        koepfe = [tr("Szenario"), tr("Verfahren"), tr("Minimum"), tr("Maximum"), tr("Breite"), "Cpk",
+                  tr("außerhalb (Monte Carlo)")]
+        zeilen = []
+        for name, (cp, glieder) in [(tr("Ist"), (ist_cp, ist))] + list(self.szenarien.items()):
+            e = tk.berechne(glieder, cp=cp, anforderung=anforderung, **para)
+            art = "rss" if e.statistisch else "wc"
+            lo, hi = self._werte(e, art)
+            zeilen.append([name, tr(dict(self.ERGEBNIS_ZEILEN)[art]), _z(lo), _z(hi), _z(hi - lo),
+                           f"{e.cpk:.2f}" if e.cpk is not None else "–",
+                           f"{e.mc_ausserhalb * 1e6:.0f} ppm" if e.mc_ausserhalb is not None else "–"])
+        return koepfe, zeilen
+
+    def zeige_szenarien(self) -> QtWidgets.QDialog:
+        koepfe, zeilen = self.szenario_zeilen()
+        d = QtWidgets.QDialog(self)
+        d.setWindowTitle(tr("Szenarien vergleichen"))
+        lay = QtWidgets.QVBoxLayout(d)
+        t = QtWidgets.QTableWidget(len(zeilen), len(koepfe))
+        t.setHorizontalHeaderLabels(koepfe)
+        t.verticalHeader().setVisible(False)
+        t.setEditTriggers(QtWidgets.QAbstractItemView.EditTrigger.NoEditTriggers)
+        for z, zellen in enumerate(zeilen):
+            for s, w in enumerate(zellen):
+                t.setItem(z, s, QtWidgets.QTableWidgetItem(w))
+        t.resizeColumnsToContents()
+        lay.addWidget(t)
+        knopf = QtWidgets.QDialogButtonBox(QtWidgets.QDialogButtonBox.StandardButton.Close)
+        knopf.rejected.connect(d.reject)
+        lay.addWidget(knopf)
+        d.resize(760, 120 + 30 * len(zeilen))
+        d.show()
+        return d
 
     def _ist_glied(self, z: int):
         return self._ist[z] if self.im_planspiel and z < len(self._ist) else None

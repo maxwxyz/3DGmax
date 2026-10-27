@@ -1145,6 +1145,33 @@ def test_toleranzkette_planspiel_und_anwendbar(fenster, tmp_path):
     assert abs(k.glieder[0].toleranz - 0.1) < 1e-12 and k.e_ist is None
 
 
+def test_toleranzkette_szenarien(fenster, tmp_path):
+    f = fenster
+    assert f.oeffne_beispiel("kette_getriebe", warten=True)
+    k = f._kette
+    assert not k.vergleichen.isEnabled() and k.merke_szenario("x") is None  # nur im Planspiel
+    k.starte_planspiel()
+    g = k.glieder[1]
+    g.hoechst, g.mindest = g.mitte + 0.05, g.mitte - 0.05
+    assert k.merke_szenario("Hülse genauer") == "Hülse genauer"
+    k.glieder[0].hoechst += 0.2
+    assert k.merke_szenario("Zahnrad gröber")
+    koepfe, zeilen = k.szenario_zeilen()
+    assert [z[0] for z in zeilen][1:] == ["Hülse genauer", "Zahnrad gröber"] and len(koepfe) == 7
+    breite = [float(z[4].replace(",", ".")) for z in zeilen]
+    assert breite[1] < breite[0] and abs(breite[2] - breite[1] - 0.2) < 1e-9  # Szenario 2 baut auf 1 auf
+    d = k.zeige_szenarien()
+    d.close()
+    ziel = k.speichere_kette(str(tmp_path / "s"))  # im Planspiel: das Ist wird gespeichert
+    k.beende_planspiel(False)
+    k.leeren()
+    f.oeffne_kette(ziel, warten=True)
+    assert list(k.szenarien) == ["Hülse genauer", "Zahnrad gröber"] and k.szenario.count() == 3
+    ist = k.glieder[1].toleranz
+    k.lade_szenario("Hülse genauer")
+    assert k.im_planspiel and abs(k.glieder[1].toleranz - 0.1) < 1e-9 and abs(k._ist[1].toleranz - ist) < 1e-12
+
+
 def test_toleranzkette_messwerte(fenster):
     from programm.ui.toleranzkette_ui import MesswerteDialog
     f = fenster

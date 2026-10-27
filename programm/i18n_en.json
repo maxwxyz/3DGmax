@@ -1318,5 +1318,15 @@
 "letzte": "last",
 "n = {}, Mittelwert {:.4f}, σ = {:.4f}, Cpk {}": "n = {}, mean {:.4f}, σ = {:.4f}, Cpk {}",
 "n = {}, σ = {:.4g} …": "n = {}, σ = {:.4g} …",
-"{} Werte – mindestens zwei nötig": "{} values – at least two needed"
+"{} Werte – mindestens zwei nötig": "{} values – at least two needed",
+"Die Kette hat inzwischen andere Glieder – das Szenario passt nicht mehr.": "The chain now has different links – the scenario no longer fits.",
+"Gemerktes Szenario ins Planspiel laden": "Load a saved scenario into the what-if",
+"Ist und alle gemerkten Szenarien nebeneinander": "Actual and all saved scenarios side by side",
+"Merken …": "Save …",
+"Planspiel als Szenario unter einem Namen merken (wird mit der Kette gespeichert)": "Save the what-if as a named scenario (stored with the chain)",
+"Szenarien vergleichen": "Compare scenarios",
+"Szenario": "Scenario",
+"Szenario merken": "Save scenario",
+"Szenario {}": "Scenario {}",
+"Szenario …": "Scenario …"
 }

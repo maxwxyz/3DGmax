@@ -1,7 +1,8 @@
 """Toleranzkette als eigene Datei (.3dgkette, JSON) zum Weiterarbeiten in einer spaeteren Sitzung (ohne Qt).
 
 Inhalt: Format und Version, Modelldatei (Pfad und Name, damit die Flaechen wieder passen), Glieder, Cp der Kette,
-Anforderung, Temperaturen und Werkstoffe je Bauteil. Das Projekt (.3dgmax) speichert die Kette ebenfalls.
+Anforderung, Temperaturen und Werkstoffe je Bauteil, gemerkte Planspiel-Szenarien. Das Projekt (.3dgmax) speichert
+die Kette ebenfalls (ohne Szenarien).
 """
 
 from __future__ import annotations
@@ -26,6 +27,7 @@ class KettenDatei:
     werkstoffe: dict = field(default_factory=dict)  # Bauteil -> {"name", "alpha" (1e-6/K), "t1", "t2" (°C, optional)}
     modell: str = ""  # Pfad der Modelldatei beim Speichern
     name: str = ""
+    szenarien: dict = field(default_factory=dict)  # Name -> (Cp, Glieder) gemerkter Planspiele
 
     def alpha(self) -> dict:
         return {t: w["alpha"] for t, w in self.werkstoffe.items() if w.get("alpha")}
@@ -41,7 +43,8 @@ def speichere(pfad: str, k: KettenDatei) -> str:
         pfad += ENDUNG
     daten = {"format": FORMAT, "version": VERSION, "name": k.name, "modell": k.modell,
              "modell_name": os.path.basename(k.modell), "cp": k.cp, "anforderung": k.anforderung,
-             "temperaturen": k.temperaturen, "werkstoffe": k.werkstoffe, "glieder": [asdict(g) for g in k.glieder]}
+             "temperaturen": k.temperaturen, "werkstoffe": k.werkstoffe, "glieder": [asdict(g) for g in k.glieder],
+             "szenarien": {n: {"cp": cp, "glieder": [asdict(g) for g in gl]} for n, (cp, gl) in k.szenarien.items()}}
     with open(pfad, "w", encoding="utf-8") as f:
         json.dump(daten, f, ensure_ascii=False, indent=1)
     return pfad
@@ -52,10 +55,7 @@ def lade(pfad: str) -> KettenDatei:
         d = json.load(f)
     if d.get("format") != FORMAT:
         raise ValueError("keine 3DGmax-Kettendatei")
-    felder = set(Glied.__dataclass_fields__)
-    glieder = [Glied(**{**{k: v for k, v in g.items() if k in felder}, "flaechen": tuple(g.get("flaechen", ())),
-                       "messwerte": tuple(g.get("messwerte", ()))})
-               for g in d.get("glieder", [])]
+    glieder = _glieder(d.get("glieder", []))
     modell = d.get("modell", "")
     if modell and not os.path.isabs(modell):
         modell = os.path.join(os.path.dirname(os.path.abspath(pfad)), modell)
@@ -64,4 +64,11 @@ def lade(pfad: str) -> KettenDatei:
         modell = neben if os.path.isfile(neben) else modell
     return KettenDatei(glieder, d.get("cp", 1.0), tuple(d["anforderung"]) if d.get("anforderung") else None,
                        tuple(d["temperaturen"]) if d.get("temperaturen") else None, d.get("werkstoffe", {}), modell,
-                       d.get("name", ""))
+                       d.get("name", ""), {n: (x.get("cp", 1.0), _glieder(x.get("glieder", [])))
+                                           for n, x in d.get("szenarien", {}).items()})
+
+
+def _glieder(liste: list) -> list[Glied]:
+    felder = set(Glied.__dataclass_fields__)
+    return [Glied(**{**{k: v for k, v in g.items() if k in felder}, "flaechen": tuple(g.get("flaechen", ())),
+                     "messwerte": tuple(g.get("messwerte", ()))}) for g in liste]
