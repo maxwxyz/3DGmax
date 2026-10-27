@@ -16,16 +16,21 @@ Cloud session 2026-10-27 (Linux, no screen, no `daten/`). All work is on `main`,
    export SVG/DXF/PDF (kern/schnitt.py) – `978dc82`.
 
 Extra on request: STEPZ (`6620f29`); start error log and message box for the portable app (`5ca02ef`, Windows
-build run 28 green). User wishes recorded in PLAN §8.17 (STEP-XML and other open formats) and §8.18 (semantic-only
-PMI shown optionally – done via generated display; graphical-only PMI evaluated in the table – open).
+build run 28 green); smooth side panel resizing and a readable, opaque view cube with calm hover color (`9d94eb1`);
+PMI text size and generated PMI placement after the Xvfb check (`a259428`); fix: the G / generated PMI switches
+raised a TypeError in the 3D view (`1942fbd`); graphical-only PMI evaluated in the table (§8.18, `6108e44`,
+kern/pmi_ableiten.py, marked "≈ derived"); PRC model edges from the tessellation wire indices (commit "PRC: model
+edges from the tessellation wire indices"). PLAN §8.17 records the STEP AP242 XML research (structure/PDM model with
+external geometry, no free samples – deferred).
 
-**Not verified without a screen (check on the Mac first)** – only offscreen tests and SVG renders were possible:
-- 3D view of PRC models and markups (filled glyph triangles, colors), view switching with PRC and QIF cameras.
-- Generated PMI stage 2 in the 3D view: text labels oriented in the annotation plane (AIS_TextLabel with
-  Orientation3D), frame lines, purple color, the new menu switch.
-- QIF PMIDisplay in 3D (text height/position, stacked tolerances from `{BR}`), QIF saved views (camera height).
-- Multiple section planes: capping with chained planes ("cut away common region only"), slider after
-  "keep section plane".
+**Visual check in the cloud:** Xvfb + Mesa are available (`xvfb-run -a -s "-screen 0 1600x1000x24" ...`, then
+`View.Dump`), so real 3D renders were checked for PRC (model, markups, edges), QIF graphics, generated PMI, section
+planes and the view cube, and `DG_BILDSCHIRM=1 pytest tests/test_bildschirm.py` ran under Xvfb.
+
+**Still to check on the real screen (Mac):**
+- Font and glyph appearance of AIS_TextLabel texts (Mesa uses other fonts), MSAA and line widths on a real GPU.
+- Capping with chained section planes on thin parts.
+- Contrast of the 1 px model edges on PRC files with grey face colors.
 - Windows app start (user reported that nothing happens after SmartScreen): the new build writes
   `%LOCALAPPDATA%\3DGmax\start_fehler.log` (and `start_fehler.log.absturz` for native crashes); ask for the log.
   Starting the exe from inside the ZIP or a long first start (Defender scanning the DLLs) are likely causes.
@@ -50,7 +55,8 @@ PMI shown optionally – done via generated display; graphical-only PMI evaluate
 2. Visual check on the real screen of the points above (STC PDFs, CTC-01 QIF, generated PMI on a STEP without
    presentation, chained section planes), plus view cube and MSAA from before.
 3. Tests with local `daten/` (NIST AP242, D2MI, QIF, STC PDFs).
-4. Then: graphical-only PMI in the table (§8.18), STEP-XML (§8.17), PRC compressed tessellation/B-rep, step 7 JT.
+4. Then: hatched section views, STEP-XML (§8.17, needs samples), PRC compressed
+   tessellation/B-rep, step 7 JT.
 
 ## Check against plan / roadmap
 | Step (PLAN.md §5) | Status |
@@ -58,9 +64,9 @@ PMI shown optionally – done via generated display; graphical-only PMI evaluate
 | 1 Feasibility | ✅ |
 | 2 Viewer | ✅ incl. view cube, quick measure, model properties, camera history, perspective, exploded view (staged by assembly levels), section box, up to three section planes, thumbnails (open: LOD for large assemblies, explosion along axes, hatched section views) |
 | 3 Measure | ✅ incl. analyses (draft, curvature, wall thickness), measurement report, tolerance zones, tolerance stack-up 1D, comments, create PMI with advisor |
-| 4 Compare | ✅ incl. manual alignment, deviation color map, material + / −, moved geometry/PMI, assembly comparison, graphical PMI changes, graphical-only notes, rotated/mirrored elements, per-instance geometry (open: per-instance status colors) |
+| 4 Compare | ✅ incl. manual alignment, deviation color map, material + / −, moved geometry/PMI, assembly comparison, graphical PMI changes, graphical-only notes, rotated/mirrored elements, per-instance geometry and status colors (open: change list per instance) |
 | 5 Output | ✅ PDF per view, comparison PDF, PMI change PDF, bill of characteristics, measurement report, drawings (HLR, PDF/SVG/DXF with PMI; meshes too), section contour SVG/DXF/PDF, generated PMI stage 2, project container (incl. own views), folder comparison |
-| 6 Formats | 🟡 STEP, STEPZ, IGES, STL, OBJ, glTF/GLB, 3MF, PLY, QIF 3.0 (B-rep, semantic + graphical PMI, views), PRC/3D PDF (mesh, markups, views) done; open: STEP-XML, PRC B-rep/compressed tessellation, U3D, point clouds |
+| 6 Formats | 🟡 STEP, STEPZ, IGES, STL, OBJ, glTF/GLB, 3MF, PLY, QIF 3.0 (B-rep, semantic + graphical PMI, views), PRC/3D PDF (mesh with edges, markups, views; graphical-only PMI evaluated) done; open: STEP-XML, PRC B-rep/compressed tessellation, U3D, point clouds |
 | 7 JT via TKJT | ⬜ (free JT without PMI: `NIST mtc crada assembly.jt` in daten/nist_cad_dl/nist-cad-models-mtc-assembly.zip) |
 Details: `docs/Roadmap.md`; future topics: PLAN.md §8 (8.5 tolerance zones, 8.6 annotating, 8.8 stack-up,
 8.10 PMI editing/advisor, 8.11 CATIA, 8.15 PRC/3D PDF, 8.16 generated PMI, 8.17 open formats, 8.18 PMI as semantics or
@@ -68,12 +74,9 @@ graphics only, 8.19 QIF graphics).
 
 ## Next (in this order)
 1. Visual check of the cloud work on the Mac (see return handoff above).
-2. Graphical-only PMI evaluated in the table (§8.18): kind from PRC markup type / STEP callout, values from text.
-3. STEP-XML (§8.17) and further open formats; PRC compressed tessellation and B-rep.
-4. Per-instance status colors in comparison; hatched section views.
-5. Step 7 JT via TKJT (GPL v2+, build option).
-**Not checked on a real screen** (screen was locked, checks via `View.Dump`): view cube look, MSAA – first thing
-on the Mac.
+2. Hatched section views; change list entries per instance.
+3. STEP-XML (§8.17, needs sample files) and further open formats; PRC compressed tessellation and B-rep.
+4. Step 7 JT via TKJT (GPL v2+, build option).
 
 ## Environment and commands
 ```bash

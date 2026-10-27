@@ -64,6 +64,7 @@ class Netz:
     punkte: np.ndarray  # (n, 3)
     dreiecke: np.ndarray  # (m, 3) Punktindizes
     stil: int = -1  # Index in Globals.stile (-1: vom Besitzer)
+    kanten: list[np.ndarray] = field(default_factory=list)  # Randkanten der Flaeche je (n, 3)
 
 
 @dataclass
@@ -916,9 +917,8 @@ def _tess_3d(s: _Sektion) -> Tessellation:
     for _ in range(b.uint()):
         s.typ(TESS_FLAECHE)
         attr = [b.uint() - 1 for _ in range(b.uint())]
-        b.uint()
-        for _ in range(b.uint()):
-            b.uint()
+        draht_start = b.uint()
+        draht_groessen = [b.uint() for _ in range(b.uint())]
         art = b.uint()
         start = b.uint()
         groessen = [b.uint() for _ in range(b.uint())]
@@ -927,19 +927,35 @@ def _tess_3d(s: _Sektion) -> Tessellation:
             _vertex_farben(s, 3 * sum(groessen))
         if attr:
             b.uint()
-        flaechen.append((attr, art, start, groessen, textur))
+        flaechen.append((attr, art, start, groessen, textur, _flaechen_kanten(draht, draht_start, draht_groessen)))
     for _ in range(b.uint()):
         b.double()
     punkte = koord.reshape(-1, 3)
     t = Tessellation(TESS_3D)
-    for attr, art, start, groessen, textur in flaechen:
+    for attr, art, start, groessen, textur, kanten in flaechen:
         dreiecke, _ = _dreiecke_aus_flaeche(ti, start, art, groessen, textur)
         if dreiecke:
             idx = np.asarray(dreiecke, dtype=np.int64) // 3
             benutzt, neu = np.unique(idx, return_inverse=True)
-            t.netze.append(Netz(punkte[benutzt], neu.reshape(-1, 3), attr[0] if attr else -1))
-    del draht
+            linien = [punkte[k] for k in kanten if k.max() < len(punkte)]
+            t.netze.append(Netz(punkte[benutzt], neu.reshape(-1, 3), attr[0] if attr else -1, linien))
     return t
+
+
+_KANTE_VERDECKT, _KANTE_ANZAHL = 0x4000, 0x3FFF
+
+
+def _flaechen_kanten(draht: list[int], start: int, groessen: list[int]) -> list[np.ndarray]:
+    """Punktindizes der Randkanten einer Flaeche (7.8.6: Endpunkte stehen in jeder Kante, Kanten mit IsNotDrawn
+    zeichnet die Nachbarflaeche)."""
+    out, i = [], start
+    for g in groessen:
+        n = g & _KANTE_ANZAHL
+        teil = draht[i:i + n]
+        i += n
+        if not g & _KANTE_VERDECKT and len(teil) >= 2:
+            out.append(np.asarray(teil, dtype=np.int64) // 3)
+    return out
 
 
 def _tess_draht(s: _Sektion) -> Tessellation:
@@ -1136,6 +1152,7 @@ class Koerper:
     name: str
     flaechen: list[tuple[np.ndarray, np.ndarray, tuple | None]]  # (Punkte, Dreiecke, Farbe)
     hilfsgeometrie: bool = False
+    kanten: list[list[np.ndarray]] = field(default_factory=list)  # je Flaeche ihre Randkanten
 
 
 @dataclass
@@ -1230,12 +1247,13 @@ def koerper(modell: PrcModell) -> list[Koerper]:
                 lokal = g.koordinatensysteme[d.koord] if 0 <= d.koord < len(g.koordinatensysteme) else np.eye(4)
                 welt = skala @ m @ lokal
                 stil = d.stil if d.stil >= 0 else teil.stil
-                flaechen = []
+                flaechen, kanten = [], []
                 for n in t.netze:
                     p = n.punkte @ welt[:3, :3].T + welt[:3, 3]
                     flaechen.append((p, n.dreiecke, stilfarbe(g, n.stil if n.stil >= 0 else stil)))
+                    kanten.append([k @ welt[:3, :3].T + welt[:3, 3] for k in n.kanten])
                 name = d.name or teil.name or v.name or "PRC"
-                out.append(Koerper(name, flaechen, stil_transparent(g, stil) or not d.sichtbar))
+                out.append(Koerper(name, flaechen, stil_transparent(g, stil) or not d.sichtbar, kanten))
     return out
 
 

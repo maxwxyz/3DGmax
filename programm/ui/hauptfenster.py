@@ -1233,8 +1233,10 @@ class Hauptfenster(QtWidgets.QMainWindow):
     def zeige_vergleich(self, v):
         self.vergleich = v
         self.zeige_ergebnis(v.neu, vergleich=v)
-        entfernt = [v.alt.modell.flaechen[i] for i, st in v.geo.status_a.items() if st == "entfernt"]
-        self.ansicht.zeige_vergleich(v.geo.status_b, entfernt, v.ausrichtung.gp_trsf())
+        entfernt = v.geo.entfernt_a
+        if entfernt is None:
+            entfernt = [v.alt.modell.flaechen[i] for i, st in v.geo.status_a.items() if st == "entfernt"]
+        self.ansicht.zeige_vergleich(v.geo.status_b, entfernt, v.ausrichtung.gp_trsf(), v.geo.instanzen_b)
         self.aenderungen.zeige(v, self.thema)
         self.spalten_anpassen()
         self.dock_aenderungen.show()

@@ -59,6 +59,14 @@ class GeoErgebnis:
     toleranz: float
     ausrichtung: Ausrichtung | None = None
     zaehler: dict[str, int] = field(default_factory=dict)
+    instanzen_b: dict[tuple, str] = field(default_factory=dict)  # instanz_schluessel -> Status (mehrfach verbaut)
+    entfernt_a: list | None = None  # entfernte Flaechen-Instanzen von A mit Lage (None: wie status_a)
+
+
+def instanz_schluessel(idx: int, flaeche) -> tuple:
+    """Flaechenindex und Lage (gerundet): gleich fuer dieselbe Instanz, egal ueber welchen Baumweg erreicht."""
+    t = flaeche.Location().Transformation()
+    return (idx,) + tuple(round(t.Value(i, j), 5) + 0.0 for i in (1, 2, 3) for j in (1, 2, 3, 4))
 
 
 def _nachbarn(flaechen, index_von) -> dict[int, set[int]]:
@@ -204,6 +212,7 @@ def vergleiche(modell_a, modell_b, ausrichtung: Ausrichtung | None = None, toler
                anzahl: int = 8000, suchweite: float = 2.0) -> GeoErgebnis:
     """toleranz: bis hier gilt eine Flaeche als gleich; suchweite: bis hier als geaendert (sonst neu/entfernt)."""
     a, b = bereite_vor(modell_a, anzahl), bereite_vor(modell_b, anzahl)
+    instanzen_b = b.flaechen if b.basis is not None else []
     m = np.eye(4) if ausrichtung is None else ausrichtung.matrix
     pb = b.punkte @ m[:3, :3].T + m[:3, 3]
     # B im A-System: Netz von B transformieren fuer die Gegenrichtung
@@ -229,8 +238,16 @@ def vergleiche(modell_a, modell_b, ausrichtung: Ausrichtung | None = None, toler
             zuordnung_ab[fi] = Counter(treffer_b[sel].tolist()).most_common(1)[0][0]
     zaehler = Counter(status_b.values())
     zaehler[ENTFERNT] = sum(1 for s in status_a.values() if s == ENTFERNT)
-    return GeoErgebnis(status_b, status_a, zuordnung, zuordnung_ab, max_b, pb, abw_b, toleranz, ausrichtung,
-                       dict(zaehler))
+    erg = GeoErgebnis(status_b, status_a, zuordnung, zuordnung_ab, max_b, pb, abw_b, toleranz, ausrichtung,
+                      dict(zaehler))
+    # Mehrfach verbaute Teile: Status je Instanz fuer die Anzeige (der Flaechenstatus fasst die Instanzen zusammen)
+    if instanzen_b:
+        st, _ = _status(abw_b, b.punkt_flaeche, len(instanzen_b), toleranz, NEU, suchweite)
+        erg.instanzen_b = {instanz_schluessel(int(b.basis[i]), f): st[i] for i, f in enumerate(instanzen_b)}
+    if a.basis is not None:
+        st, _ = _status(abw_a, a.punkt_flaeche, len(a.flaechen), toleranz, ENTFERNT, suchweite)
+        erg.entfernt_a = [a.flaechen[i] for i, s in st.items() if s == ENTFERNT]
+    return erg
 
 
 def _transformiert(seite: Seite, modell_b, ausrichtung: Ausrichtung) -> Seite:

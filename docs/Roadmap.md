@@ -85,7 +85,8 @@
 | Graphical-only PMI (notes) matched and compared by text | ✅ |
 | Assembly comparison (parts new/removed/moved/changed/renamed) | ✅ |
 | Geometry comparison per part instance (each instance sampled; status shown on the shared faces) | ✅ |
-| Status and colors per instance in the 3D view and change list | ⬜ |
+| Status colors per instance in the 3D view (instance key: face index + location), removed instances shown | ✅ |
+| Change list entries per instance | ⬜ |
 | Meshes: STL/OBJ/glTF/3MF vs. CAD and mesh vs. mesh (alignment, color map) | ✅ |
 | PLY meshes from scanners | ✅ |
 | Point clouds without triangles (PLY points, XYZ, E57) | ⬜ |
@@ -116,6 +117,7 @@
 | IGES, STL, OBJ, glTF/GLB, 3MF, PLY (meshes: view, measure, analyze, compare against CAD) | ✅ |
 | JT via TKJT (GPL v2+), build with/without TKJT | ⬜ (step 7) |
 | 3D PDF / PRC stage 1–3: structure, schema, tessellation as colored mesh, markups as graphical PMI, saved views with camera (own reader, PLAN §8.15; NIST STC PDFs downloaded in tests) | ✅ |
+| 3D PDF / PRC: model edges from the tessellation wire indices shown in the edge layer | ✅ |
 | 3D PDF / PRC: highly compressed tessellation, exact B-rep, semantic PMI from markup user data; U3D | ⬜ |
 | STEPZ (zipped or gzip STEP) | ✅ |
 | STEP-XML (ISO 10303-28) and other open CAD formats | ⬜ |

@@ -103,6 +103,13 @@ def test_dreiecke_aus_flaeche():
     assert tri[4:] == [[0, 3, 6], [6, 3, 9]]
 
 
+def test_flaechen_kanten():
+    # zwei Kanten einer Schleife (die zweite schliesst sie), eine verdeckte Kante (zeichnet der Nachbar)
+    draht = [99, 0, 3, 3, 6, 0, 9, 12]
+    kanten = prc._flaechen_kanten(draht, 1, [2, 3 | 0x8000, 2 | 0x4000])
+    assert [k.tolist() for k in kanten] == [[0, 1], [1, 2, 0]]
+
+
 def test_markup_grafik_matrix_und_text():
     codes = [0x08000000 + 2, 16 + 6,  # Matrixblock mit zwei Elementen
              0, 6,  # Linienzug aus zwei Punkten
@@ -165,6 +172,13 @@ def test_stc06_laden(stc06):
     e = lade_alles(stc06)
     assert len(e.modell.flaechen) == 144
     assert len(e.farben) == 144
+    # Randkanten aus den Drahtindizes der Tessellation (Netzflaechen haben sonst keine Kanten)
+    assert len(e.modell.netz_kanten) == 144 and sum(map(len, e.modell.netz_kanten.values())) == 622
+    from OCC.Core.TopAbs import TopAbs_EDGE
+    from OCC.Core.TopExp import TopExp_Explorer
+    from programm.ui.ansicht3d import _kanten_von
+    assert TopExp_Explorer(_kanten_von(e.modell.form, e.modell), TopAbs_EDGE).More()
+    assert not TopExp_Explorer(e.modell.form, TopAbs_EDGE).More()
     assert len(e.pmi) == 41 and all(p.grafisch and not p.semantisch for p in e.pmi)
     arten = [p.art for p in e.pmi]  # aus den Markup-Arten abgeleitet (Texte sind nur Striche)
     assert arten.count("bezug") == 6 and arten.count("mass") == 13 and arten.count("toleranz") == 21

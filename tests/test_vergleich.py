@@ -381,7 +381,21 @@ def test_baugruppenvergleich(fenster):
     f.aenderungen.filter.setCurrentIndex(f.aenderungen.filter.findData("baugruppe"))
     sichtbar = [z for z in range(f.aenderungen.tabelle.rowCount()) if not f.aenderungen.tabelle.isRowHidden(z)]
     assert len(sichtbar) == 4
+    # Status je Instanz: von vier gleichen Schrauben ist eine entfernt (gemeinsame Flaechen allein zeigen das nicht)
+    alt = f.vergleich.alt.modell
+    entfernt = {alt.flaechen_index(x) for x in f.vergleich.geo.entfernt_a}
+    schraube = next(k for k in f.vergleich.alt.baum.blaetter() if k.name.startswith("Schraube"))
+    from OCC.Core.TopAbs import TopAbs_FACE
+    from OCC.Core.TopExp import TopExp_Explorer
+    ex, flaechen = TopExp_Explorer(schraube.form, TopAbs_FACE), set()
+    while ex.More():
+        flaechen.add(alt.flaechen_index(ex.Current()))
+        ex.Next()
+    assert entfernt & flaechen
+    assert not {i for i, st in f.vergleich.geo.status_a.items() if st == "entfernt"} & flaechen
+    assert len(f.ansicht.vergleich_instanzen) == len(f.vergleich.geo.instanzen_b) > len(f.vergleich.geo.status_b)
     f.beende_vergleich()
+    assert f.ansicht.vergleich_instanzen == {}
 
 
 def test_pmi_darstellung_verschoben():
@@ -508,5 +522,17 @@ def test_vergleich_je_instanz():
     assert len(alt.flaechen) == 6  # Instanzen teilen sich die Flaechen
     geo = vergleich_geo.vergleiche(alt, neu, Ausrichtung(np.eye(4), "gleich", 0.0, 1.0), 0.01, 4000, 5.0)
     assert any(s != vergleich_geo.GLEICH for s in geo.status_b.values())
+    # Status je Instanz: die erste Instanz ist gleich, nur die verschobene zweite ist geaendert
+    from OCC.Core.TopAbs import TopAbs_FACE
+    from OCC.Core.TopExp import TopExp_Explorer
+    st = {0: set(), 1: set()}
+    ex = TopExp_Explorer(neu.form, TopAbs_FACE)
+    while ex.More():
+        f = ex.Current()
+        ex.Next()
+        x = f.Location().Transformation().TranslationPart().X()
+        st[int(x > 1)].add(geo.instanzen_b[vergleich_geo.instanz_schluessel(neu.flaechen_index(f), f)])
+    assert st[0] == {vergleich_geo.GLEICH} and vergleich_geo.GLEICH not in st[1]
+    assert geo.entfernt_a is not None and len(geo.entfernt_a) <= 6
     geo = vergleich_geo.vergleiche(alt, modell(50.0), Ausrichtung(np.eye(4), "gleich", 0.0, 1.0), 0.01, 4000, 5.0)
     assert all(s == vergleich_geo.GLEICH for s in geo.status_b.values())

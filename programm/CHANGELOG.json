@@ -102,7 +102,9 @@
    "Ansichtswürfel besser lesbar: deckend (keine gespiegelte Rückseite mehr), größere schwarze Beschriftung, Hervorhebung beim Überfahren in ruhigem Blau statt Türkis.",
    "PMI-Texte in der 3D-Ansicht in richtiger Größe (QIF-Texte waren zu klein); erzeugte PMI liegen im Bild nie über dem Modell, Texte passen in die Rahmenfelder.",
    "Behoben: „Grafische PMI zeigen“ (G) und „Erzeugte PMI-Darstellung zeigen“ lösten in der 3D-Ansicht einen Fehler aus.",
-   "Nur grafische PMI werden in der Tabelle ausgewertet: Art (Maß, Toleranz, Bezug) und, wo die Datei Text enthält, Werte, Abmaße, Toleranzzone, Ⓜ und Bezüge; gekennzeichnet mit ≈ und „aus der Grafik abgeleitet – bitte prüfen“."
+   "Nur grafische PMI werden in der Tabelle ausgewertet: Art (Maß, Toleranz, Bezug) und, wo die Datei Text enthält, Werte, Abmaße, Toleranzzone, Ⓜ und Bezüge; gekennzeichnet mit ≈ und „aus der Grafik abgeleitet – bitte prüfen“.",
+   "3D-PDF/PRC: Modellkanten werden aus der Datei gelesen und angezeigt (Netzmodelle wirkten bisher ohne Kanten flach).",
+   "Vergleich: mehrfach verbaute Teile werden je Instanz eingefärbt; eine verschobene oder entfernte Instanz färbt die übrigen nicht mehr mit."
   ],
   "en": [
    "First viewer version: load STEP AP242, assembly tree, CAD-style navigation, standard views.",
@@ -206,7 +208,9 @@
    "View cube easier to read: opaque (no mirrored back side), larger black labels, hover highlight in calm blue instead of cyan.",
    "PMI texts in the 3D view at the right size (QIF texts were too small); generated PMI never lie over the model in the picture, texts fit into the frame compartments.",
    "Fixed: “Show graphical PMI” (G) and “Show generated PMI display” raised an error in the 3D view.",
-   "Graphical-only PMI are evaluated in the table: kind (dimension, tolerance, datum) and, where the file has text, values, deviations, zone, Ⓜ and datums; marked with ≈ and “derived from the graphics – please check”."
+   "Graphical-only PMI are evaluated in the table: kind (dimension, tolerance, datum) and, where the file has text, values, deviations, zone, Ⓜ and datums; marked with ≈ and “derived from the graphics – please check”.",
+   "3D PDF/PRC: model edges are read from the file and shown (mesh models looked flat without edges).",
+   "Comparison: parts used several times are colored per instance; a moved or removed instance no longer colors the others."
   ]
  },
  "releases": [

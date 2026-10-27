@@ -43,6 +43,7 @@ class StepModell:
     flaeche_zu_step: dict[int, int] = field(default_factory=dict)
     datei: p21.P21Datei | None = None
     ladezeit: float = 0.0
+    netz_kanten: dict[int, list] = field(default_factory=dict)  # Flaechenindex -> Randkanten (Netzmodelle)
 
     def flaechen_index(self, face) -> int | None:
         """Index einer Flaeche (Lage wird ignoriert), None wenn unbekannt."""
@@ -375,17 +376,19 @@ def _lade_prc(pfad: str, doc, t0: float) -> StepModell:
         raise LadeFehler(f"PRC nicht lesbar: {e}") from e
     st = XCAFDoc_DocumentTool.ShapeTool(doc.Main())
     bb = BRep_Builder()
-    farben = []
+    farben, kanten = [], []
     for k in prc.koerper(m):
         if k.hilfsgeometrie:
             continue
         comp = TopoDS_Compound()
         bb.MakeCompound(comp)
-        for punkte, dreiecke, farbe in k.flaechen:
+        for i, (punkte, dreiecke, farbe) in enumerate(k.flaechen):
             f = TopoDS_Face()
             bb.MakeFace(f, _poly(punkte, dreiecke))
             bb.Add(comp, f)
             farben.append((f, farbe))
+            if i < len(k.kanten) and k.kanten[i]:
+                kanten.append((f, k.kanten[i]))
         lab = st.AddShape(comp, False)
         TDataStd_Name.Set(lab, TCollection_ExtendedString(k.name, True))
     if not farben:
@@ -398,6 +401,10 @@ def _lade_prc(pfad: str, doc, t0: float) -> StepModell:
         idx = modell.flaechen_index(f)
         if idx is not None and farbe is not None:
             modell.prc_farben[idx] = tuple(float(c) for c in farbe)
+    for f, linien in kanten:
+        idx = modell.flaechen_index(f)
+        if idx is not None:
+            modell.netz_kanten[idx] = linien
     return modell
 
 

@@ -82,6 +82,7 @@ class AnsichtBasis(QtWidgets.QWidget):
         self.pmi_eigene_farbe = None  # (r, g, b) oder None
         self.hintergrund = None  # ((r, g, b) oben, (r, g, b) unten) oder None = Farbschema
         self.vergleich_status: dict | None = None
+        self.vergleich_instanzen: dict = {}  # instanz_schluessel -> Status (mehrfach verbaute Teile)
         self.vergleich_entfernt: list = []
         self.vergleich_trsf = None
         self.abweichung = None  # (Karte, Toleranz, Grenze) der Farbkarte
@@ -326,10 +327,12 @@ class AnsichtBasis(QtWidgets.QWidget):
         """Fangweite in mm (etwa 12 Pixel)."""
         return 1.0
 
-    def zeige_vergleich(self, status: dict | None, entfernt_formen: list | None = None, trsf=None):
+    def zeige_vergleich(self, status: dict | None, entfernt_formen: list | None = None, trsf=None,
+                        instanzen: dict | None = None):
         """Vergleichsmodus: Flaechen des neuen Stands nach Status einfaerben, entfernte Flaechen (alt) zeigen.
-        status None beendet den Vergleichsmodus."""
+        instanzen: Status je Instanz mehrfach verbauter Teile (geht vor). status None beendet den Vergleichsmodus."""
         self.vergleich_status = None if status is None else dict(status)
+        self.vergleich_instanzen = dict(instanzen or {}) if status is not None else {}
         if status is None:
             self.abweichung = None
             self.material = None
@@ -825,7 +828,7 @@ class OcctAnsicht(AnsichtBasis):
                 idx = sz.modell.flaechen_index(f)
                 if idx is not None:
                     self._flaechen_ais.setdefault(idx, []).append((ais, f))
-                    farbe = self._grundfarbe(idx)
+                    farbe = self._grundfarbe(idx, f)
                     if farbe is not None:
                         ais.SetCustomColor(f, _farbe(farbe))
                 ex.Next()
@@ -836,7 +839,7 @@ class OcctAnsicht(AnsichtBasis):
             ctx.Deactivate(ais)
             ctx.Activate(ais, 4, False)  # 4 = Flaechen waehlbar
             # Kanten als eigene Ebene: Flaechen mit eigener Farbe zeichnen in OCCT keine Raender
-            kanten = AIS_Shape(_kanten_von(k.form))
+            kanten = AIS_Shape(_kanten_von(k.form, sz.modell))
             kanten.SetColor(_farbe(t.get("kante", (0.15, 0.17, 0.2))))
             kanten.SetWidth(1.0)
             if self.vergleich_trsf is not None:
@@ -886,8 +889,8 @@ class OcctAnsicht(AnsichtBasis):
         self.d.Context.Deactivate(ais)
         self._entfernt_ais = ais
 
-    def zeige_vergleich(self, status, entfernt_formen=None, trsf=None):
-        super().zeige_vergleich(status, entfernt_formen, trsf)
+    def zeige_vergleich(self, status, entfernt_formen=None, trsf=None, instanzen=None):
+        super().zeige_vergleich(status, entfernt_formen, trsf, instanzen)
         if status is None:
             self.abweichung = None
         if self._bereit and self.szene is not None:
@@ -1151,15 +1154,20 @@ class OcctAnsicht(AnsichtBasis):
                     ctx.Erase(ais, False)
         self._neu_zeichnen()
 
-    def _grundfarbe(self, idx):
-        """Farbe einer Flaeche ohne Hervorhebung: Bezugssystem, Vergleichsstatus, Dateifarbe, sonst None."""
+    def _grundfarbe(self, idx, flaeche=None):
+        """Farbe einer Flaeche ohne Hervorhebung: Bezugssystem, Vergleichsstatus (je Instanz, wenn die Flaeche mit
+        Lage bekannt ist), Dateifarbe, sonst None."""
         t = self.thema or {}
         for _name, stelle, flaechen in self.bezugssystem:
             if idx in flaechen:
                 return BEZUG_FARBEN.get(stelle, BEZUG_FARBEN[3])
         grund = t.get("modell", (0.78, 0.8, 0.84))
         if self.vergleich_status is not None:
-            st = _status_farbe(t, self.vergleich_status.get(idx, "gleich"))
+            status = self.vergleich_status.get(idx, "gleich")
+            if self.vergleich_instanzen and flaeche is not None:
+                from ..kern.vergleich_geo import instanz_schluessel
+                status = self.vergleich_instanzen.get(instanz_schluessel(idx, flaeche), status)
+            st = _status_farbe(t, status)
             return st if st is not None else grund
         if idx in self.szene.farben:
             return _abgetoent(self.szene.farben[idx], grund)
@@ -1178,7 +1186,7 @@ class OcctAnsicht(AnsichtBasis):
                 if idx in self.hervor:
                     ais.SetCustomColor(f, _farbe(t.get("hervor", (1, 0.45, 0))))
                 else:
-                    ais.SetCustomColor(f, _farbe(self._grundfarbe(idx) or grund))
+                    ais.SetCustomColor(f, _farbe(self._grundfarbe(idx, f) or grund))
                 geaendert.add(ais)
         for ais in geaendert:
             self.d.Context.Redisplay(ais, False)
@@ -1207,7 +1215,7 @@ class OcctAnsicht(AnsichtBasis):
         for idx in alt | neu:
             for ais, f in self._flaechen_ais.get(idx, []):
                 farbe = t.get("hervor", (1, 0.45, 0)) if idx in self.hervor else \
-                    (self._grundfarbe(idx) or t.get("modell", (0.78, 0.8, 0.84)))
+                    (self._grundfarbe(idx, f) or t.get("modell", (0.78, 0.8, 0.84)))
                 ais.SetCustomColor(f, _farbe(farbe))
                 geaendert.add(ais)
         for ais in geaendert:
@@ -2329,7 +2337,8 @@ def _netz_treffer(flaeche, ursprung, richtung):
     return None if treffer is None else gp_Pnt(*map(float, treffer[0]))
 
 
-def _kanten_von(form):
+def _kanten_von(form, modell=None):
+    """Kanten der Form; Netzflaechen ohne Kanten (PRC) bekommen ihre Randkanten aus modell.netz_kanten."""
     from OCC.Core.BRep import BRep_Builder
     from OCC.Core.TopAbs import TopAbs_EDGE
     from OCC.Core.TopExp import TopExp_Explorer
@@ -2338,10 +2347,31 @@ def _kanten_von(form):
     comp = TopoDS_Compound()
     bb.MakeCompound(comp)
     ex = TopExp_Explorer(form, TopAbs_EDGE)
+    leer = not ex.More()
     while ex.More():
         bb.Add(comp, ex.Current())
         ex.Next()
+    if leer and modell is not None and getattr(modell, "netz_kanten", None):
+        _netz_kanten(bb, comp, form, modell)
     return comp
+
+
+def _netz_kanten(bb, comp, form, modell):
+    """Linienzuege als Kanten aus Geradenstuecken (Kanten nur mit Poly_Polygon3D zeichnet OCCT nicht)."""
+    from OCC.Core.BRepBuilderAPI import BRepBuilderAPI_MakePolygon
+    from OCC.Core.TopAbs import TopAbs_FACE
+    from OCC.Core.TopExp import TopExp_Explorer
+    from OCC.Core.gp import gp_Pnt
+    ex = TopExp_Explorer(form, TopAbs_FACE)
+    while ex.More():
+        idx = modell.flaechen_index(ex.Current())
+        ex.Next()
+        for linie in modell.netz_kanten.get(idx, ()) if idx is not None else ():
+            zug = BRepBuilderAPI_MakePolygon()
+            for p in linie:
+                zug.Add(gp_Pnt(*map(float, p)))
+            if zug.IsDone():
+                bb.Add(comp, zug.Wire())
 
 
 def _status_farbe(thema: dict, status: str):

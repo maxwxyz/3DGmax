@@ -134,7 +134,9 @@ Throughout: tests (core, offscreen UI, stress test, on-screen test), `--selbstte
 - **Done (2026-10-27):** rotated and mirrored elements (`vergleich._starr_gleich`: PCA start with all eight axis
   sign combinations, point-to-surface ICP that keeps handedness, confirmed by mesh distance both ways; reported as
   angle/axis or mirror plane, status "moved"); per-instance comparison (`vergleich_geo._instanzen`: every located
-  face is sampled, results are folded onto the shared face index). Open: per-instance status/colors in the UI.
+  face is sampled, results are folded onto the shared face index). Per-instance status colors in the 3D view done
+  (`GeoErgebnis.instanzen_b`, key = face index + rounded location; `entfernt_a` holds removed located faces).
+  Open: change list entries per instance.
 - **Graphical PMI comparison** in addition to semantic: match annotations (position, shape), color moved/changed/
   new/removed in the 3D view.
 - Assembly comparison; manual alignment by point pairs in the UI.
@@ -265,6 +267,10 @@ ISO variants of the NIST models (built in a CAD system and exported), CAx-IF tes
   reference; the annotation plane (PRC_TYPE_SURF_Plane) carries 6 undocumented bits before the parameterization –
   the reader searches for the default parameterization like the Asymptote reader does; schema token 39 with one
   argument appears before the first block (not in the draft). NIST STC markup texts are stroked glyphs, not strings.
+- **Edges done (2026-10-27):** TESS_3D wire indices per face (start_wire, sizes_wire with IsNotDrawn 0x4000 and
+  IsClosing 0x8000, draft §7.8.6) become `StepModell.netz_kanten` (face index → polylines); the 3D view draws them in
+  its edge layer as polygon wires (edges with only a Poly_Polygon3D are not drawn by OCCT). Display only – not
+  selectable or measurable. The 19 polywires of STC-06 (RI_PolyWire) are sketch/construction lines, kept hidden.
 - Open: highly compressed tessellation (PRC_TYPE_TESS_3D_Compressed, described in the draft §7.8.9), exact B-rep
   (geometry section; the NIST files have none), semantic PMI (may sit in user data), U3D streams.
 - Specification status [verified 2026-10-26]: the Adobe "PRC Format Specification" (Acrobat 9 SDK) is only partly
