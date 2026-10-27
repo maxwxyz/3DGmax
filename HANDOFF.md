@@ -22,8 +22,15 @@ Done in this local session (commit):
 - Tolerance zones at every instance and at the assembled position – `f06ef40`.
 - Assembly: reverse a connection (180°) and swap parts – `15d3147`.
 - UI scaling option (View › Size of the interface) – `db74f81`.
+- Comparison: tree shows part status – `2f3a518`; parts list with material and density – `5c91352`.
+- Stack-up stage 4a (sensitivity factor, Bender, mean shift, tolerance allocation) – `6677df5`; link line in 3D while
+  walking the chain – `4c1716b`.
+- Assembly: move along open DOF (numeric) – `26e9369`; ISO 286 j/J, a/A, fit pairs – `5a2a691`; plausibility: closed
+  dimension chains – `3c66888`; explosion along X/Y/Z – `dfd8bb8`; clashes: depth, curves, PDF, project – `643aa2e`;
+  several windows with coupled cameras – `1c1068a`.
 
 **Deferred questions for the user** (do not block on them):
+- UI/UX stage 2 (workspaces) changes the layout a lot – implement only after you have read `docs/UI_UX_Plan.md`?
 - JT: the only free JT file (NIST MTC) is JT 10.5, which TKJT cannot read (no free JT 10 spec). Could you export a
   JT 9 (e.g. CATIA → JT, or NX "JT 9.5") of a NIST model for an end-to-end test of `jt2glb` (units, structure,
   colours)? Until then the converter is verified to build/run and to reject JT 10; loading is tested with a stand-in.
