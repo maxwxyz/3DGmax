@@ -172,7 +172,8 @@
    "Toleranzkette: korrelierte Glieder (Rechtsklick › Korrelation …) – Glieder einer Gruppe streuen gemeinsam mit ρ; statistisches Ergebnis, Anteile und wirksame Beitragsleister mit Kovarianzen, Monte Carlo über Rangkorrelation.",
    "Toleranzkette: Betragsverteilung 1. Art (Form, Lauf) und 2. Art (Rayleigh, Position) – schief ab dem Mindestmaß, 99,73 % innerhalb der Toleranz, Mittelwert unter der Toleranzmitte.",
    "Vergleich: Geometrieänderungen an mehrfach verbauten Teilen stehen je betroffener Instanz in der Änderungsliste (mit Teilname, Auswahl zoomt auf die Instanz und markiert sie im Baum); betrifft eine Änderung alle Instanzen, steht das in der Beschreibung.",
-   "Vergleich „Nebeneinander“: beide Strukturbäume untereinander (neuer Stand oben, alter unten, jeweils mit Teilestatus); Haken, Isolieren und Transparenz im unteren Baum wirken auf die Ansicht des alten Stands."
+   "Vergleich „Nebeneinander“: beide Strukturbäume untereinander (neuer Stand oben, alter unten, jeweils mit Teilestatus); Haken, Isolieren und Transparenz im unteren Baum wirken auf die Ansicht des alten Stands.",
+   "Kollisionen auch mit Netzteilen (STL, OBJ, glTF, 3MF, PLY, PRC-Netze) und gemischten Paaren: Abstand über Dreiecke, Durchdringung per Strahltest, Volumen und Tiefe über ein Raster; die Werte sind mit „≈“ als Näherung markiert."
   ],
   "en": [
    "First viewer version: load STEP AP242, assembly tree, CAD-style navigation, standard views.",
@@ -346,7 +347,8 @@
    "Stack-up: correlated links (right-click › Correlation …) – links of a group vary together with ρ; statistical result, shares and effective contributors with covariances, Monte Carlo via rank correlation.",
    "Stack-up: folded normal (form, runout) and Rayleigh (position) distributions – skewed from the lower limit, 99.73 % within the tolerance, mean below the tolerance centre.",
    "Comparison: geometry changes on parts used several times are listed per affected instance (with the part name; selecting zooms to the instance and marks it in the tree); a change at all instances says so in the description.",
-   "Comparison “Side by side”: both structure trees one below the other (new state on top, old below, each with part status); check boxes, isolate and transparency in the lower tree act on the old-state view."
+   "Comparison “Side by side”: both structure trees one below the other (new state on top, old below, each with part status); check boxes, isolate and transparency in the lower tree act on the old-state view.",
+   "Clashes also with mesh parts (STL, OBJ, glTF, 3MF, PLY, PRC meshes) and mixed pairs: distance from triangles, interference by ray test, volume and depth from a grid; the values are marked “≈” as approximations."
   ]
  },
  "releases": [

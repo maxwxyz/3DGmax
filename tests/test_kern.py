@@ -737,6 +737,39 @@ def test_kollision_freier_bereich():
     assert (unten, oben) == (-10, 10)
 
 
+def test_kollision_netzteile(tmp_path):
+    """STL-Teile (nur Dreiecke) und gemischte Paare: Durchdringung, Volumen und Tiefe wie exakt (bis zur
+    Netzfeinheit), kein Fehlbefund bei einem entfernten Teil."""
+    from OCC.Core.BRep import BRep_Builder
+    from OCC.Core.BRepMesh import BRepMesh_IncrementalMesh
+    from OCC.Core.BRepPrimAPI import BRepPrimAPI_MakeBox, BRepPrimAPI_MakeCylinder
+    from OCC.Core.RWStl import rwstl
+    from OCC.Core.StlAPI import StlAPI_Writer
+    from OCC.Core.TopoDS import TopoDS_Face
+    from OCC.Core.gp import gp_Ax2, gp_Dir, gp_Pnt
+    from programm.kern import kollision as ko
+
+    def netz(form, name):
+        BRepMesh_IncrementalMesh(form, 0.05, False, 0.2, True)
+        StlAPI_Writer().Write(form, str(tmp_path / name))
+        f = TopoDS_Face()
+        BRep_Builder().MakeFace(f, rwstl.ReadFile(str(tmp_path / name)))
+        return f
+    platte = BRepPrimAPI_MakeBox(gp_Pnt(-20, -20, 0), 40, 40, 4).Shape()
+    schaft = BRepPrimAPI_MakeCylinder(gp_Ax2(gp_Pnt(0, 0, -5), gp_Dir(0, 0, 1)), 3, 15).Shape()
+    weit = BRepPrimAPI_MakeBox(gp_Pnt(30, 0, 0), 5, 5, 5).Shape()
+    assert ko.ist_netz(netz(platte, "p.stl")) and not ko.ist_netz(platte)
+    e = ko.Einstellung(0.01, 12.0, 0.0, True)
+    exakt = ko.pruefe([ko.Teil(1, "P", platte), ko.Teil(2, "S", schaft)], e=e)[0]
+    for a, b in ((netz(platte, "p.stl"), netz(schaft, "s.stl")), (platte, netz(schaft, "s.stl"))):
+        befunde = ko.pruefe([ko.Teil(1, "P", a), ko.Teil(2, "S", b), ko.Teil(3, "W", weit)], e=e)
+        k = next(x for x in befunde if x.art == ko.KOLLISION)
+        assert {k.a.nummer, k.b.nummer} == {1, 2} and k.netz
+        assert abs(k.volumen - exakt.volumen) < 0.05 * exakt.volumen and abs(k.tiefe - exakt.tiefe) < 0.3
+        weit_befund = next(x for x in befunde if 3 in (x.a.nummer, x.b.nummer))
+        assert weit_befund.art == ko.ZU_NAH and abs(weit_befund.abstand - 10.0) < 0.05
+
+
 def test_kollision_kontakt_band():
     """Testbaugruppe: Schrauben durchdringen den Deckel, Spalt 0,3 mm zur Grundplatte, Deckel liegt auf."""
     from programm.kern import kollision as ko

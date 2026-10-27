@@ -1339,5 +1339,6 @@
 "Betrag 2. Art (Position)": "Rayleigh (position)",
 "Serie: normal (Toleranz = ±3σ · Cp); Kleinserie: Dreieck; Einzelteil: gleichverteilt; Trapez: dazwischen; Betrag 1./2. Art: Form-, Lauf- und Positionsabweichungen ab 0 (schief)": "Series: normal (tolerance = ±3σ · Cp); small batch: triangular; one-off: uniform; trapezoidal: in between; folded normal/Rayleigh: form, runout and position deviations from 0 (skewed)",
 "an allen {} Instanzen": "at all {} instances",
-"{} von {} Instanzen": "{} of {} instances"
+"{} von {} Instanzen": "{} of {} instances",
+"Netzteil: aus Dreiecken genähert (genau etwa bis zur Netzfeinheit)": "Mesh part: approximated from triangles (accurate to about the mesh size)"
 }

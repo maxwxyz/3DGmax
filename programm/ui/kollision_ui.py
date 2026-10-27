@@ -175,10 +175,13 @@ class KollisionPanel(QtWidgets.QWidget):
         for z, b in enumerate(self.befunde):
             art = tr(ko.ART_TEXT[b.art]) + (" " + tr("(Grenzlage {})").format(b.grenzlage) if b.grenzlage else "")
             art += " " + tr("(bei {})").format(b.bewegung) if b.bewegung else ""
-            werte = (str(b.nummer), b.a.name, b.b.name, art, f"{b.abstand:.3f}",
-                     f"{b.volumen:.2f}" if b.volumen else "", f"{b.tiefe:.3f}" if b.tiefe else "")
+            ca = "≈ " if b.netz else ""  # aus Dreiecksnetzen genaehert
+            werte = (str(b.nummer), b.a.name, b.b.name, art, f"{ca}{b.abstand:.3f}",
+                     f"{ca}{b.volumen:.2f}" if b.volumen else "", f"{ca}{b.tiefe:.3f}" if b.tiefe else "")
             for s, w in enumerate(werte):
                 it = QtWidgets.QTableWidgetItem(w)
+                if b.netz and s >= 4:
+                    it.setToolTip(tr("Netzteil: aus Dreiecken genähert (genau etwa bis zur Netzfeinheit)"))
                 it.setFlags(it.flags() & ~QtCore.Qt.ItemFlag.ItemIsEditable)
                 if s == 3:
                     it.setForeground(QtGui.QBrush(QtGui.QColor(ART_FARBE[b.art])))

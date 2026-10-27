@@ -376,7 +376,8 @@ the variance – this shows which tolerance to change.</li>
 <h2 id="clash">Clashes and distances</h2>
 <p><b>Tools › Clashes and distances</b> checks the parts of an assembly in pairs: all against each other, only the parts
 selected in the structure against each other, or the selected parts against the rest (part instances count
-separately).</p>
+separately). Mesh parts (STL, OBJ, glTF, PRC meshes …) are checked via their triangles; distance, volume and
+depth are then approximations to about the mesh size and marked “≈”.</p>
 <ul>
 <li><b>Clash</b>: the parts intersect, with the intersection volume.</li>
 <li><b>Contact</b>: touching up to the contact tolerance (default 0.01 mm), can be switched off.</li>
