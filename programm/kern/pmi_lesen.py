@@ -15,7 +15,7 @@ from OCC.Core.TopExp import TopExp_Explorer
 from OCC.Core.XCAFDoc import (XCAFDoc_Datum, XCAFDoc_Dimension, XCAFDoc_DimTolTool,
                               XCAFDoc_DocumentTool)
 
-from . import p21
+from . import p21, pmi_ableiten
 from .p21 import DMIA_PH
 from .laden import StepModell
 from .pmi import BEZUG, HINWEIS, MASS, Pmi
@@ -250,6 +250,12 @@ def ergaenze_hinweise(pmi: list[Pmi], grafik: dict) -> list[Pmi]:
             continue
         p = Pmi(HINWEIS, typ="Note", name=g.name, nur_grafik_text=g.name or tr_hinweis(),
                 semantisch=False, grafisch=True, quelle="step", step_id=cid)
+        felder = pmi_ableiten.ableiten(g)  # nur grafisch: Art und Werte aus Text/Markup ableiten (zu pruefen)
+        if felder is not None:
+            for k, v in felder.items():
+                setattr(p, k, v)
+            p.name = felder.get("name") or g.name  # Bezug: Buchstabe (Suche datum:A, Bezugssystem)
+            p.quelle = pmi_ableiten.ABGELEITET
         g.pmi_ids.add(cid)
         pmi.append(p)
     for i, p in enumerate(pmi, 1):

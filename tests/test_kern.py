@@ -459,3 +459,39 @@ def test_stepz_zip_und_gzip(tmp_path):
     for p in (z, g):
         m = lade_modell(str(p))
         assert m.pfad == str(p) and len(m.flaechen) > 100 and m.datei is not None
+
+
+def test_pmi_aus_grafik_ableiten():
+    """Nur grafische PMI: Art und Werte aus Text bzw. Markup-Art, gekennzeichnet als abgeleitet."""
+    from programm.kern.pmi_ableiten import aus_markup, aus_text
+    t = aus_text(["⌖", "⌀0.750Ⓜ", "A", "B", "C"])
+    assert t["typ"] == "Position" and t["wert"] == 0.75 and t["material"] == "M" and "Diameter" in t["modifikatoren"]
+    assert [b.name for b in t["bezuege"]] == ["A", "B", "C"]
+    assert aus_text(["A"]) == {"art": "bezug", "typ": "Datum", "name": "A"}
+    m = aus_text(["⌀35.20", "34.80"])
+    assert m["typ"] == "Size_Diameter" and m["grenzmass"] and (m["oben"], m["unten"]) == (35.2, 34.8)
+    m = aus_text(["⌀20", "+0.05", "-0.10"])
+    assert (m["nennwert"], m["oben"], m["unten"]) == (20.0, 0.05, -0.1)
+    assert aus_text(["R.125 ±.020"])["typ"] == "Size_Radius" and aus_text(["NOTES"]) is None
+    assert aus_markup("Gdt", 0, "Datum Feature Symbol D (24)") == {"art": "bezug", "typ": "Datum", "name": "D"}
+    assert aus_markup("Dimension", 11, "Diameter Dimension (3)")["typ"] == "Size_Diameter"
+
+
+def test_qif_nur_grafik_in_tabelle(qif_ctc01, tmp_path):
+    """QIF ohne Semantik (nur PMIDisplaySet): Toleranzen, Masse und Bezuege aus den Texten abgeleitet."""
+    from lxml import etree
+    from programm.ui.lader import lade_alles
+    w = etree.parse(qif_ctc01)
+    ns = "{http://qifstandards.org/xsd/qif3}"
+    for tag in ("Characteristics", "DatumDefinitions", "DatumReferenceFrames"):
+        for e in list(w.iter(ns + tag)):
+            e.getparent().remove(e)
+    ziel = tmp_path / "nur_grafik.qif"
+    w.write(str(ziel))
+    e = lade_alles(str(ziel))
+    abgeleitet = [p for p in e.pmi if p.quelle == "abgeleitet"]
+    assert all(not p.semantisch and p.grafisch for p in abgeleitet)
+    arten = [p.art for p in abgeleitet]
+    assert arten.count("toleranz") == 6 and arten.count("bezug") == 3 and arten.count("mass") == 8
+    pos = [p for p in abgeleitet if p.typ == "Position"]
+    assert pos and all(p.wert == 0.75 and p.bezug_text() == "A|B|C" for p in pos)

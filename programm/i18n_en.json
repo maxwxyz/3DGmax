@@ -788,5 +788,6 @@
 "Schnittkontur exportieren …": "Export section contour …",
 "Schnittkontur gespeichert: {}": "Section contour saved: {}",
 "Schnittkontur speichern": "Save section contour",
-"{} Schnittebene(n) festgehalten – jetzt die nächste wählen": "{} section plane(s) kept – now choose the next one"
+"{} Schnittebene(n) festgehalten – jetzt die nächste wählen": "{} section plane(s) kept – now choose the next one",
+"aus der Grafik abgeleitet – bitte prüfen (keine Semantik in der Datei)": "derived from the graphics – please check (no semantics in the file)"
 }

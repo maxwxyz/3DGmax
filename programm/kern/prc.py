@@ -1146,6 +1146,7 @@ class MarkupGrafik:
     linien: list[np.ndarray]
     dreiecke: list[np.ndarray]
     farbe: tuple | None
+    unterart: int = 0
 
 
 def einheit_mm(modell: PrcModell) -> float:
@@ -1261,7 +1262,7 @@ def markup_grafik(modell: PrcModell) -> list[MarkupGrafik]:
                     j = t.farbe // 3
                     farbe = g.farben[j] if 0 <= j < len(g.farben) else farbe
                 out.append(MarkupGrafik(k.eid, k.name, MARKUP_ARTEN.get(k.art, "Other"),
-                                        [tr(l) for l in t.linien], [tr(d) for d in t.dreiecke], farbe))
+                                        [tr(l) for l in t.linien], [tr(d) for d in t.dreiecke], farbe, k.unterart))
     return out
 
 

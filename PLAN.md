@@ -299,6 +299,11 @@ print annotations. Today 3DGmax writes generated texts only into the placeholder
 - STEP-XML (ISO 10303-28, `.stpx`/`.stpxz`): XML representation of the same entity graph; plan: map the XML onto
   `p21.P21Datei` so the PMI, view and color readers work unchanged; geometry via OCCT after writing a temporary
   Part 21 file (OCCT has no Part 28 reader) [open: verify which AP242 XML schema variants exist in practice].
+- Research 2026-10-27: "STEP AP242 XML" (.stpx) is the Business Object Model (ISO/TS 10303-3001, AP242 ed. 1) or
+  the Domain Model (ISO 10303-4442, later editions) – mainly product structure/PDM with references to external
+  geometry files, not a second encoding of the Part 21 geometry and PMI. XSDs: MBx-IF "XSD Schemas"; no free
+  sample files found yet. Plan: read the assembly structure and follow external references to Part 21 files;
+  needs sample files (MBx-IF test cases or a CAD export) before implementing.
 - Others to review: JT (step 7), 3MF/glTF with PMI extensions, IFC (not CAD PMI) – decide by demand.
 
 ### 8.18 PMI available as semantics or graphics only (requested)
@@ -306,6 +311,10 @@ print annotations. Today 3DGmax writes generated texts only into the placeholder
 - Graphical-only PMI: evaluate them in the table – kind from the source (PRC markup type: dimension, GD&T, datum,
   note; STEP callout names), values from text where the file has strings (STEP placeholders, PRC text entities) and
   OCR for stroked text later (§8.4). Mark as "derived (check)", never as genuine semantics.
+  **Done (2026-10-27):** `kern/pmi_ableiten.py` – text parser (frame symbol, ⌀/Ⓜ/Ⓛ, value, datums; limit, ±, +/-
+  deviations, radius, angle; single datum letter) and PRC markup kind/name rules (NX stores datum symbols as GD&T);
+  applied in `pmi_lesen.ergaenze_hinweise`; `quelle="abgeleitet"`, list shows "≈" and a tooltip. NIST STC PRC
+  texts are strokes → kind only; QIF texts → full values. Open: OCR for stroked text.
 
 ### 8.19 QIF graphics and views (done 2026-10-27)
 - `kern/qif_grafik.py`: PMIDisplay → Grafik in the annotation plane (AnnotationView normal + direction, plane origin

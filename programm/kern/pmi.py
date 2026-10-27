@@ -109,9 +109,10 @@ class Pmi:
         if self.art == MASS:
             return self._mass_text()
         if self.art == TOLERANZ:
-            return self._rahmen_text()
+            # aus der Grafik abgeleitet ohne lesbaren Wert: Text der Grafik statt eines leeren Rahmens
+            return self._rahmen_text() if self.wert is not None or not self.nur_grafik_text else self.nur_grafik_text
         if self.art == BEZUG:
-            return f"[{self.name}]"
+            return f"[{self.name}]" if self.name else self.nur_grafik_text
         return self.nur_grafik_text or self.name
 
     def _mass_text(self) -> str:

@@ -48,6 +48,7 @@ class Grafik:
     ebene: tuple | None = None  # Schreibebene (ursprung, x, y, z) laut Datei, fuer lesbares Ausrichten
     erzeugt: bool = False  # von 3DGmax aus der Semantik erzeugt (nicht aus der Datei)
     pmi_ids: set[int] = field(default_factory=set)
+    markup: tuple | None = None  # PRC: (Markup-Art, Unterart) fuer nur grafische PMI
 
     def leer(self) -> bool:
         return not (self.linien or self.dreiecke or self.platzhalter)
@@ -272,7 +273,7 @@ def prc_grafik(modell_prc) -> dict[int, Grafik]:
     from . import prc
     out: dict[int, Grafik] = {}
     for m in prc.markup_grafik(modell_prc):
-        g = Grafik(m.eid, m.name, linien=_ketten(m.linien), fertig=True, farbe=m.farbe)
+        g = Grafik(m.eid, m.name, linien=_ketten(m.linien), fertig=True, farbe=m.farbe, markup=(m.art, m.unterart))
         for d in m.dreiecke:
             if len(d) >= 3:
                 n = len(d) // 3 * 3

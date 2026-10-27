@@ -226,6 +226,8 @@ class PmiPanel(QtWidgets.QWidget):
                     it.setTextAlignment(QtCore.Qt.AlignmentFlag.AlignRight | QtCore.Qt.AlignmentFlag.AlignVCenter)
                 if spalte == "Wert":
                     it.setToolTip(_tooltip(p))
+                    if p.quelle == "abgeleitet":
+                        it.setText(f"≈ {it.text()}")  # aus der Grafik abgeleitet, keine echte Semantik
                     if p.bearbeitet or p.quelle == "eigen":
                         it.setText(f"{it.text()}  ✎")  # in 3DGmax angelegt oder geaendert
                         herkunft = tr("eigene PMI") if p.quelle == "eigen" else tr("geändert, Datei: {}").format(
@@ -487,7 +489,9 @@ def _tooltip(p) -> str:
     abw = p.klassen_abmasse() if p.oben is None and p.unten is None else None
     if abw is not None:
         teile.append(tr("{}: Abmaße {:+.4g} / {:+.4g} mm nach ISO 286").format(p.passung, *abw))
-    if not p.semantisch:
+    if p.quelle == "abgeleitet":
+        teile.append(tr("aus der Grafik abgeleitet – bitte prüfen (keine Semantik in der Datei)"))
+    elif not p.semantisch:
         teile.append(tr("nur grafisch (keine auswertbare Semantik)"))
     return "\n".join(teile)
 

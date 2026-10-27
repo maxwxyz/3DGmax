@@ -166,6 +166,9 @@ def test_stc06_laden(stc06):
     assert len(e.modell.flaechen) == 144
     assert len(e.farben) == 144
     assert len(e.pmi) == 41 and all(p.grafisch and not p.semantisch for p in e.pmi)
+    arten = [p.art for p in e.pmi]  # aus den Markup-Arten abgeleitet (Texte sind nur Striche)
+    assert arten.count("bezug") == 6 and arten.count("mass") == 13 and arten.count("toleranz") == 21
+    assert {p.name for p in e.pmi if p.art == "bezug"} == set("ABCDEF")
     assert [a.name for a in e.ansichten] == ["MBD_A", "MBD_B", "MBD_C"]
     assert all(a.pmi_nummern for a in e.ansichten)
     # Markups liegen am Modell: die meisten Grafiken beruehren den (erweiterten) Modellquader
