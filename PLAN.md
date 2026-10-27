@@ -459,6 +459,13 @@ Plan:
 6. **Degrees of freedom:** derive the open DOF of each part from its mates/joints and wiggle the assembly in every
    open DOF (animation, slider per DOF) to see whether all joints were made; under-/over-constrained parts listed.
 - Shares the assembly, mate and wiggle model with §8.20; stages 1–4 are independent of it and can come first.
+- Done 2026-10-27 (stages 1–3, most of 4): `kern/kollision.py` – pairs all/selected/selected against the rest,
+  bounding-box preselection, exact minimum distance with points and intersection volume per pair; clash / contact
+  (tolerance) / too close (minimum) / too far (maximum, only A against B); dock "Clashes" with status, comment, CSV,
+  background job with cancel; selecting a finding shows the two parts opaque, the intersection red, the distance as a
+  line with its value; example in File › Examples. The research on how CATIA/NX present results is still open (no
+  vendor documentation read yet); categories follow the request text. Open: intersection curves and penetration
+  depth, PDF report and storing results in the project, mesh parts (PRC/STL; triangle tests), stages 5–6.
 
 ### 8.22 Plausibility check of the specification (requested 2026-10-27)
 Find contradictions and incomplete specifications in the PMI of a model, as an extension of Model › Check PMI
@@ -508,7 +515,7 @@ Planned rules (each finding with severity, the PMI involved, a short reason and 
   PDF with pictures per non-conforming PMI, point clouds without triangles.
 
 ### 8.24 Demo projects (requested 2026-10-27; stage 1 done the same day)
-Done: `kern/beispiele.py` (nine examples, files looked up in the built app under `programm/beispiele/` or in
+Done: `kern/beispiele.py` (ten examples, files looked up in the built app under `programm/beispiele/` or in
 `tests/daten`; the spec copies them, so the repository holds no duplicates), File › Examples, steps after loading
 via `Hauptfenster.oeffne_beispiel`, `test_beispiele_oeffnen`. Analyses (draft, wall thickness) left out on request.
 Open: examples as project files with review state and comments; manual screenshots from the examples.
@@ -542,3 +549,22 @@ Optional linked cameras between two windows (same view direction and zoom), whic
 side-by-side comparison view. Separate processes work today (start the app twice), but macOS bundles route a second
 file open to the running app, so a window inside the app is the portable solution. Memory grows with each model; a
 test opens two windows and closes one without affecting the other.
+
+### 8.27 Part analysis: gears and splines from existing files (requested 2026-10-27, later)
+Goal: read the gear data of existing models (STEP B-rep, also meshes) as input for gear design and system analysis
+tools (the user names MASTA as an example of a tool that needs these inputs), and check them against the PMI.
+- Recognition: the gear axis from the tip/root cylinders (or cones), the teeth from the rotational pattern of the flank
+  faces around the axis (number of teeth z = repetitions over 360°), internal or external toothing, spur/helical,
+  later bevel, worm and splines (ISO 4156 / DIN 5480).
+- Measured values: tip and root diameters da/df, face width b (axial extent of the flanks), helix angle β and hand from
+  the twist of a flank along the axis, base diameter db from an involute fit of flank points in a transverse section,
+  span measurement Wk over k teeth and dimension over balls/pins computed on the exact geometry.
+- Derived values (ISO 21771 definitions): normal module mn, pressure angle αn, profile shift coefficient x (from Wk or
+  the tooth thickness), lead; for a gear pair in an assembly the centre distance, contact ratio and backlash.
+  Ambiguities (e.g. mn and αn from db alone) are resolved with the tip diameter and standard modules, and reported.
+- Output: table per gear (values, how each was found, uncertainty), CSV/JSON for the import into gear tools, comparison
+  with the PMI/notes (e.g. "z = 32, mn = 2" in a note) as part of the plausibility check (§8.22).
+- Research first: which inputs gear/system tools expect (module, angles, profile shift, tolerances per ISO 1328,
+  flank modifications) and which can be measured on nominal CAD data at all (modifications are often not modelled).
+- Test data: self-generated involute gears (spur and helical, external and internal, with profile shift) built with
+  OCCT, so the true values are known and the files are licence-free.

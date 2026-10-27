@@ -107,8 +107,10 @@
 | Plausibility check stage 2: closed dimension chains, basic dimensions, pattern counts, datum targets | ⬜ |
 | Point clouds without triangles (PLY points, XYZ, E57) | ⬜ |
 | Linked side-by-side view of old and new state (synchronized cameras) | ⬜ |
-| Clash/contact/clearance analysis of assemblies or selections (PLAN §8.21) | ⬜ |
-| Band analysis (min/max distance), intersection curves and volumes, result list and report | ⬜ |
+| Clash/contact/clearance analysis of assemblies or selections (PLAN §8.21 stages 1–3) | ✅ |
+| Band analysis (min/max distance), intersection volumes, result list with status/comment, CSV | ✅ |
+| Clash: intersection curves, penetration depth, PDF report, results in the project, mesh parts (PRC/STL) | ⬜ |
+| Gear and spline analysis of existing files (z, mn, αn, β, b, x, Wk; pairs) as input for gear tools – PLAN §8.27 | ⬜ |
 | Clash check over joint ranges; wiggle in the open degrees of freedom | ⬜ |
 
 ## Reports and exchange

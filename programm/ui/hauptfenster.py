@@ -137,6 +137,14 @@ class Hauptfenster(QtWidgets.QMainWindow):
         self.scan = ScanPanel()
         self.dock_scan = self._dock(tr("Scanprüfung"), self.scan, QtCore.Qt.DockWidgetArea.RightDockWidgetArea)
         self.dock_scan.hide()
+        from .kollision_ui import KollisionPanel
+        self.kollision = KollisionPanel()
+        self.dock_kollision = self._dock(tr("Kollisionen"), self.kollision, QtCore.Qt.DockWidgetArea.RightDockWidgetArea)
+        self.tabifyDockWidget(self.dock_pmi, self.dock_kollision)
+        self.dock_kollision.hide()
+        self.kollision.starten.connect(self.starte_kollision)
+        self.kollision.gewaehlt.connect(self._kollision_gewaehlt)
+        self.kollision.beenden.connect(self.kollision_aus)
         self.scan.gewaehlt.connect(lambda p: self.pmi.waehle(lambda q: q is p))
         self.scan.beenden.connect(self.scan_aus)
         self.dock_aenderungen = self._dock(tr("Änderungen"), self.aenderungen,
@@ -484,6 +492,8 @@ class Hauptfenster(QtWidgets.QMainWindow):
           tipp=tr("Änderungsliste des Vergleichs mit Alt/Neu als Tabelle"))
         A("ansicht_vor", tr("Nächste gespeicherte Ansicht"), lambda: self.ansichten.gehe(+1), "PgDown")
         A("ansicht_zurueck", tr("Vorherige gespeicherte Ansicht"), lambda: self.ansichten.gehe(-1), "PgUp")
+        A("kollision", tr("Kollisionen und Abstände …"), self.zeige_kollision_leiste,
+          tipp=tr("Durchdringungen, Kontakte und Abstände außerhalb eines Bands zwischen Teilen finden"))
         A("scan_pruefen", tr("Scan gegen Toleranzen prüfen …"), lambda: self.pruefe_scan(),
           tipp=tr("Netz (z. B. 3D-Scan) laden, automatisch ausrichten, Abweichungen zeigen und jede PMI bewerten"))
         A("messen", tr("Messen"), self._messen_umschalten, "M", pruefbar=True,
@@ -611,10 +621,11 @@ class Hauptfenster(QtWidgets.QMainWindow):
         m.addAction(a["messen"])
         m.addAction(a["messen_ende"])
         m.addSeparator()
+        m.addAction(a["kollision"])
         m.addAction(a["scan_pruefen"])
         self.menue_fenster = mb.addMenu(tr("&Fenster"))
         for d in (self.dock_baum, self.dock_ansichten, self.dock_pmi, self.dock_messen, self.dock_analyse,
-                  self.dock_kommentare, self.dock_aenderungen, self.dock_scan):
+                  self.dock_kommentare, self.dock_aenderungen, self.dock_scan, self.dock_kollision):
             self.menue_fenster.addAction(d.toggleViewAction())
         m = mb.addMenu(tr("&Hilfe"))
         for n in ("anleitung", "einfuehrung", "neu", "ueber"):
@@ -808,6 +819,7 @@ class Hauptfenster(QtWidgets.QMainWindow):
         self._aufgaben = []
         self._karten_lader = None
         self.analyse.start.setEnabled(True)
+        self.kollision.start.setEnabled(True)
         return da
 
     def lade_abbrechen(self):
@@ -847,6 +859,7 @@ class Hauptfenster(QtWidgets.QMainWindow):
             if getattr(self, "_kette", None) is not None:
                 self._kette.leeren()  # Kettenglieder verweisen auf PMI des vorigen Modells
             self._allgemein = None  # Allgemeintoleranzen gehoeren zum vorigen Modell
+            self.kollision_aus()
             self.aktionen["allgemein_zeigen"].setChecked(False)
         if vergleich is None and self.ansicht.abweichung is not None:
             self.ansicht.zeige_analyse(None)  # Analyse gehoert zum alten Modell
@@ -911,6 +924,7 @@ class Hauptfenster(QtWidgets.QMainWindow):
             "schnittansicht": [lambda: self.ansichten.liste.setCurrentRow(1), lambda: self.ansicht.standard("iso")],
             "scan": [lambda: self.pruefe_scan(pfade[1], warten)],
             "kette": [self._beispiel_kette],
+            "kollision": [lambda: self._beispiel_kollision(warten)],
         }[name]
         self._nach_laden = zeigen(*schritte)
         self.lade(pfade[0], warten)
@@ -922,6 +936,11 @@ class Hauptfenster(QtWidgets.QMainWindow):
         self.aktionen["toleranzzonen_alle"].setChecked(True)
         self.aktionen["allgemein_zeigen"].setChecked(True)
         self._allgemein_umschalten()
+
+    def _beispiel_kollision(self, warten: bool):
+        self.kollision.mindest.setValue(1.0)
+        self._nach_laden = lambda: self.kollision.tabelle.selectRow(0)  # ersten Befund zeigen
+        self.starte_kollision(self.kollision.werte(), warten)
 
     def _beispiel_kette(self):
         from ..kern import toleranzkette as tk
@@ -2317,6 +2336,69 @@ class Hauptfenster(QtWidgets.QMainWindow):
         self.dock_scan.raise_()
         self.statusBar().showMessage(tr("Scanprüfung: {} i. O., {} n. i. O., {} am Grenzwert, {} nicht auswertbar").format(
             z[sp.OK], z[sp.NOK], z[sp.GRENZ], z[sp.OFFEN]), 15000)
+
+    def zeige_kollision_leiste(self):
+        self.dock_kollision.show()
+        self.dock_kollision.raise_()
+
+    def starte_kollision(self, werte: dict, warten: bool = False):
+        """Kollisionen und Abstaende im Hintergrund pruefen (Umfang aus der Strukturauswahl)."""
+        from ..kern import kollision as ko
+        from .kollision_ui import KollisionLader
+        if self.erg is None:
+            return
+        if self.vergleich is not None:
+            self.statusBar().showMessage(tr("Im Vergleich nicht möglich – erst Vergleich beenden"), 6000)
+            return
+        alle = [ko.Teil(k.nummer, k.name, k.form) for k in self.erg.baum.blaetter()
+                if not k.hilfsgeometrie and k.nummer not in self.ansicht.versteckt]
+        gewaehlt = self.baum.gewaehlte_blaetter()
+        teile, gruppe_b = alle, None
+        if werte["umfang"] == "gegen":
+            teile = [t for t in alle if t.nummer in gewaehlt]
+            gruppe_b = [t for t in alle if t.nummer not in gewaehlt]
+        elif werte["umfang"] == "auswahl":
+            teile = [t for t in alle if t.nummer in gewaehlt]
+        if not teile or (gruppe_b is not None and not gruppe_b) or (gruppe_b is None and len(teile) < 2):
+            self.statusBar().showMessage(tr("Zu wenige Teile – Teile in der Struktur wählen"), 6000)
+            return
+        e = ko.Einstellung(werte["kontakt"], werte["mindest"], werte["hoechst"], werte["kontakte"])
+        self.kollision_aus()
+        lader = KollisionLader(teile, gruppe_b, e, self)
+        lader.stand.connect(self._prozent)
+        lader.fehler.connect(lambda t: (self.kollision.start.setEnabled(True),
+                                        QtWidgets.QMessageBox.warning(self, tr("Kollisionen"), t)))
+        lader.fertig.connect(lambda b, l=lader: l.abgebrochen or self._kollision_fertig(b))
+        self._kollision_lader = lader
+        self.kollision.start.setEnabled(False)
+        self._aufgabe(lader, tr("Kollisionen prüfen …"))
+        lader.start()
+        if warten:
+            lader.wait()
+            QtWidgets.QApplication.processEvents()
+
+    def _kollision_fertig(self, befunde):
+        from ..kern import kollision as ko
+        self.kollision.start.setEnabled(True)
+        z = {k: 0 for k in ko.ART_TEXT}
+        for b in befunde:
+            z[b.art] += 1
+        text = tr("{} Kollisionen, {} zu nah, {} Kontakte, {} zu weit").format(
+            z[ko.KOLLISION], z[ko.ZU_NAH], z[ko.KONTAKT], z[ko.ZU_WEIT])
+        self.kollision.zeige(befunde, text if befunde else tr("Keine Befunde"))
+        self.zeige_kollision_leiste()
+        self._danach()
+        self.statusBar().showMessage(tr("Kollisionsprüfung: {}").format(text), 10000)
+
+    def _kollision_gewaehlt(self, befund):
+        if befund is None:
+            self.ansicht.zeige_kollision(None)
+            return
+        self.ansicht.zeige_kollision({befund.a.nummer, befund.b.nummer}, befund.durchdringung, befund.punkte)
+
+    def kollision_aus(self):
+        self.ansicht.zeige_kollision(None)
+        self.kollision.zeige([], "")
 
     def scan_aus(self):
         if getattr(self, "_scan", None) is None:

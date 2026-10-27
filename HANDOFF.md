@@ -39,7 +39,9 @@ every 250 ms plus once after dragging: 117 → 20 ms per step under Xvfb), gener
 contrast edges (setting), calmer view cube, stack-up Cp (RSS fix: ±3σ of the closing dimension), angles excluded,
 chain cleared on model change, PMI list right-click selects the row first, section views from AP242 saved views
 (§8.25, test file `ctc01_schnittansicht.stp`), start screen (PyInstaller + Qt splash), File › Examples (§8.24,
-`kern/beispiele.py`). Plan additions: §8.8 per-link Cp and 3D-picked chains, §8.20 snapping assembly, §8.24–8.26.
+`kern/beispiele.py`). Plan additions: §8.8 per-link Cp and 3D-picked chains, §8.20 snapping assembly, §8.24–8.26. Then: stack-up from
+the 3D selection (`kette_aus_flaechen`, per-link distribution/Cp, shares) and clash/contact/band analysis
+(`kern/kollision.py`, `ui/kollision_ui.py`, dock "Clashes", example).
 Semantic GD&T cannot be written from Python (pythonocc 8.0: XCAFDoc_GeomTolerance not wrapped, writing new-style
 dimensions segfaults, the legacy DimTol path loses the faces) – PMI test variants are therefore text edits of the
 public-domain NIST STEP files.
@@ -100,16 +102,16 @@ graphics only, 8.19 QIF graphics, 8.20 3D tolerance analysis,
 ## Next (in this order)
 1. Visual check on the Mac: wireframe contrast edges, view cube colours/labels, start screen (Qt splash; the
    PyInstaller splash exists only on Windows/Linux), side-panel dragging, X on panel tabs, section view example,
-   File › Examples.
-2. Stack-up stage 2 (PLAN §8.8 / §8.20 stage 3, 1D): chain picked in 3D (faces, edges, derived axes) with the
-   direction from the geometry, values from the PMI, general tolerances for features without PMI, GD&T
-   contributors (position/profile/datum shift from the zone logic), Cp/Cpk and distribution per link,
-   contributor ranking, PDF report.
-3. Clash, band and intersection analysis (PLAN §8.21 stages 1–4; building blocks verified).
-4. Assembly mating with snapping, DOF display, then 3D torsor model, Monte Carlo and wiggle (PLAN §8.20, large).
+   File › Examples, stack-up window (3D selection, per-link widgets), clash dock and finding display.
+2. Stack-up stage 2b: edges and derived median planes as chain ends, GD&T contributors from the zone logic
+   (position/profile/datum shift with Ⓜ/Ⓛ), Cpk / shifted means, PDF report; chain stored in the project.
+3. Clash stage 4 rest: research CATIA/NX result presentation, intersection curves, penetration depth, PDF report,
+   results in the project, mesh parts; then assembly mating with snapping and DOF display (§8.20 stage 1, §8.21
+   stage 6).
+4. 3D torsor model, Monte Carlo over the assembly, wiggle 1:1 / exaggerated (PLAN §8.20, large).
 5. Several windows / linked cameras (§8.26); scan check stage 2 (§8.23 open points).
 6. Tolerance zones: line profile/roundness per section, ACS/ALS, CZ/SZ, tolerances on edges/points; a sample with an
-   unequal zone (UZ) to verify the displacement interpretation; plausibility check stage 2 (§8.22).
+   unequal zone (UZ); plausibility check stage 2 (§8.22).
 7. Hatched section views; QIF/PRC clip planes; change list entries per instance.
 8. STEP-XML (§8.17, needs sample files) and further open formats; PRC compressed tessellation and B-rep.
 9. Step 7 JT via TKJT (GPL v2+, build option).

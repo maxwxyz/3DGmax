@@ -98,6 +98,7 @@ class AnsichtBasis(QtWidgets.QWidget):
         self.ballone: list = []
         self.explosion = 0.0
         self.material = None
+        self.kollision = None  # (Knotennummern der zwei Teile, Durchdringung oder None, Punkte) eines Befunds
         self.box = None  # Schnittbox ((x0, y0, z0), (x1, y1, z1)) oder None
         self.kommentar_marken: list = []
         self.zone_formen: list = []
@@ -164,6 +165,11 @@ class AnsichtBasis(QtWidgets.QWidget):
     def zeige_material(self, dazu, weg):
         """Materialvergleich: hinzugekommenes (gruen) und entferntes Volumen (rot); beide None blendet aus."""
         self.material = None if dazu is None and weg is None else (dazu, weg)
+
+    def zeige_kollision(self, teile: set[int] | None, durchdringung=None, punkte=()):
+        """Befund der Kollisionspruefung: die zwei Teile deckend, der Rest durchscheinend, Durchdringung rot,
+        kleinster Abstand als Linie; teile None blendet aus."""
+        self.kollision = None if teile is None else (set(teile), durchdringung, tuple(punkte))
 
     def oben_richtung(self) -> tuple[float, float, float]:
         """Richtung, die im Bild nach oben zeigt."""
@@ -905,6 +911,7 @@ class OcctAnsicht(AnsichtBasis):
         if self.ballone:
             self.zeige_ballone(self.ballone)
         self._baue_material()
+        self._baue_kollision()
         if self.kommentar_marken:
             self.zeige_kommentare(self.kommentar_marken)
         if self.explosion > 0:
@@ -1179,7 +1186,7 @@ class OcctAnsicht(AnsichtBasis):
                 # Material davor bzw. Toleranzzonen im Bauteil (Bohrungen) sichtbar; Fokus: alles ausser der Auswahl
                 fokus = self.fokus_aktiv() and nr not in self.fokus_teile
                 durchsichtig = nr in self.transparent or self.material is not None or bool(self.zone_formen) or fokus \
-                    or self.abweichung_ueberlagert
+                    or self.abweichung_ueberlagert or (self.kollision is not None and nr not in self.kollision[0])
                 ctx.SetTransparency(ais, 0.7 if durchsichtig else 0.0, False)
         self._aktiviere_auswahl()
         for ais in self._hilfe:
@@ -1470,6 +1477,57 @@ class OcctAnsicht(AnsichtBasis):
             self._baue_material()
             self._wende_sichtbarkeit_an()
             self._neu_zeichnen()
+
+    def zeige_kollision(self, teile, durchdringung=None, punkte=()):
+        super().zeige_kollision(teile, durchdringung, punkte)
+        if self._bereit:
+            self._baue_kollision()
+            self._wende_sichtbarkeit_an()
+            self._neu_zeichnen()
+
+    def _baue_kollision(self):
+        from OCC.Core.AIS import AIS_Shape
+        from OCC.Core.BRepBuilderAPI import BRepBuilderAPI_MakeEdge
+        from OCC.Core.Graphic3d import Graphic3d_ZLayerId_Topmost
+        from OCC.Core.gp import gp_Pnt
+        ctx = self.d.Context
+        for alt in getattr(self, "_kollision_ais", []):
+            ctx.Remove(alt, False)
+        self._kollision_ais = []
+        if self.kollision is None:
+            return
+        _teile, form, punkte = self.kollision
+        t = self.thema or {}
+        if form is not None:
+            ais = AIS_Shape(form)
+            ais.SetColor(_farbe(t.get("v_entfernt", (0.9, 0.15, 0.15))))
+            ais.SetZLayer(Graphic3d_ZLayerId_Topmost)  # durch die Teile hindurch sichtbar
+            ctx.Display(ais, 1, -1, False)
+            ctx.Deactivate(ais)
+            self._kollision_ais.append(ais)
+        if len(punkte) == 2 and sum((a - b) ** 2 for a, b in zip(*punkte)) > 1e-12:
+            linie = AIS_Shape(BRepBuilderAPI_MakeEdge(gp_Pnt(*punkte[0]), gp_Pnt(*punkte[1])).Edge())
+            linie.SetColor(_farbe(t.get("hervor", (1, 0.45, 0))))
+            linie.SetWidth(3.0)
+            linie.SetZLayer(Graphic3d_ZLayerId_Topmost)
+            ctx.Display(linie, 0, -1, False)
+            ctx.Deactivate(linie)
+            self._kollision_ais.append(linie)
+        if len(punkte) == 2:
+            # Wert an der Stelle: kurze Abstaende sind als Linie kaum zu sehen
+            from OCC.Core.AIS import AIS_TextLabel
+            from OCC.Core.TCollection import TCollection_ExtendedString
+            abstand = sum((a - b) ** 2 for a, b in zip(*punkte)) ** 0.5
+            lab = AIS_TextLabel()
+            lab.SetText(TCollection_ExtendedString(f"{abstand:.3f} mm", True))
+            lab.SetPosition(gp_Pnt(*[(a + b) / 2 for a, b in zip(*punkte)]))
+            lab.SetColor(_farbe(t.get("hervor", (1, 0.45, 0))))
+            lab.SetHeight(16.0)
+            lab.SetFont(SCHRIFT)
+            lab.SetZLayer(Graphic3d_ZLayerId_Topmost)
+            ctx.Display(lab, False)
+            ctx.Deactivate(lab)
+            self._kollision_ais.append(lab)
 
     def _baue_material(self):
         from OCC.Core.AIS import AIS_Shape

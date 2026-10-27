@@ -713,3 +713,22 @@ def test_schnittansicht_aus_step():
     assert a.pmi_ids  # Kamera und PMI der Ansicht weiterhin gelesen
     ohne = lade_modell(pfad("nist_ctc_01_asme1_ap242-e1.stp"))
     assert all(not x.schnitt for x in lies_ansichten(ohne))
+
+
+def test_kollision_kontakt_band():
+    """Testbaugruppe: Schrauben durchdringen den Deckel, Spalt 0,3 mm zur Grundplatte, Deckel liegt auf."""
+    from programm.kern import kollision as ko
+    from programm.ui.lader import lade_alles
+    erg = lade_alles(pfad("baugruppe.stp"))
+    teile = [ko.Teil(k.nummer, k.name, k.form) for k in erg.baum.blaetter() if not k.hilfsgeometrie]
+    b = ko.pruefe(teile, e=ko.Einstellung(mindest=1.0))
+    arten = [x.art for x in b]
+    assert arten == [ko.KOLLISION] * 4 + [ko.ZU_NAH] * 4 + [ko.KONTAKT]
+    assert all(abs(x.volumen - 163.3628) < 0.01 and x.durchdringung is not None for x in b[:4])
+    assert all(abs(x.abstand - 0.3) < 1e-6 and len(x.punkte) == 2 for x in b[4:8])
+    assert {b[8].a.name, b[8].b.name} == {"Grundplatte", "Deckel"}
+    platte = [t for t in teile if t.name == "Grundplatte"]
+    gegen = ko.pruefe(platte, [t for t in teile if t.name != "Grundplatte"],
+                      ko.Einstellung(hoechst=4.0, kontakte_melden=False))
+    assert [(x.art, x.b.name) for x in gegen] == [(ko.ZU_WEIT, "Winkel")] and abs(gegen[0].abstand - 5.0) < 1e-6
+    assert "Kollision" in ko.als_csv(b) or "Clash" in ko.als_csv(b)

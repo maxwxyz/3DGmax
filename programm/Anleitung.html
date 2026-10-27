@@ -62,7 +62,7 @@ Maße messen, zwei Stände in Geometrie und PMI vergleichen und Prüfungen dokum
 <a href="#darstellung">Struktur und Darstellung</a><a href="#schnitt">Schnitt</a><a href="#messen">Messen</a>
 <a href="#zonen">Toleranzzonen</a><a href="#analyse">Analyse, Toleranzkette, PMI anlegen</a>
 <a href="#kommentare">Kommentare</a><a href="#vergleich">Zwei Stände vergleichen</a><a href="#pruefen">Änderungen prüfen</a>
-<a href="#scan">Netze und Scans</a><a href="#export">Exportieren und Zeichnungen</a><a href="#projekt">Projekt</a>
+<a href="#kollision">Kollisionen und Abstände</a><a href="#scan">Netze und Scans</a><a href="#export">Exportieren und Zeichnungen</a><a href="#projekt">Projekt</a>
 <a href="#einstellungen">Einstellungen</a><a href="#menue">Alle Menübefehle</a><a href="#faq">Fragen</a>
 </nav>
 
@@ -268,6 +268,22 @@ im Modell an. Die Leiste <b>Kommentare</b> zeigt offen/erledigt; Export als CSV 
 <li><b>Prüfung abschließen</b>: Prüfer, Ergebnis, Bemerkung → Protokoll mit Prüfsumme (SHA-256), gespeichert im Projekt.</li>
 <li>Berichte: <b>Datei › Exportieren › Vergleichsbericht (PDF)</b>, <b>PMI-Änderungen (PDF)</b>, <b>Änderungen (CSV)</b>.</li>
 </ul>
+
+<h2 id="kollision">Kollisionen und Abstände</h2>
+<p><b>Werkzeuge › Kollisionen und Abstände</b> prüft die Teile einer Baugruppe paarweise: alle untereinander, nur die
+in der Struktur gewählten untereinander oder die gewählten gegen den Rest (mehrfach verbaute Teile zählen einzeln).</p>
+<ul>
+<li><b>Kollision</b>: die Teile durchdringen sich, mit Volumen der Durchdringung.</li>
+<li><b>Kontakt</b>: Berührung bis zur Kontakttoleranz (Standard 0,01 mm), abschaltbar.</li>
+<li><b>zu nah</b>: Abstand unter dem Mindestabstand (Freigang); <b>zu weit</b>: Abstand über dem Höchstabstand – nur
+bei „gegen den Rest“, sonst wäre jedes entfernte Paar ein Befund.</li>
+<li>Einen Befund wählen: die zwei Teile bleiben deckend, der Rest wird durchscheinend, die Durchdringung erscheint rot,
+der kleinste Abstand als Linie mit Wert. Je Befund Status (offen, akzeptiert, ignoriert) und Kommentar
+(Doppelklick); <b>CSV speichern</b> für die Weitergabe.</li>
+</ul>
+<p>Die Rechnung läuft im Hintergrund (Laufbalken mit <b>Abbrechen</b> unten). Gewindebohrungen mit Schrauben im
+Nennmaß erscheinen als Kollision, wenn das Modell das Gewinde nicht ausspart – solche Befunde als „akzeptiert“
+markieren.</p>
 
 <h2 id="scan">Netze und Scans</h2>
 <p>Netze (STL, OBJ, PLY, glTF, 3MF) lassen sich wie CAD-Modelle ansehen und messen und im Vergleich gegen ein CAD-Modell

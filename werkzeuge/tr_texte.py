@@ -44,6 +44,10 @@ def tr_texte() -> set[str]:
                                        "gleiche Lage", "Bestpassung", "Punktpaare",
                                        "Geometrie geändert", "Geometrie neu", "Geometrie entfernt"}
     out |= set(messwerkzeug.ART_TEXT.values())
+    from programm.kern import kollision as ko
+    from programm.ui import kollision_ui
+    out |= set(ko.ART_TEXT.values()) | set(ko.STATUS.values()) | set(ko.SPALTEN)
+    out |= {t for _, t in kollision_ui.UMFANG}
     from programm.kern import beispiele
     out |= {t for b in beispiele.BEISPIELE for t in (b.titel, b.text)}
     from programm.kern import plausibilitaet

@@ -807,7 +807,10 @@ def _beispiele(f, namen):
             assert getattr(f, "_scan", None) is not None
         elif b.name == "kette":
             assert f._kette.glieder and abs(f._kette.cp.value() - 1.33) < 1e-9
+        elif b.name == "kollision":
+            assert f.ansicht.kollision is not None and f.ansicht.kollision[1] is not None
     f.beende_vergleich()
+    f.kollision_aus()
     f.scan_aus()
     f.aktionen["toleranzzonen_alle"].setChecked(False)
     f.aktionen["allgemein_zeigen"].setChecked(False)
@@ -817,8 +820,8 @@ def test_beispiele_modell(fenster):
     """Datei > Beispiele (ein Modell): Dateien gefunden, Schritte nach dem Laden ausgefuehrt."""
     from programm.kern import beispiele
     assert {b.name for b in beispiele.BEISPIELE} == {"pmi", "pruefen", "zonen", "schnittansicht", "kette", "scan",
-                                                      "vergleich_pmi", "vergleich_geo", "baugruppe"}
-    _beispiele(fenster, ("pmi", "pruefen", "zonen", "schnittansicht", "kette"))
+                                                      "vergleich_pmi", "vergleich_geo", "baugruppe", "kollision"}
+    _beispiele(fenster, ("pmi", "pruefen", "zonen", "schnittansicht", "kette", "kollision"))
 
 
 def test_beispiele_vergleich_und_scan(fenster):
@@ -844,3 +847,28 @@ def test_toleranzkette_aus_3d_auswahl(fenster):
     k.tabelle.cellWidget(1, 7).setCurrentIndex(1)  # gleichverteilt
     assert k.glieder[1].verteilung == "gleich" and k.e.anteile[1] > k.e.anteile[0]
     k.leeren()
+
+
+def test_kollisionen_im_fenster(fenster, tmp_path):
+    """Leiste Kollisionen: pruefen, Befund waehlen zeigt ihn, Status/CSV, Abbrechen ueber die Statuszeile."""
+    f = fenster
+    f.lade(pfad("baugruppe.stp"), warten=True)
+    f.zeige_kollision_leiste()
+    werte = f.kollision.werte()
+    assert werte["umfang"] == "alle" and not f.kollision.hoechst.isEnabled()
+    f.starte_kollision(werte, warten=True)
+    assert len(f.kollision.befunde) == 5 and f.kollision.zaehler()["kollision"] == 4  # 4 x Schraube/Deckel + Kontakt
+    f.kollision.tabelle.selectRow(0)
+    teile, form, punkte = f.ansicht.kollision
+    assert len(teile) == 2 and form is not None
+    f.kollision.tabelle.cellWidget(0, 6).setCurrentIndex(1)
+    assert f.kollision.befunde[0].status == "akzeptiert"
+    assert f.kollision.speichere_csv(str(tmp_path / "k.csv"))
+    # gewaehlte Teile gegen den Rest, mit Band
+    f.baum.baum.clearSelection()
+    platte = next(it for it in f.baum.baum.findItems("Grundplatte", __import__("PySide6").QtCore.Qt.MatchFlag.MatchRecursive))
+    platte.setSelected(True)
+    f.starte_kollision({**werte, "umfang": "gegen", "hoechst": 4.0, "kontakte": False}, warten=True)
+    assert [b.art for b in f.kollision.befunde] == ["zu_weit"]
+    f.kollision_aus()
+    assert f.ansicht.kollision is None and not f.kollision.befunde
