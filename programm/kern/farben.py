@@ -39,7 +39,7 @@ def flaechen_farben(modell: StepModell) -> dict[int, tuple[float, float, float]]
     """Flaechenindex -> RGB (0..1). Koerperfarben zuerst, Flaechenfarben ueberschreiben."""
     datei = modell.datei
     if datei is None:
-        return {}
+        return dict(getattr(modell, "prc_farben", {}))
     koerper, flaechen = {}, {}
     for s in datei.of_type("STYLED_ITEM") + datei.of_type("OVER_RIDING_STYLED_ITEM"):
         args = s.args(next(iter(s.parts)))

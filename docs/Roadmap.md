@@ -48,7 +48,8 @@
 | Targeted search (`datum:A`, `value:0.5`, `type:position`, `view:`, `name:`, `no:`, `balloon:`) | ✅ |
 | Surface texture (roughness), weld symbols | ⬜ |
 | Make graphical PMI searchable (OCR on rendered annotations) | 💡 |
-| Convert graphical PMI into semantic PMI | 💡 |
+| Convert graphical PMI into semantic PMI; evaluate graphical-only PMI in the table (type from markup kind, values from text) | ⬜ |
+| Semantic-only PMI: optional generated display in the view (see generated PMI stage 2) | 🟡 |
 | Show tolerance zones as envelope surfaces (offsets ±t/2, ⌀ zone cylinder, exaggeration) | ✅ |
 | Tolerance zones: datum-oriented zones, unequal/offset zones (UZ), projected zones, material conditions | ⬜ |
 | Tolerance stack-up 1D (dimension chain from PMI, worst case, RSS, Monte Carlo, CSV) | ✅ |
@@ -95,6 +96,7 @@
 | Project container (ZIP with models, review status, comments, measurements) | ✅ |
 | Folder comparison | ✅ |
 | Export views as drawings (HLR) PDF/SVG/DXF: standard views by projection method, current view, saved views with their PMI | ✅ |
+| Drawings and view thumbnails for mesh models (face borders, silhouettes, hidden edges via depth buffer) | ✅ |
 | Generate graphical PMI from semantic PMI – stage 1: leader + label, stacked, own color (3D, drawings) | ✅ |
 | Generated PMI stage 2: annotation planes, frames/datum symbols as vector graphics, layout optimization | ⬜ |
 | Drawing: dimensions/frames as DXF dimension entities, sheet formats and scales | ⬜ |
@@ -108,7 +110,9 @@
 | QIF: graphical PMI (PMIDisplaySet), saved views, measurement results | ⬜ |
 | IGES, STL, OBJ, glTF/GLB, 3MF, PLY (meshes: view, measure, analyze, compare against CAD) | ✅ |
 | JT via TKJT (GPL v2+), build with/without TKJT | ⬜ (step 7) |
-| 3D PDF / PRC: mesh, graphical and semantic PMI, B-rep (own reader, PLAN §8.15; NIST STC PDFs as test data) | ⬜ |
+| 3D PDF / PRC stage 1–3: structure, schema, tessellation as colored mesh, markups as graphical PMI, saved views with camera (own reader, PLAN §8.15; NIST STC PDFs downloaded in tests) | ✅ |
+| 3D PDF / PRC: highly compressed tessellation, exact B-rep, semantic PMI from markup user data; U3D | ⬜ |
+| STEPZ (zipped STEP), STEP-XML (ISO 10303-28) and other open CAD formats | ⬜ |
 | CATIA V5/V6 CATPart/CATProduct | 💡 (only via licensed SDK or CATIA exports; legal review first) |
 
 ## Operation

@@ -15,10 +15,11 @@ from .messwerkzeug import MessPanel
 from .vergleich_ui import AbschlussDialog, AenderungenPanel, AusrichtPanel, VergleichDialog, VergleichsLader
 from .panels import AnsichtenPanel, BaumPanel, PmiPanel
 
-DATEIFILTER = ("{} (*.stp *.step *.p21 *.igs *.iges *.stl *.obj *.gltf *.glb *.3mf *.ply *.qif *.3dgmax);;"
-               "STEP (*.stp *.step *.p21);;QIF (*.qif);;IGES (*.igs *.iges);;{} (*.stl *.obj *.gltf *.glb *.3mf *.ply);;"
-               "3DGmax (*.3dgmax)")  # Platzhalter: uebersetzte Namen
-ENDUNGEN = (".stp", ".step", ".p21", ".igs", ".iges", ".stl", ".obj", ".gltf", ".glb", ".3mf", ".ply", ".qif", ".3dgmax")
+DATEIFILTER = ("{} (*.stp *.step *.p21 *.igs *.iges *.stl *.obj *.gltf *.glb *.3mf *.ply *.qif *.prc *.pdf *.3dgmax);;"
+               "STEP (*.stp *.step *.p21);;QIF (*.qif);;PRC / 3D-PDF (*.prc *.pdf);;IGES (*.igs *.iges);;"
+               "{} (*.stl *.obj *.gltf *.glb *.3mf *.ply);;3DGmax (*.3dgmax)")  # Platzhalter: uebersetzte Namen
+ENDUNGEN = (".stp", ".step", ".p21", ".igs", ".iges", ".stl", ".obj", ".gltf", ".glb", ".3mf", ".ply", ".qif", ".prc",
+            ".pdf", ".3dgmax")
 MAX_ZULETZT = 10
 
 

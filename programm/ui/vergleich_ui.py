@@ -71,7 +71,7 @@ class VergleichDialog(QtWidgets.QDialog):
 
     def _waehle(self, feld):
         pfad, _ = QtWidgets.QFileDialog.getOpenFileName(self, tr("STEP-Datei öffnen"), os.path.dirname(feld.text()),
-                                                        "Modelle (*.stp *.step *.p21 *.qif *.igs *.iges *.stl *.obj *.gltf *.glb *.3mf *.ply)")
+                                                        "Modelle (*.stp *.step *.p21 *.qif *.prc *.pdf *.igs *.iges *.stl *.obj *.gltf *.glb *.3mf *.ply)")
         if pfad:
             feld.setText(pfad)
 

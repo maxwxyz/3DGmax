@@ -10,7 +10,7 @@ import os
 import re
 from dataclasses import dataclass, field
 
-ENDUNGEN = (".stp", ".step", ".p21", ".igs", ".iges", ".stl", ".obj", ".gltf", ".glb", ".3mf", ".ply", ".qif")
+ENDUNGEN = (".stp", ".step", ".p21", ".igs", ".iges", ".stl", ".obj", ".gltf", ".glb", ".3mf", ".ply", ".qif", ".prc")
 _REVISION = re.compile(r"([ _\-.]?(rev|r|v|version|stand|idx|index)[ _\-.]?[a-z0-9]{1,3})$", re.I)
 
 GLEICH, GEAENDERT, NUR_ALT, NUR_NEU, FEHLER = "gleich", "geaendert", "nur_alt", "nur_neu", "fehler"

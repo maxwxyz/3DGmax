@@ -25,6 +25,7 @@ LIZENZEN = (
     ("SciPy", "BSD", "https://scipy.org"),
     ("lxml", "BSD", "https://lxml.de"),
     ("pypdf", "BSD", "https://github.com/py-pdf/pypdf"),
+    ("Asymptote PRC (Kodierungstabelle, Bitleser)", "LGPL 3", "https://github.com/vectorgraphics/asymptote"),
 )
 
 

@@ -97,8 +97,37 @@ def _semantik_von(datei: P21Datei, definition: int) -> int:
     return definition
 
 
+def _prc_ansichten(modell) -> list[Ansicht]:
+    """Gespeicherte Ansichten aus PRC (Kamera in mm, sichtbare Markups als PMI-IDs)."""
+    import numpy as np
+    from . import prc
+    out = []
+    for a in prc.ansichten(modell.prc):
+        ansicht = Ansicht(a["name"], a["eid"])
+        k = a["kamera"]
+        if k is not None:
+            r = np.asarray(k["ziel"], float) - np.asarray(k["ort"], float)
+            laenge = float(np.linalg.norm(r)) or 1.0
+            ansicht.ort = tuple(float(x) for x in k["ort"])
+            ansicht.richtung = tuple(float(x) for x in r / laenge)
+            ansicht.oben = tuple(float(x) for x in k["oben"])
+            ansicht.breite, ansicht.hoehe = float(k["breite"]), float(k["hoehe"])
+            ansicht.abstand = laenge
+            ansicht.perspektive = not k["ortho"]
+        ansicht.pmi_ids = set(a["markups"])
+        out.append(ansicht)
+    return out
+
+
 def lies_ansichten(modell: StepModell, pmi: list[Pmi] | None = None) -> list[Ansicht]:
     datei = modell.datei
+    if datei is None and getattr(modell, "prc", None) is not None:
+        ansichten = _prc_ansichten(modell)
+        if pmi is not None:
+            nr = {p.step_id: p.nummer for p in pmi if p.step_id}
+            for a in ansichten:
+                a.pmi_nummern = sorted(nr[i] for i in a.pmi_ids if i in nr)
+        return ansichten
     if datei is None:
         return []
     skala = _laengen_skala(datei)

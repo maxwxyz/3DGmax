@@ -251,3 +251,30 @@ def lies_grafik(datei: P21Datei, skala: float = 1.0) -> dict[int, Grafik]:
     for g in out.values():
         g.doppelt = not g.fertig and bool(g.pmi_ids) and g.pmi_ids <= mit_grafik
     return out
+
+
+def _ketten(linien: list[np.ndarray], eps: float = 1e-9) -> list[np.ndarray]:
+    """Aufeinanderfolgende Linienstuecke mit gemeinsamem Endpunkt zu Linienzuegen verbinden."""
+    out: list[list] = []
+    for l in linien:
+        if len(l) < 2:
+            continue
+        if out and np.abs(out[-1][-1] - l[0]).max() <= eps:
+            out[-1].extend(l[1:])
+        else:
+            out.append(list(l))
+    return [np.asarray(k) for k in out]
+
+
+def prc_grafik(modell_prc) -> dict[int, Grafik]:
+    """Markup-ID -> Grafik aus PRC (fertige Linien und Flaechen, Name des Markups)."""
+    from . import prc
+    out: dict[int, Grafik] = {}
+    for m in prc.markup_grafik(modell_prc):
+        g = Grafik(m.eid, m.name, linien=_ketten(m.linien), fertig=True, farbe=m.farbe)
+        for d in m.dreiecke:
+            if len(d) >= 3:
+                n = len(d) // 3 * 3
+                g.dreiecke.append((d[:n], np.arange(n).reshape(-1, 3)))
+        out[m.eid] = g
+    return out

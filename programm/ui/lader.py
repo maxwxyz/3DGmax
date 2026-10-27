@@ -34,7 +34,13 @@ def lade_alles(pfad: str, fortschritt=lambda text: None) -> Ergebnis:
     fortschritt(tr("PMI lesen …"))
     pmi = lies_pmi(modell)
     fortschritt(tr("Struktur und Grafik …"))
-    grafik = lies_grafik(modell.datei, _laengen_skala(modell.datei)) if modell.datei else {}
+    if modell.datei:
+        grafik = lies_grafik(modell.datei, _laengen_skala(modell.datei))
+    elif getattr(modell, "prc", None) is not None:
+        from ..kern.praesentation import prc_grafik
+        grafik = prc_grafik(modell.prc)
+    else:
+        grafik = {}
     pmi = ergaenze_hinweise(pmi, grafik)
     from ..kern import pmi_erzeugen
     grafik.update(pmi_erzeugen.ergaenze(pmi, grafik, modell))  # Darstellung fuer PMI ohne Grafik in der Datei

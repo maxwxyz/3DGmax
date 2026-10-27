@@ -67,7 +67,9 @@ numpy, scipy (KD tree, ICP), pypdf (3D streams from PDF, BSD), lxml (QIF), pytes
 | **JT** – TKJT (as used by FreeCAD) | TKJT by Open Cascade (2013–2015), maintained at github.com/mmaenz/TKJT (OCCT 7.7, compiled on Mac, untested); own Python binding | mesh, structure, attributes; PMI part present, scope [open] | [open] | medium–large | 0, but **GPL v2+** [verified] |
 | **JT** – commercial SDK | Siemens JT Open Toolkit, Open Cascade JT SDK, CAD Exchanger, HOOPS Exchange | yes | yes | medium | quote only |
 | **3D PDF U3D** | extract stream with pypdf, read U3D (ECMA-363) | mesh | views only | medium | 0 |
-| **3D PDF PRC** | no usable free reader found; own reader per the published PRC specification (ISO 14739-1), see §8.15 | B-rep, tessellation | graphical markups, semantic if present | large | 0 |
+| **3D PDF PRC** | own reader (kern/prc.py) per the public ISO working draft N570, see §8.15 **[done: tessellation, markups, views]** | tessellation (B-rep open) | graphical markups (semantic open) | large | 0 |
+| **STEPZ** | ZIP/gzip around a Part 21 file, unpack and load | as STEP | as STEP | small | 0 |
+| **STEP-XML** (ISO 10303-28) | own reader mapping the XML entity graph onto the Part 21 model (p21.py), then the STEP path | as STEP | as STEP | medium–large | 0 |
 
 ## 4. Architecture
 
@@ -102,7 +104,7 @@ tests/  packaging/  werkzeuge/  docs/
 | **3 Measure** | distance/angle/radius/wall thickness/coordinates with snapping, list, CSV | values match NIST dimensions | ✅ |
 | **4 Compare** | alignment, face status, PMI diff, change list, review walk-through, report | modified NIST variants: all changes found, no false alarms | ✅ (extensions see §8.1) |
 | **5 Output** | PDF per saved view, comparison report with images, PMI change table PDF/CSV, project container, folder comparison, views as drawings (HLR) | report understandable for a supplier | ⬜ next |
-| **6 Formats** | QIF, IGES/STL/OBJ/glTF/3MF, 3D PDF | one test file per format | ⬜ |
+| **6 Formats** | QIF, IGES/STL/OBJ/glTF/3MF, 3D PDF | one test file per format | 🟡 (QIF, meshes, IGES, 3D PDF/PRC done; STEPZ, STEP-XML open) |
 | **7 JT via TKJT** | build TKJT for OCCT 8, Python binding, load JT; build with/without TKJT (open source only on GitHub) | JT file like its STEP counterpart | ⬜ |
 | later | multiple section planes, clipping box, section views from the model | section looks like in CAD | ⬜ |
 
@@ -249,6 +251,18 @@ ISO variants of the NIST models (built in a CAD system and exported), CAx-IF tes
   3. Markups (PMI): tessellated leaders/texts as graphical PMI, views; semantic markups where present.
   4. Exact B-rep (NURBS, analytic surfaces, topology) → OCCT faces, so measuring and comparison use exact geometry.
 - Effort: large (several weeks). Order: 1–2 first (mesh view of 3D PDFs), then 3, then 4.
+- **Done (2026-10-27, stages 1–3 partly):** `kern/prc_bits.py` (bit reader, double coding verified against vectors
+  from the Asymptote writer), `kern/prc_tabelle.py` (frequent-double/exponent table), `kern/prc.py` (file structure,
+  schema interpreter, globals, tree with part definitions, product occurrences, markups, annotations, views,
+  tessellation: TESS_3D faces, wires, markup codes with matrix blocks). All five NIST STC PDFs load (5–7 s each);
+  STC-07 surface area matches the FTC-07 STEP within 0.15 %. Markups become graphical PMI (notes in the list),
+  views carry camera and visible markups. Findings: the ISO draft has wrong type numbers (TESS = 170, not 230;
+  MISC numbering as in Asymptote); MarkupLinkedItem has an extra bit before the optional product occurrence
+  reference; the annotation plane (PRC_TYPE_SURF_Plane) carries 6 undocumented bits before the parameterization –
+  the reader searches for the default parameterization like the Asymptote reader does; schema token 39 with one
+  argument appears before the first block (not in the draft). NIST STC markup texts are stroked glyphs, not strings.
+- Open: highly compressed tessellation (PRC_TYPE_TESS_3D_Compressed, described in the draft §7.8.9), exact B-rep
+  (geometry section; the NIST files have none), semantic PMI (may sit in user data), U3D streams.
 - Specification status [verified 2026-10-26]: the Adobe "PRC Format Specification" (Acrobat 9 SDK) is only partly
   available as an archived HTML copy (web.archive.org, livedocs.adobe.com/.../PRC_Format_Specification/); the pages for
   the bit-level writing (WriteBits, unsigned integers, the double encoding table) and the compressed tessellation were
@@ -267,3 +281,18 @@ print annotations. Today 3DGmax writes generated texts only into the placeholder
    datums) and datum feature symbols drawn as vector graphics (frames, triangles), leaders to the feature.
 3. Use in 3D view, drawings (§ HLR export) and reports; mark as "generated" (different color) so it is never
    mistaken for the author's presentation.
+
+### 8.17 More open formats (requested)
+- STEPZ (`.stpz`, `.stepz`, `.stp.gz`): ZIP or gzip around a Part 21 file – unpack to a temporary file, load as STEP.
+- STEP-XML (ISO 10303-28, `.stpx`/`.stpxz`): XML representation of the same entity graph; plan: map the XML onto
+  `p21.P21Datei` so the PMI, view and color readers work unchanged; geometry via OCCT after writing a temporary
+  Part 21 file (OCCT has no Part 28 reader) [open: verify which AP242 XML schema variants exist in practice].
+- Others to review: JT (step 7), 3MF/glTF with PMI extensions, IFC (not CAD PMI) – decide by demand.
+
+### 8.18 PMI available as semantics or graphics only (requested)
+- Semantic-only PMI: show them optionally as generated graphics in the view (stage 1 done, stage 2 = §8.16 layout
+  with frames and datum symbols); switch in the PMI list/settings.
+- Graphical-only PMI: evaluate them in the table – kind from the source (PRC markup type: dimension, GD&T, datum,
+  note; STEP callout names), values from text where the file has strings (STEP placeholders, PRC text entities) and
+  OCR for stroked text later (§8.4). Mark as "derived (check)", never as genuine semantics.
+

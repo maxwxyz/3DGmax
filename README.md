@@ -8,7 +8,7 @@ picture) and compares two revisions of a model in geometry **and** PMI, with a g
 
 ## Features
 **Formats** – STEP AP242/AP214/AP203 with semantic and graphical PMI and saved views, QIF 3.0 (exact B-rep and
-semantic PMI), IGES, and meshes STL, OBJ, glTF/GLB, 3MF; ASME Y14.5 or ISO GPS detected from the file (default ISO GPS).
+semantic PMI), 3D PDF / PRC (mesh, graphical PMI, saved views), IGES, and meshes STL, OBJ, glTF/GLB, 3MF, PLY; ASME Y14.5 or ISO GPS detected from the file (default ISO GPS).
 
 **Viewing** – CATIA-style navigation (classic optional), view cube, view back/forward, perspective, section planes and
 section box, exploded view, display modes, light/dark theme, thumbnails of saved views, own views.
@@ -47,3 +47,6 @@ to skip tests), or on GitHub: *Actions › Apps bauen*.
 © 2026 Max Wilfinger. GNU General Public License v3 or later (GPL-3.0-or-later), see [LICENSE](LICENSE).
 Libraries used (Open CASCADE Technology, pythonocc-core, Qt/PySide6 under LGPL and others) are listed in
 *Help › About 3DGmax*. Test models: NIST MBE PMI Validation and Conformance Testing (public domain).
+The PRC reader follows the public ISO working draft ISO/TC171/SC2 N570 (PRC format); its double-coding table and
+bit reader logic are adapted from the LGPL 3 PRC code of [Asymptote](https://github.com/vectorgraphics/asymptote)
+(`prc/`, PRC reader by Orest Shardt, double reader by Michail Vidiassov).

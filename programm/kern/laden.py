@@ -148,7 +148,8 @@ ENDUNGEN_STEP = (".stp", ".step", ".p21")
 ENDUNGEN_IGES = (".igs", ".iges")
 ENDUNGEN_NETZ = (".stl", ".obj", ".gltf", ".glb", ".3mf", ".ply")
 ENDUNGEN_QIF = (".qif",)
-ENDUNGEN = ENDUNGEN_STEP + ENDUNGEN_IGES + ENDUNGEN_NETZ + ENDUNGEN_QIF
+ENDUNGEN_PRC = (".prc", ".pdf")
+ENDUNGEN = ENDUNGEN_STEP + ENDUNGEN_IGES + ENDUNGEN_NETZ + ENDUNGEN_QIF + ENDUNGEN_PRC
 
 
 def _modell_aus_doc(pfad: str, doc, t0: float) -> StepModell:
@@ -332,6 +333,44 @@ def _lade_qif(pfad: str, doc, t0: float) -> StepModell:
     return modell
 
 
+def _lade_prc(pfad: str, doc, t0: float) -> StepModell:
+    """PRC oder 3D-PDF: Flaechennetze je Tessellationsflaeche; Markups und Ansichten liest prc.py."""
+    from OCC.Core.TCollection import TCollection_ExtendedString
+    from OCC.Core.TDataStd import TDataStd_Name
+    from OCC.Core.TopoDS import TopoDS_Compound, TopoDS_Face
+    from . import prc
+    try:
+        m = prc.lies_datei(pfad)
+    except prc.PrcFehler as e:
+        raise LadeFehler(f"PRC nicht lesbar: {e}") from e
+    st = XCAFDoc_DocumentTool.ShapeTool(doc.Main())
+    bb = BRep_Builder()
+    farben = []
+    for k in prc.koerper(m):
+        if k.hilfsgeometrie:
+            continue
+        comp = TopoDS_Compound()
+        bb.MakeCompound(comp)
+        for punkte, dreiecke, farbe in k.flaechen:
+            f = TopoDS_Face()
+            bb.MakeFace(f, _poly(punkte, dreiecke))
+            bb.Add(comp, f)
+            farben.append((f, farbe))
+        lab = st.AddShape(comp, False)
+        TDataStd_Name.Set(lab, TCollection_ExtendedString(k.name, True))
+    if not farben:
+        raise LadeFehler(f"Keine Flächennetze in der PRC-Datei (B-Rep oder komprimierte Tessellation "
+                         f"werden noch nicht gelesen): {pfad}")
+    modell = _modell_aus_doc(pfad, doc, t0)
+    modell.prc = m
+    modell.prc_farben = {}
+    for f, farbe in farben:
+        idx = modell.flaechen_index(f)
+        if idx is not None and farbe is not None:
+            modell.prc_farben[idx] = tuple(float(c) for c in farbe)
+    return modell
+
+
 def lade_modell(pfad: str) -> StepModell:
     """Modell nach Endung laden: STEP (mit PMI), IGES, STL, OBJ, glTF/GLB, 3MF (Netze, ohne PMI). Laengen in mm."""
     import os
@@ -344,6 +383,8 @@ def lade_modell(pfad: str) -> StepModell:
     XCAFApp_Application.GetApplication().InitDocument(doc)
     if endung in ENDUNGEN_QIF:
         return _lade_qif(pfad, doc, t0)
+    if endung in ENDUNGEN_PRC:
+        return _lade_prc(pfad, doc, t0)
     if endung in ENDUNGEN_IGES:
         from OCC.Core.IGESCAFControl import IGESCAFControl_Reader
         r = IGESCAFControl_Reader()

@@ -85,8 +85,125 @@ def pmi_hinzu(a: "Ansicht2D", grafiken: list, pmi_text: dict, richtung, oben):
     return a
 
 
+def _netze(form) -> list[tuple[np.ndarray, np.ndarray]]:
+    """(Punkte, Dreiecke) aller Flaechen ohne Geometrie (reine Netze); leer, wenn eine Flaeche exakt ist."""
+    from OCC.Core.BRep import BRep_Tool
+    from OCC.Core.TopAbs import TopAbs_FACE
+    from OCC.Core.TopExp import TopExp_Explorer
+    from OCC.Core.TopLoc import TopLoc_Location
+    from OCC.Core.TopoDS import topods
+    out = []
+    ex = TopExp_Explorer(form, TopAbs_FACE)
+    while ex.More():
+        f = topods.Face(ex.Current())
+        ex.Next()
+        if BRep_Tool.Surface(f) is not None:
+            return []
+        loc = TopLoc_Location()
+        tri = BRep_Tool.Triangulation(f, loc)
+        if tri is None:
+            continue
+        trsf = loc.Transformation()
+        pts = []
+        for i in range(1, tri.NbNodes() + 1):
+            p = tri.Node(i).Transformed(trsf)
+            pts.append((p.X(), p.Y(), p.Z()))
+        tris = [tri.Triangle(i).Get() for i in range(1, tri.NbTriangles() + 1)]
+        out.append((np.asarray(pts, float), np.asarray(tris, int) - 1))
+    return out
+
+
+def _kanten_netz(punkte, dreiecke, n) -> list[tuple[int, int]]:
+    """Flaechenrand (Kante nur in einem Dreieck) und Umriss (Nachbardreiecke zeigen zu/weg vom Betrachter)."""
+    a, b, c = (punkte[dreiecke[:, k]] for k in range(3))
+    vorne = np.cross(b - a, c - a) @ n > 0
+    kanten: dict[tuple[int, int], list[int]] = {}
+    for t, (i, j, k) in enumerate(dreiecke):
+        for u, v in ((i, j), (j, k), (k, i)):
+            kanten.setdefault((min(u, v), max(u, v)), []).append(t)
+    return [k for k, ts in kanten.items() if len(ts) == 1 or (len(ts) == 2 and vorne[ts[0]] != vorne[ts[1]])]
+
+
+class _Tiefenpuffer:
+    """Einfache Rasterung der Dreiecke (Tiefe = Abstand zum Betrachter, groesser = naeher)."""
+
+    def __init__(self, netze2d, aufloesung=1024):
+        alle = np.vstack([p[:, :2] for p, _ in netze2d])
+        self.lo = alle.min(axis=0)
+        groesse = float((alle.max(axis=0) - self.lo).max()) or 1.0
+        self.f = (aufloesung - 1) / groesse
+        self.z = np.full((aufloesung, aufloesung), -np.inf)
+        for p, tris in netze2d:
+            q = (p[:, :2] - self.lo) * self.f
+            for t in tris:
+                self._dreieck(q[t], p[t, 2])
+
+    def _dreieck(self, q, d):
+        x0, y0 = np.floor(q.min(axis=0)).astype(int)
+        x1, y1 = np.ceil(q.max(axis=0)).astype(int)
+        n = self.z.shape[0]
+        x0, y0, x1, y1 = max(x0, 0), max(y0, 0), min(x1, n - 1), min(y1, n - 1)
+        if x1 < x0 or y1 < y0:
+            return
+        gx, gy = np.meshgrid(np.arange(x0, x1 + 1), np.arange(y0, y1 + 1))
+        (ax, ay), (bx, by), (cx, cy) = q
+        det = (by - cy) * (ax - cx) + (cx - bx) * (ay - cy)
+        if abs(det) < 1e-12:
+            return
+        l1 = ((by - cy) * (gx - cx) + (cx - bx) * (gy - cy)) / det
+        l2 = ((cy - ay) * (gx - cx) + (ax - cx) * (gy - cy)) / det
+        l3 = 1 - l1 - l2
+        innen = (l1 >= -1e-3) & (l2 >= -1e-3) & (l3 >= -1e-3)
+        tiefe = l1 * d[0] + l2 * d[1] + l3 * d[2]
+        feld = self.z[y0:y1 + 1, x0:x1 + 1]
+        np.maximum(feld, np.where(innen, tiefe, -np.inf), out=feld)
+
+    def sichtbar(self, p2, d, toleranz) -> np.ndarray:
+        q = np.clip(np.rint((p2 - self.lo) * self.f).astype(int), 0, self.z.shape[0] - 1)
+        umgebung = np.max([self.z[np.clip(q[:, 1] + dy, 0, self.z.shape[0] - 1),
+                                  np.clip(q[:, 0] + dx, 0, self.z.shape[0] - 1)]
+                           for dx in (-1, 0, 1) for dy in (-1, 0, 1)], axis=0)
+        return d >= umgebung - toleranz
+
+
+def projiziere_netz(netze, richtung, oben, name: str = "", verdeckt: bool = True) -> Ansicht2D:
+    """Projektion reiner Netze: Flaechenraender und Umrisse, Verdeckung ueber einen Tiefenpuffer."""
+    n, x, y = _achsen(richtung, oben)
+    m = np.column_stack([x, y, n])
+    netze2d = [(p @ m, t) for p, t in netze if len(t)]
+    a = Ansicht2D(name)
+    if not netze2d:
+        return a
+    puffer = _Tiefenpuffer(netze2d)
+    toleranz = 3.0 / puffer.f
+    for (p3, t), (p, _) in zip([(p, t) for p, t in netze if len(t)], netze2d):
+        for i, j in _kanten_netz(p3, t, n):
+            laenge = float(np.linalg.norm(p[j, :2] - p[i, :2])) * puffer.f
+            k = max(2, min(200, int(laenge / 2) + 2))
+            s = np.linspace(0.0, 1.0, k)[:, None]
+            stuecke = p[i] * (1 - s) + p[j] * s
+            sicht = puffer.sichtbar(stuecke[:, :2], stuecke[:, 2], toleranz)
+            start = 0
+            for e in range(1, k + 1):
+                if e == k or sicht[e] != sicht[start]:
+                    teil = stuecke[max(start - 1, 0) if start else 0:e, :2]
+                    if len(teil) >= 2:
+                        if sicht[start]:
+                            a.linien[SICHTBAR].append(teil)
+                        elif verdeckt:
+                            a.linien[VERDECKT].append(teil)
+                    start = e
+    return a
+
+
 def projiziere(form, richtung, oben, name: str = "", verdeckt: bool = True, abweichung: float = 0.05) -> Ansicht2D:
-    """Blick in 'richtung' (vom Betrachter ins Modell), 'oben' zeigt nach oben. Exakte HLR, Kanten und Umrisse."""
+    """Blick in 'richtung' (vom Betrachter ins Modell), 'oben' zeigt nach oben. Exakte HLR, Kanten und Umrisse.
+
+    Reine Netze (STL, PRC, ...) haben keine Kurven fuer HLR; sie laufen ueber projiziere_netz().
+    """
+    netze = _netze(form)
+    if netze:
+        return projiziere_netz(netze, richtung, oben, name, verdeckt)
     from OCC.Core.gp import gp_Ax2, gp_Dir, gp_Pnt
     from OCC.Core.HLRAlgo import HLRAlgo_Projector
     from OCC.Core.HLRBRep import HLRBRep_Algo, HLRBRep_HLRToShape
