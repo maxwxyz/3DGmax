@@ -43,7 +43,10 @@ chain cleared on model change, PMI list right-click selects the row first, secti
 the 3D selection (`kette_aus_flaechen`, per-link distribution/Cp, shares) and clash/contact/band analysis
 (`kern/kollision.py`, `ui/kollision_ui.py`, dock "Clashes", example). Then: stack-up stage 2b (location tolerances of the end
 faces, PDF report, chain in the project) and assembly connections with snapping, open DOF and DOF wiggle
-(`kern/verbindung.py`, `ui/baugruppe_ui.py`, dock "Assembly", part positions in `ansicht3d.teil_lagen`).
+(`kern/verbindung.py`, `ui/baugruppe_ui.py`, dock "Assembly", part positions in `ansicht3d.teil_lagen`). Then:
+tolerances on the connections (clearance from geometry/PMI, editable), worst-case position scatter per part via
+linear programs (scipy `linprog`, lazily imported), wiggle within the tolerances; plainer tab close buttons (SVG
+written to `<temp>/3DGmax-symbole` by `ui/thema.py`) and a right-click menu on the tab bars to show hidden panels.
 Semantic GD&T cannot be written from Python (pythonocc 8.0: XCAFDoc_GeomTolerance not wrapped, writing new-style
 dimensions segfaults, the legacy DimTol path loses the faces) – PMI test variants are therefore text edits of the
 public-domain NIST STEP files.
@@ -105,9 +108,8 @@ graphics only, 8.19 QIF graphics, 8.20 3D tolerance analysis,
 1. Visual check on the Mac: wireframe contrast edges, view cube, start screen, side-panel dragging, X on panel tabs,
    File › Examples (section view, clash, assembly with wiggle), stack-up window and PDF, clash dock, assembly dock
    (picking faces of instances with ⌘, snapping, wiggle animation speed/amplitude).
-2. Assembly stage 2: point/line contact, pin–slot, 3-2-1 template, dragging with live snapping; then tolerances on
-   the connections and the wiggle within tolerances / worst-case configuration (PLAN §8.20 stages 3–5); chains across
-   parts built from the connections.
+2. Assembly: measures between parts (gap/flush) with worst case and Monte Carlo, contributor ranking; point/line
+   contact, pin–slot, 3-2-1 template, dragging with live snapping; chains across parts built from the connections.
 3. Stack-up: Ⓜ/Ⓛ bonus and datum shift as contributors, Cpk / shifted means, edges and median planes as chain ends.
 4. Clash: research CATIA/NX result presentation, intersection curves, penetration depth, PDF report, results in the
    project, mesh parts; clash over joint ranges.

@@ -157,6 +157,7 @@ class Hauptfenster(QtWidgets.QMainWindow):
         self.zusammenbau.entfernen.connect(self._verbindung_entfernen)
         self.zusammenbau.zuruecksetzen.connect(self.zusammenbau_zuruecksetzen)
         self.zusammenbau.wiggle.connect(self._wiggle)
+        self.zusammenbau.toleranz.connect(self._spielraum)
         self.scan.gewaehlt.connect(lambda p: self.pmi.waehle(lambda q: q is p))
         self.scan.beenden.connect(self.scan_aus)
         self.dock_aenderungen = self._dock(tr("Änderungen"), self.aenderungen,
@@ -318,6 +319,34 @@ class Hauptfenster(QtWidgets.QMainWindow):
             if not leiste.tabsClosable():
                 leiste.setTabsClosable(True)
                 leiste.tabCloseRequested.connect(lambda i, l=leiste: self._tab_schliessen(l, i))
+                leiste.setContextMenuPolicy(QtCore.Qt.ContextMenuPolicy.CustomContextMenu)
+                leiste.customContextMenuRequested.connect(lambda pos, l=leiste: self._tab_menue(l, pos))
+
+    def _alle_docks(self) -> list:
+        return [d for d in self.findChildren(QtWidgets.QDockWidget) if d.parent() is self]
+
+    def _tab_menue(self, leiste, pos, ausfuehren: bool = True):
+        """Rechtsklick auf die Reiter: alle Leisten ein-/ausblenden; eingeblendete kommen in diese Reitergruppe."""
+        titel = [leiste.tabText(i) for i in range(leiste.count())]
+        gruppe = next((d for d in self._alle_docks() if d.windowTitle() in titel and d.isVisible()), None)
+        m = QtWidgets.QMenu(self)
+        for d in sorted(self._alle_docks(), key=lambda d: d.windowTitle().lower()):
+            a = m.addAction(d.windowTitle())
+            a.setCheckable(True)
+            a.setChecked(d.isVisible())
+            a.toggled.connect(lambda an, d=d: self._dock_umschalten(d, an, gruppe))
+        if ausfuehren:
+            m.exec(leiste.mapToGlobal(pos))
+        return m
+
+    def _dock_umschalten(self, d, an: bool, gruppe=None):
+        if not an:
+            d.close()
+            return
+        if gruppe is not None and gruppe is not d and not d.isFloating():
+            self.tabifyDockWidget(gruppe, d)
+        d.show()
+        d.raise_()
 
     def _tab_schliessen(self, leiste, i: int):
         titel = leiste.tabText(i)
@@ -2422,9 +2451,33 @@ class Hauptfenster(QtWidgets.QMainWindow):
             anzahl[k.name] = anzahl.get(k.name, 0) + 1
         return {k.nummer: k.name if anzahl[k.name] == 1 else f"{k.name} ({k.nummer})" for k in blaetter}
 
+    def _teil_ecken(self, nr: int):
+        """Ecken des Huellquaders eines Teils in zusammengebauter Lage und dessen Mitte."""
+        import itertools
+        import numpy as np
+        from OCC.Core.Bnd import Bnd_Box
+        from OCC.Core.BRepBndLib import brepbndlib
+        k = next(k for k in self.erg.baum.blaetter() if k.nummer == nr)
+        b = Bnd_Box()
+        brepbndlib.Add(k.form, b)
+        x0, y0, z0, x1, y1, z1 = b.Get()
+        ecken = np.array(list(itertools.product((x0, x1), (y0, y1), (z0, z1))))
+        m = self.baugruppe.lage(nr)
+        ecken = ecken @ m[:3, :3].T + m[:3, 3]
+        return ecken, ecken.mean(axis=0)
+
     def _zusammenbau_zeigen(self):
-        self.zusammenbau.zeige(self.baugruppe, self._teil_namen())
+        streuung = {}
+        for nr in self.baugruppe.teile():
+            if not self.baugruppe.fest(nr):
+                ecken, mitte = self._teil_ecken(nr)
+                streuung[nr] = self.baugruppe.streuung(nr, ecken, mitte)
+        self.zusammenbau.zeige(self.baugruppe, self._teil_namen(), streuung)
         self.ansicht.setze_teil_lagen(self.baugruppe.lagen)
+
+    def _spielraum(self, nummer: int, wert: float):
+        self.baugruppe.setze_toleranz(nummer, wert, None, tr("manuell"))
+        self._zusammenbau_zeigen()
 
     def verbinde_auswahl(self, versatz: float = 0.0):
         """Erste gewaehlte Flaeche (bewegtes Teil) an die zweite fangen."""
@@ -2442,6 +2495,10 @@ class Hauptfenster(QtWidgets.QMainWindow):
         if isinstance(v, str):
             self.statusBar().showMessage(v, 6000)
             return None
+        from ..kern import toleranzzone
+        from ..kern.verbindung import toleranz_aus_pmi
+        allgemein = self._allgemein or toleranzzone.allgemein_aus_hinweisen(self.erg.pmi)
+        toleranz_aus_pmi(self.baugruppe, v, m, self.erg.pmi, allgemein.laenge if allgemein else "")
         self._zusammenbau_zeigen()
         verletzt = self.baugruppe.verletzt()
         text = tr("Verbindung {} angelegt").format(v.nummer)
@@ -2466,15 +2523,24 @@ class Hauptfenster(QtWidgets.QMainWindow):
             uhr = self._wiggle_uhr = QtCore.QTimer(self)
             uhr.setInterval(30)
             uhr.timeout.connect(self._wiggle_schritt)
-        basis = self.baugruppe.freiheitsgrade(teil) if teil is not None and not self.baugruppe.fest(teil) else []
+        toleranz = self.zusammenbau.wiggle_art.currentData() == "toleranz"
+        basis = []
+        mitte = None
+        if teil is not None and not self.baugruppe.fest(teil):
+            if toleranz:
+                mitte = self._teil_ecken(teil)[1]
+                basis = self.baugruppe.grenzlagen(teil, mitte)
+            else:
+                basis = self.baugruppe.freiheitsgrade(teil)
         if teil is None or not len(basis):
             uhr.stop()
             self._wiggle_zustand = None
             self.ansicht.setze_teil_lagen(self.baugruppe.lagen)
             if teil is not None:
-                self.statusBar().showMessage(tr("Das Teil ist bestimmt – nichts zu bewegen"), 5000)
+                self.statusBar().showMessage(tr("Kein Spielraum – Toleranzen der Verbindungen setzen") if toleranz
+                                             else tr("Das Teil ist bestimmt – nichts zu bewegen"), 5000)
             return
-        self._wiggle_zustand = [teil, basis, 0]
+        self._wiggle_zustand = [teil, basis, 0, mitte]
         uhr.start()
 
     def _wiggle_schritt(self):
@@ -2483,15 +2549,19 @@ class Hauptfenster(QtWidgets.QMainWindow):
         z = getattr(self, "_wiggle_zustand", None)
         if z is None:
             return
-        teil, basis, schritt = z
+        teil, basis, schritt, mitte = z
         z[2] += 1
-        je = 60  # Schritte je Freiheitsgrad (eine Schwingung)
+        je = 60  # Schritte je Freiheitsgrad bzw. Grenzlage (eine Schwingung)
         i = (schritt // je) % len(basis)
         s = math.sin(2 * math.pi * (schritt % je) / je)
-        dreht = float(sum(x * x for x in basis[i][:3])) > 1e-18
-        betrag = s * (self.zusammenbau.winkel.value() if dreht else self.zusammenbau.weg_mm.value())
+        if mitte is not None:  # innerhalb der Toleranzen: Grenzlage, ueberhoeht
+            bewegung = vb.bewegung_klein(basis[i], s * self.zusammenbau.faktor.value(), mitte)
+        else:
+            dreht = float(sum(x * x for x in basis[i][:3])) > 1e-18
+            bewegung = vb.bewegung(basis[i], s * (self.zusammenbau.winkel.value() if dreht
+                                                  else self.zusammenbau.weg_mm.value()))
         lagen = dict(self.baugruppe.lagen)
-        lagen[teil] = vb.bewegung(basis[i], betrag) @ self.baugruppe.lage(teil)
+        lagen[teil] = bewegung @ self.baugruppe.lage(teil)
         self.ansicht.setze_teil_lagen(lagen)
 
     def zeige_kollision_leiste(self):

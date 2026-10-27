@@ -439,6 +439,13 @@ Plan (each stage usable on its own; builds on §8.5 zones and the 1D chain of §
   with explosion and comparison alignment, used by the clash check, stored in the project; dock "Assembly", example.
   Open: point/line contacts, pin–slot, 3-2-1 locating as a template, dragging a part with live snapping, STEP
   kinematics, then tolerances on the connections (stage 3) and the wiggle within tolerances (stage 5).
+- Done 2026-10-27 (stages 3/5, linear): clearance per connection (planar ±h along the normal from location/profile
+  tolerances of both faces, tilt ±k from all face tolerances over the face size; coaxial radial clearance from the
+  diameters incl. size/general tolerances plus position, applied at the ends of the common length, octagon
+  approximation of the circle, ≤8 %), editable; worst-case position scatter of each part's bounding-box corners
+  by linear programs over all connections at once (restricted to the constrained directions); wiggle within the
+  tolerances to the extreme positions, 1:1 or exaggerated. Open: statistical (Monte Carlo) assembly analysis,
+  measures between parts (gaps/flush) as results, contributor ranking, temperature, datum-shift effects.
 
 ### 8.21 Clash, clearance band and intersection analysis; degrees of freedom (requested 2026-10-27)
 Request (from public feature requests of an open-source CAD project, generalized): check assemblies or a selection of

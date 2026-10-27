@@ -761,6 +761,17 @@ def test_zusammenbau_fangen_freiheitsgrade():
     b2 = vb.Baugruppe()
     b2.lade(b.als_dict(), f)
     assert [x.nummer for x in b2.verbindungen] == [1, 2] and np.allclose(b2.lage(4), b.lage(4))
+    # Toleranzen: Durchgangsloch 6.6 / Schaft 6 mit ISO 2768-m -> Spiel (6.8 - 5.9) / 2 = 0.45
+    for x in b.verbindungen:
+        vb.toleranz_aus_pmi(b, x, erg.modell, erg.pmi, "m")
+    assert abs(b.verbindungen[1].toleranz - 0.45) < 1e-9 and b.verbindungen[1].eingriff
+    b.setze_toleranz(1, 0.02, 0.001, "manuell")
+    weg, frei = b.streuung(4, np.array([[15, 15, 30.0]]), np.array([15, 15, 5.0]))
+    assert frei == 1 and 0.45 < weg[0] < 0.5 and abs(weg[0] - weg[1]) < 1e-6 and 0.02 < weg[2] < 0.05
+    lagen = b.grenzlagen(4, np.array([15, 15, 5.0]))
+    assert lagen and max(abs(x[3:]).max() for x in lagen) <= 0.45 + 1e-6
+    assert np.allclose(vb.bewegung_klein(np.r_[0, 0, 0.1, 0, 0, 0], 1.0, np.array([15, 15, 0]))[:3, 3] @ [1, 0, 0]
+                       + 15 * np.cos(0.1) - 15 * np.sin(0.1), 15, atol=1e-9)
     # Versatz: Kopf 2 mm ueber dem Deckel
     b3 = vb.Baugruppe()
     b3.verbinde(5, f(5, 18), 18, 3, f(3, 15), 15, versatz=2.0)

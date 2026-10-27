@@ -105,7 +105,9 @@ unten rechts die Schnellmessung der Auswahl.</figcaption></figure>
 <li><b>PMI</b>: alle Merkmale mit Art, Merkmal, Name, Wert, Bezügen, Flächen und Ansichten; Spalten lassen sich
     verschieben und ein-/ausblenden (Rechtsklick auf die Kopfzeile).</li>
 <li><b>Schnellmessung</b> (Statuszeile rechts): Länge, ⌀/R, Fläche, Abstand, Winkel der Auswahl; Rechtsklick wählt die Angaben.</li>
-<li>Alle Leisten lassen sich unter <b>Fenster</b> ein- und ausblenden und frei anordnen; die Anordnung bleibt gespeichert.</li>
+<li>Alle Leisten lassen sich unter <b>Fenster</b> ein- und ausblenden und frei anordnen; die Anordnung bleibt gespeichert.
+Übereinanderliegende Leisten erscheinen als Reiter: das ✕ am Reiter schließt eine Leiste, ein Rechtsklick auf die
+Reiter blendet andere Leisten ein (sie kommen in diese Reitergruppe).</li>
 </ul>
 
 <h2 id="bewegen">Bewegen und Ansichten</h2>
@@ -285,6 +287,12 @@ Teile, die nur Gegenteil sind, gelten als fest. Eine Schraube mit Kopfauflage un
 die Drehung um ihre Achse.</li>
 <li><b>Wiggle</b> bewegt das gewählte Teil nacheinander in jedem offenen Freiheitsgrad hin und her (Weg in mm,
 Winkel in Grad) – so sieht man, ob alle gewollten Verbindungen gesetzt sind.</li>
+<li><b>Spielraum</b> je Verbindung: eben ± entlang der Normalen (halbe Summe der Lage- und Profiltoleranzen beider
+Flächen, dazu Kippen aus allen Flächentoleranzen), koaxial das radiale Spiel aus den Durchmessern (Geometrie,
+Maßtoleranzen bzw. Allgemeintoleranz) plus Positionstoleranzen, geprüft an den Enden der gemeinsamen Länge. Doppelklick
+ändert den Wert. Daraus folgt je Teil die <b>Lagestreuung</b>: wie weit sich seine Ecken im Worst Case in X, Y und Z
+verschieben können (lineares Modell, alle Verbindungen gleichzeitig; freie Freiheitsgrade zählen nicht).</li>
+<li><b>Wiggle innerhalb der Toleranzen</b> fährt die Grenzen des Spielraums nacheinander an, 1:1 oder mit Überhöhung.</li>
 <li>Die Kollisionsprüfung rechnet mit den Teilen in ihrer zusammengebauten Lage; Verbindungen und Lagen werden im
 Projekt gespeichert.</li>
 </ul>

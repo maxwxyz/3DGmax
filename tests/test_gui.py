@@ -927,9 +927,46 @@ def test_zusammenbau_im_fenster(fenster, tmp_path):
     assert not np.allclose(f.ansicht.teil_lagen[4], f.baugruppe.lage(4))  # bewegt sich
     f.zusammenbau.wiggle_an.setChecked(False)
     assert np.allclose(f.ansicht.teil_lagen[4], f.baugruppe.lage(4))
+    # Spielraum: Geometrie 6.6/6 -> 0.3 (kein PMI, keine Allgemeintoleranz in der Datei), Doppelklick aendert
+    assert abs(f.baugruppe.verbindungen[1].toleranz - 0.3) < 1e-9
+    assert f.zusammenbau.teile.item(zeile, 2).text().startswith("±")
+    f.zusammenbau.verbindungen.item(0, 6).setText("0.05")
+    assert f.baugruppe.verbindungen[0].toleranz == 0.05 and f.baugruppe.verbindungen[0].quelle in ("manuell", "manual")
+    f.zusammenbau.wiggle_art.setCurrentIndex(1)  # innerhalb der Toleranzen
+    f.zusammenbau.wiggle_an.setChecked(True)
+    assert f._wiggle_zustand is not None and f._wiggle_zustand[3] is not None
+    for _ in range(10):
+        f._wiggle_schritt()
+    weg = np.abs(f.ansicht.teil_lagen[4][:3, 3] - f.baugruppe.lage(4)[:3, 3]).max()
+    assert 0 < weg < 0.35 * f.zusammenbau.faktor.value() + 1e-6
+    f.zusammenbau.wiggle_an.setChecked(False)
+    f.zusammenbau.wiggle_art.setCurrentIndex(0)
     projekt = f.speichere_projekt(str(tmp_path / "z.3dgmax"))
     f.zusammenbau_zuruecksetzen()
     assert not f.baugruppe.verbindungen and f.ansicht.teil_lagen == {}
     f.oeffne_projekt(projekt, warten=True)
     assert len(f.baugruppe.verbindungen) == 2 and np.allclose(f.baugruppe.lage(4)[:3, 3], [0, 0, 1])
     f.zusammenbau_zuruecksetzen()
+
+
+def test_reiter_menue_blendet_leisten_ein(fenster_ctc01):
+    """Rechtsklick auf die Reiterleiste: ausgeblendete Leiste einblenden, sie landet in dieser Reitergruppe."""
+    from PySide6 import QtCore, QtWidgets
+    f = fenster_ctc01
+    app = QtWidgets.QApplication.instance()
+    f.dock_messen.show()
+    for _ in range(5):
+        app.processEvents()
+    leiste = next(l for l in f.findChildren(QtWidgets.QTabBar, options=QtCore.Qt.FindChildOption.FindDirectChildrenOnly)
+                  if l.isVisible() and l.count() > 1)
+    assert leiste.contextMenuPolicy() == QtCore.Qt.ContextMenuPolicy.CustomContextMenu
+    f.dock_kommentare.hide()
+    m = f._tab_menue(leiste, QtCore.QPoint(5, 5), ausfuehren=False)
+    a = next(a for a in m.actions() if a.text() == f.dock_kommentare.windowTitle())
+    assert not a.isChecked()
+    a.setChecked(True)
+    for _ in range(5):
+        app.processEvents()
+    assert f.dock_kommentare.isVisible() and f.dock_kommentare in f.tabifiedDockWidgets(f.dock_pmi)
+    f.dock_kommentare.hide()
+    f.dock_messen.hide()

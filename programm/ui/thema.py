@@ -33,7 +33,25 @@ THEMEN = {
 AKTUELL = dict(THEMEN["hell"])
 
 
+def schliessen_symbol(farbe: str, name: str) -> str:
+    """Schlankes X als SVG (fuer Reiter und Leisten); Qt-Stylesheets brauchen dafuer eine Datei. Pfad mit /."""
+    import tempfile
+    ordner = os.path.join(tempfile.gettempdir(), "3DGmax-symbole")
+    os.makedirs(ordner, exist_ok=True)
+    pfad = os.path.join(ordner, f"schliessen_{name}.svg")
+    svg = (f'<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 16 16">'
+           f'<path d="M5 5 L11 11 M11 5 L5 11" stroke="{farbe}" stroke-width="1.4" stroke-linecap="round"/></svg>')
+    try:
+        with open(pfad, "w", encoding="utf-8") as f:
+            f.write(svg)
+    except OSError:
+        return ""
+    return pfad.replace(os.sep, "/")
+
+
 def qss(t: dict) -> str:
+    x = schliessen_symbol(t["leise"], t["name"])
+    x_hover = schliessen_symbol(t["text"], t["name"] + "_hover")
     return f"""
 * {{ font-family: "{SCHRIFT}", Arial; font-size: 10pt; }}
 QMainWindow, QDialog {{ background: {t['fenster']}; color: {t['text']}; }}
@@ -90,6 +108,12 @@ QProgressBar {{ border: none; background: {t['rand']}; border-radius: 3px; max-h
 QProgressBar::chunk {{ background: {t['akzent']}; border-radius: 3px; }}
 QTabBar::tab {{ padding: 5px 12px; color: {t['leise']}; background: transparent; border: none; }}
 QTabBar::tab:selected {{ color: {t['text']}; font-weight: 600; border-bottom: 2px solid {t['akzent']}; }}
+QTabBar::close-button {{ image: url("{x}"); subcontrol-position: right; margin-left: 4px; width: 14px; height: 14px;
+                         border-radius: 7px; }}
+QTabBar::close-button:hover {{ image: url("{x_hover}"); background: {t['hover']}; }}
+QDockWidget {{ titlebar-close-icon: url("{x}"); }}
+QDockWidget::close-button {{ border: none; border-radius: 3px; padding: 1px; }}
+QDockWidget::close-button:hover {{ background: {t['hover']}; }}
 """
 
 

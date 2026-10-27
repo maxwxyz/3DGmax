@@ -131,7 +131,9 @@
    "Toleranzkette aus der 3D-Auswahl: Flächen in Kettenreihenfolge wählen, Richtung und Vorzeichen aus der Geometrie, Werte aus den PMI (auch Muster) oder der Allgemeintoleranz ISO 2768; Verteilung (normal/gleichverteilt) und Cp je Glied, Beitragsanteil je Glied, gewähltes Glied im Modell hervorgehoben.",
    "Werkzeuge › Kollisionen und Abstände: Durchdringungen (mit Volumen), Kontakte und Abstände außerhalb eines Bands (Mindest-/Höchstabstand) zwischen allen, gewählten oder gewählten gegen die übrigen Teile; Befund wählen zeigt die zwei Teile deckend, die Durchdringung rot und den kleinsten Abstand als Linie; Prüfstatus, Kommentar, CSV.",
    "Toleranzkette: Lagetoleranzen (Position, Symmetrie, Koaxialität, Profil mit Bezug, auch UZ) der Endflächen als eigene Glieder, PDF-Bericht mit Bild und Beitragsanteilen, Kette wird im Projekt gespeichert.",
-   "Werkzeuge › Zusammenbau und Freiheitsgrade: Teile über Flächenpaare fangen (Ebene auf Ebene mit Versatz, koaxial), je Instanz; Anzeige, ob jede Verbindung erfüllt ist, offene Freiheitsgrade je Teil und Wiggle in jedem offenen Freiheitsgrad; Kollisionsprüfung mit den zusammengebauten Lagen; im Projekt gespeichert."
+   "Werkzeuge › Zusammenbau und Freiheitsgrade: Teile über Flächenpaare fangen (Ebene auf Ebene mit Versatz, koaxial), je Instanz; Anzeige, ob jede Verbindung erfüllt ist, offene Freiheitsgrade je Teil und Wiggle in jedem offenen Freiheitsgrad; Kollisionsprüfung mit den zusammengebauten Lagen; im Projekt gespeichert.",
+   "Zusammenbau mit Toleranzen: Spielraum je Verbindung aus Geometrie und PMI (eben: Lage-/Profiltoleranzen und Kippen; koaxial: radiales Spiel aus Durchmessern, Allgemeintoleranz und Position), änderbar; Lagestreuung je Teil im Worst Case (lineares Modell, alle Verbindungen zugleich); Wiggle innerhalb der Toleranzen, 1:1 oder überhöht.",
+   "Reiter der Seitenleisten: schlichteres ✕ (passend zum Farbschema, auch in den Titelleisten); Rechtsklick auf die Reiter blendet ausgeblendete Leisten in dieser Gruppe ein."
   ],
   "en": [
    "First viewer version: load STEP AP242, assembly tree, CAD-style navigation, standard views.",
@@ -264,7 +266,9 @@
    "Tolerance stack-up from the 3D selection: select faces in chain order, direction and sign from the geometry, values from the PMI (also patterns) or the general tolerance ISO 2768; distribution (normal/uniform) and Cp per link, contribution share per link, selected link highlighted in the model.",
    "Tools › Clashes and distances: intersections (with volume), contacts and distances outside a band (minimum/maximum distance) between all parts, selected parts or selected against the rest; selecting a finding shows the two parts opaque, the intersection in red and the minimum distance as a line; review status, comment, CSV.",
    "Tolerance stack-up: location tolerances (position, symmetry, coaxiality, profile with datum, also UZ) of the end faces as links of their own, PDF report with picture and contribution shares, chain stored in the project.",
-   "Tools › Assembly and degrees of freedom: snap parts by pairs of faces (plane on plane with offset, coaxial), per instance; shows whether each connection is satisfied, the open degrees of freedom per part and a wiggle in every open degree of freedom; clash check with the assembled positions; stored in the project."
+   "Tools › Assembly and degrees of freedom: snap parts by pairs of faces (plane on plane with offset, coaxial), per instance; shows whether each connection is satisfied, the open degrees of freedom per part and a wiggle in every open degree of freedom; clash check with the assembled positions; stored in the project.",
+   "Assembly with tolerances: clearance per connection from geometry and PMI (planar: location/profile tolerances and tilt; coaxial: radial clearance from diameters, general tolerance and position), editable; worst-case position scatter per part (linear model, all connections at once); wiggle within the tolerances, 1:1 or exaggerated.",
+   "Side panel tabs: plainer ✕ (matching the colour scheme, also in the title bars); right-click on the tabs shows hidden panels in this group."
   ]
  },
  "releases": [

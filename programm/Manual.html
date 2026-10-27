@@ -105,7 +105,9 @@ quick measure of the selection at the bottom right.</figcaption></figure>
 <li><b>PMI</b>: all characteristics with kind, characteristic, name, value, datums, faces and views; columns can be moved
     and shown/hidden (right-click the header).</li>
 <li><b>Quick measure</b> (right of the status bar): length, ⌀/R, area, distance, angle of the selection; right-click chooses the values.</li>
-<li>All panels can be shown and hidden under <b>Window</b> and arranged freely; the layout is remembered.</li>
+<li>All panels can be shown and hidden under <b>Window</b> and arranged freely; the layout is remembered. Stacked
+panels appear as tabs: the ✕ on a tab closes a panel, a right-click on the tabs shows other panels (they join this
+tab group).</li>
 </ul>
 
 <h2 id="move">Navigation and views</h2>
@@ -285,6 +287,12 @@ parts that are only mating parts count as fixed. A screw with head contact and c
 rotation about its axis.</li>
 <li><b>Wiggle</b> moves the selected part back and forth in each open degree of freedom in turn (travel in mm, angle in
 degrees) – this shows whether all intended connections are set.</li>
+<li><b>Clearance</b> per connection: planar ± along the normal (half the sum of the location and profile tolerances of
+both faces, plus tilt from all face tolerances), coaxial the radial clearance from the diameters (geometry, size
+tolerances or general tolerance) plus position tolerances, checked at the ends of the common length. Double-click
+changes the value. From this follows the <b>position scatter</b> of each part: how far its corners can move in X, Y and
+Z in the worst case (linear model, all connections at once; free degrees of freedom do not count).</li>
+<li><b>Wiggle within the tolerances</b> moves to the limits of the clearance one after another, 1:1 or exaggerated.</li>
 <li>The clash check uses the parts in their assembled position; connections and positions are stored in the
 project.</li>
 </ul>

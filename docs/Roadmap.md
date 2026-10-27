@@ -69,7 +69,8 @@
 | Assembly: point/line contact, pin–slot, 3-2-1 template, dragging with live snapping, STEP kinematics | ⬜ |
 | Tolerance stack-up 3D (geometric tolerances, chain from the model, sensitivity) – PLAN §8.20 | ⬜ |
 | Assemblies built in the project (mates on datum features), materials and thermal expansion in chains | ⬜ |
-| Wiggle: move parts within their tolerances (per tolerance/chain/worst case, 1:1 or exaggerated) | ⬜ |
+| Wiggle within tolerances (assembly connections, extreme positions, 1:1 or exaggerated); worst-case position scatter per part | ✅ |
+| Assembly variation: Monte Carlo, measures between parts (gap/flush), contributors, temperature | ⬜ |
 | Bill of characteristics with balloon numbers (table column, 3D balloons, CSV, PDF) | ✅ |
 | Datum reference frame display for a selected tolerance | ✅ |
 | Create PMI with tolerancing advisor (stage 1: rules per selection, own PMI in project) | ✅ |
