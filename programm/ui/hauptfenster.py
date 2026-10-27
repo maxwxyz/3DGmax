@@ -1440,9 +1440,14 @@ class Hauptfenster(QtWidgets.QMainWindow):
                                  self.erg.ansichten, self.kommentare.kommentare,
                                  [p for p in self.erg.pmi if p.quelle == "eigen"],
                                  [{"step_id": p.step_id, "werte": {k: getattr(p, k) for k in p.original}}
-                                  for p in self.erg.pmi if p.quelle != "eigen" and p.bearbeitet and p.original])
+                                  for p in self.erg.pmi if p.quelle != "eigen" and p.bearbeitet and p.original],
+                                 self._kette_daten())
         self.statusBar().showMessage(tr("Projekt gespeichert: {}").format(ziel), 6000)
         return ziel
+
+    def _kette_daten(self):
+        k = getattr(self, "_kette", None)
+        return None if k is None or not k.glieder else (k.cp.value(), list(k.glieder))
 
     def oeffne_projekt(self, pfad: str, warten: bool = False):
         from ..kern import projekt
@@ -1472,6 +1477,11 @@ class Hauptfenster(QtWidgets.QMainWindow):
             for a in d["pmi_aenderungen"]:
                 if a.get("step_id") in nach_id:
                     self.bearbeite_pmi(nach_id[a["step_id"]], a.get("werte", {}))
+        if d and d.get("kette") and self.erg is not None:
+            k = self.zeige_toleranzkette(nur_anlegen=True)
+            k.leeren()
+            k.cp.setValue(d["kette"]["cp"])
+            k.ergaenze(d["kette"]["glieder"])
         if d and d.get("kommentare"):
             self.kommentare.setze(d["kommentare"])
             self.dock_kommentare.show()
@@ -2067,6 +2077,7 @@ class Hauptfenster(QtWidgets.QMainWindow):
             f.plus.clicked.connect(lambda: self._kette_uebernehmen(+1))
             f.minus.clicked.connect(lambda: self._kette_uebernehmen(-1))
             f.auswahl.clicked.connect(self._kette_aus_auswahl)
+            f.pdf.clicked.connect(lambda: self.exportiere_kette_pdf())
             f.flaechen_zeigen.connect(self.ansicht.hebe_flaechen)
             self._kette = f
         if not nur_anlegen:
@@ -2082,7 +2093,8 @@ class Hauptfenster(QtWidgets.QMainWindow):
         flaechen = [i for f in self.ansicht.auswahl3d for i in [self.erg.modell.flaechen_index(f)] if i is not None]
         allgemein = self._allgemein or toleranzzone.allgemein_aus_hinweisen(self.erg.pmi)
         glieder, richtung, hinweise = tk.kette_aus_flaechen(self.erg.modell, flaechen, self.erg.pmi,
-                                                             allgemein.laenge if allgemein else "")
+                                                             allgemein.laenge if allgemein else "",
+                                                             self._kette.lage.isChecked())
         self._kette.ergaenze(glieder)
         if glieder:
             text = tr("{} Glieder entlang ({:.3g}, {:.3g}, {:.3g})").format(len(glieder), *richtung)
@@ -2090,6 +2102,18 @@ class Hauptfenster(QtWidgets.QMainWindow):
         else:
             self.statusBar().showMessage("; ".join(hinweise), 8000)
         return len(glieder)
+
+    def exportiere_kette_pdf(self, pfad: str = "") -> str | None:
+        from .berichte import kette_pdf
+        if self.erg is None or getattr(self, "_kette", None) is None or not self._kette.glieder:
+            return None
+        pfad = pfad or self._speicherpfad(tr("PDF-Bericht"), os.path.splitext(self.erg.pfad)[0] + "_kette.pdf",
+                                          "PDF (*.pdf)")
+        if not pfad:
+            return None
+        ziel = kette_pdf(self, pfad)
+        self.statusBar().showMessage(tr("PDF gespeichert: {}").format(ziel), 6000)
+        return ziel
 
     def _kette_uebernehmen(self, richtung: int):
         from ..kern import toleranzkette as tk

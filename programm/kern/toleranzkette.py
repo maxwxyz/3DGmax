@@ -10,6 +10,10 @@ Aufbau aus der 3D-Auswahl (kette_aus_flaechen): Flaechen in Kettenreihenfolge, R
 Flaeche; Lage jeder Flaeche entlang der Richtung (Ebene senkrecht dazu, Zylinderachse quer dazu); je zwei
 aufeinanderfolgende Flaechen ein Glied. Werte aus einem PMI-Mass mit Flaechen an beiden Enden und passendem Nennwert
 (auch Muster), sonst Allgemeintoleranz ISO 2768-1, sonst ohne Toleranz (gemeldet).
+Lagetoleranzen (Position, Symmetrie, Koaxialitaet, Profil mit Bezug) wirken nur an der ersten und letzten Flaeche:
+die Lageabweichung einer Zwischenflaeche geht in zwei Glieder mit entgegengesetztem Vorzeichen ein und hebt sich auf.
+Je Endflaeche und Toleranz ein Glied mit Nennmass 0 und der Verschiebung entlang der Kette (Profil: Zonengrenzen
+mit UZ und Materialseite, sonst +-t/2; Bonus bei Ⓜ/Ⓛ nicht enthalten).
 """
 
 from __future__ import annotations
@@ -24,7 +28,9 @@ import numpy as np
 from ..i18n import tr
 
 VERTEILUNG = {"normal": "Normal", "gleich": "Gleichverteilt"}
-QUELLE = {"pmi": "PMI", "allgemein": "Allgemeintoleranz", "ohne": "ohne Toleranz"}
+QUELLE = {"pmi": "PMI", "lage": "Lagetoleranz", "allgemein": "Allgemeintoleranz", "ohne": "ohne Toleranz"}
+LAGE_TYPEN = {"Position", "Symmetry", "Coaxiality", "Concentricity"}
+PROFIL_TYPEN = {"ProfileOfSurface", "ProfileOfLine"}
 
 
 @dataclass
@@ -152,7 +158,48 @@ def _passendes_mass(pmi, lagen: dict[int, float], a: float, b: float):
     return None
 
 
-def kette_aus_flaechen(modell, flaechen: list[int], pmi, allgemein: str = "") -> tuple[list[Glied], tuple, list[str]]:
+def _aussen_normale(flaeche):
+    """Normale aus dem Material in Flaechenmitte."""
+    from OCC.Core.BRepGProp import BRepGProp_Face
+    from OCC.Core.gp import gp_Pnt, gp_Vec
+    gf = BRepGProp_Face(flaeche)
+    u0, u1, v0, v1 = gf.Bounds()
+    p, n = gp_Pnt(), gp_Vec()
+    gf.Normal((u0 + u1) / 2, (v0 + v1) / 2, p, n)
+    v = np.array([n.X(), n.Y(), n.Z()])
+    return v / (np.linalg.norm(v) or 1.0)
+
+
+def lage_glieder(modell, pmi, flaeche: int, richtung, vorzeichen: int, lagen: dict[int, float]):
+    """Glieder der Lagetoleranzen einer Endflaeche (vorzeichen -1: erste, +1: letzte Flaeche); (Glieder, Hinweise)."""
+    from .toleranzzone import _grenzen_aussen_innen
+    glieder, hinweise = [], []
+    ort = lagen.get(flaeche)
+    for p in pmi:
+        if p.art != "toleranz" or p.wert is None or p.wert <= 0:
+            continue
+        if not (p.typ in LAGE_TYPEN or (p.typ in PROFIL_TYPEN and p.bezuege)):
+            continue
+        # gilt fuer die Flaeche selbst oder fuer ein Muster gleicher Lage (z. B. zwei Halbschalen, Lochbild)
+        if flaeche not in p.flaechen and not any(i in lagen and abs(lagen[i] - ort) < 1e-4 for i in p.flaechen):
+            continue
+        t = float(p.wert)
+        if p.typ in PROFIL_TYPEN and lage(modell.flaechen[flaeche], richtung) is not None \
+                and _ebene_oder_achse(modell.flaechen[flaeche])[0] == "ebene":
+            aussen, innen = _grenzen_aussen_innen(p, t)
+            s = float(np.sign(_aussen_normale(modell.flaechen[flaeche]) @ richtung)) or 1.0
+            werte = sorted((vorzeichen * aussen * s, vorzeichen * innen * s))
+        else:
+            werte = [-t / 2, t / 2]
+        name = f"{p.nummer}: {p.wert_text()}"
+        glieder.append(Glied(name, 0.0, werte[1], werte[0], 1, p.nummer, quelle="lage", flaechen=(flaeche,)))
+        if p.material:
+            hinweise.append(tr("{}: Bonus bei Ⓜ/Ⓛ nicht enthalten (Worst Case ohne Bonus)").format(name))
+    return glieder, hinweise
+
+
+def kette_aus_flaechen(modell, flaechen: list[int], pmi, allgemein: str = "",
+                       lagetoleranzen: bool = True) -> tuple[list[Glied], tuple, list[str]]:
     """Glieder aus Flaechen in Kettenreihenfolge (siehe Modulbeschreibung); (Glieder, Richtung, Hinweise)."""
     from .toleranzzone import iso2768_laenge
     hinweise = []
@@ -195,6 +242,11 @@ def kette_aus_flaechen(modell, flaechen: list[int], pmi, allgemein: str = "") ->
         else:
             glieder.append(Glied(f"{nenn:.4g}", nenn, nenn, nenn, r, quelle="ohne", flaechen=(fa, fb)))
             hinweise.append(tr("Glied {:.4g} mm ohne Toleranz (keine PMI, keine Allgemeintoleranz)").format(nenn))
+    if lagetoleranzen and glieder:
+        for f, vorzeichen in ((flaechen[0], -1), (flaechen[-1], 1)):
+            g, h = lage_glieder(modell, pmi, f, richtung, vorzeichen, lagen)
+            glieder.extend(g)
+            hinweise.extend(h)
     return glieder, tuple(float(x) for x in richtung), hinweise
 
 

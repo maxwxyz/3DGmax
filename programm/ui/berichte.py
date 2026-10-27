@@ -341,6 +341,43 @@ def messungen_pdf(fenster, pfad: str, bild: bool = True) -> str:
     return bericht.fertig()
 
 
+KETTE_GEWICHT = {"Glied": 2.4, "Quelle": 1.3, "Verteilung": 1.2}
+
+
+def kette_pdf(fenster, pfad: str, bild: bool = True) -> str:
+    """Toleranzkette: Bild mit den Flaechen der Kette, Ergebnis nach drei Verfahren, Glieder mit Beitragsanteil."""
+    from ..kern import toleranzkette as tk
+    k = fenster._kette
+    e = k.e
+    modell = os.path.basename(fenster.erg.pfad)
+    bericht = PdfBericht(pfad, tr("Toleranzkette – {}").format(modell))
+    bericht.ueberschrift(tr("Toleranzkette"))
+    bericht.absatz(tr("Modell: {} · {} Glieder · Cp der Kette {:.2f}").format(modell, len(k.glieder), k.cp.value()))
+    bericht.absatz(tr("Schlussmaß {:.4f} mm · Worst Case {:.4f} … {:.4f} mm · statistisch {:.4f} ± {:.4f} mm (±3σ) · "
+                      "Monte Carlo {:.4f} … {:.4f} mm (99,73 %)").format(e.nenn, e.wc_min, e.wc_max, e.mitte, e.rss,
+                                                                       e.mc_min, e.mc_max), 10.5)
+    flaechen = {f for g in k.glieder for f in g.flaechen}
+    if bild and flaechen:
+        alt = set(fenster.ansicht.hervor)
+        fenster.ansicht.hebe_flaechen(flaechen)
+        with _BreiteAnsicht(fenster):
+            bericht.bild(fenster.ansicht.bild_qimage(), 0.5)
+        fenster.ansicht.hebe_flaechen(alt)
+    gewicht = [KETTE_GEWICHT.get(s, 1.0) for s in tk.SPALTEN]
+    spalten = [(tr(s), w / sum(gewicht)) for s, w in zip(tk.SPALTEN, gewicht)]
+    zeilen = []
+    for g, anteil in zip(k.glieder, e.anteile):
+        zeilen.append([g.name, "+" if g.richtung > 0 else "−", "–" if g.quelle == "lage" else f"{g.nenn:.4g}",
+                       f"{g.hoechst:.4g}", f"{g.mindest:.4g}", f"{g.toleranz:.4g}", tr(tk.QUELLE[g.quelle]),
+                       tr(tk.VERTEILUNG[g.verteilung]),
+                       f"{g.cp or k.cp.value():.2f}" if g.verteilung == "normal" else "–", f"{anteil:.0%}"])
+    bericht.tabelle(spalten, zeilen)
+    bericht.absatz(tr("Statistik: normalverteilt mit σ = Toleranz / (6 · Cp) oder gleichverteilt über die Toleranz, "
+                      "Mittelwert in Toleranzmitte; Anteil = Varianzanteil des Glieds. Lagetoleranzen ohne Bonus bei "
+                      "Ⓜ/Ⓛ."), 8.5)
+    return bericht.fertig()
+
+
 def zeichnung_pdf(svg, pfad: str, titel: str, zeile: str) -> str:
     """Zeichnung(en) (SVG, vektoriell) auf A3 quer mit einfachem Schriftfeld; svg: Text oder Liste
     [(svg, titel, zeile)] fuer mehrere Seiten."""

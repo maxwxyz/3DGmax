@@ -833,6 +833,7 @@ def test_toleranzkette_aus_3d_auswahl(fenster):
     f = fenster
     f.lade(pfad("nist_ftc_10_asme1_ap242-e2.stp"), warten=True)
     k = f.zeige_toleranzkette(nur_anlegen=True)
+    k.lage.setChecked(False)
     f.ansicht.setze_auswahl([f.erg.modell.flaechen[i] for i in (181, 187, 183, 185)])
     assert f._kette_aus_auswahl() == 3
     assert [g.quelle for g in k.glieder] == ["pmi", "ohne", "pmi"]  # FTC-10 nennt keine Allgemeintoleranz
@@ -842,6 +843,7 @@ def test_toleranzkette_aus_3d_auswahl(fenster):
     f._allgemein = Allgemein("m", "")
     f._kette_aus_auswahl()
     assert [g.quelle for g in k.glieder] == ["pmi", "allgemein", "pmi"]
+    k.lage.setChecked(True)
     k.tabelle.selectRow(0)
     assert f.ansicht.hervor == {181, 187}
     k.tabelle.cellWidget(1, 7).setCurrentIndex(1)  # gleichverteilt
@@ -872,3 +874,23 @@ def test_kollisionen_im_fenster(fenster, tmp_path):
     assert [b.art for b in f.kollision.befunde] == ["zu_weit"]
     f.kollision_aus()
     assert f.ansicht.kollision is None and not f.kollision.befunde
+
+
+def test_toleranzkette_lage_pdf_projekt(fenster, tmp_path):
+    """Lagetoleranzen der Endflaechen als Glieder, PDF-Bericht, Kette im Projekt gespeichert und wieder geladen."""
+    f = fenster
+    f.lade(pfad("nist_ftc_10_asme1_ap242-e2.stp"), warten=True)
+    k = f.zeige_toleranzkette(nur_anlegen=True)
+    k.leeren()
+    f.ansicht.setze_auswahl([f.erg.modell.flaechen[i] for i in (181, 187, 183, 185)])
+    f._kette_aus_auswahl()
+    lage = [g for g in k.glieder if g.quelle == "lage"]
+    assert [g.pmi_nummer for g in lage] == [34, 36] and abs(lage[0].toleranz - 1.0) < 1e-9
+    k.cp.setValue(1.33)
+    assert os.path.getsize(f.exportiere_kette_pdf(str(tmp_path / "kette.pdf"))) > 1000
+    projekt = f.speichere_projekt(str(tmp_path / "k.3dgmax"))
+    k.leeren()
+    f.oeffne_projekt(projekt, warten=True)
+    k = f._kette
+    assert len(k.glieder) == 5 and abs(k.cp.value() - 1.33) < 1e-9 and k.glieder[0].flaechen == (181, 187)
+    k.leeren()

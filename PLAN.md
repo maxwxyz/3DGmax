@@ -223,6 +223,11 @@ Throughout: tests (core, offscreen UI, stress test, on-screen test), `--selbstte
   per link distribution (normal/uniform) and Cp, variance share per link; UI "From 3D selection", row highlights its
   faces. Open: edges and derived median planes as chain ends, GD&T contributors from the zone logic (position,
   profile, datum shift with Ⓜ/Ⓛ), Cpk / shifted means, PDF report, chains across assembly parts.
+- Done 2026-10-27 (stage 2b): location tolerances of the first and last face as links (position, symmetry,
+  coaxiality, profile with datum incl. UZ and material side; intermediate faces cancel out, so they get none),
+  PDF report (picture with the chain faces, result, link table with shares), chain stored in the project.
+  Open: Ⓜ/Ⓛ bonus and datum shift as (non-normal) contributors, Cpk / shifted means, edges and median planes as chain
+  ends, chains across assembly parts (needs the mating model of §8.20).
 
 ### 8.9 Test data
 - NIST: FTC/STC/CTC (AP242); D2MI 827-9999-904 rev C (AP242 with PMI) ↔ 906 (same geometry, no PMI); FTC-06 ↔ STC-06

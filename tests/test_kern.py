@@ -584,14 +584,17 @@ def test_toleranzkette_aus_flaechen():
     from programm.kern import toleranzkette as tk
     from programm.ui.lader import lade_alles
     erg = lade_alles(pfad("nist_ftc_10_asme1_ap242-e2.stp"))
-    g, r, h = tk.kette_aus_flaechen(erg.modell, [181, 187, 183, 185], erg.pmi, "m")
+    g, r, h = tk.kette_aus_flaechen(erg.modell, [181, 187, 183, 185], erg.pmi, "m", lagetoleranzen=False)
     assert [x.pmi_nummer for x in g] == [6, 0, 5] and [x.quelle for x in g] == ["pmi", "allgemein", "pmi"]
     assert [x.richtung for x in g] == [1, -1, 1] and abs(abs(r[0]) - 1) < 1e-9 and not h
     e = tk.berechne(g)
     assert abs(e.nenn - 10.0) < 1e-9 and abs(e.wc_max - e.wc_min - 1.2) < 1e-9  # 3 x +-0.2 (ISO 2768-m 6..30: +-0.2)
-    muster, _, _ = tk.kette_aus_flaechen(erg.modell, [189, 134], erg.pmi)
+    mit, _, _ = tk.kette_aus_flaechen(erg.modell, [181, 187, 183, 185], erg.pmi, "m")
+    lage = [x for x in mit if x.quelle == "lage"]  # Position 1 an 181/187, Symmetrie 0.5 an 183/185
+    assert [(x.pmi_nummer, x.mindest, x.hoechst) for x in lage] == [(34, -0.5, 0.5), (36, -0.25, 0.25)]
+    muster, _, _ = tk.kette_aus_flaechen(erg.modell, [189, 134], erg.pmi, lagetoleranzen=False)
     assert [x.pmi_nummer for x in muster] == [8] and abs(muster[0].toleranz - 0.4) < 1e-9
-    ohne, _, h = tk.kette_aus_flaechen(erg.modell, [181, 187, 183], erg.pmi)
+    ohne, _, h = tk.kette_aus_flaechen(erg.modell, [181, 187, 183], erg.pmi, lagetoleranzen=False)
     assert ohne[-1].quelle == "ohne" and h
     assert tk.kette_aus_flaechen(erg.modell, [181], erg.pmi)[0] == []
 

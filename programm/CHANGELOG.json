@@ -129,7 +129,8 @@
    "Startbild: Die App zeigt sofort beim Start ein Fenster mit Symbol und Fortschrittstext (Windows und Linux schon vor dem Laden von Python, macOS nach dem Laden von Qt), bis das Hauptfenster steht.",
    "Datei › Beispiele: zehn Vorführungen mit freien Testdaten (PMI und Ansichten, PMI prüfen, Toleranzzonen mit Allgemeintoleranzen, Schnittansicht, PMI- und Geometrievergleich, Scan gegen Toleranzen, Toleranzkette, Kollisionen, Baugruppenvergleich).",
    "Toleranzkette aus der 3D-Auswahl: Flächen in Kettenreihenfolge wählen, Richtung und Vorzeichen aus der Geometrie, Werte aus den PMI (auch Muster) oder der Allgemeintoleranz ISO 2768; Verteilung (normal/gleichverteilt) und Cp je Glied, Beitragsanteil je Glied, gewähltes Glied im Modell hervorgehoben.",
-   "Werkzeuge › Kollisionen und Abstände: Durchdringungen (mit Volumen), Kontakte und Abstände außerhalb eines Bands (Mindest-/Höchstabstand) zwischen allen, gewählten oder gewählten gegen die übrigen Teile; Befund wählen zeigt die zwei Teile deckend, die Durchdringung rot und den kleinsten Abstand als Linie; Prüfstatus, Kommentar, CSV."
+   "Werkzeuge › Kollisionen und Abstände: Durchdringungen (mit Volumen), Kontakte und Abstände außerhalb eines Bands (Mindest-/Höchstabstand) zwischen allen, gewählten oder gewählten gegen die übrigen Teile; Befund wählen zeigt die zwei Teile deckend, die Durchdringung rot und den kleinsten Abstand als Linie; Prüfstatus, Kommentar, CSV.",
+   "Toleranzkette: Lagetoleranzen (Position, Symmetrie, Koaxialität, Profil mit Bezug, auch UZ) der Endflächen als eigene Glieder, PDF-Bericht mit Bild und Beitragsanteilen, Kette wird im Projekt gespeichert."
   ],
   "en": [
    "First viewer version: load STEP AP242, assembly tree, CAD-style navigation, standard views.",
@@ -260,7 +261,8 @@
    "Start screen: the app immediately shows a window with icon and progress text (Windows and Linux even before Python is loaded, macOS after Qt is loaded) until the main window is ready.",
    "File › Examples: ten demonstrations with free test data (PMI and views, check PMI, tolerance zones with general tolerances, section view, PMI and geometry comparison, scan against tolerances, tolerance stack-up, clashes, assembly comparison).",
    "Tolerance stack-up from the 3D selection: select faces in chain order, direction and sign from the geometry, values from the PMI (also patterns) or the general tolerance ISO 2768; distribution (normal/uniform) and Cp per link, contribution share per link, selected link highlighted in the model.",
-   "Tools › Clashes and distances: intersections (with volume), contacts and distances outside a band (minimum/maximum distance) between all parts, selected parts or selected against the rest; selecting a finding shows the two parts opaque, the intersection in red and the minimum distance as a line; review status, comment, CSV."
+   "Tools › Clashes and distances: intersections (with volume), contacts and distances outside a band (minimum/maximum distance) between all parts, selected parts or selected against the rest; selecting a finding shows the two parts opaque, the intersection in red and the minimum distance as a line; review status, comment, CSV.",
+   "Tolerance stack-up: location tolerances (position, symmetry, coaxiality, profile with datum, also UZ) of the end faces as links of their own, PDF report with picture and contribution shares, chain stored in the project."
   ]
  },
  "releases": [

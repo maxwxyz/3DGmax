@@ -45,6 +45,11 @@ class ToleranzketteFenster(QtWidgets.QDialog):
         self.weg = QtWidgets.QPushButton(tr("Entfernen"))
         for k in (self.plus, self.minus, self.auswahl, self.drehen, self.weg):
             reihe.addWidget(k)
+        self.lage = QtWidgets.QCheckBox(tr("Lagetoleranzen"))
+        self.lage.setChecked(True)
+        self.lage.setToolTip(tr("Position, Symmetrie, Koaxialität und Profil mit Bezug an der ersten und letzten Fläche "
+                                "als eigene Glieder (Zwischenflächen heben sich auf)"))
+        reihe.addWidget(self.lage)
         reihe.addStretch(1)
         reihe.addWidget(QtWidgets.QLabel(tr("Prozessfähigkeit Cp")))
         self.cp = QtWidgets.QDoubleSpinBox()
@@ -63,6 +68,7 @@ class ToleranzketteFenster(QtWidgets.QDialog):
         lay.addWidget(self.ergebnis)
         knoepfe = QtWidgets.QDialogButtonBox(QtWidgets.QDialogButtonBox.StandardButton.Close)
         self.export = knoepfe.addButton(tr("Als CSV speichern …"), QtWidgets.QDialogButtonBox.ButtonRole.ActionRole)
+        self.pdf = knoepfe.addButton(tr("PDF-Bericht …"), QtWidgets.QDialogButtonBox.ButtonRole.ActionRole)
         knoepfe.rejected.connect(self.reject)
         lay.addWidget(knoepfe)
         self.drehen.clicked.connect(self._drehen)
@@ -122,6 +128,8 @@ class ToleranzketteFenster(QtWidgets.QDialog):
                 t.setItem(z, s, QtWidgets.QTableWidgetItem(w))
             if g.quelle == "ohne":
                 t.item(z, 6).setForeground(QtGui.QColor("#c0392b"))
+            if g.quelle == "lage":
+                t.item(z, 2).setText("–")  # Verschiebung um die Nennlage
             art = QtWidgets.QComboBox()
             for schluessel, text in tk.VERTEILUNG.items():
                 art.addItem(tr(text), schluessel)
@@ -159,6 +167,7 @@ class ToleranzketteFenster(QtWidgets.QDialog):
                 f"&nbsp; · &nbsp; "
                 f"<b>{tr('Monte Carlo')}</b> {e.mc_min:.4f} … {e.mc_max:.4f} mm ({tr('99,73 %')})")
         self.export.setEnabled(bool(self.glieder))
+        self.pdf.setEnabled(bool(self.glieder))
 
     def speichere(self, pfad: str = "") -> str | None:
         if not pfad:
