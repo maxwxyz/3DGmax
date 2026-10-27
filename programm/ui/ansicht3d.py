@@ -78,6 +78,7 @@ class AnsichtBasis(QtWidgets.QWidget):
         self.schnitt_zustand = None  # (achse, anteil, umgekehrt) oder None
         self.schnitt_ebenen: list[tuple] = []  # festgehaltene Ebenen (Punkt, Richtung der behaltenen Seite)
         self.schnitt_kette = False  # mehrere Ebenen schneiden nur den gemeinsamen Bereich weg
+        self.ansicht_schnitt: list[list[tuple]] = []  # Schnitt der gespeicherten Ansicht (kern.ansichten)
         self.letzte_ansicht = "iso"
         self.thema: dict = {}
         self.navigation = "catia"
@@ -314,6 +315,10 @@ class AnsichtBasis(QtWidgets.QWidget):
         self.schnitt_kette = an
         if self.schnitt_zustand is not None:
             self.schnitt(*self.schnitt_zustand)
+
+    def setze_ansicht_schnitt(self, gruppen: list[list[tuple]]):
+        """Schnitt einer gespeicherten Ansicht: je Gruppe eine Ebenenkette (Vereinigung), Gruppen schneiden alle."""
+        self.ansicht_schnitt = [list(g) for g in gruppen]
 
     def setze_thema(self, thema: dict):
         self.thema = thema
@@ -1786,6 +1791,32 @@ class OcctAnsicht(AnsichtBasis):
         v.Redraw()
 
     # --- Schnitt ---
+
+    def setze_ansicht_schnitt(self, gruppen):
+        super().setze_ansicht_schnitt(gruppen)
+        if not self._bereit:
+            return
+        from OCC.Core.gp import gp_Dir, gp_Pln, gp_Pnt
+        from OCC.Core.Graphic3d import Graphic3d_ClipPlane
+        for ebene in getattr(self, "_ansicht_clips", []):
+            self.d.View.RemoveClipPlane(ebene)
+        self._ansicht_clips = []
+        farbe = _farbe((self.thema or {}).get("schnitt", (1, 0.55, 0.1)))
+        for gruppe in self.ansicht_schnitt:
+            kette = []
+            for punkt, normale in gruppe:
+                # OCCT behaelt wie STEP die Seite in Normalenrichtung
+                e = Graphic3d_ClipPlane(gp_Pln(gp_Pnt(*map(float, punkt)), gp_Dir(*map(float, normale))))
+                e.SetCapping(True)
+                e.SetCappingColor(farbe)
+                e.SetOn(True)
+                kette.append(e)
+            for a, b in zip(kette, kette[1:]):
+                a.SetChainNextPlane(b)  # Kette: weg nur, was alle wegschneiden = sichtbar, was eine behaelt
+            if kette:
+                self.d.View.AddClipPlane(kette[0])
+                self._ansicht_clips.append(kette[0])
+        self._neu_zeichnen()
 
     def _entferne_schnitt(self):
         if self._bereit:

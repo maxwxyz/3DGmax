@@ -11,7 +11,7 @@
 | Pivot stays fixed during zoom/pan, shown as line cross while orbiting/panning | ✅ |
 | Display shaded/with edges/wireframe, light/dark, custom background colors | ✅ |
 | Saved views: camera, window, PMI per view, browse (◀ ▶), search | ✅ |
-| Saved views with section planes (AP242 multi-clipping) – PLAN §8.25 | ⬜ |
+| Saved views with section planes (AP242 multi-clipping incl. union/intersection) – PLAN §8.25 | ✅ |
 | Thumbnails per saved view (HLR edge drawing with PMI, background), small by default, large or off | ✅ |
 | Section X/Y/Z, at selected face/edge, from view direction, slider | ✅ |
 | Clipping box around the selection | ✅ |

@@ -159,6 +159,12 @@ def pruefe_alles():
     ergebnis["schnitt_zwei"] = len(a._clips) == 2
     f.aktionen["schnitt_aus"].trigger()
     ergebnis["schnitt_aus"] = a._clips == [] and a.schnitt_ebenen == []
+    # Schnittansicht aus der Datei: zwei Ebenengruppen beim Waehlen, weg mit "Kein Schnitt"
+    f.lade(os.path.join(sys.argv[1], "tests", "daten", "varianten", "ctc01_schnittansicht.stp"), warten=True)
+    f.ansichten.liste.setCurrentRow(1)
+    mit = len(a._ansicht_clips) == 2 and a._ansicht_clips[1].NbChainNextPlanes() == 2
+    f.aktionen["schnitt_aus"].trigger()
+    ergebnis["schnittansicht"] = mit and a._ansicht_clips == []
     # Drahtmodell: Kantenebene in Kontrastfarbe, abschaltbar
     ctx = a.d.Context
     a.darstellung("draht")

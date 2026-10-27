@@ -8,6 +8,8 @@ Aufruf: pixi run python werkzeuge/testmodelle.py   -> tests/daten/varianten/
                            Position.2 0.75 -> 1.0
 - ctc01_geo_klein.stp      minimale Geometrieaenderung: Bohrung Ø20 um 0.1 mm in X verschoben, PMI gleich
 - ctc01_geo_klein_pmi_andere.stp  beides
+- ctc01_schnittansicht.stp  Ansicht MBD_0 als Schnittansicht (CAMERA_MODEL_D3_MULTI_CLIPPING): Ebene durch die
+                           Bohrungsachse (y = -125, sichtbar +y) und eine Vereinigung aus x < 30 und z > -25
 - ctc01_scan.ply           "Scan": feines Netz mit Rauschen (sigma 5 um), gedreht und verschoben (zum Ausrichten)
 - ctc01_scan_fehler.ply    wie ctc01_scan, dazu Fase 3 mm an einer Aussenkante, Delle 0.4 mm in der Oberseite und
                            Welligkeit 0.3 mm auf der Ebenheitsflaeche (Ebenheit 0.2 nicht eingehalten)
@@ -162,6 +164,31 @@ def pmi_andere(text: str) -> str:
                                                 f".F.,#{bezug.id},$);")
     pos = next(e for e in d.of_type("GEOMETRIC_TOLERANCE") if e.args("GEOMETRIC_TOLERANCE")[0] == "Position.2")
     return _messwert(text, pos.args("GEOMETRIC_TOLERANCE")[2].id, 1.0)
+
+
+def schnittansicht(text: str) -> str:
+    """Kamera der Ansicht MBD_0 zur Schnittansicht machen (Ebene und Vereinigung zweier Ebenen, CAx-IF 9.4.3)."""
+    d = p21.lese_text(text)
+    kamera = next(e for e in d.of_type("CAMERA_MODEL_D3"))
+    name, platz, volumen = kamera.args("CAMERA_MODEL_D3")[:3]
+    neu, n = [], max(d.entities) + 1
+
+    def ebene(ort, normale):
+        nonlocal n
+        p, r, a, e = n, n + 1, n + 2, n + 3
+        n += 4
+        neu.extend([f"#{p}=CARTESIAN_POINT('',({','.join(_zahl(x) for x in ort)}));",
+                    f"#{r}=DIRECTION('',({','.join(_zahl(x) for x in normale)}));",
+                    f"#{a}=AXIS2_PLACEMENT_3D('',#{p},#{r},$);", f"#{e}=PLANE('',#{a});"])
+        return e
+    durch_achse = ebene((0.0, ACHSE[1], 0.0), (0.0, 1.0, 0.0))
+    links, oben = ebene((ACHSE[0], 0.0, 0.0), (-1.0, 0.0, 0.0)), ebene((0.0, 0.0, -25.0), (0.0, 0.0, 1.0))
+    neu.append(f"#{n}=CAMERA_MODEL_D3_MULTI_CLIPPING_UNION('',(#{links},#{oben}));")
+    text = _ersetze_entitaet(text, kamera.id, f"#{kamera.id}=CAMERA_MODEL_D3_MULTI_CLIPPING('{name}',#{platz.id},"
+                                              f"#{volumen.id},(#{durch_achse},#{n}));")
+    zeile = "\r\n" if "\r\n" in text else "\n"
+    i = text.rindex("ENDSEC;")  # Ende der DATA-Sektion
+    return text[:i] + zeile.join(neu) + zeile + text[i:]
 
 
 # --- Netze ("Scans") ---
@@ -361,6 +388,7 @@ def main():
     varianten["ctc01_pmi_andere.stp"] = pmi_andere(text)
     varianten["ctc01_geo_klein.stp"] = bohrung_verschieben(text)
     varianten["ctc01_geo_klein_pmi_andere.stp"] = pmi_andere(varianten["ctc01_geo_klein.stp"])
+    varianten["ctc01_schnittansicht.stp"] = schnittansicht(text)
     for name, inhalt in varianten.items():
         with open(os.path.join(ZIEL, name), "w", encoding="latin-1", newline="") as f:
             f.write(inhalt)

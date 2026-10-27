@@ -510,7 +510,13 @@ thickness), sections and drawings, assembly comparison (`baugruppe*.stp`). Only 
 public domain, own test models from `werkzeuge/testmodelle.py`); a test opens every example. Later the screenshots
 of the manual are generated from these projects.
 
-### 8.25 Saved views with section planes (requested 2026-10-27)
+### 8.25 Saved views with section planes (requested 2026-10-27; STEP done the same day)
+Done: `kern/ansichten._schnitt` reads PLANE / CLIPPING_UNION / CLIPPING_INTERSECTION into an intersection of unions
+(CAx-IF PMI Rec. Pract. 4.0.4 §9.4.3: the side the normal points to stays visible; several entries directly at the
+camera are taken as all cutting – the document does not say it explicitly); each union is one chained OCCT clip
+plane group (OCCT also keeps the normal side), the groups cut together. Test file
+`tests/daten/varianten/ctc01_schnittansicht.stp` (text edit of NIST CTC-01). Open: QIF/PRC clip planes, own views
+storing the current section, hatching of the cut faces.
 STEP AP242 saved views may carry clipping planes (`CAMERA_MODEL_D3_MULTI_CLIPPING` with planes or
 `CAMERA_MODEL_D3_MULTI_CLIPPING_INTERSECTION` / `_UNION` combinations). Today the camera of such a view is read but
 the planes are ignored. Plan: read the planes (and their combination) in `kern/ansichten.py`, apply them as section

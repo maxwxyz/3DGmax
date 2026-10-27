@@ -849,6 +849,7 @@ class Hauptfenster(QtWidgets.QMainWindow):
         if vergleich is None and self.ansicht.abweichung is not None:
             self.ansicht.zeige_analyse(None)  # Analyse gehoert zum alten Modell
         self.erg = erg
+        self.ansicht.setze_ansicht_schnitt([])  # Schnitt gehoert zur Ansicht des vorigen Modells
         self.setWindowTitle(self._titel(os.path.basename(erg.pfad)))
         szene = ansicht3d.Szene(erg.modell, erg.baum, erg.farben, erg.grafik, erg.pmi)
         self._modell_da(True)
@@ -1245,6 +1246,7 @@ class Hauptfenster(QtWidgets.QMainWindow):
     def _ansicht_gewaehlt(self, ansicht):
         self._ansicht_pmi_ids = None if ansicht is None else set(ansicht.pmi_ids)
         if ansicht is None:
+            self.ansicht.setze_ansicht_schnitt([])
             self.pmi.nur_ansicht(None)
             self.ansicht.zeige_pmi(getattr(self, "_pmi_filter_ids", None))
             return
@@ -1252,8 +1254,12 @@ class Hauptfenster(QtWidgets.QMainWindow):
         self.ansicht.zeige_pmi(ansicht.pmi_ids if getattr(self, "_pmi_filter_ids", None) is None
                                else self._pmi_filter_ids)
         self.ansicht.kamera(ansicht)
-        self.statusBar().showMessage(tr("Ansicht {}: {} von {} PMI").format(
-            ansicht.name, len(ansicht.pmi_nummern), len(self.erg.pmi) if self.erg else 0), 6000)
+        self.ansicht.setze_ansicht_schnitt(ansicht.schnitt)
+        text = tr("Ansicht {}: {} von {} PMI").format(ansicht.name, len(ansicht.pmi_nummern),
+                                                       len(self.erg.pmi) if self.erg else 0)
+        if ansicht.schnitt:
+            text += " · " + tr("Schnittansicht ({} Ebenen)").format(sum(len(g) for g in ansicht.schnitt))
+        self.statusBar().showMessage(text, 6000)
 
     # --- Befehle ---
 
@@ -2083,6 +2089,8 @@ class Hauptfenster(QtWidgets.QMainWindow):
     def _schnitt(self, achse):
         if achse is None and self.ansicht.schnitt_ebenen:
             self.ansicht.schnitt_ebenen = []  # "Kein Schnitt" hebt auch festgehaltene Ebenen auf
+        if achse is None and self.ansicht.ansicht_schnitt:
+            self.ansicht.setze_ansicht_schnitt([])  # ... und den Schnitt einer gespeicherten Ansicht
         self._schnitt_achse = achse
         da = self.erg is not None
         self.schnitt_regler.setEnabled(da and achse is not None)

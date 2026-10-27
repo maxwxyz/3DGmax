@@ -712,6 +712,7 @@
 "Erst Maße mit Nennmaß in der PMI-Liste wählen": "Select dimensions with a nominal value in the PMI list first",
 "Maße in der PMI-Liste wählen und übernehmen; Richtung + vergrößert, − verkleinert das Schlussmaß. Statistik: Normalverteilung, Toleranz = ±3σ · Cp.": "Select dimensions in the PMI list and add them; direction + increases, − decreases the closing dimension. Statistics: normal distribution, tolerance = ±3σ · Cp.",
 "Prozessfähigkeit Cp": "Process capability Cp",
+"Schnittansicht ({} Ebenen)": "section view ({} planes)",
 "Kanten in Kontrastfarbe": "Edges in contrast colour",
 "Aus: Kanten in der Bauteil- bzw. Flächenfarbe (auf hellem Grund oft schwach)": "Off: edges in the part or face colour (often faint on a light background)",
 "Statistik: σ = Toleranz / (6 · Cp); 1,0 = ±3σ, 1,33 = ±4σ": "Statistics: σ = tolerance / (6 · Cp); 1.0 = ±3σ, 1.33 = ±4σ",

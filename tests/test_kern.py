@@ -676,3 +676,16 @@ def test_qif_nur_grafik_in_tabelle(qif_ctc01, tmp_path):
     assert arten.count("toleranz") == 6 and arten.count("bezug") == 3 and arten.count("mass") == 8
     pos = [p for p in abgeleitet if p.typ == "Position"]
     assert pos and all(p.wert == 0.75 and p.bezug_text() == "A|B|C" for p in pos)
+
+
+def test_schnittansicht_aus_step():
+    """CAMERA_MODEL_D3_MULTI_CLIPPING: Ebene und Vereinigung -> Gruppen (UND ueber Gruppen, ODER in der Gruppe)."""
+    from programm.kern.ansichten import lies_ansichten
+    from programm.kern.laden import lade_modell
+    m = lade_modell(pfad("varianten/ctc01_schnittansicht.stp"))
+    a = next(a for a in lies_ansichten(m) if a.name == "MBD_0")
+    assert a.schnitt == [[((0.0, -125.0, 0.0), (0.0, 1.0, 0.0))],
+                         [((30.0, 0.0, 0.0), (-1.0, 0.0, 0.0)), ((0.0, 0.0, -25.0), (0.0, 0.0, 1.0))]]
+    assert a.pmi_ids  # Kamera und PMI der Ansicht weiterhin gelesen
+    ohne = lade_modell(pfad("nist_ctc_01_asme1_ap242-e1.stp"))
+    assert all(not x.schnitt for x in lies_ansichten(ohne))

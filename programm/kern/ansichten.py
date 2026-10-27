@@ -30,6 +30,9 @@ class Ansicht:
     pmi_nummern: list[int] = field(default_factory=list)
     eigen: bool = False  # vom Nutzer gemerkt (nicht aus der Datei)
     messungen: list[int] = field(default_factory=list)  # Nummern der dabei sichtbaren Messungen
+    # Schnitt der Ansicht: UND ueber Gruppen, ODER innerhalb einer Gruppe; Ebene = (Punkt, Normale), die Seite in
+    # Normalenrichtung bleibt sichtbar (CAx-IF PMI Rec. Pract. 4.0.4, 9.4.3)
+    schnitt: list[list[tuple]] = field(default_factory=list)
 
 
 def _punkt(datei: P21Datei, ref, skala=1.0):
@@ -72,6 +75,37 @@ def _kamera(datei: P21Datei, e: Entity, ansicht: Ansicht, skala: float):
         if box is not None and box.is_a("PLANAR_BOX"):
             ansicht.breite = float(box.args("PLANAR_BOX")[1]) * skala
             ansicht.hoehe = float(box.args("PLANAR_BOX")[2]) * skala
+    if teil == "CAMERA_MODEL_D3_MULTI_CLIPPING":
+        # mehrere Eintraege direkt an der Kamera schneiden alle (Schnittmenge der sichtbaren Bereiche)
+        ansicht.schnitt = [g for r in e.args(teil)[3] for g in _schnitt(datei, r, skala)]
+
+
+SCHNITT_UND = "CAMERA_MODEL_D3_MULTI_CLIPPING_INTERSECTION"
+SCHNITT_ODER = "CAMERA_MODEL_D3_MULTI_CLIPPING_UNION"
+
+
+def _schnitt(datei: P21Datei, ref, skala: float, tiefe: int = 0) -> list[list[tuple]]:
+    """Schnittausdruck als Schnittmenge von Vereinigungen (je Gruppe eine OCCT-Ebenenkette)."""
+    e = datei.get(ref)
+    if e is None or tiefe > 10:
+        return []
+    if e.is_a("PLANE"):
+        pl = datei.get(e.args("PLANE")[1])
+        if pl is None or not pl.is_a("AXIS2_PLACEMENT_3D"):
+            return []
+        _, ort, achse = pl.args("AXIS2_PLACEMENT_3D")[:3]
+        return [[(_punkt(datei, ort, skala), _punkt(datei, achse) if achse else (0.0, 0.0, 1.0))]]
+    if e.is_a(SCHNITT_UND):
+        return [g for r in e.args(SCHNITT_UND)[1] for g in _schnitt(datei, r, skala, tiefe + 1)]
+    if e.is_a(SCHNITT_ODER):
+        # (A und B) oder C = (A oder C) und (B oder C): Gruppen ausmultiplizieren
+        out = [[]]
+        for r in e.args(SCHNITT_ODER)[1]:
+            teil = _schnitt(datei, r, skala, tiefe + 1)
+            if teil:
+                out = [a + b for a in out for b in teil]
+        return [g for g in out if g]
+    return []
 
 
 def _kreuz(a, b):
