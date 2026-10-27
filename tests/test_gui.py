@@ -50,9 +50,30 @@ def test_flaeche_waehlt_pmi(fenster_ctc01):
     f = fenster_ctc01
     bezug_b = next(p for p in f.erg.pmi if p.art == "bezug" and p.name == "B")
     idx = next(iter(bezug_b.flaechen))
+    f.ansicht.setze_auswahl([f.erg.modell.flaechen[idx]])
     f._flaeche_gewaehlt(idx)
     gewaehlt = {f.pmi.pmi[i.row()].nummer for i in f.pmi.tabelle.selectedIndexes()}
     assert bezug_b.nummer in gewaehlt
+
+
+def test_mehrfachauswahl_bleibt_hervorgehoben(fenster_ctc01):
+    """Strg/⌘-Klick auf eine zweite Flaeche: beide bleiben hervorgehoben, PMI beider Flaechen gewaehlt."""
+    f = fenster_ctc01
+    bezug_a = next(p for p in f.erg.pmi if p.art == "bezug" and p.name == "A")
+    bezug_b = next(p for p in f.erg.pmi if p.art == "bezug" and p.name == "B")
+    ia, ib = next(iter(bezug_a.flaechen)), next(iter(bezug_b.flaechen))
+    fa, fb = f.erg.modell.flaechen[ia], f.erg.modell.flaechen[ib]
+    f.ansicht.setze_auswahl([fa])  # wie Klick auf A
+    f._flaeche_gewaehlt(ia)
+    f.ansicht.setze_auswahl([fa, fb])  # wie Strg/⌘-Klick auf B
+    f._flaeche_gewaehlt(ib)
+    assert {ia, ib} <= f.ansicht.hervor
+    gewaehlt = [f.pmi.pmi[i.row()] for i in f.pmi.tabelle.selectedIndexes()]
+    assert {bezug_a.nummer, bezug_b.nummer} <= {p.nummer for p in gewaehlt}
+    f.ansicht.setze_auswahl([fb])  # nochmal Strg/⌘-Klick auf A: abgewaehlt
+    f._flaeche_gewaehlt(ia)
+    gewaehlt = [f.pmi.pmi[i.row()] for i in f.pmi.tabelle.selectedIndexes()]
+    assert ib in f.ansicht.hervor and gewaehlt and all(ib in p.flaechen for p in gewaehlt)
 
 
 def test_filter_und_suche(fenster_ctc01):
@@ -844,8 +865,36 @@ def test_beispiele_modell(fenster):
     from programm.kern import beispiele
     assert {b.name for b in beispiele.BEISPIELE} == {"pmi", "pruefen", "zonen", "schnittansicht", "kette", "scan",
                                                       "vergleich_pmi", "vergleich_geo", "baugruppe", "kollision",
-                                                      "zusammenbau"}
+                                                      "zusammenbau", "variation"}
     _beispiele(fenster, ("pmi", "pruefen", "zonen", "schnittansicht", "kette", "kollision", "zusammenbau"))
+
+
+def test_baugruppenvariation_im_fenster(fenster, tmp_path):
+    """Beispiel Baugruppenvariation: Messgroessen mit Ergebnis und Beitragenden, Soll per Tabelle, PDF, Projekt."""
+    f = fenster
+    _beispiele(f, ("variation",))
+    z = f.zusammenbau
+    assert len(f.baugruppe.verbindungen) == 5 and len(f.baugruppe.masse) == 2
+    assert z.reiter.currentIndex() == 1 and z.masse.rowCount() == 2 and z.gewaehlte_messgroesse() == 2
+    assert "…" in z.masse.item(0, 3).text() and z.beitraege.rowCount() == 5
+    assert z.masse.item(1, 6).text().endswith("%") and z.masse.item(1, 7).text()
+    z.masse.item(0, 5).setText("≥ 4,1")  # Soll per Doppelklick: fast alles ausserhalb
+    m = f.baugruppe.masse[0]
+    assert m.soll_min == 4.1 and m.soll_max is None and float(z.masse.item(0, 6).text().rstrip("%")) > 90
+    pdf = f.exportiere_messgroessen_pdf(str(tmp_path / "m.pdf"))
+    assert pdf and os.path.getsize(pdf) > 1000
+    # Messgroesse aus der Auswahl: Zylinder geht nicht, gleiche Ebene am selben Teil auch nicht
+    knoten = {k.nummer: k for k in f.erg.baum.blaetter()}
+    from programm.kern.verbindung import flaeche_im_teil
+    deckel = next(k.nummer for k in knoten.values() if k.name == "Deckel")
+    fl = flaeche_im_teil(knoten[deckel].form, 15, f.erg.modell)
+    f.ansicht.setze_auswahl([fl, fl], [deckel, deckel])
+    assert f.messgroesse_auswahl() is None
+    projekt = f.speichere_projekt(str(tmp_path / "p.3dgmax"))
+    f.oeffne_projekt(projekt, warten=True)
+    assert [x.soll_min for x in f.baugruppe.masse] == [4.1, -0.05] and f.zusammenbau.masse.rowCount() == 2
+    z.gewaehlte_messgroesse() and z._mass_entfernen()
+    assert len(f.baugruppe.masse) == 1
 
 
 @pytest.mark.langsam
@@ -1013,3 +1062,48 @@ def test_scanpruefung_punktwolke_bezug_bericht(fenster_ctc01, tmp_path):
     pdf = f.exportiere_scan_pdf(str(tmp_path / "bericht.pdf"), bilder=False)
     assert os.path.getsize(pdf) > 1000
     f.scan_aus()
+
+
+def test_befehlssuche_und_startseite(fenster):
+    """Strg/⌘+K findet Befehle auch ueber den englischen Text, Enter fuehrt aus; Startseite mit Aufgaben."""
+    from PySide6 import QtWidgets
+    from programm.kern import beispiele
+    from programm.ui import befehle_ui as bu
+    f = fenster
+    assert len(f.start.beispiele_menue.actions()) == len(beispiele.BEISPIELE)
+    alle = bu.befehle(f.menuBar())
+    assert len(alle) > 100 and all(b.text for b in alle)
+    assert bu.treffer(alle, "schnitt ausw")[0].aktion is f.aktionen["schnitt_auswahl"]
+    assert f.aktionen["schnitt_auswahl"] in {b.aktion for b in bu.treffer(alle, "section selection")}  # englisch
+    assert not bu.treffer(alle, "gibtsnicht")
+    d = f.zeige_befehlssuche()
+    d.eingabe.setText("Perspektive")
+    assert d.treffer[0].aktion is f.aktionen["perspektive"] and not d.ausfuehren()  # ohne Modell gesperrt
+    f.lade(pfad("nist_ctc_01_asme1_ap242-e1.stp"), warten=True)
+    d = f.zeige_befehlssuche()
+    d.eingabe.setText("perspek")
+    vorher = f.aktionen["perspektive"].isChecked()
+    assert d.ausfuehren()
+    QtWidgets.QApplication.processEvents()
+    assert f.aktionen["perspektive"].isChecked() != vorher and not d.isVisible()
+
+
+def test_alle_zonen_nur_sichtbare_teile(fenster):
+    """Alle Toleranz-/Allgemeintoleranzzonen: ausgeblendete Teile zeigen keine Zonen, Einblenden holt sie zurueck."""
+    from programm.kern.toleranzzone import Allgemein
+    f = fenster
+    f.lade(pfad("baugruppe.stp"), warten=True)
+    f._allgemein = Allgemein("m", "")
+    f.aktionen["toleranzzonen_alle"].setChecked(True)
+    f.aktionen["allgemein_zeigen"].setChecked(True)
+    f._allgemein_umschalten()
+    alle = len(f.ansicht.zone_formen)
+    platte = next(k.nummer for k in f.erg.baum.blaetter() if k.name == "Grundplatte")
+    deckel = next(k.nummer for k in f.erg.baum.blaetter() if k.name == "Deckel")
+    f.ansicht.knoten_sichtbar({platte}, False)
+    weniger = len(f.ansicht.zone_formen)
+    assert 0 < weniger < alle  # nur noch die Schrauben
+    f.ansicht.isoliere({deckel})  # Deckel hat keine Flaeche ohne Angabe mit Allgemeintoleranz-Zone
+    assert len(f.ansicht.zone_formen) == 0
+    f.ansicht.isoliere(None)
+    assert len(f.ansicht.zone_formen) == alle

@@ -36,6 +36,7 @@ class Startseite(QtWidgets.QWidget):
     """Anzeige ohne Modell: Datei oeffnen, zuletzt verwendet, Hinweis Drag-and-drop."""
 
     oeffnen = QtCore.Signal(str)  # leer = Dialog
+    vergleichen = QtCore.Signal()
 
     def __init__(self, parent=None):
         super().__init__(parent)
@@ -49,16 +50,24 @@ class Startseite(QtWidgets.QWidget):
         text.setObjectName("leise")
         text.setAlignment(QtCore.Qt.AlignmentFlag.AlignCenter)
         lay.addWidget(text)
-        knopf = QtWidgets.QPushButton(tr("STEP-Datei öffnen …"))
+        knopf = QtWidgets.QPushButton(tr("Modell öffnen …"))
         knopf.setObjectName("primaer")
         knopf.clicked.connect(lambda: self.oeffnen.emit(""))
+        vergleich = QtWidgets.QPushButton(tr("Zwei Stände vergleichen …"))
+        vergleich.clicked.connect(self.vergleichen.emit)
+        self.beispiele = QtWidgets.QPushButton(tr("Beispiele"))
+        self.beispiele.setToolTip(tr("Jede Funktion an freien Testdaten ausprobieren"))
+        self.beispiele_menue = QtWidgets.QMenu(self.beispiele)
+        self.beispiele.setMenu(self.beispiele_menue)
         zeile = QtWidgets.QHBoxLayout()
         zeile.addStretch(1)
-        zeile.addWidget(knopf)
+        for k in (knopf, vergleich, self.beispiele):
+            zeile.addWidget(k)
         zeile.addStretch(1)
         lay.addSpacing(12)
         lay.addLayout(zeile)
-        hinweis = QtWidgets.QLabel(tr("oder Datei hierher ziehen"))
+        hinweis = QtWidgets.QLabel(tr("STEP, IGES, QIF, PRC/3D-PDF, STL, OBJ, glTF, 3MF, PLY – oder Datei hierher "
+                                      "ziehen · Befehl suchen mit Strg/⌘+K"))
         hinweis.setObjectName("leise")
         hinweis.setAlignment(QtCore.Qt.AlignmentFlag.AlignCenter)
         lay.addWidget(hinweis)
@@ -158,6 +167,10 @@ class Hauptfenster(QtWidgets.QMainWindow):
         self.zusammenbau.zuruecksetzen.connect(self.zusammenbau_zuruecksetzen)
         self.zusammenbau.wiggle.connect(self._wiggle)
         self.zusammenbau.toleranz.connect(self._spielraum)
+        self.zusammenbau.mass_anlegen.connect(self.messgroesse_auswahl)
+        self.zusammenbau.mass_entfernen.connect(self._messgroesse_entfernen)
+        self.zusammenbau.soll.connect(self._soll)
+        self.zusammenbau.mass_pdf.connect(lambda: self.exportiere_messgroessen_pdf())
         self.scan.gewaehlt.connect(lambda p: self.pmi.waehle(lambda q: q is p))
         self.scan.beenden.connect(self.scan_aus)
         self.scan.neu_auswerten.connect(lambda b: self.pruefe_scan(self._scan["pfad"], bezug=b)
@@ -396,7 +409,7 @@ class Hauptfenster(QtWidgets.QMainWindow):
         A("auswahl_aufheben", tr("Auswahl aufheben"), self._auswahl_aufheben, tipp=tr("Gewählte Flächen und Kanten abwählen"))
         A("teil_ausblenden", tr("Auswahl ausblenden"), lambda: self._teil_befehl("ausblenden"), "H",
           tipp=tr("Die Teile der gewählten Flächen und Kanten ausblenden"))
-        A("teil_isolieren", tr("Teil isolieren"), lambda: self._teil_befehl("isolieren"),
+        A("teil_isolieren", tr("Teil der gewählten Fläche isolieren"), lambda: self._teil_befehl("isolieren"),
           tipp=tr("Nur das Teil der gewählten Fläche zeigen"))
         A("pdf_ansichten", tr("Ansichten als PDF …"), lambda: self.exportiere_pdf("ansichten"),
           tipp=tr("Eine Seite je gespeicherter Ansicht mit Bild und sichtbaren PMI"))
@@ -560,6 +573,8 @@ class Hauptfenster(QtWidgets.QMainWindow):
         A("einfuehrung", tr("Einführung"), self.zeige_einfuehrung, modell=False)
         A("neu", tr("Was ist neu"), self.zeige_neu, modell=False)
         A("ueber", tr("Über 3DGmax"), self.zeige_ueber, modell=False)
+        A("befehlssuche", tr("Befehl suchen …"), self.zeige_befehlssuche, "Ctrl+K", modell=False,
+          tipp=tr("Alle Befehle nach Namen durchsuchen und ausführen"))
 
     VERGLEICH_AKTIONEN = ("vergleich_beenden", "aenderungen_export", "pdf_vergleich", "pdf_pmi_aenderungen",
                           "manuell_ausrichten")
@@ -661,8 +676,6 @@ class Hauptfenster(QtWidgets.QMainWindow):
         m.addSeparator()
         m.addAction(a["pmi_suche"])
         m.addAction(a["pmi_pruefen"])
-        m.addAction(a["pmi_export"])
-        m.addAction(a["aenderungen_export"])
         m = mb.addMenu(tr("&Werkzeuge"))
         m.addAction(a["messen"])
         m.addAction(a["messen_ende"])
@@ -676,7 +689,7 @@ class Hauptfenster(QtWidgets.QMainWindow):
                   self.dock_zusammenbau):
             self.menue_fenster.addAction(d.toggleViewAction())
         m = mb.addMenu(tr("&Hilfe"))
-        for n in ("anleitung", "einfuehrung", "neu", "ueber"):
+        for n in ("befehlssuche", "anleitung", "einfuehrung", "neu", "ueber"):
             m.addAction(a[n])
         self._fuelle_zuletzt()
 
@@ -730,6 +743,8 @@ class Hauptfenster(QtWidgets.QMainWindow):
 
     def _verbinde(self):
         self.start.oeffnen.connect(self.oeffnen)
+        self.start.vergleichen.connect(lambda: self.starte_vergleich())
+        self._beispiel_menue(self.start.beispiele_menue)
         self.pmi.gewaehlt.connect(self._pmi_gewaehlt)
         self.pmi.filter_geaendert.connect(self._pmi_filter)
         self.pmi.befehl.connect(self._pmi_befehl)
@@ -744,6 +759,7 @@ class Hauptfenster(QtWidgets.QMainWindow):
         self.ansicht.meldung.connect(lambda t: self.statusBar().showMessage(t, 5000))
         self.ansicht.auswahl_geaendert.connect(self._schnell_auswahl)
         self.ansicht.auswahl_geaendert.connect(lambda _f: self._zone_aktualisieren(self.pmi.gewaehlte()))
+        self.ansicht.sichtbarkeit_geaendert.connect(self._sichtbarkeit_zonen)
         self.baum.sichtbar_geaendert.connect(self.ansicht.knoten_sichtbar)
         self.baum.isolieren.connect(self.ansicht.isoliere)
         self.baum.transparent.connect(self.ansicht.knoten_transparent)
@@ -939,6 +955,17 @@ class Hauptfenster(QtWidgets.QMainWindow):
         if schritt is not None:
             schritt()
 
+    def zeige_befehlssuche(self):
+        """Befehlssuche oben mittig ueber dem Fenster (Strg/⌘+K)."""
+        from .befehle_ui import BefehlsSuche
+        d = BefehlsSuche(self.menuBar(), self)
+        mitte = self.mapToGlobal(QtCore.QPoint(self.width() // 2, 0))
+        d.move(mitte.x() - d.width() // 2, mitte.y() + 60)
+        self._befehlssuche = d
+        d.open()
+        d.eingabe.setFocus()
+        return d
+
     def _beispiel_menue(self, menue):
         from ..kern import beispiele
         for b in beispiele.BEISPIELE:
@@ -978,6 +1005,7 @@ class Hauptfenster(QtWidgets.QMainWindow):
             "kette": [self._beispiel_kette],
             "kollision": [lambda: self._beispiel_kollision(warten)],
             "zusammenbau": [self._beispiel_zusammenbau],
+            "variation": [self._beispiel_variation],
         }[name]
         self._nach_laden = zeigen(*schritte)
         self.lade(pfade[0], warten)
@@ -1010,6 +1038,36 @@ class Hauptfenster(QtWidgets.QMainWindow):
         self.zeige_zusammenbau()
         self.zusammenbau.teile.selectRow(self.zusammenbau._teil_nummern.index(schraube))
         self.zusammenbau.wiggle_an.setChecked(True)
+
+    def _beispiel_variation(self):
+        """Deckel auf Grundplatte, zwei Schrauben; Kopfueberstand und Buendigkeit der Koepfe mit Soll."""
+        from ..kern import baugruppe_mass as bm
+        from ..kern.verbindung import flaeche_im_teil
+        knoten = {k.nummer: k for k in self.erg.baum.blaetter()}
+        fl = lambda t, i: flaeche_im_teil(knoten[t].form, i, self.erg.modell)  # noqa: E731
+        nr = {k.name: k.nummer for k in knoten.values()}
+        schrauben = sorted(k.nummer for k in knoten.values() if k.name.startswith("Schraube"))[:2]
+        deckel, platte = nr["Deckel"], nr["Grundplatte"]
+        # Flaechen der Testbaugruppe: Deckel unten 14 / oben 15, Platte oben 2, Bohrungen 6 und 7, Kopf unten 18 /
+        # oben 17, Schaft 19
+        paare = [((deckel, 14), (platte, 2))]
+        for s, loch in zip(schrauben, (6, 7)):
+            paare += [((s, 18), (deckel, 15)), ((s, 19), (platte, loch))]
+        for a, b in paare:
+            self.ansicht.setze_auswahl([fl(*a), fl(*b)], [a[0], b[0]])
+            self.verbinde_auswahl()
+        self.baugruppe.setze_toleranz(1, 0.05, 0.0005, tr("Beispiel"))
+        for v in self.baugruppe.verbindungen:
+            if v.art == "eben" and v.nummer != 1:
+                self.baugruppe.setze_toleranz(v.nummer, 0.02, 0.001, tr("Beispiel"))
+        for a, b, soll in (((schrauben[0], 17), (deckel, 15), "3,95 … 4,05"),
+                           ((schrauben[0], 17), (schrauben[1], 17), "-0,05 … 0,05")):
+            m = self.baugruppe.neue_messgroesse(a[0], fl(*a), a[1], b[0], fl(*b), b[1])
+            m.soll_min, m.soll_max = bm.lies_soll(soll)
+        self.ansicht.setze_auswahl([])
+        self.zeige_zusammenbau()
+        self.zusammenbau.reiter.setCurrentIndex(1)
+        self.zusammenbau.masse.selectRow(1)
 
     def _beispiel_kette(self):
         from ..kern import toleranzkette as tk
@@ -1123,14 +1181,20 @@ class Hauptfenster(QtWidgets.QMainWindow):
         self._zone_aktualisieren(liste)  # danach: die Erklaerung der Zone ersetzt die Auswahlmeldung
 
     def _flaeche_gewaehlt(self, idx):
-        if idx < 0 or self.erg is None:
+        """Nach einem Klick: PMI aller gewaehlten Flaechen in der Liste waehlen (nicht nur der zuletzt geklickten);
+        hervorgehoben bleiben die Flaechen der PMI und die ganze 3D-Auswahl."""
+        if self.erg is None or self.ansicht.szene is None:
+            return
+        modell = self.ansicht.szene.modell
+        alle = {i for f in self.ansicht.auswahl3d if (i := modell.flaechen_index(f)) is not None}
+        if not alle:
             self.pmi.waehle(lambda p: False)
             return
-        # Auswahl in der Liste hebt die Flaechen der PMI hervor; ohne PMI nur die Flaeche selbst
-        n = self.pmi.waehle(lambda p: idx in p.flaechen)
-        if n == 0:
-            self.ansicht.hebe_flaechen({idx})
-        self.statusBar().showMessage(tr("Fläche {}: {} PMI").format(idx, n), 6000)
+        n = self.pmi.waehle(lambda p: bool(alle & p.flaechen))
+        self.ansicht.hebe_flaechen(self.ansicht.hervor | alle)
+        text = tr("Fläche {}: {} PMI").format(next(iter(alle)), n) if len(alle) == 1 else \
+            tr("{} Flächen gewählt: {} PMI").format(len(alle), n)
+        self.statusBar().showMessage(text, 6000)
 
     def _grafik_pmi_gewaehlt(self, ids):
         self.pmi.waehle(lambda p: p.step_id in ids)
@@ -1165,6 +1229,11 @@ class Hauptfenster(QtWidgets.QMainWindow):
         self.pmi.zeige(self.erg.pmi, self.erg.ansichten)
         self.statusBar().showMessage(tr("Norm: {}").format(self.norm_text), 6000)
 
+    def _sichtbarkeit_zonen(self):
+        """Alle Zonen folgen dem Aus-/Einblenden der Teile."""
+        if self.aktionen["toleranzzonen_alle"].isChecked():
+            self._zone_aktualisieren(self.pmi.gewaehlte())
+
     def _zone_aktualisieren(self, liste):
         """Toleranzzonen zeigen: alle (Schalter), sonst die gewaehlten PMI oder die PMI an gewaehlten Flaechen."""
         from ..kern import toleranzzone
@@ -1174,8 +1243,10 @@ class Hauptfenster(QtWidgets.QMainWindow):
             return
         allgemein = self._allgemein if self.aktionen["allgemein_zeigen"].isChecked() else None
         nur = None  # Flaechen fuer die Allgemeintoleranzen (None: alle ohne eigene Angabe)
+        sichtbar = self.ansicht.sichtbare_flaechen()  # ausgeblendete Teile zeigen keine Zonen
         if alle:
-            liste = list(self.erg.pmi)
+            liste = list(self.erg.pmi) if sichtbar is None else [p for p in self.erg.pmi if p.flaechen & sichtbar]
+            nur = sichtbar
         elif not liste and self.ansicht.auswahl3d:
             nur = {i for f in self.ansicht.auswahl3d for i in [self.erg.modell.flaechen_index(f)] if i is not None}
             liste = [p for p in self.erg.pmi if p.flaechen & nur]
@@ -1187,8 +1258,8 @@ class Hauptfenster(QtWidgets.QMainWindow):
         brepbndlib.Add(self.erg.modell.form, box)
         x0, y0, z0, x1, y1, z1 = box.Get()
         mindest = max(x1 - x0, y1 - y0, z1 - z0) / 250  # schmalere Zonen werden ueberhoeht
-        schluessel = (id(self.erg), repr(allgemein), tuple(p.wert_text() for p in self.erg.pmi)) if alle \
-            else None
+        schluessel = (id(self.erg), repr(allgemein), tuple(p.wert_text() for p in self.erg.pmi),
+                      None if sichtbar is None else frozenset(sichtbar)) if alle else None
         if schluessel is not None and self._zonen_alle[0] == schluessel:
             ergebnis, zonen = self._zonen_alle[1]  # alle Zonen nicht bei jeder Auswahl neu berechnen
         else:
@@ -2505,8 +2576,64 @@ class Hauptfenster(QtWidgets.QMainWindow):
             if not self.baugruppe.fest(nr):
                 ecken, mitte = self._teil_ecken(nr)
                 streuung[nr] = self.baugruppe.streuung(nr, ecken, mitte)
-        self.zusammenbau.zeige(self.baugruppe, self._teil_namen(), streuung)
+        namen = self._teil_namen()
+        self.zusammenbau.zeige(self.baugruppe, namen, streuung)
+        self.zusammenbau.zeige_masse(self.baugruppe, namen, self.messgroessen_ergebnisse())
         self.ansicht.setze_teil_lagen(self.baugruppe.lagen)
+
+    def messgroessen_ergebnisse(self) -> dict:
+        """Nummer der Messgroesse -> Ergebnis (Worst Case, Monte Carlo, Beitragende) ueber alle Verbindungen."""
+        if not self.baugruppe.masse:
+            return {}
+        from ..kern.baugruppe_mass import Analyse
+        a = Analyse(self.baugruppe)
+        return {m.nummer: a.berechne(m, *self.baugruppe.mass_formen[m.nummer]) for m in self.baugruppe.masse}
+
+    def messgroesse_auswahl(self):
+        """Spalt oder Buendigkeit zwischen den zwei gewaehlten Ebenen (erst gemessene, dann Bezugsflaeche)."""
+        if self.erg is None or self.vergleich is not None:
+            return None
+        paare = [(f, t) for f, t in zip(self.ansicht.auswahl3d, self.ansicht.auswahl_teile)
+                 if t is not None and self.erg.modell.flaechen_index(f) is not None]
+        if len(paare) != 2:
+            self.statusBar().showMessage(tr("Genau zwei ebene Flächen an verschiedenen Teilen wählen"), 6000)
+            return None
+        (fa, ta), (fb, tb) = paare
+        m = self.erg.modell
+        x = self.baugruppe.neue_messgroesse(ta, fa, m.flaechen_index(fa), tb, fb, m.flaechen_index(fb))
+        if isinstance(x, str):
+            self.statusBar().showMessage(x, 6000)
+            return None
+        self.zeige_zusammenbau()
+        self.zusammenbau.reiter.setCurrentIndex(1)
+        return x
+
+    def _messgroesse_entfernen(self, nummer: int):
+        self.baugruppe.entferne_messgroesse(nummer)
+        self._zusammenbau_zeigen()
+
+    def _soll(self, nummer: int, text: str):
+        from ..kern.baugruppe_mass import lies_soll
+        m = next((x for x in self.baugruppe.masse if x.nummer == nummer), None)
+        if m is None:
+            return
+        try:
+            m.soll_min, m.soll_max = lies_soll(text)
+        except ValueError:
+            self.statusBar().showMessage(tr("Soll z. B. als 3,8 … 4,2, ≥ 1 oder ≤ 2 eingeben"), 6000)
+        self._zusammenbau_zeigen()
+
+    def exportiere_messgroessen_pdf(self, pfad: str = "") -> str | None:
+        from .berichte import messgroessen_pdf
+        if self.erg is None or not self.baugruppe.masse:
+            return None
+        pfad = pfad or self._speicherpfad(tr("PDF-Bericht"), os.path.splitext(self.erg.pfad)[0] + "_messgroessen.pdf",
+                                          "PDF (*.pdf)")
+        if not pfad:
+            return None
+        ziel = messgroessen_pdf(self, pfad)
+        self.statusBar().showMessage(tr("PDF gespeichert: {}").format(ziel), 6000)
+        return ziel
 
     def _spielraum(self, nummer: int, wert: float):
         self.baugruppe.setze_toleranz(nummer, wert, None, tr("manuell"))

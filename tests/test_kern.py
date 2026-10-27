@@ -747,7 +747,7 @@ def test_zusammenbau_fangen_freiheitsgrade():
     f = lambda t, i: vb.flaeche_im_teil(knoten[t].form, i, erg.modell)  # noqa: E731
     b = vb.Baugruppe()
     assert isinstance(b.verbinde(4, f(4, 18), 18, 4, f(4, 19), 19), str)  # gleiches Teil
-    assert isinstance(b.verbinde(4, f(4, 18), 18, 2, f(2, 6), 6), str)  # Ebene gegen Zylinder
+    assert vb.Baugruppe().verbinde(4, f(4, 18), 18, 2, f(2, 6), 6).art == vb.LANGLOCH  # Ebene gegen Zylinder
     v = b.verbinde(4, f(4, 18), 18, 3, f(3, 15), 15)
     assert v.art == vb.EBEN and np.allclose(b.lage(4)[:3, 3], [0, 0, 1]) and len(b.freiheitsgrade(4)) == 3
     v2 = b.verbinde(4, f(4, 19), 19, 2, f(2, 6), 6)

@@ -78,15 +78,19 @@ Maße messen, zwei Stände in Geometrie und PMI vergleichen und Prüfungen dokum
       rot = entfernt; die Liste <b>Änderungen</b> führt durch alle Unterschiede.</li>
   <li><b>Ausprobieren:</b> <b>Datei › Beispiele</b> öffnet fertige Vorführungen mit freien Testdaten: PMI und Ansichten,
       PMI prüfen, Toleranzzonen, Schnittansicht, Vergleiche, Scan gegen Toleranzen, Toleranzkette.</li>
+  <li><b>Befehl suchen:</b> <kbd>Strg</kbd>/<kbd>⌘</kbd>+<kbd>K</kbd> durchsucht alle Befehle nach Namen (auch auf
+      Englisch), mit Menüpfad und Tastenkürzel; Enter führt aus, gerade nicht verfügbare Befehle stehen grau.</li>
   <li><b>Hilfe:</b> <kbd>F1</kbd> öffnet diese Anleitung, <b>Hilfe › Einführung</b> die kurze Einführung.</li>
 </ol>
 </div>
 
 <h2 id="oeffnen">Modell öffnen, Formate</h2>
 <figure><a href="doc_img/de/start.png"><img src="doc_img/de/start.png" alt="Startseite: Datei öffnen oder hierher ziehen." loading="lazy"></a>
-<figcaption>Startseite: Datei öffnen oder ins Fenster ziehen; zuletzt verwendete Dateien stehen unter Datei.</figcaption></figure>
+<figcaption>Startseite: Modell öffnen, zwei Stände vergleichen oder ein Beispiel starten; Datei ins Fenster ziehen;
+darunter die zuletzt verwendeten Dateien.</figcaption></figure>
 <ul>
-<li><b>Datei › Öffnen</b>, Ziehen ins Fenster oder Doppelklick auf eine verknüpfte Datei. Das Laden läuft im Hintergrund,
+<li><b>Datei › Öffnen</b>, Ziehen ins Fenster oder Doppelklick auf eine verknüpfte Datei (unter macOS bietet der
+    Finder 3DGmax für alle lesbaren Formate unter „Öffnen mit“ an). Das Laden läuft im Hintergrund,
     <b>Abbrechen</b> in der Statuszeile verwirft es.</li>
 <li><b>Mit PMI:</b> STEP AP242 (auch AP214/AP203 ohne PMI), STEPZ (gepackt), QIF 3.0, 3D-PDF/PRC (Grafik-PMI).</li>
 <li><b>Nur Geometrie:</b> IGES; Netze STL, OBJ, glTF/GLB, 3MF, PLY (z. B. Scans) – ansehen, messen, analysieren und
@@ -282,8 +286,10 @@ im Modell an. Die Leiste <b>Kommentare</b> zeigt offen/erledigt; Export als CSV 
 <h2 id="zusammenbau">Zusammenbau und Freiheitsgrade</h2>
 <p><b>Werkzeuge › Zusammenbau und Freiheitsgrade</b>: eine Fläche am Teil wählen, das sich bewegen soll, dann mit
 <kbd>Strg</kbd>/<kbd>⌘</kbd> die Gegenfläche an einem anderen Teil und <b>Verbinden</b>. Zwei Ebenen werden
-gegeneinander gelegt (mit <b>Versatz</b> auf Abstand), zwei Zylinder- oder Kegelflächen koaxial ausgerichtet; das Teil
-springt in die neue Lage. Mehrfach verbaute Teile werden je Instanz bewegt.</p>
+gegeneinander gelegt (mit <b>Versatz</b> auf Abstand), zwei Zylinder- oder Kegelflächen koaxial ausgerichtet. Zylinder
+und Ebene ergeben einen <b>Bolzen im Langloch</b> (Achse parallel zur Flanke im Abstand des Radius, Linienkontakt),
+Kugel und Ebene einen <b>Punktkontakt</b>, zwei Kugeln ein <b>Kugelgelenk</b>. Das Teil springt in die neue Lage.
+Mehrfach verbaute Teile werden je Instanz bewegt.</p>
 <ul>
 <li>Die Tabelle <b>Verbindungen</b> zeigt, ob jede Verbindung in der aktuellen Lage noch erfüllt ist (eine spätere
 Verbindung kann eine frühere verschieben).</li>
@@ -298,8 +304,23 @@ Maßtoleranzen bzw. Allgemeintoleranz) plus Positionstoleranzen, geprüft an den
 ändert den Wert. Daraus folgt je Teil die <b>Lagestreuung</b>: wie weit sich seine Ecken im Worst Case in X, Y und Z
 verschieben können (lineares Modell, alle Verbindungen gleichzeitig; freie Freiheitsgrade zählen nicht).</li>
 <li><b>Wiggle innerhalb der Toleranzen</b> fährt die Grenzen des Spielraums nacheinander an, 1:1 oder mit Überhöhung.</li>
-<li>Die Kollisionsprüfung rechnet mit den Teilen in ihrer zusammengebauten Lage; Verbindungen und Lagen werden im
-Projekt gespeichert.</li>
+<li>Die Kollisionsprüfung rechnet mit den Teilen in ihrer zusammengebauten Lage; Verbindungen, Lagen und
+Messgrößen werden im Projekt gespeichert.</li>
+</ul>
+<p><b>Messgrößen</b> (zweiter Reiter): zwei parallele Ebenen an verschiedenen Teilen wählen – erst die gemessene,
+dann mit <kbd>Strg</kbd>/<kbd>⌘</kbd> die Bezugsfläche – und <b>Messgröße aus Auswahl</b>. Gegenüberliegende Flächen
+ergeben einen <b>Spalt</b>, gleichgerichtete eine <b>Bündigkeit</b> (Abstand des Flächenschwerpunkts zur Bezugsebene).
+Alle Verbindungen streuen zugleich in ihren Spielräumen:</p>
+<ul>
+<li><b>Worst Case</b>: kleinster und größter Wert über alle Verbindungen (lineares Programm).</li>
+<li><b>Monte Carlo</b>: Spielräume normalverteilt (Spielraum = 3σ), 99,73 %-Bereich, Mittelwert und σ; ist ein Teil
+überbestimmt, bestimmt die engere Verbindung seine Lage.</li>
+<li><b>Soll</b> per Doppelklick (z. B. <code>3,8 … 4,2</code>, <code>≥ 1</code>): Anteil außerhalb und Cpk.</li>
+<li><b>Beitragende</b> der gewählten Messgröße: Worst-Case-Bereich, wenn nur diese Verbindung streut, und ihr
+Varianzanteil – so sieht man, welche Toleranz man ändern muss.</li>
+<li>Hängt die Messgröße von offenen Freiheitsgraden ab, steht ein Hinweis darunter: die Teile erst vollständig
+verbinden. <b>Als PDF …</b> speichert Verbindungen, Ergebnisse und Beitragende. Beispiel: <b>Datei › Beispiele ›
+Baugruppenvariation</b>.</li>
 </ul>
 
 <h2 id="kollision">Kollisionen und Abstände</h2>

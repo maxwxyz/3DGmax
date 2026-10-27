@@ -78,15 +78,19 @@ compare two states in geometry and PMI, and document reviews.
       red = removed; the <b>Changes</b> list leads through all differences.</li>
   <li><b>Try it:</b> <b>File › Examples</b> opens ready-made demonstrations with free test data: PMI and views, check
       PMI, tolerance zones, section view, comparisons, scan against tolerances, tolerance stack-up.</li>
+  <li><b>Find a command:</b> <kbd>Ctrl</kbd>/<kbd>⌘</kbd>+<kbd>K</kbd> searches all commands by name (also in
+      German), with menu path and shortcut; Enter runs it, commands not available right now are grey.</li>
   <li><b>Help:</b> <kbd>F1</kbd> opens this manual, <b>Help › Introduction</b> the short introduction.</li>
 </ol>
 </div>
 
 <h2 id="open">Opening models, formats</h2>
 <figure><a href="doc_img/en/start.png"><img src="doc_img/en/start.png" alt="Start page: open a file or drop it here." loading="lazy"></a>
-<figcaption>Start page: open a file or drop it into the window; recent files are under File.</figcaption></figure>
+<figcaption>Start page: open a model, compare two states or start an example; drop a file into the window; recent
+files below.</figcaption></figure>
 <ul>
-<li><b>File › Open</b>, drag and drop, or double-click an associated file. Loading runs in the background,
+<li><b>File › Open</b>, drag and drop, or double-click an associated file (on macOS, Finder offers 3DGmax under
+    “Open With” for all readable formats). Loading runs in the background,
     <b>Cancel</b> in the status bar discards it.</li>
 <li><b>With PMI:</b> STEP AP242 (also AP214/AP203 without PMI), STEPZ (zipped), QIF 3.0, 3D PDF/PRC (graphical PMI).</li>
 <li><b>Geometry only:</b> IGES; meshes STL, OBJ, glTF/GLB, 3MF, PLY (e.g. scans) – view, measure, analyse and compare
@@ -282,8 +286,10 @@ is stored in the project.</li>
 <h2 id="assembly">Assembly and degrees of freedom</h2>
 <p><b>Tools › Assembly and degrees of freedom</b>: select a face on the part that is to move, then with
 <kbd>Ctrl</kbd>/<kbd>⌘</kbd> the mating face on another part and <b>Connect</b>. Two planes are placed against each
-other (at a distance with <b>Offset</b>), two cylindrical or conical faces are aligned coaxially; the part jumps to its
-new position. Part instances are moved one by one.</p>
+other (at a distance with <b>Offset</b>), two cylindrical or conical faces are aligned coaxially. Cylinder and plane
+give a <b>pin in a slot</b> (axis parallel to the flank at the distance of the radius, line contact), sphere and plane a
+<b>point contact</b>, two spheres a <b>ball joint</b>. The part jumps to its new position. Part instances are moved one
+by one.</p>
 <ul>
 <li>The <b>connections</b> table shows whether each connection is still satisfied in the current position (a later
 connection may move an earlier one).</li>
@@ -298,8 +304,22 @@ tolerances or general tolerance) plus position tolerances, checked at the ends o
 changes the value. From this follows the <b>position scatter</b> of each part: how far its corners can move in X, Y and
 Z in the worst case (linear model, all connections at once; free degrees of freedom do not count).</li>
 <li><b>Wiggle within the tolerances</b> moves to the limits of the clearance one after another, 1:1 or exaggerated.</li>
-<li>The clash check uses the parts in their assembled position; connections and positions are stored in the
-project.</li>
+<li>The clash check uses the parts in their assembled position; connections, positions and measures are stored in
+the project.</li>
+</ul>
+<p><b>Measures</b> (second tab): select two parallel planes on different parts – first the measured one, then with
+<kbd>Ctrl</kbd>/<kbd>⌘</kbd> the reference face – and <b>Measure from selection</b>. Facing faces give a <b>gap</b>,
+faces pointing the same way a <b>flush</b> (distance of the face centroid to the reference plane). All connections vary
+at once within their clearances:</p>
+<ul>
+<li><b>Worst case</b>: smallest and largest value over all connections (linear program).</li>
+<li><b>Monte Carlo</b>: clearances normally distributed (clearance = 3σ), 99.73 % range, mean and σ; when a part is
+over-constrained, the tighter connection decides its position.</li>
+<li><b>Requirement</b> by double-click (e.g. <code>3.8 … 4.2</code>, <code>≥ 1</code>): share outside and Cpk.</li>
+<li><b>Contributors</b> of the selected measure: worst-case range when only this connection varies, and its share of
+the variance – this shows which tolerance to change.</li>
+<li>If the measure depends on open degrees of freedom, a note says so: connect the parts completely first.
+<b>As PDF …</b> saves connections, results and contributors. Example: <b>File › Examples › Assembly variation</b>.</li>
 </ul>
 
 <h2 id="clash">Clashes and distances</h2>

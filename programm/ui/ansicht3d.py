@@ -69,6 +69,7 @@ class AnsichtBasis(QtWidgets.QWidget):
     ausricht_punkt = QtCore.Signal(str, object, object)  # "neu"/"alt", Form, Punkt (x, y, z) in Anzeigekoordinaten
     kontextmenue = QtCore.Signal(object)  # globale Bildschirmposition (QPoint)
     meldung = QtCore.Signal(str)
+    sichtbarkeit_geaendert = QtCore.Signal()  # Teile aus- oder eingeblendet, isoliert
 
     def __init__(self, parent=None):
         super().__init__(parent)
@@ -251,12 +252,32 @@ class AnsichtBasis(QtWidgets.QWidget):
 
     def knoten_sichtbar(self, nummern: set[int], sichtbar: bool):
         self.versteckt = (self.versteckt - nummern) if sichtbar else (self.versteckt | nummern)
+        self.sichtbarkeit_geaendert.emit()
 
     def isoliere(self, nummern: set[int] | None):
         if self.szene is None:
             return
         alle = {k.nummer for k in self.szene.baum.blaetter()}
         self.versteckt = set() if not nummern else alle - nummern
+        self.sichtbarkeit_geaendert.emit()
+
+    def sichtbare_flaechen(self) -> set[int] | None:
+        """Flaechenindizes der sichtbaren Teile (eine sichtbare Instanz genuegt); None: alles sichtbar."""
+        if self.szene is None or not self.versteckt:
+            return None
+        from OCC.Core.TopAbs import TopAbs_FACE
+        from OCC.Core.TopExp import TopExp_Explorer
+        out = set()
+        for k in self.szene.baum.blaetter():
+            if k.nummer in self.versteckt or k.form is None:
+                continue
+            ex = TopExp_Explorer(k.form, TopAbs_FACE)
+            while ex.More():
+                i = self.szene.modell.flaechen_index(ex.Current())
+                if i is not None:
+                    out.add(i)
+                ex.Next()
+        return out
 
     def knoten_transparent(self, nummern: set[int], an: bool):
         self.transparent = (self.transparent | nummern) if an else (self.transparent - nummern)

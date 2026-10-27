@@ -50,6 +50,9 @@ BEISPIELE = (
     Beispiel("zusammenbau", "Zusammenbau und Wiggle",
              "Schraube: Kopf auf den Deckel gefangen, Schaft koaxial zur Bohrung – offen bleibt die Drehung um die "
              "Achse, der Wiggle zeigt sie", ("baugruppe.stp",)),
+    Beispiel("variation", "Baugruppenvariation: Spalt und Bündigkeit",
+             "Deckel auf Grundplatte, zwei Schrauben mit Spiel: Kopfüberstand und Bündigkeit der Köpfe als Worst Case "
+             "und Monte Carlo, Beitragende je Verbindung", ("baugruppe.stp",)),
     Beispiel("kollision", "Kollisionen und Abstände",
              "Testbaugruppe: Schrauben durchdringen den Deckel (rot), Spalt 0,3 mm unter dem Mindestabstand 1 mm, "
              "Deckel liegt auf (Kontakt)", ("baugruppe.stp",)),

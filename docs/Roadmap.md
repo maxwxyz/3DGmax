@@ -68,11 +68,21 @@
 | Stack-up 1D final: Ⓜ/Ⓛ bonus, datum shift, edges as chain ends, mean offset (Cpk), requirement with Cp/Cpk/share outside | ✅ |
 | Stack-up: median planes as chain ends, chains across assembly parts | ⬜ |
 | Assembly: connections plane/plane and coaxial with snapping, satisfied check, open DOF per part, DOF wiggle, in the project | ✅ |
-| Assembly: point/line contact, pin–slot, 3-2-1 template, dragging with live snapping, STEP kinematics | ⬜ |
+| Assembly: point contact (sphere on plane), pin–slot (line on plane), ball joint | ✅ |
+| Assembly: reverse a connection (flip plane side / axis direction) | ⬜ |
+| Assembly: wiggle as play/pause button | ⬜ |
+| Fix: tolerance zones follow the assembled part position | ⬜ |
+| All tolerance / general-tolerance zones only for visible parts | ✅ |
+| UI/UX plan (`docs/UI_UX_Plan.md`); stage 1: command search Ctrl/⌘+K, task start page, menu cleanup | ✅ |
+| UI scaling option (90–150 %, as in ZGmax) | ⬜ |
+| UI/UX stage 2: workspaces; stage 3: inspector and guided flows | ⬜ |
+| Assembly: dragger (gizmo with arrows and rings) moving the selected part only along its open DOF | ⬜ |
+| Assembly: 3-2-1 template, dragging with live snapping, STEP kinematics | ⬜ |
 | Tolerance stack-up 3D (geometric tolerances, chain from the model, sensitivity) – PLAN §8.20 | ⬜ |
 | Assemblies built in the project (mates on datum features), materials and thermal expansion in chains | ⬜ |
 | Wiggle within tolerances (assembly connections, extreme positions, 1:1 or exaggerated); worst-case position scatter per part | ✅ |
-| Assembly variation: Monte Carlo, measures between parts (gap/flush), contributors, temperature | ⬜ |
+| Assembly variation: measures between parts (gap/flush), worst case and Monte Carlo over all connections, requirement with Cpk/share outside, contributor ranking, PDF, example | ✅ |
+| Assembly variation: temperature, datum shift, chains across parts, measures on axes/points, histogram | ⬜ |
 | Bill of characteristics with balloon numbers (table column, 3D balloons, CSV, PDF) | ✅ |
 | Datum reference frame display for a selected tolerance | ✅ |
 | Create PMI with tolerancing advisor (stage 1: rules per selection, own PMI in project) | ✅ |

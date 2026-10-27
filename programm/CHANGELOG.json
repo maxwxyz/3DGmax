@@ -137,7 +137,12 @@
    "Scanprüfung Stufe 2: Punktwolken ohne Dreiecke (XYZ/ASC/TXT/CSV/PTS, PLY nur mit Punkten), Ausrichtung am Bezugssystem (3-2-1) wählbar und neu auswertbar, Auswertung von Längen- und Winkelmaßen, Prüfbericht als PDF mit einer Bildseite je Abweichung; exakte Abstände nur an PMI-Flächen (schneller).",
    "Toleranzzonen auch für Längenmaße zwischen Ebenen und für Winkelmaße.",
    "Toleranzkette fertig (1D): Bonus bei Ⓜ/Ⓛ und Bezugsverschiebung als Glieder, Nulltoleranz Ⓜ/Ⓛ, Kanten als Kettenenden, Mittenversatz je Glied (Cpk), Anforderung an das Schlussmaß mit Cp, Cpk und Anteil außerhalb.",
-   "macOS: Doppelklick auf eine Datei im Finder (oder „Öffnen mit“, Ablegen auf das App-Symbol) lädt sie jetzt; der Finder bietet 3DGmax für alle lesbaren Formate an."
+   "macOS: Doppelklick auf eine Datei im Finder (oder „Öffnen mit“, Ablegen auf das App-Symbol) lädt sie jetzt; der Finder bietet 3DGmax für alle lesbaren Formate an.",
+   "Baugruppenvariation: Spalt und Bündigkeit zwischen Teilen als Worst Case und Monte Carlo über alle Verbindungen, Soll mit Anteil außerhalb und Cpk, Rangfolge der Beitragenden, PDF; neue Verbindungen Bolzen im Langloch, Kugel auf Ebene und Kugelgelenk; Beispiel unter Datei › Beispiele.",
+   "Mehrfachauswahl im Modell (Strg/⌘-Klick): alle gewählten Flächen bleiben hervorgehoben, nicht nur die zuletzt geklickte; die PMI-Liste wählt die PMI aller gewählten Flächen.",
+   "Befehlssuche mit Strg/⌘+K: alle Befehle nach Namen (deutsch und englisch), Menüpfad und Tastenkürzel finden und ausführen.",
+   "Startseite mit Aufgaben: Modell öffnen, zwei Stände vergleichen, Beispiele; Liste der lesbaren Formate. Doppelte CSV-Exporte im Menü Modell entfernt, „Teil der gewählten Fläche isolieren“ eindeutig benannt.",
+   "„Alle Toleranzzonen“ und Allgemeintoleranzen berücksichtigen nur sichtbare Teile und folgen dem Aus- und Einblenden."
   ],
   "en": [
    "First viewer version: load STEP AP242, assembly tree, CAD-style navigation, standard views.",
@@ -276,7 +281,12 @@
    "Scan check stage 2: point clouds without triangles (XYZ/ASC/TXT/CSV/PTS, PLY with points only), alignment to the datum system (3-2-1) selectable and re-evaluable, evaluation of linear and angular dimensions, inspection report as PDF with one picture page per deviation; exact distances only on PMI faces (faster).",
    "Tolerance zones also for linear dimensions between planes and for angular dimensions.",
    "Tolerance stack-up complete (1D): bonus with Ⓜ/Ⓛ and datum shift as links, zero tolerance Ⓜ/Ⓛ, edges as chain ends, mean offset per link (Cpk), requirement on the closing dimension with Cp, Cpk and share outside.",
-   "macOS: double-clicking a file in Finder (or “Open With”, dropping on the app icon) now loads it; Finder offers 3DGmax for all readable formats."
+   "macOS: double-clicking a file in Finder (or “Open With”, dropping on the app icon) now loads it; Finder offers 3DGmax for all readable formats.",
+   "Assembly variation: gap and flush between parts as worst case and Monte Carlo over all connections, requirement with share outside and Cpk, contributor ranking, PDF; new connections pin in slot, sphere on plane and ball joint; example under File › Examples.",
+   "Multiple selection in the model (Ctrl/⌘-click): all selected faces stay highlighted, not only the last one clicked; the PMI list selects the PMI of all selected faces.",
+   "Command search with Ctrl/⌘+K: find and run every command by name (German and English), menu path and shortcut.",
+   "Start page with tasks: open a model, compare two states, examples; list of readable formats. Duplicate CSV exports removed from the Model menu, “Isolate part of the selected face” named clearly.",
+   "“All tolerance zones” and general tolerances only consider visible parts and follow hiding and showing."
   ]
  },
  "releases": [

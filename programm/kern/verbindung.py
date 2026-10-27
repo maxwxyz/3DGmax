@@ -2,7 +2,11 @@
 
 Eine Verbindung bindet eine Flaeche eines beweglichen Teils an eine Flaeche eines anderen Teils:
 - eben: Ebene auf Ebene, Normalen gegeneinander, Abstand = Versatz (0: Beruehrung);
-- koaxial: Zylinder- oder Kegelachse auf Achse.
+- koaxial: Zylinder- oder Kegelachse auf Achse;
+- Langloch: Bolzen (Zylinderachse) im Abstand des Radius parallel zu einer Ebene (Linienkontakt, Bolzen in Langloch
+  mit einer Flanke gewaehlt);
+- Punkt: Kugelmitte im Abstand des Radius ueber einer Ebene (Kugel auf Ebene);
+- Kugel: Kugelmitte auf Kugelmitte (Kugel in Kugelpfanne).
 Fangen bewegt das Teil so, dass die Verbindung erfuellt ist. Die Freiheitsgrade eines Teils folgen aus den kleinen
 Bewegungen (Drehung w, Verschiebung v am Ursprung; ein Punkt p bewegt sich um v + w x p), die alle seine Verbindungen
 zulassen: eben verbietet die Verschiebung entlang der Normalen und das Kippen um die zwei Achsen in der Ebene
@@ -25,8 +29,12 @@ import numpy as np
 
 from ..i18n import tr
 
-EBEN, KOAXIAL = "eben", "koaxial"
-ART_TEXT = {EBEN: "Ebene auf Ebene", KOAXIAL: "koaxial"}
+EBEN, KOAXIAL, LANGLOCH, PUNKT, KUGEL = "eben", "koaxial", "langloch", "punkt", "kugel"
+ART_TEXT = {EBEN: "Ebene auf Ebene", KOAXIAL: "koaxial", LANGLOCH: "Bolzen in Langloch (Linie auf Ebene)",
+            PUNKT: "Kugel auf Ebene (Punkt)", KUGEL: "Kugel in Kugel"}
+MIT_VERSATZ = (EBEN, LANGLOCH, PUNKT)  # Versatz = Abstand zur Ebene (bei Bolzen/Kugel zusaetzlich zum Radius)
+ARTEN = {("ebene", "ebene"): EBEN, ("achse", "achse"): KOAXIAL, ("achse", "ebene"): LANGLOCH,
+         ("ebene", "achse"): LANGLOCH, ("kugel", "ebene"): PUNKT, ("ebene", "kugel"): PUNKT, ("kugel", "kugel"): KUGEL}
 
 
 @dataclass
@@ -37,19 +45,47 @@ class Verbindung:
     gegen_teil: int
     gegen_flaeche: int
     art: str
-    versatz: float = 0.0  # mm, nur eben
-    toleranz: float = 0.0  # eben: +-h entlang der Normalen; koaxial: radiales Spiel c (mm)
+    versatz: float = 0.0  # mm, Abstand zur Ebene (eben, Langloch, Punkt)
+    toleranz: float = 0.0  # eben/Langloch/Punkt: +-h entlang der Normalen; koaxial/Kugel: radiales Spiel c (mm)
     kippen: float = 0.0  # eben: +-k (rad) Kippen der Flaeche
     quelle: str = ""  # Herkunft der Toleranz (Text)
-    eingriff: tuple = ()  # koaxial: Abstaende der Eingriffsenden entlang der Achse vom Achspunkt der Gegenflaeche
+    eingriff: tuple = ()  # koaxial/Langloch: Eingriffsenden entlang der Achse (ab dem Achspunkt, siehe _eingriff)
+
+
+def _kugel(flaeche):
+    from OCC.Core.BRep import BRep_Tool
+    from OCC.Core.BRepAdaptor import BRepAdaptor_Surface
+    from OCC.Core.GeomAbs import GeomAbs_Sphere
+    if BRep_Tool.Surface(flaeche) is None:
+        return None
+    s = BRepAdaptor_Surface(flaeche, True)
+    if s.GetType() != GeomAbs_Sphere:
+        return None
+    c = s.Sphere().Location()
+    return np.array([c.X(), c.Y(), c.Z()]), s.Sphere().Radius()
+
+
+def radius(flaeche) -> float:
+    """Radius einer Zylinder- oder Kugelflaeche (sonst 0)."""
+    from OCC.Core.BRepAdaptor import BRepAdaptor_Surface
+    from OCC.Core.GeomAbs import GeomAbs_Cylinder
+    k = _kugel(flaeche)
+    if k is not None:
+        return k[1]
+    s = BRepAdaptor_Surface(flaeche, True)
+    return s.Cylinder().Radius() if s.GetType() == GeomAbs_Cylinder else 0.0
 
 
 def merkmal(flaeche, lage: np.ndarray | None = None):
-    """('ebene', Punkt, Normale aus dem Material) oder ('achse', Punkt, Richtung) in Weltlage, sonst None."""
+    """('ebene', Punkt, Normale aus dem Material), ('achse', Punkt, Richtung) oder ('kugel', Mitte, (0, 0, 1)) in
+    Weltlage, sonst None."""
     from .toleranzkette import _aussen_normale, _ebene_oder_achse
     g = _ebene_oder_achse(flaeche)
     if g is None:
-        return None
+        k = _kugel(flaeche)
+        if k is None:
+            return None
+        g = ("kugel", k[0], np.array([0.0, 0.0, 1.0]))
     art, p, d = g
     if art == "ebene":
         d = _aussen_normale(flaeche)
@@ -60,9 +96,9 @@ def merkmal(flaeche, lage: np.ndarray | None = None):
 
 
 def art_fuer(a, b) -> str | None:
-    if a is None or b is None or a[0] != b[0]:
+    if a is None or b is None:
         return None
-    return EBEN if a[0] == "ebene" else KOAXIAL
+    return ARTEN.get((a[0], b[0]))
 
 
 def _drehung(von: np.ndarray, nach: np.ndarray) -> np.ndarray:
@@ -88,8 +124,10 @@ def _senkrechte(n: np.ndarray):
 
 def fangen(m_teil, m_gegen, art: str, versatz: float = 0.0) -> np.ndarray:
     """Bewegung (4x4, Welt) des Teils, die seine Flaeche auf die Gegenflaeche bringt (Merkmale in Weltlage)."""
-    _, p, d = m_teil
-    _, q, e = m_gegen
+    a, p, d = m_teil
+    b, q, e = m_gegen
+    if art in (PUNKT, KUGEL, LANGLOCH):
+        return _fangen_kontakt(a, p, d, b, q, e, art, versatz)
     if art == EBEN:
         r = _drehung(d, -e)  # Normalen gegeneinander
     else:
@@ -106,12 +144,49 @@ def fangen(m_teil, m_gegen, art: str, versatz: float = 0.0) -> np.ndarray:
     return m
 
 
-def bedingungen(art: str, m_gegen) -> list[np.ndarray]:
+def _parallel(d: np.ndarray, n: np.ndarray) -> np.ndarray:
+    """Richtung d in die Ebene mit der Normalen n gedreht (kleinste Drehung)."""
+    x = d - n * float(d @ n)
+    return x / np.linalg.norm(x) if np.linalg.norm(x) > 1e-9 else _senkrechte(n)[0]
+
+
+def _fangen_kontakt(a, p, d, b, q, e, art: str, versatz: float) -> np.ndarray:
+    """Fangen fuer Langloch, Punkt und Kugel (a/b: Merkmalsart des Teils bzw. der Gegenflaeche)."""
+    m = np.eye(4)
+    if art == KUGEL:
+        m[:3, 3] = q - p
+        return m
+    if art == LANGLOCH:  # Achse parallel zur Ebene bzw. Ebenennormale senkrecht zur Achse drehen
+        r = _drehung(d, _parallel(d, e))
+        m[:3, :3] = r
+        p, d = r @ p, r @ d
+    if b == "ebene":  # Teil traegt Bolzen/Kugel, Mitte in den Abstand versatz ueber die Gegenebene
+        m[:3, 3] = e * (float((q - p) @ e) + versatz)
+    else:  # Teil traegt die Ebene: Ebene so, dass die Gegenmitte im Abstand versatz darueber liegt
+        n = d / np.linalg.norm(d)
+        m[:3, 3] = n * (float((q - p) @ n) - versatz)
+    return m
+
+
+def _kontakt(art: str, m_teil, m_gegen):
+    """(Achse/Mitte, Richtung, Ebenennormale, Ebenenpunkt) fuer Langloch und Punkt, gleich welche Seite die Ebene
+    traegt."""
+    eb, ax = (m_gegen, m_teil) if m_gegen[0] == "ebene" else (m_teil, m_gegen)
+    return ax[1], ax[2], eb[2], eb[1], eb is m_teil
+
+
+def bedingungen(art: str, m_gegen, m_teil=None) -> list[np.ndarray]:
     """Zeilen (w, v) der gesperrten kleinen Bewegungen fuer ein Teil an dieser Verbindung."""
     _, q, e = m_gegen
     t1, t2 = _senkrechte(e)
     if art == EBEN:
         return [np.r_[np.cross(q, e), e], np.r_[np.cross(t1, e), 0, 0, 0], np.r_[np.cross(t2, e), 0, 0, 0]]
+    if art == KUGEL:
+        return [np.r_[np.cross(q, u), u] for u in np.eye(3)]
+    if art in (LANGLOCH, PUNKT):
+        c, d, n, _, _ = _kontakt(art, m_teil, m_gegen)
+        punkte = (c, c + d) if art == LANGLOCH else (c,)
+        return [np.r_[np.cross(p, n), n] for p in punkte]
     return [np.r_[np.cross(p, u), u] for p in (q, q + e) for u in (t1, t2)]
 
 
@@ -203,6 +278,12 @@ def erfuellt(art: str, m_teil, m_gegen, versatz: float = 0.0, tol: float = 1e-4)
     _, q, e = m_gegen
     if art == EBEN:
         return float(d @ e) < -1 + 1e-6 and abs(float((p - q) @ e) - versatz) < tol
+    if art == KUGEL:
+        return float(np.linalg.norm(p - q)) < tol
+    if art in (LANGLOCH, PUNKT):
+        c, d, n, q, _ = _kontakt(art, m_teil, m_gegen)
+        richtung = art == PUNKT or abs(float(d @ n)) < 1e-6
+        return richtung and abs(float((c - q) @ n) - versatz) < tol
     quer = (p - q) - e * float((p - q) @ e)
     return abs(abs(float(d @ e)) - 1) < 1e-6 and float(np.linalg.norm(quer)) < tol
 
@@ -214,6 +295,8 @@ class Baugruppe:
         self.verbindungen: list[Verbindung] = []
         self.lagen: dict[int, np.ndarray] = {}
         self.formen: dict[int, tuple] = {}  # Nummer der Verbindung -> (Flaeche am Teil, Gegenflaeche), Dateilage
+        self.masse: list = []  # Messgroessen (kern.baugruppe_mass.Messgroesse)
+        self.mass_formen: dict[int, tuple] = {}  # Nummer der Messgroesse -> (Flaeche A, Flaeche B), Dateilage
 
     def lage(self, teil: int) -> np.ndarray:
         return self.lagen.get(teil, np.eye(4))
@@ -230,50 +313,83 @@ class Baugruppe:
         ma, mb = merkmal(flaeche, self.lage(teil)), merkmal(gegen_flaeche, self.lage(gegen_teil))
         art = art_fuer(ma, mb)
         if art is None:
-            return tr("Verbinden geht für zwei Ebenen oder zwei Zylinder-/Kegelflächen")
+            return tr("Verbinden geht für zwei Ebenen, zwei Zylinder-/Kegelflächen, Zylinder und Ebene, Kugel und "
+                      "Ebene oder zwei Kugeln")
+        if art in (LANGLOCH, PUNKT):  # Abstand der Achse/Mitte zur Ebene: Radius plus Versatz
+            versatz += radius(flaeche if ma[0] != "ebene" else gegen_flaeche)
         self.lagen[teil] = fangen(ma, mb, art, versatz) @ self.lage(teil)
         v = Verbindung(max((x.nummer for x in self.verbindungen), default=0) + 1, teil, index, gegen_teil,
-                       gegen_index, art, versatz if art == EBEN else 0.0)
+                       gegen_index, art, versatz if art in MIT_VERSATZ else 0.0)
         self.verbindungen.append(v)
         self.formen[v.nummer] = (flaeche, gegen_flaeche)
         self._eingriff(v)
         return v
 
+    def _achse(self, v: Verbindung):
+        """Achspunkt und Richtung, ab denen der Eingriff gemessen wird: koaxial die Gegenachse, Langloch der Bolzen."""
+        ma, mb = self.merkmale(v)
+        if v.art == LANGLOCH:
+            ax = ma if ma[0] == "achse" else mb
+            return ax[1], ax[2]
+        return mb[1], mb[2]
+
     def _eingriff(self, v: Verbindung):
-        """Koaxial: gemeinsame Laenge beider Zylinder entlang der Achse (Enden ab dem Gegenachspunkt)."""
-        if v.art != KOAXIAL:
+        """Koaxial/Langloch: gemeinsame Laenge beider Flaechen entlang der Achse (Enden ab dem Achspunkt)."""
+        if v.art not in (KOAXIAL, LANGLOCH):
             return
         fa, fb = self.formen[v.nummer]
-        _, q, e = merkmal(fb, self.lage(v.gegen_teil))
+        q, e = self._achse(v)
         a0, a1 = _bereich_entlang(fa, self.lage(v.teil), q, e)
         b0, b1 = _bereich_entlang(fb, self.lage(v.gegen_teil), q, e)
         lo, hi = max(a0, b0), min(a1, b1)
         v.eingriff = (lo, hi) if hi > lo + 1e-9 else (b0, b1)
 
-    def spielraeume(self, teil: int, mitte=None) -> list[tuple[np.ndarray, float, float]]:
-        """Gesperrte Bewegungen des Teils mit Spielraum (Zeile w, v um den Punkt mitte; untere, obere Grenze).
-        Radiales Spiel als Achteck (vier Richtungen), hoechstens 8 % groesser als der Kreis."""
+    def zeilen(self, v: Verbindung, mitte=None, achteck: bool = True) -> list[tuple[np.ndarray, float, float]]:
+        """Gesperrte Relativbewegungen einer Verbindung (Zeile w, v um mitte; untere, obere Grenze).
+        Radiales Spiel als Achteck (vier Richtungen, hoechstens 8 % groesser als der Kreis), ohne achteck nur die
+        zwei Querrichtungen; Kugel: drei Achsrichtungen."""
         mitte = np.zeros(3) if mitte is None else np.asarray(mitte, float)
-        out = []
-        for v in self.verbindungen:
-            if teil not in (v.teil, v.gegen_teil):
-                continue
-            ma, mb = self.merkmale(v)
-            _, q, e = mb if v.teil == teil else ma
-            q = q - mitte
-            t1, t2 = _senkrechte(e)
-            if v.art == EBEN:
-                out.append((np.r_[np.cross(q, e), e], -v.toleranz, v.toleranz))
-                out += [(np.r_[np.cross(t, e), 0, 0, 0], -v.kippen, v.kippen) for t in (t1, t2)]
-            else:
-                if not v.eingriff:
-                    self._eingriff(v)
-                _, qb, eb = mb  # Eingriff ist ab der Gegenachse gemessen
-                richtungen = (t1, t2, (t1 + t2) / np.sqrt(2), (t1 - t2) / np.sqrt(2))
-                for s in v.eingriff:
-                    p = qb + eb * s - mitte
-                    out += [(np.r_[np.cross(p, u), u], -v.toleranz, v.toleranz) for u in richtungen]
-        return out
+        ma, mb = self.merkmale(v)
+        _, q, e = mb
+        t1, t2 = _senkrechte(e)
+        h = v.toleranz
+        if v.art == EBEN:
+            return [(np.r_[np.cross(q - mitte, e), e], -h, h)] + \
+                [(np.r_[np.cross(t, e), 0, 0, 0], -v.kippen, v.kippen) for t in (t1, t2)]
+        if v.art == KUGEL:
+            return [(np.r_[np.cross(q - mitte, u), u], -h, h) for u in np.eye(3)]
+        if v.art == PUNKT:
+            c, _, n, _, _ = _kontakt(v.art, ma, mb)
+            return [(np.r_[np.cross(c - mitte, n), n], -h, h)]
+        if not v.eingriff:
+            self._eingriff(v)
+        qa, ea = self._achse(v)
+        if v.art == LANGLOCH:
+            _, _, n, _, _ = _kontakt(v.art, ma, mb)
+            return [(np.r_[np.cross(qa + ea * s - mitte, n), n], -h, h) for s in v.eingriff]
+        richtungen = (t1, t2, (t1 + t2) / np.sqrt(2), (t1 - t2) / np.sqrt(2)) if achteck else (t1, t2)
+        return [(np.r_[np.cross(qa + ea * s - mitte, u), u], -h, h) for s in v.eingriff for u in richtungen]
+
+    def mc_zeilen(self, v: Verbindung):
+        """(Zeilen, Spielraeume, ziehen) fuer Monte Carlo: ziehen(rng, n) liefert n x k Werte der Zeilen (normalverteilt,
+        Spielraum = 3 sigma, abgeschnitten; radiales Spiel als Punkt in der Kreisscheibe bzw. Kugel)."""
+        zeilen = self.zeilen(v, achteck=False)
+        grenzen = np.array([o for _, _, o in zeilen])
+        gruppe = 2 if v.art == KOAXIAL else 3 if v.art == KUGEL else 1
+
+        def ziehen(rng, n):
+            y = rng.standard_normal((n, len(zeilen))) * grenzen / 3
+            if gruppe == 1:
+                return np.clip(y, -grenzen, grenzen)
+            for k in range(0, len(zeilen), gruppe):  # radial: Betrag auf das Spiel begrenzen
+                b = np.linalg.norm(y[:, k:k + gruppe], axis=1, keepdims=True)
+                y[:, k:k + gruppe] *= np.minimum(1.0, grenzen[k] / np.maximum(b, 1e-300))
+            return y
+        return [z for z, _, _ in zeilen], grenzen, ziehen
+
+    def spielraeume(self, teil: int, mitte=None) -> list[tuple[np.ndarray, float, float]]:
+        """Gesperrte Bewegungen des Teils mit Spielraum gegen seine (festen) Partner (Zeile w, v um mitte)."""
+        return [z for v in self.verbindungen if teil in (v.teil, v.gegen_teil) for z in self.zeilen(v, mitte)]
 
     def _lp(self, teil: int, mitte=None):
         """(Zeilen in reduzierten Koordinaten, untere, obere Grenze, Basis) der gesperrten Bewegungen oder None."""
@@ -338,7 +454,7 @@ class Baugruppe:
             if teil not in (v.teil, v.gegen_teil):
                 continue
             ma, mb = self.merkmale(v)
-            zeilen += bedingungen(v.art, mb if v.teil == teil else ma)
+            zeilen += bedingungen(v.art, mb if v.teil == teil else ma, ma if v.teil == teil else mb)
         return freiheitsgrade(zeilen)
 
     def teile(self) -> list[int]:
@@ -352,13 +468,32 @@ class Baugruppe:
         self.verbindungen = [v for v in self.verbindungen if v.nummer != nummer]
         self.formen.pop(nummer, None)
 
+    def neue_messgroesse(self, teil_a: int, fa, ia: int, teil_b: int, fb, ib: int):
+        """Spalt oder Buendigkeit zwischen zwei parallelen Ebenen verschiedener Teile; Fehlertext sonst."""
+        from . import baugruppe_mass as bm
+        if teil_a == teil_b:
+            return tr("Die zwei Flächen müssen zu verschiedenen Teilen gehören")
+        art = bm.art_fuer(fa, fb)
+        if art is None:
+            return tr("Messgrößen gehen zwischen zwei parallelen Ebenen (Spalt oder Bündigkeit)")
+        m = bm.Messgroesse(max((x.nummer for x in self.masse), default=0) + 1, teil_a, ia, teil_b, ib, art)
+        self.masse.append(m)
+        self.mass_formen[m.nummer] = (fa, fb)
+        return m
+
+    def entferne_messgroesse(self, nummer: int):
+        self.masse = [m for m in self.masse if m.nummer != nummer]
+        self.mass_formen.pop(nummer, None)
+
     def zuruecksetzen(self):
         self.verbindungen, self.lagen, self.formen = [], {}, {}
+        self.masse, self.mass_formen = [], {}
 
     def als_dict(self) -> dict:
         from dataclasses import asdict
         return {"verbindungen": [asdict(v) for v in self.verbindungen],
-                "lagen": {str(k): np.asarray(m).tolist() for k, m in self.lagen.items()}}
+                "lagen": {str(k): np.asarray(m).tolist() for k, m in self.lagen.items()},
+                "masse": [asdict(m) for m in self.masse]}
 
     def setze_toleranz(self, nummer: int, toleranz: float, kippen: float | None = None, quelle: str = ""):
         for v in self.verbindungen:
@@ -378,6 +513,13 @@ class Baugruppe:
             if fa is not None and fb is not None:
                 self.verbindungen.append(v)
                 self.formen[v.nummer] = (fa, fb)
+        from .baugruppe_mass import Messgroesse
+        for x in d.get("masse", []):
+            m = Messgroesse(**x)
+            fa, fb = flaeche_von(m.teil_a, m.flaeche_a), flaeche_von(m.teil_b, m.flaeche_b)
+            if fa is not None and fb is not None:
+                self.masse.append(m)
+                self.mass_formen[m.nummer] = (fa, fb)
 
 
 def flaeche_im_teil(form, index: int, modell):
@@ -406,6 +548,12 @@ def toleranz_aus_pmi(baugruppe: Baugruppe, v: Verbindung, modell, pmi, allgemein
     flaechen = (v.flaeche, v.gegen_flaeche)
     an = [[p for p in pmi if i in p.flaechen] for i in flaechen]
     teile = []
+    if v.art in (LANGLOCH, PUNKT, KUGEL):  # Spiel aus Lagetoleranzen; Langlochbreite bei Bedarf von Hand
+        ort = [p for liste in an for p in liste if p.art == "toleranz" and p.typ in ORT_TYPEN and p.wert]
+        teile = [p.wert_text() for p in ort]
+        baugruppe.setze_toleranz(v.nummer, sum(float(p.wert) for p in ort) / 2, None,
+                                 ", ".join(teile) if teile else tr("keine Toleranz an den Flächen"))
+        return
     if v.art == EBEN:
         ort = [p for liste in an for p in liste if p.art == "toleranz" and p.typ in ORT_TYPEN and p.wert]
         alle = [p for liste in an for p in liste if p.art == "toleranz" and p.typ in FLAECHE_TYPEN and p.wert]

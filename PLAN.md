@@ -450,8 +450,39 @@ Plan (each stage usable on its own; builds on §8.5 zones and the 1D chain of §
   diameters incl. size/general tolerances plus position, applied at the ends of the common length, octagon
   approximation of the circle, ≤8 %), editable; worst-case position scatter of each part's bounding-box corners
   by linear programs over all connections at once (restricted to the constrained directions); wiggle within the
-  tolerances to the extreme positions, 1:1 or exaggerated. Open: statistical (Monte Carlo) assembly analysis,
-  measures between parts (gaps/flush) as results, contributor ranking, temperature, datum-shift effects.
+  tolerances to the extreme positions, 1:1 or exaggerated.
+- Done 2026-10-28 (stage 4, linear; `kern/baugruppe_mass.py`, tab "Measures" in the assembly dock): measures between
+  parts – gap (facing parallel planes) and flush (same direction), distance of the face centroid to the reference plane,
+  sensitivity c . (x_A - x_B) of the rigid relative motion; worst case by one linear program over all connections
+  (motions restricted to the row space, a measure depending on free DOF is flagged "undetermined"); Monte Carlo:
+  clearances sampled per connection (normal, clearance = 3σ, clipped; radial play as a point in the disc/ball),
+  part motions as a weighted least-squares fit (weight 1/clearance – with over-constraint the tighter connection
+  governs; checked: plain least squares let the 0.45 mm radial play leak into a 0.02 mm head contact); requirement
+  with share outside and Cp/Cpk; contributors as high-low ranges (only this connection varies, others nominal) and MC
+  variance shares; PDF; example. New connection types: pin–slot / line on plane (2 rows at the engagement ends),
+  sphere on plane (1 row), ball joint (3 rows). Open: temperature, datum-shift effects, 3-2-1 template, chains
+  across parts, measures on axes/points, histogram in the report, one-sided contact instead of symmetric play.
+- Requested 2026-10-28 (next for the assembly dock):
+  1. **Reverse a connection:** flip a planar connection (part on the other side of the mating plane, normals
+     aligned instead of opposed – e.g. washer upside down), flip the axis direction of a coaxial/pin–slot connection
+     (part turned end for end); button and context menu "Umkehren" in the connections table, the part is snapped
+     again and the open DOF are recomputed; stored in the project.
+  2. **Move the selected part with a dragger** while the "Verbindungen" tab is open: a small gizmo at the part
+     (arrows for translation, rings for rotation, CATIA-compass-like) that offers **only the open degrees of freedom**
+     of that part (null space of its connection rows, `Baugruppe.freiheitsgrade`) – a screw with head contact and
+     coaxial shank shows only the ring about its axis, a part with one plane contact two arrows in the plane and the
+     ring about the normal. Dragging projects the mouse motion onto the allowed directions, connections stay
+     satisfied, positions are stored like snapping; Esc or the original position button resets. Implementation
+     notes: AIS_Manipulator exists in OCCT (check it in pythonocc by experiment, otherwise own AIS arrows/rings with
+     picking), restrict via its axis/mode flags or by projecting the delta onto the DOF basis each mouse move.
+  3. **Wiggle as play/pause:** the checkable "Wiggle" button is not recognizable as a toggle – replace it with
+     "▶ Wiggle" that becomes "⏸ Anhalten" while running (same for any other animation toggle).
+  4. **Fix: tolerance zones follow the assembled position.** Zones (and general-tolerance zones, bonus zones) are
+     drawn at the parts' original file position after snapping/wiggle – apply the part position
+     (`ansicht3d.teil_lagen` of the part instance the PMI face belongs to, plus explosion and comparison transform)
+     to the zone shapes, and redraw them when positions change. Same cause: part instances share face indices
+     (`StepModell.flaechen` deduplicates), so zones of a part used four times appear at one instance only – draw
+     them per visible instance.
 
 ### 8.21 Clash, clearance band and intersection analysis; degrees of freedom (requested 2026-10-27)
 Request (from public feature requests of an open-source CAD project, generalized): check assemblies or a selection of
@@ -658,4 +689,10 @@ Write `docs/UI_UX_Plan.md` (English) with:
    icon rules, empty states that say what to do, keyboard map.
 4. Staged implementation plan with measurable acceptance (time per task, clicks, first-use success with students),
    and a short usability test protocol for the local test.
+- Done 2026-10-28: `docs/UI_UX_Plan.md` (inventory 125 commands / 10 panels, problems, personas and walkthroughs,
+  options (a)–(d), recommendation workspaces + command palette + task start page, stages 1–3 with acceptance,
+  test protocol); stage 1 implemented: command search Ctrl/⌘+K (`ui/befehle_ui.py`, German and English text, menu
+  path, shortcut, disabled commands greyed), start page with open / compare / examples and the format list, menu
+  cleanup. Open: play/pause toggles (stage 1 item 4), stage 2 workspaces, stage 3 inspector and guided flows, the
+  usability test.
 

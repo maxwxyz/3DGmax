@@ -383,6 +383,45 @@ def kette_pdf(fenster, pfad: str, bild: bool = True) -> str:
     return bericht.fertig()
 
 
+def messgroessen_pdf(fenster, pfad: str) -> str:
+    """Baugruppenvariation: Verbindungen mit Spielraum, je Messgroesse Ergebnis und Beitragende."""
+    from ..kern import baugruppe_mass as bm
+    from ..kern import verbindung as vb
+    from .baugruppe_ui import BaugruppePanel
+    b = fenster.baugruppe
+    namen = fenster._teil_namen()
+    ergebnisse = fenster.messgroessen_ergebnisse()
+    modell = os.path.basename(fenster.erg.pfad)
+    bericht = PdfBericht(pfad, tr("Baugruppenvariation – {}").format(modell))
+    bericht.ueberschrift(tr("Baugruppenvariation"))
+    bericht.absatz(tr("Modell: {} · {} Verbindungen · {} Messgrößen").format(modell, len(b.verbindungen),
+                                                                              len(b.masse)))
+    spalten = [(tr(s), w) for s, w in (("Nr", 0.06), ("Teil", 0.2), ("Gegenteil", 0.2), ("Art", 0.2),
+                                        ("Spielraum", 0.12), ("Herkunft", 0.22))]
+    bericht.tabelle(spalten, [[str(v.nummer), namen.get(v.teil, str(v.teil)), namen.get(v.gegen_teil, str(v.gegen_teil)),
+                               tr(vb.ART_TEXT[v.art]), f"{v.toleranz:.4g}", v.quelle] for v in b.verbindungen])
+    for m in b.masse:
+        e = ergebnisse[m.nummer]
+        bericht.ueberschrift(f"{m.nummer}: {bm.text(m, namen)}")
+        bericht.absatz(tr("Nennwert {:.4f} mm · Worst Case {:.4f} … {:.4f} mm · Monte Carlo {:.4f} … {:.4f} mm "
+                          "(99,73 %), Mittelwert {:.4f}, σ {:.4f}").format(e.nenn, e.wc_min, e.wc_max, e.mc_min,
+                                                                         e.mc_max, e.mittel, e.std), 10)
+        if e.aussen is not None:
+            bericht.absatz(tr("Soll {}: außerhalb {:.2%}{}").format(
+                bm.soll_text(m), e.aussen, "" if e.cpk is None else tr(", Cpk {:.2f}").format(e.cpk)), 10)
+        if e.unbestimmt:
+            bericht.absatz(tr("Hängt von offenen Freiheitsgraden ab (in Nennlage gerechnet)."), 9)
+        spalten = [(tr(s), 1 / len(BaugruppePanel.BEITRAG_SPALTEN)) for s in BaugruppePanel.BEITRAG_SPALTEN]
+        bericht.tabelle(spalten, [[str(x.verbindung), tr(vb.ART_TEXT[next(v.art for v in b.verbindungen
+                                                                         if v.nummer == x.verbindung)]),
+                                   f"{x.bereich:.4f}", f"{x.anteil_wc:.0%}", f"{x.anteil_var:.0%}"]
+                                  for x in e.beitraege])
+    bericht.absatz(tr("Lineares Modell: Teile bewegen sich in den Spielräumen ihrer Verbindungen; Worst Case per "
+                      "linearem Programm, Monte Carlo normalverteilt (Spielraum = 3σ) mit gewichtetem Ausgleich bei "
+                      "Überbestimmung. Bereich: Worst-Case-Breite, wenn nur diese Verbindung streut."), 8.5)
+    return bericht.fertig()
+
+
 SCAN_GEWICHT = {"Nr": 0.5, "PMI": 2.0, "Ergebnis": 1.2, "Istwert": 1.0, "Zulässig": 1.0, "Punkte": 0.8,
                 "Auswertung": 3.2}
 
