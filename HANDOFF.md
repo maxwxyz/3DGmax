@@ -35,7 +35,11 @@ status-bar progress with Cancel for every background job (`ui/lader.py: Abbruch,
 next progress report), closable tabs on stacked side panels, side-panel resize jank fixed (cause was
 `V3d_View::MustBeResized` at ~50 ms, called twice per pixel by our filter and pythonocc's resizeEvent; now at most
 every 250 ms plus once after dragging: 117 → 20 ms per step under Xvfb), general tolerances as a toggle
-(View › Show general tolerances; also at selected faces without PMI with "Show tolerance zone").
+(View › Show general tolerances; also at selected faces without PMI with "Show tolerance zone"). Then: wireframe
+contrast edges (setting), calmer view cube, stack-up Cp (RSS fix: ±3σ of the closing dimension), angles excluded,
+chain cleared on model change, PMI list right-click selects the row first, section views from AP242 saved views
+(§8.25, test file `ctc01_schnittansicht.stp`), start screen (PyInstaller + Qt splash), File › Examples (§8.24,
+`kern/beispiele.py`). Plan additions: §8.8 per-link Cp and 3D-picked chains, §8.20 snapping assembly, §8.24–8.26.
 Semantic GD&T cannot be written from Python (pythonocc 8.0: XCAFDoc_GeomTolerance not wrapped, writing new-style
 dimensions segfaults, the legacy DimTol path loses the faces) – PMI test variants are therefore text edits of the
 public-domain NIST STEP files.
@@ -94,19 +98,19 @@ graphics only, 8.19 QIF graphics, 8.20 3D tolerance analysis,
 8.21 clash/band/intersection analysis, 8.22 plausibility check, 8.23 scan against PMI tolerances).
 
 ## Next (in this order)
-1. Visual check of the cloud work on the Mac (see return handoff above).
-2. Tolerance zones: check stage 2 and the datum-system zones on the real screen; a sample file with an unequal
-   zone (UZ) to verify the displacement interpretation.
-3. Plausibility check stage 2 (PLAN §8.22: closed dimension chains, basic dimensions, pattern counts, datum
-   targets); check the stage 1 findings on real customer-like models for false positives.
-   Check on the real screen: side-panel dragging (3D view redraws after 80 ms), X on the panel tabs.
-4. Start-up time: run `3DGmax --startzeit` on Windows/macOS (phases in the status bar and
-   `<temp>/3DGmax-startzeit.txt`); Python part is now ~0.5 s on Linux; next candidates: early splash, OCCT viewer
-   creation, PyInstaller folder size (Defender/Gatekeeper scan on first start).
-5. Scan check stage 2 (§8.23 open points: manual / 3-2-1 alignment, report PDF, distances/angles).
-6. 3D tolerance analysis with assemblies, materials, temperature and wiggle (PLAN §8.20, large).
-   Clash, band and intersection analysis, DOF wiggle (PLAN §8.21; stages 1–4 can come before §8.20).
-7. Hatched section views; change list entries per instance.
+1. Visual check on the Mac: wireframe contrast edges, view cube colours/labels, start screen (Qt splash; the
+   PyInstaller splash exists only on Windows/Linux), side-panel dragging, X on panel tabs, section view example,
+   File › Examples.
+2. Stack-up stage 2 (PLAN §8.8 / §8.20 stage 3, 1D): chain picked in 3D (faces, edges, derived axes) with the
+   direction from the geometry, values from the PMI, general tolerances for features without PMI, GD&T
+   contributors (position/profile/datum shift from the zone logic), Cp/Cpk and distribution per link,
+   contributor ranking, PDF report.
+3. Clash, band and intersection analysis (PLAN §8.21 stages 1–4; building blocks verified).
+4. Assembly mating with snapping, DOF display, then 3D torsor model, Monte Carlo and wiggle (PLAN §8.20, large).
+5. Several windows / linked cameras (§8.26); scan check stage 2 (§8.23 open points).
+6. Tolerance zones: line profile/roundness per section, ACS/ALS, CZ/SZ, tolerances on edges/points; a sample with an
+   unequal zone (UZ) to verify the displacement interpretation; plausibility check stage 2 (§8.22).
+7. Hatched section views; QIF/PRC clip planes; change list entries per instance.
 8. STEP-XML (§8.17, needs sample files) and further open formats; PRC compressed tessellation and B-rep.
 9. Step 7 JT via TKJT (GPL v2+, build option).
 

@@ -784,3 +784,42 @@ def test_reiter_schliessen_und_abbrechen(fenster_ctc01):
     app.processEvents()
     assert not f.fortschritt.isVisibleTo(f) and f.analyse.start.isEnabled() and f.ansicht.abweichung is None
 
+
+
+
+def _beispiele(f, namen):
+    from programm.kern import beispiele
+    for b in beispiele.BEISPIELE:
+        if b.name not in namen:
+            continue
+        assert beispiele.dateien(b) is not None, b.name
+        assert f.oeffne_beispiel(b.name, warten=True), b.name
+        assert f.erg is not None and getattr(f, "_nach_laden", None) is None, b.name
+        if b.name == "pmi":
+            assert f._ansicht_pmi_ids
+        elif b.name == "zonen":
+            assert "allgemein" in f.ansicht.zone_rollen and "zone" in f.ansicht.zone_rollen
+        elif b.name == "schnittansicht":
+            assert f.ansicht.ansicht_schnitt
+        elif b.name in ("vergleich_pmi", "vergleich_geo", "baugruppe"):
+            assert f.vergleich is not None and f.vergleich.aenderungen
+        elif b.name == "scan":
+            assert getattr(f, "_scan", None) is not None
+        elif b.name == "kette":
+            assert f._kette.glieder and abs(f._kette.cp.value() - 1.33) < 1e-9
+    f.beende_vergleich()
+    f.scan_aus()
+    f.aktionen["toleranzzonen_alle"].setChecked(False)
+    f.aktionen["allgemein_zeigen"].setChecked(False)
+
+
+def test_beispiele_modell(fenster):
+    """Datei > Beispiele (ein Modell): Dateien gefunden, Schritte nach dem Laden ausgefuehrt."""
+    from programm.kern import beispiele
+    assert {b.name for b in beispiele.BEISPIELE} == {"pmi", "pruefen", "zonen", "schnittansicht", "kette", "scan",
+                                                      "vergleich_pmi", "vergleich_geo", "baugruppe"}
+    _beispiele(fenster, ("pmi", "pruefen", "zonen", "schnittansicht", "kette"))
+
+
+def test_beispiele_vergleich_und_scan(fenster):
+    _beispiele(fenster, ("vergleich_pmi", "vergleich_geo", "baugruppe", "scan"))

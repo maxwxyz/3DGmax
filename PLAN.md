@@ -501,7 +501,11 @@ Planned rules (each finding with severity, the PMI involved, a short reason and 
   (3-2-1 instead of best fit), evaluation of linear distances and angles, line profile/roundness per section, report
   PDF with pictures per non-conforming PMI, point clouds without triangles.
 
-### 8.24 Demo projects (requested 2026-10-27)
+### 8.24 Demo projects (requested 2026-10-27; stage 1 done the same day)
+Done: `kern/beispiele.py` (nine examples, files looked up in the built app under `programm/beispiele/` or in
+`tests/daten`; the spec copies them, so the repository holds no duplicates), File › Examples, steps after loading
+via `Hauptfenster.oeffne_beispiel`, `test_beispiele_oeffnen`. Analyses (draft, wall thickness) left out on request.
+Open: examples as project files with review state and comments; manual screenshots from the examples.
 Example projects in the repository (`beispiele/`, project containers `.3dgmax` plus the referenced public-domain or
 self-generated models) that show one function each and open with File › Examples: PMI display and views, check
 PMI and plausibility findings, tolerance zones incl. general tolerances, comparison of the CTC-01 variants with the

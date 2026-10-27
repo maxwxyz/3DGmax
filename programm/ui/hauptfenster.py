@@ -514,6 +514,7 @@ class Hauptfenster(QtWidgets.QMainWindow):
         m = mb.addMenu(tr("&Datei"))
         m.addAction(a["oeffnen"])
         self.menue_zuletzt = m.addMenu(tr("Zuletzt verwendet"))
+        self._beispiel_menue(m.addMenu(tr("Beispiele")))
         m.addSeparator()
         m.addAction(a["vergleichen"])
         m.addAction(a["ordnervergleich"])
@@ -829,6 +830,7 @@ class Hauptfenster(QtWidgets.QMainWindow):
         self._laufbalken_pruefen()
         self.zeige_ergebnis(erg)
         self._projekt_messungen()
+        self._danach()
 
     def zeige_ergebnis(self, erg, vergleich=None):
         self.scan_aus()  # die Scanpruefung gehoert zum vorigen Modell
@@ -866,7 +868,71 @@ class Hauptfenster(QtWidgets.QMainWindow):
         self.statusBar().showMessage(tr("{} geladen: {} Flächen, {} PMI, {} Ansichten ({:.1f} s)").format(
             os.path.basename(erg.pfad), len(erg.modell.flaechen), n, len(erg.ansichten), erg.modell.ladezeit), 8000)
 
+    def _danach(self):
+        """Naechster Schritt eines Beispiels, sobald das Modell bzw. der Vergleich steht."""
+        schritt, self._nach_laden = getattr(self, "_nach_laden", None), None
+        if schritt is not None:
+            schritt()
+
+    def _beispiel_menue(self, menue):
+        from ..kern import beispiele
+        for b in beispiele.BEISPIELE:
+            a = menue.addAction(tr(b.titel), lambda _=False, n=b.name: self.oeffne_beispiel(n))
+            a.setToolTip(tr(b.text))
+            a.setEnabled(beispiele.dateien(b) is not None)
+        menue.setToolTipsVisible(True)
+
+    def oeffne_beispiel(self, name: str, warten: bool = False) -> bool:
+        """Beispiel oeffnen und vorfuehren (Dateien aus kern.beispiele)."""
+        from ..kern import beispiele
+        b = beispiele.finde(name)
+        pfade = beispiele.dateien(b)
+        if pfade is None:
+            self.statusBar().showMessage(tr("Dateien des Beispiels nicht gefunden"), 6000)
+            return False
+        text = tr("Beispiel: {}").format(tr(b.text))
+
+        def zeigen(*schritte):
+            def weiter():
+                for s in schritte:
+                    s()
+                self.statusBar().showMessage(text, 20000)
+            return weiter
+        vergleich = {"alt": pfade[0], "neu": pfade[-1], "toleranz": 0.01, "suchweite": 2.0}
+        if name in ("vergleich_pmi", "vergleich_geo", "baugruppe"):
+            schritte = [lambda: self.aenderungen.karte_an.setChecked(True)] if name == "vergleich_geo" else []
+            self._nach_laden = zeigen(*schritte)
+            self.starte_vergleich(vergleich, warten)
+            return True
+        schritte = {
+            "pmi": [lambda: self.ansichten.liste.setCurrentRow(1)],
+            "pruefen": [self.pruefe_pmi],
+            "zonen": [self._beispiel_zonen],
+            "schnittansicht": [lambda: self.ansichten.liste.setCurrentRow(1), lambda: self.ansicht.standard("iso")],
+            "scan": [lambda: self.pruefe_scan(pfade[1], warten)],
+            "kette": [self._beispiel_kette],
+        }[name]
+        self._nach_laden = zeigen(*schritte)
+        self.lade(pfade[0], warten)
+        return True
+
+    def _beispiel_zonen(self):
+        from ..kern.toleranzzone import Allgemein
+        self._allgemein = Allgemein("m", "K")
+        self.aktionen["toleranzzonen_alle"].setChecked(True)
+        self.aktionen["allgemein_zeigen"].setChecked(True)
+        self._allgemein_umschalten()
+
+    def _beispiel_kette(self):
+        from ..kern import toleranzkette as tk
+        k = self.zeige_toleranzkette()
+        self.pmi.waehle(lambda p: p.art == "mass" and p.nennwert is not None and not tk.ist_winkel(p)
+                        and not any(t in (p.typ or "") for t in ("Diameter", "Radius")))
+        self._kette_uebernehmen(+1)
+        k.cp.setValue(1.33)
+
     def _ladefehler(self, text):
+        self._nach_laden = None
         self._lader = None
         self._vlader = None
         self._laufbalken_pruefen()
@@ -1331,6 +1397,7 @@ class Hauptfenster(QtWidgets.QMainWindow):
             projekt.uebernimm_pruefstand(v, self._projekt.get("vergleich", {}).get("aenderungen", []))
         self.zeige_vergleich(v)
         self._projekt_messungen()
+        self._danach()
 
     def zeige_ordnervergleich(self):
         from .ordnervergleich_ui import OrdnerVergleich

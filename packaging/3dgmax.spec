@@ -18,6 +18,12 @@ datas = [(os.path.join(SRC, f), ".") for f in ("Anleitung.html", "Manual.html", 
 datas += [(os.path.join(ROOT, "LICENSE"), ".")]   # GPL-3.0-or-later, liegt der App bei
 datas += [(os.path.join(SRC, "doc_img"), "doc_img")]   # Bilder der Anleitung (packaging/doc_screenshots.py)
 datas += [(os.path.join(SRC, "beispiele"), os.path.join("programm", "beispiele"))]   # fuer --selbsttest
+from programm.kern import beispiele  # noqa: E402 - Dateien fuer Datei > Beispiele (liegen in tests/daten)
+for _name in sorted(beispiele.alle_dateien()):
+    _pfad = beispiele.datei(_name)
+    if _pfad is None:
+        raise SystemExit(f"Beispieldatei fehlt: {_name} (pixi run python werkzeuge/testmodelle.py)")
+    datas.append((_pfad, os.path.join("programm", "beispiele")))
 if OCCT_RES:
     for teil in ("Shaders", "StdResource", "XSMessage", "SHMessage", "XSTEPResource", "XmlOcafResource",
                  "UnitsAPI", "TObj", "BOPAlgo", "Textures"):
