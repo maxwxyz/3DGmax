@@ -1,0 +1,154 @@
+{
+ "format": "3dgmax-kette",
+ "version": 1,
+ "name": "Axialspiel Getriebewelle",
+ "modell": "getriebe.stp",
+ "modell_name": "getriebe.stp",
+ "cp": 1.0,
+ "anforderung": [
+  0.05,
+  1.1
+ ],
+ "temperaturen": [
+  -20.0,
+  100.0
+ ],
+ "werkstoffe": {
+  "Welle": {
+   "name": "42CrMo4",
+   "alpha": 11.5
+  },
+  "Zahnrad": {
+   "name": "16MnCr5",
+   "alpha": 11.5
+  },
+  "Distanzhülse": {
+   "name": "EN AW-6082",
+   "alpha": 23.0
+  },
+  "Wälzlager": {
+   "name": "100Cr6",
+   "alpha": 11.5
+  },
+  "Sicherungsring": {
+   "name": "C75S Federstahl",
+   "alpha": 11.5
+  }
+ },
+ "glieder": [
+  {
+   "name": "M3 Wälzlager 12 ±0,05",
+   "nenn": 12.0,
+   "hoechst": 12.05,
+   "mindest": 11.95,
+   "richtung": -1,
+   "pmi_nummer": 0,
+   "cp": null,
+   "verteilung": "normal",
+   "quelle": "eigen",
+   "flaechen": [
+    19,
+    18
+   ],
+   "versatz": 0.0,
+   "form": 0.5,
+   "teil": "Wälzlager",
+   "stellglied": false
+  },
+  {
+   "name": "M2 Distanzhülse 43,2 ±0,15",
+   "nenn": 43.2,
+   "hoechst": 43.35,
+   "mindest": 43.050000000000004,
+   "richtung": -1,
+   "pmi_nummer": 0,
+   "cp": null,
+   "verteilung": "dreieck",
+   "quelle": "eigen",
+   "flaechen": [
+    15,
+    14
+   ],
+   "versatz": 0.0,
+   "form": 0.5,
+   "teil": "Distanzhülse",
+   "stellglied": false
+  },
+  {
+   "name": "M1 Zahnradbreite 51 +0,2/−0,1",
+   "nenn": 51.0,
+   "hoechst": 51.2,
+   "mindest": 50.9,
+   "richtung": -1,
+   "pmi_nummer": 0,
+   "cp": null,
+   "verteilung": "dreieck",
+   "quelle": "eigen",
+   "flaechen": [
+    11,
+    10
+   ],
+   "versatz": 0.0,
+   "form": 0.5,
+   "teil": "Zahnrad",
+   "stellglied": false
+  },
+  {
+   "name": "M4 Bund bis Nut 106,5 +0,2",
+   "nenn": 106.5,
+   "hoechst": 106.7,
+   "mindest": 106.5,
+   "richtung": 1,
+   "pmi_nummer": 0,
+   "cp": null,
+   "verteilung": "dreieck",
+   "quelle": "eigen",
+   "flaechen": [
+    1,
+    4
+   ],
+   "versatz": 0.0,
+   "form": 0.5,
+   "teil": "Welle",
+   "stellglied": false
+  },
+  {
+   "name": "M5 Nutbreite 1,3 +0,14",
+   "nenn": 1.3,
+   "hoechst": 1.44,
+   "mindest": 1.3,
+   "richtung": 1,
+   "pmi_nummer": 0,
+   "cp": null,
+   "verteilung": "dreieck",
+   "quelle": "eigen",
+   "flaechen": [
+    4,
+    6
+   ],
+   "versatz": 0.0,
+   "form": 0.5,
+   "teil": "Welle",
+   "stellglied": false
+  },
+  {
+   "name": "M6 Sicherungsring 1,2 −0,06",
+   "nenn": 1.2,
+   "hoechst": 1.2,
+   "mindest": 1.14,
+   "richtung": -1,
+   "pmi_nummer": 0,
+   "cp": null,
+   "verteilung": "normal",
+   "quelle": "eigen",
+   "flaechen": [
+    23,
+    22
+   ],
+   "versatz": 0.0,
+   "form": 0.5,
+   "teil": "Sicherungsring",
+   "stellglied": false
+  }
+ ]
+}

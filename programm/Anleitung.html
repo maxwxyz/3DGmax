@@ -254,7 +254,15 @@ Elements), ein Bezug mit Ⓜ/Ⓛ ergibt ein eigenes Glied „Bezugsverschiebung�
 Kreiskanten sein. <b>Versatz</b> je Glied (Mittenversatz des Prozesses) senkt den Cpk; mit <b>Anforderung an das
 Schlussmaß</b> zeigt das Fenster Cp, Cpk und den Anteil außerhalb (Normalverteilung und Monte Carlo).
 <b>PDF-Bericht</b> mit Bild, Ergebnistabelle (auch Planspiel gegen Ist), Begründung, Histogramm und Gliedertabelle;
-die Kette wird im Projekt gespeichert.</li>
+die Kette wird im Projekt gespeichert. <b>Wärmeausdehnung bei</b> zwei Grenztemperaturen rechnet je Glied
+ΔL = α · L · (T − 20 °C) mit dem Werkstoff seines Bauteils (aus der STEP-Datei, sonst aus der Bibliothek;
+<b>Werkstoffe …</b> ändert α und setzt bei Bedarf eine eigene Temperatur je Bauteil). <b>＋ Längenbereich …</b> nimmt
+Federn, Passscheiben oder Stellschrauben zwischen kleinster und größter Länge auf; per Rechtsklick wird ein Glied zum
+<b>Stellglied</b>, dann steht darunter, welchen Bereich es für die Anforderung abdecken muss. <b>Richtungen aus
+Schlussmaß</b>: die zwei Flächen des Schlussmaßes wählen (erst die ebene), das Programm sucht den Weg über die Glieder und
+setzt Reihenfolge und Vorzeichen; <b>▶ Kette ablaufen</b> zeigt die Glieder nacheinander im Modell. <b>Kette speichern
+…</b> legt eine Datei <code>.3dgkette</code> an, die <b>Kette öffnen …</b> oder <b>Datei › Öffnen</b> später samt Modell
+wieder lädt. Beispiel: <b>Datei › Beispiele › Toleranzkette Getriebewelle</b>.</li>
 <li><b>Modell › PMI anlegen</b>: Flächen wählen, Vorschläge des Tolerierungsberaters prüfen, anpassen, übernehmen
     (eigene PMI, im Projekt gespeichert). Vorhandene PMI lassen sich bearbeiten; die Originalwerte bleiben sichtbar.</li>
 </ul>
@@ -281,6 +289,15 @@ im Modell an. Die Leiste <b>Kommentare</b> zeigt offen/erledigt; Export als CSV 
 </ul>
 <figure><a href="doc_img/de/farbkarte.png"><img src="doc_img/de/farbkarte.png" alt="Abweichungs-Farbkarte im Vergleich." loading="lazy"></a>
 <figcaption>Abweichungs-Farbkarte: Abweichung des neuen gegenüber dem alten Stand je Punkt.</figcaption></figure>
+
+<h3>Vergleichsmodi</h3>
+<p>Über der 3D-Ansicht steht im Vergleich die Leiste <b>Ansicht</b> (Tastenkürzel <kbd>Alt</kbd>+<kbd>1</kbd> …
+<kbd>6</kbd>): <b>Vergleich</b> (neuer Stand nach Status gefärbt, entfernte Flächen rot), <b>Alt</b> und <b>Neu</b>
+(nur ein Stand), <b>Überlagern</b> (alter Stand blau durchscheinend über dem neuen), <b>Nebeneinander</b> (links alt,
+rechts neu, beide Kameras gekoppelt: Drehen, Zoomen und Standardansichten wirken in beiden) und <b>Blinken</b> (wechselt
+im gewählten Takt, ⏸/▶ hält an, <kbd>Leertaste</kbd> wechselt von Hand; in Alt/Neu wechselt die Leertaste ebenfalls).
+<b>Änderungen hervorheben</b> färbt geänderte Flächen und PMI in Alt, Neu, Nebeneinander und Blinken. Im Modus Alt
+zeigt der Strukturbaum den alten Stand; eine gewählte Änderung wird in beiden Ständen hervorgehoben.</p>
 
 <h2 id="pruefen">Änderungen prüfen</h2>
 <figure><a href="doc_img/de/pruefen.png"><img src="doc_img/de/pruefen.png" alt="Prüfrundgang: gewählte Änderung mit Beschreibung, Geprüft/Abgelehnt." loading="lazy"></a>

@@ -16,9 +16,9 @@ from .vergleich_ui import AbschlussDialog, AenderungenPanel, AusrichtPanel, Verg
 from .panels import AnsichtenPanel, BaumPanel, PmiPanel
 
 DATEIFILTER = ("{} (*.stp *.step *.p21 *.stpz *.stepz *.gz *.igs *.iges *.stl *.obj *.gltf *.glb *.3mf *.ply *.qif "
-               "*.prc *.pdf *.3dgmax);;STEP (*.stp *.step *.p21 *.stpz *.stepz *.stp.gz *.step.gz);;QIF (*.qif);;"
+               "*.prc *.pdf *.3dgmax *.3dgkette);;STEP (*.stp *.step *.p21 *.stpz *.stepz *.stp.gz *.step.gz);;QIF (*.qif);;"
                "PRC / 3D-PDF (*.prc *.pdf);;IGES (*.igs *.iges);;{} (*.stl *.obj *.gltf *.glb *.3mf *.ply);;"
-               "3DGmax (*.3dgmax)")  # Platzhalter: uebersetzte Namen
+               "3DGmax (*.3dgmax *.3dgkette)")  # Platzhalter: uebersetzte Namen
 ENDUNGEN = (".stp", ".step", ".p21", ".stpz", ".stepz", ".stp.gz", ".step.gz", ".igs", ".iges", ".stl", ".obj",
             ".gltf", ".glb", ".3mf", ".ply", ".qif", ".prc", ".pdf", ".3dgmax")
 MAX_ZULETZT = 10
@@ -118,7 +118,7 @@ class Hauptfenster(QtWidgets.QMainWindow):
         self.start = Startseite()
         self.stapel = QtWidgets.QStackedWidget()
         self.stapel.addWidget(self.start)
-        self.stapel.addWidget(self.ansicht)
+        self.stapel.addWidget(self._baue_mitte())
         self.setCentralWidget(self.stapel)
 
         self.baum = BaumPanel()
@@ -760,9 +760,10 @@ class Hauptfenster(QtWidgets.QMainWindow):
         self.ansicht.auswahl_geaendert.connect(self._schnell_auswahl)
         self.ansicht.auswahl_geaendert.connect(lambda _f: self._zone_aktualisieren(self.pmi.gewaehlte()))
         self.ansicht.sichtbarkeit_geaendert.connect(self._sichtbarkeit_zonen)
-        self.baum.sichtbar_geaendert.connect(self.ansicht.knoten_sichtbar)
-        self.baum.isolieren.connect(self.ansicht.isoliere)
-        self.baum.transparent.connect(self.ansicht.knoten_transparent)
+        # der Baum gehoert im Vergleichsmodus "Alt" zur Ansicht des alten Stands
+        self.baum.sichtbar_geaendert.connect(lambda n, an: self._baum_ansicht().knoten_sichtbar(n, an))
+        self.baum.isolieren.connect(lambda n: self._baum_ansicht().isoliere(n))
+        self.baum.transparent.connect(lambda n, an: self._baum_ansicht().knoten_transparent(n, an))
         self.baum.baum.itemSelectionChanged.connect(
             lambda: self.ansicht.setze_fokus(self.ansicht.fokus, self.baum.gewaehlte_blaetter()))
         self.ansicht.element_gewaehlt.connect(self.messen.element)
@@ -788,7 +789,7 @@ class Hauptfenster(QtWidgets.QMainWindow):
         self.schnitt_regler_aktion.setVisible(da and self._schnitt_achse is not None)
         self.aktionen["schnitt_umkehren"].setEnabled(da and self._schnitt_achse is not None)
         self._schnitt_aktionen()
-        self.stapel.setCurrentWidget(self.ansicht if da else self.start)
+        self.stapel.setCurrentWidget(self.mitte if da else self.start)
         for d in (self.dock_baum, self.dock_ansichten, self.dock_pmi):
             d.setVisible(da)
         if not da:
@@ -833,6 +834,8 @@ class Hauptfenster(QtWidgets.QMainWindow):
         """Laedt im Hintergrund; warten=True blockiert bis fertig (Tests, Selbsttest)."""
         if pfad.lower().endswith(".3dgmax"):
             return self.oeffne_projekt(pfad, warten)
+        if pfad.lower().endswith(".3dgkette"):
+            return self.oeffne_kette(pfad, warten)
         self.lade_abbrechen()
         self.statusBar().showMessage(tr("Lade {} …").format(os.path.basename(pfad)))
         self.fortschritt.show()
@@ -983,6 +986,10 @@ class Hauptfenster(QtWidgets.QMainWindow):
             self.statusBar().showMessage(tr("Dateien des Beispiels nicht gefunden"), 6000)
             return False
         text = tr("Beispiel: {}").format(tr(b.text))
+        if name == "kette_getriebe":  # Kettendatei laedt ihr Modell selbst
+            self.oeffne_kette(pfade[0], warten)
+            self.statusBar().showMessage(text, 20000)
+            return True
 
         def zeigen(*schritte):
             def weiter():
@@ -1646,10 +1653,11 @@ class Hauptfenster(QtWidgets.QMainWindow):
     def zeige_vergleich(self, v):
         self.vergleich = v
         self.zeige_ergebnis(v.neu, vergleich=v)
-        entfernt = v.geo.entfernt_a
-        if entfernt is None:
-            entfernt = [v.alt.modell.flaechen[i] for i, st in v.geo.status_a.items() if st == "entfernt"]
-        self.ansicht.zeige_vergleich(v.geo.status_b, entfernt, v.ausrichtung.gp_trsf(), v.geo.instanzen_b)
+        self._alt_szene_fuer = None  # die Ansicht des alten Stands gehoert zum vorigen Vergleich
+        self._anzeige_art = None
+        self._vergleichsmodus = "vergleich"
+        self._vergleich_anzeigen()
+        self.modus_leiste.show()
         self.aenderungen.zeige(v, self.thema)
         self.spalten_anpassen()
         self.dock_aenderungen.show()
@@ -1658,6 +1666,188 @@ class Hauptfenster(QtWidgets.QMainWindow):
             self.aktionen[n].setEnabled(True)
         self.setWindowTitle(self._titel(f"{os.path.basename(v.alt.pfad)} → {os.path.basename(v.neu.pfad)}"))
         self.statusBar().showMessage(tr("Vergleich fertig: {} Änderungen").format(len(v.aenderungen)), 8000)
+
+    # --- Vergleichsmodi (Alt, Neu, Vergleich, Ueberlagern, Nebeneinander, Blinken) ---
+
+    def _baue_mitte(self) -> QtWidgets.QWidget:
+        """Mittelbereich: Modusleiste (nur im Vergleich), darunter alte und neue 3D-Ansicht nebeneinander."""
+        from .vergleich_ui import VergleichsmodusLeiste
+        self.mitte = QtWidgets.QWidget()
+        lay = QtWidgets.QVBoxLayout(self.mitte)
+        lay.setContentsMargins(0, 0, 0, 0)
+        lay.setSpacing(0)
+        self.modus_leiste = VergleichsmodusLeiste()
+        self.modus_leiste.hide()
+        self.modus_leiste.modus.connect(self.setze_vergleichsmodus)
+        self.modus_leiste.hervorheben.connect(lambda _an: self._vergleich_anzeigen())
+        self.teiler = QtWidgets.QSplitter(QtCore.Qt.Orientation.Horizontal)
+        self.teiler.setChildrenCollapsible(False)
+        self.teiler.addWidget(self.ansicht)
+        lay.addWidget(self.modus_leiste)
+        lay.addWidget(self.teiler, 1)
+        self.ansicht_alt = None  # entsteht beim ersten Bedarf
+        self._alt_szene_fuer = None  # Vergleich, dessen alter Stand in ansicht_alt steht
+        self._vergleichsmodus = "vergleich"
+        self._blink_alt = False
+        self._kopplung = QtCore.QTimer(self)
+        self._kopplung.setInterval(50)
+        self._kopplung.timeout.connect(self._kameras_koppeln)
+        self._kamera_zuletzt = (None, None)
+        self._blink = QtCore.QTimer(self)
+        self._blink.setInterval(600)
+        self._blink.timeout.connect(self._blink_schritt)
+        self.modus_leiste.takt.connect(self._blink.setInterval)
+        self.modus_leiste.pause.connect(lambda an: self._blink.stop() if an else
+                                        (self._vergleichsmodus == "blinken" and self._blink.start()))
+        self._leertaste = QtGui.QShortcut(QtGui.QKeySequence(QtCore.Qt.Key.Key_Space), self.mitte)
+        self._leertaste.setContext(QtCore.Qt.ShortcutContext.WidgetWithChildrenShortcut)
+        self._leertaste.activated.connect(self._alt_neu_wechseln)
+        return self.mitte
+
+    def _baum_ansicht(self):
+        return self.ansicht_alt if self._vergleichsmodus == "alt" and self.ansicht_alt is not None else self.ansicht
+
+    def _alte_ansicht(self):
+        """Ansicht des alten Stands anlegen bzw. mit dem alten Stand des aktuellen Vergleichs fuellen."""
+        v = self.vergleich
+        if self.ansicht_alt is None:
+            self.ansicht_alt = ansicht3d.erzeuge(self)
+            self.ansicht_alt.setze_thema(self.thema)
+            self.ansicht_alt.setze_navigation(self.ein.value("navigation", "catia"))
+            self.ansicht_alt.setze_pmi_kontrast(self.ein.value("pmi_kontrast", True, type=bool))
+            self.ansicht_alt.setze_draht_kontrast(self.ein.value("draht_kontrast", True, type=bool))
+            self._farben_anwenden()
+            self.teiler.insertWidget(0, self.ansicht_alt)
+            self.ansicht_alt.hide()
+        if self._alt_szene_fuer is not v:
+            a = v.alt
+            self.ansicht_alt.zeige(ansicht3d.Szene(a.modell, a.baum, a.farben, a.grafik, a.pmi))
+            self._alt_szene_fuer = v
+        return self.ansicht_alt
+
+    def setze_vergleichsmodus(self, modus: str):
+        if self.vergleich is None:
+            return
+        self._vergleichsmodus = modus
+        self.modus_leiste.setze(modus)
+        self._blink_alt = modus == "alt"
+        self._vergleich_anzeigen()
+        texte = {"alt": tr("Alter Stand"), "neu": tr("Neuer Stand"), "nebeneinander": tr("Links alt, rechts neu – "
+                 "Kameras gekoppelt"), "blinken": tr("Blinken: Leertaste wechselt von Hand"),
+                 "ueberlagern": tr("Alter Stand blau durchscheinend über dem neuen")}
+        if modus in texte:
+            self.statusBar().showMessage(texte[modus], 6000)
+
+    def _vergleich_anzeigen(self):
+        """Faerbung, Ueberlagerung, Sichtbarkeit beider Ansichten und Baum nach dem Vergleichsmodus."""
+        v, m = self.vergleich, self._vergleichsmodus
+        if v is None:
+            return
+        hervor = self.modus_leiste.hervor.isChecked()
+        if m == "vergleich":
+            entfernt = v.geo.entfernt_a
+            if entfernt is None:
+                entfernt = [v.alt.modell.flaechen[i] for i, st in v.geo.status_a.items() if st == "entfernt"]
+            status = v.geo.status_b
+        else:
+            entfernt, status = [], v.geo.status_b if hervor or m == "ueberlagern" else {}
+        art = (m == "vergleich", bool(status))  # Szene nur neu aufbauen, wenn sich die Faerbung aendert
+        if getattr(self, "_anzeige_art", None) != art:
+            self.ansicht.zeige_vergleich(status, entfernt, v.ausrichtung.gp_trsf(), v.geo.instanzen_b)
+            self._anzeige_art = art
+        self.ansicht.zeige_ueberlagerung(v.alt.modell.form if m == "ueberlagern" else None)
+        braucht_alt = m in ("alt", "nebeneinander", "blinken")
+        if braucht_alt:
+            alt = self._alte_ansicht()
+            alt.zeige_vergleich(v.geo.status_a if hervor else {}, [], None)
+            alt.hebe_pmi({x.pmi_alt.step_id for x in v.aenderungen if x.pmi_alt is not None and x.pmi_alt.step_id}
+                         if hervor else set())
+        self.ansicht.hebe_pmi({x.pmi_neu.step_id for x in v.aenderungen if x.pmi_neu is not None and x.pmi_neu.step_id}
+                              if hervor and m != "vergleich" else set())
+        self._sichtbarkeit_vergleich()
+        if braucht_alt:
+            self._kopplung.start()
+        else:
+            self._kopplung.stop()
+        if m == "blinken" and not self.modus_leiste.pause_knopf.isChecked():
+            self._blink.start()
+        else:
+            self._blink.stop()
+        alt_baum = m == "alt"
+        if getattr(self, "_baum_zeigt_alt", False) != alt_baum:
+            self.baum.zeige((v.alt if alt_baum else v.neu).baum)
+            self._baum_zeigt_alt = alt_baum
+        self.dock_baum.setWindowTitle(tr("Struktur – alter Stand") if alt_baum else tr("Struktur"))
+
+    def _sichtbarkeit_vergleich(self):
+        m = self._vergleichsmodus
+        alt_an = m in ("alt", "nebeneinander") or (m == "blinken" and self._blink_alt)
+        neu_an = m in ("vergleich", "neu", "ueberlagern", "nebeneinander") or (m == "blinken" and not self._blink_alt)
+        alt = self.ansicht_alt
+        if alt is not None and self._alt_szene_fuer is not None:
+            # die Kamera geht von der bisher sichtbaren auf die neu sichtbare Ansicht ueber
+            if alt_an and not alt.isVisible() and self.ansicht.isVisible():
+                alt.setze_kamera_daten(self.ansicht.kamera_daten())
+            elif neu_an and not self.ansicht.isVisible() and alt.isVisible():
+                self.ansicht.setze_kamera_daten(alt.kamera_daten())
+            alt.setVisible(alt_an)
+        self.ansicht.setVisible(neu_an or alt is None)
+        self.modus_leiste.zeige_stand(self._blink_alt if m == "blinken" else None)
+        self._kamera_zuletzt = (None, None)
+
+    def _kameras_koppeln(self):
+        """Die zuletzt bewegte Kamera auf die andere Ansicht uebertragen (Nebeneinander, Blinken, Alt)."""
+        alt = self.ansicht_alt
+        if alt is None or self.vergleich is None:
+            return
+        ka, kn = alt.kamera_daten(), self.ansicht.kamera_daten()
+        za, zn = self._kamera_zuletzt
+        if ka is not None and ka != za and za is not None:
+            self.ansicht.setze_kamera_daten(ka)
+            kn = ka
+        elif kn is not None and kn != zn and zn is not None:
+            alt.setze_kamera_daten(kn)
+            ka = kn
+        elif za is None:  # erster Takt: neue Ansicht gibt die Kamera vor
+            if alt.isVisible() and not self.ansicht.isVisible():
+                self.ansicht.setze_kamera_daten(ka)
+                kn = ka
+            else:
+                alt.setze_kamera_daten(kn)
+                ka = kn
+        self._kamera_zuletzt = (ka, kn)
+
+    def _blink_schritt(self):
+        self._blink_alt = not self._blink_alt
+        self._sichtbarkeit_vergleich()
+
+    def _alt_neu_wechseln(self):
+        """Leertaste: in Blinken von Hand wechseln, sonst zwischen Alt und Neu."""
+        if self.vergleich is None:
+            return
+        if self._vergleichsmodus == "blinken":
+            self.modus_leiste.pause_knopf.setChecked(True)
+            self._blink_schritt()
+        elif self._vergleichsmodus in ("alt", "neu"):
+            self.setze_vergleichsmodus("neu" if self._vergleichsmodus == "alt" else "alt")
+
+    def _vergleichsmodus_ende(self):
+        self._blink.stop()
+        self._kopplung.stop()
+        self._vergleichsmodus = "vergleich"
+        self.modus_leiste.setze("vergleich")
+        self.modus_leiste.hide()
+        self.ansicht.zeige_ueberlagerung(None)
+        self.ansicht.hebe_pmi(set())
+        if self.ansicht_alt is not None:
+            self.ansicht_alt.hide()
+        self.ansicht.show()
+        self._alt_szene_fuer = None
+        self._anzeige_art = None
+        if getattr(self, "_baum_zeigt_alt", False) and self.erg is not None:
+            self.baum.zeige(self.erg.baum)
+        self._baum_zeigt_alt = False
+        self.dock_baum.setWindowTitle(tr("Struktur"))
 
     def starte_manuell_ausrichten(self):
         if self.vergleich is None:
@@ -1769,6 +1959,7 @@ class Hauptfenster(QtWidgets.QMainWindow):
         if self.vergleich is None:
             return
         self.vergleich = None
+        self._vergleichsmodus_ende()
         self.ansicht.zeige_vergleich(None)
         self.aenderungen.zeige(None)
         self.dock_aenderungen.hide()
@@ -1778,9 +1969,14 @@ class Hauptfenster(QtWidgets.QMainWindow):
             self.setWindowTitle(self._titel(os.path.basename(self.erg.pfad)))
 
     def _aenderung_gewaehlt(self, a):
+        alt = self.ansicht_alt if self._alt_szene_fuer is not None else None
         if a is None or self.vergleich is None:
             self.ansicht.hebe_flaechen(set())
+            if alt is not None:
+                alt.hebe_flaechen(set())
             return
+        if alt is not None:
+            alt.hebe_flaechen(a.flaechen_alt)  # im alten Stand dieselbe Aenderung zeigen
         self.ansicht.hebe_flaechen(a.flaechen_neu)
         alt_formen = [] if a.flaechen_neu else [self.vergleich.alt.modell.flaechen[i] for i in a.flaechen_alt]
         self.ansicht.zoome_auf(a.flaechen_neu, alt_formen)
@@ -2232,11 +2428,90 @@ class Hauptfenster(QtWidgets.QMainWindow):
             f.auswahl.clicked.connect(self._kette_aus_auswahl)
             f.pdf.clicked.connect(lambda: self.exportiere_kette_pdf())
             f.flaechen_zeigen.connect(self.ansicht.hebe_flaechen)
+            f.schluss_aus_auswahl.connect(self._kette_schluss)
+            f.oeffnen.connect(lambda: self.oeffne_kette())
+            f.teil_von = self._teil_von_flaechen
             self._kette = f
+        if self.erg is not None and f.modell_pfad != self.erg.pfad:
+            f.modell_pfad = self.erg.pfad
+            self._werkstoffe_vorbelegen(f)
         if not nur_anlegen:
             f.show()
             f.raise_()
         return f
+
+    def _teil_von_flaechen(self, flaechen) -> str:
+        """Bauteil (Blattname im Baum) der meisten dieser Flaechen; leer ohne Zuordnung."""
+        if self.erg is None or not flaechen:
+            return ""
+        zuordnung = getattr(self, "_flaeche_teil", None)
+        if zuordnung is None or zuordnung[0] is not self.erg:
+            from OCC.Core.TopAbs import TopAbs_FACE
+            from OCC.Core.TopExp import TopExp_Explorer
+            karte = {}
+            for k in self.erg.baum.blaetter():
+                ex = TopExp_Explorer(k.form, TopAbs_FACE)
+                while ex.More():
+                    i = self.erg.modell.flaechen_index(ex.Current())
+                    if i is not None:
+                        karte.setdefault(i, k.name)
+                    ex.Next()
+            zuordnung = self._flaeche_teil = (self.erg, karte)
+        namen = [zuordnung[1][i] for i in flaechen if isinstance(i, int) and i in zuordnung[1]]
+        return max(set(namen), key=namen.count) if namen else ""
+
+    def _werkstoffe_vorbelegen(self, f):
+        """Werkstoffe je Bauteil aus der STEP-Datei mit alpha aus der Bibliothek (ohne vorhandene zu ersetzen)."""
+        from ..kern import werkstoffe
+        for teil, name in werkstoffe.werkstoffe_aus_step(getattr(self.erg.modell, "datei", None)).items():
+            f.werkstoffe.setdefault(teil, {"name": name, "alpha": werkstoffe.alpha_fuer(name)})
+
+    def oeffne_kette(self, pfad: str = "", warten: bool = False):
+        """Kettendatei laden; gehoert sie zu einem anderen Modell, wird dieses zuerst geladen."""
+        from ..kern import kette_datei
+        if not pfad:
+            pfad, _ = QtWidgets.QFileDialog.getOpenFileName(self, tr("Kette öffnen"), "",
+                                                            tr("Toleranzkette (*.3dgkette)"))
+            if not pfad:
+                return None
+        try:
+            k = kette_datei.lade(pfad)
+        except (OSError, ValueError) as fehler:
+            QtWidgets.QMessageBox.warning(self, tr("Kette öffnen"), str(fehler))
+            return None
+        anderes = k.modell and os.path.isfile(k.modell) and (
+            self.erg is None or os.path.abspath(self.erg.pfad) != os.path.abspath(k.modell))
+        if anderes:
+            self._nach_laden = lambda: self._kette_anwenden(k)
+            self.lade(k.modell, warten)
+        else:
+            self._kette_anwenden(k)
+        return k
+
+    def _kette_anwenden(self, k):
+        f = self.zeige_toleranzkette()
+        f.lade_datei(k)
+        if self.erg is None or (k.modell and os.path.basename(k.modell) != os.path.basename(self.erg.pfad)):
+            self.statusBar().showMessage(tr("Kette gehört zu {} – Flächen nur mit diesem Modell").format(
+                os.path.basename(k.modell) or "?"), 8000)
+        else:
+            self.statusBar().showMessage(tr("Kette geladen: {} Glieder").format(len(k.glieder)), 6000)
+
+    def _kette_schluss(self):
+        """Reihenfolge und Vorzeichen der Glieder aus den zwei gewaehlten Flaechen des Schlussmasses."""
+        from ..kern import toleranzkette as tk
+        f = self._kette
+        idx = [self.erg.modell.flaechen_index(x) for x in self.ansicht.auswahl3d] if self.erg is not None else []
+        idx = [i for i in idx if i is not None]
+        if len(idx) != 2 or not f.glieder:
+            self.statusBar().showMessage(tr("Erst die Glieder anlegen, dann genau zwei Flächen des Schlussmaßes "
+                                            "wählen (die erste eben)"), 8000)
+            return None
+        glieder, hinweise = tk.richtungen_aus_schlussmass(f.glieder, self.erg.modell, idx[0], idx[1])
+        f.setze_glieder(glieder)
+        self.statusBar().showMessage(" · ".join(hinweise) if hinweise else
+                                     tr("Richtungen aus dem Schlussmaß gesetzt – „Kette ablaufen“ zeigt sie"), 10000)
+        return hinweise
 
     def _kette_aus_auswahl(self) -> int:
         """Glieder aus den im Modell gewaehlten Flaechen (Klickreihenfolge); Allgemeintoleranz aus Wahl oder Datei."""
@@ -2839,7 +3114,9 @@ class Hauptfenster(QtWidgets.QMainWindow):
     def setze_thema(self, name):
         self.ein.setValue("thema", name)
         self.thema = thema.wende_an(QtWidgets.QApplication.instance(), name)
-        self.ansicht.setze_thema(self.thema)
+        for a in (self.ansicht, self.ansicht_alt):
+            if a is not None:
+                a.setze_thema(self.thema)
 
     def setze_sprache(self, name):
         self.ein.setValue("sprache", name)
@@ -2879,7 +3156,9 @@ class Hauptfenster(QtWidgets.QMainWindow):
         pmi = rgb(e.value("pmi_eigene_farbe", "#d4145a")) if e.value("pmi_eigen", False, type=bool) else None
         hg = (rgb(e.value("hg_oben", "#dfe5ee")), rgb(e.value("hg_unten", "#a9b3c2"))) \
             if e.value("hg_eigen", False, type=bool) else None
-        self.ansicht.setze_farben(pmi, hg)
+        for a in (self.ansicht, getattr(self, "ansicht_alt", None)):
+            if a is not None:
+                a.setze_farben(pmi, hg)
 
     def zeige_anleitung(self):
         from .hilfe import zeige_anleitung

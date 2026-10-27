@@ -101,6 +101,7 @@ class AnsichtBasis(QtWidgets.QWidget):
         self.vergleich_instanzen: dict = {}  # instanz_schluessel -> Status (mehrfach verbaute Teile)
         self.vergleich_entfernt: list = []
         self.vergleich_trsf = None
+        self.ueberlagerung = None  # alter Stand durchscheinend (Vergleichsmodus Ueberlagern)
         self.abweichung = None  # (Karte, Toleranz, Grenze) der Farbkarte
         self.perspektive = False
         self.bezugssystem: list = []
@@ -249,6 +250,17 @@ class AnsichtBasis(QtWidgets.QWidget):
 
     def kamera(self, ansicht):
         self.letzte_ansicht = ansicht.name
+
+    def kamera_daten(self):
+        """(Auge, Mitte, Oben, Massstab) fuer die gekoppelte Ansicht im Vergleich."""
+        return getattr(self, "_kamera_merk", None)
+
+    def setze_kamera_daten(self, k):
+        self._kamera_merk = k
+
+    def zeige_ueberlagerung(self, form):
+        """Vergleich ueberlagern: alten Stand durchscheinend ueber dem neuen zeigen (None: aus)."""
+        self.ueberlagerung = form
 
     def knoten_sichtbar(self, nummern: set[int], sichtbar: bool):
         self.versteckt = (self.versteckt - nummern) if sichtbar else (self.versteckt | nummern)
@@ -1824,6 +1836,32 @@ class OcctAnsicht(AnsichtBasis):
         cam = self.d.View.Camera()
         e, c, u = cam.Eye(), cam.Center(), cam.Up()
         return (e.X(), e.Y(), e.Z()), (c.X(), c.Y(), c.Z()), (u.X(), u.Y(), u.Z()), cam.Scale()
+
+    def kamera_daten(self):
+        return self._kamera_jetzt() if self._bereit else super().kamera_daten()
+
+    def setze_kamera_daten(self, k):
+        super().setze_kamera_daten(k)
+        if self._bereit and k is not None and not self._gleich(self._kamera_jetzt(), k):
+            self._kamera_setzen(k)
+
+    def zeige_ueberlagerung(self, form):
+        super().zeige_ueberlagerung(form)
+        if not self._bereit:
+            return
+        from OCC.Core.AIS import AIS_Shape
+        ctx = self.d.Context
+        if getattr(self, "_ueber_ais", None) is not None:
+            ctx.Remove(self._ueber_ais, False)
+            self._ueber_ais = None
+        if form is not None:
+            ais = AIS_Shape(form)
+            ais.SetColor(_farbe((0.25, 0.55, 0.95)))
+            ctx.Display(ais, 1, -1, False)
+            ctx.SetTransparency(ais, 0.65, False)
+            ctx.Deactivate(ais)  # nicht waehlbar
+            self._ueber_ais = ais
+        self._neu_zeichnen()
 
     @staticmethod
     def _gleich(a, b) -> bool:

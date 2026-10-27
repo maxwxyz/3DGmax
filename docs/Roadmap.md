@@ -67,7 +67,9 @@
 | Stack-up: location tolerances of the end faces as links (position, symmetry, coaxiality, profile with datum, UZ), PDF report, chain in the project | ✅ |
 | Stack-up 1D final: Ⓜ/Ⓛ bonus, datum shift, edges as chain ends, mean offset (Cpk), requirement with Cp/Cpk/share outside | ✅ |
 | Stack-up stage 3: triangular/trapezoidal distributions by production type, applicable method in bold (≥ 4 effective contributors), what-if with comparison to actual, direction by double-click, result table, share bars, histogram, PDF | ✅ |
+| Stack-up stage 3b: thermal expansion (materials from STEP/library, per-part temperatures), length ranges and adjusting member, directions from the closing dimension, walk chain, chain file .3dgkette, gearbox example | ✅ |
 | Stack-up stage 4: modified RSS (Bender), mean-shift model, sensitivity coefficients, correlated links, tolerance allocation, more distributions, fit from measurements, several scenarios | ⬜ |
+| Stack-up: arrows per link in 3D, wiggle of the closing faces | ⬜ |
 | Stack-up: median planes as chain ends, chains across assembly parts | ⬜ |
 | Assembly: connections plane/plane and coaxial with snapping, satisfied check, open DOF per part, DOF wiggle, in the project | ✅ |
 | Assembly: point contact (sphere on plane), pin–slot (line on plane), ball joint | ✅ |
@@ -114,6 +116,8 @@
 | Graphical-only PMI (notes) matched and compared by text | ✅ |
 | Assembly comparison (parts new/removed/moved/changed/renamed) | ✅ |
 | Change table with characteristic, old, new, Δ, tendency (tighter/looser), also in PDF/CSV | ✅ |
+| Comparison modes: comparison, old, new, overlay, side by side (coupled cameras), blink; tree follows the mode | ✅ |
+| Comparison modes stage 2: tree with part status colours, both trees side by side | ⬜ |
 | Geometry comparison per part instance (each instance sampled; status shown on the shared faces) | ✅ |
 | Status colors per instance in the 3D view (instance key: face index + location), removed instances shown | ✅ |
 | Change list entries per instance | ⬜ |

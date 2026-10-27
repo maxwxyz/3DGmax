@@ -35,7 +35,8 @@ from ..i18n import tr
 VERTEILUNG = {"normal": "Normal (Serie)", "dreieck": "Dreieck (Kleinserie)", "trapez": "Trapez",
               "gleich": "Gleich (Einzelteil)"}
 MINDEST_BEITRAGSLEISTER = 4  # ab hier ist das statistische Ergebnis anwendbar
-QUELLE = {"pmi": "PMI", "lage": "Lagetoleranz", "allgemein": "Allgemeintoleranz", "ohne": "ohne Toleranz"}
+QUELLE = {"pmi": "PMI", "lage": "Lagetoleranz", "allgemein": "Allgemeintoleranz", "ohne": "ohne Toleranz",
+          "bereich": "Längenbereich", "eigen": "eigene Angabe"}
 LAGE_TYPEN = {"Position", "Symmetry", "Coaxiality", "Concentricity"}
 PROFIL_TYPEN = {"ProfileOfSurface", "ProfileOfLine"}
 
@@ -54,6 +55,8 @@ class Glied:
     flaechen: tuple[int, ...] = field(default_factory=tuple)  # Flaechen an den Enden (aus der 3D-Auswahl)
     versatz: float = 0.0  # Mittenversatz des Prozesses gegen die Toleranzmitte (mm), ergibt Cpk < Cp
     form: float = 0.5  # Trapez: Anteil des flachen Teils (0 = Dreieck, 1 = Rechteck)
+    teil: str = ""  # Bauteil (fuer den Werkstoff bei der Waermeausdehnung)
+    stellglied: bool = False  # Laengenbereich, der zum Einhalten der Anforderung eingestellt wird
 
     @property
     def mitte(self) -> float:
@@ -135,7 +138,49 @@ def glied_von_pmi(p, richtung: int = 1) -> Glied | None:
     h, m = p.grenzen()
     if h is None or m is None:
         h = m = p.nennwert
-    return Glied(f"{p.nummer}: {p.wert_text()}", p.nennwert, h, m, richtung, p.nummer)
+    return Glied(f"{p.nummer}: {p.wert_text()}", p.nennwert, h, m, richtung, p.nummer,
+                 flaechen=tuple(sorted(p.flaechen)))
+
+
+def bereich_glied(name: str, mindest: float, hoechst: float, richtung: int = 1, stellglied: bool = False) -> Glied:
+    """Laengenbereich (z. B. Feder zwischen kleinster und groesster Einbaulaenge, Passscheibe, Stellschraube):
+    gleichverteilt zwischen den Grenzen; als Stellglied wird sein noetiger Bereich berechnet."""
+    lo, hi = sorted((float(mindest), float(hoechst)))
+    return Glied(name, (lo + hi) / 2, hi, lo, richtung, verteilung="gleich", quelle="bereich", stellglied=stellglied)
+
+
+def thermisch(glieder: list[Glied], alpha: dict, temperatur: float, je_teil: dict | None = None) -> list[Glied]:
+    """Glieder bei einer Temperatur: jede Laenge waechst um alpha * L * (T - 20 °C) (alpha je Bauteil in 1e-6/K;
+    je_teil: eigene Temperatur einzelner Bauteile in diesem Fall, z. B. kuehleres Gehaeuse; Glieder ohne Bauteil oder
+    ohne Werkstoff und Lagetoleranzen ohne Laenge bleiben)."""
+    import copy
+    from .werkstoffe import laengenaenderung
+    out = []
+    for g in glieder:
+        x = copy.copy(g)
+        a = alpha.get(g.teil)
+        if a and g.quelle != "lage":
+            t = (je_teil or {}).get(g.teil)
+            d = laengenaenderung(a, abs(g.nenn), temperatur if t is None else t)
+            x.nenn, x.hoechst, x.mindest = g.nenn + d, g.hoechst + d, g.mindest + d
+        out.append(x)
+    return out
+
+
+def stellbereich(glieder: list[Glied], anforderung: tuple[float, float]) -> tuple[float, float] | None:
+    """Noetiger Bereich des Stellglieds, damit das Schlussmass im Worst Case die Anforderung haelt; None ohne
+    Stellglied. Ergebnis (untere, obere) Grenze; untere > obere heisst: nicht einstellbar."""
+    stell = [g for g in glieder if g.stellglied]
+    if len(stell) != 1:
+        return None
+    s = stell[0]
+    rest = [g for g in glieder if g is not s]
+    lo = sum(g.richtung * (g.mindest if g.richtung > 0 else g.hoechst) for g in rest)
+    hi = sum(g.richtung * (g.hoechst if g.richtung > 0 else g.mindest) for g in rest)
+    u, o = anforderung
+    if s.richtung > 0:
+        return u - lo, o - hi
+    return hi - o, lo - u
 
 
 def ist_winkel(p) -> bool:
@@ -396,3 +441,62 @@ def als_csv(glieder: list[Glied], e: Ergebnis, cp: float = 1.0) -> str:
         w.writerow([text, "", zahl(wert)])
     w.writerow([tr("Anwendbar"), "", tr("statistisch") if e.statistisch else tr("arithmetisch"), anwendbar_text(e)])
     return puffer.getvalue()
+
+
+def richtungen_aus_schlussmass(glieder: list[Glied], modell, flaeche_a: int, flaeche_b: int):
+    """Vorzeichen und Reihenfolge der Glieder aus dem Schlussmass zwischen zwei Flaechen (erste: Ebene, gibt die
+    Kettenrichtung vor): die Lagen aller Gliedflaechen entlang der Richtung bilden einen Graphen, der Weg von a nach b
+    ergibt die Glieder mit dem Vorzeichen ihrer Laufrichtung. Rueckgabe (Glieder in Kettenreihenfolge, Hinweise);
+    Glieder ausserhalb des Wegs und Lagetoleranzen bleiben unveraendert dahinter."""
+    from collections import deque
+    hinweise: list[str] = []
+    erste = _ebene_oder_achse(modell.flaechen[flaeche_a])
+    if erste is None or erste[0] != "ebene":
+        return glieder, [tr("Die erste Fläche des Schlussmaßes muss eben sein (sie gibt die Richtung vor)")]
+    richtung = erste[2] / np.linalg.norm(erste[2])
+    pa, pb = lage(modell.flaechen[flaeche_a], richtung), lage(modell.flaechen[flaeche_b], richtung)
+    if pb is None:
+        return glieder, [tr("Die zweite Fläche liegt nicht quer zur Kettenrichtung")]
+    if pb < pa:  # Schlussmass positiv: Richtung von a nach b
+        richtung, pa, pb = -richtung, -pa, -pb
+    knoten = lambda x: round(x, 4)  # noqa: E731
+    kanten: dict[float, list[tuple[float, int]]] = {}
+    for i, g in enumerate(glieder):
+        if g.quelle == "lage":
+            continue
+        orte = sorted({knoten(o) for f in g.flaechen if f < len(modell.flaechen)
+                       for o in [lage(modell.flaechen[f], richtung)] if o is not None})
+        paar = [(a, b) for a in orte for b in orte if b > a and (g.nenn <= 0 or abs(b - a - abs(g.nenn)) < 1e-3)]
+        if len(paar) != 1:
+            hinweise.append(tr("{}: Lage der Flächen entlang der Kette nicht eindeutig").format(g.name))
+            continue
+        a, b = paar[0]
+        kanten.setdefault(a, []).append((b, i))
+        kanten.setdefault(b, []).append((a, i))
+    start, ziel = knoten(pa), knoten(pb)
+    vorher: dict[float, tuple[float, int]] = {start: (start, -1)}
+    offen = deque([start])
+    while offen and ziel not in vorher:
+        x = offen.popleft()
+        for y, i in kanten.get(x, []):
+            if y not in vorher:
+                vorher[y] = (x, i)
+                offen.append(y)
+    if ziel not in vorher:
+        return glieder, hinweise + [tr("Kein geschlossener Weg vom ersten zum zweiten Schlussmaß-Element über die "
+                                       "Glieder")]
+    weg = []
+    x = ziel
+    while x != start:
+        y, i = vorher[x]
+        weg.append((i, 1 if x > y else -1))
+        x = y
+    weg.reverse()
+    for i, r in weg:
+        glieder[i].richtung = r
+    auf_weg = {i for i, _ in weg}
+    rest = [g for i, g in enumerate(glieder) if i not in auf_weg]
+    for g in rest:
+        if g.quelle != "lage":
+            hinweise.append(tr("{}: nicht auf dem Weg des Schlussmaßes").format(g.name))
+    return [glieder[i] for i, _ in weg] + rest, hinweise

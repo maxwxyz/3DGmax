@@ -584,3 +584,82 @@ class AusrichtPanel(QtWidgets.QDialog):
     def closeEvent(self, ev):
         self.beendet.emit()
         super().closeEvent(ev)
+
+
+MODI = (("vergleich", "Vergleich", "Neuer Stand nach Status gefärbt, entfernte Flächen des alten Stands rot"),
+        ("alt", "Alt", "Nur der alte Stand"),
+        ("neu", "Neu", "Nur der neue Stand"),
+        ("ueberlagern", "Überlagern", "Neuer Stand, darüber der alte durchscheinend"),
+        ("nebeneinander", "Nebeneinander", "Links alt, rechts neu, Kameras gekoppelt"),
+        ("blinken", "Blinken", "Wechselt zwischen alt und neu; Leertaste wechselt von Hand"))
+BLINK_TAKTE = ((300, "0,3 s"), (600, "0,6 s"), (1000, "1 s"), (2000, "2 s"))
+
+
+class VergleichsmodusLeiste(QtWidgets.QFrame):
+    """Leiste ueber der 3D-Ansicht im Vergleich: Modus, Aenderungen hervorheben, Blinktakt und Pause."""
+
+    modus = QtCore.Signal(str)
+    hervorheben = QtCore.Signal(bool)
+    takt = QtCore.Signal(int)  # ms
+    pause = QtCore.Signal(bool)
+
+    def __init__(self, parent=None):
+        super().__init__(parent)
+        self.setObjectName("vergleichsmodus")
+        reihe = QtWidgets.QHBoxLayout(self)
+        reihe.setContentsMargins(8, 3, 8, 3)
+        reihe.addWidget(QtWidgets.QLabel(tr("Ansicht:")))
+        self.gruppe = QtWidgets.QButtonGroup(self)
+        self.knoepfe = {}
+        for i, (schluessel, text, tipp) in enumerate(MODI, 1):
+            k = QtWidgets.QToolButton()
+            k.setText(tr(text))
+            k.setCheckable(True)
+            k.setAutoRaise(True)
+            k.setToolTip(f"{tr(tipp)} (Alt+{i})")
+            k.setShortcut(QtGui.QKeySequence(f"Alt+{i}"))
+            self.gruppe.addButton(k)
+            self.knoepfe[schluessel] = k
+            k.clicked.connect(lambda _=False, s=schluessel: self.modus.emit(s))
+            reihe.addWidget(k)
+        self.knoepfe["vergleich"].setChecked(True)
+        reihe.addSpacing(12)
+        self.hervor = QtWidgets.QCheckBox(tr("Änderungen hervorheben"))
+        self.hervor.setChecked(True)
+        self.hervor.setToolTip(tr("In Alt, Neu, Nebeneinander und Blinken geänderte Flächen und PMI farbig zeigen"))
+        self.hervor.toggled.connect(self.hervorheben.emit)
+        reihe.addWidget(self.hervor)
+        self.blink = QtWidgets.QWidget()
+        b = QtWidgets.QHBoxLayout(self.blink)
+        b.setContentsMargins(12, 0, 0, 0)
+        self.takt_wahl = QtWidgets.QComboBox()
+        for ms, text in BLINK_TAKTE:
+            self.takt_wahl.addItem(text, ms)
+        self.takt_wahl.setCurrentIndex(1)
+        self.takt_wahl.setToolTip(tr("Blinkgeschwindigkeit"))
+        self.takt_wahl.currentIndexChanged.connect(lambda _i: self.takt.emit(self.takt_wahl.currentData()))
+        self.pause_knopf = QtWidgets.QPushButton()
+        self.pause_knopf.setCheckable(True)
+        self.pause_knopf.toggled.connect(self._pause)
+        self._pause(False)
+        self.stand = QtWidgets.QLabel("")
+        self.stand.setMinimumWidth(40)
+        for w in (self.takt_wahl, self.pause_knopf, self.stand):
+            b.addWidget(w)
+        reihe.addWidget(self.blink)
+        reihe.addStretch(1)
+        self.blink.setVisible(False)
+        self.setStyleSheet("#vergleichsmodus { border-bottom: 1px solid palette(mid); }")
+
+    def _pause(self, an: bool):
+        self.pause_knopf.setText(tr("▶ Weiter") if an else tr("⏸ Anhalten"))
+        self.pause_knopf.setToolTip(tr("Blinken fortsetzen") if an else tr("Blinken anhalten (Leertaste wechselt "
+                                                                          "von Hand)"))
+        self.pause.emit(an)
+
+    def setze(self, modus: str):
+        self.knoepfe[modus].setChecked(True)
+        self.blink.setVisible(modus == "blinken")
+
+    def zeige_stand(self, alt: bool | None):
+        self.stand.setText("" if alt is None else tr("alt") if alt else tr("neu"))

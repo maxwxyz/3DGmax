@@ -252,7 +252,15 @@ out). With Ⓜ/Ⓛ the location link grows by the full bonus in the worst case (
 with Ⓜ/Ⓛ adds a link of its own ("datum shift"). Straight and circular edges may be chain ends too. <b>Offset</b> per
 link (process mean offset) lowers the Cpk; with <b>Requirement on the closing dimension</b> the window shows Cp, Cpk
 and the share outside (normal distribution and Monte Carlo). <b>PDF report</b> with picture, result table (also what-if
-against actual), reason, histogram and link table; the chain is stored in the project.</li>
+against actual), reason, histogram and link table; the chain is stored in the project. <b>Thermal expansion at</b> two
+limit temperatures computes ΔL = α · L · (T − 20 °C) per link with the material of its part (from the STEP file,
+otherwise from the library; <b>Materials …</b> changes α and sets an own temperature per part if needed). <b>＋ Length
+range …</b> adds springs, shims or adjusting screws between smallest and largest length; right-click makes a link the
+<b>adjusting member</b>, the window then states the range it must cover for the requirement. <b>Directions from closing
+dimension</b>: select the two faces of the closing dimension (the planar one first), the program finds the path through
+the links and sets order and signs; <b>▶ Walk chain</b> shows the links one after another in the model. <b>Save chain
+…</b> writes a <code>.3dgkette</code> file that <b>Open chain …</b> or <b>File › Open</b> loads later together with its
+model. Example: <b>File › Examples › Stack-up gearbox shaft</b>.</li>
 <li><b>Model › Create PMI</b>: select faces, check, adjust and accept the suggestions of the tolerancing advisor
     (own PMI, stored in the project). Existing PMI can be edited; the original values stay visible.</li>
 </ul>
@@ -279,6 +287,15 @@ against actual), reason, histogram and link table; the chain is stored in the pr
 </ul>
 <figure><a href="doc_img/en/farbkarte.png"><img src="doc_img/en/farbkarte.png" alt="Deviation colour map in a comparison." loading="lazy"></a>
 <figcaption>Deviation colour map: deviation of the new state from the old one per point.</figcaption></figure>
+
+<h3>Comparison modes</h3>
+<p>While comparing, the <b>View</b> bar above the 3D view (shortcuts <kbd>Alt</kbd>+<kbd>1</kbd> … <kbd>6</kbd>) offers
+<b>Comparison</b> (new state coloured by status, removed faces red), <b>Old</b> and <b>New</b> (one state only),
+<b>Overlay</b> (old state transparent blue over the new one), <b>Side by side</b> (old left, new right, cameras coupled:
+rotating, zooming and standard views act in both) and <b>Blink</b> (switches at the chosen speed, ⏸/▶ pauses,
+<kbd>Space</kbd> switches by hand; in Old/New Space switches too). <b>Highlight changes</b> colours changed faces and PMI
+in Old, New, Side by side and Blink. In Old mode the structure tree shows the old state; a selected change is
+highlighted in both states.</p>
 
 <h2 id="review">Reviewing changes</h2>
 <figure><a href="doc_img/en/pruefen.png"><img src="doc_img/en/pruefen.png" alt="Review: selected change with description, Checked/Rejected." loading="lazy"></a>

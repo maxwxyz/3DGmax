@@ -47,6 +47,10 @@ BEISPIELE = (
     Beispiel("kette", "Toleranzkette (1D)",
              "NIST FTC-10: Längenmaße als Kettenglieder (Richtung je Glied umkehrbar), Worst Case, statistisch mit "
              "Cp 1,33, Monte Carlo", (FTC10,)),
+    Beispiel("kette_getriebe", "Toleranzkette Getriebewelle mit Wärmeausdehnung",
+             "Axialspiel zwischen Lager und Sicherungsring: Kette aus Datei, Richtungen aus dem Schlussmaß, "
+             "Werkstoffe aus der STEP-Datei, −20 °C und 100 °C (Alu-Hülse), Anforderung 0,05 … 1,1 mm",
+             ("getriebe.3dgkette", "getriebe.stp")),
     Beispiel("zusammenbau", "Zusammenbau und Wiggle",
              "Schraube: Kopf auf den Deckel gefangen, Schaft koaxial zur Bohrung – offen bleibt die Drehung um die "
              "Achse, der Wiggle zeigt sie", ("baugruppe.stp",)),

@@ -178,8 +178,15 @@ _KOPF = re.compile(r"^#(\d+)\s*=\s*(.*)$", re.S)
 
 
 def lese(pfad: str) -> P21Datei:
-    with open(pfad, encoding="latin-1") as f:
-        return lese_text(f.read())
+    """Eigentlich ASCII mit \\X2\\-Kodierung; manche Programme (auch OCCT) schreiben Umlaute als UTF-8, aeltere als
+    Latin-1. Ein Latin-1-Umlaut ist kein gueltiges UTF-8, daher zuerst UTF-8, sonst Latin-1."""
+    with open(pfad, "rb") as f:
+        roh = f.read()
+    try:
+        text = roh.decode("utf-8")
+    except UnicodeDecodeError:
+        text = roh.decode("latin-1")
+    return lese_text(text)
 
 
 def lese_text(text: str) -> P21Datei:

@@ -865,7 +865,7 @@ def test_beispiele_modell(fenster):
     from programm.kern import beispiele
     assert {b.name for b in beispiele.BEISPIELE} == {"pmi", "pruefen", "zonen", "schnittansicht", "kette", "scan",
                                                       "vergleich_pmi", "vergleich_geo", "baugruppe", "kollision",
-                                                      "zusammenbau", "variation"}
+                                                      "zusammenbau", "variation", "kette_getriebe"}
     _beispiele(fenster, ("pmi", "pruefen", "zonen", "schnittansicht", "kette", "kollision", "zusammenbau"))
 
 
@@ -1143,3 +1143,48 @@ def test_toleranzkette_planspiel_und_anwendbar(fenster, tmp_path):
     k.tabelle.item(0, SP_TOL).setText("0,1")
     k.beende_planspiel(True)
     assert abs(k.glieder[0].toleranz - 0.1) < 1e-12 and k.e_ist is None
+
+
+def test_toleranzkette_getriebe_beispiel(fenster, tmp_path):
+    """Beispiel: Kette mit Modell laden, Temperaturen und Werkstoffe, Bauteiltemperatur, Stellglied, Laengenbereich,
+    Speichern und wieder Oeffnen, Richtungen aus dem Schlussmass, Kette ablaufen."""
+    from programm.kern import toleranzkette as tk
+    from programm.ui.toleranzkette_ui import WerkstoffDialog
+    f = fenster
+    assert f.oeffne_beispiel("kette_getriebe", warten=True)
+    k = f._kette
+    assert f.erg is not None and f.erg.pfad.endswith("getriebe.stp") and len(k.glieder) == 6
+    assert k.waerme.isChecked() and [t for t, _ in k.e_temp] == [-20.0, 100.0]
+    assert k.werkstoffe["Distanzhülse"]["alpha"] == 23.0 and {g.teil for g in k.glieder} >= {"Welle", "Zahnrad"}
+    texte = [k.ergebnisse.item(z, 0).text() for z in range(k.ergebnisse.rowCount())]
+    assert any("100 °C" in t for t in texte) and k.e_temp[1][1].nenn < k.e.nenn
+    d = WerkstoffDialog(k, k)
+    assert d.tabelle.rowCount() == 5
+    k.setze_teiltemperatur("Welle", "t2", 60.0)
+    assert k.e_temp[1][1].nenn < tk.berechne(tk.thermisch(k.glieder, k._alpha(), 100.0)).nenn
+    assert any("Bauteiltemperaturen" in k.ergebnisse.item(z, 0).text() for z in range(k.ergebnisse.rowCount()))
+    k.setze_stellglied(5, True)
+    assert "Stellglied" in k.ergebnis.text() and "[" in k.tabelle.item(5, 0).text()
+    k.ergaenze_bereich("Wellfeder", 2.0, 3.0, -1)
+    assert k.glieder[-1].quelle == "bereich" and k.glieder[-1].verteilung == "gleich"
+    ziel = k.speichere_kette(str(tmp_path / "meine"))
+    k.leeren()
+    assert not k.glieder
+    f.oeffne_kette(ziel, warten=True)
+    assert len(k.glieder) == 7 and k.glieder[5].stellglied and k.werkstoffe["Welle"]["t2"] == 60.0
+    # Richtungen aus dem Schlussmass: Vorzeichen durcheinander, dann aus der 3D-Auswahl setzen
+    for g in k.glieder:
+        g.richtung = 1
+    from programm.kern.toleranzkette import _ebene_oder_achse
+    x = lambda i: float(_ebene_oder_achse(f.erg.modell.flaechen[i])[1][0])  # noqa: E731
+    lager = max(k.glieder[0].flaechen, key=x)
+    ring = min(k.glieder[5].flaechen, key=x)
+    f.ansicht.setze_auswahl([f.erg.modell.flaechen[lager], f.erg.modell.flaechen[ring]])
+    hinweise = f._kette_schluss()
+    assert [g.richtung for g in k.glieder[:6]] == [-1, -1, -1, 1, 1, -1] and abs(k.e.nenn - (0.4 + 2.5)) < 1e-6  # Feder (+1, nicht auf dem Weg)
+    assert any("Wellfeder" in h for h in hinweise)  # Feder hat keine Flaechen: nicht auf dem Weg
+    k.ablauf.setChecked(True)
+    assert "Glied 1 von 7" in k.ergebnis.text().replace("&nbsp;", " ")
+    k._ablauf_schritt()
+    assert k.tabelle.currentRow() == 1
+    k.ablauf.setChecked(False)

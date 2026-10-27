@@ -162,7 +162,7 @@ def test_exporte_englisch(alt, monkeypatch):
     v = vergleich.vergleiche(alt, _variante("ctc01_geo_pmi"))
     text = pmi_bericht.vergleich_csv(v)
     kopf = text.splitlines()[0]
-    assert kopf.startswith("No;Category;Status;Title;Description;Old;New")
+    assert kopf.startswith("No;Category;Status;Title;Description;Characteristic;Old value;New value;Δ;Tendency;Old;New")
     assert "nominal: 20 → 21" in text and "PMI changed: Dimension" in text
     assert "face(s), largest deviation" in text
     assert pmi_bericht.als_csv(pmi_bericht.tabelle(alt.pmi, alt.ansichten)).startswith("No;Kind;Characteristic;Type;Name;Value")
@@ -635,3 +635,47 @@ def test_scanpruefung_stufe2(tmp_path):
     assert len(wolke) == len(pts[::10]) and np.allclose(wolke[0], pts[0], atol=1e-4)
     g = ausrichten.richte_aus(cad.modell.flaechen, None, 0.05, punkte_b=wolke)
     assert g.methode == "bestpassung" and g.anteil > 0.8
+
+
+def test_vergleichsmodi(fenster):
+    """Alt, Neu, Ueberlagern, Nebeneinander mit gekoppelter Kamera, Blinken mit Leertaste; Baum folgt dem Modus."""
+    f = fenster
+    f.starte_vergleich({"alt": pfad("baugruppe.stp"), "neu": pfad("baugruppe_b.stp"), "toleranz": 0.01,
+                        "suchweite": 2.0}, warten=True)
+    v = f.vergleich
+    assert f.modus_leiste.isVisibleTo(f) and f.ansicht_alt is None  # zweite Ansicht erst bei Bedarf
+    f.setze_vergleichsmodus("nebeneinander")
+    alt = f.ansicht_alt
+    assert alt is not None and alt.isVisibleTo(f) and f.ansicht.isVisibleTo(f) and alt.szene.modell is v.alt.modell
+    assert alt.vergleich_status == v.geo.status_a
+    # Kamera: die zuletzt bewegte Ansicht gibt die Lage vor
+    f._kameras_koppeln()
+    k = ((1.0, 2.0, 3.0), (0.0, 0.0, 0.0), (0.0, 0.0, 1.0), 50.0)
+    f.ansicht.setze_kamera_daten(k)
+    f._kameras_koppeln()
+    assert alt.kamera_daten() == k
+    k2 = ((5.0, 0.0, 0.0), (0.0, 0.0, 0.0), (0.0, 1.0, 0.0), 20.0)
+    alt.setze_kamera_daten(k2)
+    f._kameras_koppeln()
+    assert f.ansicht.kamera_daten() == k2
+    f.setze_vergleichsmodus("alt")
+    assert alt.isVisibleTo(f) and not f.ansicht.isVisibleTo(f)
+    assert f.dock_baum.windowTitle().endswith(("alter Stand", "old state")) and f._baum_ansicht() is alt
+    f._alt_neu_wechseln()  # Leertaste: Alt -> Neu
+    assert f._vergleichsmodus == "neu" and f.ansicht.isVisibleTo(f) and not alt.isVisibleTo(f)
+    f.modus_leiste.hervor.setChecked(False)
+    assert f.ansicht.vergleich_status == {}  # ohne Hervorhebung neutral
+    f.modus_leiste.hervor.setChecked(True)
+    f.setze_vergleichsmodus("ueberlagern")
+    assert f.ansicht.ueberlagerung is v.alt.modell.form
+    f.setze_vergleichsmodus("blinken")
+    assert f._blink.isActive() and f.modus_leiste.blink.isVisibleTo(f)
+    sichtbar = alt.isVisibleTo(f)
+    f._blink_schritt()
+    assert alt.isVisibleTo(f) != sichtbar and f.ansicht.isVisibleTo(f) == sichtbar
+    f._alt_neu_wechseln()  # Leertaste im Blinken: anhalten und von Hand wechseln
+    assert not f._blink.isActive() and f.modus_leiste.pause_knopf.text().startswith("▶")
+    f.setze_vergleichsmodus("vergleich")
+    assert f.ansicht.ueberlagerung is None and not alt.isVisibleTo(f) and not f._kopplung.isActive()
+    f.beende_vergleich()
+    assert not f.modus_leiste.isVisibleTo(f) and f.dock_baum.windowTitle() in ("Struktur", "Structure")

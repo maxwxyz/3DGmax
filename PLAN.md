@@ -281,6 +281,37 @@ Throughout: tests (core, offscreen UI, stress test, on-screen test), `--selbstte
   (equalise variances, widening factor, cost weights, "required Cpk → tolerances"); beta/cosine/DIN histogram
   distributions; distribution fitted from measured values (CSV import); several saved scenarios instead of one;
   ⟨ST⟩ statistical tolerance marks from the PMI as hint for the distribution.
+- Requested 2026-10-28 (stage 3b, implement next):
+  1. **Thermal expansion (optional):** two limit temperatures for the whole chain (e.g. −20 °C / +80 °C, reference
+     20 °C per ISO 1); per link ΔL = α · L · (T − 20 °C) with α of the part; the closing dimension is computed at
+     both limits (worst case and statistics shifted by the thermal term). α from the STEP material (if the file
+     carries a material/property; otherwise a small material library: steel 11.5, stainless 16, aluminium 23,
+     cast iron 10.5, brass 19, PA6 80, POM 110 ·10⁻⁶/K) or entered per part; links know their part via the PMI faces.
+  2. **Save and load the chain** as an own file (`.3dgkette`, JSON: links, Cp, requirement, temperatures, materials,
+     what-if; model path and face ids so that "show faces" works again) for later sessions, independent of the
+     project container (which keeps storing it too).
+  3. **Demo:** File › Examples "Toleranzkette (Getriebe)": a small generated gearbox-like assembly (shaft shoulder,
+     gear, spacer, bearing, circlip groove and ring – the classic example of Klein/HAW thesis) as STEP with PMI plus
+     a chain file; shipped in tests/daten (own geometry, no licence issue).
+  4. **Springs and adjustable lengths:** a link type "length range" (e.g. a spring between min and max installed
+     length, shims, adjustment screws): min/max instead of nominal ± tolerance, uniform distribution by default, can
+     also be marked as the *adjusting member* (closing dimension is then solved for its required range instead).
+  5. **Directions from a load direction:** with links from faces the sign already follows from the geometry. For a
+     chain defined by PMI dimensions (no order), a "Kraftrichtung" (load/closing direction) picked in 3D lets the
+     signs be set from the geometry of each dimension's two faces along that direction – unambiguous only for
+     planar faces perpendicular to it; others stay and are marked. Plus a **validation animation**: each link is
+     shown in turn as an arrow between its faces in the 3D view (+ green, − red), and a "wiggle" moves the faces of the
+     closing dimension by the worst-case extremes (exaggerated) so the user sees whether the gap closes the right way.
+- Done 2026-10-28 (stage 3b): thermal expansion at two limit temperatures with optional own temperature per part
+  (`kern/werkstoffe.py`: library, keyword matching of material names, STEP materials via MATERIAL_DESIGNATION or
+  the XCAF property form – checked by writing/reading a file with OCCT); length-range links and an adjusting member
+  with its required worst-case range (`stellbereich`); chain file `.3dgkette` (`kern/kette_datei.py`), opened via File ›
+  Open too (loads its model); gearbox demo `werkzeuge/getriebe.py` → `tests/daten/getriebe.stp/.3dgkette` and File ›
+  Examples. Item 5 done differently: instead of a load direction the user picks the two faces of the closing dimension
+  – a path search over the face positions sets order and signs (`richtungen_aus_schlussmass`, unambiguous where a
+  load direction is not); "▶ Kette ablaufen" walks the links in the model. Open: arrows per link in 3D and a wiggle of
+  the closing faces by the worst-case extremes. Finding: OCCT writes non-ASCII STEP strings as raw UTF-8 – the P21
+  reader now tries UTF-8 before Latin-1.
 - UX design (stage 3): one window in the order *purpose → inputs → links table → results → export*:
   - Top: one-line purpose and the buttons to add links (from PMI list, from 3D selection), "Lagetoleranzen",
     chain Cp; right aligned the "Planspiel" switch.
@@ -292,6 +323,26 @@ Throughout: tests (core, offscreen UI, stress test, on-screen test), `--selbstte
     requirement Cp/Cpk/ppm in extra columns. In Planspiel the columns are Ist, Planspiel, Δ.
   - A small histogram of the Monte Carlo samples with the worst-case limits and the requirement drawn as lines.
   - Bottom: CSV, PDF, close.
+
+### 8.31 Comparison view modes (requested 2026-10-28; as in ZGmax)
+Today the comparison shows the new state with status colours and the removed faces of the old one, and the structure
+tree shows only the new model. Modes as in ZGmax (Old, New, Comparison, Side by side, Overlay, Blink):
+- **Comparison** (default, today's view): new state coloured by status, removed faces of the old state in red.
+- **Old** / **New**: only one state; "Highlight changes" (on by default) colours changed/removed resp. changed/new
+  faces and highlights changed PMI, off shows the plain model.
+- **Overlay**: new state plus the old one transparent in another colour (like manual alignment, not pickable).
+- **Side by side**: two 3D views (left old, right new) with **coupled cameras** (rotate, pan, zoom, standard views,
+  cube) – both in the coordinate system of the old state, the new one aligned; a selected change highlights its faces
+  in both.
+- **Blink**: one view switches between old and new (0.3 / 0.6 / 1 / 2 s, ▶/⏸ pause, Space switches by hand) –
+  cheap because the second view already exists with the same camera.
+- **Structure tree** follows the mode (Old → old tree, otherwise new tree, title says which); stage 2: parts
+  coloured by their assembly change status (new/removed/moved/changed), both trees side by side in "Side by side".
+- UI: a mode bar above the 3D view while comparing (segmented buttons with the six modes, "Änderungen
+  hervorheben", blink speed and ▶/⏸), shortcuts Alt+1 … Alt+6 (1–7 are the standard views), Space in Blink/Old/New.
+- Implementation: a second full 3D view for the old state (own scene with PMI graphics and status colours of the old
+  state), both in a splitter in the central area; the camera is coupled by a 50 ms check of eye/centre/up/scale
+  (works for every camera change incl. the view cube); the second view is created at the first comparison.
 
 ### 8.9 Test data
 - NIST: FTC/STC/CTC (AP242); D2MI 827-9999-904 rev C (AP242 with PMI) ↔ 906 (same geometry, no PMI); FTC-06 ↔ STC-06

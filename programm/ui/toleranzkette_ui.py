@@ -114,8 +114,67 @@ class Histogramm(QtWidgets.QWidget):
         p.end()
 
 
+class WerkstoffDialog(QtWidgets.QDialog):
+    """Werkstoff und Ausdehnungskoeffizient je Bauteil der Kette (aus der Datei vorbelegt, sonst Bibliothek)."""
+
+    def __init__(self, fenster, parent=None):
+        super().__init__(parent)
+        from ..kern import werkstoffe as ws
+        self.setWindowTitle(tr("Werkstoffe der Kette"))
+        self.resize(560, 300)
+        self.fenster = fenster
+        lay = QtWidgets.QVBoxLayout(self)
+        hinweis = QtWidgets.QLabel(tr("Werkstoff je Bauteil (aus der Datei, wenn angegeben); α in 10⁻⁶/K wird aus der "
+                                      "Bibliothek gesetzt und lässt sich ändern."))
+        hinweis.setWordWrap(True)
+        hinweis.setObjectName("leise")
+        lay.addWidget(hinweis)
+        teile = fenster.teile()
+        self.tabelle = QtWidgets.QTableWidget(len(teile), 5)
+        self.tabelle.setHorizontalHeaderLabels([tr("Bauteil"), tr("Werkstoff"), tr("α (10⁻⁶/K)"),
+                                                tr("Temperatur 1"), tr("Temperatur 2")])
+        self.tabelle.verticalHeader().setVisible(False)
+        self.tabelle.horizontalHeader().setStretchLastSection(True)
+        for z, teil in enumerate(teile):
+            w = fenster.werkstoffe.get(teil, {})
+            self.tabelle.setItem(z, 0, QtWidgets.QTableWidgetItem(teil))
+            name = QtWidgets.QComboBox()
+            name.setEditable(True)
+            name.addItems(([w["name"]] if w.get("name") and w["name"] not in ws.BIBLIOTHEK else []) +
+                          list(ws.BIBLIOTHEK))
+            name.setCurrentText(w.get("name", ""))
+            alpha = QtWidgets.QDoubleSpinBox()
+            alpha.setRange(0.0, 500.0)
+            alpha.setDecimals(1)
+            alpha.setSpecialValueText(tr("unbekannt"))
+            alpha.setValue(w.get("alpha") or 0.0)
+            name.currentTextChanged.connect(lambda t, a=alpha: a.setValue(ws.alpha_fuer(t) or a.value()))
+            name.currentTextChanged.connect(lambda t, teil=teil, a=alpha: fenster.setze_werkstoff(teil, t, a.value()))
+            alpha.valueChanged.connect(lambda v, teil=teil, n=name: fenster.setze_werkstoff(teil, n.currentText(), v))
+            self.tabelle.setCellWidget(z, 1, name)
+            self.tabelle.setCellWidget(z, 2, alpha)
+            for s, schluessel in ((3, "t1"), (4, "t2")):  # eigene Temperatur des Bauteils, sonst die der Kette
+                feld = QtWidgets.QDoubleSpinBox()
+                feld.setRange(-274.0, 1000.0)
+                feld.setDecimals(1)
+                feld.setSuffix(" °C")
+                feld.setSpecialValueText(tr("wie Kette"))
+                feld.setValue(w[schluessel] if w.get(schluessel) is not None else -274.0)
+                feld.setToolTip(tr("Eigene Temperatur dieses Bauteils im Grenzfall (z. B. kühleres Gehäuse); "
+                                   "ganz links: Temperatur der Kette"))
+                feld.valueChanged.connect(lambda v, teil=teil, k=schluessel: fenster.setze_teiltemperatur(
+                    teil, k, None if v <= -273.95 else v))
+                self.tabelle.setCellWidget(z, s, feld)
+        lay.addWidget(self.tabelle, 1)
+        knoepfe = QtWidgets.QDialogButtonBox(QtWidgets.QDialogButtonBox.StandardButton.Close)
+        knoepfe.rejected.connect(self.reject)
+        lay.addWidget(knoepfe)
+
+
 class ToleranzketteFenster(QtWidgets.QDialog):
     flaechen_zeigen = QtCore.Signal(set)  # Flaechen der gewaehlten Glieder (aus der 3D-Auswahl)
+    schluss_aus_auswahl = QtCore.Signal()  # Richtungen aus dem Schlussmass (zwei Flaechen in der 3D-Auswahl)
+    oeffnen = QtCore.Signal()  # Kettendatei oeffnen (Hauptfenster laedt ggf. das Modell)
 
     ERGEBNIS_ZEILEN = (("wc", "Arithmetisch (Worst Case)"), ("rss", "Statistisch (RSS, ±3σ)"),
                        ("mc", "Monte Carlo (99,73 %)"))
@@ -128,6 +187,10 @@ class ToleranzketteFenster(QtWidgets.QDialog):
         self._ist: list[tk.Glied] | None = None  # Planspiel: Kopie der echten Kette
         self._ist_cp = 1.0
         self.e_ist = None
+        self.werkstoffe: dict = {}  # Bauteil -> {"name": Werkstoff, "alpha": 1e-6/K}
+        self.teil_von = lambda flaechen: ""  # Bauteil zu Flaechen (setzt das Hauptfenster)
+        self.e_temp: list = []  # (Temperatur, Ergebnis) bei Waermeausdehnung
+        self.modell_pfad = ""
         lay = QtWidgets.QVBoxLayout(self)
         hinweis = QtWidgets.QLabel(tr("Maße in der PMI-Liste wählen und übernehmen, oder Flächen im Modell in "
                                       "Kettenreihenfolge wählen (Strg/⌘) und „Aus 3D-Auswahl“. Richtung + vergrößert, − "
@@ -152,7 +215,10 @@ class ToleranzketteFenster(QtWidgets.QDialog):
         kopf.setSectionResizeMode(QtWidgets.QHeaderView.ResizeMode.ResizeToContents)
         kopf.setSectionResizeMode(0, QtWidgets.QHeaderView.ResizeMode.Stretch)  # lange Namen ohne Querlauf
         lay.addWidget(self.tabelle, 3)
+        self.tabelle.setContextMenuPolicy(QtCore.Qt.ContextMenuPolicy.CustomContextMenu)
+        self.tabelle.customContextMenuRequested.connect(self._kontextmenue)
         lay.addLayout(self._baue_anforderung())
+        lay.addLayout(self._baue_temperatur())
         self.ergebnisse = QtWidgets.QTableWidget(0, 0)
         self.ergebnisse.verticalHeader().setVisible(False)
         self.ergebnisse.setEditTriggers(QtWidgets.QAbstractItemView.EditTrigger.NoEditTriggers)
@@ -167,6 +233,14 @@ class ToleranzketteFenster(QtWidgets.QDialog):
         self.histogramm = Histogramm()
         lay.addWidget(self.histogramm, 1)
         knoepfe = QtWidgets.QDialogButtonBox(QtWidgets.QDialogButtonBox.StandardButton.Close)
+        self.kette_oeffnen = knoepfe.addButton(tr("Kette öffnen …"), QtWidgets.QDialogButtonBox.ButtonRole.ActionRole)
+        self.kette_oeffnen.setToolTip(tr("Gespeicherte Kette (.3dgkette) laden, auch mit ihrem Modell"))
+        self.kette_oeffnen.clicked.connect(self.oeffnen.emit)
+        self.kette_speichern = knoepfe.addButton(tr("Kette speichern …"),
+                                                 QtWidgets.QDialogButtonBox.ButtonRole.ActionRole)
+        self.kette_speichern.setToolTip(tr("Kette mit Werten, Temperaturen und Werkstoffen speichern, um später "
+                                           "weiterzuarbeiten"))
+        self.kette_speichern.clicked.connect(lambda: self.speichere_kette())
         self.export = knoepfe.addButton(tr("Als CSV speichern …"), QtWidgets.QDialogButtonBox.ButtonRole.ActionRole)
         self.pdf = knoepfe.addButton(tr("PDF-Bericht …"), QtWidgets.QDialogButtonBox.ButtonRole.ActionRole)
         knoepfe.rejected.connect(self.reject)
@@ -185,7 +259,22 @@ class ToleranzketteFenster(QtWidgets.QDialog):
         self.drehen = QtWidgets.QPushButton(tr("Richtung umkehren"))
         self.drehen.setToolTip(tr("Gewählte Glieder umkehren (auch per Doppelklick auf die Richtung)"))
         self.weg = QtWidgets.QPushButton(tr("Entfernen"))
-        for k in (self.plus, self.minus, self.auswahl, self.drehen, self.weg):
+        self.bereich = QtWidgets.QPushButton(tr("＋ Längenbereich …"))
+        self.bereich.setToolTip(tr("Feder, Passscheibe oder Stellschraube als Glied zwischen kleinster und größter "
+                                   "Länge"))
+        self.bereich.clicked.connect(self._bereich_dialog)
+        self.schluss = QtWidgets.QPushButton(tr("Richtungen aus Schlussmaß"))
+        self.schluss.setToolTip(tr("Zwei Flächen des Schlussmaßes im Modell wählen (erst die ebene, Strg/⌘ dann die "
+                                   "zweite): Reihenfolge und Vorzeichen aller Glieder folgen aus der Geometrie"))
+        self.schluss.clicked.connect(self.schluss_aus_auswahl.emit)
+        self.ablauf = QtWidgets.QPushButton(tr("▶ Kette ablaufen"))
+        self.ablauf.setCheckable(True)
+        self.ablauf.setToolTip(tr("Glieder nacheinander im Modell zeigen, um die Richtungen zu prüfen"))
+        self.ablauf.toggled.connect(self._ablauf)
+        self._ablauf_uhr = QtCore.QTimer(self)
+        self._ablauf_uhr.setInterval(900)
+        self._ablauf_uhr.timeout.connect(self._ablauf_schritt)
+        for k in (self.plus, self.minus, self.auswahl, self.bereich, self.drehen, self.weg, self.schluss, self.ablauf):
             reihe.addWidget(k)
         self.drehen.clicked.connect(self._drehen)
         self.weg.clicked.connect(self._entfernen)
@@ -252,7 +341,179 @@ class ToleranzketteFenster(QtWidgets.QDialog):
         reihe.addStretch(1)
         return reihe
 
+    def _baue_temperatur(self):
+        reihe = QtWidgets.QHBoxLayout()
+        self.waerme = QtWidgets.QCheckBox(tr("Wärmeausdehnung bei"))
+        self.waerme.setToolTip(tr("Schlussmaß zusätzlich bei zwei Grenztemperaturen: ΔL = α · L · (T − 20 °C) je "
+                                  "Glied mit dem Werkstoff seines Bauteils"))
+        self.t1, self.t2 = QtWidgets.QDoubleSpinBox(), QtWidgets.QDoubleSpinBox()
+        for k, w in ((self.t1, -20.0), (self.t2, 80.0)):
+            k.setRange(-273.0, 1000.0)
+            k.setDecimals(1)
+            k.setSuffix(" °C")
+            k.setValue(w)
+            k.setEnabled(False)
+            k.valueChanged.connect(self._rechne)
+        self.waerme.toggled.connect(lambda an: (self.t1.setEnabled(an), self.t2.setEnabled(an), self._rechne()))
+        self.werkstoff_knopf = QtWidgets.QPushButton(tr("Werkstoffe …"))
+        self.werkstoff_knopf.clicked.connect(lambda: WerkstoffDialog(self, self).open())
+        reihe.addWidget(self.waerme)
+        reihe.addWidget(self.t1)
+        reihe.addWidget(QtWidgets.QLabel(tr("und")))
+        reihe.addWidget(self.t2)
+        reihe.addWidget(self.werkstoff_knopf)
+        reihe.addStretch(1)
+        return reihe
+
+    def teile(self) -> list[str]:
+        return sorted({g.teil for g in self.glieder if g.teil} | set(self.werkstoffe))
+
+    def setze_werkstoff(self, teil: str, name: str, alpha: float | None):
+        self.werkstoffe.setdefault(teil, {}).update({"name": name, "alpha": alpha or None})
+        self._rechne()
+
+    def setze_teiltemperatur(self, teil: str, schluessel: str, wert: float | None):
+        """Eigene Temperatur eines Bauteils im Grenzfall t1/t2 (None: Temperatur der Kette)."""
+        self.werkstoffe.setdefault(teil, {})[schluessel] = wert
+        self._rechne()
+
+    def _je_teil(self, fall: int) -> dict:
+        schluessel = ("t1", "t2")[fall]
+        return {t: w[schluessel] for t, w in self.werkstoffe.items() if w.get(schluessel) is not None}
+
+    def temperaturen(self):
+        return (self.t1.value(), self.t2.value()) if self.waerme.isChecked() else None
+
+    def _alpha(self) -> dict:
+        return {t: w["alpha"] for t, w in self.werkstoffe.items() if w.get("alpha")}
+
     # --- Glieder ---
+
+    def _teile_setzen(self, glieder):
+        for g in glieder:
+            if not g.teil and g.flaechen:
+                g.teil = self.teil_von(g.flaechen)
+
+    def ergaenze_bereich(self, name: str, mindest: float, hoechst: float, richtung: int = 1,
+                         stellglied: bool = False):
+        self.glieder.append(tk.bereich_glied(name, mindest, hoechst, richtung, stellglied))
+        self._fuelle()
+
+    def _bereich_dialog(self):
+        d = QtWidgets.QDialog(self)
+        d.setWindowTitle(tr("Längenbereich"))
+        form = QtWidgets.QFormLayout(d)
+        name = QtWidgets.QLineEdit(tr("Feder"))
+        lo, hi = QtWidgets.QDoubleSpinBox(), QtWidgets.QDoubleSpinBox()
+        for k in (lo, hi):
+            k.setRange(-100000.0, 100000.0)
+            k.setDecimals(3)
+            k.setSuffix(" mm")
+        richtung = QtWidgets.QComboBox()
+        richtung.addItem(tr("+ vergrößert das Schlussmaß"), 1)
+        richtung.addItem(tr("− verkleinert das Schlussmaß"), -1)
+        stell = QtWidgets.QCheckBox(tr("Stellglied (Bereich wird berechnet)"))
+        for text, w in ((tr("Name"), name), (tr("Kleinste Länge"), lo), (tr("Größte Länge"), hi),
+                        (tr("Richtung"), richtung), ("", stell)):
+            form.addRow(text, w)
+        knoepfe = QtWidgets.QDialogButtonBox(QtWidgets.QDialogButtonBox.StandardButton.Ok |
+                                             QtWidgets.QDialogButtonBox.StandardButton.Cancel)
+        knoepfe.accepted.connect(d.accept)
+        knoepfe.rejected.connect(d.reject)
+        form.addRow(knoepfe)
+        d.accepted.connect(lambda: self.ergaenze_bereich(name.text(), lo.value(), hi.value(), richtung.currentData(),
+                                                         stell.isChecked()))
+        d.open()
+        return d
+
+    def _kontextmenue(self, pos):
+        z = self.tabelle.rowAt(pos.y())
+        if not 0 <= z < len(self.glieder):
+            return
+        g = self.glieder[z]
+        m = QtWidgets.QMenu(self)
+        stell = m.addAction(tr("Als Stellglied"))
+        stell.setCheckable(True)
+        stell.setChecked(g.stellglied)
+        stell.setToolTip(tr("Nötigen Bereich dieses Glieds für die Anforderung berechnen"))
+        umkehren = m.addAction(tr("Richtung umkehren"))
+        weg = m.addAction(tr("Entfernen"))
+        gewaehlt = m.exec(self.tabelle.viewport().mapToGlobal(pos))
+        if gewaehlt is stell:
+            self.setze_stellglied(z, stell.isChecked())
+        elif gewaehlt is umkehren:
+            self._doppelklick(z, SP_RICHTUNG)
+        elif gewaehlt is weg:
+            self.tabelle.selectRow(z)
+            self._entfernen()
+
+    def setze_stellglied(self, z: int, an: bool):
+        for i, g in enumerate(self.glieder):
+            g.stellglied = an and i == z  # hoechstens ein Stellglied
+        self._fuelle()
+
+    def setze_glieder(self, glieder: list):
+        """Glieder ersetzen (z. B. in Kettenreihenfolge aus dem Schlussmass)."""
+        self.glieder = list(glieder)
+        self._fuelle()
+
+    def _ablauf(self, an: bool):
+        self.ablauf.setText(tr("⏸ Anhalten") if an else tr("▶ Kette ablaufen"))
+        self._ablauf_nr = -1
+        if an and self.glieder:
+            self._ablauf_uhr.start()
+            self._ablauf_schritt()
+        else:
+            self._ablauf_uhr.stop()
+            self.tabelle.clearSelection()
+
+    def _ablauf_schritt(self):
+        """Naechstes Glied waehlen (hebt seine Flaechen hervor) und Richtung und Wert nennen."""
+        if not self.glieder:
+            self.ablauf.setChecked(False)
+            return
+        self._ablauf_nr = (self._ablauf_nr + 1) % len(self.glieder)
+        g = self.glieder[self._ablauf_nr]
+        self.tabelle.selectRow(self._ablauf_nr)
+        self.ergebnis.setText(html.escape(tr("Glied {} von {}: {} {} – {}").format(
+            self._ablauf_nr + 1, len(self.glieder), "+" if g.richtung > 0 else "−", _z(abs(g.nenn)), g.name)))
+
+    # --- Datei ---
+
+    def als_datei(self):
+        from ..kern import kette_datei
+        return kette_datei.KettenDatei(self.glieder, self.cp.value(), self.anforderung_werte(), self.temperaturen(),
+                                       dict(self.werkstoffe), self.modell_pfad)
+
+    def lade_datei(self, k):
+        """Kettendatei uebernehmen (Glieder, Cp, Anforderung, Temperaturen, Werkstoffe)."""
+        self.beende_planspiel(False)
+        self.werkstoffe = dict(k.werkstoffe)
+        for feld, wert in ((self.cp, k.cp),):
+            feld.blockSignals(True)
+            feld.setValue(wert)
+            feld.blockSignals(False)
+        if k.anforderung:
+            self.anforderung.setChecked(True)
+            self.unten.setValue(k.anforderung[0])
+            self.oben.setValue(k.anforderung[1])
+        else:
+            self.anforderung.setChecked(False)
+        if k.temperaturen:
+            self.t1.setValue(k.temperaturen[0])
+            self.t2.setValue(k.temperaturen[1])
+        self.waerme.setChecked(bool(k.temperaturen))
+        self.glieder = list(k.glieder)
+        self._fuelle()
+
+    def speichere_kette(self, pfad: str = "") -> str | None:
+        from ..kern import kette_datei
+        if not pfad:
+            pfad, _ = QtWidgets.QFileDialog.getSaveFileName(self, tr("Kette speichern"), "kette" + kette_datei.ENDUNG,
+                                                            tr("Toleranzkette (*.3dgkette)"))
+        if not pfad:
+            return None
+        return kette_datei.speichere(pfad, self.als_datei())
 
     @property
     def im_planspiel(self) -> bool:
@@ -267,6 +528,7 @@ class ToleranzketteFenster(QtWidgets.QDialog):
 
     def ergaenze(self, glieder: list):
         """Glieder aus der 3D-Auswahl anhaengen."""
+        self._teile_setzen(glieder)
         self.glieder.extend(glieder)
         self._fuelle()
 
@@ -275,6 +537,7 @@ class ToleranzketteFenster(QtWidgets.QDialog):
         for p in pmi_liste:
             g = tk.glied_von_pmi(p, richtung)
             if g is not None:
+                self._teile_setzen([g])
                 self.glieder.append(g)
                 n += 1
         self._fuelle()
@@ -388,6 +651,10 @@ class ToleranzketteFenster(QtWidgets.QDialog):
                 t.item(z, SP_RICHTUNG).setToolTip(tr("Doppelklick kehrt die Richtung um"))
             if g.quelle == "ohne":
                 t.item(z, 6).setForeground(QtGui.QColor("#c0392b"))
+            if g.stellglied:
+                t.item(z, 0).setText(f"{g.name}  [{tr('Stellglied')}]")
+            if g.teil:
+                t.item(z, 0).setToolTip(tr("Bauteil: {}").format(g.teil))
             self._widgets(z, g, ist)
             self._zelle(z, SP_ANTEIL, "", None, False)
         t.blockSignals(False)
@@ -464,6 +731,10 @@ class ToleranzketteFenster(QtWidgets.QDialog):
         anforderung = self.anforderung_werte()
         self.e = tk.berechne(self.glieder, cp=self.cp.value(), anforderung=anforderung)
         self.e_ist = tk.berechne(self._ist, cp=self._ist_cp, anforderung=anforderung) if self.im_planspiel else None
+        temps = self.temperaturen()
+        self.e_temp = [(t, tk.berechne(tk.thermisch(self.glieder, self._alpha(), t, self._je_teil(i)),
+                                       cp=self.cp.value(), anforderung=anforderung))
+                       for i, t in enumerate(temps)] if temps and self.glieder else []
         for z, anteil in enumerate(self.e.anteile):
             it = self.tabelle.item(z, SP_ANTEIL)
             if it is not None:
@@ -501,6 +772,14 @@ class ToleranzketteFenster(QtWidgets.QDialog):
                 ilo, ihi = self._werte(ist, art)
                 zellen = [name, f"{_z(ilo)} … {_z(ihi)}", f"{_z(lo)} … {_z(hi)}", _z((hi - lo) - (ihi - ilo), "+")]
             zeilen.append((zellen, fett))
+        for t, et in self.e_temp:  # Waermeausdehnung: das anwendbare Verfahren bei jeder Grenztemperatur
+            art = "rss" if et.statistisch else "wc"
+            lo, hi = self._werte(et, art)
+            name = tr("{} bei {:g} °C").format(tr(dict(self.ERGEBNIS_ZEILEN)[art]), t)
+            if self._je_teil(self.e_temp.index((t, et))):
+                name += " " + tr("(mit Bauteiltemperaturen)")
+            zellen = [name, _z(lo), _z(hi), _z(hi - lo)] if ist is None else [name, "", f"{_z(lo)} … {_z(hi)}", ""]
+            zeilen.append((zellen, False))
         if e.cp is not None:
             for name, wert in (("Cpk", lambda x: f"{x.cpk:.2f}"),
                                (tr("außerhalb (Monte Carlo)"), lambda x: f"{x.mc_ausserhalb * 1e6:.0f} ppm")):
@@ -532,6 +811,17 @@ class ToleranzketteFenster(QtWidgets.QDialog):
                          + 2 * t.frameWidth())
         e = self.e
         text = f"<b>{tr('Schlussmaß')}</b> {_z(e.nenn)} mm &nbsp; · &nbsp; {html.escape(tk.anwendbar_text(e))}"
+        anforderung = self.anforderung_werte()
+        bereich = tk.stellbereich(self.glieder, anforderung) if anforderung else None
+        if bereich is not None:
+            stell = next(g for g in self.glieder if g.stellglied)
+            text += "<br>" + html.escape(
+                tr("Stellglied {}: nötig {} … {} mm").format(stell.name, _z(bereich[0]), _z(bereich[1])) if
+                bereich[0] <= bereich[1] else tr("Stellglied {}: Anforderung im Worst Case nicht einstellbar").format(
+                    stell.name))
+        ohne = [t for t in {g.teil for g in self.glieder if g.teil} if not self._alpha().get(t)]
+        if self.e_temp and ohne:
+            text += "<br>" + html.escape(tr("Ohne Werkstoff (keine Ausdehnung): {}").format(", ".join(sorted(ohne))))
         if self.e_ist is not None and self.e_ist.statistisch != e.statistisch:
             text += " &nbsp; · &nbsp; " + html.escape(tr("Ist: {}").format(tk.anwendbar_text(self.e_ist)))
         self.ergebnis.setText(text)
