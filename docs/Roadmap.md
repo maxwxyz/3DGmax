@@ -11,6 +11,7 @@
 | Pivot stays fixed during zoom/pan, shown as line cross while orbiting/panning | ✅ |
 | Display shaded/with edges/wireframe, light/dark, custom background colors | ✅ |
 | Saved views: camera, window, PMI per view, browse (◀ ▶), search | ✅ |
+| Saved views with section planes (AP242 multi-clipping) – PLAN §8.25 | ⬜ |
 | Thumbnails per saved view (HLR edge drawing with PMI, background), small by default, large or off | ✅ |
 | Section X/Y/Z, at selected face/edge, from view direction, slider | ✅ |
 | Clipping box around the selection | ✅ |
@@ -60,6 +61,9 @@
 | Tolerance zones in the datum system: coaxiality/runout around the datum axis, datum shift with Ⓜ/Ⓛ, form/orientation inside the higher-level zone | ✅ |
 | Tolerance zones: line profile/roundness per section, ACS/ALS, CZ/SZ, tolerances on edges/points | ⬜ |
 | Tolerance stack-up 1D (dimension chain from PMI, worst case, RSS, Monte Carlo, CSV) | ✅ |
+| Stack-up 1D: Cp adjustable, angular dimensions excluded | ✅ |
+| Stack-up: Cp/Cpk and distribution per link; chain picked in 3D (faces, edges, derived axes) with PMI values and general tolerances for features without PMI; chains across parts | ⬜ |
+| Assembly placing with snapping (faces/axes/points), accumulated mates, open DOF shown | ⬜ |
 | Tolerance stack-up 3D (geometric tolerances, chain from the model, sensitivity) – PLAN §8.20 | ⬜ |
 | Assemblies built in the project (mates on datum features), materials and thermal expansion in chains | ⬜ |
 | Wiggle: move parts within their tolerances (per tolerance/chain/worst case, 1:1 or exaggerated) | ⬜ |
@@ -146,5 +150,8 @@
 | Portable apps Windows/macOS/Linux, GitHub workflow with/without tests, self-test | 🟡 (macOS verified locally) |
 | Release script: bump version, keep changelog DE/EN | ✅ |
 | Tests: core, offscreen UI, stress test, on-screen test | ✅ |
+| Demo projects in the repository for the main functions (File › Examples) – PLAN §8.24 | ⬜ |
+| Several models side by side: File › New window, optional linked cameras – PLAN §8.26 | ⬜ |
+| Wireframe with high-contrast edges (setting, default on); calmer, more legible view cube | ✅ |
 | Status-bar progress with Cancel for all background jobs (load, compare, analysis, colour map, material, scan) | ✅ |
 | Closable tabs of stacked side panels; smooth side-panel resizing (batched 3D buffer resize) | ✅ |

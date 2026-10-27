@@ -104,6 +104,7 @@ class Hauptfenster(QtWidgets.QMainWindow):
         self.ansicht.setze_thema(self.thema)
         self.ansicht.setze_navigation(self.ein.value("navigation", "catia"))
         self.ansicht.setze_pmi_kontrast(self.ein.value("pmi_kontrast", True, type=bool))
+        self.ansicht.setze_draht_kontrast(self.ein.value("draht_kontrast", True, type=bool))
         self._farben_anwenden()
         self.start = Startseite()
         self.stapel = QtWidgets.QStackedWidget()
@@ -841,6 +842,8 @@ class Hauptfenster(QtWidgets.QMainWindow):
             self.ansicht.schnittbox(None)
         if self.erg is not None and erg.pfad != self.erg.pfad:
             self.kommentare.setze([])  # Kommentare gehoeren zum vorigen Modell
+            if getattr(self, "_kette", None) is not None:
+                self._kette.leeren()  # Kettenglieder verweisen auf PMI des vorigen Modells
             self._allgemein = None  # Allgemeintoleranzen gehoeren zum vorigen Modell
             self.aktionen["allgemein_zeigen"].setChecked(False)
         if vergleich is None and self.ansicht.abweichung is not None:
@@ -1978,8 +1981,13 @@ class Hauptfenster(QtWidgets.QMainWindow):
         return f
 
     def _kette_uebernehmen(self, richtung: int):
-        n = self._kette.uebernimm(self.pmi.gewaehlte(), richtung)
-        if not n:
+        from ..kern import toleranzkette as tk
+        gewaehlt = self.pmi.gewaehlte()
+        n = self._kette.uebernimm(gewaehlt, richtung)
+        winkel = sum(1 for p in gewaehlt if p.art == "mass" and tk.ist_winkel(p))
+        if winkel:
+            self.statusBar().showMessage(tr("{} Winkelmaße nicht übernommen (Kette rechnet Längen)").format(winkel), 6000)
+        elif not n:
             self.statusBar().showMessage(tr("Erst Maße mit Nennmaß in der PMI-Liste wählen"), 5000)
 
     def _explosion_einpassen(self):
@@ -2283,6 +2291,8 @@ class Hauptfenster(QtWidgets.QMainWindow):
         self.ansicht.setze_navigation(w["navigation"])
         self.ein.setValue("pmi_kontrast", w.get("pmi_kontrast", True))
         self.ansicht.setze_pmi_kontrast(w.get("pmi_kontrast", True))
+        self.ein.setValue("draht_kontrast", w.get("draht_kontrast", True))
+        self.ansicht.setze_draht_kontrast(w.get("draht_kontrast", True))
         for k in ("pmi_eigen", "pmi_eigene_farbe", "hg_eigen", "hg_oben", "hg_unten"):
             if k in w:
                 self.ein.setValue(k, w[k])

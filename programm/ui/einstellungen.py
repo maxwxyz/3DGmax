@@ -47,6 +47,9 @@ class EinstellungenDialog(QtWidgets.QDialog):
         reihe.addStretch(1)
         form.addRow(tr("PMI-Farbe"), self.kontrast)
         form.addRow("", reihe)
+        self.draht_kontrast = QtWidgets.QCheckBox(tr("Kanten in Kontrastfarbe"))
+        self.draht_kontrast.setToolTip(tr("Aus: Kanten in der Bauteil- bzw. Flächenfarbe (auf hellem Grund oft schwach)"))
+        form.addRow(tr("Drahtmodell"), self.draht_kontrast)
         self.hg_eigen = QtWidgets.QCheckBox(tr("Eigener Hintergrund"))
         self.hg_oben = FarbKnopf(ein.value("hg_oben", "#dfe5ee"))
         self.hg_unten = FarbKnopf(ein.value("hg_unten", "#a9b3c2"))
@@ -73,6 +76,7 @@ class EinstellungenDialog(QtWidgets.QDialog):
         self._setze(self.thema, ein.value("thema", "auto"))
         self._setze(self.sprache, ein.value("sprache", "auto"))
         self.kontrast.setChecked(ein.value("pmi_kontrast", True, type=bool))
+        self.draht_kontrast.setChecked(ein.value("draht_kontrast", True, type=bool))
         self.pmi_eigen.setChecked(ein.value("pmi_eigen", False, type=bool))
         self.hg_eigen.setChecked(ein.value("hg_eigen", False, type=bool))
         self._aktiv()
@@ -95,6 +99,7 @@ class EinstellungenDialog(QtWidgets.QDialog):
     def werte(self) -> dict:
         return {"navigation": self.steuerung.currentData(), "thema": self.thema.currentData(),
                 "sprache": self.sprache.currentData(), "pmi_kontrast": self.kontrast.isChecked(),
+                "draht_kontrast": self.draht_kontrast.isChecked(),
                 "pmi_eigen": self.pmi_eigen.isChecked(), "pmi_eigene_farbe": self.pmi_farbe.farbe,
                 "hg_eigen": self.hg_eigen.isChecked(), "hg_oben": self.hg_oben.farbe, "hg_unten": self.hg_unten.farbe}
 

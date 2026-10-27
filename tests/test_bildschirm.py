@@ -159,6 +159,14 @@ def pruefe_alles():
     ergebnis["schnitt_zwei"] = len(a._clips) == 2
     f.aktionen["schnitt_aus"].trigger()
     ergebnis["schnitt_aus"] = a._clips == [] and a.schnitt_ebenen == []
+    # Drahtmodell: Kantenebene in Kontrastfarbe, abschaltbar
+    ctx = a.d.Context
+    a.darstellung("draht")
+    an = all(ctx.IsDisplayed(k) for k in a._kanten.values())
+    a.setze_draht_kontrast(False)
+    aus = not any(ctx.IsDisplayed(k) for k in a._kanten.values())
+    a.setze_draht_kontrast(True); a.darstellung("kanten")
+    ergebnis["draht_kontrast"] = an and aus and all(ctx.IsDisplayed(k) for k in a._kanten.values())
     pfad = os.path.join(tempfile.mkdtemp(), "b.png")
     ergebnis["bild"] = f.ansicht.bild(pfad) and os.path.getsize(pfad) > 1000
     print("ERGEBNIS", ergebnis, flush=True)

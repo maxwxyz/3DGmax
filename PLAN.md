@@ -208,6 +208,15 @@ Throughout: tests (core, offscreen UI, stress test, on-screen test), `--selbstte
   Monte Carlo; GD&T contributions (position, profile, datum shift with material condition); report with contributors.
 - Related: bill of characteristics with balloon numbers for metrology/quality.
 - 3D analysis of assemblies with materials, temperature and wiggle: see §8.20.
+- Done 2026-10-27: process capability Cp adjustable for the chain (σ = T / (6·Cp)), angular dimensions excluded
+  from length chains, chain cleared when another model is loaded.
+- Requested 2026-10-27 for full stack-up functionality:
+  - Cp/Cpk and distribution (normal, uniform, shifted mean) per link, not only per chain.
+  - Build the chain from a 3D selection: faces, edges and derived axes/median planes picked in order along the
+    chain; the direction from the geometry; values from the PMI on those features; features without PMI take the
+    general tolerances (ISO 2768 / ISO 22081, §8.5) and are marked as such; missing values reported.
+  - Accumulated (cumulative) chains across several parts of an assembly (links from different parts plus the
+    mating conditions between them), see §8.20.
 
 ### 8.9 Test data
 - NIST: FTC/STC/CTC (AP242); D2MI 827-9999-904 rev C (AP242 with PMI) ↔ 906 (same geometry, no PMI); FTC-06 ↔ STC-06
@@ -394,6 +403,8 @@ Research (2026-10-27, vendor statements and literature, not verified by experime
 Plan (each stage usable on its own; builds on §8.5 zones and the 1D chain of §8.8):
 1. **Assembly model:** use STEP assemblies as loaded; additionally assemble parts in the project (place a part,
    mate datum features: plane–plane, pin–hole, pin–slot, 3-2-1 locating), stored in the project container.
+   Placing snaps: drag a part, its face/axis/point snaps to the picked feature of the other part (coincident,
+   coaxial, offset), the snaps accumulate into the mates of the part; the open DOF are shown (§8.21 stage 6).
 2. **Materials:** read STEP material/density properties where present, otherwise assign from a small library
    (E-modulus, α, density; user extensible); temperature per part or per case (assembly, operation, min/max).
 3. **Chains:** 1D chains as today but picked in the model (faces/PMI along the chain, direction from the geometry);
@@ -489,3 +500,29 @@ Planned rules (each finding with severity, the PMI involved, a short reason and 
 - Open: manual alignment for the scan check (point pairs like the comparison), alignment to the datum system
   (3-2-1 instead of best fit), evaluation of linear distances and angles, line profile/roundness per section, report
   PDF with pictures per non-conforming PMI, point clouds without triangles.
+
+### 8.24 Demo projects (requested 2026-10-27)
+Example projects in the repository (`beispiele/`, project containers `.3dgmax` plus the referenced public-domain or
+self-generated models) that show one function each and open with File › Examples: PMI display and views, check
+PMI and plausibility findings, tolerance zones incl. general tolerances, comparison of the CTC-01 variants with the
+review state, scan against tolerances (both generated scans), 1D stack-up with Cp, analyses (draft, wall
+thickness), sections and drawings, assembly comparison (`baugruppe*.stp`). Only files with a clear licence (NIST
+public domain, own test models from `werkzeuge/testmodelle.py`); a test opens every example. Later the screenshots
+of the manual are generated from these projects.
+
+### 8.25 Saved views with section planes (requested 2026-10-27)
+STEP AP242 saved views may carry clipping planes (`CAMERA_MODEL_D3_MULTI_CLIPPING` with planes or
+`CAMERA_MODEL_D3_MULTI_CLIPPING_INTERSECTION` / `_UNION` combinations). Today the camera of such a view is read but
+the planes are ignored. Plan: read the planes (and their combination) in `kern/ansichten.py`, apply them as section
+planes with capping when the view is activated (union/intersection map to the existing multi-plane section),
+remove them when another view is chosen; same for QIF and PRC views where the format carries clip planes. No public
+sample with clipping planes is known – a test file is made by a text edit of a NIST file (licence-safe) and checked
+against the CAx-IF recommended practice for saved views.
+
+### 8.26 Several models side by side (asked 2026-10-27)
+Recommendation: File › New window in the same process (each window with its own model, 3D view and panels; shared
+settings and recent files), plus "open in new window" from the recent list and for dropped files with a modifier.
+Optional linked cameras between two windows (same view direction and zoom), which also gives the planned linked
+side-by-side comparison view. Separate processes work today (start the app twice), but macOS bundles route a second
+file open to the running app, so a window inside the app is the portable solution. Memory grows with each model; a
+test opens two windows and closes one without affecting the other.

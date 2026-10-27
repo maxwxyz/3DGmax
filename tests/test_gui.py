@@ -625,6 +625,12 @@ def test_toleranzkette_fenster(fenster_ctc01, tmp_path):
     k._drehen()
     assert k.glieder[0].richtung == -1
     assert k.speichere(str(tmp_path / "kette.csv"))
+    assert not any("°" in g.name for g in k.glieder)  # Winkelmasse gehoeren nicht in die Laengenkette
+    rss = k.e.rss
+    k.cp.setValue(1.33)
+    assert abs(k.e.rss - rss / 1.33) < 1e-6
+    k.leeren()
+    assert k.glieder == [] and k.tabelle.rowCount() == 0
 
 
 def test_pmi_anlegen_berater_projekt(fenster_ctc01, tmp_path):
@@ -777,3 +783,4 @@ def test_reiter_schliessen_und_abbrechen(fenster_ctc01):
         app.processEvents()
     app.processEvents()
     assert not f.fortschritt.isVisibleTo(f) and f.analyse.start.isEnabled() and f.ansicht.abweichung is None
+

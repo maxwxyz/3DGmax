@@ -2,7 +2,7 @@
 
 Jedes Glied ist ein Mass mit Nennmass, Hoechst- und Mindestmass und Richtung (+1 vergroessert das Schlussmass,
 -1 verkleinert es). Statistik: Mittelwert in Toleranzmitte, Standardabweichung = Toleranz / (2 * k) mit k = 3
-(Prozessfaehigkeit Cp = 1), Normalverteilung.
+(Prozessfaehigkeit Cp = 1, einstellbar: k = 3 * Cp), Normalverteilung.
 """
 
 from __future__ import annotations
@@ -41,7 +41,7 @@ class Ergebnis:
     wc_min: float
     wc_max: float
     mitte: float
-    rss: float  # halbe statistische Toleranzbreite (+-)
+    rss: float  # halbe statistische Toleranzbreite (+-3 sigma)
     mc_min: float  # 0,135 %-Quantil
     mc_max: float  # 99,865 %-Quantil
     mc_mittel: float
@@ -49,13 +49,18 @@ class Ergebnis:
 
 
 def glied_von_pmi(p, richtung: int = 1) -> Glied | None:
-    """Kettenglied aus einem Mass mit Grenzen (auch aus ISO-286-Klasse); None ohne Grenzen."""
-    if p.art != "mass" or p.nennwert is None:
+    """Kettenglied aus einem Laengenmass mit Grenzen (auch aus ISO-286-Klasse); None fuer Winkel und ohne Nennmass."""
+    if p.art != "mass" or p.nennwert is None or ist_winkel(p):
         return None
     h, m = p.grenzen()
     if h is None or m is None:
         h = m = p.nennwert
     return Glied(f"{p.nummer}: {p.wert_text()}", p.nennwert, h, m, richtung, p.nummer)
+
+
+def ist_winkel(p) -> bool:
+    """Winkelmasse passen nicht in eine Laengenkette."""
+    return "Angle" in (p.typ or "") or "°" in p.wert_text()
 
 
 def berechne(glieder: list[Glied], k: float = 3.0, proben: int = 200_000, zufall: int = 1) -> Ergebnis:
@@ -69,7 +74,7 @@ def berechne(glieder: list[Glied], k: float = 3.0, proben: int = 200_000, zufall
     wc_min = float(np.sum(np.where(r > 0, lo, hi) * r))
     mitte = float(np.sum((hi + lo) / 2 * r))
     sigma = (hi - lo) / (2 * k)
-    rss = float(k * math.sqrt(float(np.sum(sigma ** 2))))
+    rss = float(3.0 * math.sqrt(float(np.sum(sigma ** 2))))  # +-3 sigma des Schlussmasses
     rng = np.random.default_rng(zufall)
     werte = (rng.standard_normal((proben, len(glieder))) * sigma + (hi + lo) / 2) @ r
     q = np.quantile(werte, [0.00135, 0.99865])

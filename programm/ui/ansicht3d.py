@@ -21,6 +21,11 @@ from ..i18n import tr
 from .navigation import Navigation
 
 STANDARDANSICHTEN = ("vorne", "hinten", "oben", "unten", "links", "rechts", "iso")
+# Ansichtswuerfel je Farbschema: Seitenfarbe, Material (Umgebung/Streuung), Innenseite, Schrift
+WUERFEL_HELL = {"seite": (0.82, 0.84, 0.88), "umgebung": (0.72, 0.72, 0.72), "streu": (0.22, 0.22, 0.22),
+                "innen": (0.62, 0.65, 0.70), "text": (0.0, 0.0, 0.0)}
+WUERFEL_DUNKEL = {"seite": (0.40, 0.43, 0.48), "umgebung": (0.72, 0.72, 0.72), "streu": (0.22, 0.22, 0.22),
+                  "innen": (0.25, 0.27, 0.31), "text": (1.0, 1.0, 1.0)}
 DARSTELLUNGEN = ("kanten", "schattiert", "draht")
 
 
@@ -79,6 +84,7 @@ class AnsichtBasis(QtWidgets.QWidget):
         self.messmodus = False
         self.messungen: list = []
         self.pmi_kontrast = True  # PMI-Farbe ans Farbschema anpassen (sonst Farbe aus der Datei)
+        self.draht_kontrast = True  # Drahtmodell: Kanten in Kantenfarbe statt in der (hellen) Bauteilfarbe
         self.pmi_eigene_farbe = None  # (r, g, b) oder None
         self.hintergrund = None  # ((r, g, b) oben, (r, g, b) unten) oder None = Farbschema
         self.vergleich_status: dict | None = None
@@ -320,6 +326,9 @@ class AnsichtBasis(QtWidgets.QWidget):
 
     def setze_pmi_kontrast(self, an: bool):
         self.pmi_kontrast = an
+
+    def setze_draht_kontrast(self, an: bool):
+        self.draht_kontrast = an
 
     def pmi_farbe(self, g) -> tuple:
         """Anzeigefarbe einer Annotation: eigene Farbe, Schemafarbe (gut lesbar) oder Farbe aus der Datei;
@@ -607,11 +616,11 @@ class OcctAnsicht(AnsichtBasis):
         k = max(1.0, self.viewer.devicePixelRatioF()) if sys.platform == "darwin" else 1.0
         self._wuerfel_k = k
         w.SetSize(54 * k)
-        w.SetBoxFacetExtension(8 * k)  # abgeschraegte Ecken und Kanten
+        w.SetBoxFacetExtension(5 * k)  # abgeschraegte Ecken und Kanten (schmal: mehr Platz fuer die Schrift)
         w.SetBoxEdgeGap(0)
         schrift = SCHRIFT
         w.SetFont(TCollection_AsciiString(schrift))
-        w.SetFontHeight(15 * k)
+        w.SetFontHeight(17 * k)
         w.SetDrawAxes(True)
         w.SetAxesPadding(4 * k)
         w.SetAxesRadius(0.9 * k)
@@ -647,15 +656,18 @@ class OcctAnsicht(AnsichtBasis):
         if w is None:
             return
         from OCC.Core.Graphic3d import Graphic3d_NameOfMaterial_UserDefined, Graphic3d_MaterialAspect
+        # gedaempft und nah am Hintergrund (soll nicht hervorstechen), Schrift mit hohem Kontrast
+        dunkel = sum((self.thema or {}).get("hg_oben", (1, 1, 1))) < 1.5
+        f = WUERFEL_DUNKEL if dunkel else WUERFEL_HELL
         # deckend (sonst scheinen die Rueckseiten gespiegelt durch), matt, Seiten durch Licht unterscheidbar
         mat = Graphic3d_MaterialAspect(Graphic3d_NameOfMaterial_UserDefined)
         mat.SetSpecularColor(_farbe((0.0, 0.0, 0.0)))
-        mat.SetAmbientColor(_farbe((0.62, 0.64, 0.68)))
-        mat.SetDiffuseColor(_farbe((0.50, 0.51, 0.54)))
+        mat.SetAmbientColor(_farbe(f["umgebung"]))
+        mat.SetDiffuseColor(_farbe(f["streu"]))
         w.SetMaterial(mat)
-        w.SetBoxColor(_farbe((0.93, 0.94, 0.96)))
-        w.SetInnerColor(_farbe((0.70, 0.72, 0.76)))
-        w.SetTextColor(_farbe((0.0, 0.0, 0.0)))
+        w.SetBoxColor(_farbe(f["seite"]))
+        w.SetInnerColor(_farbe(f["innen"]))
+        w.SetTextColor(_farbe(f["text"]))
         w.SetBoxTransparency(0.0)
         # Hervorhebung beim Ueberfahren ruhig blau statt OCCT-Tuerkis (die Farbe steckt im Schattierungsaspekt
         # der eigenen Hover-Darstellung des Wuerfels); Orange bleibt der Auswahl
@@ -1143,11 +1155,15 @@ class OcctAnsicht(AnsichtBasis):
         from OCC.Core.AIS import AIS_TextLabel
         if not self._bereit or self.szene is None:
             return
+        from OCC.Core.Graphic3d import Graphic3d_ZLayerId_Default, Graphic3d_ZLayerId_Top
         ctx = self.d.Context
+        # Drahtmodell mit Kontrast: Kantenebene ueber den Bauteildraehten (die tragen die Flaechenfarben)
+        draht = self.modus == "draht" and self.draht_kontrast
         for nr, kanten in self._kanten.items():
-            if nr in self.versteckt or self.modus != "kanten":
+            if nr in self.versteckt or not (self.modus == "kanten" or draht):
                 ctx.Erase(kanten, False)
             else:
+                kanten.SetZLayer(Graphic3d_ZLayerId_Top if draht else Graphic3d_ZLayerId_Default)
                 ctx.Display(kanten, 0, -1, False)
                 ctx.Deactivate(kanten)
         for nr, ais in self._teile.items():
@@ -1904,6 +1920,11 @@ class OcctAnsicht(AnsichtBasis):
     def setze_pmi_kontrast(self, an: bool):
         super().setze_pmi_kontrast(an)
         self._wende_sichtbarkeit_an()
+
+    def setze_draht_kontrast(self, an: bool):
+        super().setze_draht_kontrast(an)
+        self._wende_sichtbarkeit_an()
+        self._neu_zeichnen()
 
     def setze_farben(self, pmi_eigen, hintergrund):
         super().setze_farben(pmi_eigen, hintergrund)

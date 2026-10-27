@@ -386,6 +386,10 @@ class PmiPanel(QtWidgets.QWidget):
     # --- Kontextmenue ---
 
     def _menue(self, pos):
+        # Rechtsklick (auch Zwei-Finger-Klick am Trackpad) auf eine nicht gewaehlte Zeile: erst diese waehlen
+        zeile = self.tabelle.indexAt(pos)
+        if zeile.isValid() and not self.tabelle.selectionModel().isRowSelected(zeile.row(), zeile.parent()):
+            self.tabelle.selectRow(zeile.row())
         auswahl = self.gewaehlte()
         m = QtWidgets.QMenu(self)
         a_zoom = m.addAction(tr("Auf Auswahl zoomen"))
