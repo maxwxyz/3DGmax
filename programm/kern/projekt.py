@@ -39,7 +39,7 @@ def _eindeutig(namen: list[str]) -> list[str]:
 def speichere(pfad: str, modell_pfad: str | None = None, vergleich=None, messungen: list | None = None,
               version: str = "", ansichten: list | None = None, kommentare: list | None = None,
               eigene_pmi: list | None = None, pmi_aenderungen: list | None = None, kette: tuple | None = None,
-              zusammenbau: dict | None = None) -> str:
+              zusammenbau: dict | None = None, kollision: dict | None = None) -> str:
     """Modell oder Vergleich mit Pruefstand und Messungen als .3dgmax speichern."""
     if not pfad.lower().endswith(ENDUNG):
         pfad += ENDUNG
@@ -53,6 +53,8 @@ def speichere(pfad: str, modell_pfad: str | None = None, vergleich=None, messung
         daten["kette"] = {"cp": kette[0], "glieder": [asdict(g) for g in kette[1]]}
     if zusammenbau:  # Verbindungen und Teillagen (kern.verbindung.Baugruppe.als_dict)
         daten["zusammenbau"] = zusammenbau
+    if kollision:  # Einstellungen der Kollisionspruefung und Status/Kommentare der Befunde
+        daten["kollision"] = kollision
     if vergleich is not None:
         quellen = [vergleich.alt.pfad, vergleich.neu.pfad]
         alt, neu = _eindeutig([os.path.basename(q) for q in quellen])

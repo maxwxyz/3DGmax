@@ -1276,5 +1276,9 @@
 "entlang X": "along X",
 "entlang Y": "along Y",
 "entlang Z": "along Z",
-"Richtung der Explosion: von der Mitte weg oder nur entlang einer Achse": "Direction of the explosion: away from the centre or only along an axis"
+"Richtung der Explosion: von der Mitte weg oder nur entlang einer Achse": "Direction of the explosion: away from the centre or only along an axis",
+"Kollisionen – {}": "Clashes – {}",
+"Modell: {} · {} · Kontakt bis {:g} mm, Mindestabstand {:g} mm, Höchstabstand {:g} mm": "Model: {} · {} · contact up to {:g} mm, minimum distance {:g} mm, maximum distance {:g} mm",
+"Tiefe": "Depth",
+"Volumen der Durchdringung in mm³; Tiefe = kleinste Kante des orientierten Hüllquaders der Durchdringung. Fett: offene Kollisionen.": "Volume of the penetration in mm³; depth = smallest edge of the oriented bounding box of the penetration. Bold: open clashes."
 }

@@ -937,7 +937,7 @@ def test_kollisionen_im_fenster(fenster, tmp_path):
     f.kollision.tabelle.selectRow(0)
     teile, form, punkte = f.ansicht.kollision
     assert len(teile) == 2 and form is not None
-    f.kollision.tabelle.cellWidget(0, 6).setCurrentIndex(1)
+    f.kollision.tabelle.cellWidget(0, 7).setCurrentIndex(1)
     assert f.kollision.befunde[0].status == "akzeptiert"
     assert f.kollision.speichere_csv(str(tmp_path / "k.csv"))
     # gewaehlte Teile gegen den Rest, mit Band
@@ -1290,3 +1290,24 @@ def test_zusammenbau_teil_frei_bewegen(fenster):
     z._frei_zuruecksetzen()
     import numpy as np
     assert np.allclose(f.baugruppe.lage(schraube), vorher)
+
+
+def test_kollision_tiefe_kurven_pdf_projekt(fenster, tmp_path):
+    f = fenster
+    f.lade(pfad("baugruppe.stp"), warten=True)
+    f.zeige_kollision_leiste()
+    f.starte_kollision(f.kollision.werte(), warten=True)
+    k = next(b for b in f.kollision.befunde if b.art == "kollision")
+    # Der Deckel hat keine Bohrungen: der Schaft (Ø 6) geht durch die 4 mm des Deckels -> Tiefe 4 mm
+    assert abs(k.tiefe - 4.0) < 1e-6 and k.kurven is not None and f.kollision.tabelle.item(0, 6).text()
+    f.kollision.tabelle.selectRow(0)
+    assert f.ansicht.kollision[1] is not None
+    f.kollision.tabelle.cellWidget(0, 7).setCurrentIndex(1)  # akzeptiert
+    f.kollision.befunde[0].kommentar = "Senkung fehlt"
+    pdf = f.exportiere_kollision_pdf(str(tmp_path / "k.pdf"))
+    assert pdf and os.path.getsize(pdf) > 1000
+    projekt = f.speichere_projekt(str(tmp_path / "p.3dgmax"))
+    f.kollision_aus()
+    f.oeffne_projekt(projekt, warten=True)
+    assert f.kollision.befunde and f.kollision.befunde[0].status == "akzeptiert"
+    assert f.kollision.befunde[0].kommentar == "Senkung fehlt"

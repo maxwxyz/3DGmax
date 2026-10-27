@@ -52,6 +52,7 @@ class KollisionPanel(QtWidgets.QWidget):
     starten = QtCore.Signal(dict)  # Umfang und Grenzen
     gewaehlt = QtCore.Signal(object)  # Befund oder None
     beenden = QtCore.Signal()
+    pdf = QtCore.Signal()
 
     def __init__(self, parent=None):
         super().__init__(parent)
@@ -98,6 +99,10 @@ class KollisionPanel(QtWidgets.QWidget):
         self.aus = QtWidgets.QPushButton(tr("Befunde ausblenden"))
         self.aus.clicked.connect(self.beenden.emit)
         reihe.addWidget(self.csv)
+        self.pdf_knopf = QtWidgets.QPushButton(tr("PDF-Bericht …"))
+        self.pdf_knopf.clicked.connect(self.pdf.emit)
+        self.pdf_knopf.setEnabled(False)
+        reihe.addWidget(self.pdf_knopf)
         reihe.addStretch(1)
         reihe.addWidget(self.aus)
         lay.addLayout(reihe)
@@ -120,7 +125,7 @@ class KollisionPanel(QtWidgets.QWidget):
         t.setRowCount(len(self.befunde))
         for z, b in enumerate(self.befunde):
             werte = (str(b.nummer), b.a.name, b.b.name, tr(ko.ART_TEXT[b.art]), f"{b.abstand:.3f}",
-                     f"{b.volumen:.2f}" if b.volumen else "")
+                     f"{b.volumen:.2f}" if b.volumen else "", f"{b.tiefe:.3f}" if b.tiefe else "")
             for s, w in enumerate(werte):
                 it = QtWidgets.QTableWidgetItem(w)
                 it.setFlags(it.flags() & ~QtCore.Qt.ItemFlag.ItemIsEditable)
@@ -132,15 +137,16 @@ class KollisionPanel(QtWidgets.QWidget):
                 status.addItem(tr(text), schluessel)
             status.setCurrentIndex(max(0, status.findData(b.status)))
             status.currentIndexChanged.connect(lambda _i, b=b, k=status: setattr(b, "status", k.currentData()))
-            t.setCellWidget(z, 6, status)
-            t.setItem(z, 7, QtWidgets.QTableWidgetItem(b.kommentar))  # Doppelklick: Kommentar
+            t.setCellWidget(z, 7, status)
+            t.setItem(z, 8, QtWidgets.QTableWidgetItem(b.kommentar))  # Doppelklick: Kommentar
         t.blockSignals(False)
         t.resizeColumnsToContents()
         self.csv.setEnabled(bool(self.befunde))
+        self.pdf_knopf.setEnabled(bool(self.befunde))
         self.aus.setEnabled(bool(self.befunde))
 
     def _kommentar(self, it):
-        if it.column() == 7 and it.row() < len(self.befunde):
+        if it.column() == 8 and it.row() < len(self.befunde):
             self.befunde[it.row()].kommentar = it.text()
 
     def _auswahl(self):

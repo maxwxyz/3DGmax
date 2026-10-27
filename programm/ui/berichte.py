@@ -542,6 +542,32 @@ def _zeichnung_seite(maler, schreiber, svg, titel, zeile):
 KOMMENTAR_BREITEN = (0.05, 0.12, 0.08, 0.42, 0.10, 0.12, 0.06, 0.05)
 
 
+def kollision_pdf(fenster, pfad: str, bild: bool = True) -> str:
+    """Kollisionen und Abstaende: Uebersicht, Einstellungen, Befundtabelle mit Status und Kommentar."""
+    from ..kern import kollision as ko
+    befunde = list(fenster.kollision.befunde)
+    modell = os.path.basename(fenster.erg.pfad)
+    bericht = PdfBericht(pfad, tr("Kollisionen – {}").format(modell))
+    bericht.ueberschrift(tr("Kollisionen und Abstände"))
+    w = fenster.kollision.werte()
+    bericht.absatz(tr("Modell: {} · {} · Kontakt bis {:g} mm, Mindestabstand {:g} mm, Höchstabstand {:g} mm").format(
+        modell, fenster.kollision.kopf.text(), w["kontakt"], w["mindest"], w["hoechst"]))
+    if bild and befunde:
+        with _BreiteAnsicht(fenster):
+            fenster.ansicht.alles_zeigen()
+            _warte()
+            bericht.bild(fenster.ansicht.bild_qimage(), 0.5)
+    breiten = (0.04, 0.17, 0.17, 0.09, 0.08, 0.08, 0.08, 0.09, 0.20)
+    zeilen = [[str(x.nummer), x.a.name, x.b.name, tr(ko.ART_TEXT[x.art]), f"{x.abstand:.3f}",
+               f"{x.volumen:.2f}" if x.volumen else "", f"{x.tiefe:.3f}" if x.tiefe else "", tr(ko.STATUS[x.status]),
+               x.kommentar] for x in befunde]
+    bericht.tabelle([(tr(t), b) for t, b in zip(ko.SPALTEN, breiten)], zeilen,
+                    fett={i for i, x in enumerate(befunde) if x.art == ko.KOLLISION and x.status == "offen"})
+    bericht.absatz(tr("Volumen der Durchdringung in mm³; Tiefe = kleinste Kante des orientierten Hüllquaders der "
+                      "Durchdringung. Fett: offene Kollisionen."), 8.5)
+    return bericht.fertig()
+
+
 def kommentare_pdf(fenster, pfad: str, bild: bool = True) -> str:
     """Kommentarliste: Bild mit den Markierungen und Tabelle (Art, Status, Text, Autor, Datum, Bezug)."""
     from ..kern import kommentare as km

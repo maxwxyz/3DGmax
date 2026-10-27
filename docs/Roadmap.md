@@ -140,7 +140,8 @@
 | Linked side-by-side view of old and new state (synchronized cameras) | ✅ |
 | Clash/contact/clearance analysis of assemblies or selections (PLAN §8.21 stages 1–3) | ✅ |
 | Band analysis (min/max distance), intersection volumes, result list with status/comment, CSV | ✅ |
-| Clash: intersection curves, penetration depth, PDF report, results in the project, mesh parts (PRC/STL) | ⬜ |
+| Clash: intersection curves, penetration depth, PDF report, results in the project | ✅ |
+| Clash: mesh parts (PRC/STL) | ⬜ |
 | Gear and spline analysis of existing files (z, mn, αn, β, b, x, Wk; pairs) as input for gear tools – PLAN §8.27 | ⬜ |
 | Wiggle in the open degrees of freedom (kinematic) | ✅ |
 | Clash check over joint ranges; wiggle within tolerances | ⬜ |

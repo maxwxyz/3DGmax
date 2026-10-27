@@ -154,6 +154,7 @@ class Hauptfenster(QtWidgets.QMainWindow):
         self.dock_kollision.hide()
         self.kollision.starten.connect(self.starte_kollision)
         self.kollision.gewaehlt.connect(self._kollision_gewaehlt)
+        self.kollision.pdf.connect(lambda: self.exportiere_kollision_pdf())
         self.kollision.beenden.connect(self.kollision_aus)
         from ..kern.verbindung import Baugruppe
         from .baugruppe_ui import BaugruppePanel
@@ -1669,9 +1670,15 @@ class Hauptfenster(QtWidgets.QMainWindow):
                                   for p in self.erg.pmi if p.quelle != "eigen" and p.bearbeitet and p.original],
                                  self._kette_daten(),
                                  self.baugruppe.als_dict() if self.baugruppe.verbindungen or self.baugruppe.lagen
-                                 else None)
+                                 else None, self._kollision_daten())
         self.statusBar().showMessage(tr("Projekt gespeichert: {}").format(ziel), 6000)
         return ziel
+
+    def _kollision_daten(self):
+        from ..kern import kollision as ko
+        if not self.kollision.befunde:
+            return None
+        return {"werte": self.kollision.werte(), "befunde": ko.merke(self.kollision.befunde)}
 
     def _kette_daten(self):
         k = getattr(self, "_kette", None)
@@ -1685,6 +1692,7 @@ class Hauptfenster(QtWidgets.QMainWindow):
             QtWidgets.QMessageBox.warning(self, tr("Projekt öffnen"), str(e))
             return
         d = self._projekt
+        self._projekt_warten = warten  # fuer Schritte nach dem Laden (Kollisionspruefung)
         if d["typ"] == "vergleich":
             v = d["vergleich"]
             self.starte_vergleich({"alt": d["pfade"]["alt"], "neu": d["pfade"]["neu"], "toleranz": v["toleranz"],
@@ -1719,6 +1727,10 @@ class Hauptfenster(QtWidgets.QMainWindow):
         if d and d.get("kommentare"):
             self.kommentare.setze(d["kommentare"])
             self.dock_kommentare.show()
+        if d and d.get("kollision") and self.erg is not None:  # Pruefung neu, Status und Kommentare zurueck
+            gemerkt = d["kollision"]
+            self._kollision_gemerkt = gemerkt.get("befunde", [])
+            self.starte_kollision(gemerkt.get("werte", {}), getattr(self, "_projekt_warten", False))
         if d and d.get("ansichten") and self.erg is not None:
             self.erg.ansichten.extend(d["ansichten"])
             self._ansichten_neu(None)
@@ -3203,6 +3215,9 @@ class Hauptfenster(QtWidgets.QMainWindow):
     def _kollision_fertig(self, befunde):
         from ..kern import kollision as ko
         self.kollision.start.setEnabled(True)
+        gemerkt, self._kollision_gemerkt = getattr(self, "_kollision_gemerkt", None), None
+        if gemerkt:
+            ko.uebernimm(befunde, gemerkt)
         z = {k: 0 for k in ko.ART_TEXT}
         for b in befunde:
             z[b.art] += 1
@@ -3217,7 +3232,27 @@ class Hauptfenster(QtWidgets.QMainWindow):
         if befund is None:
             self.ansicht.zeige_kollision(None)
             return
-        self.ansicht.zeige_kollision({befund.a.nummer, befund.b.nummer}, befund.durchdringung, befund.punkte)
+        form = befund.durchdringung
+        if form is not None and befund.kurven is not None:  # Schnittkurven mit der Durchdringung zeigen
+            from OCC.Core.BRep import BRep_Builder
+            from OCC.Core.TopoDS import TopoDS_Compound
+            bb, form = BRep_Builder(), TopoDS_Compound()
+            bb.MakeCompound(form)
+            bb.Add(form, befund.durchdringung)
+            bb.Add(form, befund.kurven)
+        self.ansicht.zeige_kollision({befund.a.nummer, befund.b.nummer}, form, befund.punkte)
+
+    def exportiere_kollision_pdf(self, pfad: str = "") -> str | None:
+        from .berichte import kollision_pdf
+        if self.erg is None or not self.kollision.befunde:
+            return None
+        pfad = pfad or self._speicherpfad(tr("PDF-Bericht"), os.path.splitext(self.erg.pfad)[0] + "_kollisionen.pdf",
+                                          "PDF (*.pdf)")
+        if not pfad:
+            return None
+        ziel = kollision_pdf(self, pfad)
+        self.statusBar().showMessage(tr("PDF gespeichert: {}").format(ziel), 6000)
+        return ziel
 
     def kollision_aus(self):
         self.ansicht.zeige_kollision(None)

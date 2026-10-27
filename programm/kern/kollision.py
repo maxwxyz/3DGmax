@@ -36,6 +36,8 @@ class Befund:
     durchdringung: object = None  # TopoDS_Shape der Durchdringung (Kollision)
     status: str = "offen"
     kommentar: str = ""
+    tiefe: float = 0.0  # Eindringtiefe (kleinste Kante des orientierten Huellquaders der Durchdringung)
+    kurven: object = None  # Schnittkurven der Oberflaechen beider Teile (Kanten, Kollision)
 
 
 @dataclass
@@ -68,6 +70,25 @@ def _volumen(form) -> float:
     g = GProp_GProps()
     brepgprop.VolumeProperties(form, g)
     return abs(g.Mass())
+
+
+def tiefe(form) -> float:
+    """Eindringtiefe einer Durchdringung: kleinste Kantenlaenge des orientierten Huellquaders."""
+    from OCC.Core.Bnd import Bnd_OBB
+    from OCC.Core.BRepBndLib import brepbndlib
+    obb = Bnd_OBB()
+    brepbndlib.AddOBB(form, obb, True, True, False)
+    if obb.IsVoid():
+        return 0.0
+    return 2.0 * min(obb.XHSize(), obb.YHSize(), obb.ZHSize())
+
+
+def schnittkurven(a, b):
+    """Schnittkanten der Oberflaechen zweier Formen (Compound) oder None."""
+    from OCC.Core.BRepAlgoAPI import BRepAlgoAPI_Section
+    s = BRepAlgoAPI_Section(a, b)
+    s.Build()
+    return s.Shape() if s.IsDone() else None
 
 
 def _pruefe_paar(a: Teil, b: Teil, e: Einstellung, gegen: bool):
@@ -116,7 +137,11 @@ def pruefe(teile: list[Teil], gruppe_b: list[Teil] | None = None, e: Einstellung
         erg = _pruefe_paar(a, b, e, gegen)
         if erg is not None:
             art, abstand, volumen, punkte, form = erg
-            befunde.append(Befund(len(befunde) + 1, a, b, art, abstand, volumen, punkte, form))
+            x = Befund(len(befunde) + 1, a, b, art, abstand, volumen, punkte, form)
+            if art == KOLLISION and form is not None:
+                x.tiefe = tiefe(form)
+                x.kurven = schnittkurven(a.form, b.form)
+            befunde.append(x)
     fortschritt(1.0)
     ordnung = {KOLLISION: 0, ZU_NAH: 1, KONTAKT: 2, ZU_WEIT: 3}
     befunde.sort(key=lambda x: (ordnung[x.art], -x.volumen, x.abstand))
@@ -125,7 +150,7 @@ def pruefe(teile: list[Teil], gruppe_b: list[Teil] | None = None, e: Einstellung
     return befunde
 
 
-SPALTEN = ("Nr", "Teil A", "Teil B", "Art", "Abstand", "Volumen", "Status", "Kommentar")
+SPALTEN = ("Nr", "Teil A", "Teil B", "Art", "Abstand", "Volumen", "Tiefe", "Status", "Kommentar")
 
 
 def als_csv(befunde: list[Befund]) -> str:
@@ -137,5 +162,26 @@ def als_csv(befunde: list[Befund]) -> str:
     w.writerow([tr(s) for s in SPALTEN])
     for x in befunde:
         w.writerow([x.nummer, x.a.name, x.b.name, tr(ART_TEXT[x.art]), f"{x.abstand:.4f}".replace(".", ","),
-                    f"{x.volumen:.3f}".replace(".", ","), tr(STATUS[x.status]), x.kommentar])
+                    f"{x.volumen:.3f}".replace(".", ","), f"{x.tiefe:.3f}".replace(".", ","), tr(STATUS[x.status]),
+                    x.kommentar])
     return puffer.getvalue()
+
+
+def merke(befunde: list[Befund]) -> list[dict]:
+    """Status und Kommentare fuer das Projekt (je Teilepaar und Art; Teilnamen und Knotennummern)."""
+    return [{"a": x.a.nummer, "b": x.b.nummer, "a_name": x.a.name, "b_name": x.b.name, "art": x.art,
+             "status": x.status, "kommentar": x.kommentar} for x in befunde if x.status != "offen" or x.kommentar]
+
+
+def uebernimm(befunde: list[Befund], gemerkt: list[dict]) -> int:
+    """Gemerkte Status und Kommentare nach einer neuen Pruefung wieder zuordnen; Anzahl der Treffer."""
+    n = 0
+    for g in gemerkt:
+        for x in befunde:
+            gleich = {x.a.nummer, x.b.nummer} == {g.get("a"), g.get("b")} or \
+                {x.a.name, x.b.name} == {g.get("a_name"), g.get("b_name")}
+            if gleich and x.art == g.get("art"):
+                x.status, x.kommentar = g.get("status", "offen"), g.get("kommentar", "")
+                n += 1
+                break
+    return n
