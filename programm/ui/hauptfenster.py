@@ -244,12 +244,18 @@ class Hauptfenster(QtWidgets.QMainWindow):
             # Breiten per Ziehen, Doppelklick auf die Trennlinie passt an den Inhalt an
             kopf.setSectionResizeMode(QtWidgets.QHeaderView.ResizeMode.Interactive)
             kopf.setStretchLastSection(True)
-            kopf.sectionResized.connect(lambda *_a, tab=t: QtWidgets.QApplication.mouseButtons()
-                                        != QtCore.Qt.MouseButton.NoButton and tab.setProperty("breiten_gemerkt", True))
+            # nur Ziehen am Spaltenkopf zaehlt als eigene Breite (nicht das Ziehen der Seitenleiste)
+            kopf.sectionResized.connect(
+                lambda *_a, tab=t, k=kopf: k.underMouse() and QtWidgets.QApplication.mouseButtons()
+                != QtCore.Qt.MouseButton.NoButton and tab.setProperty("breiten_gemerkt", True))
             merken = (lambda n=schluessel, k=kopf: self.ein.setValue(n, k.saveState()))
             self._spalten_merken.append(merken)
+            spaeter = QtCore.QTimer(self)  # beim Ziehen der Seitenleiste nicht bei jedem Pixel speichern
+            spaeter.setSingleShot(True)
+            spaeter.setInterval(500)
+            spaeter.timeout.connect(merken)
             kopf.sectionMoved.connect(lambda *_a, m=merken: m())
-            kopf.sectionResized.connect(lambda *_a, m=merken: m())
+            kopf.sectionResized.connect(lambda *_a, z=spaeter: z.start())
             kopf.setContextMenuPolicy(QtCore.Qt.ContextMenuPolicy.CustomContextMenu)
             standard = self.pmi.STANDARD if name == "pmi" else None
             kopf.customContextMenuRequested.connect(

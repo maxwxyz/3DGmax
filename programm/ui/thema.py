@@ -44,7 +44,7 @@ QToolButton:checked {{ background: {t['wahl']}; color: {t['akzent']}; }}
 QToolButton:disabled, QToolButton:checked:disabled {{ color: {t['aus']}; background: transparent; }}
 QDockWidget {{ color: {t['text']}; }}
 QDockWidget::title {{ background: {t['fenster']}; padding: 7px 10px 5px 10px; font-weight: 600; color: {t['text2']}; }}
-QMainWindow::separator {{ background: {t['rand']}; width: 1px; height: 1px; }}
+QMainWindow::separator {{ background: {t['rand']}; width: 5px; height: 5px; }}
 QMainWindow::separator:hover {{ background: {t['akzent']}; }}
 QTreeWidget, QTableWidget, QListWidget, QTextBrowser {{ background: {t['flaeche']}; color: {t['text']};
     border: 1px solid {t['rand']}; border-radius: 6px; alternate-background-color: {t['fenster']}; }}

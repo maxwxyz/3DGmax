@@ -13,6 +13,7 @@ from __future__ import annotations
 import contextlib
 import os
 import sys
+import time
 
 from PySide6 import QtCore, QtGui, QtWidgets
 
@@ -585,12 +586,12 @@ class OcctAnsicht(AnsichtBasis):
         # gepickt -> auf Retina mitskalieren und beim Picken umrechnen (_wuerfel_unter_maus)
         k = max(1.0, self.viewer.devicePixelRatioF()) if sys.platform == "darwin" else 1.0
         self._wuerfel_k = k
-        w.SetSize(48 * k)
-        w.SetBoxFacetExtension(7 * k)  # abgeschraegte Ecken und Kanten
+        w.SetSize(54 * k)
+        w.SetBoxFacetExtension(8 * k)  # abgeschraegte Ecken und Kanten
         w.SetBoxEdgeGap(0)
         schrift = SCHRIFT
         w.SetFont(TCollection_AsciiString(schrift))
-        w.SetFontHeight(11 * k)
+        w.SetFontHeight(15 * k)
         w.SetDrawAxes(True)
         w.SetAxesPadding(4 * k)
         w.SetAxesRadius(0.9 * k)
@@ -626,20 +627,21 @@ class OcctAnsicht(AnsichtBasis):
         if w is None:
             return
         from OCC.Core.Graphic3d import Graphic3d_NameOfMaterial_UserDefined, Graphic3d_MaterialAspect
-        # hell und matt auf hellem wie dunklem Hintergrund (wie gaengige CAD-Wuerfel), Schrift dunkel
+        # deckend (sonst scheinen die Rueckseiten gespiegelt durch), matt, Seiten durch Licht unterscheidbar
         mat = Graphic3d_MaterialAspect(Graphic3d_NameOfMaterial_UserDefined)
-        mat.SetSpecularColor(_farbe((0.02, 0.02, 0.02)))
-        mat.SetAmbientColor(_farbe((0.75, 0.75, 0.75)))
-        mat.SetDiffuseColor(_farbe((0.55, 0.55, 0.55)))
+        mat.SetSpecularColor(_farbe((0.0, 0.0, 0.0)))
+        mat.SetAmbientColor(_farbe((0.62, 0.64, 0.68)))
+        mat.SetDiffuseColor(_farbe((0.50, 0.51, 0.54)))
         w.SetMaterial(mat)
-        w.SetBoxColor(_farbe((0.97, 0.97, 0.98)))
-        w.SetInnerColor(_farbe((0.78, 0.80, 0.84)))
-        w.SetTextColor(_farbe((0.10, 0.11, 0.13)))
-        w.SetBoxTransparency(0.0 if getattr(self, "_wuerfel_hover", False) else 0.55)  # dezent, beim Hovern deckend
-        akzent = (self.thema or {}).get("hervor", (1, 0.45, 0))
+        w.SetBoxColor(_farbe((0.93, 0.94, 0.96)))
+        w.SetInnerColor(_farbe((0.70, 0.72, 0.76)))
+        w.SetTextColor(_farbe((0.0, 0.0, 0.0)))
+        w.SetBoxTransparency(0.0)
+        # Hervorhebung beim Ueberfahren ruhig blau statt OCCT-Tuerkis (die Farbe steckt im Schattierungsaspekt
+        # der eigenen Hover-Darstellung des Wuerfels); Orange bleibt der Auswahl
         hover = w.DynamicHilightAttributes()
-        if hover is not None:
-            hover.SetColor(_farbe(akzent))
+        if hover is not None and hover.HasOwnShadingAspect():
+            hover.ShadingAspect().SetColor(_farbe((0.36, 0.56, 0.95)))
 
     def _zeige_wuerfel(self):
         w = getattr(self, "_wuerfel", None)
@@ -662,10 +664,7 @@ class OcctAnsicht(AnsichtBasis):
         # sichtbare Lage (Geraetepixel ab Ecke oben rechts) in die Pick-Lage umrechnen
         ctx.MoveTo(int(breite - k * (breite - x)), int(k * y), self.d.View, zeichnen)
         treffer = ctx.HasDetected() and ctx.DetectedInteractive() == w
-        if zeichnen and treffer != getattr(self, "_wuerfel_hover", False):
-            self._wuerfel_hover = treffer
-            w.SetBoxTransparency(0.0 if treffer else 0.55)
-            ctx.Redisplay(w, True)
+        self._wuerfel_hover = treffer
         if not treffer:
             if k != 1.0:
                 ctx.MoveTo(int(x), int(y), self.d.View, zeichnen)  # sonst normal am echten Ort
@@ -708,6 +707,15 @@ class OcctAnsicht(AnsichtBasis):
                 self.wuerfel_ausrichten(z[3])
             return True
         return typ == E.MouseButtonDblClick
+
+    def _spaeter_zeichnen(self, ms: int = 60):
+        """Ein Neuzeichnen kurz nach der letzten Groessenaenderung (Ziehen bleibt fluessig)."""
+        t = getattr(self, "_zeichen_zeit", None)
+        if t is None:
+            t = self._zeichen_zeit = QtCore.QTimer(self)
+            t.setSingleShot(True)
+            t.timeout.connect(self._neu_zeichnen)
+        t.start(ms)
 
     def _neu_zeichnen(self):
         if self._bereit and not getattr(self, "_still", False):
@@ -1911,10 +1919,16 @@ class OcctAnsicht(AnsichtBasis):
         if typ == E.NativeGesture:
             return self._geste(ev)
         if typ == E.Resize:
+            # Seitenleiste ziehen: viele Groessenaenderungen hintereinander -> gesammelt einmal neu zeichnen
             self.d.View.MustBeResized()
+            self._groesse_zeit = time.monotonic()
+            self._spaeter_zeichnen()
             return False
         if typ == E.Paint:
-            self._neu_zeichnen()
+            if time.monotonic() - getattr(self, "_groesse_zeit", 0.0) < 0.15:
+                self._spaeter_zeichnen()
+            elif self._bereit and not getattr(self, "_still", False):
+                self.d.View.Redraw()  # nur neu ausgeben; Darstellungen aendern sich hier nicht
             return True
         return False
 

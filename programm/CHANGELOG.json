@@ -97,7 +97,9 @@
    "Portable App: Startfehler werden angezeigt und protokolliert (Windows: %LOCALAPPDATA%\\3DGmax\\start_fehler.log), Hinweis beim Start direkt aus dem ZIP-Archiv.",
    "Vergleich erkennt gedrehte und gespiegelte Elemente (gleiche Form, andere Lage) mit Winkel und Achse bzw. Spiegelebene; mehrfach verbaute Teile werden je Instanz verglichen, auch wenn sich nur eine Instanz ändert.",
    "QIF: grafische PMI aus der Datei (Toleranzrahmen, Texte mit Symbolen, Hinweislinien mit Pfeilen, Maßhilfslinien, Notizen) und gespeicherte Ansichten mit Kamera und sichtbaren PMI.",
-   "Mehrere Schnittebenen: bis zu drei Ebenen festhalten, wahlweise nur den gemeinsamen Bereich wegschneiden (z. B. Viertelschnitt); Schnittkontur aller Ebenen als SVG, DXF oder PDF exportieren."
+   "Mehrere Schnittebenen: bis zu drei Ebenen festhalten, wahlweise nur den gemeinsamen Bereich wegschneiden (z. B. Viertelschnitt); Schnittkontur aller Ebenen als SVG, DXF oder PDF exportieren.",
+   "Seitenleisten lassen sich zuverlässig und flüssig breiter ziehen: breitere Griffkante, die 3D-Ansicht zeichnet beim Ziehen gesammelt neu, Spaltenbreiten werden erst nach dem Ziehen gespeichert.",
+   "Ansichtswürfel besser lesbar: deckend (keine gespiegelte Rückseite mehr), größere schwarze Beschriftung, Hervorhebung beim Überfahren in ruhigem Blau statt Türkis."
   ],
   "en": [
    "First viewer version: load STEP AP242, assembly tree, CAD-style navigation, standard views.",
@@ -196,7 +198,9 @@
    "Portable app: start errors are shown and logged (Windows: %LOCALAPPDATA%\\3DGmax\\start_fehler.log), hint when started directly from the ZIP archive.",
    "Comparison detects rotated and mirrored elements (same shape, different placement) with angle and axis or mirror plane; parts used several times are compared per instance, even when only one instance changes.",
    "QIF: graphical PMI from the file (feature control frames, texts with symbols, leaders with arrows, witness lines, notes) and saved views with camera and visible PMI.",
-   "Multiple section planes: keep up to three planes, optionally cut away only the common region (e.g. quarter section); export the section contour of all planes as SVG, DXF or PDF."
+   "Multiple section planes: keep up to three planes, optionally cut away only the common region (e.g. quarter section); export the section contour of all planes as SVG, DXF or PDF.",
+   "Side panels resize reliably and smoothly: wider drag handle, the 3D view redraws once after the drag steps, column widths are saved after dragging.",
+   "View cube easier to read: opaque (no mirrored back side), larger black labels, hover highlight in calm blue instead of cyan."
   ]
  },
  "releases": [

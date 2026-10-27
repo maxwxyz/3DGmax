@@ -62,7 +62,8 @@ def pruefe_alles():
     a.standard("vorne")
     w = (a.viewer.width() - 80, 80)
     ergebnis["wuerfel_treffer"] = a._wuerfel_unter_maus(*w) is not None
-    unten = (w[0], w[1] + 25)  # untere Kante vorne/unten
+    kante = (a._wuerfel.Size() + a._wuerfel.BoxFacetExtension()) / 2 / getattr(a, "_wuerfel_k", 1.0)
+    unten = (w[0], w[1] + round(kante))  # Mitte der abgeschraegten unteren Kante vorne/unten
     maus(T.MouseButtonPress, unten); maus(T.MouseButtonRelease, unten)
     d = cam.Direction()
     ergebnis["wuerfel_klick"] = abs(d.Y() - 1.0) > 0.1 and abs(d.Z()) > 0.1  # schraeg von vorne unten
