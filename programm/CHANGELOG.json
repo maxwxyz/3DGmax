@@ -163,7 +163,8 @@
    "Toleranzkette: „Kette ablaufen“ zeigt das aktuelle Glied als Linie zwischen seinen Flächen im Modell (+ grün, − rot, mit Wert).",
    "Kollisionen: Eindringtiefe und Schnittkurven je Kollision, PDF-Bericht, Status und Kommentare im Projekt (beim Öffnen wird neu geprüft und zugeordnet).",
    "Mehrere Fenster: Datei › Neues Fenster (Strg/⌘+N) und „In neuem Fenster öffnen“; Fenster › Kameras der Fenster koppeln zeigt zwei Modelle gleich gedreht und gezoomt.",
-   "Kollisionsprüfung optional auch in den Grenzlagen der Toleranzen aus dem Zusammenbau: gemeldet wird, was erst dort kollidiert oder zu nah kommt."
+   "Kollisionsprüfung optional auch in den Grenzlagen der Toleranzen aus dem Zusammenbau: gemeldet wird, was erst dort kollidiert oder zu nah kommt.",
+   "Scanprüfung: Ausrichtung „Von Hand …“ über Punktpaare Scan ↔ Modell (z. B. bei wenig Überdeckung), danach Feinausrichtung und auf Wunsch 3-2-1 am Bezugssystem."
   ],
   "en": [
    "First viewer version: load STEP AP242, assembly tree, CAD-style navigation, standard views.",
@@ -328,7 +329,8 @@
    "Stack-up: “Walk chain” shows the current link as a line between its faces in the model (+ green, − red, with value).",
    "Clashes: penetration depth and intersection curves per clash, PDF report, statuses and comments in the project (re-checked and matched when opening).",
    "Several windows: File › New window (Ctrl/⌘+N) and “Open in new window”; Window › Couple the cameras of the windows shows two models with the same rotation and zoom.",
-   "Clash check optionally also at the tolerance limit positions from the assembly: reported is what only collides or comes too close there."
+   "Clash check optionally also at the tolerance limit positions from the assembly: reported is what only collides or comes too close there.",
+   "Scan check: alignment “By hand …” from point pairs scan ↔ model (e.g. with little overlap), then fine alignment and optionally 3-2-1 on the datum reference frame."
   ]
  },
  "releases": [

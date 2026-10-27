@@ -20,9 +20,11 @@ class ScanLader(QtCore.QThread):
     fehler = QtCore.Signal(str)
     stand = QtCore.Signal(str)
 
-    def __init__(self, erg, pfad: str, parent=None, bezug: tuple | None = None):
+    def __init__(self, erg, pfad: str, parent=None, bezug: tuple | None = None, start=None):
         super().__init__(parent)
         self.erg, self.pfad, self.bezug = erg, pfad, bezug  # bezug: Bezugssystem fuer 3-2-1 (None: Bestpassung)
+        self.startlage = start  # 4x4 Scan -> CAD von Hand (Punktpaare) statt der Grobausrichtung (nicht "start":
+        # das ist QThread.start)
         self.abgebrochen = False
 
     def run(self):
@@ -46,7 +48,9 @@ class ScanLader(QtCore.QThread):
                 probe = sp.scan_punkte(scan, None)
                 netze = ausrichten.tesselliere(scan.flaechen)
             melde(tr("Scan ausrichten …"))
-            if wolke:
+            if self.startlage is not None:
+                grob = ausrichten.Ausrichtung(np.asarray(self.startlage, float), "punkte", 0.0, 0.0)
+            elif wolke:
                 grob = ausrichten.richte_aus(self.erg.modell.flaechen, None, 0.05, punkte_b=probe)
             else:
                 grob = ausrichten.richte_aus(self.erg.modell.flaechen, scan.flaechen, 0.05)
@@ -81,6 +85,7 @@ class ScanPanel(QtWidgets.QWidget):
     gewaehlt = QtCore.Signal(object)  # Pmi
     beenden = QtCore.Signal()
     neu_auswerten = QtCore.Signal(object)  # Bezugssystem (Tupel) oder None fuer Bestpassung
+    manuell = QtCore.Signal()  # Startlage von Hand (Punktpaare)
     bericht = QtCore.Signal()
 
     SPALTEN = ("Nr", "PMI", "Ergebnis", "Istwert", "Zulässig", "Punkte", "Auswertung")
@@ -100,6 +105,11 @@ class ScanPanel(QtWidgets.QWidget):
         self.neu = QtWidgets.QPushButton(tr("Neu auswerten"))
         self.neu.clicked.connect(lambda: self.neu_auswerten.emit(self.gewaehlter_bezug()))
         reihe.addWidget(self.neu)
+        self.manuell_knopf = QtWidgets.QPushButton(tr("Von Hand …"))
+        self.manuell_knopf.setToolTip(tr("Startlage über Punktpaare Scan ↔ Modell (z. B. bei wenig Überdeckung oder "
+                                         "symmetrischen Teilen); danach Feinausrichtung"))
+        self.manuell_knopf.clicked.connect(self.manuell.emit)
+        reihe.addWidget(self.manuell_knopf)
         lay.addLayout(reihe)
         self.setze_bezugssysteme([])
         self.tabelle = QtWidgets.QTableWidget(0, len(self.SPALTEN))

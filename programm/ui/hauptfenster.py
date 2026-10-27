@@ -211,6 +211,7 @@ class Hauptfenster(QtWidgets.QMainWindow):
         self.scan.neu_auswerten.connect(lambda b: self.pruefe_scan(self._scan["pfad"], bezug=b)
                                         if getattr(self, "_scan", None) else None)
         self.scan.bericht.connect(lambda: self.exportiere_scan_pdf())
+        self.scan.manuell.connect(self.scan_von_hand)
         self.dock_aenderungen = self._dock(tr("Änderungen"), self.aenderungen,
                                            QtCore.Qt.DockWidgetArea.RightDockWidgetArea)
         self.tabifyDockWidget(self.dock_pmi, self.dock_aenderungen)
@@ -2925,7 +2926,7 @@ class Hauptfenster(QtWidgets.QMainWindow):
         else:
             self.statusBar().showMessage(tr("Erst Teile in der Struktur wählen"), 4000)
 
-    def pruefe_scan(self, pfad: str = "", warten: bool = False, bezug: tuple | None = None):
+    def pruefe_scan(self, pfad: str = "", warten: bool = False, bezug: tuple | None = None, start=None):
         """Scan (Netz oder Punktwolke) gegen die PMI des geoeffneten CAD-Modells pruefen; bezug: Bezugssystem fuer
         die 3-2-1-Ausrichtung (None: Bestpassung)."""
         from .scan_ui import ScanLader
@@ -2939,7 +2940,7 @@ class Hauptfenster(QtWidgets.QMainWindow):
         if not pfad:
             return
         self.scan_aus()
-        lader = ScanLader(self.erg, pfad, self, bezug)
+        lader = ScanLader(self.erg, pfad, self, bezug, start)
         lader.stand.connect(lambda t: self.statusBar().showMessage(t))
         lader.fehler.connect(lambda t: QtWidgets.QMessageBox.warning(self, tr("Scanprüfung"), t))
         lader.fertig.connect(lambda d, l=lader: l.abgebrochen or self._scan_fertig(d))
@@ -2966,10 +2967,40 @@ class Hauptfenster(QtWidgets.QMainWindow):
         self.statusBar().showMessage(tr("Scanprüfung: {} i. O., {} n. i. O., {} am Grenzwert, {} nicht auswertbar").format(
             z[sp.OK], z[sp.NOK], z[sp.GRENZ], z[sp.OFFEN]), 15000)
 
+    def scan_von_hand(self):
+        """Startlage des Scans ueber Punktpaare: Scan durchscheinend und waehlbar, Modell wie gewohnt; danach neu
+        auswerten (Feinausrichtung, ggf. Bezugssystem)."""
+        import numpy as np
+        from ..kern.laden import lade_modell
+        d = getattr(self, "_scan", None)
+        if d is None:
+            return None
+        if d.get("punktwolke"):
+            self.statusBar().showMessage(tr("Punktwolken lassen sich nicht von Hand ausrichten – Netz verwenden"), 8000)
+            return None
+        scan = d.get("scan_modell") or lade_modell(d["pfad"])
+        d["scan_modell"] = scan
+        # Rollen: Scan "alt" (durchscheinend, in Dateilage), Modell "neu" – unverschoben gezeigt, daher Einheitsmatrix
+        self._ausricht = AusrichtPanel(np.eye(4), self.ansicht.fang_toleranz, self)
+        self.ansicht.setze_ausrichtmodus(scan.form)
+        self.ansicht.ausricht_punkt.connect(self._ausricht.punkt)
+        self._ausricht.ausrichten.connect(self._scan_hand_fertig)
+        self._ausricht.beendet.connect(self._ausrichten_beenden)
+        self._ausricht.show()
+        return self._ausricht
+
+    def _scan_hand_fertig(self, ausrichtung, warten: bool = False):
+        """Ausrichtung Modell -> Scan aus den Punktpaaren: umgekehrt als Startlage der Scanpruefung."""
+        import numpy as np
+        d = self._scan
+        start = np.linalg.inv(np.asarray(ausrichtung.matrix, float))
+        self.pruefe_scan(d["pfad"], warten, d.get("bezug"), start)
+
     def _scan_kopf(self, d) -> str:
         a = d["ausrichtung"]
         art = tr("Bezugssystem {} (3-2-1, Gauß-Ausgleich je Bezug)").format("|".join(d["bezug"])) if d.get("bezug") \
-            else tr({"gleich": "gleiche Lage", "bestpassung": "Bestpassung"}.get(a.methode, a.methode))
+            else tr({"gleich": "gleiche Lage", "bestpassung": "Bestpassung",
+                     "punkte": "Punktpaare von Hand, dann Feinausrichtung"}.get(a.methode, a.methode))
         text = tr("Scan {}: Ausrichtung {} (mittlerer Abstand {:.4f} mm, {:.0%} der Punkte innerhalb 0,05 mm)").format(
             os.path.basename(d["pfad"]), art, a.mittel, a.anteil)
         if d.get("punktwolke"):

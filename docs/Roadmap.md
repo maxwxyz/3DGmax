@@ -131,7 +131,8 @@
 | PLY meshes from scanners | ✅ |
 | Scan against PMI tolerances: best fit + fine alignment, per-PMI evaluation (form, profile, location, axes, sizes, Ⓜ/Ⓛ bonus), colour map over CAD, CSV (PLAN §8.23) | ✅ |
 | Scan check stage 2: 3-2-1 alignment to the datum system, inspection report PDF, linear/angular dimensions, point clouds (XYZ/ASC/CSV/PTS/PLY) | ✅ |
-| Scan check: manual alignment, ISO 5459 tangent datums, per-section evaluation, E57 | ⬜ |
+| Scan check: manual alignment by point pairs | ✅ |
+| Scan check: ISO 5459 tangent datums, per-section evaluation, E57 | ⬜ |
 | Plausibility check of the specification stage 1: hierarchy, size vs. form, completeness, datum system, contradicting dimensions, values, nominal vs. geometry (PLAN §8.22) | ✅ |
 | Plausibility check stage 2: closed dimension chains | ✅ |
 | Plausibility check: basic dimensions, pattern counts, datum targets | ⬜ |

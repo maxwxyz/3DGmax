@@ -1289,5 +1289,9 @@
 "Drehen und Zoomen wirkt in allen Fenstern gleich (z. B. zwei Modelle nebeneinander)": "Rotating and zooming act the same in all windows (e.g. two models side by side)",
 "Auch in den Grenzlagen der Toleranzen": "Also at the tolerance limit positions",
 "Zusammenbau: jedes verbundene Teil zusätzlich an den Grenzen seines Spielraums prüfen – gemeldet wird, was erst dort kollidiert oder zu nah kommt": "Assembly: also check each connected part at the limits of its clearance – reported is what only collides or comes too close there",
-"(Grenzlage {})": "(limit position {})"
+"(Grenzlage {})": "(limit position {})",
+"Von Hand …": "By hand …",
+"Startlage über Punktpaare Scan ↔ Modell (z. B. bei wenig Überdeckung oder symmetrischen Teilen); danach Feinausrichtung": "Start position from point pairs scan ↔ model (e.g. with little overlap or symmetric parts); then fine alignment",
+"Punktwolken lassen sich nicht von Hand ausrichten – Netz verwenden": "Point clouds cannot be aligned by hand – use a mesh",
+"Punktpaare von Hand, dann Feinausrichtung": "point pairs by hand, then fine alignment"
 }

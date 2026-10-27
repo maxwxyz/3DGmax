@@ -1354,3 +1354,26 @@ def test_kollision_in_grenzlagen(fenster):
     roh = ko.pruefe_grenzlagen(teile, f._grenzlagen(), None, ko.Einstellung(0.01, 0.2, 0.0, False))
     assert any(frozenset((b.a.nummer, b.b.nummer)) in gepaart for b in roh)  # ohne Filter: Artefakte da
     assert len(f.kollision.befunde) == len(nenn) + len(extra)
+
+
+@pytest.mark.langsam
+def test_scan_von_hand_ausrichten(fenster):
+    """Scan von Hand: Panel mit Scan als waehlbarer Form; drei Punktpaare (Scan = Modell verschoben) ergeben die
+    Startlage, die Pruefung laeuft neu mit Feinausrichtung."""
+    import numpy as np
+    from programm.kern import ausrichten
+    f = fenster
+    assert f.oeffne_beispiel("scan", warten=True)
+    d = f._scan
+    p = f.scan_von_hand()
+    assert p is not None and f.ansicht.ausricht_alt is not None
+    # Punktpaare: Modellpunkte und dieselben Punkte im Scan (Scan -> Modell ist d["matrix"])
+    inv = np.linalg.inv(d["matrix"])
+    for q in ((0, 0, 0), (100, 0, 0), (0, 60, 0), (0, 0, 20)):
+        q = np.array(q, float)
+        p.paare.append(("punkt", (q, None), (inv[:3, :3] @ q + inv[:3, 3], None)))
+    a = ausrichten.richte_nach_elementen(p.paare)
+    f._scan_hand_fertig(a, warten=True)
+    assert f._scan["ausrichtung"].methode == "punkte"
+    assert np.allclose(f._scan["matrix"], d["matrix"], atol=0.05)  # gleiche Lage wie die Bestpassung
+    p.close()
