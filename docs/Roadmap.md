@@ -66,6 +66,8 @@
 | Stack-up: chain picked in 3D (planes, cylinder/cone axes) with direction from the geometry, PMI values (also patterns) and ISO 2768 for features without PMI; distribution and Cp per link; contribution share | ✅ |
 | Stack-up: location tolerances of the end faces as links (position, symmetry, coaxiality, profile with datum, UZ), PDF report, chain in the project | ✅ |
 | Stack-up 1D final: Ⓜ/Ⓛ bonus, datum shift, edges as chain ends, mean offset (Cpk), requirement with Cp/Cpk/share outside | ✅ |
+| Stack-up stage 3: triangular/trapezoidal distributions by production type, applicable method in bold (≥ 4 effective contributors), what-if with comparison to actual, direction by double-click, result table, share bars, histogram, PDF | ✅ |
+| Stack-up stage 4: modified RSS (Bender), mean-shift model, sensitivity coefficients, correlated links, tolerance allocation, more distributions, fit from measurements, several scenarios | ⬜ |
 | Stack-up: median planes as chain ends, chains across assembly parts | ⬜ |
 | Assembly: connections plane/plane and coaxial with snapping, satisfied check, open DOF per part, DOF wiggle, in the project | ✅ |
 | Assembly: point contact (sphere on plane), pin–slot (line on plane), ball joint | ✅ |

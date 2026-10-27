@@ -1,10 +1,15 @@
 """Eindimensionale Toleranzkette (Massskette): Schlussmass nach Worst Case, RSS und Monte Carlo (ohne Qt).
 
 Jedes Glied ist ein Mass mit Nennmass, Hoechst- und Mindestmass und Richtung (+1 vergroessert das Schlussmass,
--1 verkleinert es). Statistik je Glied: Mittelwert in Toleranzmitte; normalverteilt mit sigma = Toleranz / (6 * Cp)
-(Cp je Glied oder der Kette, Cp = 1: Toleranz = +-3 sigma) oder gleichverteilt ueber die Toleranz
-(sigma = Toleranz / (2 * Wurzel 3)). Das statistische Ergebnis ist +-3 sigma des Schlussmasses, der Anteil eines
-Glieds sein Varianzanteil.
+-1 verkleinert es). Statistik je Glied: Mittelwert in Toleranzmitte (plus Versatz); Verteilung nach Fertigungsart
+(Scholz, Tabelle der Verteilungsfaktoren): normal mit sigma = T / (6 * Cp) (Serie; Cp je Glied oder der Kette),
+Dreieck sigma = T / (2 * Wurzel 6) (Kleinserie), Trapez mit flachem Anteil a sigma = T/2 * Wurzel((1 + a^2) / 6),
+gleichverteilt sigma = T / (2 * Wurzel 3) (Einzelteil) - T = Toleranzbreite. Das statistische Ergebnis ist +-3 sigma
+des Schlussmasses, der Anteil eines Glieds sein Varianzanteil.
+
+Anwendbarkeit: statistisch erst ab vier wirksamen Beitragsleistern (zentraler Grenzwertsatz); wirksam zaehlt
+n_eff = (Summe sigma^2)^2 / Summe sigma^4, ein dominierendes Glied zaehlt also als eines. Darunter gilt das
+arithmetische Ergebnis (Worst Case); es wird immer mit ausgegeben.
 
 Aufbau aus der 3D-Auswahl (kette_aus_flaechen): Flaechen in Kettenreihenfolge, Richtung = Normale der ersten ebenen
 Flaeche; Lage jeder Flaeche entlang der Richtung (Ebene senkrecht dazu, Zylinderachse quer dazu); je zwei
@@ -27,7 +32,9 @@ import numpy as np
 
 from ..i18n import tr
 
-VERTEILUNG = {"normal": "Normal", "gleich": "Gleichverteilt"}
+VERTEILUNG = {"normal": "Normal (Serie)", "dreieck": "Dreieck (Kleinserie)", "trapez": "Trapez",
+              "gleich": "Gleich (Einzelteil)"}
+MINDEST_BEITRAGSLEISTER = 4  # ab hier ist das statistische Ergebnis anwendbar
 QUELLE = {"pmi": "PMI", "lage": "Lagetoleranz", "allgemein": "Allgemeintoleranz", "ohne": "ohne Toleranz"}
 LAGE_TYPEN = {"Position", "Symmetry", "Coaxiality", "Concentricity"}
 PROFIL_TYPEN = {"ProfileOfSurface", "ProfileOfLine"}
@@ -46,6 +53,7 @@ class Glied:
     quelle: str = "pmi"  # Schluessel aus QUELLE
     flaechen: tuple[int, ...] = field(default_factory=tuple)  # Flaechen an den Enden (aus der 3D-Auswahl)
     versatz: float = 0.0  # Mittenversatz des Prozesses gegen die Toleranzmitte (mm), ergibt Cpk < Cp
+    form: float = 0.5  # Trapez: Anteil des flachen Teils (0 = Dreieck, 1 = Rechteck)
 
     @property
     def mitte(self) -> float:
@@ -62,9 +70,27 @@ class Glied:
         return (self.cp or cp_kette) * (1 - abs(self.versatz) / (self.toleranz / 2))
 
     def sigma(self, cp_kette: float = 1.0) -> float:
+        t = self.toleranz
         if self.verteilung == "gleich":
-            return self.toleranz / (2 * math.sqrt(3))
-        return self.toleranz / (6 * (self.cp or cp_kette))
+            return t / (2 * math.sqrt(3))
+        if self.verteilung == "dreieck":
+            return t / (2 * math.sqrt(6))
+        if self.verteilung == "trapez":
+            return t / 2 * math.sqrt((1 + self.form ** 2) / 6)
+        return t / (6 * (self.cp or cp_kette))
+
+    def ziehe(self, rng, n: int, cp_kette: float = 1.0) -> np.ndarray:
+        """n Zufallswerte des Glieds (ohne Richtung)."""
+        m, h = self.mitte + self.versatz, self.toleranz / 2
+        if self.verteilung == "gleich":
+            return rng.uniform(m - h, m + h, n)
+        if self.verteilung == "dreieck":
+            return rng.triangular(m - h, m, m + h, n) if h > 0 else np.full(n, m)
+        if self.verteilung == "trapez":  # Summe zweier Gleichverteilungen mit Halbbreiten h(1+a)/2 und h(1-a)/2
+            a = min(1.0, max(0.0, self.form))
+            w1, w2 = h * (1 + a) / 2, h * (1 - a) / 2
+            return m + rng.uniform(-w1, w1, n) + rng.uniform(-w2, w2, n)
+        return rng.standard_normal(n) * self.sigma(cp_kette) + m
 
 
 @dataclass
@@ -84,6 +110,22 @@ class Ergebnis:
     cpk: float | None = None
     ausserhalb: float | None = None  # Anteil ausserhalb (Normalverteilung)
     mc_ausserhalb: float | None = None  # Anteil ausserhalb (Monte Carlo)
+    n_eff: float = 0.0  # wirksame Beitragsleister (Summe Varianzen)^2 / Summe Varianzen^2
+    proben: np.ndarray | None = None  # Monte-Carlo-Werte des Schlussmasses (fuer das Histogramm)
+
+    @property
+    def statistisch(self) -> bool:
+        """Statistisches Ergebnis anwendbar (genug wirksame Beitragsleister)?"""
+        return self.n_eff >= MINDEST_BEITRAGSLEISTER - 1e-9
+
+
+def anwendbar_text(e: Ergebnis) -> str:
+    """Begruendung, welches Ergebnis gilt."""
+    if e.statistisch:
+        return tr("{:.1f} wirksame Beitragsleister (≥ {}) – statistisches Ergebnis anwendbar").format(
+            e.n_eff, MINDEST_BEITRAGSLEISTER)
+    return tr("nur {:.1f} wirksame Beitragsleister (< {}) – arithmetisches Ergebnis (Worst Case) gilt").format(
+        e.n_eff, MINDEST_BEITRAGSLEISTER)
 
 
 def glied_von_pmi(p, richtung: int = 1) -> Glied | None:
@@ -119,15 +161,12 @@ def berechne(glieder: list[Glied], cp: float = 1.0, proben: int = 200_000, zufal
     varianz = float(np.sum(sigma ** 2))
     rss = float(3.0 * math.sqrt(varianz))  # +-3 sigma des Schlussmasses
     rng = np.random.default_rng(zufall)
-    gleich = np.array([g.verteilung == "gleich" for g in glieder])
-    proben_je = rng.standard_normal((proben, len(glieder))) * sigma + (hi + lo) / 2 + versatz
-    if gleich.any():
-        proben_je[:, gleich] = rng.uniform(lo[gleich], hi[gleich], (proben, int(gleich.sum()))) + versatz[gleich]
-    werte = proben_je @ r
+    werte = np.column_stack([g.ziehe(rng, proben, cp) for g in glieder]) @ r
     q = np.quantile(werte, [0.00135, 0.99865])
     anteile = [float(s ** 2 / varianz) if varianz > 0 else 0.0 for s in sigma]
+    n_eff = varianz ** 2 / float(np.sum(sigma ** 4)) if varianz > 0 else 0.0
     e = Ergebnis(nenn, wc_min, wc_max, mitte, rss, float(q[0]), float(q[1]), float(werte.mean()),
-                 float(werte.std()), anteile)
+                 float(werte.std()), anteile, n_eff=n_eff, proben=werte)
     if anforderung is not None and anforderung[1] > anforderung[0]:
         u, o = anforderung
         s = math.sqrt(varianz)
@@ -329,7 +368,7 @@ def kette_aus_flaechen(modell, flaechen: list, pmi, allgemein: str = "",
     return glieder, tuple(float(x) for x in richtung), hinweise
 
 
-SPALTEN = ("Glied", "Richtung", "Nennmaß", "Höchstmaß", "Mindestmaß", "Toleranz", "Quelle", "Verteilung", "Cp",
+SPALTEN = ("Glied", "Richtung", "Nennmaß", "Höchstmaß", "Mindestmaß", "Toleranz", "Quelle", "Verteilung", "Cp / Form",
            "Versatz", "Anteil")
 
 
@@ -342,7 +381,8 @@ def als_csv(glieder: list[Glied], e: Ergebnis, cp: float = 1.0) -> str:
         w.writerow([g.name, "+" if g.richtung > 0 else "−"] +
                    [zahl(x) for x in (g.nenn, g.hoechst, g.mindest, g.toleranz)] +
                    [tr(QUELLE[g.quelle]), tr(VERTEILUNG[g.verteilung]),
-                    zahl(g.cp or cp) if g.verteilung == "normal" else "", zahl(g.versatz),
+                    zahl(g.cp or cp) if g.verteilung == "normal" else
+                    f"a = {zahl(g.form)}" if g.verteilung == "trapez" else "", zahl(g.versatz),
                     f"{anteil:.1%}".replace(".", ",")])
     w.writerow([])
     zeilen = [(tr("Schlussmaß (nominal)"), e.nenn), (tr("Worst Case min"), e.wc_min), (tr("Worst Case max"), e.wc_max),
@@ -351,6 +391,8 @@ def als_csv(glieder: list[Glied], e: Ergebnis, cp: float = 1.0) -> str:
     if e.cp is not None:
         zeilen += [("Cp", e.cp), ("Cpk", e.cpk), (tr("Anteil außerhalb (Normalverteilung)"), e.ausserhalb),
                    (tr("Anteil außerhalb (Monte Carlo)"), e.mc_ausserhalb)]
+    zeilen.append((tr("Wirksame Beitragsleister"), e.n_eff))
     for text, wert in zeilen:
         w.writerow([text, "", zahl(wert)])
+    w.writerow([tr("Anwendbar"), "", tr("statistisch") if e.statistisch else tr("arithmetisch"), anwendbar_text(e)])
     return puffer.getvalue()

@@ -920,7 +920,7 @@ def test_toleranzkette_aus_3d_auswahl(fenster):
     k.lage.setChecked(True)
     k.tabelle.selectRow(0)
     assert f.ansicht.hervor == {181, 187}
-    k.tabelle.cellWidget(1, 7).setCurrentIndex(1)  # gleichverteilt
+    k.tabelle.cellWidget(1, 7).setCurrentIndex(k.tabelle.cellWidget(1, 7).findData("gleich"))
     assert k.glieder[1].verteilung == "gleich" and k.e.anteile[1] > k.e.anteile[0]
     k.leeren()
 
@@ -1107,3 +1107,39 @@ def test_alle_zonen_nur_sichtbare_teile(fenster):
     assert len(f.ansicht.zone_formen) == 0
     f.ansicht.isoliere(None)
     assert len(f.ansicht.zone_formen) == alle
+
+
+def test_toleranzkette_planspiel_und_anwendbar(fenster, tmp_path):
+    """Planspiel: Toleranz in der Tabelle aendern, Ist und Planspiel nebeneinander, Verwerfen/Uebernehmen;
+    Doppelklick auf die Richtung; das anwendbare Verfahren fett."""
+    from programm.kern import toleranzkette as tk
+    from programm.ui.toleranzkette_ui import SP_RICHTUNG, SP_TOL
+    f = fenster
+    f.lade(pfad("nist_ftc_10_asme1_ap242-e2.stp"), warten=True)
+    k = f.zeige_toleranzkette(nur_anlegen=True)
+    k.ergaenze([tk.Glied("a", 20, 20.1, 19.9), tk.Glied("b", 5, 5.05, 4.95, -1)])
+    koepfe, zeilen = k.ergebnis_zeilen()
+    assert [fett for _, fett in zeilen[:2]] == [True, False] and zeilen[0][0][0].startswith("✓")  # 2 Glieder
+    assert k.ergebnisse.item(0, 0).font().bold() and not k.ergebnisse.item(1, 0).font().bold()
+    k._doppelklick(1, SP_RICHTUNG)
+    assert k.glieder[1].richtung == 1 and k.tabelle.item(1, SP_RICHTUNG).text() == "+"
+    k.ergaenze([tk.Glied(str(i), 3, 3.1, 2.9) for i in range(3)])  # n_eff = 4,4
+    assert k.e.statistisch and k.ergebnisse.item(1, 0).font().bold()  # jetzt statistisch fett
+    breite = k.e.wc_max - k.e.wc_min
+    k.starte_planspiel()
+    assert k.im_planspiel and k.plan_leiste.isVisibleTo(k) and k.ergebnisse.horizontalHeaderItem(2).text()
+    k.tabelle.item(0, SP_TOL).setText("0,1")  # Toleranz des ersten Glieds halbieren
+    assert abs(k.glieder[0].toleranz - 0.1) < 1e-12 and abs(k._ist[0].toleranz - 0.2) < 1e-12
+    assert k.e.wc_max - k.e.wc_min < breite and abs(k.e_ist.wc_max - k.e_ist.wc_min - breite) < 1e-12
+    assert k.ergebnis_zeilen()[1][0][0][3].startswith("-")  # Δ Breite negativ
+    from PySide6 import QtWidgets
+    QtWidgets.QApplication.processEvents()
+    assert k.tabelle.item(0, SP_TOL).font().bold() and "0.2" in k.tabelle.item(0, SP_TOL).toolTip()
+    pdf = f.exportiere_kette_pdf(str(tmp_path / "plan.pdf"))
+    assert pdf and os.path.getsize(pdf) > 1000
+    k.beende_planspiel(False)
+    assert not k.im_planspiel and abs(k.glieder[0].toleranz - 0.2) < 1e-12
+    k.starte_planspiel()
+    k.tabelle.item(0, SP_TOL).setText("0,1")
+    k.beende_planspiel(True)
+    assert abs(k.glieder[0].toleranz - 0.1) < 1e-12 and k.e_ist is None

@@ -101,8 +101,9 @@ class PdfBericht:
         self.maler.setPen(QtGui.QColor("#000000"))
         self.y += groesse.height() + self.p(8)
 
-    def tabelle(self, spalten: list[tuple[str, float]], zeilen: list[list[str]], groesse: float = 8.5):
-        """spalten: (Titel, Anteil der Breite)."""
+    def tabelle(self, spalten: list[tuple[str, float]], zeilen: list[list[str]], groesse: float = 8.5,
+                fett: set[int] | None = None):
+        """spalten: (Titel, Anteil der Breite); fett: Nummern der fett gedruckten Zeilen."""
         gesamt = self.breite - 2 * self.p(RAND)
         breiten = [gesamt * anteil for _, anteil in spalten]
         zeile_h = self.p(groesse * 1.7)
@@ -131,6 +132,7 @@ class PdfBericht:
                 kopf()
             if i % 2:
                 self.maler.fillRect(QtCore.QRectF(self.p(RAND), self.y, gesamt, h), QtGui.QColor("#f6f7f9"))
+            self.schrift(groesse, bool(fett and i in fett))
             x = self.p(RAND)
             for t, w in zip(zeile, breiten):
                 self.maler.drawText(QtCore.QRectF(x + self.p(3), self.y, w - self.p(6), h), flags, str(t))
@@ -341,45 +343,62 @@ def messungen_pdf(fenster, pfad: str, bild: bool = True) -> str:
     return bericht.fertig()
 
 
-KETTE_GEWICHT = {"Glied": 2.4, "Quelle": 1.3, "Verteilung": 1.2}
+KETTE_GEWICHT = {"Glied": 2.4, "Quelle": 1.3, "Verteilung": 1.6}
 
 
 def kette_pdf(fenster, pfad: str, bild: bool = True) -> str:
-    """Toleranzkette: Bild mit den Flaechen der Kette, Ergebnis nach drei Verfahren, Glieder mit Beitragsanteil."""
+    """Toleranzkette: Bild mit den Flaechen der Kette, Ergebnistabelle (anwendbares Verfahren fett, im Planspiel
+    neben dem Ist), Begruendung, Histogramm, Glieder mit Beitragsanteil."""
     from ..kern import toleranzkette as tk
     k = fenster._kette
     e = k.e
     modell = os.path.basename(fenster.erg.pfad)
     bericht = PdfBericht(pfad, tr("Toleranzkette – {}").format(modell))
-    bericht.ueberschrift(tr("Toleranzkette"))
-    bericht.absatz(tr("Modell: {} · {} Glieder · Cp der Kette {:.2f}").format(modell, len(k.glieder), k.cp.value()))
-    bericht.absatz(tr("Schlussmaß {:.4f} mm · Worst Case {:.4f} … {:.4f} mm · statistisch {:.4f} ± {:.4f} mm (±3σ) · "
-                      "Monte Carlo {:.4f} … {:.4f} mm (99,73 %)").format(e.nenn, e.wc_min, e.wc_max, e.mitte, e.rss,
-                                                                       e.mc_min, e.mc_max), 10.5)
+    bericht.ueberschrift(tr("Toleranzkette") + (" – " + tr("Planspiel") if k.im_planspiel else ""))
+    bericht.absatz(tr("Modell: {} · {} Glieder · Cp der Kette {:.2f} · Schlussmaß {:.4f} mm").format(
+        modell, len(k.glieder), k.cp.value(), e.nenn))
     flaechen = {f for g in k.glieder for f in g.flaechen}
     if bild and flaechen:
         alt = set(fenster.ansicht.hervor)
         fenster.ansicht.hebe_flaechen(flaechen)
         with _BreiteAnsicht(fenster):
-            bericht.bild(fenster.ansicht.bild_qimage(), 0.5)
+            bericht.bild(fenster.ansicht.bild_qimage(), 0.42)
         fenster.ansicht.hebe_flaechen(alt)
+    koepfe, zeilen = k.ergebnis_zeilen()
+    breite = [0.34] + [0.66 / (len(koepfe) - 1)] * (len(koepfe) - 1)
+    bericht.tabelle(list(zip(koepfe, breite)), [z for z, _ in zeilen], 9,
+                    fett={i for i, (_, f) in enumerate(zeilen) if f})
+    bericht.absatz(tk.anwendbar_text(e) + (" · " + tr("Ist: {}").format(tk.anwendbar_text(k.e_ist))
+                                           if k.e_ist is not None else ""), 9.5)
+    if e.cp is not None:
+        u, o = k.anforderung_werte()
+        bericht.absatz(tr("Anforderung {:.4f} … {:.4f} mm: Cp {:.2f}, Cpk {:.2f}, außerhalb {:.0f} ppm (Normalverteilung), "
+                          "{:.0f} ppm (Monte Carlo)").format(u, o, e.cp, e.cpk, e.ausserhalb * 1e6,
+                                                            e.mc_ausserhalb * 1e6), 9.5)
+    bericht.bild(k.histogramm.grab().toImage(), 0.16)
     gewicht = [KETTE_GEWICHT.get(s, 1.0) for s in tk.SPALTEN]
     spalten = [(tr(s), w / sum(gewicht)) for s, w in zip(tk.SPALTEN, gewicht)]
-    zeilen = []
-    for g, anteil in zip(k.glieder, e.anteile):
-        zeilen.append([g.name, "+" if g.richtung > 0 else "−", "–" if g.quelle == "lage" else f"{g.nenn:.4g}",
-                       f"{g.hoechst:.4g}", f"{g.mindest:.4g}", f"{g.toleranz:.4g}", tr(tk.QUELLE[g.quelle]),
-                       tr(tk.VERTEILUNG[g.verteilung]),
-                       f"{g.cp or k.cp.value():.2f}" if g.verteilung == "normal" else "–", f"{g.versatz:g}",
-                       f"{anteil:.0%}"])
-    bericht.tabelle(spalten, zeilen)
-    if e.cp is not None:
-        bericht.absatz(tr("Anforderung {:.4f} … {:.4f} mm: Cp {:.2f}, Cpk {:.2f}, außerhalb {:.0f} ppm (Normalverteilung), "
-                          "{:.0f} ppm (Monte Carlo)").format(k.unten.value(), k.oben.value(), e.cp, e.cpk,
-                                                            e.ausserhalb * 1e6, e.mc_ausserhalb * 1e6), 10)
-    bericht.absatz(tr("Statistik: normalverteilt mit σ = Toleranz / (6 · Cp) oder gleichverteilt über die Toleranz, "
-                      "Mittelwert in Toleranzmitte; Anteil = Varianzanteil des Glieds. Lagetoleranzen ohne Bonus bei "
-                      "Ⓜ/Ⓛ."), 8.5)
+    tabelle, geaendert = [], set()
+    for i, (g, anteil) in enumerate(zip(k.glieder, e.anteile)):
+        form = (f"{g.cp or k.cp.value():.2f}" if g.verteilung == "normal" else
+                f"a = {g.form:.2f}" if g.verteilung == "trapez" else "–")
+        zeile = [g.name, "+" if g.richtung > 0 else "−", "–" if g.quelle == "lage" else f"{g.nenn:.4g}",
+                 f"{g.hoechst:.4g}", f"{g.mindest:.4g}", f"{g.toleranz:.4g}", tr(tk.QUELLE[g.quelle]),
+                 tr(tk.VERTEILUNG[g.verteilung]), form, f"{g.versatz:g}", f"{anteil:.0%}"]
+        ist = k._ist_glied(i)
+        if ist is not None and (ist.hoechst, ist.mindest, ist.nenn, ist.richtung, ist.verteilung, ist.cp, ist.form,
+                                ist.versatz) != (g.hoechst, g.mindest, g.nenn, g.richtung, g.verteilung, g.cp, g.form,
+                                                 g.versatz):
+            geaendert.add(i)
+            zeile[0] += " *"
+        tabelle.append(zeile)
+    bericht.tabelle(spalten, tabelle, fett=geaendert)
+    if geaendert:
+        bericht.absatz(tr("* im Planspiel geändert (fett); das Ist steht in der Ergebnistabelle daneben."), 8.5)
+    bericht.absatz(tr("Verteilung je Glied: normal σ = T / (6 · Cp), Dreieck σ = T / (2√6), Trapez σ = T/2 · "
+                      "√((1 + a²) / 6), gleichverteilt σ = T / (2√3); Anteil = Varianzanteil. Statistisch anwendbar ab "
+                      "{} wirksamen Beitragsleistern n_eff = (Σσ²)² / Σσ⁴, sonst gilt das arithmetische Ergebnis. "
+                      "Lagetoleranzen ohne Bonus bei Ⓜ/Ⓛ.").format(tk.MINDEST_BEITRAGSLEISTER), 8.5)
     return bericht.fertig()
 
 

@@ -234,6 +234,64 @@ Throughout: tests (core, offscreen UI, stress test, on-screen test), `--selbstte
   closing dimension → Cp, Cpk and share outside (normal approximation and Monte Carlo); pattern matching of end
   features only within the same element type (axis/plane). Open: median planes of features of size as chain ends,
   chains across assembly parts (from the connections of §8.20), non-normal bonus distributions.
+- State of the art (research 2026-10-28, sources below; "FMK" = Funktionsmaßkette):
+  - **Methods:** arithmetic / worst case (always valid, conservative); statistical RSS (variances add, closing
+    dimension ±3σ); modified RSS with an inflation factor (Bender 1962: ×1.5 for optimistic tolerance statements,
+    in practice 1.4–1.7); mixed (some links worst case, others statistical); mean-shift models – mean shifts stacked
+    arithmetically plus the reduced variation stacked statistically (Greenwood/Chase 1987, Scholz), or shifts stacked
+    statistically; Six Sigma 1.5σ shift (conservative, not universal); Monte Carlo for any distribution and
+    non-linear chains.
+  - **Distributions per link** with inflation factor c (σ = c · T/2 / 3, Scholz Table 1): normal c = 1, uniform
+    1.732, triangular 1.225, trapezoidal √(3(1+a²)/2) (a = flat part, 0 → triangle, 1 → uniform), half cosine 1.306,
+    elliptical 1.5, symmetric beta 3/√(2a+1), DIN 7186 histogram density √3·√((1−p)(1+f)+f²). Choice by production
+    type (Klein; HAW thesis 2024): one-off/prototype → uniform (only the limits are known), small batch → triangular
+    (fixtures, aimed at mid), large series → normal (tolerance = ±3σ / Cp).
+  - **When statistical is applicable:** the closing dimension is treated as normal by the central limit theorem –
+    in practice from **four links** with arbitrary distributions (fewer if links are normal; two uniforms give a
+    trapezoid); links must be independent (different parts/processes), processes stable and centred (otherwise mean
+    shift / Cpk), and the quantity large enough that the 0.27 % risk means something. With few or dominated links
+    the worst case is the honest result. Standards: DIN 7186-1 (statistical tolerancing, 1974) withdrawn without
+    replacement; process capability per ISO 22514-2 / DIN ISO 21747; ASME Y14.5 has a statistical tolerance symbol.
+  - **Contributors ("Beitragsleister"):** variance share per link (statistical), range share (worst case),
+    sensitivity coefficient for non-linear chains (∂closing/∂link, not only ±1); Pareto chart; equalising the
+    variances (links with tiny shares are made too precisely).
+  - **Synthesis / allocation:** widening factor e = T0,arith / T0,stat; distribute the closing variance equally or
+    by cost/process; inverse problem "which tolerance for a required Cpk".
+  - **What-if:** commercial tools (e.g. CETOL: direct method, results update immediately; 3DCS: Monte Carlo, HLM
+    sensitivity, GeoFactor) let users change tolerances and compare scenarios; results tied to Cp/Cpk/% out.
+  - Sources: F. Scholz, "Tolerance Stack Analysis Methods" (Univ. of Washington / Boeing, faculty.washington.edu/
+    fscholz); master thesis "Statistisches Toleranzdesign im Maschinenbau", HAW Hamburg 2024 (reposit.haw-hamburg.de,
+    citing B. Klein 2017, F. Mannewitz 2016, Bosch booklet "Statistische Tolerierung"); Capra/Tolcap slides on
+    Bender and the 1.5σ shift; Sigmetrix CETOL product pages; Walter et al. 2021 survey on statistical tolerance
+    analysis in German industry.
+- Requested 2026-10-28 (stage 3, implement now):
+  1. Distributions per link: normal, uniform, **triangular, trapezoidal** (flat part a), labelled with the production
+     type; σ and Monte Carlo sampling per distribution (trapezoid = sum of two uniforms).
+  2. **Arithmetic always shown, the applicable method in bold** – statistical when there are at least four effective
+     contributors (n_eff = (Σσ²)² / Σσ⁴, so one dominating link counts as one), otherwise arithmetic; the reason is
+     shown ("5 effective contributors – statistical applicable") in the window and in the PDF/CSV.
+  3. **What-if ("Planspiel"):** a switch makes the table editable (limits, nominal, tolerance, distribution, Cp,
+     offset, direction) without touching the real chain; changed cells are marked; results "Ist | Planspiel | Δ" side
+     by side; "Übernehmen" makes the scenario the chain, "Verwerfen" restores it; the PDF contains the comparison.
+  4. Double-click on the direction cell reverses the link.
+  5. UX (see below), CSV/PDF extended.
+- Later (stage 4): modified RSS with factor (Bender) and mixed method as options; mean-shift model (worst case of
+  shifts + RSS of variation) and Six Sigma shift; sensitivity coefficients per link (angles, cos factors,
+  non-linear chains via Monte Carlo); correlation of links from the same part/process; tolerance allocation
+  (equalise variances, widening factor, cost weights, "required Cpk → tolerances"); beta/cosine/DIN histogram
+  distributions; distribution fitted from measured values (CSV import); several saved scenarios instead of one;
+  ⟨ST⟩ statistical tolerance marks from the PMI as hint for the distribution.
+- UX design (stage 3): one window in the order *purpose → inputs → links table → results → export*:
+  - Top: one-line purpose and the buttons to add links (from PMI list, from 3D selection), "Lagetoleranzen",
+    chain Cp; right aligned the "Planspiel" switch.
+  - Links table: direction as "+"/"−" (double-click flips), distribution as combo with production type, Cp/form
+    column that adapts (Cp for normal, a for trapezoid, "–" otherwise), share as a small bar with percent.
+    In Planspiel the table gets a tinted background and changed cells are bold with the original as tooltip.
+  - Results as a small table instead of running text: rows Arithmetic (worst case), Statistical (RSS ±3σ), Monte
+    Carlo (99.73 %); columns min, max, ±/range; the applicable row bold with "✓ anwendbar" and the reason below; with
+    requirement Cp/Cpk/ppm in extra columns. In Planspiel the columns are Ist, Planspiel, Δ.
+  - A small histogram of the Monte Carlo samples with the worst-case limits and the requirement drawn as lines.
+  - Bottom: CSV, PDF, close.
 
 ### 8.9 Test data
 - NIST: FTC/STC/CTC (AP242); D2MI 827-9999-904 rev C (AP242 with PMI) ↔ 906 (same geometry, no PMI); FTC-06 ↔ STC-06

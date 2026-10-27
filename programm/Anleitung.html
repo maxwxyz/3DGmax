@@ -238,15 +238,23 @@ Zone frei bewegen – das zeigt die türkise Hülle.</div>
 Kettenreihenfolge wählen (<kbd>Strg</kbd>/<kbd>⌘</kbd>) und <b>＋ Aus 3D-Auswahl</b>: je zwei aufeinanderfolgende
 Flächen bilden ein Glied, die Richtung kommt aus der ersten ebenen Fläche, das Vorzeichen aus der Lage. Werte aus dem
 passenden PMI-Maß (auch bei Mustern), sonst aus der Allgemeintoleranz ISO 2768 (gewählt oder als Hinweis in der
-Datei), sonst „ohne Toleranz“ (rot). Je Glied Verteilung (normal oder gleichverteilt) und Cp; die Spalte
-<b>Anteil</b> zeigt, wie viel jedes Glied zur Streuung beiträgt. Schlussmaß nach Worst Case, statistisch (±3σ) und
-Monte Carlo; eine Zeile wählen hebt ihre Flächen im Modell hervor. Mit <b>Lagetoleranzen</b> kommen Position,
+Datei), sonst „ohne Toleranz“ (rot). Je Glied die Verteilung nach Fertigungsart – normal (Serie, mit Cp), Dreieck
+(Kleinserie), Trapez (flacher Anteil a), gleich (Einzelteil); die Spalte <b>Anteil</b> zeigt als Balken, wie viel jedes
+Glied zur Streuung beiträgt. Doppelklick auf die Richtung kehrt ein Glied um. Das Schlussmaß steht in einer Tabelle:
+arithmetisch (Worst Case) immer, dazu statistisch (±3σ) und Monte Carlo. <b>Fett mit ✓</b> ist das anwendbare
+Verfahren: statistisch erst ab vier <i>wirksamen</i> Beitragsleistern (ein dominierendes Glied zählt als eines), sonst
+arithmetisch – die Begründung steht darunter, das Histogramm zeigt die Monte-Carlo-Verteilung mit Worst Case und
+Anforderung. Eine Zeile wählen hebt ihre Flächen im Modell hervor. <b>Planspiel …</b> macht die Tabelle per Doppelklick
+änderbar (Nennmaß, Grenzen, Toleranz, Verteilung, Cp, Versatz, Richtung), ohne die Kette anzutasten: geänderte Werte
+sind fett, das Ergebnis steht als Ist | Planspiel | Δ nebeneinander; <b>Übernehmen</b> macht das Planspiel zur Kette,
+<b>Verwerfen</b> stellt das Ist wieder her. Mit <b>Lagetoleranzen</b> kommen Position,
 Symmetrie, Koaxialität und Profil mit Bezug der ersten und letzten Fläche als eigene Glieder dazu (die Lage von
 Zwischenflächen hebt sich auf). Bei Ⓜ/Ⓛ wächst das Lageglied im Worst Case um den vollen Bonus (Größentoleranz des
 Elements), ein Bezug mit Ⓜ/Ⓛ ergibt ein eigenes Glied „Bezugsverschiebung“. Kettenenden dürfen auch gerade Kanten und
 Kreiskanten sein. <b>Versatz</b> je Glied (Mittenversatz des Prozesses) senkt den Cpk; mit <b>Anforderung an das
 Schlussmaß</b> zeigt das Fenster Cp, Cpk und den Anteil außerhalb (Normalverteilung und Monte Carlo).
-<b>PDF-Bericht</b> mit Bild und Gliedertabelle; die Kette wird im Projekt gespeichert.</li>
+<b>PDF-Bericht</b> mit Bild, Ergebnistabelle (auch Planspiel gegen Ist), Begründung, Histogramm und Gliedertabelle;
+die Kette wird im Projekt gespeichert.</li>
 <li><b>Modell › PMI anlegen</b>: Flächen wählen, Vorschläge des Tolerierungsberaters prüfen, anpassen, übernehmen
     (eigene PMI, im Projekt gespeichert). Vorhandene PMI lassen sich bearbeiten; die Originalwerte bleiben sichtbar.</li>
 </ul>
