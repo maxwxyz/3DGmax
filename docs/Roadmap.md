@@ -144,7 +144,8 @@
 | Clash: mesh parts (PRC/STL) | ⬜ |
 | Gear and spline analysis of existing files (z, mn, αn, β, b, x, Wk; pairs) as input for gear tools – PLAN §8.27 | ⬜ |
 | Wiggle in the open degrees of freedom (kinematic) | ✅ |
-| Clash check over joint ranges; wiggle within tolerances | ⬜ |
+| Clash check at the tolerance limit positions (assembly) | ✅ |
+| Clash check over joint ranges (open DOF) | ⬜ |
 
 ## Reports and exchange
 | Feature | Status |

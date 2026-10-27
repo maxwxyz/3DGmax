@@ -1333,3 +1333,23 @@ def test_neues_fenster_und_gekoppelte_kameras(fenster):
     finally:
         g.close()
     assert g not in hf.FENSTER and f in hf.FENSTER and f.erg is not None
+
+
+def test_kollision_in_grenzlagen(fenster):
+    f = fenster
+    assert f.oeffne_beispiel("variation", warten=True)
+    f.zeige_kollision_leiste()
+    werte = {**f.kollision.werte(), "mindest": 0.2, "kontakte": False}
+    f.starte_kollision(werte, warten=True)
+    nenn = [(b.art, b.grenzlage) for b in f.kollision.befunde]
+    assert all(g == "" for _, g in nenn)
+    f.starte_kollision({**werte, "grenzlagen": True}, warten=True)
+    extra = [b for b in f.kollision.befunde if b.grenzlage]
+    # Schaft mit 0,3 mm Radialspiel: in einer Grenzlage an der Bohrungswand (Achteck-Naeherung bis 8 % groesser,
+    # Kippen an beiden Eingriffsenden -> kleine Durchdringung); der Deckel sinkt im symmetrischen Spiel ein
+    schrauben = [b for b in extra if b.grenzlage.startswith("Schraube") and "Grundplatte" in (b.a.name, b.b.name)]
+    assert schrauben and all(b.art in ("kollision", "zu_nah") for b in schrauben)
+    assert any(b.grenzlage.startswith("Deckel") for b in extra)
+    assert len(f.kollision.befunde) == len(nenn) + len(extra)
+    assert "Grenzlage" in f.kollision.tabelle.item(len(nenn), 3).text() or "limit" in f.kollision.tabelle.item(
+        len(nenn), 3).text()

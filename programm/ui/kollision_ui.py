@@ -19,16 +19,23 @@ class KollisionLader(QtCore.QThread):
     fehler = QtCore.Signal(str)
     stand = QtCore.Signal(int)
 
-    def __init__(self, teile, gruppe_b, einstellung, parent=None):
+    def __init__(self, teile, gruppe_b, einstellung, parent=None, grenzen: dict | None = None):
         super().__init__(parent)
         self.teile, self.gruppe_b, self.einstellung = teile, gruppe_b, einstellung
+        self.grenzen = grenzen  # Grenzlagen der Toleranzen je Teil: zusaetzlich pruefen
         self.abgebrochen = False
 
     def run(self):
         from .lader import Abbruch, melder
         try:
+            melde = melder(self, lambda a: self.stand.emit(int(a * 100)))
             befunde = ko.pruefe(self.teile, self.gruppe_b, self.einstellung,
-                                fortschritt=melder(self, lambda a: self.stand.emit(int(a * 100))))
+                                fortschritt=(lambda a: melde(a / 2)) if self.grenzen else melde)
+            if self.grenzen:
+                befunde = befunde + ko.pruefe_grenzlagen(self.teile, self.grenzen, self.gruppe_b, self.einstellung,
+                                                         fortschritt=lambda a: melde(0.5 + a / 2))
+                for i, x in enumerate(befunde, 1):
+                    x.nummer = i
         except Abbruch:
             return
         except Exception as e:  # noqa: BLE001 - Fehler dem Nutzer zeigen
@@ -70,11 +77,15 @@ class KollisionPanel(QtWidgets.QWidget):
         self.hoechst.setToolTip(tr("Paare mit größerem Abstand melden – nur „gegen den Rest“"))
         self.kontakte = QtWidgets.QCheckBox(tr("Kontakte melden"))
         self.kontakte.setChecked(True)
+        self.grenzlagen = QtWidgets.QCheckBox(tr("Auch in den Grenzlagen der Toleranzen"))
+        self.grenzlagen.setToolTip(tr("Zusammenbau: jedes verbundene Teil zusätzlich an den Grenzen seines Spielraums "
+                                      "prüfen – gemeldet wird, was erst dort kollidiert oder zu nah kommt"))
         form.addRow(tr("Prüfen"), self.umfang)
         form.addRow(tr("Kontakt bis"), self.kontakt)
         form.addRow(tr("Mindestabstand"), self.mindest)
         form.addRow(tr("Höchstabstand"), self.hoechst)
         form.addRow("", self.kontakte)
+        form.addRow("", self.grenzlagen)
         lay.addLayout(form)
         self.start = QtWidgets.QPushButton(tr("Prüfen"))
         self.start.clicked.connect(lambda: self.starten.emit(self.werte()))
@@ -115,7 +126,8 @@ class KollisionPanel(QtWidgets.QWidget):
 
     def werte(self) -> dict:
         return {"umfang": self.umfang.currentData(), "kontakt": self.kontakt.value(), "mindest": self.mindest.value(),
-                "hoechst": self.hoechst.value(), "kontakte": self.kontakte.isChecked()}
+                "hoechst": self.hoechst.value(), "kontakte": self.kontakte.isChecked(),
+                "grenzlagen": self.grenzlagen.isChecked()}
 
     def zeige(self, befunde: list, kopf: str):
         self.befunde = list(befunde)
@@ -124,7 +136,8 @@ class KollisionPanel(QtWidgets.QWidget):
         t.blockSignals(True)
         t.setRowCount(len(self.befunde))
         for z, b in enumerate(self.befunde):
-            werte = (str(b.nummer), b.a.name, b.b.name, tr(ko.ART_TEXT[b.art]), f"{b.abstand:.3f}",
+            art = tr(ko.ART_TEXT[b.art]) + (" " + tr("(Grenzlage {})").format(b.grenzlage) if b.grenzlage else "")
+            werte = (str(b.nummer), b.a.name, b.b.name, art, f"{b.abstand:.3f}",
                      f"{b.volumen:.2f}" if b.volumen else "", f"{b.tiefe:.3f}" if b.tiefe else "")
             for s, w in enumerate(werte):
                 it = QtWidgets.QTableWidgetItem(w)

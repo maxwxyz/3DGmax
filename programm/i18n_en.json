@@ -1286,5 +1286,8 @@
 "In neuem Fenster öffnen …": "Open in new window …",
 "In neuem Fenster öffnen": "Open in new window",
 "Kameras der Fenster koppeln": "Couple the cameras of the windows",
-"Drehen und Zoomen wirkt in allen Fenstern gleich (z. B. zwei Modelle nebeneinander)": "Rotating and zooming act the same in all windows (e.g. two models side by side)"
+"Drehen und Zoomen wirkt in allen Fenstern gleich (z. B. zwei Modelle nebeneinander)": "Rotating and zooming act the same in all windows (e.g. two models side by side)",
+"Auch in den Grenzlagen der Toleranzen": "Also at the tolerance limit positions",
+"Zusammenbau: jedes verbundene Teil zusätzlich an den Grenzen seines Spielraums prüfen – gemeldet wird, was erst dort kollidiert oder zu nah kommt": "Assembly: also check each connected part at the limits of its clearance – reported is what only collides or comes too close there",
+"(Grenzlage {})": "(limit position {})"
 }

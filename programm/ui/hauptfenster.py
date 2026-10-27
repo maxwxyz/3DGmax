@@ -3237,7 +3237,7 @@ class Hauptfenster(QtWidgets.QMainWindow):
             return
         e = ko.Einstellung(werte["kontakt"], werte["mindest"], werte["hoechst"], werte["kontakte"])
         self.kollision_aus()
-        lader = KollisionLader(teile, gruppe_b, e, self)
+        lader = KollisionLader(teile, gruppe_b, e, self, self._grenzlagen() if werte.get("grenzlagen") else None)
         lader.stand.connect(self._prozent)
         lader.fehler.connect(lambda t: (self.kollision.start.setEnabled(True),
                                         QtWidgets.QMessageBox.warning(self, tr("Kollisionen"), t)))
@@ -3249,6 +3249,17 @@ class Hauptfenster(QtWidgets.QMainWindow):
         if warten:
             lader.wait()
             QtWidgets.QApplication.processEvents()
+
+    def _grenzlagen(self) -> dict:
+        """Grenzlagen der Toleranzen je bewegtem Teil des Zusammenbaus als 4x4-Bewegungen in Weltlage."""
+        from ..kern import verbindung as vb
+        out = {}
+        for nr in self.baugruppe.teile():
+            if self.baugruppe.fest(nr):
+                continue
+            _ecken, mitte = self._teil_ecken(nr)
+            out[nr] = [vb.bewegung_klein(x, 1.0, mitte) for x in self.baugruppe.grenzlagen(nr, mitte)]
+        return {n: m for n, m in out.items() if m}
 
     def _kollision_fertig(self, befunde):
         from ..kern import kollision as ko

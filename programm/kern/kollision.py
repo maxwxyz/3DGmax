@@ -38,6 +38,7 @@ class Befund:
     kommentar: str = ""
     tiefe: float = 0.0  # Eindringtiefe (kleinste Kante des orientierten Huellquaders der Durchdringung)
     kurven: object = None  # Schnittkurven der Oberflaechen beider Teile (Kanten, Kollision)
+    grenzlage: str = ""  # Befund erst in einer Grenzlage der Toleranzen (Text: Teil und Nummer), sonst leer
 
 
 @dataclass
@@ -185,3 +186,41 @@ def uebernimm(befunde: list[Befund], gemerkt: list[dict]) -> int:
                 n += 1
                 break
     return n
+
+
+def pruefe_grenzlagen(teile: list[Teil], grenzen: dict, gruppe_b: list[Teil] | None = None,
+                      e: Einstellung | None = None, fortschritt=lambda anteil: None) -> list[Befund]:
+    """Befunde, die erst entstehen, wenn ein Teil eine Grenzlage innerhalb der Toleranzen seiner Verbindungen
+    einnimmt (je Teil einzeln, die anderen in Nennlage); grenzen: Knotennummer -> Liste von 4x4-Bewegungen (Welt).
+    Nur Arten, die in Nennlage fuer dieses Paar nicht vorkommen; je Paar und Art der schlimmste Fall."""
+    import numpy as np
+    from OCC.Core.TopLoc import TopLoc_Location
+    from OCC.Core.gp import gp_Trsf
+    e = e or Einstellung()
+    nenn = {(frozenset((x.a.nummer, x.b.nummer)), x.art) for x in pruefe(teile, gruppe_b, e)}
+    schlimmste: dict = {}
+    schritte = [(t, k, m) for t in teile + (gruppe_b or []) if t.nummer in grenzen
+                for k, m in enumerate(grenzen[t.nummer], 1)]
+    for n, (t, k, m) in enumerate(schritte):
+        fortschritt(n / max(len(schritte), 1))
+        tr_ = gp_Trsf()
+        tr_.SetValues(*[float(np.asarray(m)[i][j]) for i in range(3) for j in range(4)])
+        bewegt = Teil(t.nummer, t.name, t.form.Moved(TopLoc_Location(tr_)))
+        ersetze = lambda liste: [bewegt if x.nummer == t.nummer else x for x in liste]  # noqa: E731
+        for x in pruefe(ersetze(teile), ersetze(gruppe_b) if gruppe_b is not None else None, e):
+            if t.nummer not in (x.a.nummer, x.b.nummer):
+                continue
+            schluessel = (frozenset((x.a.nummer, x.b.nummer)), x.art)
+            if schluessel in nenn:
+                continue
+            alt = schlimmste.get(schluessel)
+            schlimmer = alt is None or (x.volumen > alt.volumen if x.art == KOLLISION else x.abstand < alt.abstand)
+            if schlimmer:
+                x.grenzlage = f"{t.name}: {k}"
+                schlimmste[schluessel] = x
+    fortschritt(1.0)
+    out = sorted(schlimmste.values(), key=lambda x: ({KOLLISION: 0, ZU_NAH: 1, KONTAKT: 2, ZU_WEIT: 3}[x.art],
+                                                     -x.volumen, x.abstand))
+    for i, x in enumerate(out, 1):
+        x.nummer = i
+    return out
