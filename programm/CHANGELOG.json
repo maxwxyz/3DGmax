@@ -116,7 +116,12 @@
    "PDF der Ansichten: die PMI-Tabelle übernimmt die in der PMI-Liste sichtbaren Spalten und ihre Reihenfolge.",
    "Neue Testdaten: Varianten mit anderen PMI, minimal geänderter Geometrie und beidem, sowie zwei erzeugte Scans (mit Rauschen und Versatz; mit Fase, Delle und Welligkeit).",
    "Schnellerer Start: scipy wird erst bei Bedarf geladen (Fensteraufbau etwa 0,5 s schneller); Startoption --startzeit misst die Startphasen.",
-   "Toleranzzonen im Bezugssystem: Koaxialität und Lauf um die Bezugsachse, Bezugsverschiebung bei Ⓜ/Ⓛ am Bezug als zusätzliche Hülle, Form- und Richtungszonen mit der übergeordneten Zone an derselben Fläche; Widerspruch, wenn die untergeordnete Toleranz nicht kleiner ist."
+   "Toleranzzonen im Bezugssystem: Koaxialität und Lauf um die Bezugsachse, Bezugsverschiebung bei Ⓜ/Ⓛ am Bezug als zusätzliche Hülle, Form- und Richtungszonen mit der übergeordneten Zone an derselben Fläche; Widerspruch, wenn die untergeordnete Toleranz nicht kleiner ist.",
+   "Modell › PMI prüfen erweitert um eine Plausibilitätsprüfung: Widersprüche (Form/Richtung/Lage, Form gegen Maß unter Hüllbedingung, zwei Maße mit verschiedenen Werten), unvollständige Angaben (nicht tolerierte Flächen, Ⓜ ohne Maß), Bezugssystem (paralleler Sekundärbezug, offene Freiheitsgrade, Bezug ohne eigene Toleranz), unplausible Werte und Nennmaße, die nicht zur Modellgeometrie passen; mit Kategorie, Doppelklick wählt PMI bzw. Flächen.",
+   "Seitenleisten lassen sich flüssig in der Größe ziehen (die 3D-Ansicht passt ihre Puffer gebündelt an statt bei jedem Pixel).",
+   "Laufbalken mit „Abbrechen“ unten in der Statuszeile auch für Analyse, Farbkarte, Materialvergleich und Scanprüfung, mit Prozentanzeige, wo die Rechnung sie meldet.",
+   "Gestapelte Seitenleisten (PMI, Messen, Änderungen …) lassen sich mit dem X am Reiter schließen.",
+   "Allgemeintoleranzen zeigen: eigener Schalter zum Ein- und Ausschalten (Klassen bleiben gemerkt, sonst aus dem Hinweis der Datei); mit „Toleranzzone zeigen“ auch nur an gewählten Flächen ohne eigene Angabe."
   ],
   "en": [
    "First viewer version: load STEP AP242, assembly tree, CAD-style navigation, standard views.",
@@ -234,7 +239,12 @@
    "PDF of views: the PMI table takes the columns visible in the PMI list and their order.",
    "New test data: variants with different PMI, minimally changed geometry and both, plus two generated scans (with noise and offset; with chamfer, dent and waviness).",
    "Faster start-up: scipy is loaded only when needed (window set-up about 0.5 s faster); start option --startzeit measures the start-up phases.",
-   "Tolerance zones in the datum system: coaxiality and runout around the datum axis, datum shift for Ⓜ/Ⓛ on a datum as an additional envelope, form and orientation zones with the higher-level zone on the same face; contradiction when the lower-level tolerance is not smaller."
+   "Tolerance zones in the datum system: coaxiality and runout around the datum axis, datum shift for Ⓜ/Ⓛ on a datum as an additional envelope, form and orientation zones with the higher-level zone on the same face; contradiction when the lower-level tolerance is not smaller.",
+   "Model › Check PMI extended by a plausibility check: contradictions (form/orientation/location, form vs. size under the envelope requirement, two dimensions with different values), incomplete specifications (untoleranced faces, Ⓜ without size), datum system (parallel secondary datum, open degrees of freedom, datum without own tolerance), implausible values and nominals that do not match the model geometry; with category, double-click selects PMI or faces.",
+   "Side panels resize smoothly (the 3D view resizes its buffers in batches instead of on every pixel).",
+   "Progress bar with “Cancel” at the bottom of the status bar also for analysis, colour map, material comparison and scan check, with percentage where the computation reports it.",
+   "Tabbed side panels (PMI, Measure, Changes …) can be closed with the X on the tab.",
+   "Show general tolerances: own toggle to turn them on and off (classes are remembered, otherwise taken from the note in the file); with “Show tolerance zone” also only at selected faces without their own specification."
   ]
  },
  "releases": [

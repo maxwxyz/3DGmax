@@ -139,7 +139,10 @@ quick measure of the selection at the bottom right.</figcaption></figure>
     <b>View › Show generated PMI display</b>).</li>
 <li><b>Balloon numbers</b> (<kbd>B</kbd>) number the characteristics as in the bill of characteristics (export PDF/CSV).</li>
 <li><b>Standard</b> (Model › Standard): ASME Y14.5 or ISO GPS, detected automatically; it sets terms and checks.
-    <b>Model › Check PMI</b> finds e.g. missing datums, PMI without faces, or orientation tolerances without a datum.</li>
+    <b>Model › Check PMI</b> finds e.g. missing datums, PMI without faces, or orientation tolerances without a datum,
+    and checks the specification for plausibility: contradictions (form tolerance not smaller than orientation/location,
+    two dimensions with different values), incomplete specifications (untoleranced faces), datum system, implausible
+    values and nominals that do not match the model. Double-click selects the PMI or the faces.</li>
 <li>Basic dimensions are shown in square brackets <code>[75]</code>, reference dimensions in round ones <code>(75)</code>.</li>
 </ul>
 
@@ -210,7 +213,9 @@ tolerance – for the selected PMI or, without a PMI selection, for the PMI on t
 </table>
 <p>The status bar explains each zone and states what the geometry does not show (e.g. “orientation zone: free in
 location”, “applies per cross-section”). <b>View › General tolerances …</b> adds ISO 2768-1/-2 or ISO 22081 for faces
-without their own specification (violet); if a note in the file states them, they are suggested.</p>
+without their own specification (violet); if a note in the file states them, they are suggested. <b>Show general
+tolerances</b> turns these zones on and off: with “Show all tolerance zones” for the whole model, with “Show tolerance
+zone” only at the selected faces without their own specification.</p>
 <div class="tip">Zones are shown at the nominal location. Orientation and form zones may float within the higher-level
 zone – the turquoise envelope shows it.</div>
 

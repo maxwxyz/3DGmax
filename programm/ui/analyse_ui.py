@@ -29,11 +29,15 @@ class AnalyseLader(QtCore.QThread):
     def __init__(self, art, teile, richtung, parent=None):
         super().__init__(parent)
         self.art, self.teile, self.richtung = art, teile, richtung
+        self.abgebrochen = False
 
     def run(self):
+        from .lader import Abbruch, melder
         try:
             karte = an.berechne(self.art, self.teile, self.richtung,
-                                fortschritt=lambda a: self.stand.emit(int(a * 100)))
+                                fortschritt=melder(self, lambda a: self.stand.emit(int(a * 100))))
+        except Abbruch:
+            return
         except Exception as e:  # noqa: BLE001 - Fehler dem Nutzer zeigen
             self.fehler.emit(f"{e}\n\n{traceback.format_exc(limit=3)}")
             return

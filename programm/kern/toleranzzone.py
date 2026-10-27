@@ -658,8 +658,8 @@ def _ausdehnung(flaeche) -> float:
 
 
 def allgemein_zone(modell, pmi, allgemein: Allgemein, sichtbar_mindest: float = 0.0,
-                   faktor: float | None = None) -> Zone | None:
-    """Zonen der Allgemeintoleranzen fuer Flaechen ohne eigene Mass- oder Toleranzangabe."""
+                   faktor: float | None = None, nur: set[int] | None = None) -> Zone | None:
+    """Zonen der Allgemeintoleranzen fuer Flaechen ohne eigene Mass- oder Toleranzangabe (nur: Flaechenindizes)."""
     from OCC.Core.BRep import BRep_Tool
     from OCC.Core.BRepAdaptor import BRepAdaptor_Surface
     from OCC.Core.GeomAbs import GeomAbs_Cylinder, GeomAbs_Plane
@@ -668,7 +668,7 @@ def allgemein_zone(modell, pmi, allgemein: Allgemein, sichtbar_mindest: float = 
     belegt = {i for p in pmi if p.art in ("mass", "toleranz") for i in p.flaechen}
     teile = []  # (Flaeche, aus dem Material, ins Material)
     for i, f in enumerate(modell.flaechen):
-        if i in belegt or BRep_Tool.Surface(f) is None:
+        if i in belegt or (nur is not None and i not in nur) or BRep_Tool.Surface(f) is None:
             continue
         if allgemein.profil:
             teile.append((f, allgemein.profil / 2, -allgemein.profil / 2))

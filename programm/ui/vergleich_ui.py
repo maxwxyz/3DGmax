@@ -126,13 +126,17 @@ class KartenLader(QtCore.QThread):
     def __init__(self, vergleich, parent=None):
         super().__init__(parent)
         self.vergleich = vergleich
+        self.abgebrochen = False
 
     def run(self):
         from ..kern import abweichung
+        from .lader import Abbruch, melder
         v = self.vergleich
         try:
             karte = abweichung.berechne(v.alt.modell, v.neu.modell, v.ausrichtung,
-                                        fortschritt=lambda a: self.stand.emit(int(a * 100)))
+                                        fortschritt=melder(self, lambda a: self.stand.emit(int(a * 100))))
+        except Abbruch:
+            return
         except Exception as e:  # noqa: BLE001 - Fehler dem Nutzer zeigen
             self.fehler.emit(f"{e}\n\n{traceback.format_exc(limit=3)}")
             return
@@ -148,6 +152,7 @@ class MaterialLader(QtCore.QThread):
     def __init__(self, vergleich, parent=None):
         super().__init__(parent)
         self.vergleich = vergleich
+        self.abgebrochen = False
 
     def run(self):
         from ..kern import vergleich_volumen

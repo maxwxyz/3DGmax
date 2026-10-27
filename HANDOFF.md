@@ -29,7 +29,13 @@ tolerance analysis) and §8.21 (clash/band/intersection, DOF). Then: new manual 
 tolerances (§8.23, `kern/scanpruefung.py`, Tools menu), new test data (`werkzeuge/testmodelle.py`: PMI-only,
 small-geometry and combined variants of CTC-01, two generated scans as PLY), more robust best fit for nearly
 symmetric parts, plane zones with the real face boundary, small thumbnails, PDF PMI columns as in the list, lazy
-scipy import (window set-up 0.6 → 0.2 s) and `--startzeit`. PLAN §8.22 records the requested plausibility check.
+scipy import (window set-up 0.6 → 0.2 s) and `--startzeit`. PLAN §8.22 records the requested plausibility check. Then:
+plausibility check stage 1 (§8.22, `kern/plausibilitaet.py`, part of Model › Check PMI with a category column),
+status-bar progress with Cancel for every background job (`ui/lader.py: Abbruch, melder` – the job stops at its
+next progress report), closable tabs on stacked side panels, side-panel resize jank fixed (cause was
+`V3d_View::MustBeResized` at ~50 ms, called twice per pixel by our filter and pythonocc's resizeEvent; now at most
+every 250 ms plus once after dragging: 117 → 20 ms per step under Xvfb), general tolerances as a toggle
+(View › Show general tolerances; also at selected faces without PMI with "Show tolerance zone").
 Semantic GD&T cannot be written from Python (pythonocc 8.0: XCAFDoc_GeomTolerance not wrapped, writing new-style
 dimensions segfaults, the legacy DimTol path loses the faces) – PMI test variants are therefore text edits of the
 public-domain NIST STEP files.
@@ -88,10 +94,11 @@ graphics only, 8.19 QIF graphics, 8.20 3D tolerance analysis,
 
 ## Next (in this order)
 1. Visual check of the cloud work on the Mac (see return handoff above).
-2. Tolerance zones: check stage 2 on the real screen; then zones placed by the datum system (PLAN §8.5 open
-   points: datum shift with Ⓜ/Ⓛ, form/orientation inside the location zone, coaxiality/runout around the datum
-   axis) and a sample file with an unequal zone (UZ) to verify the displacement interpretation.
-3. Plausibility check of the specification (PLAN §8.22) – builds on Check PMI and the zone logic.
+2. Tolerance zones: check stage 2 and the datum-system zones on the real screen; a sample file with an unequal
+   zone (UZ) to verify the displacement interpretation.
+3. Plausibility check stage 2 (PLAN §8.22: closed dimension chains, basic dimensions, pattern counts, datum
+   targets); check the stage 1 findings on real customer-like models for false positives.
+   Check on the real screen: side-panel dragging (3D view redraws after 80 ms), X on the panel tabs.
 4. Start-up time: run `3DGmax --startzeit` on Windows/macOS (phases in the status bar and
    `<temp>/3DGmax-startzeit.txt`); Python part is now ~0.5 s on Linux; next candidates: early splash, OCCT viewer
    creation, PyInstaller folder size (Defender/Gatekeeper scan on first start).

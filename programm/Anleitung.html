@@ -139,7 +139,10 @@ unten rechts die Schnellmessung der Auswahl.</figcaption></figure>
     <b>Ansicht › Erzeugte PMI-Darstellung zeigen</b>).</li>
 <li><b>Ballonnummern</b> (<kbd>B</kbd>) nummerieren die Merkmale wie in der Merkmalsliste (Export PDF/CSV).</li>
 <li><b>Norm</b> (Modell › Norm): ASME Y14.5 oder ISO GPS, automatisch erkannt; steuert Begriffe und Prüfregeln.
-    <b>Modell › PMI prüfen</b> findet z. B. fehlende Bezüge, PMI ohne Fläche oder Richtungstoleranzen ohne Bezug.</li>
+    <b>Modell › PMI prüfen</b> findet z. B. fehlende Bezüge, PMI ohne Fläche oder Richtungstoleranzen ohne Bezug und
+    prüft die Spezifikation auf Plausibilität: Widersprüche (Formtoleranz nicht kleiner als Richtungs-/Lagetoleranz,
+    zwei Maße mit verschiedenen Werten), unvollständige Angaben (nicht tolerierte Flächen), Bezugssystem, unplausible
+    Werte und Nennmaße, die nicht zum Modell passen. Doppelklick wählt die PMI bzw. die Flächen.</li>
 <li>Theoretisch genaue Maße stehen in eckigen Klammern <code>[75]</code>, Hilfsmaße in runden <code>(75)</code>.</li>
 </ul>
 
@@ -210,7 +213,9 @@ Toleranz liegen dürfen – für die gewählten PMI oder, ohne PMI-Auswahl, für
 </table>
 <p>Die Statuszeile erklärt jede Zone und nennt, was die Geometrie nicht zeigt (z. B. „Richtungszone: in der Lage frei
 verschiebbar“, „gilt je Querschnitt“). <b>Ansicht › Allgemeintoleranzen …</b> ergänzt ISO 2768-1/-2 bzw. ISO 22081 für Flächen ohne
-eigene Angabe (violett); steht die Angabe in einem Hinweis der Datei, wird sie vorgeschlagen.</p>
+eigene Angabe (violett); steht die Angabe in einem Hinweis der Datei, wird sie vorgeschlagen. <b>Allgemeintoleranzen
+zeigen</b> schaltet diese Zonen ein und aus: mit „Alle Toleranzzonen zeigen“ für das ganze Modell, mit „Toleranzzone
+zeigen“ nur an den gewählten Flächen ohne eigene Angabe.</p>
 <div class="tip">Zonen werden an der Nennlage gezeigt. Richtungs- und Formzonen dürfen sich innerhalb der übergeordneten
 Zone frei bewegen – das zeigt die türkise Hülle.</div>
 

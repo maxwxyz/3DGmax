@@ -468,6 +468,12 @@ Planned rules (each finding with severity, the PMI involved, a short reason and 
   needs the measuring functions), datum letters used on different features, PMI on hidden/auxiliary geometry.
 - UI: the existing Check PMI dialog grouped by category, double-click selects PMI and faces, export to the PMI report;
   optional "incomplete faces" colouring in the model.
+- **Stage 1 done (2026-10-27):** `kern/plausibilitaet.py` (rules hierarchie, mass_und_form, vollstaendigkeit,
+  bezugssystem, ueberbestimmung, werte, geometrie) appended to `pmi_bericht.pruefe`; findings carry a category and
+  faces; the Check PMI dialog shows the category and selects PMI or faces. On the NIST files it reports the
+  untoleranced faces and one datum system that fixes only one direction; on `ctc01_geo.stp` it finds the Ø20 nominal
+  on the Ø21 hole. Open: closed dimension chains, basic dimensions for position, pattern counts, datum targets,
+  export of the findings, colouring of untoleranced faces.
 
 ### 8.23 Scan against PMI tolerances (done 2026-10-27, stage 1)
 - `kern/scanpruefung.py`: best fit (`ausrichten.richte_aus`, candidate choice by inlier share first – fixes

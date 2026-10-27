@@ -7,7 +7,7 @@ from ..i18n import tr
 import csv
 import io
 from collections import Counter
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 
 from .pmi import BEZUG, HINWEIS, MASS, TOLERANZ, Pmi
 
@@ -28,6 +28,8 @@ class Befund:
     stufe: str
     text: str
     nummern: list[int]
+    kategorie: str = ""  # "" Angabe, widerspruch, unvollstaendig, bezug, wert, geometrie (kern.plausibilitaet)
+    flaechen: set[int] = field(default_factory=set)  # betroffene Flaechen (auch ohne PMI, z. B. nicht toleriert)
 
 
 def _zahl(x) -> str:
@@ -157,6 +159,8 @@ def pruefe(pmi: list[Pmi], ansichten: list | None = None, modell=None) -> list[B
             nummern = [p.nummer for p in pmi if (p.art, p.typ, p.wert_text(), p.bezug_text(),
                                                  frozenset(p.flaechen)) == k]
             out.append(Befund(WARNUNG, tr("Doppelt: {} ({}×) an denselben Flächen").format(k[2], n), nummern))
+    from . import plausibilitaet
+    out += plausibilitaet.pruefe(pmi, modell)
     rang = {FEHLER: 0, WARNUNG: 1, INFO: 2}
     return sorted(out, key=lambda b: (rang[b.stufe], b.nummern[:1]))
 

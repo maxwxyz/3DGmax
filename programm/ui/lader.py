@@ -55,6 +55,19 @@ def lade_alles(pfad: str, fortschritt=lambda text: None) -> Ergebnis:
     return Ergebnis(pfad, modell, pmi, ansichten, lies_baum(modell), flaechen_farben(modell), grafik, erkannt)
 
 
+class Abbruch(Exception):
+    """Hintergrundrechnung vom Nutzer abgebrochen (Ergebnis wird verworfen)."""
+
+
+def melder(lader, melde):
+    """Fortschritt melden; beendet die Rechnung, sobald der Nutzer abgebrochen hat."""
+    def f(wert):
+        if getattr(lader, "abgebrochen", False):
+            raise Abbruch
+        melde(wert)
+    return f
+
+
 class Lader(QtCore.QThread):
     fertig = QtCore.Signal(object)  # Ergebnis
     fehler = QtCore.Signal(str)

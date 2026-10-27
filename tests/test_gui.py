@@ -565,6 +565,7 @@ def test_toleranzzone_anzeigen(fenster_ctc01):
     f.aktionen["toleranzzone"].setChecked(False)
     # alle Zonen des Modells, mit Allgemeintoleranzen (Dialog ohne Bildschirm: Wert direkt setzen)
     from PySide6 import QtWidgets
+    from programm.kern import toleranzzone as tz
     from programm.kern.toleranzzone import Allgemein
     from programm.ui.allgemein_ui import AllgemeinDialog
     d = AllgemeinDialog(None, Allgemein("m", "K"))
@@ -574,12 +575,30 @@ def test_toleranzzone_anzeigen(fenster_ctc01):
     anzahl = len(f.ansicht.zone_formen)
     assert anzahl > 10 and "zone" in f.ansicht.zone_rollen and "allgemein" not in f.ansicht.zone_rollen
     f._allgemein = Allgemein("m", "K")
-    f._zone_aktualisieren([])
+    f.aktionen["allgemein_zeigen"].setChecked(True)
+    f._allgemein_umschalten()
     assert "allgemein" in f.ansicht.zone_rollen and len(f.ansicht.zone_formen) > anzahl
     assert "ISO 2768-mK" in f.statusBar().currentMessage()
     f.waehle_allgemeintoleranzen()  # Dialog abgebrochen: Auswahl bleibt
     assert f._allgemein == Allgemein("m", "K")
+    f.aktionen["allgemein_zeigen"].setChecked(False)  # ausschalten, Klassen bleiben gemerkt
+    f._allgemein_umschalten()
+    assert "allgemein" not in f.ansicht.zone_rollen and f._allgemein == Allgemein("m", "K")
     f.aktionen["toleranzzonen_alle"].setChecked(False)
+    # an der Auswahl: Flaeche ohne PMI zeigt nur mit eingeschalteten Allgemeintoleranzen eine Zone
+    belegt = {i for p in f.erg.pmi if p.art in ("mass", "toleranz") for i in p.flaechen}
+    frei = next(i for i in range(len(f.erg.modell.flaechen)) if i not in belegt and
+                tz.allgemein_zone(f.erg.modell, f.erg.pmi, Allgemein("m", "K"), nur={i}) is not None)
+    f.aktionen["toleranzzone"].setChecked(True)
+    f.ansicht.setze_auswahl([f.erg.modell.flaechen[frei]])
+    assert f.ansicht.zone_formen == []
+    f.aktionen["allgemein_zeigen"].setChecked(True)
+    f._allgemein_umschalten()
+    assert set(f.ansicht.zone_rollen) == {"allgemein"} and len(f.ansicht.zone_formen) == 2
+    f.aktionen["allgemein_zeigen"].setChecked(False)
+    f._allgemein_umschalten()
+    f.ansicht.setze_auswahl([])
+    f.aktionen["toleranzzone"].setChecked(False)
     f._zone_aktualisieren([])
     assert f.ansicht.zone_formen == [] and isinstance(d, QtWidgets.QDialog)
     # Kontextmenue im 3D-Fenster bietet die Zonen an
@@ -592,7 +611,8 @@ def test_toleranzzone_anzeigen(fenster_ctc01):
         menue.close()
     QtCore.QTimer.singleShot(50, schliessen)
     f._kontextmenue_3d(QtCore.QPoint(10, 10))
-    assert {f.aktionen[n] for n in ("toleranzzone", "toleranzzonen_alle", "allgemeintoleranzen")} <= set(gesehen)
+    assert {f.aktionen[n] for n in ("toleranzzone", "toleranzzonen_alle", "allgemein_zeigen",
+                                 "allgemeintoleranzen")} <= set(gesehen)
 
 
 def test_toleranzkette_fenster(fenster_ctc01, tmp_path):
@@ -730,3 +750,30 @@ def test_scanpruefung_im_fenster(fenster_ctc01):
     assert "Flatness" not in f.scan.als_csv() and ";" in f.scan.als_csv()
     f.scan_aus()
     assert f.ansicht.abweichung is None and not f.dock_scan.isVisible()
+
+
+def test_reiter_schliessen_und_abbrechen(fenster_ctc01):
+    """X auf dem Reiter schliesst die Leiste; Abbrechen beendet eine Analyse und blendet den Laufbalken aus."""
+    import time
+    from PySide6 import QtCore, QtWidgets
+    from programm.kern import analyse as an
+    f = fenster_ctc01
+    app = QtWidgets.QApplication.instance()
+    f.dock_messen.show()
+    for _ in range(5):
+        app.processEvents()
+    leisten = [l for l in f.findChildren(QtWidgets.QTabBar, options=QtCore.Qt.FindChildOption.FindDirectChildrenOnly)
+               if l.isVisible()]
+    leiste = next(l for l in leisten if f.dock_messen.windowTitle() in [l.tabText(i) for i in range(l.count())])
+    assert leiste.tabsClosable()
+    leiste.tabCloseRequested.emit([leiste.tabText(i) for i in range(leiste.count())].index(f.dock_messen.windowTitle()))
+    assert not f.dock_messen.isVisible() and f.dock_pmi.isVisible()
+
+    f.starte_analyse(an.ENTFORMUNG, {"mindest": 1.0, "richtung": "+z"})
+    assert f.fortschritt.isVisibleTo(f) and f.abbrechen.isVisibleTo(f) and not f.analyse.start.isEnabled()
+    f.abbrechen.click()
+    t0 = time.time()
+    while f._analyse_lader.isRunning() and time.time() - t0 < 30:
+        app.processEvents()
+    app.processEvents()
+    assert not f.fortschritt.isVisibleTo(f) and f.analyse.start.isEnabled() and f.ansicht.abweichung is None

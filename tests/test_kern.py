@@ -498,6 +498,44 @@ def test_toleranzzonen_bezugssystem(ftc10):
                for h in tz.zone(zu_gross, ftc10, alle_pmi=pmi).hinweise)
 
 
+def test_plausibilitaet(ctc01, ftc10):
+    """Widersprueche und unvollstaendige Angaben (PLAN §8.22)."""
+    import copy
+    from programm.kern import plausibilitaet as pl, pmi_bericht
+    from programm.kern.pmi import BezugsRef
+    from programm.ui.lader import lade_alles
+    pmi = lies_pmi(ftc10)
+    # Hierarchie: Geradheit groesser als die Profiltoleranz derselben Flaeche
+    gerade = copy.deepcopy(next(p for p in pmi if p.typ == "Straightness"))
+    gerade.wert, gerade.nummer = 5.0, 999
+    befunde = pl.hierarchie(pmi + [gerade], ftc10)
+    assert any(999 in b.nummern and b.kategorie == "widerspruch" for b in befunde)
+    assert pl.hierarchie(pmi, ftc10) == []
+    # Werte: unsymmetrische Zone groesser als t, vertauschte Abmasse, unbekannte Passung
+    profil = copy.deepcopy(next(p for p in pmi if p.typ == "ProfileOfSurface"))
+    profil.modifikatoren = [f"UZ {profil.wert * 2}"]
+    mass = copy.deepcopy(next(p for p in pmi if p.art == "mass" and p.oben is not None and not p.grenzmass))
+    mass.oben, mass.unten = -0.1, 0.1
+    passung = copy.deepcopy(mass)
+    passung.passung, passung.oben, passung.unten = "Q99", None, None
+    befunde = pl.werte([profil, mass, passung], ftc10)
+    assert len(befunde) == 3 and {b.kategorie for b in befunde} == {"wert"} and "Q99" in befunde[-1].text
+    # Bezugssystem: Sekundaerbezug parallel zum Primaerbezug
+    pos = copy.deepcopy(next(p for p in pmi if p.typ == "Position" and p.bezuege))
+    ebenen = [p.name for p in pmi if p.art == "bezug" and p.typ == "Datum" and p.name in ("A", "H")]
+    pos.bezuege = [BezugsRef("A", 1), BezugsRef("A", 2)]
+    assert any(b.kategorie == "bezug" and "A" in b.text for b in pl.bezugssystem(pmi + [pos], ftc10)) and ebenen
+    # Geometrie: Nennmass passt nicht zur Bohrung (Variante mit Ø21)
+    geo = lade_alles(pfad("varianten/ctc01_geo.stp"))
+    befunde = pmi_bericht.pruefe(geo.pmi, geo.ansichten, geo.modell)
+    assert any(b.kategorie == "geometrie" and "21" in b.text for b in befunde)
+    assert not any(b.kategorie == "geometrie" for b in pmi_bericht.pruefe(lies_pmi(ctc01), None, ctc01))
+    # Vollstaendigkeit: nicht tolerierte Flaechen als Flaechenmenge (ohne PMI-Nummer)
+    frei = next(b for b in befunde if b.kategorie == "unvollstaendig")
+    assert frei.flaechen and not frei.nummern
+    assert not any(b.kategorie == "widerspruch" for b in pmi_bericht.pruefe(pmi, None, ftc10))
+
+
 def test_allgemeintoleranzen(ctc01):
     from programm.kern import toleranzzone as tz
     from programm.kern.pmi import Pmi

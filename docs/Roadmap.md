@@ -55,7 +55,7 @@
 | Semantic-only PMI: optional generated display in the view (see generated PMI stage 2) | ✅ |
 | Show tolerance zones as envelope surfaces (offsets ±t/2, ⌀ zone cylinder, exaggeration) | ✅ |
 | Tolerance zones stage 2: unequal zones (UZ/Ⓤ), projected zones, Ⓜ/Ⓛ bonus zone, space of the surface (size + location), size envelopes, patterns per feature | ✅ |
-| Tolerance zones for the selected PMI, the selected faces or all PMI at once; general tolerances (ISO 2768-1/-2, ISO 22081) | ✅ |
+| Tolerance zones for the selected PMI, the selected faces or all PMI at once; general tolerances (ISO 2768-1/-2, ISO 22081) as a toggle, for the whole model or only at selected faces without PMI | ✅ |
 | Zone of the derived median plane (slots/tabs), spherical zone (S⌀), context menus | ✅ |
 | Tolerance zones in the datum system: coaxiality/runout around the datum axis, datum shift with Ⓜ/Ⓛ, form/orientation inside the higher-level zone | ✅ |
 | Tolerance zones: line profile/roundness per section, ACS/ALS, CZ/SZ, tolerances on edges/points | ⬜ |
@@ -98,7 +98,8 @@
 | PLY meshes from scanners | ✅ |
 | Scan against PMI tolerances: best fit + fine alignment, per-PMI evaluation (form, profile, location, axes, sizes, Ⓜ/Ⓛ bonus), colour map over CAD, CSV (PLAN §8.23) | ✅ |
 | Scan check: manual/3-2-1 alignment, report PDF, distances/angles, per-section evaluation | ⬜ |
-| Plausibility check of the specification: contradictions, incomplete specs, over-determination (PLAN §8.22) | ⬜ |
+| Plausibility check of the specification stage 1: hierarchy, size vs. form, completeness, datum system, contradicting dimensions, values, nominal vs. geometry (PLAN §8.22) | ✅ |
+| Plausibility check stage 2: closed dimension chains, basic dimensions, pattern counts, datum targets | ⬜ |
 | Point clouds without triangles (PLY points, XYZ, E57) | ⬜ |
 | Linked side-by-side view of old and new state (synchronized cameras) | ⬜ |
 | Clash/contact/clearance analysis of assemblies or selections (PLAN §8.21) | ⬜ |
@@ -145,3 +146,5 @@
 | Portable apps Windows/macOS/Linux, GitHub workflow with/without tests, self-test | 🟡 (macOS verified locally) |
 | Release script: bump version, keep changelog DE/EN | ✅ |
 | Tests: core, offscreen UI, stress test, on-screen test | ✅ |
+| Status-bar progress with Cancel for all background jobs (load, compare, analysis, colour map, material, scan) | ✅ |
+| Closable tabs of stacked side panels; smooth side-panel resizing (batched 3D buffer resize) | ✅ |

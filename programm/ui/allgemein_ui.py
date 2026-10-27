@@ -13,8 +13,8 @@ class AllgemeinDialog(QtWidgets.QDialog):
         super().__init__(parent)
         self.setWindowTitle(tr("Allgemeintoleranzen"))
         lay = QtWidgets.QFormLayout(self)
-        hinweis = QtWidgets.QLabel(tr("Gelten für Flächen ohne eigene Maß- oder Toleranzangabe und werden mit "
-                                      "„Alle Toleranzzonen zeigen“ violett dargestellt."))
+        hinweis = QtWidgets.QLabel(tr("Gelten für Flächen ohne eigene Maß- oder Toleranzangabe. Mit "
+                                      "„Allgemeintoleranzen zeigen“ violett dargestellt: alle oder an der Auswahl."))
         hinweis.setWordWrap(True)
         hinweis.setObjectName("leise")
         lay.addRow(hinweis)

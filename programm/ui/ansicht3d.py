@@ -737,6 +737,19 @@ class OcctAnsicht(AnsichtBasis):
             t.timeout.connect(self._neu_zeichnen)
         t.start(ms)
 
+    def _groesse_anpassen(self):
+        self._angepasst_zeit = time.monotonic()
+        self.d.View.MustBeResized()
+        self._spaeter_zeichnen()
+
+    def _spaeter_anpassen(self, ms: int = 80):
+        t = getattr(self, "_anpass_zeit", None)
+        if t is None:
+            t = self._anpass_zeit = QtCore.QTimer(self)
+            t.setSingleShot(True)
+            t.timeout.connect(self._groesse_anpassen)
+        t.start(ms)
+
     def _neu_zeichnen(self):
         if self._bereit and not getattr(self, "_still", False):
             self.d.Context.UpdateCurrentViewer()
@@ -1989,11 +2002,15 @@ class OcctAnsicht(AnsichtBasis):
         if typ == E.NativeGesture:
             return self._geste(ev)
         if typ == E.Resize:
-            # Seitenleiste ziehen: viele Groessenaenderungen hintereinander -> gesammelt einmal neu zeichnen
-            self.d.View.MustBeResized()
-            self._groesse_zeit = time.monotonic()
-            self._spaeter_zeichnen()
-            return False
+            # Seitenleiste ziehen: MustBeResized ist teuer (Puffer neu anlegen). Hoechstens alle 250 ms sofort,
+            # sonst gesammelt nach dem Ziehen. True: das resizeEvent von pythonocc ruft es sonst je Pixel auf.
+            jetzt = time.monotonic()
+            self._groesse_zeit = jetzt
+            if jetzt - getattr(self, "_angepasst_zeit", 0.0) > 0.25:
+                self._groesse_anpassen()
+            else:
+                self._spaeter_anpassen()
+            return True
         if typ == E.Paint:
             if time.monotonic() - getattr(self, "_groesse_zeit", 0.0) < 0.15:
                 self._spaeter_zeichnen()

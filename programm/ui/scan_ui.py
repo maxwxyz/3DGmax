@@ -23,18 +23,21 @@ class ScanLader(QtCore.QThread):
     def __init__(self, erg, pfad: str, parent=None):
         super().__init__(parent)
         self.erg, self.pfad = erg, pfad
+        self.abgebrochen = False
 
     def run(self):
         import numpy as np
         from ..kern import abweichung, ausrichten
         from ..kern.laden import lade_modell
+        from .lader import Abbruch, melder
+        melde = melder(self, self.stand.emit)  # zwischen den Schritten abbrechbar
         try:
-            self.stand.emit(tr("Scan laden …"))
+            melde(tr("Scan laden …"))
             scan = lade_modell(self.pfad)
-            self.stand.emit(tr("Scan ausrichten …"))
+            melde(tr("Scan ausrichten …"))
             grob = ausrichten.richte_aus(self.erg.modell.flaechen, scan.flaechen, 0.05)
             matrix = sp.feinausrichten(self.erg.modell, sp.scan_punkte(scan, None), grob.matrix)
-            self.stand.emit(tr("Abweichungen berechnen …"))
+            melde(tr("Abweichungen berechnen …"))
             netze = ausrichten.tesselliere(scan.flaechen)
             punkte = [p @ matrix[:3, :3].T + matrix[:3, 3] for p, _ in netze]
             alle = np.vstack([p for p in punkte if len(p)])
@@ -44,10 +47,12 @@ class ScanLader(QtCore.QThread):
                 werte.append(z.abstand[k:k + len(p)])
                 k += len(p)
             karte = abweichung.Karte([(p, t) for p, (_, t) in zip(punkte, netze)], werte, 0.0)
-            self.stand.emit(tr("Toleranzen bewerten …"))
+            melde(tr("Toleranzen bewerten …"))
             ergebnisse = sp.bewerte(self.erg.pmi, self.erg.modell, z)
             self.fertig.emit({"karte": karte, "ergebnisse": ergebnisse, "ausrichtung": grob, "matrix": matrix,
                               "pfad": self.pfad})
+        except Abbruch:
+            return
         except Exception as e:  # noqa: BLE001 - Fehler dem Nutzer zeigen
             self.fehler.emit(f"{e}\n\n{traceback.format_exc(limit=3)}")
 

@@ -154,6 +154,7 @@ class Hauptfenster(QtWidgets.QMainWindow):
         self.abbrechen = QtWidgets.QPushButton(tr("Abbrechen"))
         self.abbrechen.hide()
         self.abbrechen.clicked.connect(self.lade_abbrechen)
+        self._aufgaben = []  # laufende Hintergrundrechnungen (Analyse, Farbkarte, Material, Scan)
         self.statusBar().addPermanentWidget(self.fortschritt)
         self.statusBar().addPermanentWidget(self.abbrechen)
         # Schnellmessung rechts: Kennwerte der Auswahl, Rechtsklick waehlt die Angaben
@@ -284,7 +285,25 @@ class Hauptfenster(QtWidgets.QMainWindow):
         d.setFeatures(QtWidgets.QDockWidget.DockWidgetFeature.DockWidgetMovable |
                       QtWidgets.QDockWidget.DockWidgetFeature.DockWidgetClosable)
         self.addDockWidget(bereich, d)
+        # Reiterleisten legt Qt erst beim Stapeln an -> danach mit X versehen
+        d.visibilityChanged.connect(lambda _: QtCore.QTimer.singleShot(0, self._tabs_schliessbar))
+        d.dockLocationChanged.connect(lambda _: QtCore.QTimer.singleShot(0, self._tabs_schliessbar))
         return d
+
+    def _tabs_schliessbar(self):
+        """Reiter gestapelter Leisten mit X schliessen (wie das X in der Titelleiste der Leiste)."""
+        nur_direkt = QtCore.Qt.FindChildOption.FindDirectChildrenOnly
+        for leiste in self.findChildren(QtWidgets.QTabBar, options=nur_direkt):
+            if not leiste.tabsClosable():
+                leiste.setTabsClosable(True)
+                leiste.tabCloseRequested.connect(lambda i, l=leiste: self._tab_schliessen(l, i))
+
+    def _tab_schliessen(self, leiste, i: int):
+        titel = leiste.tabText(i)
+        for d in self.findChildren(QtWidgets.QDockWidget):
+            if d.windowTitle() == titel and d.isVisible():
+                d.close()
+                return
 
     def _aktion(self, name, text, slot=None, kurz=None, pruefbar=False, tipp=None, modell=True):
         a = QtGui.QAction(text, self)
@@ -365,6 +384,9 @@ class Hauptfenster(QtWidgets.QMainWindow):
           pruefbar=True, tipp=tr("Zonen aller Toleranzen und Maße des Modells, mit Allgemeintoleranzen (violett)"))
         A("allgemeintoleranzen", tr("Allgemeintoleranzen …"), self.waehle_allgemeintoleranzen,
           tipp=tr("ISO 2768 / ISO 22081 für Flächen ohne eigene Angabe (Zonendarstellung)"))
+        A("allgemein_zeigen", tr("Allgemeintoleranzen zeigen"), self._allgemein_umschalten, pruefbar=True,
+          tipp=tr("Zonen der Allgemeintoleranzen (violett) an Flächen ohne eigene Angabe: alle oder an der "
+                  "Auswahl"))
         A("ballone", tr("Ballonnummern zeigen"), self.zeige_ballone_aktuell, "B", pruefbar=True,
           tipp=tr("Nummern der Merkmale (Maße, Form- und Lagetoleranzen) im Modell, wie in der Merkmalsliste"))
         A("merkmale_csv", tr("Merkmalsliste (CSV) …"), lambda: self.exportiere_merkmale(),
@@ -541,6 +563,7 @@ class Hauptfenster(QtWidgets.QMainWindow):
         m.addAction(a["fokus"])
         m.addAction(a["toleranzzone"])
         m.addAction(a["toleranzzonen_alle"])
+        m.addAction(a["allgemein_zeigen"])
         m.addAction(a["allgemeintoleranzen"])
         m.addAction(a["hilfsgeometrie"])
         m.addSeparator()
@@ -747,7 +770,47 @@ class Hauptfenster(QtWidgets.QMainWindow):
             QtWidgets.QApplication.processEvents()
             QtWidgets.QApplication.processEvents()
 
+    def _aufgabe(self, lader, text: str = ""):
+        """Hintergrundrechnung in der Statuszeile anzeigen: Laufbalken (Prozent, wenn gemeldet), Abbrechen."""
+        self._aufgaben.append(lader)
+        if text:
+            self.statusBar().showMessage(text)
+        self.fortschritt.setRange(0, 0)
+        self.fortschritt.show()
+        self.abbrechen.show()
+        lader.finished.connect(lambda l=lader: self._aufgabe_ende(l))
+
+    def _prozent(self, p: int):
+        self.fortschritt.setRange(0, 100)
+        self.fortschritt.setValue(p)
+
+    def _aufgabe_ende(self, lader):
+        if lader in self._aufgaben:
+            self._aufgaben.remove(lader)
+        self._laufbalken_pruefen()
+
+    def _laufbalken_pruefen(self):
+        """Laufbalken ausblenden, sobald nichts mehr im Hintergrund rechnet."""
+        laeuft = self._aufgaben or any(x is not None and x.isRunning()
+                                       for x in (self._lader, getattr(self, "_vlader", None)))
+        if not laeuft:
+            self.fortschritt.hide()
+            self.abbrechen.hide()
+            self.fortschritt.setRange(0, 0)
+
+    def _aufgaben_abbrechen(self) -> bool:
+        """Laufende Rechnungen verwerfen; die Threads enden beim naechsten Fortschrittsschritt."""
+        for lader in self._aufgaben:
+            lader.abgebrochen = True
+        da = bool(self._aufgaben)
+        self._aufgaben = []
+        self._karten_lader = None
+        self.analyse.start.setEnabled(True)
+        return da
+
     def lade_abbrechen(self):
+        if self._aufgaben_abbrechen():
+            self.statusBar().showMessage(tr("Abgebrochen"), 4000)
         if getattr(self, "_vlader", None) is not None and self._vlader.isRunning():
             self._vlader.abgebrochen = True
             self._vlader = None
@@ -762,8 +825,7 @@ class Hauptfenster(QtWidgets.QMainWindow):
         if self.sender() is not self._lader:
             return
         self._lader = None
-        self.fortschritt.hide()
-        self.abbrechen.hide()
+        self._laufbalken_pruefen()
         self.zeige_ergebnis(erg)
         self._projekt_messungen()
 
@@ -780,6 +842,7 @@ class Hauptfenster(QtWidgets.QMainWindow):
         if self.erg is not None and erg.pfad != self.erg.pfad:
             self.kommentare.setze([])  # Kommentare gehoeren zum vorigen Modell
             self._allgemein = None  # Allgemeintoleranzen gehoeren zum vorigen Modell
+            self.aktionen["allgemein_zeigen"].setChecked(False)
         if vergleich is None and self.ansicht.abweichung is not None:
             self.ansicht.zeige_analyse(None)  # Analyse gehoert zum alten Modell
         self.erg = erg
@@ -802,8 +865,7 @@ class Hauptfenster(QtWidgets.QMainWindow):
     def _ladefehler(self, text):
         self._lader = None
         self._vlader = None
-        self.fortschritt.hide()
-        self.abbrechen.hide()
+        self._laufbalken_pruefen()
         self.statusBar().clearMessage()
         QtWidgets.QMessageBox.warning(self, tr("Laden fehlgeschlagen"), text)
 
@@ -952,18 +1014,22 @@ class Hauptfenster(QtWidgets.QMainWindow):
         if self.erg is None or not (alle or self.aktionen["toleranzzone"].isChecked()):
             self.ansicht.zeige_zone([])
             return
+        allgemein = self._allgemein if self.aktionen["allgemein_zeigen"].isChecked() else None
+        nur = None  # Flaechen fuer die Allgemeintoleranzen (None: alle ohne eigene Angabe)
         if alle:
             liste = list(self.erg.pmi)
         elif not liste and self.ansicht.auswahl3d:
-            idx = {i for f in self.ansicht.auswahl3d for i in [self.erg.modell.flaechen_index(f)] if i is not None}
-            liste = [p for p in self.erg.pmi if p.flaechen & idx]
+            nur = {i for f in self.ansicht.auswahl3d for i in [self.erg.modell.flaechen_index(f)] if i is not None}
+            liste = [p for p in self.erg.pmi if p.flaechen & nur]
+        else:
+            allgemein = None  # gewaehlte PMI: nur deren Zonen
         from OCC.Core.Bnd import Bnd_Box
         from OCC.Core.BRepBndLib import brepbndlib
         box = Bnd_Box()
         brepbndlib.Add(self.erg.modell.form, box)
         x0, y0, z0, x1, y1, z1 = box.Get()
         mindest = max(x1 - x0, y1 - y0, z1 - z0) / 250  # schmalere Zonen werden ueberhoeht
-        schluessel = (id(self.erg), repr(self._allgemein), tuple(p.wert_text() for p in self.erg.pmi)) if alle \
+        schluessel = (id(self.erg), repr(allgemein), tuple(p.wert_text() for p in self.erg.pmi)) if alle \
             else None
         if schluessel is not None and self._zonen_alle[0] == schluessel:
             ergebnis, zonen = self._zonen_alle[1]  # alle Zonen nicht bei jeder Auswahl neu berechnen
@@ -971,8 +1037,8 @@ class Hauptfenster(QtWidgets.QMainWindow):
             ergebnis = toleranzzone.zonen(liste, self.erg.modell, mindest, self.erg.pmi)
             zonen = [z for _p, z in ergebnis]
             faktor = zonen[0].faktor if zonen else None
-            if alle and self._allgemein is not None:
-                z = toleranzzone.allgemein_zone(self.erg.modell, self.erg.pmi, self._allgemein, mindest, faktor)
+            if allgemein is not None:
+                z = toleranzzone.allgemein_zone(self.erg.modell, self.erg.pmi, allgemein, mindest, faktor, nur)
                 if z is not None:
                     zonen.append(z)
             if schluessel is not None:
@@ -983,6 +1049,9 @@ class Hauptfenster(QtWidgets.QMainWindow):
         if not zonen:
             if liste:
                 self.statusBar().showMessage(tr("Für diese PMI gibt es keine Zonendarstellung"), 5000)
+            elif nur:
+                self.statusBar().showMessage(tr("Keine PMI an der Auswahl – Allgemeintoleranzen einschalten, um "
+                                                "deren Zonen zu sehen"), 6000)
             return
         if len(ergebnis) == 1 and len(zonen) == 1:
             z = zonen[0]
@@ -1007,8 +1076,22 @@ class Hauptfenster(QtWidgets.QMainWindow):
         if d.exec() != QtWidgets.QDialog.DialogCode.Accepted:
             return
         self._allgemein = d.wert()
-        if self._allgemein is not None:
-            self.aktionen["toleranzzonen_alle"].setChecked(True)
+        self.aktionen["allgemein_zeigen"].setChecked(self._allgemein is not None)
+        self._allgemein_umschalten()
+
+    def _allgemein_umschalten(self):
+        """Allgemeintoleranzen ein/aus; ohne gewaehlte Klassen die aus der Datei, sonst zuerst der Dialog."""
+        from ..kern import toleranzzone
+        a = self.aktionen
+        if a["allgemein_zeigen"].isChecked():
+            if self._allgemein is None and self.erg is not None:
+                self._allgemein = toleranzzone.allgemein_aus_hinweisen(self.erg.pmi)
+            if self._allgemein is None:
+                a["allgemein_zeigen"].setChecked(False)
+                self.waehle_allgemeintoleranzen()
+                return
+            if not (a["toleranzzone"].isChecked() or a["toleranzzonen_alle"].isChecked()):
+                a["toleranzzonen_alle"].setChecked(True)
         self._zone_aktualisieren(self.pmi.gewaehlte())
 
     def _bezugssystem(self, liste) -> list:
@@ -1233,8 +1316,7 @@ class Hauptfenster(QtWidgets.QMainWindow):
 
     def _vergleich_fertig(self, v):
         self._vlader = None
-        self.fortschritt.hide()
-        self.abbrechen.hide()
+        self._laufbalken_pruefen()
         if getattr(self, "_projekt", None):
             from ..kern import projekt
             projekt.uebernimm_pruefstand(v, self._projekt.get("vergleich", {}).get("aenderungen", []))
@@ -1347,6 +1429,7 @@ class Hauptfenster(QtWidgets.QMainWindow):
         werte = {"alt": v.alt.pfad, "neu": v.neu.pfad, "toleranz": v.toleranz, "suchweite": v.suchweite}
         self.statusBar().showMessage(tr("Vergleiche …"))
         self.fortschritt.show()
+        self.abbrechen.show()
         self._vlader = VergleichsLader(werte, v.alt, self, neu_geladen=v.neu, ausrichtung=ausrichtung)
         self._vlader.stand.connect(lambda t: self.statusBar().showMessage(t))
         self._vlader.fertig.connect(self._vergleich_fertig)
@@ -1371,10 +1454,11 @@ class Hauptfenster(QtWidgets.QMainWindow):
             if getattr(self, "_karten_lader", None) is not None and self._karten_lader.isRunning():
                 return
             lader = KartenLader(v, self)
-            lader.stand.connect(lambda p: self.statusBar().showMessage(tr("Farbkarte berechnen … {} %").format(p)))
+            lader.stand.connect(self._prozent)
             lader.fehler.connect(lambda t: QtWidgets.QMessageBox.warning(self, tr("Farbkarte"), t))
-            lader.fertig.connect(lambda k, v=v: self._farbkarte_fertig(v, k))
+            lader.fertig.connect(lambda k, v=v, l=lader: l.abgebrochen or self._farbkarte_fertig(v, k))
             self._karten_lader = lader
+            self._aufgabe(lader, tr("Farbkarte berechnen …"))
             lader.start()
             if warten:
                 lader.wait()
@@ -1401,9 +1485,9 @@ class Hauptfenster(QtWidgets.QMainWindow):
             from .vergleich_ui import MaterialLader
             lader = MaterialLader(v, self)
             lader.fehler.connect(lambda t: self.statusBar().showMessage(tr("Materialvergleich: {}").format(t), 8000))
-            lader.fertig.connect(lambda m, v=v: self._material_fertig(v, m))
+            lader.fertig.connect(lambda m, v=v, l=lader: l.abgebrochen or self._material_fertig(v, m))
             self._material_lader = lader
-            self.statusBar().showMessage(tr("Materialvergleich läuft …"))
+            self._aufgabe(lader, tr("Materialvergleich läuft …"))
             lader.start()
             if warten:
                 lader.wait()
@@ -1587,7 +1671,7 @@ class Hauptfenster(QtWidgets.QMainWindow):
         for n in ("pmi_anlegen", "kommentar"):
             m.addAction(a[n])
         m.addSeparator()
-        for n in ("fokus", "toleranzzone", "toleranzzonen_alle", "allgemeintoleranzen"):
+        for n in ("fokus", "toleranzzone", "toleranzzonen_alle", "allgemein_zeigen", "allgemeintoleranzen"):
             m.addAction(a[n])
         m.addSeparator()
         for n in ("teil_ausblenden", "teil_isolieren", "alle_zeigen"):
@@ -1784,11 +1868,13 @@ class Hauptfenster(QtWidgets.QMainWindow):
         teile = [k.form for k in self.erg.baum.blaetter()
                  if not k.hilfsgeometrie and k.nummer not in self.ansicht.versteckt]
         lader = AnalyseLader(art, teile, richtung, self)
-        lader.stand.connect(lambda p: self.statusBar().showMessage(tr("Analyse … {} %").format(p)))
-        lader.fehler.connect(lambda t: QtWidgets.QMessageBox.warning(self, tr("Analyse"), t))
-        lader.fertig.connect(lambda k, a=art, w=dict(werte): self._analyse_fertig(a, w, k))
+        lader.stand.connect(self._prozent)
+        lader.fehler.connect(lambda t: (self.analyse.start.setEnabled(True),
+                                        QtWidgets.QMessageBox.warning(self, tr("Analyse"), t)))
+        lader.fertig.connect(lambda k, a=art, w=dict(werte), l=lader: l.abgebrochen or self._analyse_fertig(a, w, k))
         self._analyse_lader = lader
         self.analyse.start.setEnabled(False)
+        self._aufgabe(lader, tr("Analyse …"))
         lader.start()
         if warten:
             lader.wait()
@@ -1936,6 +2022,7 @@ class Hauptfenster(QtWidgets.QMainWindow):
             return None
         fenster = PruefFenster(pmi_bericht.pruefe(self.erg.pmi, self.erg.ansichten, self.erg.modell), self)
         fenster.pmi_waehlen.connect(lambda nummern: self.pmi.waehle(lambda p: p.nummer in nummern))
+        fenster.flaechen_waehlen.connect(self.ansicht.hebe_flaechen)
         fenster.show()
         return fenster
 
@@ -2102,9 +2189,9 @@ class Hauptfenster(QtWidgets.QMainWindow):
         lader = ScanLader(self.erg, pfad, self)
         lader.stand.connect(lambda t: self.statusBar().showMessage(t))
         lader.fehler.connect(lambda t: QtWidgets.QMessageBox.warning(self, tr("Scanprüfung"), t))
-        lader.fertig.connect(self._scan_fertig)
+        lader.fertig.connect(lambda d, l=lader: l.abgebrochen or self._scan_fertig(d))
         self._scan_lader = lader
-        self.fortschritt.show()
+        self._aufgabe(lader)
         lader.start()
         if warten:
             lader.wait()
@@ -2113,7 +2200,6 @@ class Hauptfenster(QtWidgets.QMainWindow):
 
     def _scan_fertig(self, d):
         from ..kern import abweichung, scanpruefung as sp
-        self.fortschritt.hide()
         self._scan = d
         karte = d["karte"]
         grenze = max(abweichung.standard_grenze(karte, 0.02), 0.05)
