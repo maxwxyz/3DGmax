@@ -1271,5 +1271,10 @@
 "Spielpassung": "Clearance fit",
 "Übergangspassung": "Transition fit",
 "Übermaßpassung": "Interference fit",
-"Geschlossene Maßkette: {} – die Toleranzen bestimmen sich gegenseitig, ein Maß als Hilfsmaß (in Klammern) angeben": "Closed dimension chain: {} – the tolerances determine each other, give one dimension as a reference dimension (in brackets)"
+"Geschlossene Maßkette: {} – die Toleranzen bestimmen sich gegenseitig, ein Maß als Hilfsmaß (in Klammern) angeben": "Closed dimension chain: {} – the tolerances determine each other, give one dimension as a reference dimension (in brackets)",
+"radial": "radial",
+"entlang X": "along X",
+"entlang Y": "along Y",
+"entlang Z": "along Z",
+"Richtung der Explosion: von der Mitte weg oder nur entlang einer Achse": "Direction of the explosion: away from the centre or only along an axis"
 }

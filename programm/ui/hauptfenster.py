@@ -757,6 +757,14 @@ class Hauptfenster(QtWidgets.QMainWindow):
         self.explosion_regler.sliderReleased.connect(self._explosion_einpassen)
         self.explosion_regler_aktion = tb.addWidget(self.explosion_regler)
         self.explosion_regler_aktion.setVisible(False)  # nur bei aktiver Explosionsansicht
+        self.explosion_achse = QtWidgets.QComboBox()
+        for daten, text in ((None, tr("radial")), ("x", tr("entlang X")), ("y", tr("entlang Y")), ("z", tr("entlang Z"))):
+            self.explosion_achse.addItem(text, daten)
+        self.explosion_achse.setToolTip(tr("Richtung der Explosion: von der Mitte weg oder nur entlang einer Achse"))
+        self.explosion_achse.currentIndexChanged.connect(lambda _i: self.ansicht.setze_explosion_achse(
+            self.explosion_achse.currentData()))
+        self.explosion_achse_aktion = tb.addWidget(self.explosion_achse)
+        self.explosion_achse_aktion.setVisible(False)
 
     def _verbinde(self):
         self.start.oeffnen.connect(self.oeffnen)
@@ -2667,6 +2675,7 @@ class Hauptfenster(QtWidgets.QMainWindow):
     def _explosion_umschalten(self):
         an = self.aktionen["explosion"].isChecked()
         self.explosion_regler_aktion.setVisible(an)
+        self.explosion_achse_aktion.setVisible(an)
         self.ansicht.setze_explosion(self.explosion_regler.value() / 100.0 if an else 0.0)
         self._explosion_einpassen()
         if an and self.erg is not None and len([k for k in self.erg.baum.blaetter() if not k.hilfsgeometrie]) < 2:

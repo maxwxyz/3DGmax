@@ -220,6 +220,12 @@ class AnsichtBasis(QtWidgets.QWidget):
         """Explosionsansicht: Teile vom Mittelpunkt weg verschieben (0 = aus, 1 = weit)."""
         self.explosion = max(0.0, min(1.0, anteil))
 
+    def setze_explosion_achse(self, achse: str | None):
+        """Explosion radial (None) oder nur entlang der Achse "x", "y", "z"."""
+        self.explosion_achse = achse
+        if self.explosion > 0:
+            self.setze_explosion(self.explosion)
+
     def mitte_von(self, flaechen):
         """Schwerpunkt von Flaechen (Index) oder None."""
         return None
@@ -1462,7 +1468,7 @@ class OcctAnsicht(AnsichtBasis):
             if not box.IsVoid():
                 x0, y0, z0, x1, y1, z1 = box.Get()
                 mitten[nr] = ((x0 + x1) / 2, (y0 + y1) / 2, (z0 + z1) / 2)
-        self._wege = versaetze(self.szene.baum, mitten, self.explosion)
+        self._wege = versaetze(self.szene.baum, mitten, self.explosion, achse=getattr(self, "explosion_achse", None))
         self._lagen_anwenden()
 
     def setze_teil_lagen(self, lagen):

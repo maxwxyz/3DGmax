@@ -18,8 +18,12 @@ def _tiefe(k) -> int:
     return unten + (1 if len(k.kinder) > 1 else 0)
 
 
-def versaetze(baum, mitten: dict, anteil: float, faktor: float = FAKTOR) -> dict:
-    """Versatz je Blatt-Nummer; mitten: Blatt-Nummer -> Mittelpunkt (x, y, z) der Einbaulage."""
+ACHSEN = {"x": (1.0, 0.0, 0.0), "y": (0.0, 1.0, 0.0), "z": (0.0, 0.0, 1.0)}
+
+
+def versaetze(baum, mitten: dict, anteil: float, faktor: float = FAKTOR, achse: str | None = None) -> dict:
+    """Versatz je Blatt-Nummer; mitten: Blatt-Nummer -> Mittelpunkt (x, y, z) der Einbaulage. achse "x"/"y"/"z":
+    nur entlang dieser Achse (Versatz auf die Achse projiziert), sonst radial."""
     aus: dict = {}
     if anteil <= 0:
         return aus
@@ -47,4 +51,7 @@ def versaetze(baum, mitten: dict, anteil: float, faktor: float = FAKTOR) -> dict
             gehe(kind, v, ebene + (1 if verzweigt else 0))
 
     gehe(baum, (0.0, 0.0, 0.0), 0)
+    if achse in ACHSEN:
+        a = ACHSEN[achse]
+        aus = {n: tuple(sum(v[i] * a[i] for i in range(3)) * a[j] for j in range(3)) for n, v in aus.items()}
     return aus

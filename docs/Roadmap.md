@@ -30,7 +30,7 @@
 | Exploded view (slider), parts list (BOM) with quantity, volume, mass, CSV | ✅ |
 | Exploded view by assembly levels (staged), BOM with part number | ✅ |
 | BOM with material property (STEP) and material density | ✅ |
-| Exploded view along axes | ⬜ |
+| Exploded view along axes (X/Y/Z) | ✅ |
 | Analyses: draft angle, curvature radius, wall thickness map (value on click) | ✅ |
 
 ## PMI

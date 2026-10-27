@@ -25,3 +25,10 @@ def test_ebenen_gestaffelt():
     assert halb[1] == (-10, 0, 0) and halb[2] == halb[3] == (10, 0, 0)
     voll = versaetze(baum, mitten, 1.0, faktor=1.0)
     assert voll[2] == (9, 0, 0) and voll[3] == (11, 0, 0)
+
+
+def test_entlang_achse():
+    baum = Knoten("M", None, [_blatt(1), _blatt(2)], baugruppe=True)
+    w = versaetze(baum, {1: (-1, 3, 0), 2: (1, -3, 0)}, 1.0, faktor=1.0, achse="x")
+    assert w[1] == (-1, 0, 0) and w[2] == (1, 0, 0)
+    assert versaetze(baum, {1: (-1, 3, 0), 2: (1, -3, 0)}, 1.0, faktor=1.0, achse="z") == {1: (0, 0, 0), 2: (0, 0, 0)}
