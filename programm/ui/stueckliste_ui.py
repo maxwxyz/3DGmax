@@ -22,8 +22,8 @@ class StuecklisteFenster(QtWidgets.QDialog):
         self.dichte = float(self.ein.value("dichte", ek.DICHTE_STAHL))
         lay = QtWidgets.QVBoxLayout(self)
         gesamt = sum(p.anzahl for p in self.liste)
-        info = QtWidgets.QLabel(tr("{} Positionen, {} Teile · Dichte {:.3f} g/cm³ (wie in den Modelleigenschaften)")
-                                .format(len(self.liste), gesamt, self.dichte))
+        info = QtWidgets.QLabel(tr("{} Positionen, {} Teile · Dichte {:.3f} g/cm³ (wie in den Modelleigenschaften), "
+                                   "bei bekanntem Werkstoff dessen Dichte").format(len(self.liste), gesamt, self.dichte))
         info.setObjectName("leise")
         lay.addWidget(info)
         self.tabelle = QtWidgets.QTableWidget(0, len(sl.SPALTEN))

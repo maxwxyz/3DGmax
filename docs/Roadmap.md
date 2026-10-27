@@ -29,7 +29,8 @@
 | Hide selected in 3D, tree search; 3D PMI follows list filter | ✅ |
 | Exploded view (slider), parts list (BOM) with quantity, volume, mass, CSV | ✅ |
 | Exploded view by assembly levels (staged), BOM with part number | ✅ |
-| Exploded view along axes, BOM with material property | ⬜ |
+| BOM with material property (STEP) and material density | ✅ |
+| Exploded view along axes | ⬜ |
 | Analyses: draft angle, curvature radius, wall thickness map (value on click) | ✅ |
 
 ## PMI
@@ -131,7 +132,7 @@
 | Plausibility check stage 2: closed dimension chains, basic dimensions, pattern counts, datum targets | ⬜ |
 | Point clouds without triangles (PLY points, XYZ/ASC/CSV/PTS) | ✅ |
 | Point clouds E57 | ⬜ |
-| Linked side-by-side view of old and new state (synchronized cameras) | ⬜ |
+| Linked side-by-side view of old and new state (synchronized cameras) | ✅ |
 | Clash/contact/clearance analysis of assemblies or selections (PLAN §8.21 stages 1–3) | ✅ |
 | Band analysis (min/max distance), intersection volumes, result list with status/comment, CSV | ✅ |
 | Clash: intersection curves, penetration depth, PDF report, results in the project, mesh parts (PRC/STL) | ⬜ |

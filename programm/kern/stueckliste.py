@@ -21,10 +21,12 @@ class Position:
     baugruppen: list[str] = field(default_factory=list)  # in welchen Baugruppen es vorkommt
     nummern: list[int] = field(default_factory=list)  # Blattnummern der Exemplare (Ansicht)
     sachnummer: str = ""  # Produktkennung laut Datei (STEP PRODUCT.id)
+    werkstoff: str = ""  # Werkstoff laut Datei (STEP-Werkstoffangabe)
 
     def masse(self, dichte: float) -> float:
-        """Masse je Stueck in kg bei Dichte g/cm3."""
-        return self.volumen * dichte * 1e-6
+        """Masse je Stueck in kg; Dichte (g/cm3) des Werkstoffs aus der Bibliothek, sonst die angegebene."""
+        from .werkstoffe import dichte_fuer
+        return self.volumen * (dichte_fuer(self.werkstoff) or dichte) * 1e-6
 
 
 def _grundname(name: str) -> str:
@@ -74,19 +76,24 @@ def sachnummern(datei) -> dict[str, str]:
 
 
 def ergaenze_sachnummern(liste: list[Position], datei) -> list[Position]:
+    """Sachnummer und Werkstoff je Position aus der STEP-Datei."""
+    from .werkstoffe import werkstoffe_aus_step
     nummern = sachnummern(datei)
+    stoffe = werkstoffe_aus_step(datei)
     for p in liste:
         p.sachnummer = nummern.get(p.name, "")
+        p.werkstoff = stoffe.get(p.name, "")
     return liste
 
 
-SPALTEN = ("Pos", "Sachnummer", "Benennung", "Anzahl", "Volumen je Stück (cm³)", "Masse je Stück (kg)", "Masse gesamt (kg)",
-           "Baugruppe")
+SPALTEN = ("Pos", "Sachnummer", "Benennung", "Werkstoff", "Anzahl", "Volumen je Stück (cm³)", "Masse je Stück (kg)",
+           "Masse gesamt (kg)", "Baugruppe")
+ZAHLEN = (5, 6, 7)  # Spalten mit Dezimalzahlen (CSV mit Komma)
 
 
 def zeilen(liste: list[Position], dichte: float) -> list[list[str]]:
-    return [[str(p.pos), p.sachnummer, p.name, str(p.anzahl), f"{p.volumen / 1000:.3f}", f"{p.masse(dichte):.4f}",
-             f"{p.masse(dichte) * p.anzahl:.4f}", ", ".join(p.baugruppen)] for p in liste]
+    return [[str(p.pos), p.sachnummer, p.name, p.werkstoff, str(p.anzahl), f"{p.volumen / 1000:.3f}",
+             f"{p.masse(dichte):.4f}", f"{p.masse(dichte) * p.anzahl:.4f}", ", ".join(p.baugruppen)] for p in liste]
 
 
 def als_csv(liste: list[Position], dichte: float) -> str:
@@ -94,5 +101,5 @@ def als_csv(liste: list[Position], dichte: float) -> str:
     w = csv.writer(puffer, delimiter=";")
     w.writerow([tr(s) for s in SPALTEN])
     for z in zeilen(liste, dichte):
-        w.writerow([x.replace(".", ",") if i in (4, 5, 6) else x for i, x in enumerate(z)])
+        w.writerow([x.replace(".", ",") if i in ZAHLEN else x for i, x in enumerate(z)])
     return puffer.getvalue()

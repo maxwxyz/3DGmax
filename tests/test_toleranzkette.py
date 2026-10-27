@@ -112,3 +112,18 @@ def test_richtungen_aus_schlussmass_mit_falschen_vorzeichen():
     assert not hinweise and [g.name[:2] for g in reihe] == ["M3", "M2", "M1", "M4", "M5", "M6"]
     assert [g.richtung for g in reihe] == [-1, -1, -1, 1, 1, -1]
     assert abs(tk.berechne(reihe).nenn - 0.4) < 1e-9
+
+
+def test_stueckliste_mit_werkstoff_und_dichte():
+    from programm.kern import p21, stueckliste as sl
+    from programm.kern.baum import lies_baum
+    from programm.kern.laden import lade_modell
+    from tests.conftest import pfad
+    m = lade_modell(pfad("getriebe.stp"))
+    liste = sl.ergaenze_sachnummern(sl.positionen(lies_baum(m)), p21.lese(pfad("getriebe.stp")))
+    p = {x.name: x for x in liste}
+    assert p["Distanzhülse"].werkstoff == "EN AW-6082" and p["Welle"].werkstoff == "42CrMo4"
+    # Alu-Huelse mit 2,7 g/cm3, nicht mit der angegebenen Dichte 7,85
+    assert abs(p["Distanzhülse"].masse(7.85) - p["Distanzhülse"].volumen * 2.7e-6) < 1e-12
+    z = sl.zeilen(liste, 7.85)
+    assert z[0][3] and sl.SPALTEN[3] == "Werkstoff" and ";" in sl.als_csv(liste, 7.85)

@@ -17,6 +17,10 @@ REFERENZ = 20.0  # °C, ISO 1
 BIBLIOTHEK = {"Stahl": 11.5, "Nichtrostender Stahl": 16.0, "Gusseisen": 10.5, "Aluminium": 23.0, "Messing": 19.0,
               "Kupfer": 16.5, "Titan": 8.6, "PA6": 80.0, "POM": 110.0, "PEEK": 47.0}
 
+# Name -> Dichte in g/cm3 (Richtwerte)
+DICHTE = {"Stahl": 7.85, "Nichtrostender Stahl": 7.9, "Gusseisen": 7.2, "Aluminium": 2.7, "Messing": 8.5,
+          "Kupfer": 8.96, "Titan": 4.5, "PA6": 1.14, "POM": 1.41, "PEEK": 1.32}
+
 # Stichworte (Wortanfang, ohne Gross-/Kleinschreibung) -> Bibliotheksname; spezifische zuerst
 STICHWORTE = (
     ("Nichtrostender Stahl", (r"1\.4[0-9]", "x[0-9]+cr", "edelstahl", "stainless", "inox", "v[24]a", "aisi 3")),
@@ -50,6 +54,12 @@ def alpha_fuer(werkstoff: str) -> float | None:
     """Ausdehnungskoeffizient in 1e-6/K zu einem Werkstoffnamen (Bibliothek per Stichwort) oder None."""
     name = bibliotheksname(werkstoff)
     return BIBLIOTHEK[name] if name else None
+
+
+def dichte_fuer(werkstoff: str) -> float | None:
+    """Dichte in g/cm3 zu einem Werkstoffnamen (Bibliothek per Stichwort) oder None."""
+    name = bibliotheksname(werkstoff)
+    return DICHTE[name] if name else None
 
 
 def laengenaenderung(alpha_e6: float, laenge: float, temperatur: float) -> float:

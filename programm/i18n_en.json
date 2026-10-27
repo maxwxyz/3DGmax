@@ -1242,5 +1242,6 @@
 "Schrift und Bedienelemente größer oder kleiner (nach einem Neustart)": "Text and controls larger or smaller (after a restart)",
 "Die Oberfläche wird nach einem Neustart auf {:.0f} % gestellt.": "The interface will be set to {:.0f} % after a restart.",
 "enthält Änderungen": "contains changes",
-"unverändert": "unchanged"
+"unverändert": "unchanged",
+"{} Positionen, {} Teile · Dichte {:.3f} g/cm³ (wie in den Modelleigenschaften), bei bekanntem Werkstoff dessen Dichte": "{} items, {} parts · density {:.3f} g/cm³ (as in the model properties), the material density where the material is known"
 }

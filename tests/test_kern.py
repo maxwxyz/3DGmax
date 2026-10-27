@@ -192,7 +192,7 @@ def test_stueckliste_baugruppe():
     assert namen["Winkel"].baugruppen == ["Halter"]
     assert abs(namen["Deckel"].volumen - 100 * 60 * 4) < 1e-6
     text = sl.als_csv(liste, 7.85)
-    assert text.splitlines()[0].startswith("Pos;Sachnummer;Benennung;Anzahl") and len(text.splitlines()) == 5
+    assert text.splitlines()[0].startswith("Pos;Sachnummer;Benennung;Werkstoff;Anzahl") and len(text.splitlines()) == 5
 
 
 def test_analysen_entformung_kruemmung_wandstaerke():
