@@ -13,7 +13,7 @@ Cloud session 2026-10-27 (Linux, no screen, no `daten/`). All work is on `main`,
 3. Rotated/mirrored elements and per-instance comparison – `1c7fd8e`.
 4. QIF graphical PMI and saved views – `b5774e8` (kern/qif_grafik.py).
 5. Multiple section planes (up to three; union, or common region via chained clip planes) and section contour
-   export SVG/DXF/PDF (kern/schnitt.py) – commit "Multiple section planes and section contour export".
+   export SVG/DXF/PDF (kern/schnitt.py) – `978dc82`.
 
 Extra on request: STEPZ (`6620f29`); start error log and message box for the portable app (`5ca02ef`, Windows
 build run 28 green). User wishes recorded in PLAN §8.17 (STEP-XML and other open formats) and §8.18 (semantic-only
