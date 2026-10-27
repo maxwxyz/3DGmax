@@ -707,8 +707,23 @@ def test_vergleichsmodi(fenster):
     assert not f._blink.isActive() and f.modus_leiste.pause_knopf.text().startswith("▶")
     f.setze_vergleichsmodus("vergleich")
     assert f.ansicht.ueberlagerung is None and not alt.isVisibleTo(f) and not f._kopplung.isActive()
+    f.setze_vergleichsmodus("nebeneinander")  # beide Strukturen untereinander, die alte mit Status
+    assert f.baum_alt.isVisibleTo(f) and f.baum_alt.baum.topLevelItem(0) is not None
+    texte = []
+    def gehe(it):
+        texte.append(it.text(0))
+        for i in range(it.childCount()):
+            gehe(it.child(i))
+    gehe(f.baum_alt.baum.topLevelItem(0))
+    assert any(t.startswith("● ") and "Schraube" in t for t in texte)  # entfallene Schraube markiert
+    schraube = next(k for k in f.vergleich.alt.baum.blaetter() if "Schraube" in k.name)
+    f.baum_alt.sichtbar_geaendert.emit({schraube.nummer}, False)
+    assert schraube.nummer in f.ansicht_alt.versteckt and schraube.nummer not in f.ansicht.versteckt
+    f.setze_vergleichsmodus("neu")
+    assert not f.baum_alt.isVisibleTo(f)
     f.beende_vergleich()
     assert not f.modus_leiste.isVisibleTo(f) and f.dock_baum.windowTitle() in ("Struktur", "Structure")
+    assert not f.baum_alt.isVisibleTo(f)
 
 
 def test_aenderung_einer_instanz_zeigen(fenster):

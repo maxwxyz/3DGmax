@@ -127,7 +127,7 @@
 | Change table with characteristic, old, new, Δ, tendency (tighter/looser), also in PDF/CSV | ✅ |
 | Comparison modes: comparison, old, new, overlay, side by side (coupled cameras), blink; tree follows the mode | ✅ |
 | Comparison modes stage 2: tree with part status colours | ✅ |
-| Comparison: both trees side by side in "Side by side" | ⬜ |
+| Comparison: both trees side by side in "Side by side" | ✅ |
 | Geometry comparison per part instance (each instance sampled; status shown on the shared faces) | ✅ |
 | Status colors per instance in the 3D view (instance key: face index + location), removed instances shown | ✅ |
 | Change list entries per instance | ✅ |

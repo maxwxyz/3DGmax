@@ -155,7 +155,20 @@ class Hauptfenster(QtWidgets.QMainWindow):
         self.ansichten = AnsichtenPanel()
         self.ansichten.setze_vorschaugroesse(str(self.ein.value("vorschau", "klein")))
         self.ansichten.vorschau_geaendert.connect(lambda v: self.ein.setValue("vorschau", v))
-        self.dock_baum = self._dock(tr("Struktur"), self.baum, QtCore.Qt.DockWidgetArea.LeftDockWidgetArea)
+        self.baum_alt = BaumPanel()  # Nebeneinander: Struktur des alten Stands unter der des neuen
+        self.baum_alt.hide()
+        self._baum_titel = (QtWidgets.QLabel(tr("Neuer Stand")), QtWidgets.QLabel(tr("Alter Stand")))
+        baeume = QtWidgets.QSplitter(QtCore.Qt.Orientation.Vertical)
+        for titel, panel in zip(self._baum_titel, (self.baum, self.baum_alt)):
+            teil = QtWidgets.QWidget()
+            lay = QtWidgets.QVBoxLayout(teil)
+            lay.setContentsMargins(0, 0, 0, 0)
+            titel.setStyleSheet("font-weight: bold; padding: 2px 4px;")
+            titel.hide()
+            lay.addWidget(titel)
+            lay.addWidget(panel, 1)
+            baeume.addWidget(teil)
+        self.dock_baum = self._dock(tr("Struktur"), baeume, QtCore.Qt.DockWidgetArea.LeftDockWidgetArea)
         self.dock_ansichten = self._dock(tr("Gespeicherte Ansichten"), self.ansichten,
                                          QtCore.Qt.DockWidgetArea.LeftDockWidgetArea)
         self.dock_pmi = self._dock(tr("PMI"), self.pmi, QtCore.Qt.DockWidgetArea.RightDockWidgetArea)
@@ -829,6 +842,10 @@ class Hauptfenster(QtWidgets.QMainWindow):
         self.baum.sichtbar_geaendert.connect(lambda n, an: self._baum_ansicht().knoten_sichtbar(n, an))
         self.baum.isolieren.connect(lambda n: self._baum_ansicht().isoliere(n))
         self.baum.transparent.connect(lambda n, an: self._baum_ansicht().knoten_transparent(n, an))
+        self.baum_alt.sichtbar_geaendert.connect(lambda n, an: self.ansicht_alt and self.ansicht_alt.knoten_sichtbar(n, an))
+        self.baum_alt.isolieren.connect(lambda n: self.ansicht_alt and self.ansicht_alt.isoliere(n))
+        self.baum_alt.transparent.connect(
+            lambda n, an: self.ansicht_alt and self.ansicht_alt.knoten_transparent(n, an))
         self.baum.baum.itemSelectionChanged.connect(
             lambda: self.ansicht.setze_fokus(self.ansicht.fokus, self.baum.gewaehlte_blaetter()))
         self.ansicht.element_gewaehlt.connect(self.messen.element)
@@ -1904,6 +1921,19 @@ class Hauptfenster(QtWidgets.QMainWindow):
             self._baum_zeigt_alt = alt_baum
         self.baum.setze_status(self._teil_status(v, alt_baum) if hervor or m == "vergleich" else None)
         self.dock_baum.setWindowTitle(tr("Struktur – alter Stand") if alt_baum else tr("Struktur"))
+        self._zweiter_baum(v if m == "nebeneinander" else None, hervor)
+
+    def _zweiter_baum(self, v, hervor: bool = True):
+        """Nebeneinander: beide Strukturen untereinander (neu oben, alt unten); v None blendet den alten aus."""
+        an = v is not None and getattr(v.alt, "baum", None) is not None
+        if an and getattr(self, "_baum_alt_fuer", None) is not v:
+            self.baum_alt.zeige(v.alt.baum)
+            self._baum_alt_fuer = v
+        if an:
+            self.baum_alt.setze_status(self._teil_status(v, True) if hervor else None)
+        self.baum_alt.setVisible(an)
+        for titel in self._baum_titel:
+            titel.setVisible(an)
 
     def _teil_status(self, v, alt: bool) -> dict:
         """Status je Teil des gezeigten Stands (gemerkt je Vergleich)."""
@@ -2010,6 +2040,8 @@ class Hauptfenster(QtWidgets.QMainWindow):
         self._baum_zeigt_alt = False
         self.baum.setze_status(None)
         self.dock_baum.setWindowTitle(tr("Struktur"))
+        self._zweiter_baum(None)
+        self._baum_alt_fuer = None
 
     def starte_manuell_ausrichten(self):
         if self.vergleich is None:
