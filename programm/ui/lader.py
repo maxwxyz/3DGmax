@@ -36,6 +36,9 @@ def lade_alles(pfad: str, fortschritt=lambda text: None) -> Ergebnis:
     fortschritt(tr("Struktur und Grafik …"))
     if modell.datei:
         grafik = lies_grafik(modell.datei, _laengen_skala(modell.datei))
+    elif getattr(modell, "qif", None) is not None:
+        from ..kern import qif_grafik
+        grafik = qif_grafik.grafik(modell.qif)
     elif getattr(modell, "prc", None) is not None:
         from ..kern.praesentation import prc_grafik
         grafik = prc_grafik(modell.prc)

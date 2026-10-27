@@ -95,7 +95,8 @@
    "STEPZ öffnen (gezipptes oder gzip-komprimiertes STEP: .stpz, .stepz, .stp.gz) mit allen PMI, Ansichten und Farben.",
    "Erzeugte PMI-Darstellung (Stufe 2): Toleranzrahmen mit Feldern, Bezugsdreieck mit Bezugskasten und Maßtext liegen in einer Schreibebene (aus der gespeicherten Ansicht oder der passenden Modellebene), ohne Überdeckung außerhalb des Modells; auch in Zeichnungen und Berichten. Ansicht › „Erzeugte PMI-Darstellung zeigen“ blendet sie aus.",
    "Portable App: Startfehler werden angezeigt und protokolliert (Windows: %LOCALAPPDATA%\\3DGmax\\start_fehler.log), Hinweis beim Start direkt aus dem ZIP-Archiv.",
-   "Vergleich erkennt gedrehte und gespiegelte Elemente (gleiche Form, andere Lage) mit Winkel und Achse bzw. Spiegelebene; mehrfach verbaute Teile werden je Instanz verglichen, auch wenn sich nur eine Instanz ändert."
+   "Vergleich erkennt gedrehte und gespiegelte Elemente (gleiche Form, andere Lage) mit Winkel und Achse bzw. Spiegelebene; mehrfach verbaute Teile werden je Instanz verglichen, auch wenn sich nur eine Instanz ändert.",
+   "QIF: grafische PMI aus der Datei (Toleranzrahmen, Texte mit Symbolen, Hinweislinien mit Pfeilen, Maßhilfslinien, Notizen) und gespeicherte Ansichten mit Kamera und sichtbaren PMI."
   ],
   "en": [
    "First viewer version: load STEP AP242, assembly tree, CAD-style navigation, standard views.",
@@ -192,7 +193,8 @@
    "Open STEPZ (zipped or gzip-compressed STEP: .stpz, .stepz, .stp.gz) with all PMI, views and colors.",
    "Generated PMI display (stage 2): feature control frames with compartments, datum triangle with datum box and dimension text lie in an annotation plane (from the saved view or the matching model plane), placed outside the model without overlaps; also in drawings and reports. View › “Show generated PMI display” hides them.",
    "Portable app: start errors are shown and logged (Windows: %LOCALAPPDATA%\\3DGmax\\start_fehler.log), hint when started directly from the ZIP archive.",
-   "Comparison detects rotated and mirrored elements (same shape, different placement) with angle and axis or mirror plane; parts used several times are compared per instance, even when only one instance changes."
+   "Comparison detects rotated and mirrored elements (same shape, different placement) with angle and axis or mirror plane; parts used several times are compared per instance, even when only one instance changes.",
+   "QIF: graphical PMI from the file (feature control frames, texts with symbols, leaders with arrows, witness lines, notes) and saved views with camera and visible PMI."
   ]
  },
  "releases": [

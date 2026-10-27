@@ -62,7 +62,7 @@ numpy, scipy (KD tree, ICP), pypdf (3D streams from PDF, BSD), lxml (QIF), pytes
 | STEP AP242 / AP214 / AP203 | OCCT + own entity reader | yes | semantic + graphical | done | 0 |
 | IGES, STL, OBJ, glTF/GLB | OCCT readers (present in pythonocc) **[done]** | yes | – | small | 0 |
 | 3MF | own reader (ZIP + XML) **[done]** | mesh | – | small | 0 |
-| **QIF** | lxml, own B-rep builder (kern/qif.py) **[done: B-rep + semantic PMI]**; test files: NIST models from github.com/QualityInformationFramework/qif-community (licence not stated – kept local in daten/qif) | QIF B-rep | **semantic, clean** | medium | 0 |
+| **QIF** | lxml, own B-rep builder (kern/qif.py) **[done: B-rep + semantic PMI; graphics and views in kern/qif_grafik.py]**; test files: NIST models from github.com/QualityInformationFramework/qif-community (licence not stated – kept local in daten/qif) | QIF B-rep | **semantic, clean** | medium | 0 |
 | **JT** – mesh | own reader per ISO 14306 | mesh | – | large (weeks) | 0 |
 | **JT** – TKJT (as used by FreeCAD) | TKJT by Open Cascade (2013–2015), maintained at github.com/mmaenz/TKJT (OCCT 7.7, compiled on Mac, untested); own Python binding | mesh, structure, attributes; PMI part present, scope [open] | [open] | medium–large | 0, but **GPL v2+** [verified] |
 | **JT** – commercial SDK | Siemens JT Open Toolkit, Open Cascade JT SDK, CAD Exchanger, HOOPS Exchange | yes | yes | medium | quote only |
@@ -104,7 +104,7 @@ tests/  packaging/  werkzeuge/  docs/
 | **3 Measure** | distance/angle/radius/wall thickness/coordinates with snapping, list, CSV | values match NIST dimensions | ✅ |
 | **4 Compare** | alignment, face status, PMI diff, change list, review walk-through, report | modified NIST variants: all changes found, no false alarms | ✅ (extensions see §8.1) |
 | **5 Output** | PDF per saved view, comparison report with images, PMI change table PDF/CSV, project container, folder comparison, views as drawings (HLR) | report understandable for a supplier | ⬜ next |
-| **6 Formats** | QIF, IGES/STL/OBJ/glTF/3MF, 3D PDF | one test file per format | 🟡 (QIF, meshes, IGES, 3D PDF/PRC, STEPZ done; STEP-XML open) |
+| **6 Formats** | QIF, IGES/STL/OBJ/glTF/3MF, 3D PDF | one test file per format | 🟡 (QIF incl. graphics/views, meshes, IGES, 3D PDF/PRC, STEPZ done; STEP-XML open) |
 | **7 JT via TKJT** | build TKJT for OCCT 8, Python binding, load JT; build with/without TKJT (open source only on GitHub) | JT file like its STEP counterpart | ⬜ |
 | later | multiple section planes, clipping box, section views from the model | section looks like in CAD | ⬜ |
 
@@ -306,4 +306,14 @@ print annotations. Today 3DGmax writes generated texts only into the placeholder
 - Graphical-only PMI: evaluate them in the table – kind from the source (PRC markup type: dimension, GD&T, datum,
   note; STEP callout names), values from text where the file has strings (STEP placeholders, PRC text entities) and
   OCR for stroked text later (§8.4). Mark as "derived (check)", never as genuine semantics.
+
+### 8.19 QIF graphics and views (done 2026-10-27)
+- `kern/qif_grafik.py`: PMIDisplay → Grafik in the annotation plane (AnnotationView normal + direction, plane origin
+  and optional direction; 2D values scaled by the file unit). Texts with `{SYMBOL}` tokens mapped to Unicode and
+  `{BR}` line breaks, rectangular/circular frames, leaders (plain, extended, double-headed, circular) with filled
+  arrow/dot heads, witness lines, free polylines and triangle areas. Graphical-only notes keep their QIF id.
+- SavedView → Ansicht: camera quaternion stored as w x y z, matrix rows are the camera axes (view = row 3,
+  up = row 2) – verified against the saved view of the same NIST model in STEP; height × ratio as window.
+- Test files: NIST QIF models from github.com/QualityInformationFramework/qif-community, downloaded in tests
+  (`tests/conftest.testdatei`), never committed.
 

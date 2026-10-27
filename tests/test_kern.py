@@ -261,14 +261,9 @@ def test_formate_laden_und_netze():
     assert cad.flaechen
 
 
-def test_qif_brep_und_pmi():
-    """QIF 3.0 der NIST-Testfaelle (nur lokal unter daten/qif, nicht im Repo)."""
-    import os
-    import pytest
-    from tests.conftest import WURZEL
-    q = os.path.join(WURZEL, "daten", "qif", "nist_ctc_01_asme1_ap242.qif")
-    if not os.path.exists(q):
-        pytest.skip("QIF-Testdatei nicht vorhanden (daten/qif)")
+def test_qif_brep_und_pmi(qif_ctc01):
+    """QIF 3.0 der NIST-Testfaelle (lokal unter daten/qif oder beim Test geladen, nicht im Repo)."""
+    q = qif_ctc01
     from programm.kern.eigenschaften import berechne
     from programm.ui.lader import lade_alles
     e = lade_alles(q)
@@ -279,6 +274,20 @@ def test_qif_brep_und_pmi():
     pos = next(p for p in e.pmi if p.typ == "Position")
     assert pos.wert == 0.75 and pos.bezug_text() == "A|B|C" and pos.flaechen
     assert e.norm.art == "asme" and "QIF" in e.norm.grund
+    # Grafische PMI (PMIDisplaySet) und gespeicherte Ansicht (ViewSet) wie in der STEP-Datei
+    aus_datei = [g for g in e.grafik.values() if not g.erzeugt]
+    assert len(aus_datei) == 23 and all(g.pmi_ids and g.ebene is not None for g in aus_datei)
+    assert not [g for g in e.grafik.values() if g.erzeugt]  # alles hat eine Darstellung aus der Datei
+    pos_grafik = next(g for g in aus_datei if pos.step_id in g.pmi_ids)
+    assert [ph.text for ph in pos_grafik.platzhalter][:3] == ["⌖", "0.750", "A"]
+    assert [a.name for a in e.ansichten] == ["MBD_0"] and len(e.ansichten[0].pmi_nummern) == 23
+    import numpy as np
+    from programm.kern.ansichten import lies_ansichten
+    from programm.kern.laden import lade_step
+    from tests.conftest import pfad
+    step = lies_ansichten(lade_step(pfad("nist_ctc_01_asme1_ap242-e1.stp")))[0]
+    assert np.allclose(e.ansichten[0].richtung, step.richtung, atol=1e-6)
+    assert np.allclose(e.ansichten[0].oben, step.oben, atol=1e-6)
 
 
 def test_zeichnung_hlr_svg_dxf(ctc01):

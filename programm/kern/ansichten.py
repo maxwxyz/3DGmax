@@ -121,8 +121,12 @@ def _prc_ansichten(modell) -> list[Ansicht]:
 
 def lies_ansichten(modell: StepModell, pmi: list[Pmi] | None = None) -> list[Ansicht]:
     datei = modell.datei
-    if datei is None and getattr(modell, "prc", None) is not None:
-        ansichten = _prc_ansichten(modell)
+    if datei is None and (getattr(modell, "prc", None) is not None or getattr(modell, "qif", None) is not None):
+        if getattr(modell, "qif", None) is not None:
+            from . import qif_grafik
+            ansichten = qif_grafik.ansichten(modell.qif)
+        else:
+            ansichten = _prc_ansichten(modell)
         if pmi is not None:
             nr = {p.step_id: p.nummer for p in pmi if p.step_id}
             for a in ansichten:
