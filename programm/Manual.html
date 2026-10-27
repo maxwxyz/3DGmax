@@ -62,7 +62,7 @@ compare two states in geometry and PMI, and document reviews.
 <a href="#display">Structure and display</a><a href="#section">Section</a><a href="#measure">Measuring</a>
 <a href="#zones">Tolerance zones</a><a href="#analysis">Analysis, tolerance stack-up, creating PMI</a>
 <a href="#comments">Comments</a><a href="#compare">Comparing two states</a><a href="#review">Reviewing changes</a>
-<a href="#clash">Clashes and distances</a><a href="#scan">Meshes and scans</a><a href="#export">Export and drawings</a><a href="#project">Project</a>
+<a href="#assembly">Assembly</a><a href="#clash">Clashes and distances</a><a href="#scan">Meshes and scans</a><a href="#export">Export and drawings</a><a href="#project">Project</a>
 <a href="#settings">Settings</a><a href="#menue">All menu commands</a><a href="#faq">Questions</a>
 </nav>
 
@@ -270,6 +270,23 @@ project.</li>
 <li><b>Start review</b> leads step by step through the changes; <b>Checked</b> / <b>Rejected</b> with a comment.</li>
 <li><b>Finish review</b>: reviewer, result, remark → report with checksum (SHA-256), stored in the project.</li>
 <li>Reports: <b>File › Export › Comparison report (PDF)</b>, <b>PMI changes (PDF)</b>, <b>Changes (CSV)</b>.</li>
+</ul>
+
+<h2 id="assembly">Assembly and degrees of freedom</h2>
+<p><b>Tools › Assembly and degrees of freedom</b>: select a face on the part that is to move, then with
+<kbd>Ctrl</kbd>/<kbd>⌘</kbd> the mating face on another part and <b>Connect</b>. Two planes are placed against each
+other (at a distance with <b>Offset</b>), two cylindrical or conical faces are aligned coaxially; the part jumps to its
+new position. Part instances are moved one by one.</p>
+<ul>
+<li>The <b>connections</b> table shows whether each connection is still satisfied in the current position (a later
+connection may move an earlier one).</li>
+<li>The parts table lists the open <b>degrees of freedom</b> of each moved part (translation along, rotation about);
+parts that are only mating parts count as fixed. A screw with head contact and coaxial shank has one left: the
+rotation about its axis.</li>
+<li><b>Wiggle</b> moves the selected part back and forth in each open degree of freedom in turn (travel in mm, angle in
+degrees) – this shows whether all intended connections are set.</li>
+<li>The clash check uses the parts in their assembled position; connections and positions are stored in the
+project.</li>
 </ul>
 
 <h2 id="clash">Clashes and distances</h2>

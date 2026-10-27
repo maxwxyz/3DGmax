@@ -145,6 +145,18 @@ class Hauptfenster(QtWidgets.QMainWindow):
         self.kollision.starten.connect(self.starte_kollision)
         self.kollision.gewaehlt.connect(self._kollision_gewaehlt)
         self.kollision.beenden.connect(self.kollision_aus)
+        from ..kern.verbindung import Baugruppe
+        from .baugruppe_ui import BaugruppePanel
+        self.baugruppe = Baugruppe()
+        self.zusammenbau = BaugruppePanel()
+        self.dock_zusammenbau = self._dock(tr("Zusammenbau"), self.zusammenbau,
+                                           QtCore.Qt.DockWidgetArea.RightDockWidgetArea)
+        self.tabifyDockWidget(self.dock_pmi, self.dock_zusammenbau)
+        self.dock_zusammenbau.hide()
+        self.zusammenbau.verbinden.connect(self.verbinde_auswahl)
+        self.zusammenbau.entfernen.connect(self._verbindung_entfernen)
+        self.zusammenbau.zuruecksetzen.connect(self.zusammenbau_zuruecksetzen)
+        self.zusammenbau.wiggle.connect(self._wiggle)
         self.scan.gewaehlt.connect(lambda p: self.pmi.waehle(lambda q: q is p))
         self.scan.beenden.connect(self.scan_aus)
         self.dock_aenderungen = self._dock(tr("Änderungen"), self.aenderungen,
@@ -492,6 +504,8 @@ class Hauptfenster(QtWidgets.QMainWindow):
           tipp=tr("Änderungsliste des Vergleichs mit Alt/Neu als Tabelle"))
         A("ansicht_vor", tr("Nächste gespeicherte Ansicht"), lambda: self.ansichten.gehe(+1), "PgDown")
         A("ansicht_zurueck", tr("Vorherige gespeicherte Ansicht"), lambda: self.ansichten.gehe(-1), "PgUp")
+        A("zusammenbau", tr("Zusammenbau und Freiheitsgrade …"), self.zeige_zusammenbau,
+          tipp=tr("Teile über Flächenpaare fangen (Ebene auf Ebene, koaxial), offene Freiheitsgrade zeigen, Wiggle"))
         A("kollision", tr("Kollisionen und Abstände …"), self.zeige_kollision_leiste,
           tipp=tr("Durchdringungen, Kontakte und Abstände außerhalb eines Bands zwischen Teilen finden"))
         A("scan_pruefen", tr("Scan gegen Toleranzen prüfen …"), lambda: self.pruefe_scan(),
@@ -621,11 +635,13 @@ class Hauptfenster(QtWidgets.QMainWindow):
         m.addAction(a["messen"])
         m.addAction(a["messen_ende"])
         m.addSeparator()
+        m.addAction(a["zusammenbau"])
         m.addAction(a["kollision"])
         m.addAction(a["scan_pruefen"])
         self.menue_fenster = mb.addMenu(tr("&Fenster"))
         for d in (self.dock_baum, self.dock_ansichten, self.dock_pmi, self.dock_messen, self.dock_analyse,
-                  self.dock_kommentare, self.dock_aenderungen, self.dock_scan, self.dock_kollision):
+                  self.dock_kommentare, self.dock_aenderungen, self.dock_scan, self.dock_kollision,
+                  self.dock_zusammenbau):
             self.menue_fenster.addAction(d.toggleViewAction())
         m = mb.addMenu(tr("&Hilfe"))
         for n in ("anleitung", "einfuehrung", "neu", "ueber"):
@@ -860,6 +876,10 @@ class Hauptfenster(QtWidgets.QMainWindow):
                 self._kette.leeren()  # Kettenglieder verweisen auf PMI des vorigen Modells
             self._allgemein = None  # Allgemeintoleranzen gehoeren zum vorigen Modell
             self.kollision_aus()
+            self._wiggle(None)
+            self.baugruppe.zuruecksetzen()
+            self.zusammenbau.zeige(self.baugruppe, {})
+            self.ansicht.setze_teil_lagen({})
             self.aktionen["allgemein_zeigen"].setChecked(False)
         if vergleich is None and self.ansicht.abweichung is not None:
             self.ansicht.zeige_analyse(None)  # Analyse gehoert zum alten Modell
@@ -925,6 +945,7 @@ class Hauptfenster(QtWidgets.QMainWindow):
             "scan": [lambda: self.pruefe_scan(pfade[1], warten)],
             "kette": [self._beispiel_kette],
             "kollision": [lambda: self._beispiel_kollision(warten)],
+            "zusammenbau": [self._beispiel_zusammenbau],
         }[name]
         self._nach_laden = zeigen(*schritte)
         self.lade(pfade[0], warten)
@@ -941,6 +962,22 @@ class Hauptfenster(QtWidgets.QMainWindow):
         self.kollision.mindest.setValue(1.0)
         self._nach_laden = lambda: self.kollision.tabelle.selectRow(0)  # ersten Befund zeigen
         self.starte_kollision(self.kollision.werte(), warten)
+
+    def _beispiel_zusammenbau(self):
+        from ..kern.verbindung import flaeche_im_teil
+        knoten = {k.nummer: k for k in self.erg.baum.blaetter()}
+        schraube = next(k.nummer for k in self.erg.baum.blaetter() if k.name.startswith("Schraube"))
+        fl = lambda t, i: flaeche_im_teil(knoten[t].form, i, self.erg.modell)  # noqa: E731
+        deckel = next(k.nummer for k in knoten.values() if k.name == "Deckel")
+        platte = next(k.nummer for k in knoten.values() if k.name == "Grundplatte")
+        # Flaechen der Testbaugruppe: Kopfunterseite 18, Deckeloberseite 15, Schaft 19, Bohrung 6
+        for paar in (((schraube, 18), (deckel, 15)), ((schraube, 19), (platte, 6))):
+            self.ansicht.setze_auswahl([fl(*paar[0]), fl(*paar[1])], [paar[0][0], paar[1][0]])
+            self.verbinde_auswahl()
+        self.ansicht.setze_auswahl([])
+        self.zeige_zusammenbau()
+        self.zusammenbau.teile.selectRow(self.zusammenbau._teil_nummern.index(schraube))
+        self.zusammenbau.wiggle_an.setChecked(True)
 
     def _beispiel_kette(self):
         from ..kern import toleranzkette as tk
@@ -1441,7 +1478,9 @@ class Hauptfenster(QtWidgets.QMainWindow):
                                  [p for p in self.erg.pmi if p.quelle == "eigen"],
                                  [{"step_id": p.step_id, "werte": {k: getattr(p, k) for k in p.original}}
                                   for p in self.erg.pmi if p.quelle != "eigen" and p.bearbeitet and p.original],
-                                 self._kette_daten())
+                                 self._kette_daten(),
+                                 self.baugruppe.als_dict() if self.baugruppe.verbindungen or self.baugruppe.lagen
+                                 else None)
         self.statusBar().showMessage(tr("Projekt gespeichert: {}").format(ziel), 6000)
         return ziel
 
@@ -1477,6 +1516,12 @@ class Hauptfenster(QtWidgets.QMainWindow):
             for a in d["pmi_aenderungen"]:
                 if a.get("step_id") in nach_id:
                     self.bearbeite_pmi(nach_id[a["step_id"]], a.get("werte", {}))
+        if d and d.get("zusammenbau") and self.erg is not None:
+            from ..kern.verbindung import flaeche_im_teil
+            knoten = {k.nummer: k for k in self.erg.baum.blaetter()}
+            self.baugruppe.lade(d["zusammenbau"], lambda t, i: flaeche_im_teil(knoten[t].form, i, self.erg.modell)
+                                if t in knoten else None)
+            self.zeige_zusammenbau()
         if d and d.get("kette") and self.erg is not None:
             k = self.zeige_toleranzkette(nur_anlegen=True)
             k.leeren()
@@ -2361,6 +2406,94 @@ class Hauptfenster(QtWidgets.QMainWindow):
         self.statusBar().showMessage(tr("Scanprüfung: {} i. O., {} n. i. O., {} am Grenzwert, {} nicht auswertbar").format(
             z[sp.OK], z[sp.NOK], z[sp.GRENZ], z[sp.OFFEN]), 15000)
 
+    # --- Zusammenbau ---
+
+    def zeige_zusammenbau(self):
+        self.dock_zusammenbau.show()
+        self.dock_zusammenbau.raise_()
+        self._zusammenbau_zeigen()
+
+    def _teil_namen(self) -> dict[int, str]:
+        if self.erg is None:
+            return {}
+        blaetter = [k for k in self.erg.baum.blaetter() if not k.hilfsgeometrie]
+        anzahl = {}
+        for k in blaetter:
+            anzahl[k.name] = anzahl.get(k.name, 0) + 1
+        return {k.nummer: k.name if anzahl[k.name] == 1 else f"{k.name} ({k.nummer})" for k in blaetter}
+
+    def _zusammenbau_zeigen(self):
+        self.zusammenbau.zeige(self.baugruppe, self._teil_namen())
+        self.ansicht.setze_teil_lagen(self.baugruppe.lagen)
+
+    def verbinde_auswahl(self, versatz: float = 0.0):
+        """Erste gewaehlte Flaeche (bewegtes Teil) an die zweite fangen."""
+        if self.erg is None or self.vergleich is not None:
+            return None
+        paare = [(f, t) for f, t in zip(self.ansicht.auswahl3d, self.ansicht.auswahl_teile)
+                 if t is not None and self.erg.modell.flaechen_index(f) is not None]
+        if len(paare) != 2:
+            self.statusBar().showMessage(tr("Genau zwei Flächen wählen: erst am bewegten Teil, dann die Gegenfläche"),
+                                         6000)
+            return None
+        (fa, ta), (fb, tb) = paare
+        m = self.erg.modell
+        v = self.baugruppe.verbinde(ta, fa, m.flaechen_index(fa), tb, fb, m.flaechen_index(fb), versatz)
+        if isinstance(v, str):
+            self.statusBar().showMessage(v, 6000)
+            return None
+        self._zusammenbau_zeigen()
+        verletzt = self.baugruppe.verletzt()
+        text = tr("Verbindung {} angelegt").format(v.nummer)
+        if verletzt:
+            text += " · " + tr("nicht mehr erfüllt: {}").format(", ".join(str(x.nummer) for x in verletzt))
+        self.statusBar().showMessage(text, 8000)
+        return v
+
+    def _verbindung_entfernen(self, nummer: int):
+        self.baugruppe.entferne(nummer)
+        self._zusammenbau_zeigen()
+
+    def zusammenbau_zuruecksetzen(self):
+        self._wiggle(None)
+        self.baugruppe.zuruecksetzen()
+        self._zusammenbau_zeigen()
+
+    def _wiggle(self, teil):
+        """Teil in seinen offenen Freiheitsgraden nacheinander hin und her bewegen (teil None: aus)."""
+        uhr = getattr(self, "_wiggle_uhr", None)
+        if uhr is None:
+            uhr = self._wiggle_uhr = QtCore.QTimer(self)
+            uhr.setInterval(30)
+            uhr.timeout.connect(self._wiggle_schritt)
+        basis = self.baugruppe.freiheitsgrade(teil) if teil is not None and not self.baugruppe.fest(teil) else []
+        if teil is None or not len(basis):
+            uhr.stop()
+            self._wiggle_zustand = None
+            self.ansicht.setze_teil_lagen(self.baugruppe.lagen)
+            if teil is not None:
+                self.statusBar().showMessage(tr("Das Teil ist bestimmt – nichts zu bewegen"), 5000)
+            return
+        self._wiggle_zustand = [teil, basis, 0]
+        uhr.start()
+
+    def _wiggle_schritt(self):
+        import math
+        from ..kern import verbindung as vb
+        z = getattr(self, "_wiggle_zustand", None)
+        if z is None:
+            return
+        teil, basis, schritt = z
+        z[2] += 1
+        je = 60  # Schritte je Freiheitsgrad (eine Schwingung)
+        i = (schritt // je) % len(basis)
+        s = math.sin(2 * math.pi * (schritt % je) / je)
+        dreht = float(sum(x * x for x in basis[i][:3])) > 1e-18
+        betrag = s * (self.zusammenbau.winkel.value() if dreht else self.zusammenbau.weg_mm.value())
+        lagen = dict(self.baugruppe.lagen)
+        lagen[teil] = vb.bewegung(basis[i], betrag) @ self.baugruppe.lage(teil)
+        self.ansicht.setze_teil_lagen(lagen)
+
     def zeige_kollision_leiste(self):
         self.dock_kollision.show()
         self.dock_kollision.raise_()
@@ -2374,8 +2507,12 @@ class Hauptfenster(QtWidgets.QMainWindow):
         if self.vergleich is not None:
             self.statusBar().showMessage(tr("Im Vergleich nicht möglich – erst Vergleich beenden"), 6000)
             return
-        alle = [ko.Teil(k.nummer, k.name, k.form) for k in self.erg.baum.blaetter()
-                if not k.hilfsgeometrie and k.nummer not in self.ansicht.versteckt]
+        from OCC.Core.TopLoc import TopLoc_Location
+        from .ansicht3d import gp_trsf
+        lagen = self.baugruppe.lagen  # Teile wie zusammengebaut
+        alle = [ko.Teil(k.nummer, k.name, k.form.Moved(TopLoc_Location(gp_trsf(lagen[k.nummer])))
+                        if k.nummer in lagen else k.form)
+                for k in self.erg.baum.blaetter() if not k.hilfsgeometrie and k.nummer not in self.ansicht.versteckt]
         gewaehlt = self.baum.gewaehlte_blaetter()
         teile, gruppe_b = alle, None
         if werte["umfang"] == "gegen":

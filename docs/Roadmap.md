@@ -65,7 +65,8 @@
 | Stack-up: chain picked in 3D (planes, cylinder/cone axes) with direction from the geometry, PMI values (also patterns) and ISO 2768 for features without PMI; distribution and Cp per link; contribution share | ✅ |
 | Stack-up: location tolerances of the end faces as links (position, symmetry, coaxiality, profile with datum, UZ), PDF report, chain in the project | ✅ |
 | Stack-up: edges and derived median planes as chain ends, Ⓜ/Ⓛ bonus and datum shift, Cpk/shifted mean, chains across parts | ⬜ |
-| Assembly placing with snapping (faces/axes/points), accumulated mates, open DOF shown | ⬜ |
+| Assembly: connections plane/plane and coaxial with snapping, satisfied check, open DOF per part, DOF wiggle, in the project | ✅ |
+| Assembly: point/line contact, pin–slot, 3-2-1 template, dragging with live snapping, STEP kinematics | ⬜ |
 | Tolerance stack-up 3D (geometric tolerances, chain from the model, sensitivity) – PLAN §8.20 | ⬜ |
 | Assemblies built in the project (mates on datum features), materials and thermal expansion in chains | ⬜ |
 | Wiggle: move parts within their tolerances (per tolerance/chain/worst case, 1:1 or exaggerated) | ⬜ |
@@ -112,7 +113,8 @@
 | Band analysis (min/max distance), intersection volumes, result list with status/comment, CSV | ✅ |
 | Clash: intersection curves, penetration depth, PDF report, results in the project, mesh parts (PRC/STL) | ⬜ |
 | Gear and spline analysis of existing files (z, mn, αn, β, b, x, Wk; pairs) as input for gear tools – PLAN §8.27 | ⬜ |
-| Clash check over joint ranges; wiggle in the open degrees of freedom | ⬜ |
+| Wiggle in the open degrees of freedom (kinematic) | ✅ |
+| Clash check over joint ranges; wiggle within tolerances | ⬜ |
 
 ## Reports and exchange
 | Feature | Status |

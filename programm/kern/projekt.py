@@ -3,7 +3,7 @@
 projekt.json:
   format, programm, typ ("modell" | "vergleich"), modelle {"modell"} bzw. {"alt", "neu"} (Dateinamen im ZIP),
   vergleich {toleranz, suchweite, aenderungen [{nr, titel, pruefstatus, kommentar}]}, messungen [...],
-  kette {cp, glieder [...]} (Toleranzkette, optional)
+  kette {cp, glieder [...]} (Toleranzkette, optional), zusammenbau {verbindungen, lagen} (optional)
 Beim Oeffnen werden die Modelle in einen temporaeren Ordner entpackt; der Vergleich wird neu gerechnet
 (deterministisch) und Pruefstatus/Kommentare werden ueber Nummer und Titel wieder zugeordnet.
 """
@@ -38,7 +38,8 @@ def _eindeutig(namen: list[str]) -> list[str]:
 
 def speichere(pfad: str, modell_pfad: str | None = None, vergleich=None, messungen: list | None = None,
               version: str = "", ansichten: list | None = None, kommentare: list | None = None,
-              eigene_pmi: list | None = None, pmi_aenderungen: list | None = None, kette: tuple | None = None) -> str:
+              eigene_pmi: list | None = None, pmi_aenderungen: list | None = None, kette: tuple | None = None,
+              zusammenbau: dict | None = None) -> str:
     """Modell oder Vergleich mit Pruefstand und Messungen als .3dgmax speichern."""
     if not pfad.lower().endswith(ENDUNG):
         pfad += ENDUNG
@@ -50,6 +51,8 @@ def speichere(pfad: str, modell_pfad: str | None = None, vergleich=None, messung
              "pmi_aenderungen": list(pmi_aenderungen or [])}
     if kette is not None and kette[1]:  # (Cp der Kette, Glieder) der Toleranzkette
         daten["kette"] = {"cp": kette[0], "glieder": [asdict(g) for g in kette[1]]}
+    if zusammenbau:  # Verbindungen und Teillagen (kern.verbindung.Baugruppe.als_dict)
+        daten["zusammenbau"] = zusammenbau
     if vergleich is not None:
         quellen = [vergleich.alt.pfad, vergleich.neu.pfad]
         alt, neu = _eindeutig([os.path.basename(q) for q in quellen])

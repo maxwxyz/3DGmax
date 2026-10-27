@@ -62,7 +62,7 @@ Maße messen, zwei Stände in Geometrie und PMI vergleichen und Prüfungen dokum
 <a href="#darstellung">Struktur und Darstellung</a><a href="#schnitt">Schnitt</a><a href="#messen">Messen</a>
 <a href="#zonen">Toleranzzonen</a><a href="#analyse">Analyse, Toleranzkette, PMI anlegen</a>
 <a href="#kommentare">Kommentare</a><a href="#vergleich">Zwei Stände vergleichen</a><a href="#pruefen">Änderungen prüfen</a>
-<a href="#kollision">Kollisionen und Abstände</a><a href="#scan">Netze und Scans</a><a href="#export">Exportieren und Zeichnungen</a><a href="#projekt">Projekt</a>
+<a href="#zusammenbau">Zusammenbau</a><a href="#kollision">Kollisionen und Abstände</a><a href="#scan">Netze und Scans</a><a href="#export">Exportieren und Zeichnungen</a><a href="#projekt">Projekt</a>
 <a href="#einstellungen">Einstellungen</a><a href="#menue">Alle Menübefehle</a><a href="#faq">Fragen</a>
 </nav>
 
@@ -270,6 +270,23 @@ im Modell an. Die Leiste <b>Kommentare</b> zeigt offen/erledigt; Export als CSV 
 <li><b>Prüfen starten</b> führt Schritt für Schritt durch die Änderungen; <b>Geprüft</b> / <b>Abgelehnt</b> mit Kommentar.</li>
 <li><b>Prüfung abschließen</b>: Prüfer, Ergebnis, Bemerkung → Protokoll mit Prüfsumme (SHA-256), gespeichert im Projekt.</li>
 <li>Berichte: <b>Datei › Exportieren › Vergleichsbericht (PDF)</b>, <b>PMI-Änderungen (PDF)</b>, <b>Änderungen (CSV)</b>.</li>
+</ul>
+
+<h2 id="zusammenbau">Zusammenbau und Freiheitsgrade</h2>
+<p><b>Werkzeuge › Zusammenbau und Freiheitsgrade</b>: eine Fläche am Teil wählen, das sich bewegen soll, dann mit
+<kbd>Strg</kbd>/<kbd>⌘</kbd> die Gegenfläche an einem anderen Teil und <b>Verbinden</b>. Zwei Ebenen werden
+gegeneinander gelegt (mit <b>Versatz</b> auf Abstand), zwei Zylinder- oder Kegelflächen koaxial ausgerichtet; das Teil
+springt in die neue Lage. Mehrfach verbaute Teile werden je Instanz bewegt.</p>
+<ul>
+<li>Die Tabelle <b>Verbindungen</b> zeigt, ob jede Verbindung in der aktuellen Lage noch erfüllt ist (eine spätere
+Verbindung kann eine frühere verschieben).</li>
+<li>Die Tabelle der Teile nennt die offenen <b>Freiheitsgrade</b> je bewegtem Teil (Verschiebung entlang, Drehung um);
+Teile, die nur Gegenteil sind, gelten als fest. Eine Schraube mit Kopfauflage und koaxialem Schaft hat noch einen:
+die Drehung um ihre Achse.</li>
+<li><b>Wiggle</b> bewegt das gewählte Teil nacheinander in jedem offenen Freiheitsgrad hin und her (Weg in mm,
+Winkel in Grad) – so sieht man, ob alle gewollten Verbindungen gesetzt sind.</li>
+<li>Die Kollisionsprüfung rechnet mit den Teilen in ihrer zusammengebauten Lage; Verbindungen und Lagen werden im
+Projekt gespeichert.</li>
 </ul>
 
 <h2 id="kollision">Kollisionen und Abstände</h2>

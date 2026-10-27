@@ -47,6 +47,9 @@ BEISPIELE = (
     Beispiel("kette", "Toleranzkette (1D)",
              "NIST FTC-10: Längenmaße als Kettenglieder (Richtung je Glied umkehrbar), Worst Case, statistisch mit "
              "Cp 1,33, Monte Carlo", (FTC10,)),
+    Beispiel("zusammenbau", "Zusammenbau und Wiggle",
+             "Schraube: Kopf auf den Deckel gefangen, Schaft koaxial zur Bohrung – offen bleibt die Drehung um die "
+             "Achse, der Wiggle zeigt sie", ("baugruppe.stp",)),
     Beispiel("kollision", "Kollisionen und Abstände",
              "Testbaugruppe: Schrauben durchdringen den Deckel (rot), Spalt 0,3 mm unter dem Mindestabstand 1 mm, "
              "Deckel liegt auf (Kontakt)", ("baugruppe.stp",)),

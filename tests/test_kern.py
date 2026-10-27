@@ -735,3 +735,33 @@ def test_kollision_kontakt_band():
                       ko.Einstellung(hoechst=4.0, kontakte_melden=False))
     assert [(x.art, x.b.name) for x in gegen] == [(ko.ZU_WEIT, "Winkel")] and abs(gegen[0].abstand - 5.0) < 1e-6
     assert "Kollision" in ko.als_csv(b) or "Clash" in ko.als_csv(b)
+
+
+def test_zusammenbau_fangen_freiheitsgrade():
+    """Schraube: Kopf auf den Deckel (eben, 1 mm nach oben), Schaft koaxial zur Bohrung -> nur Drehung frei."""
+    import numpy as np
+    from programm.kern import verbindung as vb
+    from programm.ui.lader import lade_alles
+    erg = lade_alles(pfad("baugruppe.stp"))
+    knoten = {k.nummer: k for k in erg.baum.blaetter()}
+    f = lambda t, i: vb.flaeche_im_teil(knoten[t].form, i, erg.modell)  # noqa: E731
+    b = vb.Baugruppe()
+    assert isinstance(b.verbinde(4, f(4, 18), 18, 4, f(4, 19), 19), str)  # gleiches Teil
+    assert isinstance(b.verbinde(4, f(4, 18), 18, 2, f(2, 6), 6), str)  # Ebene gegen Zylinder
+    v = b.verbinde(4, f(4, 18), 18, 3, f(3, 15), 15)
+    assert v.art == vb.EBEN and np.allclose(b.lage(4)[:3, 3], [0, 0, 1]) and len(b.freiheitsgrade(4)) == 3
+    v2 = b.verbinde(4, f(4, 19), 19, 2, f(2, 6), 6)
+    basis = b.freiheitsgrade(4)
+    assert v2.art == vb.KOAXIAL and len(basis) == 1 and not b.verletzt()
+    assert vb.beschreibe(basis)[0].startswith(("Drehung", "rotation"))
+    # Wiggle-Bewegung dreht um die Schraubenachse (15, 15): der Achspunkt bleibt
+    m = vb.bewegung(basis[0], 30.0)
+    assert np.allclose(m[:3, :3] @ [15, 15, 0] + m[:3, 3], [15, 15, 0], atol=1e-9)
+    # Laden aus dem gespeicherten Zustand
+    b2 = vb.Baugruppe()
+    b2.lade(b.als_dict(), f)
+    assert [x.nummer for x in b2.verbindungen] == [1, 2] and np.allclose(b2.lage(4), b.lage(4))
+    # Versatz: Kopf 2 mm ueber dem Deckel
+    b3 = vb.Baugruppe()
+    b3.verbinde(5, f(5, 18), 18, 3, f(3, 15), 15, versatz=2.0)
+    assert np.allclose(b3.lage(5)[:3, 3], [0, 0, 3])

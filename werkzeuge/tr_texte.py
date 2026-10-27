@@ -48,6 +48,10 @@ def tr_texte() -> set[str]:
     from programm.ui import kollision_ui
     out |= set(ko.ART_TEXT.values()) | set(ko.STATUS.values()) | set(ko.SPALTEN)
     out |= {t for _, t in kollision_ui.UMFANG}
+    from programm.kern import verbindung as vbd
+    from programm.ui import baugruppe_ui
+    out |= set(vbd.ART_TEXT.values()) | set(baugruppe_ui.BaugruppePanel.VERBINDUNG_SPALTEN)
+    out |= set(baugruppe_ui.BaugruppePanel.TEIL_SPALTEN)
     from programm.kern import beispiele
     out |= {t for b in beispiele.BEISPIELE for t in (b.titel, b.text)}
     from programm.kern import plausibilitaet

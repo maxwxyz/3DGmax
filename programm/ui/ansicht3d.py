@@ -26,6 +26,14 @@ WUERFEL_HELL = {"seite": (0.82, 0.84, 0.88), "umgebung": (0.72, 0.72, 0.72), "st
                 "innen": (0.62, 0.65, 0.70), "text": (0.0, 0.0, 0.0)}
 WUERFEL_DUNKEL = {"seite": (0.40, 0.43, 0.48), "umgebung": (0.72, 0.72, 0.72), "streu": (0.22, 0.22, 0.22),
                   "innen": (0.25, 0.27, 0.31), "text": (1.0, 1.0, 1.0)}
+def gp_trsf(m):
+    """gp_Trsf aus einer 4x4-Matrix (Drehung und Verschiebung)."""
+    from OCC.Core.gp import gp_Trsf
+    t = gp_Trsf()
+    t.SetValues(*[float(m[i][j]) for i in range(3) for j in range(4)])
+    return t
+
+
 DARSTELLUNGEN = ("kanten", "schattiert", "draht")
 
 
@@ -97,6 +105,8 @@ class AnsichtBasis(QtWidgets.QWidget):
         self.bezugssystem: list = []
         self.ballone: list = []
         self.explosion = 0.0
+        self.teil_lagen: dict = {}  # Knotennummer -> 4x4 (numpy) aus dem Zusammenbau (kern.verbindung)
+        self.auswahl_teile: list = []  # Knotennummer je Eintrag in auswahl3d (None: unbekannt)
         self.material = None
         self.kollision = None  # (Knotennummern der zwei Teile, Durchdringung oder None, Punkte) eines Befunds
         self.box = None  # Schnittbox ((x0, y0, z0), (x1, y1, z1)) oder None
@@ -394,9 +404,14 @@ class AnsichtBasis(QtWidgets.QWidget):
         """Kamera senkrecht auf die Auswahl (Flaechennormale, Mittel bei mehreren, Ebene der Beschriftung)."""
         self.letzte_ausrichtung = (set(flaechen), len(formen or []), set(pmi_ids or ()))
 
-    def setze_auswahl(self, formen: list):
+    def setze_auswahl(self, formen: list, teile: list | None = None):
         self.auswahl3d = list(formen)
+        self.auswahl_teile = list(teile) if teile is not None and len(teile) == len(formen) else [None] * len(formen)
         self.auswahl_geaendert.emit(list(self.auswahl3d))
+
+    def setze_teil_lagen(self, lagen: dict):
+        """Lagen der Teile aus dem Zusammenbau (4x4 je Knotennummer, Welt); {} = wie in der Datei."""
+        self.teil_lagen = dict(lagen)
 
     def schnitt_aus_auswahl(self) -> bool:
         """Schnittebene durch die gewaehlte Flaeche/Kante; False ohne passende Auswahl."""
@@ -916,6 +931,8 @@ class OcctAnsicht(AnsichtBasis):
             self.zeige_kommentare(self.kommentar_marken)
         if self.explosion > 0:
             self.setze_explosion(self.explosion)
+        elif self.teil_lagen:
+            self._lagen_anwenden()
         self._wende_darstellung_an()
         self._wende_sichtbarkeit_an()
         self._verlauf, self._verlauf_pos = [], -1
@@ -1374,14 +1391,28 @@ class OcctAnsicht(AnsichtBasis):
             if not box.IsVoid():
                 x0, y0, z0, x1, y1, z1 = box.Get()
                 mitten[nr] = ((x0 + x1) / 2, (y0 + y1) / 2, (z0 + z1) / 2)
-        wege = versaetze(self.szene.baum, mitten, self.explosion)
+        self._wege = versaetze(self.szene.baum, mitten, self.explosion)
+        self._lagen_anwenden()
+
+    def setze_teil_lagen(self, lagen):
+        super().setze_teil_lagen(lagen)
+        if self._bereit and self.szene is not None:
+            self._lagen_anwenden()
+            self._neu_zeichnen()
+
+    def _lagen_anwenden(self):
+        """Lage je Teil: Explosion, Vergleichsausrichtung und Zusammenbau (Teillage) hintereinander."""
+        from OCC.Core.gp import gp_Trsf, gp_Vec
         ctx = self.d.Context
+        wege = getattr(self, "_wege", {}) if self.explosion > 0 else {}
         for nr, ais in self._teile.items():
             t = gp_Trsf()
             if nr in wege:
                 t.SetTranslation(gp_Vec(*wege[nr]))
             if self.vergleich_trsf is not None:
                 t = t.Multiplied(self.vergleich_trsf)
+            if nr in self.teil_lagen:
+                t = t.Multiplied(gp_trsf(self.teil_lagen[nr]))
             for a in (ais, self._kanten.get(nr)):
                 if a is not None:
                     a.SetLocalTransformation(t)
@@ -2238,22 +2269,24 @@ class OcctAnsicht(AnsichtBasis):
             mehr = bool(QtWidgets.QApplication.keyboardModifiers() &
                         (QtCore.Qt.KeyboardModifier.ControlModifier | QtCore.Qt.KeyboardModifier.ShiftModifier |
                          QtCore.Qt.KeyboardModifier.MetaModifier))
-            self._waehle_3d(form, mehr)
+            teil = next((nr for nr, a in self._teile.items() if a == obj), None)  # Instanz, nicht nur die Flaeche
+            self._waehle_3d(form, mehr, teil)
             idx = self.szene.modell.flaechen_index(form)
             self.flaeche_gewaehlt.emit(-1 if idx is None else idx)
 
     # --- 3D-Auswahl ---
 
-    def _waehle_3d(self, form, ergaenzen: bool):
-        gleich = [f for f in self.auswahl3d if f.IsSame(form)]
+    def _waehle_3d(self, form, ergaenzen: bool, teil=None):
+        paare = list(zip(self.auswahl3d, self.auswahl_teile))
+        gleich = any(f.IsSame(form) and t == teil for f, t in paare)
         if ergaenzen:
-            neu = [f for f in self.auswahl3d if not f.IsSame(form)] if gleich else self.auswahl3d + [form]
+            paare = [(f, t) for f, t in paare if not (f.IsSame(form) and t == teil)] if gleich else paare + [(form, teil)]
         else:
-            neu = [form]
-        self.setze_auswahl(neu)
+            paare = [(form, teil)]
+        self.setze_auswahl([f for f, _ in paare], [t for _, t in paare])
 
-    def setze_auswahl(self, formen):
-        super().setze_auswahl(formen)
+    def setze_auswahl(self, formen, teile=None):
+        super().setze_auswahl(formen, teile)
         if not self._bereit:
             return
         from OCC.Core.AIS import AIS_Shape

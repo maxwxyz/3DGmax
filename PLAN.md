@@ -431,6 +431,14 @@ Plan (each stage usable on its own; builds on §8.5 zones and the 1D chain of §
 6. **Report:** chain, contributors, histograms, worst-case configuration images (PDF/CSV), stored in the project.
 - Effort: large (months for 3D); order: zones (§8.5 stage 2) → picked 1D chains with temperature → 3D torsor model
   and Monte Carlo → wiggle → assembly mating UI.
+- Done 2026-10-27 (stage 1, kinematic part): `kern/verbindung.py` – connections plane on plane (with offset) and
+  coaxial between part instances, snapping (smallest rotation, translation only along the constrained directions),
+  check whether each connection is satisfied, open degrees of freedom as the null space of the small-motion
+  constraints (plane: 3 rows, coaxial: 4 rows; mating parts fixed, parts never moved are reference parts), readable
+  as translation along / rotation about; wiggle animates each open DOF; part positions shown in the 3D view together
+  with explosion and comparison alignment, used by the clash check, stored in the project; dock "Assembly", example.
+  Open: point/line contacts, pin–slot, 3-2-1 locating as a template, dragging a part with live snapping, STEP
+  kinematics, then tolerances on the connections (stage 3) and the wiggle within tolerances (stage 5).
 
 ### 8.21 Clash, clearance band and intersection analysis; degrees of freedom (requested 2026-10-27)
 Request (from public feature requests of an open-source CAD project, generalized): check assemblies or a selection of
@@ -520,7 +528,7 @@ Planned rules (each finding with severity, the PMI involved, a short reason and 
   PDF with pictures per non-conforming PMI, point clouds without triangles.
 
 ### 8.24 Demo projects (requested 2026-10-27; stage 1 done the same day)
-Done: `kern/beispiele.py` (ten examples, files looked up in the built app under `programm/beispiele/` or in
+Done: `kern/beispiele.py` (eleven examples, files looked up in the built app under `programm/beispiele/` or in
 `tests/daten`; the spec copies them, so the repository holds no duplicates), File › Examples, steps after loading
 via `Hauptfenster.oeffne_beispiel`, `test_beispiele_oeffnen`. Analyses (draft, wall thickness) left out on request.
 Open: examples as project files with review state and comments; manual screenshots from the examples.

@@ -809,6 +809,10 @@ def _beispiele(f, namen):
             assert f._kette.glieder and abs(f._kette.cp.value() - 1.33) < 1e-9
         elif b.name == "kollision":
             assert f.ansicht.kollision is not None and f.ansicht.kollision[1] is not None
+        elif b.name == "zusammenbau":
+            assert len(f.baugruppe.verbindungen) == 2 and f.zusammenbau.wiggle_an.isChecked()
+            f.zusammenbau_zuruecksetzen()
+            f.zusammenbau.wiggle_an.setChecked(False)
     f.beende_vergleich()
     f.kollision_aus()
     f.scan_aus()
@@ -820,8 +824,9 @@ def test_beispiele_modell(fenster):
     """Datei > Beispiele (ein Modell): Dateien gefunden, Schritte nach dem Laden ausgefuehrt."""
     from programm.kern import beispiele
     assert {b.name for b in beispiele.BEISPIELE} == {"pmi", "pruefen", "zonen", "schnittansicht", "kette", "scan",
-                                                      "vergleich_pmi", "vergleich_geo", "baugruppe", "kollision"}
-    _beispiele(fenster, ("pmi", "pruefen", "zonen", "schnittansicht", "kette", "kollision"))
+                                                      "vergleich_pmi", "vergleich_geo", "baugruppe", "kollision",
+                                                      "zusammenbau"}
+    _beispiele(fenster, ("pmi", "pruefen", "zonen", "schnittansicht", "kette", "kollision", "zusammenbau"))
 
 
 def test_beispiele_vergleich_und_scan(fenster):
@@ -894,3 +899,37 @@ def test_toleranzkette_lage_pdf_projekt(fenster, tmp_path):
     k = f._kette
     assert len(k.glieder) == 5 and abs(k.cp.value() - 1.33) < 1e-9 and k.glieder[0].flaechen == (181, 187)
     k.leeren()
+
+
+def test_zusammenbau_im_fenster(fenster, tmp_path):
+    """Leiste Zusammenbau: zwei Flaechen fangen, Freiheitsgrade, Wiggle, Projekt, Kollision mit Teillagen."""
+    import numpy as np
+    from programm.kern.verbindung import flaeche_im_teil
+    f = fenster
+    f.lade(pfad("baugruppe.stp"), warten=True)
+    f.zeige_zusammenbau()
+    knoten = {k.nummer: k for k in f.erg.baum.blaetter()}
+    fl = lambda t, i: flaeche_im_teil(knoten[t].form, i, f.erg.modell)  # noqa: E731
+    f.ansicht.setze_auswahl([fl(4, 18)], [4])
+    assert f.verbinde_auswahl() is None  # nur eine Flaeche
+    f.ansicht.setze_auswahl([fl(4, 18), fl(3, 15)], [4, 3])
+    assert f.verbinde_auswahl().art == "eben"
+    f.ansicht.setze_auswahl([fl(4, 19), fl(2, 6)], [4, 2])
+    f.verbinde_auswahl()
+    assert f.zusammenbau.verbindungen.rowCount() == 2 and np.allclose(f.ansicht.teil_lagen[4][:3, 3], [0, 0, 1])
+    zeile = f.zusammenbau._teil_nummern.index(4)
+    assert f.zusammenbau.teile.item(zeile, 1).text() == "1"
+    assert f.zusammenbau.teile.item(f.zusammenbau._teil_nummern.index(2), 1).text() == "–"  # Grundplatte fest
+    f.zusammenbau.teile.selectRow(zeile)
+    f.zusammenbau.wiggle_an.setChecked(True)
+    for _ in range(5):
+        f._wiggle_schritt()
+    assert not np.allclose(f.ansicht.teil_lagen[4], f.baugruppe.lage(4))  # bewegt sich
+    f.zusammenbau.wiggle_an.setChecked(False)
+    assert np.allclose(f.ansicht.teil_lagen[4], f.baugruppe.lage(4))
+    projekt = f.speichere_projekt(str(tmp_path / "z.3dgmax"))
+    f.zusammenbau_zuruecksetzen()
+    assert not f.baugruppe.verbindungen and f.ansicht.teil_lagen == {}
+    f.oeffne_projekt(projekt, warten=True)
+    assert len(f.baugruppe.verbindungen) == 2 and np.allclose(f.baugruppe.lage(4)[:3, 3], [0, 0, 1])
+    f.zusammenbau_zuruecksetzen()
