@@ -59,6 +59,7 @@
 | Tolerance zones for the selected PMI, the selected faces or all PMI at once; general tolerances (ISO 2768-1/-2, ISO 22081) as a toggle, for the whole model or only at selected faces without PMI | ✅ |
 | Zone of the derived median plane (slots/tabs), spherical zone (S⌀), context menus | ✅ |
 | Tolerance zones in the datum system: coaxiality/runout around the datum axis, datum shift with Ⓜ/Ⓛ, form/orientation inside the higher-level zone | ✅ |
+| Tolerance zones for linear dimensions between planes and angular dimensions | ✅ |
 | Tolerance zones: line profile/roundness per section, ACS/ALS, CZ/SZ, tolerances on edges/points | ⬜ |
 | Tolerance stack-up 1D (dimension chain from PMI, worst case, RSS, Monte Carlo, CSV) | ✅ |
 | Stack-up 1D: Cp adjustable, angular dimensions excluded | ✅ |
@@ -75,7 +76,7 @@
 | Datum reference frame display for a selected tolerance | ✅ |
 | Create PMI with tolerancing advisor (stage 1: rules per selection, own PMI in project) | ✅ |
 | Edit existing PMI (values, fit, material condition; saved in the project) | ✅ |
-| Write PMI back to STEP AP242, advisor stage 2 (DRF consistency, fits from mating parts) | ⬜ |
+| Write PMI back to STEP AP242 (dimensions/datums via OCCT, geometric tolerances via own P21 writer – PLAN §8.28), advisor stage 2 | ⬜ |
 
 ## Measuring
 | Feature | Status |
@@ -105,10 +106,12 @@
 | Meshes: STL/OBJ/glTF/3MF vs. CAD and mesh vs. mesh (alignment, color map) | ✅ |
 | PLY meshes from scanners | ✅ |
 | Scan against PMI tolerances: best fit + fine alignment, per-PMI evaluation (form, profile, location, axes, sizes, Ⓜ/Ⓛ bonus), colour map over CAD, CSV (PLAN §8.23) | ✅ |
-| Scan check: manual/3-2-1 alignment, report PDF, distances/angles, per-section evaluation | ⬜ |
+| Scan check stage 2: 3-2-1 alignment to the datum system, inspection report PDF, linear/angular dimensions, point clouds (XYZ/ASC/CSV/PTS/PLY) | ✅ |
+| Scan check: manual alignment, ISO 5459 tangent datums, per-section evaluation, E57 | ⬜ |
 | Plausibility check of the specification stage 1: hierarchy, size vs. form, completeness, datum system, contradicting dimensions, values, nominal vs. geometry (PLAN §8.22) | ✅ |
 | Plausibility check stage 2: closed dimension chains, basic dimensions, pattern counts, datum targets | ⬜ |
-| Point clouds without triangles (PLY points, XYZ, E57) | ⬜ |
+| Point clouds without triangles (PLY points, XYZ/ASC/CSV/PTS) | ✅ |
+| Point clouds E57 | ⬜ |
 | Linked side-by-side view of old and new state (synchronized cameras) | ⬜ |
 | Clash/contact/clearance analysis of assemblies or selections (PLAN §8.21 stages 1–3) | ✅ |
 | Band analysis (min/max distance), intersection volumes, result list with status/comment, CSV | ✅ |

@@ -180,6 +180,11 @@ class NetzAbstand:
         n = np.cross(self.b[dreiecke] - self.a[dreiecke], self.c[dreiecke] - self.a[dreiecke])
         return n / np.maximum(np.linalg.norm(n, axis=1), 1e-30)[:, None]
 
+    def in_der_naehe(self, punkte: np.ndarray, grenze: float) -> np.ndarray:
+        """Maske der Punkte, die hoechstens etwa 'grenze' vom Netz entfernt sein koennen (schnelle Vorauswahl)."""
+        abst, _ = self.baum.query(np.asarray(punkte, float), k=1, distance_upper_bound=grenze + self.rmax)
+        return np.isfinite(abst)
+
     def abfrage(self, punkte: np.ndarray):
         """(Abstand, naechster Punkt, Flaechenindex) je Punkt."""
         punkte = np.asarray(punkte, float)
@@ -279,11 +284,16 @@ def _hauptachsen(p: np.ndarray):
     return c, v
 
 
-def richte_aus(flaechen_a, flaechen_b, toleranz: float = 0.05, anzahl: int = 6000) -> Ausrichtung:
-    """Automatisch: gleiche Lage, sonst Bestpassung."""
+def richte_aus(flaechen_a, flaechen_b, toleranz: float = 0.05, anzahl: int = 6000,
+               punkte_b: np.ndarray | None = None) -> Ausrichtung:
+    """Automatisch: gleiche Lage, sonst Bestpassung. punkte_b: Punktwolke statt der Flaechen von B."""
     netze_a = tesselliere(flaechen_a)
     a, _ = abtasten(netze_a, anzahl)
-    b, _ = abtasten(tesselliere(flaechen_b), anzahl, zufall=2)
+    if punkte_b is not None:
+        b = punkte_b if len(punkte_b) <= anzahl else \
+            punkte_b[np.random.default_rng(2).choice(len(punkte_b), anzahl, replace=False)]
+    else:
+        b, _ = abtasten(tesselliere(flaechen_b), anzahl, zufall=2)
     netz = NetzAbstand(netze_a)
     # Lage gilt als gleich, wenn mindestens die Haelfte der Punkte schon exakt aufliegt: dann teilen beide Staende
     # das Koordinatensystem, und eine Bestpassung wuerde geaenderte Bereiche nur auf alles verteilen

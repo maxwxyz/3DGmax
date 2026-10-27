@@ -776,3 +776,24 @@ def test_zusammenbau_fangen_freiheitsgrade():
     b3 = vb.Baugruppe()
     b3.verbinde(5, f(5, 18), 18, 3, f(3, 15), 15, versatz=2.0)
     assert np.allclose(b3.lage(5)[:3, 3], [0, 0, 3])
+
+
+def test_toleranzzonen_laengen_und_winkelmasse(ctc01):
+    """Laengenmass zwischen Ebenen (FTC-10) und Winkelmass (CTC-01): zwei Zonenflaechen an der zweiten Seite."""
+    import numpy as np
+    from programm.kern import toleranzzone as tz
+    from programm.kern.pmi_lesen import lies_pmi
+    from programm.ui.lader import lade_alles
+    pmi = lies_pmi(ctc01)
+    winkel = next(p for p in pmi if p.typ == "Location_Angular")
+    z = tz.zone(winkel, ctc01, 0.0, pmi)
+    assert z is not None and len(z.formen) == 2 and z.art == "mass"
+    ftc = lade_alles(pfad("nist_ftc_10_asme1_ap242-e2.stp"))
+    laenge = next(p for p in ftc.pmi if p.nummer == 6)  # 15 +-0.2 zwischen 181 und 187
+    z = tz.zone(laenge, ftc.modell, 0.0, ftc.pmi)
+    assert z is not None and len(z.formen) == 2 and abs(z.breite - 0.4) < 1e-9
+    # Lage der zwei Zonenebenen entlang x: 0.4 auseinander, symmetrisch um die Nennlage der zweiten Seite
+    from programm.kern.toleranzkette import _ebene_oder_achse
+    xs = sorted(float(_ebene_oder_achse(f)[1][0]) for f in z.formen)
+    assert abs(xs[1] - xs[0] - 0.4) < 1e-6
+    assert tz.zone(next(p for p in ftc.pmi if p.nummer == 16), ftc.modell, 0.0, ftc.pmi) is None  # eine Flaeche

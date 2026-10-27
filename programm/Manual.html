@@ -212,6 +212,8 @@ tolerance – for the selected PMI or, without a PMI selection, for the PMI on t
 <tr><td>Symmetry, position or orientation of a slot/tab</td><td>two planes around the derived median plane</td></tr>
 <tr><td>Flatness, profile, orientation, runout, cylindricity …</td><td>two offset surfaces ±t/2; unequal zone (UZ/Ⓤ) shifted</td></tr>
 <tr><td>Dimensions ⌀/R</td><td>envelopes at maximum and minimum size</td></tr>
+<tr><td>Linear dimensions between planes</td><td>two planes on the second side at minimum and maximum size, measured from the larger face</td></tr>
+<tr><td>Angular dimensions</td><td>second face rotated about the intersection line to the minimum and maximum angle</td></tr>
 <tr><td>Coaxiality, runout</td><td>zone around the datum axis (cylinder or two coaxial cylinders)</td></tr>
 <tr><td>Datum with Ⓜ/Ⓛ</td><td>additional envelope (salmon): how far the zone may shift as a whole with the datum feature</td></tr>
 <tr><td>Form and orientation tolerance</td><td>plus the zone of the higher-level tolerance on the same face (orientation or
@@ -323,6 +325,17 @@ automatically and fitted finely onto the exact faces. The colour map lies over t
 (within the measurement uncertainty), – not evaluable. Form tolerances are evaluated as range, profile and location
 within the zone, axes and diameters via a best-fit cylinder (with bonus for Ⓜ/Ⓛ). Clicking a row selects the PMI – with
 “Show tolerance zone” you see where the scan leaves the zone. Result as CSV.</p>
+<ul>
+<li><b>Point clouds</b> without triangles are checked the same way: XYZ, ASC, TXT, CSV, PTS (x y z per line, comma,
+semicolon or space, also decimal comma) and PLY with points only; the colour map appears as coloured points.</li>
+<li><b>Alignment</b> in the panel: best fit over all points or <b>datum system A|B|C (3-2-1)</b> – the primary datum is
+fitted, the secondary only in the remaining degrees of freedom, then the tertiary (least squares per datum, an
+approximation of the contact per ISO 5459). <b>Evaluate again</b> uses the chosen alignment.</li>
+<li><b>Linear and angular dimensions</b> are evaluated too: distance of the best-fit planes (or axes) of both sides and
+angle between the best-fit planes.</li>
+<li><b>Inspection report (PDF)</b>: header with model, scan and alignment, overview picture, table of all PMI and one
+page with a picture for each PMI outside or at the limit.</li>
+</ul>
 <figure><a href="doc_img/en/scan.png"><img src="doc_img/en/scan.png" alt="Scan check: colour map of the scan over the CAD model, result per PMI." loading="lazy"></a>
 <figcaption>Scan check: the scan (colour map) lies over the translucent CAD model; the flatness is violated by a waviness
 (not OK), the stripes are visible on the face.</figcaption></figure>

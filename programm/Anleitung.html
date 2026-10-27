@@ -212,6 +212,8 @@ Toleranz liegen dürfen – für die gewählten PMI oder, ohne PMI-Auswahl, für
 <tr><td>Symmetrie, Position oder Richtung an Nut/Steg</td><td>zwei Ebenen um die abgeleitete Mittelebene</td></tr>
 <tr><td>Ebenheit, Profil, Richtung, Lauf, Zylinderform …</td><td>zwei Versatzflächen ±t/2; unsymmetrische Zone (UZ/Ⓤ) verschoben</td></tr>
 <tr><td>Maße ⌀/R</td><td>Hüllen bei Höchst- und Mindestmaß</td></tr>
+<tr><td>Längenmaße zwischen Ebenen</td><td>zwei Ebenen an der zweiten Seite bei Mindest- und Höchstmaß, gemessen von der größeren Fläche</td></tr>
+<tr><td>Winkelmaße</td><td>zweite Fläche um die Schnittlinie auf Mindest- und Höchstwinkel gedreht</td></tr>
 <tr><td>Koaxialität, Lauf</td><td>Zone um die Bezugsachse (Zylinder bzw. zwei koaxiale Zylinder)</td></tr>
 <tr><td>Bezug mit Ⓜ/Ⓛ</td><td>zusätzliche Hülle (lachsfarben): so weit darf sich die Zone als Ganzes mit dem Bezugselement verschieben</td></tr>
 <tr><td>Form- und Richtungstoleranz</td><td>dazu die Zone der übergeordneten Toleranz an derselben Fläche (Richtung bzw. Lage, türkis); ist die
@@ -324,6 +326,18 @@ Leiste <b>Scanprüfung</b> bewertet jede PMI: <span class="sw" style="background
 (innerhalb der Messunsicherheit), – nicht auswertbar. Formtoleranzen werden als Spannweite, Profil und Lage in der Zone,
 Achsen und Durchmesser über einen Ausgleichszylinder (mit Bonus bei Ⓜ/Ⓛ) bewertet. Ein Klick auf eine Zeile wählt die
 PMI – mit „Toleranzzone zeigen“ sieht man, wo der Scan die Zone verlässt. Ergebnis als CSV.</p>
+<ul>
+<li><b>Punktwolken</b> ohne Dreiecke werden ebenso geprüft: XYZ, ASC, TXT, CSV, PTS (je Zeile x y z, Komma,
+Semikolon oder Leerzeichen, auch Dezimalkomma) und PLY nur mit Punkten; die Farbkarte erscheint als farbige Punkte.</li>
+<li><b>Ausrichtung</b> in der Leiste: Bestpassung über alle Punkte oder <b>Bezugssystem A|B|C (3-2-1)</b> – der
+Primärbezug wird eingepasst, der Sekundärbezug nur noch in den verbleibenden Freiheitsgraden, dann der Tertiärbezug
+(Gauß-Ausgleich je Bezug, Näherung zur Anlage nach ISO 5459). <b>Neu auswerten</b> rechnet mit der gewählten
+Ausrichtung.</li>
+<li>Auch <b>Längen- und Winkelmaße</b> werden ausgewertet: Abstand der Ausgleichsebenen (bzw. -achsen) beider Seiten
+und Winkel zwischen den Ausgleichsebenen.</li>
+<li><b>Prüfbericht (PDF)</b>: Kopf mit Modell, Scan und Ausrichtung, Übersichtsbild, Tabelle aller PMI und je PMI
+außerhalb oder am Grenzwert eine Seite mit Bild.</li>
+</ul>
 <figure><a href="doc_img/de/scan.png"><img src="doc_img/de/scan.png" alt="Scanprüfung: Farbkarte des Scans über dem CAD-Modell, Ergebnis je PMI." loading="lazy"></a>
 <figcaption>Scanprüfung: der Scan (Farbkarte) liegt über dem durchscheinenden CAD-Modell; die Ebenheit ist durch eine
 Welligkeit verletzt (n. i. O.), die Streifen sind auf der Fläche zu sehen.</figcaption></figure>

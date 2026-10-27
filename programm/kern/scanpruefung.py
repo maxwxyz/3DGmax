@@ -8,6 +8,9 @@ zuordnen (Netzsuche, Abstand exakt auf der B-Rep-Flaeche, Vorzeichen + = ausserh
 - Achszonen (Position, Koaxialitaet, Richtung mit Durchmesser) an Zylindern: Achsversatz und Radius je Element
   per Ausgleichsrechnung; Istwert = 2 x Achsversatz, zulaessig t plus Bonus bei M/L aus dem Istmass.
 - Durchmesser und Radius: Istmass aus derselben Ausgleichsrechnung gegen Hoechst-/Mindestmass.
+- Laengenmasse zwischen Ebenen (oder Ebene und Achse): Flaechen nach Lage entlang der Normalen in zwei Seiten
+  geteilt, je Seite Ausgleichsebene (bzw. Ausgleichsachse); Istmass = Abstand der Seiten entlang der Normalen.
+- Winkelmasse: Flaechen nach Normalenrichtung in zwei Gruppen, Winkel zwischen den Normalen der Ausgleichsebenen.
 Die Bewertung ist eine Naeherung fuer die Sichtpruefung (keine normgerechte Auswertung nach Messstrategie).
 """
 
@@ -175,6 +178,105 @@ def _flaechen_auswertung(p, z: Zuordnung, suchweite) -> Ergebnis:
                     int(sel.sum()))
 
 
+def _ausgleich_ebene(p: np.ndarray):
+    """Schwerpunkt und Normale der Ausgleichsebene (kleinster Singulaerwert)."""
+    c = p.mean(axis=0)
+    _, _, vt = np.linalg.svd(p - c, full_matrices=False)
+    return c, vt[2]
+
+
+def _seiten(modell, flaechen: set[int]):
+    """Ebene und Zylinderflaechen eines Masses nach Lage entlang der Normalen der ersten Ebene: (Richtung,
+    [(Lage, Flaechen, Art)]) mit zwei Eintraegen oder None."""
+    from .toleranzkette import _ebene_oder_achse, lage
+    geo = {i: _ebene_oder_achse(modell.flaechen[i]) for i in flaechen if i < len(modell.flaechen)}
+    ebene = next((g for g in geo.values() if g is not None and g[0] == "ebene"), None)
+    if ebene is None:
+        return None
+    n = ebene[2] / np.linalg.norm(ebene[2])
+    gruppen: list[list] = []
+    for i, g in geo.items():
+        o = lage(modell.flaechen[i], n) if g is not None else None
+        if o is None:
+            continue
+        for gr in gruppen:
+            if abs(gr[0] - o) < 1e-4 and gr[2] == g[0]:
+                gr[1].add(i)
+                break
+        else:
+            gruppen.append([o, {i}, g[0]])
+    if len(gruppen) < 2:
+        return None
+    gruppen.sort(key=lambda gr: gr[0])
+    return n, [gruppen[0], gruppen[-1]]
+
+
+def _abstand_auswertung(p, z: Zuordnung, modell, suchweite) -> Ergebnis:
+    """Abstand der zwei Seiten eines Laengenmasses entlang der Normalen (Ausgleichsebenen bzw. -achsen)."""
+    hoechst, mindest = p.grenzen()
+    if hoechst is None or p.nennwert is None:
+        return Ergebnis(p, OFFEN, text=tr("ohne Grenzmaße"))
+    seiten = _seiten(modell, set(p.flaechen))
+    if seiten is None:
+        return Ergebnis(p, OFFEN, text=tr("Seiten des Maßes nicht als Ebenen/Achsen erkennbar"))
+    n, (a, b) = seiten
+    orte, gesamt = [], 0
+    for _o, idx, art in (a, b):
+        sel = _auswahl(z, idx, suchweite)
+        if sel.sum() < 6:
+            return Ergebnis(p, OFFEN, text=tr("zu wenige Scanpunkte"))
+        gesamt += int(sel.sum())
+        pts = z.punkte[sel]
+        if art == "ebene":
+            c, _nn = _ausgleich_ebene(pts)
+            orte.append(float(c @ n))
+        else:  # Achse: Ausgleichszylinder, Lage des verschobenen Achspunkts
+            el = next((e for e in _elemente(modell, [modell.flaechen[i] for i in idx])), None)
+            if el is None:
+                return Ergebnis(p, OFFEN, text=tr("zu wenige Scanpunkte"))
+            start, richtung, _r, erste, _i = el
+            versatz, _dr = _ausgleich_zylinder(pts, z.abstand[sel], start, richtung,
+                                               tz._ist_innen(erste, start, richtung))
+            orte.append(float((start + versatz) @ n))
+    ist = abs(orte[1] - orte[0])
+    ueber = max(ist - hoechst, mindest - ist)
+    return Ergebnis(p, _status(ueber), ist, hoechst - mindest,
+                    tr("Istmaß {:.4f} (Grenzen {:.4f} … {:.4f})").format(ist, mindest, hoechst), gesamt)
+
+
+def _winkel_auswertung(p, z: Zuordnung, modell, suchweite) -> Ergebnis:
+    """Winkel zwischen zwei Flaechengruppen (Ausgleichsebenen), naeher am Nennwinkel von w und 180 - w."""
+    from .toleranzkette import _ebene_oder_achse
+    hoechst, mindest = p.grenzen()
+    if hoechst is None or p.nennwert is None:
+        return Ergebnis(p, OFFEN, text=tr("ohne Grenzmaße"))
+    gruppen: list[list] = []
+    for i in sorted(p.flaechen):
+        g = _ebene_oder_achse(modell.flaechen[i]) if i < len(modell.flaechen) else None
+        if g is None or g[0] != "ebene":
+            continue
+        for gr in gruppen:
+            if abs(abs(float(gr[0] @ g[2])) - 1) < 1e-6:
+                gr[1].add(i)
+                break
+        else:
+            gruppen.append([g[2], {i}])
+    if len(gruppen) != 2:
+        return Ergebnis(p, OFFEN, text=tr("Winkel nur zwischen zwei ebenen Flächengruppen auswertbar"))
+    normalen, gesamt = [], 0
+    for _n, idx in gruppen:
+        sel = _auswahl(z, idx, suchweite)
+        if sel.sum() < 6:
+            return Ergebnis(p, OFFEN, text=tr("zu wenige Scanpunkte"))
+        gesamt += int(sel.sum())
+        normalen.append(_ausgleich_ebene(z.punkte[sel])[1])
+    w = float(np.degrees(np.arccos(np.clip(abs(normalen[0] @ normalen[1]), -1, 1))))
+    ist = min((w, 180 - w), key=lambda x: abs(x - p.nennwert))
+    ueber = max(ist - hoechst, mindest - ist)
+    return Ergebnis(p, _status(ueber * np.pi / 180 * 10), ist, hoechst - mindest,  # Unsicherheit ~ 0.005 mm/10 mm
+                    tr("Istwinkel {:.3f}° (Grenzen {:.3f}° … {:.3f}°)").format(ist, mindest, hoechst), gesamt)
+
+
 def pmi_flaechen(pmi: list) -> set[int]:
     """Flaechen aller auswertbaren PMI (fuer zuordnen(nur=...))."""
     return {i for p in pmi if p.art in ("mass", "toleranz") for i in p.flaechen}
@@ -190,6 +292,10 @@ def bewerte(pmi: list, modell, z: Zuordnung, suchweite: float | None = None) -> 
         weite = suchweite or max(1.0, 5 * float(p.wert or 0.0))
         if p.art == "mass" and p.typ in tz.GROESSE:
             out.append(_mass_auswertung(p, z, modell, flaechen, weite))
+        elif p.art == "mass" and "Angular" in (p.typ or ""):
+            out.append(_winkel_auswertung(p, z, modell, weite))
+        elif p.art == "mass" and p.nennwert is not None:
+            out.append(_abstand_auswertung(p, z, modell, weite))
         elif p.art == "toleranz":
             durchmesser = "Diameter" in p.modifikatoren or p.zone == "Diameter"
             if durchmesser and (p.typ in tz.ACHSZONE or p.typ in tz.ACHSE_MIT_DURCHMESSER) and tz._achsen(flaechen):
@@ -270,3 +376,81 @@ def scan_punkte(scan_modell, ausrichtung, anzahl: int = 200000) -> np.ndarray:
         return p
     m = getattr(ausrichtung, "matrix", ausrichtung)
     return p @ m[:3, :3].T + m[:3, 3]
+
+
+# --- Ausrichtung am Bezugssystem (3-2-1) ---
+
+def bezugssysteme(pmi: list) -> list[tuple[str, ...]]:
+    """Bezugssysteme der Toleranzen (z. B. ('A', 'B', 'C')), haeufigste und vollstaendigste zuerst."""
+    zaehler: dict[tuple, int] = {}
+    for p in pmi:
+        if p.art == "toleranz" and p.bezuege:
+            drf = tuple(b.name for b in sorted(p.bezuege, key=lambda b: b.stelle))
+            zaehler[drf] = zaehler.get(drf, 0) + 1
+    return sorted(zaehler, key=lambda d: (-len(d), -zaehler[d], d))
+
+
+def bezug_flaechen(pmi: list, name: str) -> set[int]:
+    """Flaechen eines Bezugs; gemeinsamer Bezug 'A-B' vereinigt beide Elemente."""
+    teile = set(name.split("-"))
+    return {i for p in pmi if p.art == "bezug" and p.typ == "Datum" and p.name in teile for i in p.flaechen}
+
+
+def _nullraum(j: np.ndarray, tol: float = 1e-9) -> np.ndarray:
+    """Basis (Spalten) der Bewegungen, die die Zeilen j nicht aendern."""
+    _, s, vt = np.linalg.svd(j)
+    rang = int((s > tol * max(1.0, float(s.max()) if len(s) else 1.0)).sum())
+    return vt[rang:].T
+
+
+def richte_nach_bezug(modell, scan_punkte: np.ndarray, matrix: np.ndarray, stufen: list[set[int]],
+                      suchweite: float = 0.5, anzahl: int = 2000, schritte: int = 8) -> np.ndarray:
+    """Scan am Bezugssystem ausrichten: Primaerbezug passt in seinen Freiheitsgraden, Sekundaer- und Tertiaerbezug
+    nur noch in den verbliebenen (Gauss-Ausgleich je Bezug; Naeherung zur Anlage nach ISO 5459)."""
+    from OCC.Core.BRep import BRep_Tool
+    from .ausrichten import NetzAbstand, _drehung, _matrix, tesselliere
+    netze = []
+    for flaechen in stufen:
+        formen = [modell.flaechen[i] for i in sorted(flaechen) if i < len(modell.flaechen)]
+        if formen:
+            netze.append((NetzAbstand(tesselliere(formen)), [BRep_Tool.Surface(f) for f in formen]))
+    m = matrix.copy()
+    # je Bezug nur Punkte in seiner Naehe (einmal vorausgewaehlt, die Lage aendert sich nur wenig), hoechstens anzahl
+    start = scan_punkte @ m[:3, :3].T + m[:3, 3]
+    proben = []
+    for netz, _ in netze:
+        idx = np.nonzero(netz.in_der_naehe(start, 2 * suchweite))[0]
+        if len(idx) > anzahl:
+            idx = np.random.default_rng(5).choice(idx, anzahl, replace=False)
+        proben.append(scan_punkte[idx])
+    for _ in range(schritte):
+        frei = np.eye(6)
+        x = np.zeros(6)
+        for (netz, geom), b in zip(netze, proben):
+            if frei.shape[1] == 0:
+                break
+            bt = b @ m[:3, :3].T + m[:3, 3]
+            if not len(bt):
+                continue
+            d, _, fl = netz.abfrage(bt)
+            zeilen, rechts = [], []
+            for k in np.nonzero(d <= suchweite)[0]:
+                g = geom[int(fl[k])]
+                fn = None if g is None else _fuss_normale(g, bt[k])
+                if fn is None:
+                    continue
+                q, n = fn
+                if abs(abs(float(n @ (q - bt[k]))) - d[k]) > 0.02:
+                    continue  # Fusspunkt ausserhalb der Flaeche (Nachbarflaeche am Rand): nicht zum Bezug
+                zeilen.append(np.concatenate([np.cross(bt[k], n), n]))
+                rechts.append(float(n @ (q - bt[k])))
+            if len(zeilen) < 3:
+                continue
+            j = np.array(zeilen) @ frei
+            z, *_ = np.linalg.lstsq(j, np.array(rechts), rcond=None)
+            x += frei @ z
+            frei = frei @ _nullraum(j)
+        if np.linalg.norm(x) < 1e-10:
+            break
+        m = _matrix(_drehung(*x[:3]), x[3:]) @ m
+    return m

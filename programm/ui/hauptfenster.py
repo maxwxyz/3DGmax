@@ -160,6 +160,9 @@ class Hauptfenster(QtWidgets.QMainWindow):
         self.zusammenbau.toleranz.connect(self._spielraum)
         self.scan.gewaehlt.connect(lambda p: self.pmi.waehle(lambda q: q is p))
         self.scan.beenden.connect(self.scan_aus)
+        self.scan.neu_auswerten.connect(lambda b: self.pruefe_scan(self._scan["pfad"], bezug=b)
+                                        if getattr(self, "_scan", None) else None)
+        self.scan.bericht.connect(lambda: self.exportiere_scan_pdf())
         self.dock_aenderungen = self._dock(tr("Änderungen"), self.aenderungen,
                                            QtCore.Qt.DockWidgetArea.RightDockWidgetArea)
         self.tabifyDockWidget(self.dock_pmi, self.dock_aenderungen)
@@ -1210,7 +1213,12 @@ class Hauptfenster(QtWidgets.QMainWindow):
             return
         if len(ergebnis) == 1 and len(zonen) == 1:
             z = zonen[0]
-            text = tr("Toleranzzone {:.4g} mm").format(z.breite)
+            p0 = ergebnis[0][0]
+            if "Angular" in (p0.typ or ""):  # Winkelmass: Zonenbreite in Grad
+                h, m = p0.grenzen()
+                text = tr("Toleranzzone {:.4g}°").format(h - m)
+            else:
+                text = tr("Toleranzzone {:.4g} mm").format(z.breite)
         else:
             text = tr("{} Toleranzzonen").format(len(ergebnis))
         # Erklaerungen: die der einzelnen Zone, bei vielen nur die der Allgemeintoleranzen
@@ -2393,19 +2401,21 @@ class Hauptfenster(QtWidgets.QMainWindow):
         else:
             self.statusBar().showMessage(tr("Erst Teile in der Struktur wählen"), 4000)
 
-    def pruefe_scan(self, pfad: str = "", warten: bool = False):
-        """Scan (Netz) gegen die PMI des geoeffneten CAD-Modells pruefen."""
+    def pruefe_scan(self, pfad: str = "", warten: bool = False, bezug: tuple | None = None):
+        """Scan (Netz oder Punktwolke) gegen die PMI des geoeffneten CAD-Modells pruefen; bezug: Bezugssystem fuer
+        die 3-2-1-Ausrichtung (None: Bestpassung)."""
         from .scan_ui import ScanLader
         if self.erg is None:
             return
         if not pfad:
             pfad, _ = QtWidgets.QFileDialog.getOpenFileName(
                 self, tr("Scan wählen"), os.path.dirname(self.erg.pfad),
-                tr("Netze") + " (*.stl *.ply *.obj *.3mf *.glb *.gltf);;" + tr("Alle Dateien") + " (*)")
+                tr("Netze und Punktwolken") + " (*.stl *.ply *.obj *.3mf *.glb *.gltf *.xyz *.asc *.txt *.csv *.pts);;"
+                + tr("Alle Dateien") + " (*)")
         if not pfad:
             return
         self.scan_aus()
-        lader = ScanLader(self.erg, pfad, self)
+        lader = ScanLader(self.erg, pfad, self, bezug)
         lader.stand.connect(lambda t: self.statusBar().showMessage(t))
         lader.fehler.connect(lambda t: QtWidgets.QMessageBox.warning(self, tr("Scanprüfung"), t))
         lader.fertig.connect(lambda d, l=lader: l.abgebrochen or self._scan_fertig(d))
@@ -2423,17 +2433,36 @@ class Hauptfenster(QtWidgets.QMainWindow):
         karte = d["karte"]
         grenze = max(abweichung.standard_grenze(karte, 0.02), 0.05)
         self.ansicht.zeige_abweichung(karte, 0.02, grenze, ueberlagert=True)
-        a = d["ausrichtung"]
-        kopf = tr("Scan {}: Ausrichtung {} (mittlerer Abstand {:.4f} mm, {:.0%} der Punkte innerhalb 0,05 mm)").format(
-            os.path.basename(d["pfad"]), tr({"gleich": "gleiche Lage", "bestpassung": "Bestpassung"}.get(a.methode,
-                                                                                                         a.methode)),
-            a.mittel, a.anteil)
+        kopf = self._scan_kopf(d)
+        self.scan.setze_bezugssysteme(sp.bezugssysteme(self.erg.pmi), d.get("bezug"))
         self.scan.zeige(d["ergebnisse"], kopf)
         z = self.scan.zaehler()
         self.dock_scan.show()
         self.dock_scan.raise_()
         self.statusBar().showMessage(tr("Scanprüfung: {} i. O., {} n. i. O., {} am Grenzwert, {} nicht auswertbar").format(
             z[sp.OK], z[sp.NOK], z[sp.GRENZ], z[sp.OFFEN]), 15000)
+
+    def _scan_kopf(self, d) -> str:
+        a = d["ausrichtung"]
+        art = tr("Bezugssystem {} (3-2-1, Gauß-Ausgleich je Bezug)").format("|".join(d["bezug"])) if d.get("bezug") \
+            else tr({"gleich": "gleiche Lage", "bestpassung": "Bestpassung"}.get(a.methode, a.methode))
+        text = tr("Scan {}: Ausrichtung {} (mittlerer Abstand {:.4f} mm, {:.0%} der Punkte innerhalb 0,05 mm)").format(
+            os.path.basename(d["pfad"]), art, a.mittel, a.anteil)
+        if d.get("punktwolke"):
+            text += " · " + tr("Punktwolke, {} Punkte").format(d.get("punkte", 0))
+        return text
+
+    def exportiere_scan_pdf(self, pfad: str = "", bilder: bool = True) -> str | None:
+        from .berichte import scan_pdf
+        if getattr(self, "_scan", None) is None:
+            return None
+        pfad = pfad or self._speicherpfad(tr("Prüfbericht"), os.path.splitext(self._scan["pfad"])[0] + "_pruefbericht.pdf",
+                                          "PDF (*.pdf)")
+        if not pfad:
+            return None
+        ziel = scan_pdf(self, pfad, bilder)
+        self.statusBar().showMessage(tr("PDF gespeichert: {}").format(ziel), 6000)
+        return ziel
 
     # --- Zusammenbau ---
 

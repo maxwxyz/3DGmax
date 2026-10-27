@@ -378,6 +378,51 @@ def kette_pdf(fenster, pfad: str, bild: bool = True) -> str:
     return bericht.fertig()
 
 
+SCAN_GEWICHT = {"Nr": 0.5, "PMI": 2.0, "Ergebnis": 1.2, "Istwert": 1.0, "Zulässig": 1.0, "Punkte": 0.8,
+                "Auswertung": 3.2}
+
+
+def scan_pdf(fenster, pfad: str, bilder: bool = True) -> str:
+    """Pruefbericht der Scanpruefung: Kopf (Modell, Scan, Ausrichtung), Uebersicht mit Farbkarte, Tabelle aller PMI,
+    je PMI ausserhalb oder am Grenzwert eine Seite mit Bild (Zone und Flaechen)."""
+    from ..kern import scanpruefung as sp
+    from .scan_ui import STATUS_TEXT, ScanPanel
+    d = fenster._scan
+    erg = fenster.erg
+    modell = os.path.basename(erg.pfad)
+    bericht = PdfBericht(pfad, tr("Prüfbericht – {}").format(modell))
+    bericht.ueberschrift(tr("Prüfbericht Scan gegen Toleranzen"))
+    bericht.absatz(tr("Modell: {} · Scan: {}").format(modell, os.path.basename(d["pfad"])))
+    bericht.absatz(fenster._scan_kopf(d))
+    z = fenster.scan.zaehler()
+    bericht.absatz(tr("Ergebnis: {} i. O., {} n. i. O., {} am Grenzwert, {} nicht auswertbar · Messunsicherheit ±{} mm "
+                      "· Näherung für die Sichtprüfung, keine normgerechte Auswertung nach Messstrategie").format(
+        z[sp.OK], z[sp.NOK], z[sp.GRENZ], z[sp.OFFEN], sp.UNSICHERHEIT), 10)
+    if bilder:
+        with _BreiteAnsicht(fenster):
+            fenster.pmi.waehle(lambda p: False)
+            bericht.bild(fenster.ansicht.bild_qimage(), 0.45)
+    gewicht = [SCAN_GEWICHT.get(s, 1.0) for s in ScanPanel.SPALTEN]
+    spalten = [(tr(s), w / sum(gewicht)) for s, w in zip(ScanPanel.SPALTEN, gewicht)]
+    zeilen = [[str(e.pmi.nummer), e.pmi.wert_text(), tr(STATUS_TEXT[e.status]),
+               "" if e.ist is None else f"{e.ist:.4f}", "" if e.zulaessig is None else f"{e.zulaessig:.4f}",
+               str(e.punkte), e.text] for e in fenster.scan.ergebnisse]
+    bericht.tabelle(spalten, zeilen)
+    if bilder:
+        for e in [e for e in fenster.scan.ergebnisse if e.status in (sp.NOK, sp.GRENZ)]:
+            bericht.neue_seite()
+            bericht.ueberschrift(f"{e.pmi.nummer}: {e.pmi.wert_text()} – {tr(STATUS_TEXT[e.status])}", 13)
+            bericht.absatz(e.text)
+            fenster.pmi.waehle(lambda p, q=e.pmi: p is q)
+            fenster.ansicht.zoome_auf(set(e.pmi.flaechen), None, {e.pmi.step_id})
+            _warte()
+            with _BreiteAnsicht(fenster):
+                bericht.bild(fenster.ansicht.bild_qimage(), 0.7)
+        fenster.pmi.waehle(lambda p: False)
+        fenster.ansicht.alles_zeigen()
+    return bericht.fertig()
+
+
 def zeichnung_pdf(svg, pfad: str, titel: str, zeile: str) -> str:
     """Zeichnung(en) (SVG, vektoriell) auf A3 quer mit einfachem Schriftfeld; svg: Text oder Liste
     [(svg, titel, zeile)] fuer mehrere Seiten."""

@@ -487,6 +487,96 @@ def _masszone(p, flaechen, faktor: float) -> Zone | None:
     return z if z.formen else None
 
 
+def _flaechen_inhalt(flaechen) -> float:
+    from OCC.Core.BRepGProp import brepgprop
+    from OCC.Core.GProp import GProp_GProps
+    g = GProp_GProps()
+    for f in flaechen:
+        brepgprop.SurfaceProperties(f, g)
+    return g.Mass()
+
+
+def _laengenzone(p, modell, faktor: float) -> Zone | None:
+    """Laengenmass zwischen zwei ebenen Seiten: die zweite Seite liegt zwischen zwei Ebenen bei Mindest- und
+    Hoechstmass, gemessen von der Seite mit der groesseren Flaeche (Bezugsseite; ohne Ursprungsangabe gewaehlt)."""
+    from .scanpruefung import _seiten
+    from .toleranzkette import _aussen_normale
+    hoechst, mindest = p.grenzen()
+    if hoechst is None or mindest is None or p.nennwert is None or hoechst <= mindest:
+        return None
+    seiten = _seiten(modell, set(p.flaechen))
+    if seiten is None or any(art != "ebene" for _o, _i, art in seiten[1]):
+        return None
+    n, gruppen = seiten
+    formen = [[modell.flaechen[i] for i in sorted(idx)] for _o, idx, _a in gruppen]
+    ref = 0 if _flaechen_inhalt(formen[0]) >= _flaechen_inhalt(formen[1]) else 1
+    andere = 1 - ref
+    s = 1.0 if gruppen[andere][0] > gruppen[ref][0] else -1.0  # groesseres Mass: weiter von der Bezugsseite weg
+    z = Zone(breite=hoechst - mindest, faktor=faktor, art="mass")
+    for f in formen[andere]:
+        aus = float(np.sign(_aussen_normale(f) @ n)) or 1.0
+        for grenze in (hoechst, mindest):
+            z.dazu(_versatz(f, s * (grenze - p.nennwert) * faktor * aus))
+    z.hinweise.append(tr("Längenmaß: Zone der zweiten Seite, gemessen von der größeren Fläche (Bezugsseite)"))
+    return z if z.formen else None
+
+
+def _winkelzone(p, modell, faktor: float) -> Zone | None:
+    """Winkelmass zwischen zwei Ebenengruppen: die zweite Gruppe um die Schnittlinie auf Mindest- und
+    Hoechstwinkel gedreht (Bezug: groessere Flaeche)."""
+    from OCC.Core.BRepBuilderAPI import BRepBuilderAPI_Transform
+    from OCC.Core.gp import gp_Ax1, gp_Dir, gp_Pnt, gp_Trsf
+    from .toleranzkette import _ebene_oder_achse
+    hoechst, mindest = p.grenzen()
+    if hoechst is None or mindest is None or p.nennwert is None or hoechst <= mindest:
+        return None
+    gruppen: list[list] = []
+    for i in sorted(p.flaechen):
+        g = _ebene_oder_achse(modell.flaechen[i]) if i < len(modell.flaechen) else None
+        if g is None or g[0] != "ebene":
+            continue
+        for gr in gruppen:
+            if abs(abs(float(gr[1] @ g[2])) - 1) < 1e-6:
+                gr[2].append(modell.flaechen[i])
+                break
+        else:
+            gruppen.append([g[1], g[2] / np.linalg.norm(g[2]), [modell.flaechen[i]]])
+    if len(gruppen) != 2:
+        return None
+    ref = 0 if _flaechen_inhalt(gruppen[0][2]) >= _flaechen_inhalt(gruppen[1][2]) else 1
+    (p1, n1, _), (p2, n2, formen) = gruppen[ref], gruppen[1 - ref]
+    achse = np.cross(n1, n2)
+    if np.linalg.norm(achse) < 1e-9:
+        return None
+    achse /= np.linalg.norm(achse)
+    # Punkt auf beiden Ebenen (kleinste Norm)
+    a = np.array([n1, n2, achse])
+    punkt = np.linalg.solve(a, np.array([n1 @ p1, n2 @ p2, 0.0]))
+
+    def winkel(n):  # Winkel wie im Mass angegeben: w oder 180 - w, naeher am Nennwert
+        w = float(np.degrees(np.arccos(np.clip(abs(n1 @ n), -1, 1))))
+        return min((w, 180 - w), key=lambda x: abs(x - p.nennwert))
+
+    def gedreht(n, grad):
+        k = np.array([[0, -achse[2], achse[1]], [achse[2], 0, -achse[0]], [-achse[1], achse[0], 0]])
+        r = np.eye(3) + np.sin(np.radians(grad)) * k + (1 - np.cos(np.radians(grad))) * k @ k
+        return r @ n
+    vz = 1.0 if winkel(gedreht(n2, 0.01)) > winkel(n2) else -1.0  # Drehsinn, der den Winkel vergroessert
+    z = Zone(breite=float(np.radians(hoechst - mindest)), faktor=faktor, art="mass")
+    for grenze in (hoechst, mindest):
+        t = gp_Trsf()
+        t.SetRotation(gp_Ax1(gp_Pnt(*map(float, punkt)), gp_Dir(*map(float, achse))),
+                      float(np.radians(vz * (grenze - p.nennwert) * faktor)))
+        for f in formen:
+            z.dazu(BRepBuilderAPI_Transform(f, t, True).Shape())
+    z.hinweise.append(tr("Winkelmaß: zweite Fläche um die Schnittlinie auf Mindest- und Höchstwinkel gedreht"))
+    return z if z.formen else None
+
+
+def _ist_laengenmass(p) -> bool:
+    return p.art == "mass" and p.nennwert is not None and p.typ not in GROESSE and "Angular" not in (p.typ or "")
+
+
 def breite(p) -> float | None:
     """Breite, nach der die Ueberhoehung bemessen wird (Toleranzwert bzw. Radiusband einer Masstoleranz)."""
     if not p.flaechen:
@@ -494,6 +584,11 @@ def breite(p) -> float | None:
     if p.art == "mass" and p.typ in GROESSE:
         g = _massgrenzen(p)
         return None if g is None else (g[0] - g[1]) * g[2]
+    if p.art == "mass" and p.nennwert is not None:  # Laengen- und Winkelmasse (Winkel: Breite ~ 10 mm Hebel)
+        h, m = p.grenzen()
+        if h is None or m is None or h <= m:
+            return None
+        return (h - m) * (np.radians(1) * 10 if "Angular" in (p.typ or "") else 1.0)
     if p.art != "toleranz" or p.wert is None:
         return None
     if p.wert <= 0 and not p.material:  # Nulltoleranz nur mit M/L sinnvoll (Zone = Bonus)
@@ -510,8 +605,12 @@ def zone(p, modell, sichtbar_mindest: float = 0.0, alle_pmi=None, faktor: float 
     if faktor is None:
         faktor = max(1.0, sichtbar_mindest / b) if sichtbar_mindest > 0 and b > 0 else 1.0
     flaechen = [modell.flaechen[i] for i in sorted(p.flaechen) if i < len(modell.flaechen)]
-    if p.art == "mass":
+    if p.art == "mass" and p.typ in GROESSE:
         return _masszone(p, flaechen, faktor)
+    if p.art == "mass" and "Angular" in (p.typ or ""):
+        return _winkelzone(p, modell, faktor)
+    if p.art == "mass":
+        return _laengenzone(p, modell, faktor)
     t = b
     durchmesser = "Diameter" in p.modifikatoren or p.zone == "Diameter"
     z = None

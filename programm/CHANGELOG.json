@@ -133,7 +133,9 @@
    "Toleranzkette: Lagetoleranzen (Position, Symmetrie, Koaxialität, Profil mit Bezug, auch UZ) der Endflächen als eigene Glieder, PDF-Bericht mit Bild und Beitragsanteilen, Kette wird im Projekt gespeichert.",
    "Werkzeuge › Zusammenbau und Freiheitsgrade: Teile über Flächenpaare fangen (Ebene auf Ebene mit Versatz, koaxial), je Instanz; Anzeige, ob jede Verbindung erfüllt ist, offene Freiheitsgrade je Teil und Wiggle in jedem offenen Freiheitsgrad; Kollisionsprüfung mit den zusammengebauten Lagen; im Projekt gespeichert.",
    "Zusammenbau mit Toleranzen: Spielraum je Verbindung aus Geometrie und PMI (eben: Lage-/Profiltoleranzen und Kippen; koaxial: radiales Spiel aus Durchmessern, Allgemeintoleranz und Position), änderbar; Lagestreuung je Teil im Worst Case (lineares Modell, alle Verbindungen zugleich); Wiggle innerhalb der Toleranzen, 1:1 oder überhöht.",
-   "Reiter der Seitenleisten: schlichteres ✕ (passend zum Farbschema, auch in den Titelleisten); Rechtsklick auf die Reiter blendet ausgeblendete Leisten in dieser Gruppe ein."
+   "Reiter der Seitenleisten: schlichteres ✕ (passend zum Farbschema, auch in den Titelleisten); Rechtsklick auf die Reiter blendet ausgeblendete Leisten in dieser Gruppe ein.",
+   "Scanprüfung Stufe 2: Punktwolken ohne Dreiecke (XYZ/ASC/TXT/CSV/PTS, PLY nur mit Punkten), Ausrichtung am Bezugssystem (3-2-1) wählbar und neu auswertbar, Auswertung von Längen- und Winkelmaßen, Prüfbericht als PDF mit einer Bildseite je Abweichung; exakte Abstände nur an PMI-Flächen (schneller).",
+   "Toleranzzonen auch für Längenmaße zwischen Ebenen und für Winkelmaße."
   ],
   "en": [
    "First viewer version: load STEP AP242, assembly tree, CAD-style navigation, standard views.",
@@ -268,7 +270,9 @@
    "Tolerance stack-up: location tolerances (position, symmetry, coaxiality, profile with datum, also UZ) of the end faces as links of their own, PDF report with picture and contribution shares, chain stored in the project.",
    "Tools › Assembly and degrees of freedom: snap parts by pairs of faces (plane on plane with offset, coaxial), per instance; shows whether each connection is satisfied, the open degrees of freedom per part and a wiggle in every open degree of freedom; clash check with the assembled positions; stored in the project.",
    "Assembly with tolerances: clearance per connection from geometry and PMI (planar: location/profile tolerances and tilt; coaxial: radial clearance from diameters, general tolerance and position), editable; worst-case position scatter per part (linear model, all connections at once); wiggle within the tolerances, 1:1 or exaggerated.",
-   "Side panel tabs: plainer ✕ (matching the colour scheme, also in the title bars); right-click on the tabs shows hidden panels in this group."
+   "Side panel tabs: plainer ✕ (matching the colour scheme, also in the title bars); right-click on the tabs shows hidden panels in this group.",
+   "Scan check stage 2: point clouds without triangles (XYZ/ASC/TXT/CSV/PTS, PLY with points only), alignment to the datum system (3-2-1) selectable and re-evaluable, evaluation of linear and angular dimensions, inspection report as PDF with one picture page per deviation; exact distances only on PMI faces (faster).",
+   "Tolerance zones also for linear dimensions between planes and for angular dimensions."
   ]
  },
  "releases": [

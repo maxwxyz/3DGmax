@@ -530,9 +530,15 @@ Planned rules (each finding with severity, the PMI involved, a short reason and 
   (selection selects the PMI and its zone), CSV.
 - Test data (`werkzeuge/testmodelle.py`): `ctc01_scan.ply` (noise 5 µm, rotated/shifted), `ctc01_scan_fehler.ply`
   (chamfer, dent, waviness on the flatness face); results in `tests/test_vergleich.py`.
-- Open: manual alignment for the scan check (point pairs like the comparison), alignment to the datum system
-  (3-2-1 instead of best fit), evaluation of linear distances and angles, line profile/roundness per section, report
-  PDF with pictures per non-conforming PMI, point clouds without triangles.
+- Done 2026-10-27 (stage 2): point clouds (kern/punktwolke.py: XYZ/ASC/TXT/CSV/PTS incl. decimal comma, PLY with
+  points only; best fit on points, colour map as coloured points), alignment to the datum system (`richte_nach_bezug`:
+  primary datum fitted in its DOF, secondary/tertiary only in the remaining null space, least squares per datum,
+  points preselected near each datum), linear dimensions (two sides by position, best-fit planes or axes) and angular
+  dimensions (angle between best-fit planes), inspection report PDF (header, overview, table, one page per NOK/limit
+  PMI), exact projection only on PMI faces. Small faces may have too few scan nodes (≥ 6 needed) – reported as "not
+  evaluable".
+- Open: manual alignment for the scan check (point pairs), tangent/minimax datum contact per ISO 5459 instead of least
+  squares, line profile/roundness per section, E57 point clouds.
 
 ### 8.24 Demo projects (requested 2026-10-27; stage 1 done the same day)
 Done: `kern/beispiele.py` (eleven examples, files looked up in the built app under `programm/beispiele/` or in
@@ -588,3 +594,25 @@ tools (the user names MASTA as an example of a tool that needs these inputs), an
   flank modifications) and which can be measured on nominal CAD data at all (modifications are often not modelled).
 - Test data: self-generated involute gears (spur and helical, external and internal, with profile shift) built with
   OCCT, so the true values are known and the files are licence-free.
+
+### 8.28 Writing STEP AP242 with semantic PMI (research 2026-10-27, by experiment)
+Findings (pythonocc-core 8.0.1.2 and OCP 8.0.1.1, both on OCCT 8.0.1; scripts were throw-away):
+- The old note "writing new-style dimensions segfaults" was wrong in its cause: the writer crashed because the schema
+  was still AP214 – `Interface_Static.SetCVal("write.step.schema", "AP242DIS")` only takes effect after a
+  `STEPCAFControl_Writer` was created (before, the parameter does not exist and the call returns False).
+- pythonocc with AP242: dimensions with tolerances (`XCAFDoc_Dimension` + `XCAFDimTolObjects_DimensionObject`) and
+  datums (`XCAFDoc_Datum`) are written (DIMENSIONAL_SIZE, PLUS_MINUS_TOLERANCE, DATUM_FEATURE, DATUM,
+  GEOMETRIC_ITEM_SPECIFIC_USAGE) and read back correctly by our reader (⌀10 +0.1/0 on the hole, datum A).
+- pythonocc cannot write geometric tolerances: `XCAFDoc_GeomTolerance` is an empty class (no `Set`, no methods).
+- OCP (CadQuery's bindings, Apache-2.0) wraps it: flatness was written and read back. OCP exists only for Python 3.13
+  on conda-forge and brings its own OCCT copy (two OCCT builds in one process are not an option; a helper process
+  would double the app size). OCP lacks `TDF_LabelSequence`, so datums cannot be linked to tolerances from it either.
+  The lower deviation came back with the wrong sign (−0.1 → +0.1): the sign convention of `SetLowerTolValue` has to
+  be checked before relying on it.
+Plan (recommended): pythonocc XCAF for geometry, dimensions and datums; then our own P21 post-processing appends the
+geometric tolerances (FLATNESS_TOLERANCE … POSITION_TOLERANCE, GEOMETRIC_TOLERANCE_WITH_DATUM_REFERENCE, DATUM_SYSTEM,
+DATUM_REFERENCE_COMPARTMENT, modifiers, values with units) to the SHAPE_ASPECTs/DATUMs OCCT wrote, following the
+CAx-IF recommended practice for PMI; validated by reading back with our reader and with OCCT's XCAF reader. Use cases:
+save own/edited PMI, semantic PMI derived from graphical-only PMI (after review), PMI edited in the advisor.
+Alternatives: QIF export (own XML writer, also the exchange format for CMM software); ask pythonocc to wrap
+`XCAFDoc_GeomTolerance` (upstream issue).

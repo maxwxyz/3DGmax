@@ -20,9 +20,9 @@ class ScanLader(QtCore.QThread):
     fehler = QtCore.Signal(str)
     stand = QtCore.Signal(str)
 
-    def __init__(self, erg, pfad: str, parent=None):
+    def __init__(self, erg, pfad: str, parent=None, bezug: tuple | None = None):
         super().__init__(parent)
-        self.erg, self.pfad = erg, pfad
+        self.erg, self.pfad, self.bezug = erg, pfad, bezug  # bezug: Bezugssystem fuer 3-2-1 (None: Bestpassung)
         self.abgebrochen = False
 
     def run(self):
@@ -32,16 +32,33 @@ class ScanLader(QtCore.QThread):
         from .lader import Abbruch, melder
         melde = melder(self, self.stand.emit)  # zwischen den Schritten abbrechbar
         try:
+            from ..kern import punktwolke
             melde(tr("Scan laden …"))
-            scan = lade_modell(self.pfad)
+            wolke = punktwolke.ist_punktwolke(self.pfad)
+            if wolke:
+                roh = punktwolke.lies_punkte(self.pfad)
+                netze = [(roh if len(roh) <= 400_000 else
+                          roh[np.random.default_rng(4).choice(len(roh), 400_000, replace=False)],
+                          np.zeros((0, 3), dtype=int))]
+                probe = netze[0][0]
+            else:
+                scan = lade_modell(self.pfad)
+                probe = sp.scan_punkte(scan, None)
+                netze = ausrichten.tesselliere(scan.flaechen)
             melde(tr("Scan ausrichten …"))
-            grob = ausrichten.richte_aus(self.erg.modell.flaechen, scan.flaechen, 0.05)
-            matrix = sp.feinausrichten(self.erg.modell, sp.scan_punkte(scan, None), grob.matrix)
+            if wolke:
+                grob = ausrichten.richte_aus(self.erg.modell.flaechen, None, 0.05, punkte_b=probe)
+            else:
+                grob = ausrichten.richte_aus(self.erg.modell.flaechen, scan.flaechen, 0.05)
+            matrix = sp.feinausrichten(self.erg.modell, probe, grob.matrix)
+            if self.bezug:
+                melde(tr("Am Bezugssystem {} ausrichten …").format("|".join(self.bezug)))
+                stufen = [sp.bezug_flaechen(self.erg.pmi, b) for b in self.bezug]
+                matrix = sp.richte_nach_bezug(self.erg.modell, probe, matrix, [s for s in stufen if s])
             melde(tr("Abweichungen berechnen …"))
-            netze = ausrichten.tesselliere(scan.flaechen)
             punkte = [p @ matrix[:3, :3].T + matrix[:3, 3] for p, _ in netze]
             alle = np.vstack([p for p in punkte if len(p)])
-            z = sp.zuordnen(self.erg.modell, alle)
+            z = sp.zuordnen(self.erg.modell, alle, nur=sp.pmi_flaechen(self.erg.pmi))  # exakt nur an PMI-Flaechen
             werte, k = [], 0
             for p in punkte:
                 werte.append(z.abstand[k:k + len(p)])
@@ -50,7 +67,8 @@ class ScanLader(QtCore.QThread):
             melde(tr("Toleranzen bewerten …"))
             ergebnisse = sp.bewerte(self.erg.pmi, self.erg.modell, z)
             self.fertig.emit({"karte": karte, "ergebnisse": ergebnisse, "ausrichtung": grob, "matrix": matrix,
-                              "pfad": self.pfad})
+                              "pfad": self.pfad, "bezug": self.bezug, "punktwolke": wolke,
+                              "punkte": int(sum(len(p) for p, _ in netze))})
         except Abbruch:
             return
         except Exception as e:  # noqa: BLE001 - Fehler dem Nutzer zeigen
@@ -62,6 +80,8 @@ class ScanPanel(QtWidgets.QWidget):
 
     gewaehlt = QtCore.Signal(object)  # Pmi
     beenden = QtCore.Signal()
+    neu_auswerten = QtCore.Signal(object)  # Bezugssystem (Tupel) oder None fuer Bestpassung
+    bericht = QtCore.Signal()
 
     SPALTEN = ("Nr", "PMI", "Ergebnis", "Istwert", "Zulässig", "Punkte", "Auswertung")
 
@@ -72,6 +92,16 @@ class ScanPanel(QtWidgets.QWidget):
         self.kopf = QtWidgets.QLabel("")
         self.kopf.setWordWrap(True)
         lay.addWidget(self.kopf)
+        reihe = QtWidgets.QHBoxLayout()
+        reihe.addWidget(QtWidgets.QLabel(tr("Ausrichtung")))
+        self.ausrichtung = QtWidgets.QComboBox()
+        self.ausrichtung.setToolTip(tr("Bestpassung über alle Punkte oder 3-2-1 am Bezugssystem der Zeichnung"))
+        reihe.addWidget(self.ausrichtung, 1)
+        self.neu = QtWidgets.QPushButton(tr("Neu auswerten"))
+        self.neu.clicked.connect(lambda: self.neu_auswerten.emit(self.gewaehlter_bezug()))
+        reihe.addWidget(self.neu)
+        lay.addLayout(reihe)
+        self.setze_bezugssysteme([])
         self.tabelle = QtWidgets.QTableWidget(0, len(self.SPALTEN))
         self.tabelle.setHorizontalHeaderLabels([tr(s) for s in self.SPALTEN])
         self.tabelle.verticalHeader().setVisible(False)
@@ -88,13 +118,33 @@ class ScanPanel(QtWidgets.QWidget):
         reihe = QtWidgets.QHBoxLayout()
         self.csv = QtWidgets.QPushButton(tr("CSV speichern …"))
         self.csv.clicked.connect(self.speichere_csv)
+        self.pdf = QtWidgets.QPushButton(tr("Prüfbericht (PDF) …"))
+        self.pdf.clicked.connect(self.bericht.emit)
         self.aus = QtWidgets.QPushButton(tr("Scan ausblenden"))
         self.aus.clicked.connect(self.beenden.emit)
         reihe.addWidget(self.csv)
+        reihe.addWidget(self.pdf)
         reihe.addStretch(1)
         reihe.addWidget(self.aus)
         lay.addLayout(reihe)
         self.ergebnisse: list = []
+
+    def setze_bezugssysteme(self, systeme: list, gewaehlt=None):
+        """Auswahl der Ausrichtung: Bestpassung und die Bezugssysteme der Toleranzen."""
+        self.ausrichtung.blockSignals(True)
+        self.ausrichtung.clear()
+        self.ausrichtung.addItem(tr("Bestpassung"), None)
+        for drf in systeme:
+            self.ausrichtung.addItem(tr("Bezugssystem {} (3-2-1)").format("|".join(drf)), tuple(drf))
+        ziel = tuple(gewaehlt) if gewaehlt else None  # findData vergleicht Tupel nicht zuverlaessig
+        i = next((k for k in range(self.ausrichtung.count())
+                  if (tuple(self.ausrichtung.itemData(k)) if self.ausrichtung.itemData(k) else None) == ziel), 0)
+        self.ausrichtung.setCurrentIndex(i)
+        self.ausrichtung.blockSignals(False)
+
+    def gewaehlter_bezug(self):
+        d = self.ausrichtung.currentData()
+        return tuple(d) if d else None
 
     def zeige(self, ergebnisse: list, kopf: str):
         self.ergebnisse = list(ergebnisse)

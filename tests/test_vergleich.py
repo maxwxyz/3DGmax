@@ -581,3 +581,47 @@ def test_neue_varianten_vergleich():
     anders = [i for i, s in geo.status_b.items() if s != vergleich_geo.GLEICH]
     assert 1 <= len(anders) <= 6  # nur die Bohrung (und ihre Randflaechen)
     assert len(c.pmi) == len(a.pmi)
+
+
+def test_scanpruefung_stufe2(tmp_path):
+    """Winkel- und Laengenmasse, Ausrichtung am Bezugssystem A|B|C, Punktwolke ohne Dreiecke."""
+    import numpy as np
+    from programm.kern import ausrichten, punktwolke, scanpruefung as sp
+    from programm.kern.laden import lade_modell, lies_ply
+    from programm.ui.lader import lade_alles
+    cad = lade_alles(pfad("nist_ctc_01_asme1_ap242-e1.stp"))
+    assert sp.bezugssysteme(cad.pmi)[0] == ("A", "B", "C")
+    assert sp.bezug_flaechen(cad.pmi, "A") == {97} and len(sp.bezug_flaechen(cad.pmi, "B")) == 2
+    scan = lade_modell(pfad("varianten/ctc01_scan.ply"))
+    roh = sp.scan_punkte(scan, None)
+    grob = ausrichten.richte_aus(cad.modell.flaechen, scan.flaechen, 0.05)
+    best = sp.feinausrichten(cad.modell, roh, grob.matrix)
+    m = sp.richte_nach_bezug(cad.modell, roh, best, [sp.bezug_flaechen(cad.pmi, b) for b in "ABC"])
+    nur = sp.pmi_flaechen(cad.pmi)
+    z = sp.zuordnen(cad.modell, sp.scan_punkte(scan, m), nur=nur)
+    a = np.isin(z.flaeche, [97]) & (np.abs(z.abstand) < 0.5)
+    assert abs(float(z.abstand[a].mean())) < 0.002  # Primaerbezug liegt im Mittel auf
+    assert np.abs(m[:3, 3] - best[:3, 3]).max() < 0.01  # sauberer Scan: Bezug und Bestpassung fast gleich
+    # kleine Winkelflaechen (15, 17) haben nur 4-8 Scanknoten: Winkel mit der Bestpassung pruefen
+    zb = sp.zuordnen(cad.modell, sp.scan_punkte(scan, best), nur=nur)
+    winkel = next(e for e in sp.bewerte(cad.pmi, cad.modell, zb) if e.pmi.typ == "Location_Angular")
+    assert winkel.status == sp.OK and abs(winkel.ist - 60.0) < 0.05
+    # Laengenmasse (FTC-10, Punkte aus dem CAD-Netz: Istmass = Nennmass, auch bei Mustern)
+    ftc = lade_alles(pfad("nist_ftc_10_asme1_ap242-e2.stp"))
+    p = np.vstack([q for q, _ in ausrichten.tesselliere(ftc.modell.flaechen, 0.2) if len(q)])
+    erg = {e.pmi.nummer: e for e in sp.bewerte(ftc.pmi, ftc.modell,
+                                               sp.zuordnen(ftc.modell, p, nur={i for n in (6, 8, 15, 16) for q in ftc.pmi
+                                                                              if q.nummer == n for i in q.flaechen}))}
+    for nr, soll in ((6, 15.0), (8, 10.0), (15, 2.0)):
+        assert erg[nr].status == sp.OK and abs(erg[nr].ist - soll) < 1e-3, nr
+    assert erg[16].status == sp.OFFEN  # nur eine Flaeche verknuepft
+    # Punktwolke als Text (Semikolon, Dezimalkomma, Kopfzeile) und PLY nur mit Punkten
+    pts, _ = lies_ply(pfad("varianten/ctc01_scan.ply"))
+    datei = tmp_path / "wolke.csv"
+    zeilen = ["x;y;z"] + [f"{x:.5f};{y:.5f};{w:.5f}".replace(".", ",") for x, y, w in pts[::10]]
+    datei.write_text("\n".join(zeilen), encoding="utf-8")
+    assert punktwolke.ist_punktwolke(str(datei)) and not punktwolke.ist_punktwolke(pfad("varianten/ctc01_scan.ply"))
+    wolke = punktwolke.lies_punkte(str(datei))
+    assert len(wolke) == len(pts[::10]) and np.allclose(wolke[0], pts[0], atol=1e-4)
+    g = ausrichten.richte_aus(cad.modell.flaechen, None, 0.05, punkte_b=wolke)
+    assert g.methode == "bestpassung" and g.anteil > 0.8

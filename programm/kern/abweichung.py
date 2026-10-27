@@ -40,10 +40,13 @@ class Karte:
         if getattr(self, "_gesamt", None) is None:
             pts, tris, ws, off = [], [], [], 0
             for (p, t), w in zip(self.netze, self.werte):
-                if len(t) and len(w):
-                    pts.append(p); tris.append(t + off); ws.append(w)
+                if len(w):  # Punktwolke: Knoten ohne Dreiecke
+                    pts.append(p); ws.append(w)
+                    if len(t):
+                        tris.append(np.asarray(t) + off)
                     off += len(p)
-            self._gesamt = ((np.vstack(pts), np.vstack(tris), np.concatenate(ws)) if pts else
+            self._gesamt = ((np.vstack(pts), np.vstack(tris) if tris else np.zeros((0, 3), dtype=int),
+                             np.concatenate(ws)) if pts else
                             (np.zeros((0, 3)), np.zeros((0, 3), dtype=int), np.zeros(0)))
         return self._gesamt
 

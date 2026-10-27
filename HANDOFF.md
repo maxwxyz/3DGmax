@@ -47,8 +47,9 @@ faces, PDF report, chain in the project) and assembly connections with snapping,
 tolerances on the connections (clearance from geometry/PMI, editable), worst-case position scatter per part via
 linear programs (scipy `linprog`, lazily imported), wiggle within the tolerances; plainer tab close buttons (SVG
 written to `<temp>/3DGmax-symbole` by `ui/thema.py`) and a right-click menu on the tab bars to show hidden panels.
-Semantic GD&T cannot be written from Python (pythonocc 8.0: XCAFDoc_GeomTolerance not wrapped, writing new-style
-dimensions segfaults, the legacy DimTol path loses the faces) – PMI test variants are therefore text edits of the
+Semantic GD&T writing (corrected 2026-10-27, PLAN §8.28): dimensions and datums can be written with pythonocc once
+the schema is set to AP242 after creating the writer (the old segfault came from AP214 mode); geometric tolerances
+cannot (XCAFDoc_GeomTolerance is an empty class in pythonocc 8.0.1) – plan: own P21 post-processing for them – PMI test variants are therefore text edits of the
 public-domain NIST STEP files.
 
 **Visual check in the cloud:** Xvfb + Mesa are available (`xvfb-run -a -s "-screen 0 1600x1000x24" ...`, then

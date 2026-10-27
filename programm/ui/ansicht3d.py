@@ -999,8 +999,38 @@ class OcctAnsicht(AnsichtBasis):
             return
         karte, _tol, _grenze, sk = self.abweichung
         pts, tris, werte = karte.gesamt()
-        if not len(tris):
+        if not len(pts):
             return
+        if not len(tris):
+            self._baue_punktwolke(pts, werte, sk)
+        else:
+            self._baue_farbnetz(pts, tris, werte, sk)
+        self._baue_legende(sk)
+
+    def _baue_punktwolke(self, pts, werte, sk):
+        """Punktwolke ohne Dreiecke: farbige Punkte je Abweichung."""
+        from OCC.Core.AIS import AIS_PointCloud
+        from OCC.Core.Graphic3d import Graphic3d_ArrayOfPoints
+        from OCC.Core.Quantity import Quantity_Color, Quantity_TOC_RGB
+        from OCC.Core.gp import gp_Pnt
+        ctx = self.d.Context
+        feld = Graphic3d_ArrayOfPoints(len(pts), True)
+        for p, w in zip(pts, werte):
+            r, g, b = sk.farbe(float(w))
+            feld.AddVertex(gp_Pnt(float(p[0]), float(p[1]), float(p[2])), Quantity_Color(r, g, b, Quantity_TOC_RGB))
+        wolke = AIS_PointCloud()
+        wolke.SetPoints(feld)
+        ctx.Display(wolke, False)
+        ctx.Deactivate(wolke)
+        self._karte_ais.append(wolke)
+
+    def _baue_farbnetz(self, pts, tris, werte, sk):
+        from OCC.Core.AIS import AIS_Triangulation
+        from OCC.Core.Graphic3d import Graphic3d_MaterialAspect, Graphic3d_NameOfMaterial_UserDefined
+        from OCC.Core.Poly import Poly_Triangle, Poly_Triangulation
+        from OCC.Core.TColStd import TColStd_HArray1OfInteger
+        from OCC.Core.gp import gp_Pnt
+        ctx = self.d.Context
         netz = Poly_Triangulation(len(pts), len(tris), False)
         for i, p in enumerate(pts, 1):
             netz.SetNode(i, gp_Pnt(float(p[0]), float(p[1]), float(p[2])))
@@ -1021,7 +1051,15 @@ class OcctAnsicht(AnsichtBasis):
         ctx.Display(flaeche, 0, -1, False)  # AIS_Triangulation kennt nur Modus 0
         ctx.Deactivate(flaeche)
         self._karte_ais.append(flaeche)
-        # Legende unten links nach den Stufen der Skala
+
+    def _baue_legende(self, sk):
+        """Legende unten links nach den Stufen der Skala."""
+        from OCC.Core.AIS import AIS_ColorScale
+        from OCC.Core.Aspect import Aspect_TOCSD_USER, Aspect_TOTP_LEFT_LOWER
+        from OCC.Core.Graphic3d import Graphic3d_TMF_2d, Graphic3d_TransformPers, Graphic3d_Vec2i
+        from OCC.Core.TColStd import TColStd_SequenceOfExtendedString
+        from OCC.Core.TCollection import TCollection_ExtendedString
+        ctx = self.d.Context
         grenzen = sk.grenzen
         k = max(1.0, self.viewer.devicePixelRatioF()) if sys.platform == "darwin" else 1.0
         skala = AIS_ColorScale()

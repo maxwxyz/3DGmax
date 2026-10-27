@@ -970,3 +970,24 @@ def test_reiter_menue_blendet_leisten_ein(fenster_ctc01):
     assert f.dock_kommentare.isVisible() and f.dock_kommentare in f.tabifiedDockWidgets(f.dock_pmi)
     f.dock_kommentare.hide()
     f.dock_messen.hide()
+
+
+def test_scanpruefung_punktwolke_bezug_bericht(fenster_ctc01, tmp_path):
+    """Punktwolke (XYZ) pruefen, am Bezugssystem A|B|C neu auswerten, Pruefbericht als PDF."""
+    from programm.kern.laden import lies_ply
+    f = fenster_ctc01
+    pts, _ = lies_ply(pfad("varianten/ctc01_scan_fehler.ply"))
+    datei = tmp_path / "scan.xyz"
+    datei.write_text("\n".join(f"{x:.5f} {y:.5f} {z:.5f}" for x, y, z in pts[::5]), encoding="utf-8")
+    f.pruefe_scan(str(datei), warten=True)
+    assert f._scan["punktwolke"] and f.ansicht.abweichung is not None
+    assert f.scan.ausrichtung.count() >= 2 and tuple(f.scan.ausrichtung.itemData(1)) == ("A", "B", "C")
+    nach_typ = {e.pmi.typ: e.status for e in f.scan.ergebnisse}
+    assert nach_typ["Flatness"] == "nok"
+    f.scan.ausrichtung.setCurrentIndex(1)
+    f.pruefe_scan(f._scan["pfad"], warten=True, bezug=f.scan.gewaehlter_bezug())
+    assert f._scan["bezug"] == ("A", "B", "C") and "3-2-1" in f.scan.kopf.text()
+    assert f.scan.gewaehlter_bezug() == ("A", "B", "C")
+    pdf = f.exportiere_scan_pdf(str(tmp_path / "bericht.pdf"), bilder=False)
+    assert os.path.getsize(pdf) > 1000
+    f.scan_aus()
