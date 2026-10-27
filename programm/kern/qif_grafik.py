@@ -149,8 +149,9 @@ def grafik(dok) -> dict[int, Grafik]:
                 for k, z in enumerate(text(t.findtext(_p("Data")) or "")):
                     if z.strip():
                         o = eb.p(xy - (0, 1.35 * zeile * k))[0]
+                        # lineHeight ist die Schrifthoehe; Platzhalter.hoehe ist die Kastenhoehe (Schrift 0,8 davon)
                         g.platzhalter.append(Platzhalter(o, eb.x, eb.y, len(z) * zeile * 0.6 * eb.f,
-                                                         zeile * eb.f, text=z))
+                                                         1.25 * zeile * eb.f, text=z))
         for e in d.iterfind(_p("Frames/*")):
             _rahmen(g, eb, e)
         for e in d:

@@ -1096,7 +1096,7 @@ class OcctAnsicht(AnsichtBasis):
                                             gp_Dir(*map(float, ph.x))))
             except Exception:  # noqa: BLE001 - degenerierte Achsen: Text zum Betrachter
                 pass
-            lab.SetHeight(max(ph.hoehe * 0.7, 1.0))
+            lab.SetHeight(max(ph.hoehe, 1.0))  # OCCT zeichnet die Glyphen kleiner als die Hoehe: ~0,8 wie in Zeichnungen
             lab.SetColor(farbe)
             liste.append(lab)
         for ais in liste:

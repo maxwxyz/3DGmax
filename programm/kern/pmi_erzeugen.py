@@ -19,7 +19,7 @@ from .praesentation import Grafik, Platzhalter
 
 ACHSEN = np.eye(3)
 BETRACHTER = np.array([1.0, -1.0, 1.0])  # Lage des Betrachters der Isoansicht (zeichnung.RICHTUNGEN["iso"])
-ZEICHENBREITE = 0.62  # mittlere Zeichenbreite im Verhaeltnis zur Schrifthoehe
+ZEICHENBREITE = 0.72  # mittlere Zeichenbreite im Verhaeltnis zur Schrifthoehe (gegen 3D-Darstellung geprueft)
 
 
 def _schwerpunkt(flaechen) -> np.ndarray | None:
@@ -104,7 +104,7 @@ def felder(p) -> list[str]:
 
 
 def _feldbreiten(texte: list[str], h: float) -> list[float]:
-    return [max(1.6 * h, ZEICHENBREITE * h * len(t) + 0.8 * h) for t in texte]
+    return [max(1.6 * h, ZEICHENBREITE * h * len(t) + 1.0 * h) for t in texte]
 
 
 class _Rahmen:
@@ -168,7 +168,7 @@ def ergaenze(pmi: list, grafik: dict, modell, ansichten: list | None = None) -> 
     mitte = (lo + hi) / 2
     diag = float(np.linalg.norm(hi - lo)) or 1.0
     h = diag / 70
-    quader = np.array([lo, hi])
+    quader = np.array([[x, y, z] for x in (lo[0], hi[0]) for y in (lo[1], hi[1]) for z in (lo[2], hi[2])])
     belegt: list[np.ndarray] = [np.array(g.grenzen()) for g in grafik.values() if g.erzeugt and g.grenzen()]
     neu = {}
     for i, p in enumerate(offen, 1):
@@ -201,11 +201,17 @@ def ergaenze(pmi: list, grafik: dict, modell, ansichten: list | None = None) -> 
 
 
 def _platz(rahmen: _Rahmen, start, raus, x, y, quader, belegt, h) -> np.ndarray:
-    """Linke untere Ecke: ausserhalb des Modellquaders, ohne Ueberschneidung mit schon platzierten Rahmen."""
+    """Linke untere Ecke: in der Schreibebene ausserhalb des Modellumrisses (projizierter Modellquader), ohne
+    Ueberschneidung mit schon platzierten Rahmen. Geprueft wird in der Ebene, weil eine Ebene schraeg aus dem
+    Quader herausfuehren kann und der Rahmen im Bild dann trotzdem vor dem Modell laege."""
+    m = np.column_stack([x, y])
+    modell = quader @ m
+    andere = [b @ m for b in belegt]
     ursprung = start - x * (rahmen.breite / 2) - y * (rahmen.hoehe / 2)
     for _ in range(400):
         e = rahmen.ecken(ursprung, x, y)
-        frei = not _ueberlappt(e, quader, 0.5 * h) and all(not _ueberlappt(e, b, 0.4 * h) for b in belegt)
+        e2 = e @ m
+        frei = not _ueberlappt(e2, modell, 0.5 * h) and all(not _ueberlappt(e2, b, 0.4 * h) for b in andere)
         if frei:
             return ursprung
         ursprung = ursprung + raus * 0.8 * h
