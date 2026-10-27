@@ -33,7 +33,12 @@ GROESSE = {"Size_Diameter", "Size_Radius", "Size_SphericalDiameter", "Size_Spher
 MITTELEBENE = {"Symmetry", "Position", "Parallelism", "Perpendicularity", "Angularity", "Straightness"}
 
 # Rollen der Teilformen (Farbe in der Ansicht)
-ZONE, BONUS, HUELLE, ALLGEMEIN = "zone", "bonus", "huelle", "allgemein"
+ZONE, BONUS, HUELLE, ALLGEMEIN, VERSCHIEBUNG = "zone", "bonus", "huelle", "allgemein", "verschiebung"
+FORM = {"Flatness", "Straightness", "CircularityOrRoundness", "Cylindricity"}
+RICHTUNG = {"Parallelism", "Perpendicularity", "Angularity"}
+LAGE = {"Position", "Symmetry", "Coaxiality", "Concentricity"}  # dazu Profil mit Bezug
+LAUF = {"CircularRunout", "TotalRunout"}
+BEZUG_MATERIAL = {"MaximumMaterialRequirement": "M", "LeastMaterialRequirement": "L"}
 
 
 @dataclass
@@ -42,7 +47,7 @@ class Zone:
     breite: float = 0.0  # wahre Zonenbreite (mm)
     faktor: float = 1.0  # Ueberhoehung fuer die Anzeige
     art: str = ""  # "flaechen" | "zylinder" | "mass" | "allgemein"
-    rollen: list[str] = field(default_factory=list)  # je Form: ZONE, BONUS, HUELLE, ALLGEMEIN
+    rollen: list[str] = field(default_factory=list)  # je Form: ZONE, BONUS, HUELLE, ALLGEMEIN, VERSCHIEBUNG
     hinweise: list[str] = field(default_factory=list)  # Erklaerung fuer die Statuszeile
 
     def dazu(self, form, rolle: str = ZONE):
@@ -214,6 +219,55 @@ def _bonus(material: str, innen: bool, d: float, dmin: float, dmax: float) -> fl
     return 0.0
 
 
+# --- Bezugssystem ---
+
+def _bezug_flaechen(name: str, alle_pmi) -> set[int]:
+    return {i for q in alle_pmi or [] if q.art == "bezug" and q.typ == "Datum" and q.name == name for i in q.flaechen}
+
+
+def bezugsachse(p, modell, alle_pmi):
+    """(Start, Richtung, Laenge, Radius, Name) der Achse des ersten Bezugs mit Drehachse oder None."""
+    for b in sorted(p.bezuege, key=lambda b: b.stelle):
+        idx = _bezug_flaechen(b.name, alle_pmi)
+        achsen = _achsen([modell.flaechen[i] for i in sorted(idx) if i < len(modell.flaechen)])
+        if achsen:
+            start, d, laenge, r, _f = achsen[0]
+            return start, d, laenge, r, b.name
+    return None
+
+
+def bezugsverschiebung(p, alle_pmi) -> list[tuple[str, str, float]]:
+    """Bezuege mit Materialbedingung: (Name, M/L, moegliche Verschiebung als Durchmesser) aus dem Mass des
+    Bezugselements (Groessentoleranz; die eigene Form-/Lagetoleranz des Bezugs bleibt unberuecksichtigt)."""
+    out = []
+    for b in sorted(p.bezuege, key=lambda b: b.stelle):
+        mat = next((BEZUG_MATERIAL[m] for m in b.modifikatoren if m in BEZUG_MATERIAL), "")
+        if not mat:
+            continue
+        idx = _bezug_flaechen(b.name, alle_pmi)
+        for m in alle_pmi or []:
+            if m.art == "mass" and idx and m.flaechen & idx:
+                hoechst, mindest = m.grenzen()
+                if hoechst is not None and mindest is not None and hoechst > mindest:
+                    faktor = 2.0 if m.typ in ("Size_Radius", "Size_SphericalRadius") else 1.0
+                    out.append((b.name, mat, (hoechst - mindest) * faktor))
+                    break
+    return out
+
+
+def _uebergeordnet(p, alle_pmi):
+    """Die engste Toleranz einer hoeheren Stufe an denselben Flaechen: Form < Richtung < Lage (Profil mit Bezug)."""
+    if p.typ in FORM:
+        stufen = RICHTUNG | LAGE | {"ProfileOfSurface"}
+    elif p.typ in RICHTUNG:
+        stufen = LAGE | {"ProfileOfSurface"}
+    else:
+        return None
+    kandidaten = [q for q in alle_pmi or [] if q is not p and q.art == "toleranz" and q.wert and q.typ in stufen
+                  and q.flaechen & p.flaechen and (q.typ != "ProfileOfSurface" or q.bezuege)]
+    return min(kandidaten, key=lambda q: q.wert) if kandidaten else None
+
+
 # --- Zonen ---
 
 def _achszone(p, modell, flaechen, t: float, faktor: float, alle_pmi) -> Zone | None:
@@ -221,8 +275,15 @@ def _achszone(p, modell, flaechen, t: float, faktor: float, alle_pmi) -> Zone | 
     if not achsen:
         return None
     z = Zone(breite=t, faktor=faktor, art="zylinder")
-    werte = [_eine_achse(z, p, modell, achse, t, faktor, alle_pmi) for achse in achsen]
+    bezug = bezugsachse(p, modell, alle_pmi) if p.typ in ("Coaxiality", "Concentricity") else None
+    verschiebung = sum(v for _n, _m, v in bezugsverschiebung(p, alle_pmi))
+    werte = [_eine_achse(z, p, modell, achse, t, faktor, alle_pmi, bezug, verschiebung) for achse in achsen]
     t_max, innen_r, aussen_r = werte[0]  # Hinweise zum ersten Element (Muster haben gleiche Werte)
+    if bezug is not None:
+        z.hinweise.append(tr("Zone um die Bezugsachse {}").format(bezug[4]))
+    for name, mat, v in bezugsverschiebung(p, alle_pmi):
+        z.hinweise.append(tr("Bezug {} {}: Zone darf sich als Ganzes um bis zu ⌀{:.4g} verschieben").format(
+            name, "Ⓜ" if mat == "M" else "Ⓛ", v))
     if len(achsen) > 1:
         z.hinweise.append(tr("{} Elemente").format(len(achsen)))
     if p.zone == "Projected" and p.zonen_wert:
@@ -234,8 +295,10 @@ def _achszone(p, modell, flaechen, t: float, faktor: float, alle_pmi) -> Zone | 
     return z if z.formen else None
 
 
-def _eine_achse(z: Zone, p, modell, achse, t: float, faktor: float, alle_pmi) -> tuple[float, float, float]:
-    """Zone, Bonuszone und Huellen eines Elements; Rueckgabe (groesste Zone, Huellradius innen, aussen)."""
+def _eine_achse(z: Zone, p, modell, achse, t: float, faktor: float, alle_pmi, bezug=None,
+                verschiebung: float = 0.0) -> tuple[float, float, float]:
+    """Zone, Bonuszone und Huellen eines Elements; Rueckgabe (groesste Zone, Huellradius innen, aussen).
+    bezug: Bezugsachse (Koaxialitaet: Zone um sie); verschiebung: Bezugsverschiebung (Durchmesser)."""
     start, d, laenge, r, erste = achse
     laenge = max(laenge, 1e-3)
     innen = _ist_innen(erste, start, d)
@@ -251,9 +314,14 @@ def _eine_achse(z: Zone, p, modell, achse, t: float, faktor: float, alle_pmi) ->
         else:
             fuss, richtung = start, -d
         hoehe = float(p.zonen_wert)
+    elif bezug is not None:  # Koaxialitaet: Zone auf der Bezugsachse, ueber die Laenge des Elements
+        b_start, b_d = bezug[0], bezug[1] * (1.0 if bezug[1] @ d >= 0 else -1.0)
+        fuss, richtung = b_start + b_d * ((start - b_start) @ b_d), b_d
     z.dazu(_zylinder(fuss, richtung, t * faktor / 2, hoehe))
     if t_max > t + 1e-12:
         z.dazu(_zylinder(fuss, richtung, t_max * faktor / 2, hoehe), BONUS)
+    if verschiebung > 0:
+        z.dazu(_zylinder(fuss, richtung, (t_max + verschiebung) * faktor / 2, hoehe), VERSCHIEBUNG)
     # Raum, in dem die Zylinderflaeche liegen kann (Mass + Lage); Abweichungen ueberhoeht wie die Zone
     innen_r = min(dd / 2 - tol / 2 for dd, tol in toleranzen.items())
     aussen_r = max(dd / 2 + tol / 2 for dd, tol in toleranzen.items())
@@ -375,6 +443,28 @@ def _flaechenzone(p, flaechen, t: float, faktor: float) -> Zone | None:
     return z if z.formen else None
 
 
+def _laufzone(p, modell, flaechen, t: float, faktor: float, alle_pmi) -> Zone | None:
+    """Lauf: an Zylindern zwei koaxiale Zylinder um die Bezugsachse (Radius +- t/2), an Planflaechen Versatzflaechen."""
+    bezug = bezugsachse(p, modell, alle_pmi)
+    if bezug is None:
+        return None
+    b_start, b_d = bezug[0], bezug[1]
+    z = Zone(breite=t, faktor=faktor, art="lauf")
+    for f in flaechen:
+        a = _achse([f])
+        if a is not None and abs(a[1] @ b_d) > 0.9999:
+            start, _d, laenge, r, _e = a
+            fuss = b_start + b_d * ((start - b_start) @ b_d)
+            richtung = b_d * (1.0 if _d @ b_d >= 0 else -1.0)
+            for rr in (r - t / 2 * faktor, r + t / 2 * faktor):
+                z.dazu(_zylinder(fuss, richtung, rr, max(laenge, 1e-3)))
+        else:
+            z.dazu(_versatz(f, t / 2 * faktor))
+            z.dazu(_versatz(f, -t / 2 * faktor))
+    z.hinweise.append(tr("Zone um die Bezugsachse {}").format(bezug[4]))
+    return z if z.formen else None
+
+
 def _massgrenzen(p) -> tuple[float, float, float] | None:
     """(Hoechstmass, Mindestmass, Faktor Mass -> Radius) einer Durchmesser-/Radiusangabe."""
     hoechst, mindest_mass = p.grenzen()
@@ -431,11 +521,30 @@ def zone(p, modell, sichtbar_mindest: float = 0.0, alle_pmi=None, faktor: float 
         z = _achszone(p, modell, flaechen, t, faktor, alle_pmi)
     if z is None and not durchmesser and p.typ in MITTELEBENE and _mittelebene_gemeint(p, alle_pmi):
         z = _mittelebenenzone(p, flaechen, t, faktor)
+    if z is None and p.typ in LAUF:
+        z = _laufzone(p, modell, flaechen, t, faktor, alle_pmi)
     if z is None and (p.typ in FLAECHENZONE or p.typ in ACHSZONE):
         z = _flaechenzone(p, flaechen, t, faktor)
     if z is not None:
         z.hinweise += _weitere_hinweise(p)
+        _hierarchie(z, p, modell, alle_pmi, faktor)
     return z
+
+
+def _hierarchie(z: Zone, p, modell, alle_pmi, faktor: float):
+    """Form-/Richtungszone liegt in der Zone der naechsthoeheren Toleranz an denselben Flaechen: diese als Huelle
+    zeigen; ist die untergeordnete Toleranz nicht kleiner, ist sie wirkungslos (Hinweis)."""
+    q = _uebergeordnet(p, alle_pmi)
+    if q is None:
+        return
+    oben = zone(q, modell, faktor=faktor)  # ohne alle_pmi: keine weitere Stufe, keine Rekursion
+    if oben is not None:
+        for f in oben.formen:
+            z.dazu(f, HUELLE)
+    z.hinweise.append(tr("liegt in der Zone von {} (PMI {})").format(q.wert_text(), q.nummer))
+    if p.wert is not None and p.wert >= q.wert:
+        z.hinweise.append(tr("Widerspruch: {:.4g} ist nicht kleiner als {:.4g} – die Angabe ist ohne Wirkung").format(
+            p.wert, q.wert))
 
 
 def _mittelebene_gemeint(p, alle_pmi) -> bool:

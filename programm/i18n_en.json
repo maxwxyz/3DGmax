@@ -852,5 +852,9 @@
 "Start {:.2f} s – {} ({})": "Start-up {:.2f} s – {} ({})",
 "Module": "Modules",
 "Fenster": "Window",
-"3D bereit": "3D ready"
+"3D bereit": "3D ready",
+"Zone um die Bezugsachse {}": "zone around the datum axis {}",
+"Bezug {} {}: Zone darf sich als Ganzes um bis zu ⌀{:.4g} verschieben": "datum {} {}: the zone may shift as a whole by up to ⌀{:.4g}",
+"liegt in der Zone von {} (PMI {})": "lies within the zone of {} (PMI {})",
+"Widerspruch: {:.4g} ist nicht kleiner als {:.4g} – die Angabe ist ohne Wirkung": "contradiction: {:.4g} is not smaller than {:.4g} – the specification has no effect"
 }

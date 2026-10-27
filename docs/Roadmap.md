@@ -57,7 +57,8 @@
 | Tolerance zones stage 2: unequal zones (UZ/Ⓤ), projected zones, Ⓜ/Ⓛ bonus zone, space of the surface (size + location), size envelopes, patterns per feature | ✅ |
 | Tolerance zones for the selected PMI, the selected faces or all PMI at once; general tolerances (ISO 2768-1/-2, ISO 22081) | ✅ |
 | Zone of the derived median plane (slots/tabs), spherical zone (S⌀), context menus | ✅ |
-| Tolerance zones placed by the datum reference frame (orientation zones floating, datum shift with Ⓜ) | ⬜ |
+| Tolerance zones in the datum system: coaxiality/runout around the datum axis, datum shift with Ⓜ/Ⓛ, form/orientation inside the higher-level zone | ✅ |
+| Tolerance zones: line profile/roundness per section, ACS/ALS, CZ/SZ, tolerances on edges/points | ⬜ |
 | Tolerance stack-up 1D (dimension chain from PMI, worst case, RSS, Monte Carlo, CSV) | ✅ |
 | Tolerance stack-up 3D (geometric tolerances, chain from the model, sensitivity) – PLAN §8.20 | ⬜ |
 | Assemblies built in the project (mates on datum features), materials and thermal expansion in chains | ⬜ |

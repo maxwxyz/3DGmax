@@ -188,8 +188,12 @@ Throughout: tests (core, offscreen UI, stress test, on-screen test), `--selbstte
     (two opposed planes; symmetry and position always, orientation/straightness only on a feature of size = a
     dimension on exactly these faces), spherical zone for S⌀, hints for what the geometry does not show
     (orientation zone floating, form zone free, per cross-section, per unit length), context menus.
-    Open: zones placed by the datum system (orientation zones floating in location, datum shift), line profile
-    and circular runout per section (shown as surface band), ACS/ALS, CZ/SZ, tolerances on edges/points.
+    Also done: coaxiality/concentricity and runout around the datum axis (`bezugsachse`), datum shift with Ⓜ/Ⓛ on
+    a datum as an extra envelope (size tolerance of the datum feature; its own geometric tolerance ignored),
+    hierarchy form < orientation < location (the higher-level zone on the same faces shown as envelope, with a
+    contradiction hint when the lower one is not smaller).
+    Open: line profile and circular runout per section (shown as surface band), ACS/ALS, CZ/SZ, tolerances on
+    edges/points, datum shift including the datum's own position tolerance (virtual condition).
 
 ### 8.6 Annotating and commenting (done: comments on faces/PMI with markers, status, project, CSV/PDF)
 - Comments/change proposals on faces, edges, PMI (list and model), on changed PMI and geometry in a comparison; stored

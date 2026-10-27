@@ -115,7 +115,8 @@
    "Gespeicherte Ansichten: Vorschaubilder standardmäßig klein; Rechtsklick: groß oder ohne.",
    "PDF der Ansichten: die PMI-Tabelle übernimmt die in der PMI-Liste sichtbaren Spalten und ihre Reihenfolge.",
    "Neue Testdaten: Varianten mit anderen PMI, minimal geänderter Geometrie und beidem, sowie zwei erzeugte Scans (mit Rauschen und Versatz; mit Fase, Delle und Welligkeit).",
-   "Schnellerer Start: scipy wird erst bei Bedarf geladen (Fensteraufbau etwa 0,5 s schneller); Startoption --startzeit misst die Startphasen."
+   "Schnellerer Start: scipy wird erst bei Bedarf geladen (Fensteraufbau etwa 0,5 s schneller); Startoption --startzeit misst die Startphasen.",
+   "Toleranzzonen im Bezugssystem: Koaxialität und Lauf um die Bezugsachse, Bezugsverschiebung bei Ⓜ/Ⓛ am Bezug als zusätzliche Hülle, Form- und Richtungszonen mit der übergeordneten Zone an derselben Fläche; Widerspruch, wenn die untergeordnete Toleranz nicht kleiner ist."
   ],
   "en": [
    "First viewer version: load STEP AP242, assembly tree, CAD-style navigation, standard views.",
@@ -232,7 +233,8 @@
    "Saved views: thumbnails small by default; right-click: large or none.",
    "PDF of views: the PMI table takes the columns visible in the PMI list and their order.",
    "New test data: variants with different PMI, minimally changed geometry and both, plus two generated scans (with noise and offset; with chamfer, dent and waviness).",
-   "Faster start-up: scipy is loaded only when needed (window set-up about 0.5 s faster); start option --startzeit measures the start-up phases."
+   "Faster start-up: scipy is loaded only when needed (window set-up about 0.5 s faster); start option --startzeit measures the start-up phases.",
+   "Tolerance zones in the datum system: coaxiality and runout around the datum axis, datum shift for Ⓜ/Ⓛ on a datum as an additional envelope, form and orientation zones with the higher-level zone on the same face; contradiction when the lower-level tolerance is not smaller."
   ]
  },
  "releases": [

@@ -1,5 +1,7 @@
 """Kernfunktionen an NIST-Modellen: Laden, Flaechenzuordnung, PMI, Ansichten."""
 
+import pytest
+
 from programm.kern import p21
 from programm.kern.ansichten import lies_ansichten
 from programm.kern.pmi import BEZUG, MASS, TOLERANZ
@@ -453,6 +455,47 @@ def test_toleranzzonen_mittelebene_kugel(ftc10):
     z = tz.zone(pos, m, alle_pmi=alle)
     assert z.art == "kugel" and z.rollen == [tz.ZONE, tz.HUELLE, tz.HUELLE]
     assert "19.5" in z.hinweise[-1] and "20.5" in z.hinweise[-1]
+
+
+def test_toleranzzonen_bezugssystem(ftc10):
+    """Bezugsverschiebung bei Ⓜ am Bezug, Koaxialitaet und Lauf um die Bezugsachse, Hierarchie Form < Richtung < Lage."""
+    import copy
+    import numpy as np
+    from programm.kern import toleranzzone as tz
+    from programm.kern.pmi import TOLERANZ, BezugsRef, Pmi
+    from programm.kern.pmi_lesen import lies_pmi
+    pmi = lies_pmi(ftc10)
+    bezug_b = next(p for p in pmi if p.art == "bezug" and p.name == "B")  # Bohrung ⌀6 ±0.15
+    pos = copy.deepcopy(next(p for p in pmi if p.typ == "Position" and "Diameter" in p.modifikatoren
+                             and not p.material and p.bezuege and len(p.flaechen) == 2))
+    pos.bezuege = [BezugsRef("A", 1), BezugsRef("B", 2, ["MaximumMaterialRequirement"]), BezugsRef("C", 3)]
+    assert tz.bezugsverschiebung(pos, pmi) == [("B", "M", pytest.approx(0.3))]
+    z = tz.zone(pos, ftc10, alle_pmi=pmi)
+    assert tz.VERSCHIEBUNG in z.rollen and any("⌀0.3" in h for h in z.hinweise)
+    # Koaxialitaet: Zylinder auf der Bezugsachse B (auch wenn das Element woanders liegt)
+    achse_b = tz.bezugsachse(Pmi(TOLERANZ, "Coaxiality", bezuege=[BezugsRef("B", 1)]), ftc10, pmi)
+    assert achse_b is not None and achse_b[4] == "B"
+    koax = Pmi(TOLERANZ, "Coaxiality", wert=0.1, modifikatoren=["Diameter"], bezuege=[BezugsRef("B", 1)],
+               flaechen=set(bezug_b.flaechen))
+    z = tz.zone(koax, ftc10, alle_pmi=pmi)
+    from OCC.Core.GProp import GProp_GProps
+    from OCC.Core.BRepGProp import brepgprop
+    g = GProp_GProps()
+    brepgprop.VolumeProperties(z.formen[0], g)
+    c = g.CentreOfMass()
+    q = np.array([c.X(), c.Y(), c.Z()]) - achse_b[0]
+    assert np.linalg.norm(q - achse_b[1] * (q @ achse_b[1])) < 1e-6 and any("Bezugsachse B" in h for h in z.hinweise)
+    lauf = Pmi(TOLERANZ, "CircularRunout", wert=0.05, bezuege=[BezugsRef("B", 1)], flaechen=set(bezug_b.flaechen))
+    z = tz.zone(lauf, ftc10, alle_pmi=pmi)
+    assert z.art == "lauf" and len(z.formen) == 2 * len(bezug_b.flaechen)
+    # Hierarchie: Geradheit liegt in der Profilzone derselben Flaeche; groessere Formtoleranz = Widerspruch
+    gerade = next(p for p in pmi if p.typ == "Straightness")
+    z = tz.zone(gerade, ftc10, alle_pmi=pmi)
+    assert tz.HUELLE in z.rollen and any("PMI" in h for h in z.hinweise)
+    zu_gross = copy.deepcopy(gerade)
+    zu_gross.wert = 5.0
+    assert any("5" in h and ("Widerspruch" in h or "contradiction" in h.lower())
+               for h in tz.zone(zu_gross, ftc10, alle_pmi=pmi).hinweise)
 
 
 def test_allgemeintoleranzen(ctc01):

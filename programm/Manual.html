@@ -203,12 +203,16 @@ tolerance – for the selected PMI or, without a PMI selection, for the PMI on t
 <tr><td>Symmetry, position or orientation of a slot/tab</td><td>two planes around the derived median plane</td></tr>
 <tr><td>Flatness, profile, orientation, runout, cylindricity …</td><td>two offset surfaces ±t/2; unequal zone (UZ/Ⓤ) shifted</td></tr>
 <tr><td>Dimensions ⌀/R</td><td>envelopes at maximum and minimum size</td></tr>
+<tr><td>Coaxiality, runout</td><td>zone around the datum axis (cylinder or two coaxial cylinders)</td></tr>
+<tr><td>Datum with Ⓜ/Ⓛ</td><td>additional envelope (salmon): how far the zone may shift as a whole with the datum feature</td></tr>
+<tr><td>Form and orientation tolerance</td><td>plus the zone of the higher-level tolerance on the same face (orientation or
+    location, turquoise); if the lower one is not smaller, the status bar reports a contradiction</td></tr>
 </table>
 <p>The status bar explains each zone and states what the geometry does not show (e.g. “orientation zone: free in
 location”, “applies per cross-section”). <b>View › General tolerances …</b> adds ISO 2768-1/-2 or ISO 22081 for faces
 without their own specification (violet); if a note in the file states them, they are suggested.</p>
-<div class="tip">Zones are shown at the nominal location. Orientation and form zones may float in location; the datum
-shift with Ⓜ on a datum is not shown yet.</div>
+<div class="tip">Zones are shown at the nominal location. Orientation and form zones may float within the higher-level
+zone – the turquoise envelope shows it.</div>
 
 <h2 id="analysis">Analysis, tolerance stack-up, creating PMI</h2>
 <ul>

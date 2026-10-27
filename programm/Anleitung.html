@@ -203,12 +203,16 @@ Toleranz liegen dürfen – für die gewählten PMI oder, ohne PMI-Auswahl, für
 <tr><td>Symmetrie, Position oder Richtung an Nut/Steg</td><td>zwei Ebenen um die abgeleitete Mittelebene</td></tr>
 <tr><td>Ebenheit, Profil, Richtung, Lauf, Zylinderform …</td><td>zwei Versatzflächen ±t/2; unsymmetrische Zone (UZ/Ⓤ) verschoben</td></tr>
 <tr><td>Maße ⌀/R</td><td>Hüllen bei Höchst- und Mindestmaß</td></tr>
+<tr><td>Koaxialität, Lauf</td><td>Zone um die Bezugsachse (Zylinder bzw. zwei koaxiale Zylinder)</td></tr>
+<tr><td>Bezug mit Ⓜ/Ⓛ</td><td>zusätzliche Hülle (lachsfarben): so weit darf sich die Zone als Ganzes mit dem Bezugselement verschieben</td></tr>
+<tr><td>Form- und Richtungstoleranz</td><td>dazu die Zone der übergeordneten Toleranz an derselben Fläche (Richtung bzw. Lage, türkis); ist die
+    untergeordnete nicht kleiner, meldet die Statuszeile einen Widerspruch</td></tr>
 </table>
 <p>Die Statuszeile erklärt jede Zone und nennt, was die Geometrie nicht zeigt (z. B. „Richtungszone: in der Lage frei
 verschiebbar“, „gilt je Querschnitt“). <b>Ansicht › Allgemeintoleranzen …</b> ergänzt ISO 2768-1/-2 bzw. ISO 22081 für Flächen ohne
 eigene Angabe (violett); steht die Angabe in einem Hinweis der Datei, wird sie vorgeschlagen.</p>
-<div class="tip">Zonen werden an der Nennlage gezeigt. Richtungs- und Formzonen dürfen sich in der Lage frei bewegen;
-die Bezugsverschiebung bei Ⓜ am Bezug wird noch nicht dargestellt.</div>
+<div class="tip">Zonen werden an der Nennlage gezeigt. Richtungs- und Formzonen dürfen sich innerhalb der übergeordneten
+Zone frei bewegen – das zeigt die türkise Hülle.</div>
 
 <h2 id="analyse">Analyse, Toleranzkette, PMI anlegen</h2>
 <ul>
