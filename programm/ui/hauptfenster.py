@@ -1236,6 +1236,54 @@ class Hauptfenster(QtWidgets.QMainWindow):
         self.pmi.zeige(self.erg.pmi, self.erg.ansichten)
         self.statusBar().showMessage(tr("Norm: {}").format(self.norm_text), 6000)
 
+    def _zonen_je_instanz(self, formen: list, rollen: list, quellen: list) -> tuple[list, list]:
+        """Zonen liegen an den Flaechen in Dateilage einer Instanz (die Flaechenliste kennt jede Flaeche nur einmal):
+        je weiterer sichtbarer Instanz desselben Teils eine Kopie, dazu die Lage aus dem Zusammenbau. Die
+        urspruengliche Instanz ist die, deren Flaeche gleich der Flaeche der Flaechenliste ist (Form und Lage)."""
+        from OCC.Core.TopLoc import TopLoc_Location
+        blaetter = [k for k in self.erg.baum.blaetter() if not k.hilfsgeometrie and k.form is not None]
+        lagen = self.ansicht.teil_lagen
+        if len(blaetter) < 2 and not lagen:
+            return formen, rollen
+        besitzer = self._flaechen_besitzer(blaetter)
+        versteckt = self.ansicht.versteckt
+        out_f, out_r = [], []
+        for form, rolle, quelle in zip(formen, rollen, quellen):
+            o = next((besitzer[i] for i in quelle if i in besitzer), None)
+            if o is None:
+                out_f.append(form)
+                out_r.append(rolle)
+                continue
+            zurueck = o.form.Location().Inverted()
+            for k in blaetter:
+                if not k.form.IsPartner(o.form) or k.nummer in versteckt:
+                    continue
+                lage = k.form.Location().Multiplied(zurueck)
+                if k.nummer in lagen:
+                    lage = TopLoc_Location(ansicht3d.gp_trsf(lagen[k.nummer])).Multiplied(lage)
+                out_f.append(form.Moved(lage))
+                out_r.append(rolle)
+        return out_f, out_r
+
+    def _flaechen_besitzer(self, blaetter) -> dict:
+        """Flaechenindex -> Blatt, dessen Flaeche genau die der Flaechenliste ist (gemerkt je Modell)."""
+        gemerkt = getattr(self, "_besitzer", None)
+        if gemerkt is not None and gemerkt[0] is self.erg:
+            return gemerkt[1]
+        from OCC.Core.TopAbs import TopAbs_FACE
+        from OCC.Core.TopExp import TopExp_Explorer
+        out = {}
+        m = self.erg.modell
+        for k in blaetter:
+            ex = TopExp_Explorer(k.form, TopAbs_FACE)
+            while ex.More():
+                i = m.flaechen_index(ex.Current())
+                if i is not None and i not in out and ex.Current().IsEqual(m.flaechen[i]):
+                    out[i] = k
+                ex.Next()
+        self._besitzer = (self.erg, out)
+        return out
+
     def _sichtbarkeit_zonen(self):
         """Alle Zonen folgen dem Aus-/Einblenden der Teile."""
         if self.aktionen["toleranzzonen_alle"].isChecked():
@@ -1281,6 +1329,7 @@ class Hauptfenster(QtWidgets.QMainWindow):
                 self._zonen_alle = (schluessel, (ergebnis, zonen))
         formen = [f for z in zonen for f in z.formen]
         rollen = [r for z in zonen for r in z.rollen]
+        formen, rollen = self._zonen_je_instanz(formen, rollen, [q for z in zonen for q in z.quellen_je_form()])
         self.ansicht.zeige_zone(formen, rollen)
         if not zonen:
             if liste:
@@ -2855,6 +2904,8 @@ class Hauptfenster(QtWidgets.QMainWindow):
         self.zusammenbau.zeige(self.baugruppe, namen, streuung)
         self.zusammenbau.zeige_masse(self.baugruppe, namen, self.messgroessen_ergebnisse())
         self.ansicht.setze_teil_lagen(self.baugruppe.lagen)
+        if self.aktionen["toleranzzone"].isChecked() or self.aktionen["toleranzzonen_alle"].isChecked():
+            self._zone_aktualisieren(self.pmi.gewaehlte())  # Zonen folgen den Teilen
 
     def messgroessen_ergebnisse(self) -> dict:
         """Nummer der Messgroesse -> Ergebnis (Worst Case, Monte Carlo, Beitragende) ueber alle Verbindungen."""

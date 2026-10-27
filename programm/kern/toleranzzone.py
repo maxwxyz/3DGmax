@@ -49,11 +49,19 @@ class Zone:
     art: str = ""  # "flaechen" | "zylinder" | "mass" | "allgemein"
     rollen: list[str] = field(default_factory=list)  # je Form: ZONE, BONUS, HUELLE, ALLGEMEIN, VERSCHIEBUNG
     hinweise: list[str] = field(default_factory=list)  # Erklaerung fuer die Statuszeile
+    flaechen: set = field(default_factory=set)  # Quellflaechen (Index) der Zone, z. B. die Flaechen der PMI
+    quellen: list = field(default_factory=list)  # je Form ihre Quellflaeche oder None (dann gilt flaechen)
 
-    def dazu(self, form, rolle: str = ZONE):
+    def dazu(self, form, rolle: str = ZONE, quelle: int | None = None):
         if form is not None:
             self.formen.append(form)
             self.rollen.append(rolle)
+            self.quellen.append(quelle)
+
+    def quellen_je_form(self) -> list[set[int]]:
+        """Quellflaechen je Form (fuer die Anzeige an jeder Instanz eines mehrfach verbauten Teils)."""
+        q = self.quellen if len(self.quellen) == len(self.formen) else [None] * len(self.formen)
+        return [{x} if x is not None else set(self.flaechen) for x in q]
 
 
 # --- Geometrie ---
@@ -599,6 +607,13 @@ def breite(p) -> float | None:
 def zone(p, modell, sichtbar_mindest: float = 0.0, alle_pmi=None, faktor: float | None = None) -> Zone | None:
     """Zone einer PMI; sichtbar_mindest: Mindestbreite fuer die Anzeige (mm), sonst wahre Breite; faktor: feste
     Ueberhoehung (mehrere Zonen gemeinsam). alle_pmi: fuer das Mass eines Elements (Huellen, Bonus bei M/L)."""
+    z = _zone(p, modell, sichtbar_mindest, alle_pmi, faktor)
+    if z is not None:
+        z.flaechen = set(p.flaechen)
+    return z
+
+
+def _zone(p, modell, sichtbar_mindest: float = 0.0, alle_pmi=None, faktor: float | None = None) -> Zone | None:
     b = breite(p)
     if b is None:
         return None
@@ -765,30 +780,30 @@ def allgemein_zone(modell, pmi, allgemein: Allgemein, sichtbar_mindest: float = 
     if allgemein is None or allgemein.leer():
         return None
     belegt = {i for p in pmi if p.art in ("mass", "toleranz") for i in p.flaechen}
-    teile = []  # (Flaeche, aus dem Material, ins Material)
+    teile = []  # (Flaeche, aus dem Material, ins Material, Index)
     for i, f in enumerate(modell.flaechen):
         if i in belegt or (nur is not None and i not in nur) or BRep_Tool.Surface(f) is None:
             continue
         if allgemein.profil:
-            teile.append((f, allgemein.profil / 2, -allgemein.profil / 2))
+            teile.append((f, allgemein.profil / 2, -allgemein.profil / 2, i))
             continue
         s = BRepAdaptor_Surface(f, True)
         if s.GetType() == GeomAbs_Plane and allgemein.form:
             t = iso2768_ebenheit(allgemein.form, _ausdehnung(f))
             if t:
-                teile.append((f, t / 2, -t / 2))
+                teile.append((f, t / 2, -t / 2, i))
         elif s.GetType() == GeomAbs_Cylinder and allgemein.laenge:
             a = iso2768_laenge(allgemein.laenge, 2 * s.Cylinder().Radius())
             if a:
-                teile.append((f, a / 2, -a / 2))  # Radius aendert sich um die Haelfte des Durchmesserabmasses
+                teile.append((f, a / 2, -a / 2, i))  # Radius aendert sich um die Haelfte des Durchmesserabmasses
     if not teile:
         return None
-    schmalste = min(o - u for _, o, u in teile)
+    schmalste = min(o - u for _, o, u, _ in teile)
     if faktor is None:
         faktor = max(1.0, sichtbar_mindest / schmalste) if sichtbar_mindest > 0 else 1.0
     z = Zone(breite=schmalste, faktor=faktor, art="allgemein")
-    for f, o, u in teile:
-        z.dazu(_versatz(f, o * faktor), ALLGEMEIN)
-        z.dazu(_versatz(f, u * faktor), ALLGEMEIN)
+    for f, o, u, i in teile:
+        z.dazu(_versatz(f, o * faktor), ALLGEMEIN, i)
+        z.dazu(_versatz(f, u * faktor), ALLGEMEIN, i)
     z.hinweise.append(tr("Allgemeintoleranzen {} auf {} Flächen").format(allgemein.text(), len(teile)))
     return z if z.formen else None

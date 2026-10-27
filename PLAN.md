@@ -609,7 +609,10 @@ Plan (each stage usable on its own; builds on §8.5 zones and the 1D chain of §
      (`ansicht3d.teil_lagen` of the part instance the PMI face belongs to, plus explosion and comparison transform)
      to the zone shapes, and redraw them when positions change. Same cause: part instances share face indices
      (`StepModell.flaechen` deduplicates), so zones of a part used four times appear at one instance only – draw
-     them per visible instance.
+     them per visible instance. Done 2026-10-28: zones carry their source faces (`Zone.flaechen`, per form
+     `quellen`), the display copies them to every visible instance of the owning part (the instance whose face equals
+     the canonical face) and applies the assembly position; finding: ownership by bounding box fails for holes with a
+     screw inside (the screw's box is smaller).
 
 ### 8.21 Clash, clearance band and intersection analysis; degrees of freedom (requested 2026-10-27)
 Request (from public feature requests of an open-source CAD project, generalized): check assemblies or a selection of

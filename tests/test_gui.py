@@ -1188,3 +1188,36 @@ def test_toleranzkette_getriebe_beispiel(fenster, tmp_path):
     k._ablauf_schritt()
     assert k.tabelle.currentRow() == 1
     k.ablauf.setChecked(False)
+
+
+def test_zonen_je_instanz_und_zusammenbaulage(fenster):
+    """Zonen an jeder Instanz eines mehrfach verbauten Teils; sie folgen der Lage aus dem Zusammenbau."""
+    from OCC.Core.Bnd import Bnd_Box
+    from OCC.Core.BRepBndLib import brepbndlib
+    from programm.kern.toleranzzone import Allgemein
+    from programm.kern.verbindung import flaeche_im_teil
+    f = fenster
+    f.lade(pfad("baugruppe.stp"), warten=True)
+    f._allgemein = Allgemein("m", "")
+    f.aktionen["toleranzzonen_alle"].setChecked(True)
+    f.aktionen["allgemein_zeigen"].setChecked(True)
+    f._allgemein_umschalten()
+    assert len(f.ansicht.zone_formen) == 8 + 4 * 4  # Platte 8, jede der vier Schrauben 4
+    schrauben = [k.nummer for k in f.erg.baum.blaetter() if k.name.startswith("Schraube")]
+    f.ansicht.knoten_sichtbar({schrauben[1]}, False)
+    assert len(f.ansicht.zone_formen) == 8 + 3 * 4
+    f.ansicht.knoten_sichtbar({schrauben[1]}, True)
+
+    def hoehe():
+        b = Bnd_Box()
+        for form in f.ansicht.zone_formen:
+            brepbndlib.Add(form, b)
+        return b.Get()[5]
+    vorher = hoehe()
+    knoten = {k.nummer: k for k in f.erg.baum.blaetter()}
+    deckel = next(k.nummer for k in knoten.values() if k.name == "Deckel")
+    s = schrauben[0]
+    f.ansicht.setze_auswahl([flaeche_im_teil(knoten[s].form, 18, f.erg.modell),
+                             flaeche_im_teil(knoten[deckel].form, 15, f.erg.modell)], [s, deckel])
+    f.verbinde_auswahl()  # Kopf auf den Deckel: Schraube 1 mm hoeher
+    assert abs(hoehe() - vorher - 1.0) < 1e-6

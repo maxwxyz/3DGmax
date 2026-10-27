@@ -149,7 +149,8 @@
    "Toleranzkette: Wärmeausdehnung bei zwei Grenztemperaturen (Werkstoffe aus der STEP-Datei, sonst Bibliothek, α je Bauteil änderbar, optional eigene Temperatur je Bauteil); Längenbereiche (Feder, Passscheibe) und Stellglied mit nötigem Bereich; Richtungen und Reihenfolge aus dem Schlussmaß; „Kette ablaufen“ zeigt die Glieder nacheinander; Kette als Datei (.3dgkette) speichern und öffnen, auch über Datei › Öffnen; Beispiel Getriebewelle.",
    "STEP-Dateien mit Umlauten in UTF-8 (wie sie OCCT und andere Programme schreiben) werden richtig gelesen.",
    "JT 8/9 öffnen (Netz mit Struktur, Namen und Farben) in der Programmvariante mit dem JT-Leser TKJT (packaging/jt/bauen.sh); JT 10 wird erkannt und als nicht unterstützt gemeldet.",
-   "Zusammenbau: der Wiggle-Knopf zeigt seinen Zustand (▶ Wiggle / ⏸ Anhalten)."
+   "Zusammenbau: der Wiggle-Knopf zeigt seinen Zustand (▶ Wiggle / ⏸ Anhalten).",
+   "Toleranzzonen erscheinen an jeder Instanz eines mehrfach verbauten Teils und folgen der Lage aus dem Zusammenbau (Fangen, Verbindungen)."
   ],
   "en": [
    "First viewer version: load STEP AP242, assembly tree, CAD-style navigation, standard views.",
@@ -300,7 +301,8 @@
    "Stack-up: thermal expansion at two limit temperatures (materials from the STEP file, otherwise a library, α per part editable, optional own temperature per part); length ranges (spring, shim) and adjusting member with its required range; directions and order from the closing dimension; “Walk chain” shows the links one after another; chain saved and opened as a file (.3dgkette), also via File › Open; gearbox shaft example.",
    "STEP files with non-ASCII names in UTF-8 (as written by OCCT and other tools) are read correctly.",
    "Open JT 8/9 (mesh with structure, names and colours) in the program variant with the JT reader TKJT (packaging/jt/bauen.sh); JT 10 is detected and reported as not supported.",
-   "Assembly: the wiggle button shows its state (▶ Wiggle / ⏸ Pause)."
+   "Assembly: the wiggle button shows its state (▶ Wiggle / ⏸ Pause).",
+   "Tolerance zones appear at every instance of a part used several times and follow the position from the assembly (snapping, connections)."
   ]
  },
  "releases": [

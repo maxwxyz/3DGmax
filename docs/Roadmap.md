@@ -75,7 +75,7 @@
 | Assembly: point contact (sphere on plane), pin–slot (line on plane), ball joint | ✅ |
 | Assembly: reverse a connection (flip plane side / axis direction) | ⬜ |
 | Assembly: wiggle as play/pause button | ✅ |
-| Fix: tolerance zones follow the assembled part position | ⬜ |
+| Fix: tolerance zones follow the assembled part position and appear at every instance | ✅ |
 | All tolerance / general-tolerance zones only for visible parts | ✅ |
 | UI/UX plan (`docs/UI_UX_Plan.md`); stage 1: command search Ctrl/⌘+K, task start page, menu cleanup | ✅ |
 | UI scaling option (90–150 %, as in ZGmax) | ⬜ |
