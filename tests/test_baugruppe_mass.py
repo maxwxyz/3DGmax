@@ -102,3 +102,22 @@ def test_soll_text():
     assert bm.lies_soll("") == (None, None)
     m = bm.Messgroesse(1, 1, 1, 2, 2, soll_min=1.0)
     assert bm.soll_text(m) == "1 … "
+
+
+def test_umkehren_und_tauschen():
+    b, f = _baugruppe()
+    # Verbindung 3: Schaft der Schraube 4 koaxial in der Bohrung der Grundplatte
+    _, p0, d0 = vb.merkmal(f(4, 19), b.lage(4))
+    assert b.umkehren(3) is None
+    _, p1, d1 = vb.merkmal(f(4, 19), b.lage(4))
+    assert np.allclose(d1, -d0, atol=1e-9) and np.linalg.norm(np.cross(p1 - p0, d0)) < 1e-6  # Ende gegen Ende, gleiche Achse
+    v3 = next(v for v in b.verbindungen if v.nummer == 3)
+    assert vb.erfuellt(v3.art, *b.merkmale(v3))  # weiter koaxial
+    kopf = next(v for v in b.verbindungen if v.nummer == 2)
+    assert not vb.erfuellt(kopf.art, *b.merkmale(kopf), kopf.versatz)  # Kopf jetzt auf der anderen Seite
+    assert isinstance(b.umkehren(99), str)
+    # Tauschen: Deckel/Grundplatte – danach bewegt sich die Grundplatte, die Verbindung bleibt erfuellt
+    v1 = next(v for v in b.verbindungen if v.nummer == 1)
+    assert (v1.teil, v1.gegen_teil) == (3, 2) and b.tauschen(1) is None
+    assert (v1.teil, v1.gegen_teil) == (2, 3) and vb.erfuellt(v1.art, *b.merkmale(v1), v1.versatz)
+    assert not b.fest(2)

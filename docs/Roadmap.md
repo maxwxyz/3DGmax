@@ -73,7 +73,7 @@
 | Stack-up: median planes as chain ends, chains across assembly parts | ⬜ |
 | Assembly: connections plane/plane and coaxial with snapping, satisfied check, open DOF per part, DOF wiggle, in the project | ✅ |
 | Assembly: point contact (sphere on plane), pin–slot (line on plane), ball joint | ✅ |
-| Assembly: reverse a connection (flip plane side / axis direction) | ⬜ |
+| Assembly: reverse a connection (180°, cylinder end for end) and swap parts | ✅ |
 | Assembly: wiggle as play/pause button | ✅ |
 | Fix: tolerance zones follow the assembled part position and appear at every instance | ✅ |
 | All tolerance / general-tolerance zones only for visible parts | ✅ |

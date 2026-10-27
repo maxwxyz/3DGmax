@@ -27,6 +27,8 @@ class BaugruppePanel(QtWidgets.QWidget):
     zuruecksetzen = QtCore.Signal()
     wiggle = QtCore.Signal(object)  # Knotennummer oder None (aus)
     toleranz = QtCore.Signal(int, float)  # Nummer der Verbindung, neuer Spielraum (mm)
+    umkehren = QtCore.Signal(int)  # Nummer der Verbindung
+    tauschen = QtCore.Signal(int)
     mass_anlegen = QtCore.Signal()
     mass_entfernen = QtCore.Signal(int)  # Nummer der Messgroesse
     soll = QtCore.Signal(int, str)  # Nummer der Messgroesse, Soll-Text
@@ -78,10 +80,19 @@ class BaugruppePanel(QtWidgets.QWidget):
         reihe = QtWidgets.QHBoxLayout()
         self.weg = QtWidgets.QPushButton(tr("Verbindung entfernen"))
         self.weg.clicked.connect(self._entfernen)
+        self.umkehr_knopf = QtWidgets.QPushButton(tr("Umkehren"))
+        self.umkehr_knopf.setToolTip(tr("Bewegtes Teil an der gewählten Verbindung um 180° drehen: Zylinder Ende gegen "
+                                        "Ende, auf einer Ebene halb herum"))
+        self.umkehr_knopf.clicked.connect(lambda: self._fuer_gewaehlte(self.umkehren))
+        self.tausch_knopf = QtWidgets.QPushButton(tr("Teile tauschen"))
+        self.tausch_knopf.setToolTip(tr("Das andere Teil der gewählten Verbindung bewegt sich (Bezugsteil wechselt)"))
+        self.tausch_knopf.clicked.connect(lambda: self._fuer_gewaehlte(self.tauschen))
         self.zurueck = QtWidgets.QPushButton(tr("Zurücksetzen"))
         self.zurueck.setToolTip(tr("Alle Verbindungen entfernen, Teile wieder wie in der Datei"))
         self.zurueck.clicked.connect(self.zuruecksetzen.emit)
         reihe.addWidget(self.weg)
+        reihe.addWidget(self.umkehr_knopf)
+        reihe.addWidget(self.tausch_knopf)
         reihe.addStretch(1)
         reihe.addWidget(self.zurueck)
         lay.addLayout(reihe)
@@ -275,7 +286,7 @@ class BaugruppePanel(QtWidgets.QWidget):
                 t.setItem(z, s, QtWidgets.QTableWidgetItem(w))
         t.blockSignals(False)
         t.resizeColumnsToContents()
-        for k in (self.weg, self.zurueck):
+        for k in (self.weg, self.zurueck, self.umkehr_knopf, self.tausch_knopf):
             k.setEnabled(bool(baugruppe.verbindungen))
         self.wiggle_an.setEnabled(bool(teile))
 
@@ -289,9 +300,12 @@ class BaugruppePanel(QtWidgets.QWidget):
         self.toleranz.emit(self._nummern[it.row()], wert)
 
     def _entfernen(self):
+        self._fuer_gewaehlte(self.entfernen)
+
+    def _fuer_gewaehlte(self, signal):
         zeilen = {i.row() for i in self.verbindungen.selectedIndexes()}
         if len(zeilen) == 1:
-            self.entfernen.emit(self._nummern[zeilen.pop()])
+            signal.emit(self._nummern[zeilen.pop()])
 
     def gewaehltes_teil(self):
         zeilen = {i.row() for i in self.teile.selectedIndexes()}

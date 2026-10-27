@@ -590,7 +590,9 @@ Plan (each stage usable on its own; builds on §8.5 zones and the 1D chain of §
   sphere on plane (1 row), ball joint (3 rows). Open: temperature, datum-shift effects, 3-2-1 template, chains
   across parts, measures on axes/points, histogram in the report, one-sided contact instead of symmetric play.
 - Requested 2026-10-28 (next for the assembly dock):
-  1. **Reverse a connection:** flip a planar connection (part on the other side of the mating plane, normals
+  1. **Reverse a connection** (done 2026-10-28 as "Umkehren": the moved part turns 180° – cylinder/pin end for end
+     about an axis across the engagement middle, on a plane about the normal – and "Teile tauschen": the other part
+     moves; a plane-side flip would push the part into its mate, so it was not added). Original note: flip a planar connection (part on the other side of the mating plane, normals
      aligned instead of opposed – e.g. washer upside down), flip the axis direction of a coaxial/pin–slot connection
      (part turned end for end); button and context menu "Umkehren" in the connections table, the part is snapped
      again and the open DOF are recomputed; stored in the project.

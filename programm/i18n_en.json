@@ -1229,5 +1229,12 @@
 "JT {}.{} wird nicht unterstützt: der freie JT-Leser (TKJT) kann JT 8 und 9 – bitte als JT 9 oder STEP exportieren": "JT {}.{} is not supported: the free JT reader (TKJT) reads JT 8 and 9 – please export as JT 9 or STEP",
 "JT braucht die Programmvariante mit dem JT-Leser TKJT (packaging/jt/bauen.sh)": "JT needs the program variant with the JT reader TKJT (packaging/jt/bauen.sh)",
 "JT-Datei nicht lesbar: {}": "JT file not readable: {}",
-"▶ Wiggle": "▶ Wiggle"
+"▶ Wiggle": "▶ Wiggle",
+"Umkehren": "Reverse",
+"Teile tauschen": "Swap parts",
+"Bewegtes Teil an der gewählten Verbindung um 180° drehen: Zylinder Ende gegen Ende, auf einer Ebene halb herum": "Turn the moved part of the selected connection by 180°: cylinder end for end, on a plane half a turn",
+"Das andere Teil der gewählten Verbindung bewegt sich (Bezugsteil wechselt)": "The other part of the selected connection moves (the reference part changes)",
+"Verbindung {} geändert": "Connection {} changed",
+"Verbindung nicht gefunden": "Connection not found",
+"Ein Kugelgelenk lässt sich nicht umkehren": "A ball joint cannot be reversed"
 }

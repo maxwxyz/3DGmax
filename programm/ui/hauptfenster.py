@@ -167,6 +167,8 @@ class Hauptfenster(QtWidgets.QMainWindow):
         self.zusammenbau.zuruecksetzen.connect(self.zusammenbau_zuruecksetzen)
         self.zusammenbau.wiggle.connect(self._wiggle)
         self.zusammenbau.toleranz.connect(self._spielraum)
+        self.zusammenbau.umkehren.connect(lambda n: self._verbindung_aendern(self.baugruppe.umkehren, n))
+        self.zusammenbau.tauschen.connect(lambda n: self._verbindung_aendern(self.baugruppe.tauschen, n))
         self.zusammenbau.mass_anlegen.connect(self.messgroesse_auswahl)
         self.zusammenbau.mass_entfernen.connect(self._messgroesse_entfernen)
         self.zusammenbau.soll.connect(self._soll)
@@ -2992,6 +2994,15 @@ class Hauptfenster(QtWidgets.QMainWindow):
             text += " · " + tr("nicht mehr erfüllt: {}").format(", ".join(str(x.nummer) for x in verletzt))
         self.statusBar().showMessage(text, 8000)
         return v
+
+    def _verbindung_aendern(self, aktion, nummer: int):
+        """Umkehren oder Tauschen; danach melden, welche Verbindungen nicht mehr erfuellt sind."""
+        fehler = aktion(nummer)
+        self._zusammenbau_zeigen()
+        verletzt = self.baugruppe.verletzt()
+        text = fehler or (tr("nicht mehr erfüllt: {}").format(", ".join(str(x.nummer) for x in verletzt))
+                          if verletzt else tr("Verbindung {} geändert").format(nummer))
+        self.statusBar().showMessage(text, 8000)
 
     def _verbindung_entfernen(self, nummer: int):
         self.baugruppe.entferne(nummer)

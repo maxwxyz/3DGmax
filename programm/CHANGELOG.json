@@ -150,7 +150,8 @@
    "STEP-Dateien mit Umlauten in UTF-8 (wie sie OCCT und andere Programme schreiben) werden richtig gelesen.",
    "JT 8/9 öffnen (Netz mit Struktur, Namen und Farben) in der Programmvariante mit dem JT-Leser TKJT (packaging/jt/bauen.sh); JT 10 wird erkannt und als nicht unterstützt gemeldet.",
    "Zusammenbau: der Wiggle-Knopf zeigt seinen Zustand (▶ Wiggle / ⏸ Anhalten).",
-   "Toleranzzonen erscheinen an jeder Instanz eines mehrfach verbauten Teils und folgen der Lage aus dem Zusammenbau (Fangen, Verbindungen)."
+   "Toleranzzonen erscheinen an jeder Instanz eines mehrfach verbauten Teils und folgen der Lage aus dem Zusammenbau (Fangen, Verbindungen).",
+   "Zusammenbau: Verbindung umkehren (Teil um 180° drehen, Zylinder Ende gegen Ende) und Teile tauschen (das andere Teil bewegt sich)."
   ],
   "en": [
    "First viewer version: load STEP AP242, assembly tree, CAD-style navigation, standard views.",
@@ -302,7 +303,8 @@
    "STEP files with non-ASCII names in UTF-8 (as written by OCCT and other tools) are read correctly.",
    "Open JT 8/9 (mesh with structure, names and colours) in the program variant with the JT reader TKJT (packaging/jt/bauen.sh); JT 10 is detected and reported as not supported.",
    "Assembly: the wiggle button shows its state (▶ Wiggle / ⏸ Pause).",
-   "Tolerance zones appear at every instance of a part used several times and follow the position from the assembly (snapping, connections)."
+   "Tolerance zones appear at every instance of a part used several times and follow the position from the assembly (snapping, connections).",
+   "Assembly: reverse a connection (turn the part by 180°, cylinder end for end) and swap parts (the other part moves)."
   ]
  },
  "releases": [

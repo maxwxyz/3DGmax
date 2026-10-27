@@ -1221,3 +1221,19 @@ def test_zonen_je_instanz_und_zusammenbaulage(fenster):
                              flaeche_im_teil(knoten[deckel].form, 15, f.erg.modell)], [s, deckel])
     f.verbinde_auswahl()  # Kopf auf den Deckel: Schraube 1 mm hoeher
     assert abs(hoehe() - vorher - 1.0) < 1e-6
+
+
+def test_zusammenbau_umkehren_tauschen_knopf(fenster):
+    f = fenster
+    assert f.oeffne_beispiel("zusammenbau", warten=True)  # nicht _beispiele: das setzt den Zusammenbau zurueck
+    z = f.zusammenbau
+    z.verbindungen.selectRow(1)  # koaxial
+    z.umkehr_knopf.click()
+    assert [v.nummer for v in f.baugruppe.verletzt()] == [1]  # Kopfauflage nach dem Umkehren nicht mehr erfuellt
+    z.verbindungen.selectRow(0)
+    teil = f.baugruppe.verbindungen[0].teil
+    z.tausch_knopf.click()
+    assert f.baugruppe.verbindungen[0].gegen_teil == teil
+    assert z.wiggle_an.text().startswith("⏸")  # das Beispiel laesst den Wiggle laufen
+    z.wiggle_an.setChecked(False)
+    assert z.wiggle_an.text().startswith("▶")

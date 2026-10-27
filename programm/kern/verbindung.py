@@ -468,6 +468,47 @@ class Baugruppe:
         self.verbindungen = [v for v in self.verbindungen if v.nummer != nummer]
         self.formen.pop(nummer, None)
 
+    def _verbindung(self, nummer: int) -> Verbindung | None:
+        return next((v for v in self.verbindungen if v.nummer == nummer), None)
+
+    def umkehren(self, nummer: int) -> str | None:
+        """Bewegtes Teil an der Verbindung um 180° drehen: Zylinder Ende gegen Ende (Achse quer durch die Mitte des
+        Eingriffs), Bolzen im Langloch und Teil auf Ebene um die Normale; Fehlertext, wenn nicht sinnvoll."""
+        v = self._verbindung(nummer)
+        if v is None:
+            return tr("Verbindung nicht gefunden")
+        ma, mb = self.merkmale(v)
+        if v.art == KUGEL:
+            return tr("Ein Kugelgelenk lässt sich nicht umkehren")
+        if v.art in (KOAXIAL, LANGLOCH):
+            if not v.eingriff:
+                self._eingriff(v)
+            q, e = self._achse(v)
+            mitte = q + e * (sum(v.eingriff) / 2 if v.eingriff else 0.0)
+            achse = _senkrechte(e)[0] if v.art == KOAXIAL else _kontakt(v.art, ma, mb)[2]
+        elif v.art == PUNKT:
+            mitte, _, achse, _, _ = _kontakt(v.art, ma, mb)
+        else:
+            mitte, achse = ma[1], mb[2]
+        m = bewegung(np.r_[achse, -np.cross(achse, mitte)], 180.0)  # Drehung um die Achse durch mitte
+        self.lagen[v.teil] = m @ self.lage(v.teil)
+        v.eingriff = ()
+        self._eingriff(v)
+        return None
+
+    def tauschen(self, nummer: int) -> str | None:
+        """Rollen tauschen: das Gegenteil wird zum bewegten Teil (aendert Bezugsteil und Freiheitsgrade)."""
+        v = self._verbindung(nummer)
+        if v is None:
+            return tr("Verbindung nicht gefunden")
+        v.teil, v.gegen_teil = v.gegen_teil, v.teil
+        v.flaeche, v.gegen_flaeche = v.gegen_flaeche, v.flaeche
+        fa, fb = self.formen[nummer]
+        self.formen[nummer] = (fb, fa)
+        v.eingriff = ()
+        self._eingriff(v)
+        return None
+
     def neue_messgroesse(self, teil_a: int, fa, ia: int, teil_b: int, fb, ib: int):
         """Spalt oder Buendigkeit zwischen zwei parallelen Ebenen verschiedener Teile; Fehlertext sonst."""
         from . import baugruppe_mass as bm
