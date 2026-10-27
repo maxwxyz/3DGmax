@@ -538,6 +538,7 @@ def test_vergleich_je_instanz():
     assert all(s == vergleich_geo.GLEICH for s in geo.status_b.values())
 
 
+@pytest.mark.langsam
 def test_scan_gegen_toleranzen():
     """Erzeugte Scans (werkzeuge/testmodelle.py): sauberer Scan i. O., Scan mit Welligkeit verletzt die Ebenheit."""
     from programm.kern import ausrichten, scanpruefung as sp
@@ -583,6 +584,7 @@ def test_neue_varianten_vergleich():
     assert len(c.pmi) == len(a.pmi)
 
 
+@pytest.mark.langsam
 def test_scanpruefung_stufe2(tmp_path):
     """Winkel- und Laengenmasse, Ausrichtung am Bezugssystem A|B|C, Punktwolke ohne Dreiecke."""
     import numpy as np

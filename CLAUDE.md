@@ -15,8 +15,9 @@ Sister project: ZGmax (`../Zeichnungsvergleich`).
   English and CHANGELOG_DE.md German, sets the tag); then `git push --follow-tags`.
 - Keep `docs/Roadmap.md` (done/planned) up to date with every feature.
 - Tests green before every commit, but **only the affected tests** (`pixi run test-betroffen`, maps the changed files
-  to tests; on-screen: `DG_BILDSCHIRM=1 pixi run python -m pytest -q tests/test_bildschirm.py` when the 3D view
-  changed). The full suite (`pixi run test`, ~25 min) only before a release, after changes to core modules (laden,
+  to tests; `-- --schnell` skips the six tests marked `langsam` (> 30 s); `pixi run test-schnell` = whole suite without
+  them, ~6 min); on-screen: `DG_BILDSCHIRM=1 pixi run python -m pytest -q tests/test_bildschirm.py` when the 3D view
+  changed). The full suite (`pixi run test`, ~10 min on the Mac) only before a release, after changes to core modules (laden,
   p21, pmi_lesen, hauptfenster, ansicht3d) and in CI (PLAN §8.29). Commits end with `Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>`.
   **Push after every commit** (`origin` = github.com/maxwxyz/3DGmax, public).
 - Scripts never touch the real user settings: set `DG_EINSTELLUNGEN=<tmp.ini>`.

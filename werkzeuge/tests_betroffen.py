@@ -3,10 +3,12 @@
     pixi run test-betroffen                 # Aenderungen im Arbeitsbaum gegen HEAD
     pixi run test-betroffen -- --seit main  # alle Aenderungen seit einem Stand
     pixi run test-betroffen -- --zeigen     # nur auflisten
+    pixi run test-betroffen -- --schnell    # ohne langsame Tests (Markierung 'langsam', ueber 30 s)
 
 Auswahl: je geaendertem Modul programm/**/name.py die Testfunktionen, deren Quelltext 'name' erwaehnt; Hauptfenster
 und 3D-Ansicht betreffen alle Oberflaechentests; Uebersetzung und Anleitungen den Uebersetzungs- und Anleitungstest;
-geaenderte Testdateien laufen ganz. Langsame Tests (Markierung 'langsam') laufen mit, wenn sie betroffen sind.
+geaenderte Testdateien laufen ganz. Langsame Tests (Markierung 'langsam') laufen mit, wenn sie betroffen sind,
+ausser mit --schnell.
 """
 
 from __future__ import annotations
@@ -78,7 +80,8 @@ def main(argv: list[str]) -> int:
         print("  ", z)
     if "--zeigen" in argv or not ziele:
         return 0
-    return subprocess.run([sys.executable, "-m", "pytest", "-q", *ziele], cwd=WURZEL).returncode
+    auswahl_m = ["-m", "not langsam"] if "--schnell" in argv else []
+    return subprocess.run([sys.executable, "-m", "pytest", "-q", *auswahl_m, *ziele], cwd=WURZEL).returncode
 
 
 if __name__ == "__main__":

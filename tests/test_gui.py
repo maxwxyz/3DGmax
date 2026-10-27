@@ -3,6 +3,8 @@
 import os
 import sys
 
+import pytest
+
 from programm.ui import ansicht3d
 from programm.ui.hilfe import MARKE, anleitung_html, menue_befehle
 from tests.conftest import WURZEL, pfad
@@ -836,6 +838,7 @@ def test_beispiele_vergleich_und_scan(fenster):
 def test_toleranzkette_aus_3d_auswahl(fenster):
     """Flaechen in Klickreihenfolge -> Glieder; Zeile waehlen hebt ihre Flaechen hervor; Verteilung je Glied."""
     f = fenster
+@pytest.mark.langsam
     f.lade(pfad("nist_ftc_10_asme1_ap242-e2.stp"), warten=True)
     k = f.zeige_toleranzkette(nur_anlegen=True)
     k.lage.setChecked(False)
@@ -845,6 +848,7 @@ def test_toleranzkette_aus_3d_auswahl(fenster):
     assert "ohne Toleranz" in f.statusBar().currentMessage() or "without tolerance" in f.statusBar().currentMessage()
     k.leeren()
     from programm.kern.toleranzzone import Allgemein
+@pytest.mark.langsam
     f._allgemein = Allgemein("m", "")
     f._kette_aus_auswahl()
     assert [g.quelle for g in k.glieder] == ["pmi", "allgemein", "pmi"]
@@ -897,6 +901,7 @@ def test_toleranzkette_lage_pdf_projekt(fenster, tmp_path):
     k.leeren()
     f.oeffne_projekt(projekt, warten=True)
     k = f._kette
+@pytest.mark.langsam
     assert len(k.glieder) == 5 and abs(k.cp.value() - 1.33) < 1e-9 and k.glieder[0].flaechen == (181, 187)
     k.leeren()
 
@@ -988,6 +993,7 @@ def test_scanpruefung_punktwolke_bezug_bericht(fenster_ctc01, tmp_path):
     f.pruefe_scan(f._scan["pfad"], warten=True, bezug=f.scan.gewaehlter_bezug())
     assert f._scan["bezug"] == ("A", "B", "C") and "3-2-1" in f.scan.kopf.text()
     assert f.scan.gewaehlter_bezug() == ("A", "B", "C")
+@pytest.mark.langsam
     pdf = f.exportiere_scan_pdf(str(tmp_path / "bericht.pdf"), bilder=False)
     assert os.path.getsize(pdf) > 1000
     f.scan_aus()

@@ -631,10 +631,13 @@ release, after changes to core modules and in CI.
   test functions whose source mentions the changed module, fixed mappings for broad modules (hauptfenster,
   ansicht3d, laden, p21, pmi_lesen, lader, thema) and for i18n/manual/changelog; changed test files run completely;
   `--seit <ref>` and `--zeigen`.
-- Open (local): measure the durations once (`pixi run python -m pytest -q --durations=40`), mark the slow tests
-  with a `langsam` marker in `tests/conftest.py` (register the marker, list by name), add `pixi run test-schnell`
-  (`-m "not langsam"`); shorten the slowest tests further (smaller scan samples, shared fixtures for loaded
-  models/comparisons via session scope); keep `test-ci` as the full run in the GitHub workflow.
+- Done 2026-10-28 (local): durations measured on the Mac (full suite 588 s, 182 tests): six tests over 30 s
+  (`test_beispiele_modell` 60 s, `test_scan_gegen_toleranzen` 40 s, `test_scanpruefung_stufe2` 40 s,
+  `test_toleranzkette_lage_pdf_projekt` 39 s, `test_scanpruefung_punktwolke_bezug_bericht` 37 s,
+  `test_beispiele_vergleich_und_scan` 33 s, together ~250 s) carry `@pytest.mark.langsam` (registered in
+  `pytest.ini`); `pixi run test-schnell` runs `-m "not langsam"`, `test-betroffen -- --schnell` skips them too;
+  `test-ci` stays the full run in the GitHub workflow.
+- Open: shorten the slowest tests (smaller scan samples, session fixtures for loaded models/comparisons).
 
 ### 8.30 UI/UX review and plan (requested 2026-10-27, to do locally)
 Inventory 2026-10-27: 129 menu commands (File 41, View 49, Model 20, Tools 5, Window 10, Help 4), 10 side panels
