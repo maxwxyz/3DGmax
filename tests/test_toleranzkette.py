@@ -207,3 +207,44 @@ def test_glied_strecke_im_getriebe():
     start, ende = tk.glied_strecke(k.glieder[0], m)  # Waelzlager 12 mm, entlang X
     assert abs(abs(ende[0] - start[0]) - 12.0) < 1e-6 and abs(ende[1] - start[1]) < 1e-9
     assert tk.glied_strecke(tk.Glied("x", 1, 1, 1), m) is None
+
+
+def test_plausibilitaet_theoretisch_muster_bezugsstellen():
+    from types import SimpleNamespace
+    from OCC.Core.BRepPrimAPI import BRepPrimAPI_MakeBox, BRepPrimAPI_MakeCylinder
+    from OCC.Core.gp import gp_Ax2, gp_Dir, gp_Pnt
+    from OCC.Core.TopAbs import TopAbs_FACE
+    from OCC.Core.TopExp import TopExp_Explorer
+    from programm.kern import plausibilitaet as pl
+    from programm.kern.pmi import BEZUG, MASS, TOLERANZ, BezugsRef, Pmi
+
+    def flaechen(form):
+        ex, out = TopExp_Explorer(form, TopAbs_FACE), []
+        while ex.More():
+            out.append(ex.Current())
+            ex.Next()
+        return out
+    quader = flaechen(BRepPrimAPI_MakeBox(10, 10, 10).Shape())  # 0..5 Ebenen
+    zyl = [flaechen(BRepPrimAPI_MakeCylinder(gp_Ax2(gp_Pnt(x, 0, 0), gp_Dir(0, 0, 1)), r, 5).Shape())[0]
+           for x, r in ((20, 2), (30, 2), (40, 2.5))]
+    modell = SimpleNamespace(flaechen=quader + zyl)  # Zylinder: 6, 7, 8
+    a = Pmi(BEZUG, "Datum", "A", nummer=1, flaechen={0})
+    pos = Pmi(TOLERANZ, "Position", wert=0.1, nummer=2, flaechen={6}, bezuege=[BezugsRef("A", 1)])
+    lage = Pmi(MASS, "Location_LinearDistance", nennwert=20, oben=0.1, unten=-0.1, nummer=3, flaechen={0, 6})
+    basis = Pmi(MASS, "Location_LinearDistance", nennwert=20, nummer=4, flaechen={0, 6}, modifikatoren=["Theoretisch"])
+    falsch = Pmi(MASS, "Location_LinearDistance", nennwert=20, oben=0.1, unten=-0.1, nummer=5, flaechen={0, 6},
+                 modifikatoren=["Theoretisch"])
+    befunde = pl.theoretische_masse([a, pos, lage, basis, falsch], modell)
+    assert [b.nummern for b in befunde] == [[2, 3], [5]]
+    assert pl.theoretische_masse([a, pos, basis], modell) == []
+    gleich = Pmi(MASS, "Size_Diameter", nennwert=4, oben=0.1, unten=0, nummer=6, flaechen={6, 7})
+    verschieden = Pmi(MASS, "Size_Diameter", nennwert=4, oben=0.1, unten=0, nummer=7, flaechen={6, 7, 8})
+    befunde = pl.muster([gleich, verschieden], modell)
+    assert len(befunde) == 1 and befunde[0].nummern == [7] and "3" in befunde[0].text and "⌀5" in befunde[0].text
+    # Bezugsstellen: Ebene A als Primaerbezug aus zwei Stellen, B ohne Verwendung
+    stellen = [Pmi(BEZUG, "DatumTarget", n, nummer=10 + i, flaechen={0}) for i, n in enumerate(("A1", "A2", "B1"))]
+    befunde = pl.bezugsstellen(stellen + [pos], modell)
+    assert len(befunde) == 2 and "A" in befunde[0].text and "3" in befunde[0].text and "B1" in befunde[1].text
+    pos.bezuege = [BezugsRef("B", 1), BezugsRef("A", 3)]
+    befunde = pl.bezugsstellen(stellen + [pos], modell)  # B primaer aus einer Stelle, A tertiaer aus zwei genuegt
+    assert len(befunde) == 1 and befunde[0].nummern == [12]

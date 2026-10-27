@@ -1293,5 +1293,11 @@
 "Von Hand …": "By hand …",
 "Startlage über Punktpaare Scan ↔ Modell (z. B. bei wenig Überdeckung oder symmetrischen Teilen); danach Feinausrichtung": "Start position from point pairs scan ↔ model (e.g. with little overlap or symmetric parts); then fine alignment",
 "Punktwolken lassen sich nicht von Hand ausrichten – Netz verwenden": "Point clouds cannot be aligned by hand – use a mesh",
-"Punktpaare von Hand, dann Feinausrichtung": "point pairs by hand, then fine alignment"
+"Punktpaare von Hand, dann Feinausrichtung": "point pairs by hand, then fine alignment",
+"Bezug {} ({}. Stelle) aus {} Bezugsstelle(n) – eine Ebene braucht hier {}": "Datum {} (position {}) from {} datum target(s) – a plane needs {} here",
+"Bezugsstellen {} ohne Bezug {} in einem Toleranzrahmen": "Datum targets {} without datum {} in any feature control frame",
+"Lage doppelt toleriert: {} und toleriertes Lagemaß {} – das Lagemaß als theoretisch exakt (eingerahmt) angeben": "Location toleranced twice: {} and toleranced location dimension {} – give the dimension as basic (boxed)",
+"Maß {} gilt für {} Elemente verschiedener Größe ({})": "Dimension {} applies to {} features of different size ({})",
+"Muster": "Pattern",
+"Theoretisch exaktes Maß {} mit Toleranz": "Basic dimension {} with a tolerance"
 }

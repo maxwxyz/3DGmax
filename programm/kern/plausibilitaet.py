@@ -11,6 +11,10 @@ Ergaenzt kern.pmi_bericht.pruefe um Regeln, die mehrere PMI oder die Geometrie z
 - Werte: unsymmetrische Zone groesser als die Toleranz, oberes < unteres Abmass, unbekannte Passung, projizierte Zone
   ohne Bohrung/Zapfen.
 - Geometrie: Nennmass passt nicht zum Modell (Durchmesser, Radius, Abstand paralleler Ebenen).
+- Theoretisch exakte Masse: mit Toleranz angegeben; Lage doppelt toleriert (toleriertes Lagemass und Position/Profil).
+- Muster: ein Groessenmass an Elementen verschiedener Groesse.
+- Bezugsstellen: zu wenige Stellen fuer die Stelle im Bezugssystem (Ebene primaer 3, sekundaer 2, tertiaer 1),
+  Bezugsstellen ohne Bezug in einem Toleranzrahmen.
 """
 
 from __future__ import annotations
@@ -262,10 +266,101 @@ def geometrie(pmi, modell) -> list:
     return out
 
 
+THEORETISCH = {"Theoretisch", "Basic"}
+LAGE_TOLERANZEN = {"Position", "ProfileOfSurface", "ProfileOfLine"}
+STELLEN_NOETIG = {1: 3, 2: 2, 3: 1}  # Bezugsstellen je Stelle im Bezugssystem, wenn der Bezug eine Ebene ist
+
+
+def _theoretisch(p) -> bool:
+    return bool(THEORETISCH & set(p.modifikatoren))
+
+
+def theoretische_masse(pmi, modell) -> list:
+    from .pmi_bericht import FEHLER, WARNUNG
+    out = []
+    for m in pmi:
+        if m.art != "mass":
+            continue
+        if _theoretisch(m) and (m.oben is not None or m.unten is not None or m.passung):
+            out.append(_befund(FEHLER, "wert", tr("Theoretisch exaktes Maß {} mit Toleranz").format(m.wert_text()),
+                               [m.nummer], m.flaechen))
+            continue
+        if not m.typ.startswith("Location") or _theoretisch(m) or m.masstoleranz() is None:
+            continue
+        for p in pmi:
+            if p.art != "toleranz" or p.typ not in LAGE_TOLERANZEN or not p.bezuege or not m.flaechen & p.flaechen:
+                continue
+            bezug = set().union(*(tz._bezug_flaechen(b.name, pmi) for b in p.bezuege))
+            rest = m.flaechen - p.flaechen
+            if rest and rest <= bezug:  # das Mass verbindet das Element mit einem seiner Bezuege
+                out.append(_befund(WARNUNG, "widerspruch", tr(
+                    "Lage doppelt toleriert: {} und toleriertes Lagemaß {} – das Lagemaß als theoretisch exakt "
+                    "(eingerahmt) angeben").format(tr(p.merkmal()), m.wert_text()), [p.nummer, m.nummer],
+                    m.flaechen & p.flaechen))
+                break
+    return out
+
+
+def _achsen_von(modell, flaechen) -> list:
+    return tz._achsen([modell.flaechen[i] for i in sorted(flaechen) if i < len(modell.flaechen)])
+
+
+def muster(pmi, modell) -> list:
+    """Groessenmass an mehreren Achsen (Muster): gleiche Groesse und Toleranzen an allen Elementen."""
+    from .pmi_bericht import WARNUNG
+    out = []
+    if modell is None:
+        return out
+    for m in pmi:
+        if m.art != "mass" or m.typ not in ("Size_Diameter", "Size_Radius") or len(m.flaechen) < 2:
+            continue
+        achsen = _achsen_von(modell, m.flaechen)
+        if len(achsen) < 2:
+            continue
+        radien = sorted({round(a[3], 4) for a in achsen})
+        if len(radien) > 1:
+            out.append(_befund(WARNUNG, "muster", tr("Maß {} gilt für {} Elemente verschiedener Größe ({})").format(
+                m.wert_text(), len(achsen), ", ".join("⌀{:.4g}".format(2 * r) for r in radien)), [m.nummer],
+                m.flaechen))
+    return out
+
+
+def _buchstabe(name: str) -> str:
+    return "".join(c for c in name if c.isalpha())
+
+
+def bezugsstellen(pmi, modell) -> list:
+    from .pmi_bericht import INFO, WARNUNG
+    stellen: dict[str, list] = {}
+    for p in pmi:
+        if p.art == "bezug" and p.typ == "DatumTarget" and _buchstabe(p.name):
+            stellen.setdefault(_buchstabe(p.name), []).append(p)
+    out = []
+    genutzt: dict[str, int] = {}  # Buchstabe -> kleinste Stelle im Bezugssystem
+    for p in pmi:
+        for b in p.bezuege if p.art == "toleranz" else ():
+            genutzt[b.name] = min(genutzt.get(b.name, 3), b.stelle)
+    for buchstabe, liste in sorted(stellen.items()):
+        nummern = [p.nummer for p in liste]
+        if buchstabe not in genutzt:
+            out.append(_befund(INFO, "bezug", tr("Bezugsstellen {} ohne Bezug {} in einem Toleranzrahmen").format(
+                ", ".join(p.name for p in liste), buchstabe), nummern))
+            continue
+        flaechen = set().union(*(p.flaechen for p in liste))
+        eben = modell is not None and flaechen and all(_ebene(modell.flaechen[i]) is not None
+                                                       for i in flaechen if i < len(modell.flaechen))
+        noetig = STELLEN_NOETIG[genutzt[buchstabe]]
+        if eben and len(liste) < noetig:
+            out.append(_befund(WARNUNG, "bezug", tr(
+                "Bezug {} ({}. Stelle) aus {} Bezugsstelle(n) – eine Ebene braucht hier {}").format(
+                buchstabe, genutzt[buchstabe], len(liste), noetig), nummern, flaechen))
+    return out
+
+
 REGELN = (hierarchie, mass_und_form, vollstaendigkeit, bezugssystem, ueberbestimmung, geschlossene_ketten, werte,
-          geometrie)
+          geometrie, theoretische_masse, muster, bezugsstellen)
 KATEGORIE_TEXT = {"widerspruch": "Widerspruch", "unvollstaendig": "Unvollständig", "bezug": "Bezugssystem",
-                  "wert": "Wert", "geometrie": "Geometrie", "": "Angabe"}
+                  "wert": "Wert", "geometrie": "Geometrie", "muster": "Muster", "": "Angabe"}
 
 
 def pruefe(pmi, modell) -> list:

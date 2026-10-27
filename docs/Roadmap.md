@@ -135,7 +135,7 @@
 | Scan check: ISO 5459 tangent datums, per-section evaluation, E57 | ⬜ |
 | Plausibility check of the specification stage 1: hierarchy, size vs. form, completeness, datum system, contradicting dimensions, values, nominal vs. geometry (PLAN §8.22) | ✅ |
 | Plausibility check stage 2: closed dimension chains | ✅ |
-| Plausibility check: basic dimensions, pattern counts, datum targets | ⬜ |
+| Plausibility check: basic dimensions (with tolerance, location toleranced twice), patterns of different size, datum target counts | ✅ |
 | Point clouds without triangles (PLY points, XYZ/ASC/CSV/PTS) | ✅ |
 | Point clouds E57 | ⬜ |
 | Linked side-by-side view of old and new state (synchronized cameras) | ✅ |

@@ -27,7 +27,7 @@ Done in this local session (commit):
   walking the chain – `4c1716b`.
 - Assembly: move along open DOF (numeric) – `26e9369`; ISO 286 j/J, a/A, fit pairs – `5a2a691`; plausibility: closed
   dimension chains – `3c66888`; explosion along X/Y/Z – `dfd8bb8`; clashes: depth, curves, PDF, project – `643aa2e`;
-  several windows with coupled cameras – `1c1068a`.
+  several windows with coupled cameras – `1c1068a`; scan check aligned by hand from point pairs ("By hand …") – `9b015a9`.
 
 **Deferred questions for the user** (do not block on them):
 - UI/UX stage 2 (workspaces) changes the layout a lot – implement only after you have read `docs/UI_UX_Plan.md`?
