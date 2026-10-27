@@ -17,8 +17,16 @@ Done in this local session (commit):
 - Comparison view modes (§8.31) and stack-up stage 3b (thermal expansion, materials, per-part temperatures, length
   ranges, adjusting member, directions from the closing dimension, walk chain, `.3dgkette`, gearbox example),
   P21 UTF-8 reading – `4efc9df`.
+- Step 7 JT via TKJT (§8.32): `packaging/jt/bauen.sh` + own converter `jt2glb`, `.jt` loading, app variant
+  `DG_MIT_JT=1` (checked: bundled tool loads the bundled OCCT libraries); wiggle play/pause – `a102822`.
+- Tolerance zones at every instance and at the assembled position – `f06ef40`.
+- Assembly: reverse a connection (180°) and swap parts – `15d3147`.
+- UI scaling option (View › Size of the interface) – `db74f81`.
 
 **Deferred questions for the user** (do not block on them):
+- JT: the only free JT file (NIST MTC) is JT 10.5, which TKJT cannot read (no free JT 10 spec). Could you export a
+  JT 9 (e.g. CATIA → JT, or NX "JT 9.5") of a NIST model for an end-to-end test of `jt2glb` (units, structure,
+  colours)? Until then the converter is verified to build/run and to reject JT 10; loading is tested with a stand-in.
 - Version bump: many unreleased entries – release as 0.2 when you approve (`packaging/release.py minor --git`).
 - Comparison modes: shortcuts Alt+1…6 chosen because 1–7 are the standard views – OK?
 - Stack-up "Kraftrichtung": implemented as "directions from the closing dimension" (two faces) instead of a load
