@@ -1237,3 +1237,16 @@ def test_zusammenbau_umkehren_tauschen_knopf(fenster):
     assert z.wiggle_an.text().startswith("⏸")  # das Beispiel laesst den Wiggle laufen
     z.wiggle_an.setChecked(False)
     assert z.wiggle_an.text().startswith("▶")
+
+
+def test_groesse_der_oberflaeche(fenster, monkeypatch):
+    from programm import app
+    from programm.ui import groesse
+    f = fenster
+    assert f.aktionen["skala_100"].isChecked()
+    f.aktionen["skala_130"].trigger()
+    assert groesse.skalierung(f.ein) == 1.3 and groesse.gespeicherte_skalierung() == 1.3
+    monkeypatch.delenv("QT_SCALE_FACTOR", raising=False)
+    app.groesse_einstellen()
+    assert os.environ.get("QT_SCALE_FACTOR") == "1.30"
+    monkeypatch.delenv("QT_SCALE_FACTOR")

@@ -1236,5 +1236,9 @@
 "Das andere Teil der gewählten Verbindung bewegt sich (Bezugsteil wechselt)": "The other part of the selected connection moves (the reference part changes)",
 "Verbindung {} geändert": "Connection {} changed",
 "Verbindung nicht gefunden": "Connection not found",
-"Ein Kugelgelenk lässt sich nicht umkehren": "A ball joint cannot be reversed"
+"Ein Kugelgelenk lässt sich nicht umkehren": "A ball joint cannot be reversed",
+"Größe der Oberfläche": "Size of the interface",
+"(Standard)": "(default)",
+"Schrift und Bedienelemente größer oder kleiner (nach einem Neustart)": "Text and controls larger or smaller (after a restart)",
+"Die Oberfläche wird nach einem Neustart auf {:.0f} % gestellt.": "The interface will be set to {:.0f} % after a restart."
 }

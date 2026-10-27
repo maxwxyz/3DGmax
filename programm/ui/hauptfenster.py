@@ -10,6 +10,7 @@ from .. import i18n
 from ..i18n import tr
 from ..version import VERSION
 from . import ansicht3d, thema
+from .groesse import SKALEN, skalierung
 from .lader import Lader
 from .messwerkzeug import MessPanel
 from .vergleich_ui import AbschlussDialog, AenderungenPanel, AusrichtPanel, VergleichDialog, VergleichsLader
@@ -570,6 +571,14 @@ class Hauptfenster(QtWidgets.QMainWindow):
             a = A("sprache_" + n, text, lambda _=False, n=n: self.setze_sprache(n), pruefbar=True, modell=False)
             spg.addAction(a)
         self.aktionen["sprache_" + i18n.einstellung()].setChecked(True)
+        sg = QtGui.QActionGroup(self)
+        jetzt = skalierung(self.ein)
+        for v in SKALEN:
+            text = f"{v * 100:.0f} %" + ("  " + tr("(Standard)") if v == 1.0 else "")
+            a = A(f"skala_{round(v * 100)}", text, lambda _=False, v=v: self.setze_skalierung(v), pruefbar=True,
+                  modell=False, tipp=tr("Schrift und Bedienelemente größer oder kleiner (nach einem Neustart)"))
+            a.setChecked(abs(v - jetzt) < 0.01)
+            sg.addAction(a)
         A("anleitung", tr("Anleitung"), self.zeige_anleitung, QtGui.QKeySequence.StandardKey.HelpContents,
           modell=False)
         A("einfuehrung", tr("Einführung"), self.zeige_einfuehrung, modell=False)
@@ -661,6 +670,9 @@ class Hauptfenster(QtWidgets.QMainWindow):
         msp = m.addMenu(tr("Sprache"))
         for n in ("sprache_auto", "sprache_de", "sprache_en"):
             msp.addAction(a[n])
+        mg = m.addMenu(tr("Größe der Oberfläche"))
+        for v in SKALEN:
+            mg.addAction(a[f"skala_{round(v * 100)}"])
         m = mb.addMenu(tr("&Modell"))
         m.addAction(a["eigenschaften"])
         m.addAction(a["stueckliste"])
@@ -3179,6 +3191,14 @@ class Hauptfenster(QtWidgets.QMainWindow):
         for a in (self.ansicht, self.ansicht_alt):
             if a is not None:
                 a.setze_thema(self.thema)
+
+    def setze_skalierung(self, v: float):
+        if abs(v - skalierung(self.ein)) < 0.01:
+            return
+        self.ein.setValue("ui_skalierung", v)
+        QtWidgets.QMessageBox.information(self, tr("Größe der Oberfläche"),
+                                          tr("Die Oberfläche wird nach einem Neustart auf {:.0f} % gestellt.").format(
+                                              v * 100))
 
     def setze_sprache(self, name):
         self.ein.setValue("sprache", name)

@@ -77,7 +77,7 @@ Rules that apply in every stage:
 - **Keyboard map:** single keys stay as today (CATIA-like); Ctrl/⌘+K palette; Esc ends every tool; F1 manual.
 
 ## 5. Staged plan with acceptance
-**Stage 1 – findability without changing the layout (small, safe)** – items 1–3 done 2026-10-28, items 4–5 open:
+**Stage 1 – findability without changing the layout (small, safe)** – items 1–5 done 2026-10-28 (item 4: wiggle; other toggles follow when touched):
 1. Command palette Ctrl/⌘+K: searches all menu commands (German and English text, menu path, shortcut), Enter runs,
    disabled commands shown greyed with the reason; also under Help.
 2. Start page with task tiles: open model, compare two states, examples (list), recent files; format list instead of

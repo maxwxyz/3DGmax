@@ -124,6 +124,17 @@ def datei_oeffner(app):
     return oeffner
 
 
+def groesse_einstellen():
+    """Groesse der Oberflaeche (Ansicht > Groesse der Oberflaeche) vor dem Anlegen der QApplication setzen; eine
+    gesetzte Umgebungsvariable QT_SCALE_FACTOR hat Vorrang."""
+    if os.environ.get("QT_SCALE_FACTOR"):
+        return
+    from .ui.groesse import gespeicherte_skalierung
+    v = gespeicherte_skalierung()
+    if abs(v - 1.0) > 0.01:
+        os.environ["QT_SCALE_FACTOR"] = f"{v:.2f}"
+
+
 def main(argv=None) -> int:
     """Optionen: datei.stp, --selbsttest, --bild ausgabe.png (Modell laden, 3D-Bild speichern, beenden),
     --startzeit (Dauer der Startphasen messen)."""
@@ -142,6 +153,7 @@ def main(argv=None) -> int:
     from PySide6 import QtCore, QtWidgets
     QtCore.QCoreApplication.setOrganizationName("3DGmax")
     QtCore.QCoreApplication.setApplicationName("3DGmax")
+    groesse_einstellen()
     app = QtWidgets.QApplication.instance() or QtWidgets.QApplication(sys.argv[:1])
     oeffner = datei_oeffner(app)
     zeiten["Qt"] = time.perf_counter()

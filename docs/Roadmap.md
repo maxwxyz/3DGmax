@@ -78,7 +78,7 @@
 | Fix: tolerance zones follow the assembled part position and appear at every instance | ✅ |
 | All tolerance / general-tolerance zones only for visible parts | ✅ |
 | UI/UX plan (`docs/UI_UX_Plan.md`); stage 1: command search Ctrl/⌘+K, task start page, menu cleanup | ✅ |
-| UI scaling option (90–150 %, as in ZGmax) | ⬜ |
+| UI scaling option (90–150 %, as in ZGmax) | ✅ |
 | UI/UX stage 2: workspaces; stage 3: inspector and guided flows | ⬜ |
 | Assembly: dragger (gizmo with arrows and rings) moving the selected part only along its open DOF | ⬜ |
 | Assembly: 3-2-1 template, dragging with live snapping, STEP kinematics | ⬜ |
