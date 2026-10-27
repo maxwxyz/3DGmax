@@ -73,7 +73,8 @@
 | Stack-up stage 4: modified RSS (Bender), mean-shift model, sensitivity factor per link, tolerance allocation (equal variance / proportional) | ✅ |
 | Stack-up: distribution fitted from measured values (paste/CSV) | ✅ |
 | Stack-up: several saved what-if scenarios with comparison | ✅ |
-| Stack-up: correlated links, more distributions (beta, DIN histogram) | ⬜ |
+| Stack-up: correlated links (groups with ρ, covariances, rank-correlated Monte Carlo) | ✅ |
+| Stack-up: more distributions (beta, DIN histogram) | ⬜ |
 | Stack-up: link shown as a line in 3D while walking the chain | ✅ |
 | Stack-up: wiggle of the closing faces by the worst-case extremes | ⬜ |
 | Stack-up: median planes as chain ends, chains across assembly parts | ⬜ |

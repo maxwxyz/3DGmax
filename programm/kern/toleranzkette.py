@@ -8,6 +8,11 @@ gleichverteilt sigma = T / (2 * Wurzel 3) (Einzelteil) - T = Toleranzbreite; aus
 Normalverteilung mit Mittelwert und Standardabweichung der Stichprobe (Versatz = Mittelwert - Toleranzmitte). Das statistische Ergebnis ist +-3 sigma
 des Schlussmasses, der Anteil eines Glieds sein Varianzanteil.
 
+Korrelation: Glieder derselben Gruppe (gleiches Teil, gleiche Aufspannung oder Prozess) streuen gemeinsam mit dem
+Korrelationskoeffizienten rho_ij = Wurzel(rho_i * rho_j) (Ein-Faktor-Modell); Varianz des Schlussmasses mit Kovarianzen,
+Anteile je Glied als Kovarianzanteil, n_eff = (Spur C)^2 / Spur(C^2); Monte Carlo ueber Rangkorrelation (Iman-Conover).
+Das Mittenverschiebungs-Modell und das Verteilen der Toleranzen rechnen ohne Korrelation.
+
 Anwendbarkeit: statistisch erst ab vier wirksamen Beitragsleistern (zentraler Grenzwertsatz); wirksam zaehlt
 n_eff = (Summe sigma^2)^2 / Summe sigma^4, ein dominierendes Glied zaehlt also als eines. Darunter gilt das
 arithmetische Ergebnis (Worst Case); es wird immer mit ausgegeben.
@@ -61,6 +66,8 @@ class Glied:
     faktor: float = 1.0  # Empfindlichkeit d(Schlussmass)/d(Glied), z. B. Hebelverhaeltnis (Vorzeichen: richtung)
     fest: bool = False  # Toleranz beim Verteilen nicht aendern (z. B. Normteil, Waelzlager)
     messwerte: tuple[float, ...] = field(default_factory=tuple)  # Stichprobe fuer die Verteilung "messwerte"
+    gruppe: str = ""  # Korrelationsgruppe (leer: unabhaengig)
+    rho: float = 0.0  # Korrelation mit den anderen Gliedern der Gruppe (0 ... 1)
 
     @property
     def gemessen(self) -> bool:
@@ -263,6 +270,36 @@ BENDER = 1.5  # Bender 1962: Zuschlag auf das RSS fuer optimistisch angegebene T
 VERSCHIEBUNG = 0.2  # Anteil der halben Toleranz, um den sich die Prozessmitte verschieben darf (Mittenverschiebung)
 
 
+def korrelation(glieder: list[Glied]) -> np.ndarray:
+    """Korrelationsmatrix der Glieder: rho_ij = Wurzel(rho_i * rho_j) in derselben Gruppe, sonst 0."""
+    n = len(glieder)
+    k = np.eye(n)
+    for i in range(n):
+        for j in range(i + 1, n):
+            a, b = glieder[i], glieder[j]
+            if a.gruppe and a.gruppe == b.gruppe:
+                k[i, j] = k[j, i] = math.sqrt(max(0.0, min(1.0, a.rho)) * max(0.0, min(1.0, b.rho)))
+    return k
+
+
+def _korreliere(werte: np.ndarray, glieder: list[Glied], rng) -> np.ndarray:
+    """Spalten je Gruppe nach den Raengen korrelierter Normalwerte umsortieren (Iman-Conover, Ein-Faktor-Modell):
+    die Verteilung jedes Glieds bleibt, die Rangkorrelation folgt rho."""
+    gruppen: dict[str, list[int]] = {}
+    for i, g in enumerate(glieder):
+        if g.gruppe and g.rho > 0:
+            gruppen.setdefault(g.gruppe, []).append(i)
+    for spalten in gruppen.values():
+        if len(spalten) < 2:
+            continue
+        gemeinsam = rng.standard_normal(len(werte))
+        for i in spalten:
+            rho = min(1.0, glieder[i].rho)
+            z = math.sqrt(rho) * gemeinsam + math.sqrt(1 - rho) * rng.standard_normal(len(werte))
+            werte[:, i] = np.sort(werte[:, i])[np.argsort(np.argsort(z))]
+    return werte
+
+
 def berechne(glieder: list[Glied], cp: float = 1.0, proben: int = 200_000, zufall: int = 1,
              anforderung: tuple[float, float] | None = None, bender: float = BENDER,
              verschiebung: float = VERSCHIEBUNG) -> Ergebnis:
@@ -281,14 +318,16 @@ def berechne(glieder: list[Glied], cp: float = 1.0, proben: int = 200_000, zufal
     wc_min = float(np.sum(np.where(r > 0, lo, hi) * r))
     versatz = np.array([g.wirk_versatz for g in glieder])
     mitte = float(np.sum(((hi + lo) / 2 + versatz) * r))
-    sigma = np.array([g.sigma(cp) for g in glieder]) * np.abs(r)
-    varianz = float(np.sum(sigma ** 2))
+    beitrag = np.array([g.sigma(cp) for g in glieder]) * r  # sigma mit Vorzeichen der Wirkung
+    kov = korrelation(glieder) * np.outer(beitrag, beitrag)
+    varianz = max(0.0, float(np.sum(kov)))
     rss = float(3.0 * math.sqrt(varianz))  # +-3 sigma des Schlussmasses
     rng = np.random.default_rng(zufall)
-    werte = np.column_stack([g.ziehe(rng, proben, cp) for g in glieder]) @ r
+    werte = _korreliere(np.column_stack([g.ziehe(rng, proben, cp) for g in glieder]), glieder, rng) @ r
     q = np.quantile(werte, [0.00135, 0.99865])
-    anteile = [float(s ** 2 / varianz) if varianz > 0 else 0.0 for s in sigma]
-    n_eff = varianz ** 2 / float(np.sum(sigma ** 4)) if varianz > 0 else 0.0
+    anteile = [float(x / varianz) if varianz > 0 else 0.0 for x in kov.sum(axis=1)]
+    spur = float(np.trace(kov))
+    n_eff = spur ** 2 / float(np.sum(kov * kov)) if varianz > 0 else 0.0
     halbe = (hi - lo) / 2 * np.abs(r)
     schiebung = float(np.sum(verschiebung * halbe)) + 3.0 * math.sqrt(float(np.sum(
         ((1 - verschiebung) * halbe / 3) ** 2)))

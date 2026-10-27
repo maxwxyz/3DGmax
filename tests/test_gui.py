@@ -1172,6 +1172,18 @@ def test_toleranzkette_szenarien(fenster, tmp_path):
     assert k.im_planspiel and abs(k.glieder[1].toleranz - 0.1) < 1e-9 and abs(k._ist[1].toleranz - ist) < 1e-12
 
 
+def test_toleranzkette_korrelation(fenster):
+    f = fenster
+    assert f.oeffne_beispiel("kette_getriebe", warten=True)
+    k = f._kette
+    vorher = k.e.rss
+    k.setze_korrelation([3, 4], "Welle", 1.0)  # Bund bis Nut und Nutbreite: eine Aufspannung
+    assert k.glieder[3].gruppe == "Welle" and "Welle ρ 1" in k.tabelle.item(3, 0).text()
+    assert k.e.rss != vorher
+    k.setze_korrelation([3, 4], "Welle", 0.0)
+    assert not k.glieder[3].gruppe and abs(k.e.rss - vorher) < 1e-12
+
+
 def test_toleranzkette_messwerte(fenster):
     from programm.ui.toleranzkette_ui import MesswerteDialog
     f = fenster

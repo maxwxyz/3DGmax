@@ -272,3 +272,27 @@ def test_plausibilitaet_theoretisch_muster_bezugsstellen():
     pos.bezuege = [BezugsRef("B", 1), BezugsRef("A", 3)]
     befunde = pl.bezugsstellen(stellen + [pos], modell)  # B primaer aus einer Stelle, A tertiaer aus zwei genuegt
     assert len(befunde) == 1 and befunde[0].nummern == [12]
+
+
+def test_korrelierte_glieder():
+    import numpy as np
+    a = [tk.Glied(n, 10, 10.1, 9.9, verteilung=v) for n, v in (("a", "normal"), ("b", "gleich"), ("c", "dreieck"),
+                                                                   ("d", "normal"))]
+    frei = tk.berechne(a)
+    for g in a[:2]:
+        g.gruppe, g.rho = "Teil 1", 1.0
+    voll = tk.berechne(a)
+    s = [g.sigma() for g in a]
+    erwartet = 3 * np.sqrt((s[0] + s[1]) ** 2 + s[2] ** 2 + s[3] ** 2)
+    assert abs(voll.rss - erwartet) < 1e-12 and voll.rss > frei.rss
+    assert abs(voll.mc_std - voll.rss / 3) < 0.02 * voll.rss / 3  # Monte Carlo folgt der Korrelation
+    assert voll.n_eff < frei.n_eff and abs(sum(voll.anteile) - 1) < 1e-12
+    assert abs(voll.anteile[0] - s[0] * (s[0] + s[1]) / (voll.rss / 3) ** 2) < 1e-12
+    # gegenlaeufige Richtung: Korrelation verkleinert die Streuung
+    a[1].richtung = -1
+    gegen = tk.berechne(a)
+    assert gegen.rss < frei.rss
+    # halbe Korrelation: rho_ij = Wurzel(rho_i rho_j)
+    a[0].rho, a[1].rho, a[1].richtung = 0.25, 1.0, 1
+    assert abs(tk.korrelation(a)[0, 1] - 0.5) < 1e-12 and tk.korrelation(a)[0, 2] == 0
+    assert frei.rss < tk.berechne(a).rss < voll.rss

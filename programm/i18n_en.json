@@ -1328,5 +1328,12 @@
 "Szenario": "Scenario",
 "Szenario merken": "Save scenario",
 "Szenario {}": "Scenario {}",
-"Szenario …": "Scenario …"
+"Szenario …": "Scenario …",
+"Aufheben": "Remove",
+"Gewählte Glieder streuen gemeinsam (gleiches Teil, gleiche Aufspannung oder Prozess)": "Selected links vary together (same part, same set-up or process)",
+"Glieder einer Gruppe streuen gemeinsam, z. B. Maße desselben Teils aus einer Aufspannung. ρ = 0: unabhängig, 1: voll korreliert.": "Links of a group vary together, e.g. dimensions of one part from a single set-up. ρ = 0: independent, 1: fully correlated.",
+"Gruppe": "Group",
+"Gruppe 1": "Group 1",
+"Korrelation": "Correlation",
+"Korrelation …": "Correlation …"
 }

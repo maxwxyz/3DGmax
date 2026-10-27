@@ -590,9 +590,14 @@ class ToleranzketteFenster(QtWidgets.QDialog):
         fest = m.addAction(tr("Fest beim Verteilen"))
         fest.setCheckable(True)
         fest.setChecked(g.fest)
+        korr = m.addAction(tr("Korrelation …"))
+        korr.setToolTip(tr("Gewählte Glieder streuen gemeinsam (gleiches Teil, gleiche Aufspannung oder Prozess)"))
         umkehren = m.addAction(tr("Richtung umkehren"))
         weg = m.addAction(tr("Entfernen"))
         gewaehlt = m.exec(self.tabelle.viewport().mapToGlobal(pos))
+        if gewaehlt is korr:
+            zeilen = sorted({i.row() for i in self.tabelle.selectedIndexes()} | {z})
+            self.korrelation_dialog(zeilen)
         if gewaehlt is stell:
             self.setze_stellglied(z, stell.isChecked())
         elif gewaehlt is fest:
@@ -603,6 +608,44 @@ class ToleranzketteFenster(QtWidgets.QDialog):
         elif gewaehlt is weg:
             self.tabelle.selectRow(z)
             self._entfernen()
+
+    def korrelation_dialog(self, zeilen: list[int]):
+        d = QtWidgets.QDialog(self)
+        d.setWindowTitle(tr("Korrelation"))
+        form = QtWidgets.QFormLayout(d)
+        form.addRow(QtWidgets.QLabel(tr("Glieder einer Gruppe streuen gemeinsam, z. B. Maße desselben Teils aus einer "
+                                        "Aufspannung. ρ = 0: unabhängig, 1: voll korreliert.")))
+        gruppe = QtWidgets.QComboBox()
+        gruppe.setEditable(True)
+        vorhanden = sorted({g.gruppe for g in self.glieder if g.gruppe})
+        gruppe.addItems(vorhanden or [tr("Gruppe 1")])
+        erstes = self.glieder[zeilen[0]]
+        if erstes.gruppe:
+            gruppe.setCurrentText(erstes.gruppe)
+        rho = QtWidgets.QDoubleSpinBox()
+        rho.setRange(0.0, 1.0)
+        rho.setSingleStep(0.1)
+        rho.setDecimals(2)
+        rho.setValue(erstes.rho if erstes.gruppe else 0.8)
+        form.addRow(tr("Gruppe"), gruppe)
+        form.addRow("ρ", rho)
+        knoepfe = QtWidgets.QDialogButtonBox(QtWidgets.QDialogButtonBox.StandardButton.Ok |
+                                             QtWidgets.QDialogButtonBox.StandardButton.Cancel)
+        aufheben = knoepfe.addButton(tr("Aufheben"), QtWidgets.QDialogButtonBox.ButtonRole.ResetRole)
+        aufheben.clicked.connect(lambda: (self.setze_korrelation(zeilen, "", 0.0), d.reject()))
+        knoepfe.accepted.connect(d.accept)
+        knoepfe.rejected.connect(d.reject)
+        form.addRow(knoepfe)
+        if d.exec() == QtWidgets.QDialog.DialogCode.Accepted:
+            self.setze_korrelation(zeilen, gruppe.currentText().strip(), rho.value())
+
+    def setze_korrelation(self, zeilen: list[int], gruppe: str, rho: float):
+        """Glieder einer Korrelationsgruppe zuordnen (leere Gruppe oder rho 0: unabhaengig)."""
+        for z in zeilen:
+            if z < len(self.glieder):
+                g = self.glieder[z]
+                g.gruppe, g.rho = (gruppe, rho) if gruppe and rho > 0 else ("", 0.0)
+        self._fuelle()
 
     def setze_stellglied(self, z: int, an: bool):
         for i, g in enumerate(self.glieder):
@@ -894,8 +937,9 @@ class ToleranzketteFenster(QtWidgets.QDialog):
                 t.item(z, SP_RICHTUNG).setToolTip(tr("Doppelklick kehrt die Richtung um"))
             if g.quelle == "ohne":
                 t.item(z, 6).setForeground(QtGui.QColor("#c0392b"))
-            if g.stellglied or g.fest:
-                marken = [tr("Stellglied")] * g.stellglied + [tr("fest")] * g.fest
+            if g.stellglied or g.fest or g.gruppe:
+                marken = [tr("Stellglied")] * g.stellglied + [tr("fest")] * g.fest + \
+                    [f"{g.gruppe} ρ {g.rho:.2g}"] * bool(g.gruppe)
                 t.item(z, 0).setText(f"{g.name}  [{', '.join(marken)}]")
             if g.teil:
                 t.item(z, 0).setToolTip(tr("Bauteil: {}").format(g.teil))
