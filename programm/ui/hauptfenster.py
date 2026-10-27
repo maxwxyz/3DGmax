@@ -3237,7 +3237,9 @@ class Hauptfenster(QtWidgets.QMainWindow):
             return
         e = ko.Einstellung(werte["kontakt"], werte["mindest"], werte["hoechst"], werte["kontakte"])
         self.kollision_aus()
-        lader = KollisionLader(teile, gruppe_b, e, self, self._grenzlagen() if werte.get("grenzlagen") else None)
+        gepaart = {frozenset((v.teil, v.gegen_teil)) for v in self.baugruppe.verbindungen}
+        lader = KollisionLader(teile, gruppe_b, e, self, self._grenzlagen() if werte.get("grenzlagen") else None,
+                               gepaart)
         lader.stand.connect(self._prozent)
         lader.fehler.connect(lambda t: (self.kollision.start.setEnabled(True),
                                         QtWidgets.QMessageBox.warning(self, tr("Kollisionen"), t)))

@@ -378,7 +378,8 @@ minimum distance as a line with its value. Per finding a status (open, accepted,
 <li>For clashes the <b>volume</b> and <b>depth</b> of the penetration are given (smallest edge of its oriented bounding
 box); the intersection curves of the surfaces are shown with the penetration.</li>
 <li><b>Also at the tolerance limit positions</b>: each connected part of the assembly is also checked at the limits of
-its clearance; reported is what only collides or comes too close there (column Kind: “limit position”).</li>
+its clearance; reported is what only collides or comes too close there (column Kind: “limit position”). Directly
+connected parts are left out – the connection defines their relative position.</li>
 <li>Settings, statuses and comments are stored in the project; when opening, 3DGmax checks again and matches them to
 the part pairs.</li>
 </ul>

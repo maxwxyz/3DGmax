@@ -19,10 +19,12 @@ class KollisionLader(QtCore.QThread):
     fehler = QtCore.Signal(str)
     stand = QtCore.Signal(int)
 
-    def __init__(self, teile, gruppe_b, einstellung, parent=None, grenzen: dict | None = None):
+    def __init__(self, teile, gruppe_b, einstellung, parent=None, grenzen: dict | None = None,
+                 gepaart: set | None = None):
         super().__init__(parent)
         self.teile, self.gruppe_b, self.einstellung = teile, gruppe_b, einstellung
         self.grenzen = grenzen  # Grenzlagen der Toleranzen je Teil: zusaetzlich pruefen
+        self.gepaart = gepaart  # direkt verbundene Paare (in den Grenzlagen nicht melden)
         self.abgebrochen = False
 
     def run(self):
@@ -33,7 +35,8 @@ class KollisionLader(QtCore.QThread):
                                 fortschritt=(lambda a: melde(a / 2)) if self.grenzen else melde)
             if self.grenzen:
                 befunde = befunde + ko.pruefe_grenzlagen(self.teile, self.grenzen, self.gruppe_b, self.einstellung,
-                                                         fortschritt=lambda a: melde(0.5 + a / 2))
+                                                         fortschritt=lambda a: melde(0.5 + a / 2),
+                                                         gepaart=self.gepaart)
                 for i, x in enumerate(befunde, 1):
                     x.nummer = i
         except Abbruch:

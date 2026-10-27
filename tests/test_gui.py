@@ -1345,11 +1345,12 @@ def test_kollision_in_grenzlagen(fenster):
     assert all(g == "" for _, g in nenn)
     f.starte_kollision({**werte, "grenzlagen": True}, warten=True)
     extra = [b for b in f.kollision.befunde if b.grenzlage]
-    # Schaft mit 0,3 mm Radialspiel: in einer Grenzlage an der Bohrungswand (Achteck-Naeherung bis 8 % groesser,
-    # Kippen an beiden Eingriffsenden -> kleine Durchdringung); der Deckel sinkt im symmetrischen Spiel ein
-    schrauben = [b for b in extra if b.grenzlage.startswith("Schraube") and "Grundplatte" in (b.a.name, b.b.name)]
-    assert schrauben and all(b.art in ("kollision", "zu_nah") for b in schrauben)
-    assert any(b.grenzlage.startswith("Deckel") for b in extra)
+    # direkt verbundene Paare (Deckel/Grundplatte, Schraube/Grundplatte, Schraube/Deckel) legt die Verbindung fest:
+    # in den Grenzlagen nicht gemeldet (sonst Artefakte des symmetrischen Spiels)
+    gepaart = {frozenset((v.teil, v.gegen_teil)) for v in f.baugruppe.verbindungen}
+    assert all(frozenset((b.a.nummer, b.b.nummer)) not in gepaart for b in extra)
+    from programm.kern import kollision as ko
+    teile = [ko.Teil(k.nummer, k.name, k.form) for k in f.erg.baum.blaetter() if not k.hilfsgeometrie]
+    roh = ko.pruefe_grenzlagen(teile, f._grenzlagen(), None, ko.Einstellung(0.01, 0.2, 0.0, False))
+    assert any(frozenset((b.a.nummer, b.b.nummer)) in gepaart for b in roh)  # ohne Filter: Artefakte da
     assert len(f.kollision.befunde) == len(nenn) + len(extra)
-    assert "Grenzlage" in f.kollision.tabelle.item(len(nenn), 3).text() or "limit" in f.kollision.tabelle.item(
-        len(nenn), 3).text()

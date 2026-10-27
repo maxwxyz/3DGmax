@@ -189,10 +189,13 @@ def uebernimm(befunde: list[Befund], gemerkt: list[dict]) -> int:
 
 
 def pruefe_grenzlagen(teile: list[Teil], grenzen: dict, gruppe_b: list[Teil] | None = None,
-                      e: Einstellung | None = None, fortschritt=lambda anteil: None) -> list[Befund]:
+                      e: Einstellung | None = None, fortschritt=lambda anteil: None,
+                      gepaart: set | None = None) -> list[Befund]:
     """Befunde, die erst entstehen, wenn ein Teil eine Grenzlage innerhalb der Toleranzen seiner Verbindungen
     einnimmt (je Teil einzeln, die anderen in Nennlage); grenzen: Knotennummer -> Liste von 4x4-Bewegungen (Welt).
-    Nur Arten, die in Nennlage fuer dieses Paar nicht vorkommen; je Paar und Art der schlimmste Fall."""
+    Nur Arten, die in Nennlage fuer dieses Paar nicht vorkommen; je Paar und Art der schlimmste Fall. gepaart:
+    direkt verbundene Paare (frozenset der Nummern) – ihre Relativlage legt die Verbindung fest, eine Durchdringung
+    dort waere ein Artefakt des symmetrischen Spiels und wird nicht gemeldet."""
     import numpy as np
     from OCC.Core.TopLoc import TopLoc_Location
     from OCC.Core.gp import gp_Trsf
@@ -211,7 +214,7 @@ def pruefe_grenzlagen(teile: list[Teil], grenzen: dict, gruppe_b: list[Teil] | N
             if t.nummer not in (x.a.nummer, x.b.nummer):
                 continue
             schluessel = (frozenset((x.a.nummer, x.b.nummer)), x.art)
-            if schluessel in nenn:
+            if schluessel in nenn or schluessel[0] in (gepaart or set()):
                 continue
             alt = schlimmste.get(schluessel)
             schlimmer = alt is None or (x.volumen > alt.volumen if x.art == KOLLISION else x.abstand < alt.abstand)

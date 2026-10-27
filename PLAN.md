@@ -596,7 +596,8 @@ Plan (each stage usable on its own; builds on §8.5 zones and the 1D chain of §
 - Done 2026-10-28: clash check at the tolerance limit positions (each connected part at the extremes of its
   clearance, others nominal; only findings that do not exist nominally, worst case per pair). Finding: the symmetric
   ±h of a planar contact lets a lid sink into its seat and the octagon of the radial play (up to 8 % larger) lets a
-  shaft penetrate the bore wall slightly – both point to the open item "one-sided contact instead of symmetric play".
+  shaft penetrate the bore wall slightly – both point to the open item "one-sided contact instead of symmetric play". Directly connected pairs are therefore not reported at the limit
+  positions (the connection defines their relative position); only other pairs are.
 - Requested 2026-10-28 (next for the assembly dock):
   1. **Reverse a connection** (done 2026-10-28 as "Umkehren": the moved part turns 180° – cylinder/pin end for end
      about an axis across the engagement middle, on a plane about the normal – and "Teile tauschen": the other part
