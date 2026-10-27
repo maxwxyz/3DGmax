@@ -767,5 +767,7 @@
 "{}: Ⓜ/Ⓛ an einer Fläche ohne Größenmaß nicht zulässig": "{}: Ⓜ/Ⓛ not allowed on a surface without size",
 "Lauftoleranz an einer Fläche ohne Drehachse": "Run-out on a face without an axis of revolution",
 "Bezug {} ist eine Ebene: Ⓜ/Ⓛ am Bezug ohne Wirkung": "Datum {} is a plane: Ⓜ/Ⓛ on the datum has no effect",
-"Passmaß ohne Ⓔ: nach ISO 8015 ohne Hüllbedingung (Form nicht begrenzt)": "Fit without Ⓔ: under ISO 8015 no envelope requirement (form not limited)"
+"Passmaß ohne Ⓔ: nach ISO 8015 ohne Hüllbedingung (Form nicht begrenzt)": "Fit without Ⓔ: under ISO 8015 no envelope requirement (form not limited)",
+"Erzeugte PMI-Darstellung zeigen": "Show generated PMI display",
+"Aus der Semantik erzeugte Beschriftungen (PMI ohne Grafik in der Datei) ein/aus": "Annotations generated from semantics (PMI without graphics in the file) on/off"
 }

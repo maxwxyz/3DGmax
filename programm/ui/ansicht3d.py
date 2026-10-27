@@ -65,6 +65,7 @@ class AnsichtBasis(QtWidgets.QWidget):
         self.pmi_ids_hervor: set[int] = set()
         self.grafik_an = True
         self.grafik_nur_auswahl = False  # nur die gewaehlten PMI als Grafik zeigen
+        self.erzeugt_an = True  # aus der Semantik erzeugte Darstellung zeigen
         self.hilfsgeometrie_an = False
         self.versteckt: set[int] = set()
         self.transparent: set[int] = set()
@@ -185,9 +186,10 @@ class AnsichtBasis(QtWidgets.QWidget):
     def hebe_pmi(self, ids: set[int]):
         self.pmi_ids_hervor = set(ids)
 
-    def setze_grafik(self, an: bool, nur_auswahl: bool = False):
+    def setze_grafik(self, an: bool, nur_auswahl: bool = False, erzeugt: bool = True):
         self.grafik_an = an
         self.grafik_nur_auswahl = nur_auswahl
+        self.erzeugt_an = erzeugt
 
     def setze_hilfsgeometrie(self, an: bool):
         self.hilfsgeometrie_an = an
@@ -421,8 +423,13 @@ def _grafik_form(g, pmi_text: dict):
     texte = []
     if g.platzhalter and not g.doppelt:
         text = "  ".join(pmi_text[i] for i in sorted(g.pmi_ids) if i in pmi_text) or g.name
-        texte = [(ph, text) for ph in g.platzhalter]
+        texte = [(ph, ph.text or text) for ph in g.platzhalter]
     return (None if leer else comp), texte
+
+
+def ist_schild(g) -> bool:
+    """Erzeugte Beschriftung ohne Schreibebene (Stufe 1): Textfeld zum Betrachter statt Text in der Ebene."""
+    return bool(getattr(g, "erzeugt", False)) and all(not any(ph.x) for ph in g.platzhalter)
 
 
 class OcctAnsicht(AnsichtBasis):
@@ -992,10 +999,10 @@ class OcctAnsicht(AnsichtBasis):
         for ph, text in texte:
             lab = AIS_TextLabel()
             lab.SetFont(pmi_schrift())
-            lab.SetText(TCollection_ExtendedString(text if not g.erzeugt else f" {text} ", True))
+            lab.SetText(TCollection_ExtendedString(text if not ist_schild(g) else f" {text} ", True))
             o = ph.ursprung
             lab.SetPosition(gp_Pnt(float(o[0]), float(o[1]), float(o[2])))
-            if g.erzeugt:  # erzeugte Beschriftung: zum Betrachter, Textfeld in eigener Farbe
+            if ist_schild(g):  # erzeugte Beschriftung ohne Ebene: zum Betrachter, Textfeld in eigener Farbe
                 from OCC.Core.Aspect import Aspect_TODT_SUBTITLE
                 lab.SetDisplayType(Aspect_TODT_SUBTITLE)
                 lab.SetColorSubTitle(_farbe(ERZEUGT_FARBE))
@@ -1048,14 +1055,14 @@ class OcctAnsicht(AnsichtBasis):
         for cid, liste in self._callouts.items():
             normal = _farbe(self.pmi_farbe(self.szene.grafik[cid]))
             g = self.szene.grafik[cid]
-            zeigen = self.grafik_an and not self.grafik_nur_auswahl and \
+            zeigen = self.grafik_an and not self.grafik_nur_auswahl and (self.erzeugt_an or not g.erzeugt) and \
                 (self.pmi_ids_sichtbar is None or bool(g.pmi_ids & self.pmi_ids_sichtbar))
             hervor = bool(g.pmi_ids & self.pmi_ids_hervor)
             zeigen = (zeigen or hervor) and self.explosion <= 0  # Beschriftungen passen nur zur Einbaulage
             for ais in liste:
                 if zeigen:
                     farbe = hervor_farbe if hervor else normal
-                    if g.erzeugt and ais.DynamicType().Name() == "AIS_TextLabel":
+                    if ist_schild(g) and ais.DynamicType().Name() == "AIS_TextLabel":
                         AIS_TextLabel.DownCast(ais).SetColorSubTitle(farbe)  # Text bleibt weiss im Farbfeld
                     else:
                         ais.SetColor(farbe)

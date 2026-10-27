@@ -42,9 +42,10 @@ def lade_alles(pfad: str, fortschritt=lambda text: None) -> Ergebnis:
     else:
         grafik = {}
     pmi = ergaenze_hinweise(pmi, grafik)
-    from ..kern import pmi_erzeugen
-    grafik.update(pmi_erzeugen.ergaenze(pmi, grafik, modell))  # Darstellung fuer PMI ohne Grafik in der Datei
     ansichten = lies_ansichten(modell, pmi)
+    from ..kern import pmi_erzeugen
+    # Darstellung fuer PMI ohne Grafik in der Datei (Schreibebene aus der Ansicht, die sie zeigt)
+    grafik.update(pmi_erzeugen.ergaenze(pmi, grafik, modell, ansichten))
     from ..kern import norm
     erkannt = norm.erkenne(pfad, pmi)
     norm.setze(pmi, erkannt.art)

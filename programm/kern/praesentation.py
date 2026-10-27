@@ -30,6 +30,7 @@ class Platzhalter:
     y: np.ndarray
     breite: float
     hoehe: float
+    text: str = ""  # eigener Text (erzeugte PMI: ein Feld des Rahmens); leer = Text der PMI
 
 
 @dataclass

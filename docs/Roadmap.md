@@ -49,7 +49,7 @@
 | Surface texture (roughness), weld symbols | ⬜ |
 | Make graphical PMI searchable (OCR on rendered annotations) | 💡 |
 | Convert graphical PMI into semantic PMI; evaluate graphical-only PMI in the table (type from markup kind, values from text) | ⬜ |
-| Semantic-only PMI: optional generated display in the view (see generated PMI stage 2) | 🟡 |
+| Semantic-only PMI: optional generated display in the view (see generated PMI stage 2) | ✅ |
 | Show tolerance zones as envelope surfaces (offsets ±t/2, ⌀ zone cylinder, exaggeration) | ✅ |
 | Tolerance zones: datum-oriented zones, unequal/offset zones (UZ), projected zones, material conditions | ⬜ |
 | Tolerance stack-up 1D (dimension chain from PMI, worst case, RSS, Monte Carlo, CSV) | ✅ |
@@ -98,7 +98,8 @@
 | Export views as drawings (HLR) PDF/SVG/DXF: standard views by projection method, current view, saved views with their PMI | ✅ |
 | Drawings and view thumbnails for mesh models (face borders, silhouettes, hidden edges via depth buffer) | ✅ |
 | Generate graphical PMI from semantic PMI – stage 1: leader + label, stacked, own color (3D, drawings) | ✅ |
-| Generated PMI stage 2: annotation planes, frames/datum symbols as vector graphics, layout optimization | ⬜ |
+| Generated PMI stage 2: annotation planes (saved view or model plane), frames/datum symbols as vector graphics, overlap-free layout outside the model, show/hide switch | ✅ |
+| Generated PMI stage 3: dimension lines with arrows and extension lines, layout avoiding projected overlaps per view | ⬜ |
 | Drawing: dimensions/frames as DXF dimension entities, sheet formats and scales | ⬜ |
 | Annotate: comments/questions/change proposals on faces and PMI, markers, status, project, CSV/PDF | ✅ |
 

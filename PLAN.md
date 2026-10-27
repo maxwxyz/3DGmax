@@ -281,6 +281,13 @@ print annotations. Today 3DGmax writes generated texts only into the placeholder
    datums) and datum feature symbols drawn as vector graphics (frames, triangles), leaders to the feature.
 3. Use in 3D view, drawings (§ HLR export) and reports; mark as "generated" (different color) so it is never
    mistaken for the author's presentation.
+- **Stage 2 done (2026-10-27):** `kern/pmi_erzeugen.py` – annotation plane from the saved view that shows the PMI,
+  otherwise the principal model plane matching the face normal / axis (normal oriented to the iso viewer so text
+  is not mirrored); frames with compartments (symbol, value with ⌀/Ⓜ/Ⓟ, datums), datum triangle + box, dimension
+  text with a reference line; one text placeholder per compartment (`Platzhalter.text`); greedy placement outside
+  the model box without overlapping other frames (3D boxes); menu switch "Show generated PMI display".
+  Open (stage 3): dimension lines with arrows/extension lines, overlap check in the projected view, text glyphs as
+  vectors for DXF.
 
 ### 8.17 More open formats (requested)
 - STEPZ (`.stpz`, `.stepz`, `.stp.gz`): ZIP or gzip around a Part 21 file – unpack to a temporary file, load as STEP
@@ -291,8 +298,7 @@ print annotations. Today 3DGmax writes generated texts only into the placeholder
 - Others to review: JT (step 7), 3MF/glTF with PMI extensions, IFC (not CAD PMI) – decide by demand.
 
 ### 8.18 PMI available as semantics or graphics only (requested)
-- Semantic-only PMI: show them optionally as generated graphics in the view (stage 1 done, stage 2 = §8.16 layout
-  with frames and datum symbols); switch in the PMI list/settings.
+- Semantic-only PMI: shown as generated graphics in the view (stage 2 done, §8.16), switch in the View menu.
 - Graphical-only PMI: evaluate them in the table – kind from the source (PRC markup type: dimension, GD&T, datum,
   note; STEP callout names), values from text where the file has strings (STEP placeholders, PRC text entities) and
   OCR for stroked text later (§8.4). Mark as "derived (check)", never as genuine semantics.

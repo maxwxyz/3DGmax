@@ -398,6 +398,9 @@ class Hauptfenster(QtWidgets.QMainWindow):
         A("grafik", tr("Grafische PMI zeigen"), self._grafik_umschalten, "G", pruefbar=True,
           tipp=tr("PMI-Beschriftungen im 3D-Modell ein/aus"))
         self.aktionen["grafik"].setChecked(True)
+        A("grafik_erzeugt", tr("Erzeugte PMI-Darstellung zeigen"), self._grafik_umschalten, pruefbar=True,
+          tipp=tr("Aus der Semantik erzeugte Beschriftungen (PMI ohne Grafik in der Datei) ein/aus"))
+        self.aktionen["grafik_erzeugt"].setChecked(True)
         A("hilfsgeometrie", tr("Hilfsgeometrie zeigen"), self._hilfe_umschalten, pruefbar=True,
           tipp=tr("Punkte und Linien ohne Flächen (z. B. Konstruktionsgeometrie)"))
         sg = QtGui.QActionGroup(self)
@@ -500,6 +503,7 @@ class Hauptfenster(QtWidgets.QMainWindow):
         m.addSeparator()
         m.addAction(a["grafik"])
         m.addAction(a["grafik_auswahl"])
+        m.addAction(a["grafik_erzeugt"])
         m.addAction(a["ballone"])
         m.addAction(a["toleranzzone"])
         m.addAction(a["hilfsgeometrie"])
@@ -1766,7 +1770,7 @@ class Hauptfenster(QtWidgets.QMainWindow):
             if not p.name:
                 p.name = f"{tr(p.merkmal())}.{p.nummer}" if p.art != "bezug" else p.name
         self.erg.pmi.extend(neue)
-        grafik = pmi_erzeugen.ergaenze(neue, self.erg.grafik, self.erg.modell)
+        grafik = pmi_erzeugen.ergaenze(neue, self.erg.grafik, self.erg.modell, self.erg.ansichten)
         frei = min(list(self.erg.grafik) + [0]) - 1
         grafik = {frei - i: g for i, g in enumerate(grafik.values())}
         self.erg.grafik.update(grafik)
@@ -1862,7 +1866,9 @@ class Hauptfenster(QtWidgets.QMainWindow):
     def _grafik_umschalten(self):
         an = self.aktionen["grafik"].isChecked()
         self.aktionen["grafik_auswahl"].setEnabled(an and self.erg is not None)
-        self.ansicht.setze_grafik(an, self.aktionen["grafik_auswahl"].isChecked())
+        self.aktionen["grafik_erzeugt"].setEnabled(an)
+        self.ansicht.setze_grafik(an, self.aktionen["grafik_auswahl"].isChecked(),
+                                  self.aktionen["grafik_erzeugt"].isChecked())
 
     def _hilfe_umschalten(self):
         self.ansicht.setze_hilfsgeometrie(self.aktionen["hilfsgeometrie"].isChecked())

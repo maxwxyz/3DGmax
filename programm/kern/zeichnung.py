@@ -80,8 +80,8 @@ def pmi_hinzu(a: "Ansicht2D", grafiken: list, pmi_text: dict, richtung, oben):
             for ph in g.platzhalter:
                 ort = np.asarray(ph.ursprung, float) @ m
                 richtung_x = np.asarray(ph.x, float) @ m
-                winkel = float(np.degrees(np.arctan2(richtung_x[1], richtung_x[0])))
-                a.texte.append((ort, winkel, float(ph.hoehe) * 0.8, text))
+                winkel = float(np.degrees(np.arctan2(richtung_x[1], richtung_x[0]))) if any(richtung_x) else 0.0
+                a.texte.append((ort, winkel, float(ph.hoehe) * 0.8, ph.text or text))
     return a
 
 

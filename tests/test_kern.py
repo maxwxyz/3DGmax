@@ -302,16 +302,49 @@ def test_zeichnung_hlr_svg_dxf(ctc01):
 
 def test_grafische_pmi_aus_semantik(ctc01):
     import numpy as np
+    from OCC.Core.Bnd import Bnd_Box
+    from OCC.Core.BRepBndLib import brepbndlib
     from programm.kern import pmi_erzeugen
     from programm.kern.pmi_lesen import lies_pmi
     pmi = lies_pmi(ctc01)
     neu = pmi_erzeugen.ergaenze(pmi, {}, ctc01)  # so tun, als haette die Datei keine Darstellung
     mit_flaechen = [p for p in pmi if p.step_id and p.flaechen and p.art != "hinweis"]
     assert len(neu) == len(mit_flaechen) and all(g.erzeugt and g.linien and g.platzhalter for g in neu.values())
-    orte = np.array([g.platzhalter[0].ursprung for g in neu.values()])
-    abstaende = np.linalg.norm(orte[:, None] - orte[None], axis=2) + np.eye(len(orte)) * 1e9
-    assert abstaende.min() > 3.9 * next(iter(neu.values())).platzhalter[0].hoehe  # keine Ueberdeckung
+    # Stufe 2: Schreibebene, Text je Feld in der Ebene, Toleranzrahmen mit Feldern (Symbol, Wert, Bezuege)
+    nach_id = {p.step_id: p for p in pmi}
+    for g in neu.values():
+        p = nach_id[next(iter(g.pmi_ids))]
+        assert g.ebene is not None and all(ph.text and np.linalg.norm(ph.x) > 0.99 for ph in g.platzhalter)
+        if p.art == "toleranz":
+            assert len(g.platzhalter) == 2 + len(p.bezuege)
+        if p.art == "bezug":
+            assert g.dreiecke  # Bezugsdreieck
+    # Rahmen ueberdecken sich nicht und liegen ausserhalb des Modellquaders
+    box = Bnd_Box()
+    brepbndlib.Add(ctc01.form, box)
+    lo, hi = np.array(box.Get()[:3]), np.array(box.Get()[3:])
+    rechtecke = []
+    for g in neu.values():
+        ecken = np.vstack([np.vstack([ph.ursprung, ph.ursprung + ph.x * ph.breite + ph.y * ph.hoehe])
+                           for ph in g.platzhalter])
+        rechtecke.append((ecken.min(axis=0), ecken.max(axis=0)))
+        assert not (np.all(ecken.min(axis=0) < hi) and np.all(ecken.max(axis=0) > lo))
+    for i, (a0, a1) in enumerate(rechtecke):
+        for b0, b1 in rechtecke[i + 1:]:
+            assert not (np.all(a0 < b1) and np.all(b0 < a1))
     assert pmi_erzeugen.ergaenze(pmi, neu, ctc01) == {}  # schon dargestellt: nichts Neues
+
+
+def test_grafische_pmi_ebene_aus_ansicht():
+    import numpy as np
+    from programm.kern import pmi_erzeugen
+    from programm.kern.ansichten import Ansicht
+    a = Ansicht("A", 1, richtung=(0.0, 0.0, -1.0), oben=(0.0, 1.0, 0.0))
+    x, y, n = pmi_erzeugen.ansicht_ebene(a)
+    assert np.allclose(x, (1, 0, 0)) and np.allclose(y, (0, 1, 0)) and np.allclose(n, (0, 0, 1))
+    # Seitenflaeche: Ebene XZ, oben = +Z, Normale zum Betrachter der Isoansicht (-Y), Text nicht gespiegelt
+    x, y, n = pmi_erzeugen.modell_ebene((0.1, 0.9, 0.0))
+    assert np.allclose(n, (0, -1, 0)) and np.allclose(y, (0, 0, 1)) and np.allclose(x, (1, 0, 0))
 
 
 def test_toleranzzonen(ctc01):
