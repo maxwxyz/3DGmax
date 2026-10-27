@@ -42,7 +42,8 @@
 | List with name, views, search, filter, context menu; count in current view | ✅ |
 | Table columns: move, show/hide; ISO GPS columns (characteristic, nominal, deviations, limits, size tolerance, class, zone, material condition) | ✅ |
 | Limits from ISO 286 tolerance classes (holes C–S, shafts c–s, IT1–IT18, up to 500 mm; cross-checked) | ✅ |
-| ISO 286: letters a, b, j, t–zc, sizes above 500 mm, fits H7/g6 as pair | ⬜ |
+| ISO 286: letters a/A, j/J (j5–j7, J6–J8), fits as pair (H7/g6) with clearance and type | ✅ |
+| ISO 286: letters b, t–zc, sizes above 500 mm (needs a verifiable free source) | ⬜ |
 | Standard awareness ASME Y14.5 / ISO GPS (detect, fallback ISO, per-model override, terms, rule, envelope note) | ✅ |
 | ISO 14405 modifier display | ✅ |
 | Standard- and geometry-dependent check rules (stage 1) | ✅ |

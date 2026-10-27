@@ -3,7 +3,11 @@
 Grundlage ISO 286-1: Grundtoleranzen IT1..IT18 (Tabelle) und Grundabmasse der Buchstaben; Bohrungen aus den
 Wellenwerten nach den Regeln der Norm (Spiegelung, Delta-Regel fuer K, M, N bis IT8 und P, R, S bis IT7).
 Abgeglichen mit unabhaengigen Tabellen (Test). Werte in Mikrometern, Ergebnis in mm.
-Unterstuetzt: Wellen c d e f g h js k m n p r s, Bohrungen C D E F G H JS K M N P R S.
+Unterstuetzt: Wellen a c d e f g h j js k m n p r s, Bohrungen A C D E F G H J JS K M N P R S; Passungen als Paar
+(H7/g6) mit Hoechst- und Mindestspiel.
+j5..j7 und J6..J8 sind Sonderwerte der Norm (keine Formel), a das Grundabmass aus a12: beide fuer 3 bis 400 mm aus
+den Tabellen von isofits (github.com/parkergreene/isofits, MIT-Lizenz, Copyright (c) Parker Greene) uebernommen.
+b und t..zc sowie Nennmasse ueber 500 mm fehlen, weil keine pruefbare freie Quelle vorliegt.
 """
 
 from __future__ import annotations
@@ -56,8 +60,27 @@ WELLE_FEIN = {
     "s": [14, 19, 23, 28, 28, 35, 35, 43, 43, 53, 59, 71, 79, 92, 100, 108, 122, 130, 140, 158, 170, 190, 208, 232,
           252],
 }
-OBEN_ART = set("cdefgh")  # Grundabmass ist das obere Abmass
-BUCHSTABEN = set(WELLE) | set(WELLE_FEIN) | {"js"}
+# Sonderwerte (oberes, unteres Abmass in um) fuer "ueber 3 bis einschl." diese Grenzen; Quelle: isofits (MIT)
+SONDER_BIS = [6, 10, 18, 30, 40, 50, 65, 80, 100, 120, 140, 160, 180, 200, 225, 250, 280, 315, 355, 400]
+SONDER = {
+    "j5": [(3, -2), (4, -2), (5, -3), (5, -4), (6, -5), (6, -5), (6, -7), (6, -7), (6, -9), (6, -9), (7, -11), (7, -11),
+           (7, -11), (7, -13), (7, -13), (7, -13), (7, -16), (7, -16), (7, -18), (7, -18)],
+    "j6": [(6, -2), (7, -2), (8, -3), (9, -4), (11, -5), (11, -5), (12, -7), (12, -7), (13, -9), (13, -9), (14, -11),
+           (14, -11), (14, -11), (16, -13), (16, -13), (16, -13), (16, -16), (16, -16), (18, -18), (18, -18)],
+    "j7": [(8, -4), (10, -5), (12, -6), (13, -8), (15, -10), (15, -10), (18, -12), (18, -12), (20, -15), (20, -15),
+           (22, -18), (22, -18), (22, -18), (25, -21), (25, -21), (25, -21), (26, -26), (26, -26), (29, -28), (29, -28)],
+    "J6": [(5, -3), (5, -4), (6, -5), (8, -5), (10, -6), (10, -6), (13, -6), (13, -6), (16, -6), (16, -6), (18, -7),
+           (18, -7), (18, -7), (22, -7), (22, -7), (22, -7), (25, -7), (25, -7), (29, -7), (29, -7)],
+    "J7": [(6, -6), (8, -7), (10, -8), (12, -9), (14, -11), (14, -11), (18, -12), (18, -12), (22, -13), (22, -13),
+           (26, -14), (26, -14), (26, -14), (30, -16), (30, -16), (30, -16), (36, -16), (36, -16), (39, -18), (39, -18)],
+    "J8": [(10, -8), (12, -10), (15, -12), (20, -13), (24, -15), (24, -15), (28, -18), (28, -18), (34, -20), (34, -20),
+           (41, -22), (41, -22), (41, -22), (47, -25), (47, -25), (47, -25), (55, -26), (55, -26), (60, -29), (60, -29)],
+}
+# Grundabmass es der Welle a (aus a12, gleiche Bereiche)
+A_ES = [-270, -280, -290, -300, -310, -320, -340, -360, -380, -410, -460, -520, -580, -660, -740, -820, -920, -1050,
+        -1200, -1350]
+OBEN_ART = set("acdefgh")  # Grundabmass ist das obere Abmass
+BUCHSTABEN = set(WELLE) | set(WELLE_FEIN) | {"js", "a", "j"}
 _KLASSE = re.compile(r"^\s*([A-Za-z]{1,2})\s*(\d{1,2})\s*$")
 
 
@@ -75,7 +98,17 @@ def it(grad: int, nennmass: float) -> float | None:
     return float(IT[grad][i])
 
 
+def _sonder_bereich(d: float) -> int | None:
+    """Index in SONDER_BIS fuer 3 < d <= 400, sonst None."""
+    if d <= 3 or d > SONDER_BIS[-1]:
+        return None
+    return bisect.bisect_left(SONDER_BIS, d)
+
+
 def _grundabmass_welle(b: str, grad: int, d: float) -> float | None:
+    if b == "a":
+        i = _sonder_bereich(d)
+        return None if i is None else float(A_ES[i])
     if b in WELLE_FEIN:
         i = _bereich(d, FEIN)
         return None if i is None else float(WELLE_FEIN[b][i])
@@ -104,6 +137,10 @@ def abmasse_um(klasse: str, nennmass: float) -> tuple[float, float] | None:
     b = buchstabe.lower()
     if b not in BUCHSTABEN or (buchstabe != buchstabe.upper() and buchstabe != buchstabe.lower()):
         return None
+    if b == "j":  # nur Sonderwerte der Norm
+        i = _sonder_bereich(nennmass)
+        werte = SONDER.get(f"{buchstabe}{grad}")
+        return None if i is None or werte is None else tuple(float(x) for x in werte[i])
     t = it(grad, nennmass)
     if t is None:
         return None
@@ -129,6 +166,24 @@ def abmasse_um(klasse: str, nennmass: float) -> tuple[float, float] | None:
     else:  # p, r, s
         es = -fd + _delta(grad, nennmass) if grad <= 7 else -fd
     return es, es - t
+
+
+SPIEL, UEBERGANG, UEBERMASS = "spiel", "uebergang", "uebermass"
+PASSUNG_TEXT = {SPIEL: "Spielpassung", UEBERGANG: "Übergangspassung", UEBERMASS: "Übermaßpassung"}
+
+
+def passung(paar: str, nennmass: float) -> tuple[str, float, float] | None:
+    """Passung 'H7/g6' (Bohrung/Welle): (Art, Hoechstspiel, Mindestspiel) in mm; negatives Spiel = Uebermass."""
+    teile = [x.strip() for x in (paar or "").split("/")]
+    if len(teile) != 2:
+        return None
+    bohrung, welle = abmasse_um(teile[0], nennmass), abmasse_um(teile[1], nennmass)
+    if bohrung is None or welle is None or not teile[0][:1].isupper() or not teile[1][:1].islower():
+        return None
+    hoechst = (bohrung[0] - welle[1]) / 1000.0  # ES - ei
+    mindest = (bohrung[1] - welle[0]) / 1000.0  # EI - es
+    art = SPIEL if mindest >= 0 else UEBERMASS if hoechst <= 0 else UEBERGANG
+    return art, hoechst, mindest
 
 
 def grenzabmasse(klasse: str, nennmass: float) -> tuple[float, float] | None:

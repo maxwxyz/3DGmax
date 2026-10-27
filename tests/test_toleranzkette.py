@@ -154,3 +154,14 @@ def test_toleranzen_verteilen():
     e = tk.berechne(neu)
     assert abs((e.wc_max - e.wc_min) - 0.6) < 1e-9 and all(abs(g.mitte - 10) < 1e-12 for g in neu[:4])
     assert tk.verteile_toleranzen(glieder, 0.05, "varianz", False)[0].toleranz == glieder[0].toleranz  # zu eng
+
+
+def test_iso286_j_a_und_passungen():
+    from programm.kern import iso286 as iso
+    assert iso.abmasse_um("j6", 25) == (9.0, -4.0) and iso.abmasse_um("J7", 25) == (12.0, -9.0)
+    assert iso.abmasse_um("a11", 25) == (-300.0, -430.0) and iso.abmasse_um("A11", 25) == (430.0, 300.0)
+    assert iso.abmasse_um("j9", 25) is None and iso.abmasse_um("j6", 2) is None and iso.abmasse_um("a11", 450) is None
+    art, hoechst, mindest = iso.passung("H7/g6", 25)
+    assert art == iso.SPIEL and abs(hoechst - 0.041) < 1e-12 and abs(mindest - 0.007) < 1e-12
+    assert iso.passung("H7/k6", 25)[0] == iso.UEBERGANG and iso.passung("H7/s6", 25)[0] == iso.UEBERMASS
+    assert iso.passung("g6/H7", 25) is None and iso.passung("H7", 25) is None

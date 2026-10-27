@@ -530,6 +530,13 @@ def _tooltip(p) -> str:
     abw = p.klassen_abmasse() if p.oben is None and p.unten is None else None
     if abw is not None:
         teile.append(tr("{}: Abmaße {:+.4g} / {:+.4g} mm nach ISO 286").format(p.passung, *abw))
+    if p.passung and "/" in p.passung and p.nennwert is not None:  # Passung als Paar: Spiel aus ISO 286
+        from ..kern import iso286
+        fit = iso286.passung(p.passung, abs(p.nennwert))
+        if fit is not None:
+            art, hoechst, mindest = fit
+            teile.append(tr("{} {}: Spiel {:+.4g} … {:+.4g} mm (negativ: Übermaß)").format(
+                tr(iso286.PASSUNG_TEXT[art]), p.passung, mindest, hoechst))
     if p.quelle == "abgeleitet":
         teile.append(tr("aus der Grafik abgeleitet – bitte prüfen (keine Semantik in der Datei)"))
     elif not p.semantisch:

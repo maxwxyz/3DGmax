@@ -1266,5 +1266,9 @@
 "Je Glied darf die Mitte um den Anteil m der halben Toleranz wandern (arithmetisch), der Rest streut statistisch": "Per link the mean may shift by the share m of the half tolerance (arithmetic), the rest varies statistically",
 "Teil bewegen – nur in offenen Freiheitsgraden": "Move part – only in open degrees of freedom",
 "Verschiebt bzw. dreht das gewählte Teil nur so, wie seine Verbindungen es erlauben; die Verbindungen bleiben erfüllt": "Moves or rotates the selected part only as its connections allow; the connections stay satisfied",
-"Zurück zur Ausgangslage": "Back to the starting position"
+"Zurück zur Ausgangslage": "Back to the starting position",
+"{} {}: Spiel {:+.4g} … {:+.4g} mm (negativ: Übermaß)": "{} {}: clearance {:+.4g} … {:+.4g} mm (negative: interference)",
+"Spielpassung": "Clearance fit",
+"Übergangspassung": "Transition fit",
+"Übermaßpassung": "Interference fit"
 }

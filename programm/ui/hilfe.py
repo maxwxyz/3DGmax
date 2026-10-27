@@ -26,6 +26,8 @@ LIZENZEN = (
     ("lxml", "BSD", "https://lxml.de"),
     ("pypdf", "BSD", "https://github.com/py-pdf/pypdf"),
     ("Asymptote PRC (Kodierungstabelle, Bitleser)", "LGPL 3", "https://github.com/vectorgraphics/asymptote"),
+    ("isofits (ISO-286-Werte j/J, a), © Parker Greene", "MIT", "https://github.com/parkergreene/isofits"),
+    ("TKJT (nur Programmvariante mit JT), © OPEN CASCADE SAS", "GPL 2 oder später", "https://github.com/mmaenz/TKJT"),
 )
 
 

@@ -56,3 +56,5 @@ Libraries used (Open CASCADE Technology, pythonocc-core, Qt/PySide6 under LGPL a
 The PRC reader follows the public ISO working draft ISO/TC171/SC2 N570 (PRC format); its double-coding table and
 bit reader logic are adapted from the LGPL 3 PRC code of [Asymptote](https://github.com/vectorgraphics/asymptote)
 (`prc/`, PRC reader by Orest Shardt, double reader by Michail Vidiassov).
+ISO 286 special values j5–j7 / J6–J8 and the fundamental deviation a (3–400 mm) are taken from the tables of
+[isofits](https://github.com/parkergreene/isofits) (MIT licence, Copyright (c) Parker Greene).
