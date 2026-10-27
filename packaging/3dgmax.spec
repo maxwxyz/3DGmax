@@ -32,6 +32,14 @@ if OCCT_RES:
 else:
     print("WARNUNG: OCCT-Ressourcen nicht gefunden")
 
+# Build-Variante mit JT (DG_MIT_JT=1): Konverter jt2glb aus packaging/jt/bauen.sh (TKJT, GPL v2+) mitliefern
+jt_binaer = []
+if os.environ.get("DG_MIT_JT") == "1":
+    _jt = os.path.join(ROOT, "extern", "jt2glb")
+    if not os.path.isfile(_jt):
+        raise SystemExit("DG_MIT_JT=1, aber extern/jt2glb fehlt (packaging/jt/bauen.sh)")
+    jt_binaer = [(_jt, ".")]
+
 from PyInstaller.utils.hooks import collect_submodules  # noqa: E402
 hidden = collect_submodules("programm") + collect_submodules("OCC.Core") + ["OCC.Display.qtDisplay",
                                                                              "OCC.Display.backend"]
@@ -39,7 +47,7 @@ excludes = ["tkinter", "matplotlib", "IPython", "pytest", "PyQt5", "PyQt6", "PyS
             "PySide6.QtWebEngineCore", "PySide6.QtWebEngineWidgets", "PySide6.Qt3DCore", "PySide6.QtQuick",
             "PySide6.QtQml", "PySide6.QtMultimedia", "PySide6.QtCharts", "PySide6.QtDataVisualization"]
 
-a = Analysis([os.path.join(ROOT, "packaging", "start_3dgmax.py")], pathex=[ROOT], datas=datas,
+a = Analysis([os.path.join(ROOT, "packaging", "start_3dgmax.py")], pathex=[ROOT], datas=datas, binaries=jt_binaer,
              hiddenimports=hidden, excludes=excludes, noarchive=False)
 pyz = PYZ(a.pure)
 # Startbild des Starters (Windows/Linux; macOS kennt es nicht): sichtbar, bevor Python und Qt geladen sind,
@@ -59,6 +67,9 @@ if sys.platform == "darwin":
                   "CFBundleTypeExtensions": endungen} for name, endungen in (
         ("STEP-Modell", ["stp", "step", "p21", "stpz", "stepz"]), ("IGES-Modell", ["igs", "iges"]),
         ("Netz", ["stl", "obj", "gltf", "glb", "3mf", "ply"]), ("QIF", ["qif"]), ("PRC", ["prc"]))]
+    if jt_binaer:
+        doc_types.append({"CFBundleTypeName": "JT", "CFBundleTypeRole": "Viewer", "LSHandlerRank": "Alternate",
+                          "CFBundleTypeExtensions": ["jt"]})
     app = BUNDLE(coll, name="3DGmax.app", bundle_identifier="de.3dgmax.app", icon=os.path.join(SRC, "icon.icns"),
                  info_plist={"CFBundleShortVersionString": VERSION, "CFBundleVersion": VERSION,
                              "CFBundleDisplayName": "3DGmax", "NSHighResolutionCapable": True,

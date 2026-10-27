@@ -89,9 +89,11 @@ class BaugruppePanel(QtWidgets.QWidget):
         self.teile.itemSelectionChanged.connect(self._teil_gewaehlt)
         lay.addWidget(self.teile, 1)
         reihe = QtWidgets.QHBoxLayout()
-        self.wiggle_an = QtWidgets.QPushButton(tr("Wiggle"))
+        self.wiggle_an = QtWidgets.QPushButton(tr("▶ Wiggle"))
         self.wiggle_an.setCheckable(True)
         self.wiggle_an.setToolTip(tr("Gewähltes Teil in seinen offenen Freiheitsgraden hin und her bewegen"))
+        self.wiggle_an.toggled.connect(
+            lambda an: self.wiggle_an.setText(tr("⏸ Anhalten") if an else tr("▶ Wiggle")))  # Zustand sichtbar
         self.wiggle_an.toggled.connect(self._teil_gewaehlt)
         self.wiggle_art = QtWidgets.QComboBox()
         for schluessel, text in self.WIGGLE_ART:

@@ -74,7 +74,7 @@
 | Assembly: connections plane/plane and coaxial with snapping, satisfied check, open DOF per part, DOF wiggle, in the project | ✅ |
 | Assembly: point contact (sphere on plane), pin–slot (line on plane), ball joint | ✅ |
 | Assembly: reverse a connection (flip plane side / axis direction) | ⬜ |
-| Assembly: wiggle as play/pause button | ⬜ |
+| Assembly: wiggle as play/pause button | ✅ |
 | Fix: tolerance zones follow the assembled part position | ⬜ |
 | All tolerance / general-tolerance zones only for visible parts | ✅ |
 | UI/UX plan (`docs/UI_UX_Plan.md`); stage 1: command search Ctrl/⌘+K, task start page, menu cleanup | ✅ |
@@ -162,7 +162,8 @@
 | QIF: graphical PMI (PMIDisplaySet: texts with symbols, frames, leaders, witness lines, polylines, areas) and saved views (camera, visible PMI) | ✅ |
 | QIF: measurement results, measurement plan | ⬜ |
 | IGES, STL, OBJ, glTF/GLB, 3MF, PLY (meshes: view, measure, analyze, compare against CAD) | ✅ |
-| JT via TKJT (GPL v2+), build with/without TKJT | ⬜ (step 7) |
+| JT 8/9 via TKJT converter jt2glb (mesh, structure, names, colours), build variant DG_MIT_JT=1; JT 10 detected and reported | 🟡 (step 7; end-to-end test needs a JT 9 file) |
+| JT 10, PMI from JT, JT B-rep (XT) | ⬜ |
 | 3D PDF / PRC stage 1–3: structure, schema, tessellation as colored mesh, markups as graphical PMI, saved views with camera (own reader, PLAN §8.15; NIST STC PDFs downloaded in tests) | ✅ |
 | 3D PDF / PRC: model edges from the tessellation wire indices shown in the edge layer | ✅ |
 | 3D PDF / PRC: highly compressed tessellation, exact B-rep, semantic PMI from markup user data; U3D | ⬜ |

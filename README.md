@@ -8,7 +8,8 @@ picture) and compares two revisions of a model in geometry **and** PMI, with a g
 
 ## Features
 **Formats** – STEP AP242/AP214/AP203 (also zipped as STEPZ) with semantic and graphical PMI and saved views, QIF 3.0 (exact B-rep and
-semantic PMI), 3D PDF / PRC (mesh, graphical PMI, saved views), IGES, and meshes STL, OBJ, glTF/GLB, 3MF, PLY; ASME Y14.5 or ISO GPS detected from the file (default ISO GPS).
+semantic PMI), 3D PDF / PRC (mesh, graphical PMI, saved views), IGES, and meshes STL, OBJ, glTF/GLB, 3MF, PLY; JT 8/9 as
+mesh with structure in the build variant with TKJT (JT 10 is not supported by TKJT); ASME Y14.5 or ISO GPS detected from the file (default ISO GPS).
 
 **Viewing** – CATIA-style navigation (classic optional), view cube, view back/forward, perspective, section planes and
 section box, exploded view, display modes, light/dark theme, thumbnails of saved views, own views.
@@ -42,6 +43,11 @@ pixi run test           # tests (offscreen)
 ## Build portable apps
 `packaging/build_mac.sh`, `packaging/build_linux.sh`, `packaging\build_windows.bat` (each accepts `--ohne-tests`
 to skip tests), or on GitHub: *Actions › Apps bauen*.
+
+**JT variant:** `packaging/jt/bauen.sh` fetches [TKJT](https://github.com/mmaenz/TKJT) (Open Cascade, GPL v2+, commit
+658f65a, patched for OCCT 8 by `packaging/jt/tkjt_occt8.patch`) into `extern/` and builds the converter
+`extern/jt2glb` (JT → GLB with names, placements and colours); `DG_MIT_JT=1 packaging/build_mac.sh` bundles it.
+TKJT reads JT 8 and 9; JT 10 files are reported as not supported.
 
 ## License
 © 2026 Max Wilfinger. GNU General Public License v3 or later (GPL-3.0-or-later), see [LICENSE](LICENSE).

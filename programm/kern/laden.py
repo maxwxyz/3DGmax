@@ -151,7 +151,59 @@ ENDUNGEN_NETZ = (".stl", ".obj", ".gltf", ".glb", ".3mf", ".ply")
 ENDUNGEN_QIF = (".qif",)
 ENDUNGEN_PRC = (".prc", ".pdf")
 ENDUNGEN_STEPZ = (".stpz", ".stepz", ".stp.gz", ".step.gz")
-ENDUNGEN = ENDUNGEN_STEP + ENDUNGEN_IGES + ENDUNGEN_NETZ + ENDUNGEN_QIF + ENDUNGEN_PRC + ENDUNGEN_STEPZ
+ENDUNGEN_JT = (".jt",)
+ENDUNGEN = ENDUNGEN_STEP + ENDUNGEN_IGES + ENDUNGEN_NETZ + ENDUNGEN_QIF + ENDUNGEN_PRC + ENDUNGEN_STEPZ + ENDUNGEN_JT
+
+
+def jt_version(pfad: str) -> tuple[int, int] | None:
+    """(Haupt-, Nebenversion) aus dem JT-Dateikopf ("Version 9.5 JT ..."), None wenn keine JT-Datei."""
+    import re
+    with open(pfad, "rb") as f:
+        kopf = f.read(80).decode("latin-1", "replace")
+    m = re.match(r"\s*Version\s+(\d+)\.(\d+)\s+JT", kopf)
+    return (int(m.group(1)), int(m.group(2))) if m else None
+
+
+def jt_wandler() -> str | None:
+    """Pfad des JT-Konverters jt2glb (Build-Variante mit TKJT): DG_JT2GLB, neben der gebauten App, extern/."""
+    import os
+    import sys
+    kandidaten = [os.environ.get("DG_JT2GLB", "")]
+    basis = getattr(sys, "_MEIPASS", None)
+    if basis:
+        kandidaten.append(os.path.join(basis, "jt2glb"))
+    wurzel = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+    kandidaten.append(os.path.join(wurzel, "extern", "jt2glb"))
+    return next((k for k in kandidaten if k and os.path.isfile(k) and os.access(k, os.X_OK)), None)
+
+
+def _lade_jt(pfad: str) -> "StepModell":
+    """JT 8/9 ueber TKJT (externer Konverter nach GLB, dann wie glTF); JT 10 kann TKJT nicht."""
+    import os
+    import shutil
+    import subprocess
+    import tempfile
+    from ..i18n import tr
+    version = jt_version(pfad)
+    if version is None:
+        raise LadeFehler(tr("Keine JT-Datei: {}").format(os.path.basename(pfad)))
+    if version[0] >= 10:
+        raise LadeFehler(tr("JT {}.{} wird nicht unterstützt: der freie JT-Leser (TKJT) kann JT 8 und 9 – bitte als "
+                            "JT 9 oder STEP exportieren").format(*version))
+    wandler = jt_wandler()
+    if wandler is None:
+        raise LadeFehler(tr("JT braucht die Programmvariante mit dem JT-Leser TKJT (packaging/jt/bauen.sh)"))
+    ordner = tempfile.mkdtemp(prefix="3dgmax_jt_")
+    try:
+        ziel = os.path.join(ordner, os.path.splitext(os.path.basename(pfad))[0] + ".glb")
+        r = subprocess.run([wandler, pfad, ziel], capture_output=True, text=True, timeout=600)
+        if r.returncode != 0 or not os.path.isfile(ziel):
+            raise LadeFehler(tr("JT-Datei nicht lesbar: {}").format((r.stderr or r.stdout).strip()[-300:]))
+        modell = lade_modell(ziel)
+        modell.pfad = pfad
+        return modell
+    finally:
+        shutil.rmtree(ordner, ignore_errors=True)
 
 
 def _modell_aus_doc(pfad: str, doc, t0: float) -> StepModell:
@@ -423,6 +475,8 @@ def lade_modell(pfad: str) -> StepModell:
     endung = os.path.splitext(pfad)[1].lower()
     if endung in ENDUNGEN_STEP or endung not in ENDUNGEN:
         return lade_step(pfad)
+    if endung in ENDUNGEN_JT:
+        return _lade_jt(pfad)
     t0 = time.perf_counter()
     from OCC.Core.XCAFApp import XCAFApp_Application
     doc = TDocStd_Document("XmlXCAF")

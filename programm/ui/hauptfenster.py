@@ -16,8 +16,8 @@ from .vergleich_ui import AbschlussDialog, AenderungenPanel, AusrichtPanel, Verg
 from .panels import AnsichtenPanel, BaumPanel, PmiPanel
 
 DATEIFILTER = ("{} (*.stp *.step *.p21 *.stpz *.stepz *.gz *.igs *.iges *.stl *.obj *.gltf *.glb *.3mf *.ply *.qif "
-               "*.prc *.pdf *.3dgmax *.3dgkette);;STEP (*.stp *.step *.p21 *.stpz *.stepz *.stp.gz *.step.gz);;QIF (*.qif);;"
-               "PRC / 3D-PDF (*.prc *.pdf);;IGES (*.igs *.iges);;{} (*.stl *.obj *.gltf *.glb *.3mf *.ply);;"
+               "*.prc *.pdf *.jt *.3dgmax *.3dgkette);;STEP (*.stp *.step *.p21 *.stpz *.stepz *.stp.gz *.step.gz);;QIF (*.qif);;"
+               "PRC / 3D-PDF (*.prc *.pdf);;JT (*.jt);;IGES (*.igs *.iges);;{} (*.stl *.obj *.gltf *.glb *.3mf *.ply);;"
                "3DGmax (*.3dgmax *.3dgkette)")  # Platzhalter: uebersetzte Namen
 ENDUNGEN = (".stp", ".step", ".p21", ".stpz", ".stepz", ".stp.gz", ".step.gz", ".igs", ".iges", ".stl", ".obj",
             ".gltf", ".glb", ".3mf", ".ply", ".qif", ".prc", ".pdf", ".3dgmax")

@@ -105,7 +105,7 @@ tests/  packaging/  werkzeuge/  docs/
 | **4 Compare** | alignment, face status, PMI diff, change list, review walk-through, report | modified NIST variants: all changes found, no false alarms | ✅ (extensions see §8.1) |
 | **5 Output** | PDF per saved view, comparison report with images, PMI change table PDF/CSV, project container, folder comparison, views as drawings (HLR) | report understandable for a supplier | ⬜ next |
 | **6 Formats** | QIF, IGES/STL/OBJ/glTF/3MF, 3D PDF | one test file per format | 🟡 (QIF incl. graphics/views, meshes, IGES, 3D PDF/PRC, STEPZ done; STEP-XML open) |
-| **7 JT via TKJT** | build TKJT for OCCT 8, Python binding, load JT; build with/without TKJT (open source only on GitHub) | JT file like its STEP counterpart | ⬜ |
+| **7 JT via TKJT** | build TKJT for OCCT 8, Python binding, load JT; build with/without TKJT (open source only on GitHub) | JT file like its STEP counterpart | 🟡 converter built, JT 8/9 path; no free JT 8/9 test file, NIST JT is 10.5 |
 | later | multiple section planes, clipping box, section views from the model | section looks like in CAD | 🟡 (clipping box, up to three planes, contour export done; hatched section views open) |
 
 Throughout: tests (core, offscreen UI, stress test, on-screen test), `--selbsttest`, changelog DE/EN via
@@ -323,6 +323,24 @@ Throughout: tests (core, offscreen UI, stress test, on-screen test), `--selbstte
     requirement Cp/Cpk/ppm in extra columns. In Planspiel the columns are Ist, Planspiel, Δ.
   - A small histogram of the Monte Carlo samples with the worst-case limits and the requirement drawn as lines.
   - Bottom: CSV, PDF, close.
+
+### 8.32 JT via TKJT (step 7, started 2026-10-28)
+- Built: TKJT (github.com/mmaenz/TKJT, Open Cascade, GPL v2+) at commit 658f65a – the newer merge commit 2c15f87
+  contains unresolved merge conflicts in 22 files – compiled with clang against OCCT 8.0.1 of the pixi environment by
+  `packaging/jt/bauen.sh` (no cmake needed; no tbb: NO_JT_MULTITHREADING; zlib of the system; JtToTopoDS left out as
+  it needs the Parasolid XT reader). Patch for OCCT 8 (`packaging/jt/tkjt_occt8.patch`): hasher call operators for
+  Jt_GUID (NCollection_DataMap hasher API of OCCT 7.8+), MMgt_TShared → Standard_Transient.
+- Own converter `packaging/jt/jt2glb.cxx`: LSG tree (partition, group, part, instance, range LOD → first level) to an
+  XCAF assembly with names, placements and diffuse colours, the tri-strip LOD triangles to faces with triangulation,
+  written as GLB by RWGltf_CafWriter; 3DGmax runs it as an external process and loads the GLB like glTF
+  (`laden._lade_jt`, `jt_wandler`: DG_JT2GLB, bundled next to the app, extern/). App variant: `DG_MIT_JT=1` bundles it.
+- **Limitation found:** the only free JT (NIST MTC assembly) is **JT 10.5**; TKJT reads JT 8/9 only (32-bit TOC
+  offsets; JT 10 has 64-bit offsets and LZMA). The JT 10 file format reference is not freely available (ISO 14306:2012
+  = JT 9.5), so a JT 10 extension would be reverse engineering – not done. JT 10 is detected from the header and
+  reported clearly. No free JT 8/9 test file found (JT2Go samples are under the Siemens licence) → the converter is
+  verified to build and to reject JT 10; the loading path is tested with a stand-in converter. Needs: a JT 9 export
+  (e.g. from CATIA/NX) for an end-to-end test, unit check (mm vs m) against the STEP of the same model.
+- Open: PMI from JT (TKJT has a PMI manager element), JT B-rep (XT, needs Parasolid), JT 10.
 
 ### 8.31 Comparison view modes (requested 2026-10-28; as in ZGmax)
 Today the comparison shows the new state with status colours and the removed faces of the old one, and the structure

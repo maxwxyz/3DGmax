@@ -1224,5 +1224,10 @@
 "α (10⁻⁶/K)": "α (10⁻⁶/K)",
 "− verkleinert das Schlussmaß": "− decreases the closing dimension",
 "▶ Kette ablaufen": "▶ Walk chain",
-"＋ Längenbereich …": "＋ Length range …"
+"＋ Längenbereich …": "＋ Length range …",
+"Keine JT-Datei: {}": "Not a JT file: {}",
+"JT {}.{} wird nicht unterstützt: der freie JT-Leser (TKJT) kann JT 8 und 9 – bitte als JT 9 oder STEP exportieren": "JT {}.{} is not supported: the free JT reader (TKJT) reads JT 8 and 9 – please export as JT 9 or STEP",
+"JT braucht die Programmvariante mit dem JT-Leser TKJT (packaging/jt/bauen.sh)": "JT needs the program variant with the JT reader TKJT (packaging/jt/bauen.sh)",
+"JT-Datei nicht lesbar: {}": "JT file not readable: {}",
+"▶ Wiggle": "▶ Wiggle"
 }
