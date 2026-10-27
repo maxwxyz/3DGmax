@@ -392,3 +392,36 @@ Plan (each stage usable on its own; builds on §8.5 zones and the 1D chain of §
 6. **Report:** chain, contributors, histograms, worst-case configuration images (PDF/CSV), stored in the project.
 - Effort: large (months for 3D); order: zones (§8.5 stage 2) → picked 1D chains with temperature → 3D torsor model
   and Monte Carlo → wiggle → assembly mating UI.
+
+### 8.21 Clash, clearance band and intersection analysis; degrees of freedom (requested 2026-10-27)
+Request (from public feature requests of an open-source CAD project, generalized): check assemblies or a selection of
+parts for intersections, for distances outside a band (minimum/maximum clearance), also while parts move within
+their joints/limits, and visualize the open degrees of freedom by wiggling the assembly. Part/version comparison and
+scan-vs-CAD comparison from the same requests already exist (Comparison in docs/Roadmap.md: per-face status,
+deviation color map, added/removed volume like CATIA Compare Products, meshes/PLY vs. CAD).
+
+Research to do first: how CATIA (Clash/Distance and Band Analysis), NX (Clearance Analysis) and other viewers report
+results (clash / contact / clearance categories, penetration depth, result list with ignore/approve state,
+re-run after changes); which tolerance for "contact" vs. "clash" is useful for faceted data.
+
+Building blocks verified in pythonocc-core 8.0.1 (2026-10-27, two boxes overlapping by 1 mm, a third 0.5 mm away):
+`BRepExtrema_ShapeProximity` on meshed shapes finds overlapping face pairs (fast preselection, 5 pairs),
+`BRepAlgoAPI_Common` gives the exact intersection volume (100 mm³), `BRepExtrema_DistShapeShape` the minimum
+distance with points (0.5 mm). For meshes (PRC, STL) a triangle–triangle test on the existing mesh tools.
+
+Plan:
+1. **Selection:** all parts, a selection, or group A against group B; part instances count separately.
+2. **Clash / contact:** bounding-box and mesh-proximity preselection, then exact check per pair: clash
+   (intersection volume > 0, with penetration depth and volume), contact (touching within a tolerance),
+   clearance (distance below the minimum).
+3. **Band analysis:** user gives minimum and/or maximum distance; report every pair outside the band (too close or
+   too far, e.g. for gap/assembly space), with the points of minimum distance.
+4. **Intersection analysis:** intersection curves and volumes shown in the 3D view (red solids/curves), the two
+   parts highlighted, others dimmed; jump between results (like the change list), comment, accept/ignore,
+   report (PDF/CSV) in the project.
+5. **With motion:** for STEP kinematics (AP242 kinematic structures, where present) or joints defined in the project
+   (§8.20 mating): sample the joint ranges (and tolerances from §8.20) and report the worst clearance / first clash
+   per joint position; animate that position.
+6. **Degrees of freedom:** derive the open DOF of each part from its mates/joints and wiggle the assembly in every
+   open DOF (animation, slider per DOF) to see whether all joints were made; under-/over-constrained parts listed.
+- Shares the assembly, mate and wiggle model with §8.20; stages 1–4 are independent of it and can come first.

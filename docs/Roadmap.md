@@ -93,6 +93,10 @@
 | Meshes: STL/OBJ/glTF/3MF vs. CAD and mesh vs. mesh (alignment, color map) | ✅ |
 | PLY meshes from scanners | ✅ |
 | Point clouds without triangles (PLY points, XYZ, E57) | ⬜ |
+| Linked side-by-side view of old and new state (synchronized cameras) | ⬜ |
+| Clash/contact/clearance analysis of assemblies or selections (PLAN §8.21) | ⬜ |
+| Band analysis (min/max distance), intersection curves and volumes, result list and report | ⬜ |
+| Clash check over joint ranges; wiggle in the open degrees of freedom | ⬜ |
 
 ## Reports and exchange
 | Feature | Status |
