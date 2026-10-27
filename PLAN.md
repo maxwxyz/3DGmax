@@ -106,7 +106,7 @@ tests/  packaging/  werkzeuge/  docs/
 | **5 Output** | PDF per saved view, comparison report with images, PMI change table PDF/CSV, project container, folder comparison, views as drawings (HLR) | report understandable for a supplier | ⬜ next |
 | **6 Formats** | QIF, IGES/STL/OBJ/glTF/3MF, 3D PDF | one test file per format | 🟡 (QIF incl. graphics/views, meshes, IGES, 3D PDF/PRC, STEPZ done; STEP-XML open) |
 | **7 JT via TKJT** | build TKJT for OCCT 8, Python binding, load JT; build with/without TKJT (open source only on GitHub) | JT file like its STEP counterpart | ⬜ |
-| later | multiple section planes, clipping box, section views from the model | section looks like in CAD | ⬜ |
+| later | multiple section planes, clipping box, section views from the model | section looks like in CAD | 🟡 (clipping box, up to three planes, contour export done; hatched section views open) |
 
 Throughout: tests (core, offscreen UI, stress test, on-screen test), `--selbsttest`, changelog DE/EN via
 `packaging/release.py`, HANDOFF.md, unfinished work on `wip/...`, push after each commit.

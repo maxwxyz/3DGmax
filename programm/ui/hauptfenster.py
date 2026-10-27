@@ -415,6 +415,13 @@ class Hauptfenster(QtWidgets.QMainWindow):
             sg.addAction(a)
         self.aktionen["schnitt_aus"].setChecked(True)
         A("schnitt_umkehren", tr("Schnittseite umkehren"), self._schnitt_umkehren, pruefbar=True)
+        A("schnitt_merken", tr("Schnittebene festhalten"), self._schnitt_merken,
+          tipp=tr("Aktuelle Schnittebene behalten und eine weitere wählen (bis zu drei Ebenen)"))
+        A("schnitt_kette", tr("Nur gemeinsamen Bereich wegschneiden"), self._schnitt_kette, pruefbar=True,
+          tipp=tr("Mehrere Schnittebenen schneiden nur den Bereich weg, den alle wegschneiden (z. B. Viertelschnitt)"))
+        A("schnitt_loeschen", tr("Festgehaltene Schnittebenen entfernen"), self._schnitt_ebenen_loeschen)
+        A("schnitt_kontur", tr("Schnittkontur exportieren …"), lambda: self.exportiere_schnittkontur(),
+          tipp=tr("Kontur der Schnittebenen als SVG, DXF oder PDF"))
         A("schnittbox", tr("Schnittbox um Auswahl"), self._schnittbox, pruefbar=True,
           tipp=tr("Nur den Bereich um die gewählten Flächen zeigen, alles außerhalb der Box ist weggeschnitten"))
         A("alle_zeigen", tr("Alle Teile zeigen"), self.baum.alle_zeigen, "Shift+H",
@@ -515,6 +522,11 @@ class Hauptfenster(QtWidgets.QMainWindow):
         ms.addAction(a["schnittbox"])
         ms.addSeparator()
         ms.addAction(a["schnitt_umkehren"])
+        ms.addAction(a["schnitt_merken"])
+        ms.addAction(a["schnitt_kette"])
+        ms.addAction(a["schnitt_loeschen"])
+        ms.addSeparator()
+        ms.addAction(a["schnitt_kontur"])
         m.addSeparator()
         mt = m.addMenu(tr("Farbschema"))
         for n in ("thema_auto", "thema_hell", "thema_dunkel"):
@@ -641,6 +653,7 @@ class Hauptfenster(QtWidgets.QMainWindow):
         self.schnitt_regler.setEnabled(da and self._schnitt_achse is not None)
         self.schnitt_regler_aktion.setVisible(da and self._schnitt_achse is not None)
         self.aktionen["schnitt_umkehren"].setEnabled(da and self._schnitt_achse is not None)
+        self._schnitt_aktionen()
         self.stapel.setCurrentWidget(self.ansicht if da else self.start)
         for d in (self.dock_baum, self.dock_ansichten, self.dock_pmi):
             d.setVisible(da)
@@ -1889,6 +1902,8 @@ class Hauptfenster(QtWidgets.QMainWindow):
         self._schnitt(achse)
 
     def _schnitt(self, achse):
+        if achse is None and self.ansicht.schnitt_ebenen:
+            self.ansicht.schnitt_ebenen = []  # "Kein Schnitt" hebt auch festgehaltene Ebenen auf
         self._schnitt_achse = achse
         da = self.erg is not None
         self.schnitt_regler.setEnabled(da and achse is not None)
@@ -1896,6 +1911,15 @@ class Hauptfenster(QtWidgets.QMainWindow):
         self.aktionen["schnitt_umkehren"].setEnabled(da and achse is not None)
         self.ansicht.schnitt(achse, self.schnitt_regler.value() / 1000.0,
                              self.aktionen["schnitt_umkehren"].isChecked())
+        self._schnitt_aktionen()
+
+    def _schnitt_aktionen(self):
+        """Freigabe der Aktionen fuer mehrere Schnittebenen und den Konturexport."""
+        da = self.erg is not None
+        for n in ("schnitt_merken", "schnitt_kontur"):
+            self.aktionen[n].setEnabled(da and self._schnitt_achse is not None)
+        for n in ("schnitt_kette", "schnitt_loeschen"):
+            self.aktionen[n].setEnabled(da and bool(self.ansicht.schnitt_ebenen))
 
     def _schnittbox(self):
         if not self.aktionen["schnittbox"].isChecked():
@@ -1909,6 +1933,68 @@ class Hauptfenster(QtWidgets.QMainWindow):
 
     def _schnitt_umkehren(self):
         self._schnitt(self._schnitt_achse)
+
+    def _schnitt_merken(self):
+        if not self.ansicht.schnitt_merken():
+            self.statusBar().showMessage(tr("Höchstens drei Schnittebenen; erst einen Schnitt wählen"), 5000)
+            return
+        n = len(self.ansicht.schnitt_ebenen)
+        self.statusBar().showMessage(tr("{} Schnittebene(n) festgehalten – jetzt die nächste wählen").format(n), 6000)
+        self._schnitt(self._schnitt_achse)
+
+    def _schnitt_kette(self):
+        self.ansicht.setze_schnitt_kette(self.aktionen["schnitt_kette"].isChecked())
+
+    def _schnitt_ebenen_loeschen(self):
+        self.ansicht.schnitt_ebenen_loeschen()
+        self._schnitt(self._schnitt_achse)
+        self._schnitt_aktionen()
+
+    def _sichtbare_form(self):
+        from OCC.Core.BRep import BRep_Builder
+        from OCC.Core.TopoDS import TopoDS_Compound
+        form = TopoDS_Compound()
+        bb = BRep_Builder()
+        bb.MakeCompound(form)
+        for k in self.erg.baum.blaetter():
+            if not k.hilfsgeometrie and k.nummer not in self.ansicht.versteckt:
+                bb.Add(form, k.form)
+        return form
+
+    def exportiere_schnittkontur(self, pfad: str = "") -> str | None:
+        """Schnittkonturen aller Ebenen (festgehaltene und aktuelle) nebeneinander als SVG, DXF oder PDF."""
+        import numpy as np
+        from ..kern import schnitt, zeichnung
+        from . import berichte
+        ebenen = self.ansicht.alle_schnitt_ebenen() if self.erg is not None else []
+        if not ebenen:
+            self.statusBar().showMessage(tr("Erst einen Schnitt wählen"), 5000)
+            return None
+        pfad = pfad or self._speicherpfad(tr("Schnittkontur speichern"),
+                                          os.path.splitext(self.erg.pfad)[0] + "_schnitt.svg",
+                                          "SVG (*.svg);;DXF (*.dxf);;PDF (*.pdf)")
+        if not pfad:
+            return None
+        QtWidgets.QApplication.setOverrideCursor(QtCore.Qt.CursorShape.WaitCursor)
+        try:
+            liste = [schnitt.Ebene(np.asarray(p, float), -np.asarray(r, float), tr("Schnitt {}").format(i))
+                     for i, (p, r) in enumerate(ebenen, 1)]
+            ansichten = schnitt.blatt(self._sichtbare_form(), liste)
+            name = os.path.basename(self.erg.pfad)
+            endung = os.path.splitext(pfad)[1].lower()
+            if endung == ".dxf":
+                with open(pfad, "w", encoding="ascii", errors="replace") as f:
+                    f.write(zeichnung.als_dxf(ansichten))
+            elif endung == ".pdf":
+                berichte.zeichnung_pdf(zeichnung.als_svg(ansichten, name), pfad, name,
+                                       f"{tr('Schnittkontur')} · {tr('Maße in mm')} · 3DGmax {VERSION}")
+            else:
+                with open(pfad, "w", encoding="utf-8") as f:
+                    f.write(zeichnung.als_svg(ansichten, name))
+        finally:
+            QtWidgets.QApplication.restoreOverrideCursor()
+        self.statusBar().showMessage(tr("Schnittkontur gespeichert: {}").format(pfad), 8000)
+        return pfad
 
     def _isolieren(self):
         nummern = self.baum.gewaehlte_blaetter()

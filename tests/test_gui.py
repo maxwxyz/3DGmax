@@ -28,9 +28,10 @@ def test_laden_fuellt_alles(fenster_ctc01):
     assert f.baum.baum.topLevelItemCount() == 1
     # "Schnittseite umkehren" ist ohne aktiven Schnitt bewusst ausgegraut
     # ohne aktiven Schnitt bzw. Vergleich bewusst ausgegraut
-    aus = {"schnitt_umkehren"} | set(f.VERGLEICH_AKTIONEN)
+    schnitt = {"schnitt_umkehren", "schnitt_merken", "schnitt_kette", "schnitt_loeschen", "schnitt_kontur"}
+    aus = schnitt | set(f.VERGLEICH_AKTIONEN)
     assert all(a.isEnabled() for n, a in f.aktionen.items() if n not in aus)
-    assert not f.aktionen["schnitt_umkehren"].isEnabled()
+    assert not any(f.aktionen[n].isEnabled() for n in schnitt)
     assert os.path.basename(f.zuletzt()[0]) == "nist_ctc_01_asme1_ap242-e1.stp"
 
 
@@ -592,3 +593,32 @@ def test_pmi_bearbeiten_und_loeschen(fenster_ctc01, tmp_path):
     n = len(f.erg.pmi)
     f.loesche_eigene_pmi(neue)
     assert len(f.erg.pmi) == n - 1 and not any(neue[0].step_id in g.pmi_ids for g in f.erg.grafik.values())
+
+
+def test_mehrere_schnittebenen_und_kontur(fenster_ctc01, tmp_path):
+    """Zwei Schnittebenen festhalten, als Kette schalten, Schnittkontur als SVG und DXF ausgeben."""
+    f = fenster_ctc01
+    f.aktionen["schnitt_x"].trigger()
+    f.aktionen["schnitt_merken"].trigger()
+    f.aktionen["schnitt_y"].trigger()
+    assert len(f.ansicht.schnitt_ebenen) == 1 and len(f.ansicht.alle_schnitt_ebenen()) == 2
+    assert f.aktionen["schnitt_kette"].isEnabled()
+    f.aktionen["schnitt_kette"].trigger()
+    assert f.ansicht.schnitt_kette
+    svg = f.exportiere_schnittkontur(str(tmp_path / "s.svg"))
+    dxf = f.exportiere_schnittkontur(str(tmp_path / "s.dxf"))
+    assert svg and "<polyline" in open(svg, encoding="utf-8").read()
+    assert "LINE" in open(dxf).read()
+    f.aktionen["schnitt_aus"].trigger()
+    assert f.ansicht.schnitt_ebenen == [] and f.ansicht.alle_schnitt_ebenen() == []
+
+
+def test_schnittkontur_kern(ctc01):
+    import numpy as np
+    from programm.kern import schnitt
+    y0 = schnitt.Ebene(np.zeros(3), np.array([0, 1.0, 0]))
+    linien = schnitt.kontur(ctc01.form, y0)
+    assert linien and all(np.allclose(l[0], l[-1]) for l in linien)  # geschlossene Konturen
+    lo = np.vstack(schnitt.in_ebene(linien, y0)).min(axis=0)
+    hi = np.vstack(schnitt.in_ebene(linien, y0)).max(axis=0)
+    assert abs((hi[0] - lo[0]) - 800) < 0.5 and abs((hi[1] - lo[1]) - 100) < 0.5  # Plattenbreite, Hoehe

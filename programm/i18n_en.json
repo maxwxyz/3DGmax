@@ -774,5 +774,19 @@
 "Geometrie gespiegelt": "Geometry mirrored",
 "gedreht um {:+.2f}° um Achse ({:+.3f}, {:+.3f}, {:+.3f})": "rotated by {:+.2f}° about axis ({:+.3f}, {:+.3f}, {:+.3f})",
 "gespiegelt an Ebene mit Normale ({:+.3f}, {:+.3f}, {:+.3f}) bei {:.3f} mm": "mirrored at plane with normal ({:+.3f}, {:+.3f}, {:+.3f}) at {:.3f} mm",
-"{} Fläche(n) {}; Schwerpunkt dX {:+.3f}  dY {:+.3f}  dZ {:+.3f} mm": "{} face(s) {}; centroid dX {:+.3f}  dY {:+.3f}  dZ {:+.3f} mm"
+"{} Fläche(n) {}; Schwerpunkt dX {:+.3f}  dY {:+.3f}  dZ {:+.3f} mm": "{} face(s) {}; centroid dX {:+.3f}  dY {:+.3f}  dZ {:+.3f} mm",
+"Aktuelle Schnittebene behalten und eine weitere wählen (bis zu drei Ebenen)": "Keep the current section plane and choose another one (up to three planes)",
+"Erst einen Schnitt wählen": "Choose a section first",
+"Festgehaltene Schnittebenen entfernen": "Remove kept section planes",
+"Höchstens drei Schnittebenen; erst einen Schnitt wählen": "At most three section planes; choose a section first",
+"Kontur der Schnittebenen als SVG, DXF oder PDF": "Contour of the section planes as SVG, DXF or PDF",
+"Mehrere Schnittebenen schneiden nur den Bereich weg, den alle wegschneiden (z. B. Viertelschnitt)": "Several section planes only cut away the region all of them cut away (e.g. quarter section)",
+"Nur gemeinsamen Bereich wegschneiden": "Cut away common region only",
+"Schnitt {}": "Section {}",
+"Schnittebene festhalten": "Keep section plane",
+"Schnittkontur": "Section contour",
+"Schnittkontur exportieren …": "Export section contour …",
+"Schnittkontur gespeichert: {}": "Section contour saved: {}",
+"Schnittkontur speichern": "Save section contour",
+"{} Schnittebene(n) festgehalten – jetzt die nächste wählen": "{} section plane(s) kept – now choose the next one"
 }

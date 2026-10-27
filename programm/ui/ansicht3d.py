@@ -70,6 +70,8 @@ class AnsichtBasis(QtWidgets.QWidget):
         self.versteckt: set[int] = set()
         self.transparent: set[int] = set()
         self.schnitt_zustand = None  # (achse, anteil, umgekehrt) oder None
+        self.schnitt_ebenen: list[tuple] = []  # festgehaltene Ebenen (Punkt, Richtung der behaltenen Seite)
+        self.schnitt_kette = False  # mehrere Ebenen schneiden nur den gemeinsamen Bereich weg
         self.letzte_ansicht = "iso"
         self.thema: dict = {}
         self.navigation = "catia"
@@ -104,6 +106,7 @@ class AnsichtBasis(QtWidgets.QWidget):
         self.versteckt, self.transparent = set(), set()
         self.pmi_ids_sichtbar = None
         self.schnitt_zustand = None
+        self.schnitt_ebenen = []
 
     def hebe_flaechen(self, flaechen: set[int]):
         self.hervor = set(flaechen)
@@ -220,6 +223,74 @@ class AnsichtBasis(QtWidgets.QWidget):
 
     def schnitt(self, achse: str | None, anteil: float = 0.5, umgekehrt: bool = False):
         self.schnitt_zustand = None if achse is None else (achse, anteil, umgekehrt)
+
+    def _schnitt_normale(self, achse):
+        """(Normale, Punkt auf der Ebene oder None) fuer Achse, Auswahl oder Blickrichtung."""
+        import numpy as np
+        if achse in ("x", "y", "z"):
+            n = np.zeros(3)
+            n["xyz".index(achse)] = 1.0
+            return n, None
+        if self.schnitt_eigen is None:
+            return None, None
+        return np.asarray(self.schnitt_eigen[1], float), np.asarray(self.schnitt_eigen[0], float)
+
+    def _schnitt_bereich(self, n):
+        """Bereich der Modellteile entlang der Normalen (min, max des Hüllquaders)."""
+        import itertools
+        import numpy as np
+        box = self._sichtbare_box()
+        if box.IsVoid():
+            return None
+        x0, y0, z0, x1, y1, z1 = box.Get()
+        ecken = np.array(list(itertools.product((x0, x1), (y0, y1), (z0, z1))))
+        werte = ecken @ n
+        return float(werte.min()), float(werte.max()), ecken.mean(axis=0)
+
+    def _sichtbare_box(self):
+        from OCC.Core.Bnd import Bnd_Box
+        from OCC.Core.BRepBndLib import brepbndlib
+        box = Bnd_Box()
+        if self.szene is not None:
+            brepbndlib.Add(self.szene.modell.form, box)
+        return box
+
+    def schnitt_ebene_aktuell(self):
+        """(Punkt, Richtung der behaltenen Seite) der Ebene am Regler oder None."""
+        if self.schnitt_zustand is None or self.szene is None:
+            return None
+        achse, anteil, umgekehrt = self.schnitt_zustand
+        n, _ = self._schnitt_normale(achse)
+        bereich = self._schnitt_bereich(n) if n is not None else None
+        if bereich is None:
+            return None
+        lo, hi, mitte = bereich
+        abstand = lo + (hi - lo) * anteil
+        pos = mitte + n * (abstand - float(mitte @ n))
+        # weggeschnitten wird die Seite in Normalenrichtung (beim Blick: die Seite zum Betrachter)
+        return pos, (n if umgekehrt else -n)
+
+    def alle_schnitt_ebenen(self) -> list[tuple]:
+        aktuell = self.schnitt_ebene_aktuell()
+        return list(self.schnitt_ebenen) + ([aktuell] if aktuell is not None else [])
+
+    def schnitt_merken(self) -> bool:
+        """Aktuelle Ebene festhalten (hoechstens drei Ebenen zusammen); False ohne aktiven Schnitt."""
+        aktuell = self.schnitt_ebene_aktuell()
+        if aktuell is None or len(self.schnitt_ebenen) >= 2:
+            return False
+        self.schnitt_ebenen.append(aktuell)
+        return True
+
+    def schnitt_ebenen_loeschen(self):
+        self.schnitt_ebenen = []
+        if self.schnitt_zustand is not None:
+            self.schnitt(*self.schnitt_zustand)
+
+    def setze_schnitt_kette(self, an: bool):
+        self.schnitt_kette = an
+        if self.schnitt_zustand is not None:
+            self.schnitt(*self.schnitt_zustand)
 
     def setze_thema(self, thema: dict):
         self.thema = thema
@@ -1610,32 +1681,11 @@ class OcctAnsicht(AnsichtBasis):
     # --- Schnitt ---
 
     def _entferne_schnitt(self):
-        if self._clip is not None and self._bereit:
-            self.d.View.RemoveClipPlane(self._clip)
+        if self._bereit:
+            for ebene in getattr(self, "_clips", []):
+                self.d.View.RemoveClipPlane(ebene)
+        self._clips = []
         self._clip = None
-
-    def _schnitt_normale(self, achse):
-        """(Normale, Punkt auf der Ebene oder None) fuer Achse, Auswahl oder Blickrichtung."""
-        import numpy as np
-        if achse in ("x", "y", "z"):
-            n = np.zeros(3)
-            n["xyz".index(achse)] = 1.0
-            return n, None
-        if self.schnitt_eigen is None:
-            return None, None
-        return np.asarray(self.schnitt_eigen[1], float), np.asarray(self.schnitt_eigen[0], float)
-
-    def _schnitt_bereich(self, n):
-        """Bereich der Modellteile entlang der Normalen (min, max des Hüllquaders)."""
-        import itertools
-        import numpy as np
-        box = self._sichtbare_box()
-        if box.IsVoid():
-            return None
-        x0, y0, z0, x1, y1, z1 = box.Get()
-        ecken = np.array(list(itertools.product((x0, x1), (y0, y1), (z0, z1))))
-        werte = ecken @ n
-        return float(werte.min()), float(werte.max()), ecken.mean(axis=0)
 
     def schnitt_anteil_von_punkt(self, achse) -> float | None:
         """Reglerstellung, bei der die Ebene durch den Auswahlpunkt geht."""
@@ -1686,22 +1736,23 @@ class OcctAnsicht(AnsichtBasis):
         if achse is None or self.szene is None:
             self._neu_zeichnen()
             return
-        n, _ = self._schnitt_normale(achse)
-        bereich = self._schnitt_bereich(n) if n is not None else None
-        if bereich is None:
-            self._neu_zeichnen()
-            return
-        lo, hi, mitte = bereich
-        abstand = lo + (hi - lo) * anteil
-        pos = mitte + n * (abstand - float(mitte @ n))
-        # weggeschnitten wird die Seite in Normalenrichtung (beim Blick: die Seite zum Betrachter)
-        richtung = n if umgekehrt else -n
-        ebene = Graphic3d_ClipPlane(gp_Pln(gp_Pnt(*map(float, pos)), gp_Dir(*map(float, richtung))))
-        ebene.SetCapping(True)
-        ebene.SetCappingColor(_farbe((self.thema or {}).get("schnitt", (1, 0.55, 0.1))))
-        ebene.SetOn(True)
-        self.d.View.AddClipPlane(ebene)
-        self._clip = ebene
+        farbe = _farbe((self.thema or {}).get("schnitt", (1, 0.55, 0.1)))
+        ebenen = []
+        for pos, richtung in self.alle_schnitt_ebenen():
+            ebene = Graphic3d_ClipPlane(gp_Pln(gp_Pnt(*map(float, pos)), gp_Dir(*map(float, richtung))))
+            ebene.SetCapping(True)
+            ebene.SetCappingColor(farbe)
+            ebene.SetOn(True)
+            ebenen.append(ebene)
+        if self.schnitt_kette and len(ebenen) > 1:
+            # Kette: weggeschnitten wird nur, was alle Ebenen wegschneiden (z. B. Viertelschnitt)
+            for a, b in zip(ebenen, ebenen[1:]):
+                a.SetChainNextPlane(b)
+            ebenen = ebenen[:1]
+        for ebene in ebenen:
+            self.d.View.AddClipPlane(ebene)
+        self._clips = ebenen
+        self._clip = ebenen[-1] if ebenen else None
         self._neu_zeichnen()
 
     def bild(self, pfad):
