@@ -17,7 +17,13 @@ def _z(x: float, vorzeichen: str = "") -> str:
     return f"{x:{vorzeichen}.4f}"
 
 
-SP_RICHTUNG, SP_NENN, SP_HOCH, SP_MIN, SP_TOL, SP_VERTEILUNG, SP_CP, SP_VERSATZ, SP_ANTEIL = 1, 2, 3, 4, 5, 7, 8, 9, 10
+SP_RICHTUNG, SP_NENN, SP_HOCH, SP_MIN, SP_TOL, SP_VERTEILUNG, SP_CP, SP_VERSATZ, SP_FAKTOR, SP_ANTEIL = \
+    1, 2, 3, 4, 5, 7, 8, 9, 10, 11
+METHODEN = (("rss", "RSS", "Varianzen addieren, Schlussmaß ±3σ"),
+            ("bender", "RSS × Bender-Faktor", "Zuschlag auf das RSS (Bender 1962: 1,5) für zu optimistisch angegebene "
+                                               "Toleranzen"),
+            ("verschiebung", "Mittenverschiebung", "Je Glied darf die Mitte um den Anteil m der halben Toleranz wandern "
+                                                   "(arithmetisch), der Rest streut statistisch"))
 PLAN_FARBE = QtGui.QColor(255, 196, 0, 40)  # Tabelle im Planspiel leicht getoent
 
 
@@ -246,7 +252,7 @@ class ToleranzketteFenster(QtWidgets.QDialog):
         knoepfe.rejected.connect(self.reject)
         lay.addWidget(knoepfe)
         self.export.clicked.connect(lambda: self.speichere())
-        self._fuelle()
+        self._methode_gewaehlt()
 
     # --- Aufbau ---
 
@@ -294,6 +300,18 @@ class ToleranzketteFenster(QtWidgets.QDialog):
                               "1,0 = ±3σ, 1,33 = ±4σ"))
         self.cp.valueChanged.connect(self._rechne)
         reihe.addWidget(self.cp)
+        self.methode = QtWidgets.QComboBox()
+        for schluessel, text, tipp in METHODEN:
+            self.methode.addItem(tr(text), schluessel)
+            self.methode.setItemData(self.methode.count() - 1, tr(tipp), QtCore.Qt.ItemDataRole.ToolTipRole)
+        self.methode.setToolTip(tr("Statistisches Verfahren für das Schlussmaß"))
+        self.methode_wert = QtWidgets.QDoubleSpinBox()
+        self.methode_wert.setDecimals(2)
+        self.methode_wert.setSingleStep(0.05)
+        self.methode.currentIndexChanged.connect(self._methode_gewaehlt)
+        self.methode_wert.valueChanged.connect(self._rechne)
+        reihe.addWidget(self.methode)
+        reihe.addWidget(self.methode_wert)
         self.plan_knopf = QtWidgets.QPushButton(tr("Planspiel …"))
         self.plan_knopf.setToolTip(tr("Werte vorübergehend ändern und mit dem Ist vergleichen, ohne die Kette zu "
                                       "verändern"))
@@ -311,6 +329,10 @@ class ToleranzketteFenster(QtWidgets.QDialog):
                                    "das Ergebnis steht neben dem Ist. Die Kette selbst bleibt unverändert."))
         text.setWordWrap(True)
         reihe.addWidget(text, 1)
+        self.verteilen = QtWidgets.QPushButton(tr("Toleranzen verteilen …"))
+        self.verteilen.setToolTip(tr("Nicht feste Toleranzen so setzen, dass das Schlussmaß die Zielbreite erreicht"))
+        self.verteilen.clicked.connect(self._verteilen_dialog)
+        reihe.addWidget(self.verteilen)
         self.uebernehmen = QtWidgets.QPushButton(tr("Übernehmen"))
         self.uebernehmen.setToolTip(tr("Planspiel wird zur Kette"))
         self.verwerfen = QtWidgets.QPushButton(tr("Verwerfen"))
@@ -364,6 +386,63 @@ class ToleranzketteFenster(QtWidgets.QDialog):
         reihe.addWidget(self.werkstoff_knopf)
         reihe.addStretch(1)
         return reihe
+
+    def _methode_gewaehlt(self, *_):
+        art = self.methode.currentData()
+        self.methode_wert.blockSignals(True)
+        if art == "bender":
+            self.methode_wert.setRange(1.0, 3.0)
+            self.methode_wert.setPrefix("× ")
+            self.methode_wert.setValue(tk.BENDER)
+        elif art == "verschiebung":
+            self.methode_wert.setRange(0.0, 1.0)
+            self.methode_wert.setPrefix("m = ")
+            self.methode_wert.setValue(tk.VERSCHIEBUNG)
+        self.methode_wert.blockSignals(False)
+        self.methode_wert.setVisible(art != "rss")
+        self._rechne()
+
+    def verteile(self, ziel: float, art: str = "varianz", statistisch: bool = True) -> bool:
+        """Im Planspiel die nicht festen Toleranzen auf die Zielbreite des Schlussmasses verteilen."""
+        if not self.im_planspiel:
+            self.starte_planspiel()
+        neu = tk.verteile_toleranzen(self.glieder, ziel, art, statistisch, self.cp.value())
+        if all(a.toleranz == b.toleranz for a, b in zip(neu, self.glieder)):
+            return False
+        self.glieder = neu
+        self._fuelle()
+        return True
+
+    def _verteilen_dialog(self):
+        d = QtWidgets.QDialog(self)
+        d.setWindowTitle(tr("Toleranzen verteilen"))
+        form = QtWidgets.QFormLayout(d)
+        ziel = QtWidgets.QDoubleSpinBox()
+        ziel.setRange(0.0001, 100000.0)
+        ziel.setDecimals(4)
+        ziel.setSuffix(" mm")
+        a = self.anforderung_werte()
+        ziel.setValue((a[1] - a[0]) if a else (self.e.wc_max - self.e.wc_min))
+        art = QtWidgets.QComboBox()
+        art.addItem(tr("Gleiche Varianz je Glied (angleichen)"), "varianz")
+        art.addItem(tr("Proportional zu den jetzigen Toleranzen"), "proportional")
+        basis = QtWidgets.QComboBox()
+        basis.addItem(tr("Statistisch (±3σ)"), True)
+        basis.addItem(tr("Arithmetisch (Worst Case)"), False)
+        basis.setCurrentIndex(0 if self.e.statistisch else 1)
+        for text, w in ((tr("Zielbreite des Schlussmaßes"), ziel), (tr("Verfahren"), art), (tr("Grundlage"), basis)):
+            form.addRow(text, w)
+        hinweis = QtWidgets.QLabel(tr("Feste Glieder (Rechtsklick) bleiben; das Ergebnis erscheint im Planspiel."))
+        hinweis.setObjectName("leise")
+        form.addRow(hinweis)
+        knoepfe = QtWidgets.QDialogButtonBox(QtWidgets.QDialogButtonBox.StandardButton.Ok |
+                                             QtWidgets.QDialogButtonBox.StandardButton.Cancel)
+        knoepfe.accepted.connect(d.accept)
+        knoepfe.rejected.connect(d.reject)
+        form.addRow(knoepfe)
+        d.accepted.connect(lambda: self.verteile(ziel.value(), art.currentData(), basis.currentData()))
+        d.open()
+        return d
 
     def teile(self) -> list[str]:
         return sorted({g.teil for g in self.glieder if g.teil} | set(self.werkstoffe))
@@ -436,11 +515,17 @@ class ToleranzketteFenster(QtWidgets.QDialog):
         stell.setCheckable(True)
         stell.setChecked(g.stellglied)
         stell.setToolTip(tr("Nötigen Bereich dieses Glieds für die Anforderung berechnen"))
+        fest = m.addAction(tr("Fest beim Verteilen"))
+        fest.setCheckable(True)
+        fest.setChecked(g.fest)
         umkehren = m.addAction(tr("Richtung umkehren"))
         weg = m.addAction(tr("Entfernen"))
         gewaehlt = m.exec(self.tabelle.viewport().mapToGlobal(pos))
         if gewaehlt is stell:
             self.setze_stellglied(z, stell.isChecked())
+        elif gewaehlt is fest:
+            g.fest = fest.isChecked()
+            self._fuelle()
         elif gewaehlt is umkehren:
             self._doppelklick(z, SP_RICHTUNG)
         elif gewaehlt is weg:
@@ -651,8 +736,9 @@ class ToleranzketteFenster(QtWidgets.QDialog):
                 t.item(z, SP_RICHTUNG).setToolTip(tr("Doppelklick kehrt die Richtung um"))
             if g.quelle == "ohne":
                 t.item(z, 6).setForeground(QtGui.QColor("#c0392b"))
-            if g.stellglied:
-                t.item(z, 0).setText(f"{g.name}  [{tr('Stellglied')}]")
+            if g.stellglied or g.fest:
+                marken = [tr("Stellglied")] * g.stellglied + [tr("fest")] * g.fest
+                t.item(z, 0).setText(f"{g.name}  [{', '.join(marken)}]")
             if g.teil:
                 t.item(z, 0).setToolTip(tr("Bauteil: {}").format(g.teil))
             self._widgets(z, g, ist)
@@ -700,8 +786,17 @@ class ToleranzketteFenster(QtWidgets.QDialog):
         versatz.setValue(g.versatz)
         versatz.valueChanged.connect(lambda w, g=g: self._setze(g, "versatz", w))
         t.setCellWidget(z, SP_VERSATZ, versatz)
+        faktor = QtWidgets.QDoubleSpinBox()
+        faktor.setRange(0.001, 1000.0)
+        faktor.setDecimals(3)
+        faktor.setSingleStep(0.1)
+        faktor.setToolTip(tr("Empfindlichkeit: wie stark das Glied auf das Schlussmaß wirkt (1 = direkt, z. B. 2 bei "
+                             "einem Hebel 2:1)"))
+        faktor.setValue(g.faktor)
+        faktor.valueChanged.connect(lambda w, g=g: self._setze(g, "faktor", w))
+        t.setCellWidget(z, SP_FAKTOR, faktor)
         if ist is not None:
-            for w, feldname in ((art, "verteilung"), (feld, name), (versatz, "versatz")):
+            for w, feldname in ((art, "verteilung"), (feld, name), (versatz, "versatz"), (faktor, "faktor")):
                 if getattr(g, feldname) != getattr(ist, feldname):
                     schrift = w.font()
                     schrift.setBold(True)
@@ -729,11 +824,13 @@ class ToleranzketteFenster(QtWidgets.QDialog):
 
     def _rechne(self):
         anforderung = self.anforderung_werte()
-        self.e = tk.berechne(self.glieder, cp=self.cp.value(), anforderung=anforderung)
-        self.e_ist = tk.berechne(self._ist, cp=self._ist_cp, anforderung=anforderung) if self.im_planspiel else None
+        para = self._methode_parameter()
+        self.e = tk.berechne(self.glieder, cp=self.cp.value(), anforderung=anforderung, **para)
+        self.e_ist = tk.berechne(self._ist, cp=self._ist_cp, anforderung=anforderung, **para) \
+            if self.im_planspiel else None
         temps = self.temperaturen()
         self.e_temp = [(t, tk.berechne(tk.thermisch(self.glieder, self._alpha(), t, self._je_teil(i)),
-                                       cp=self.cp.value(), anforderung=anforderung))
+                                       cp=self.cp.value(), anforderung=anforderung, **para))
                        for i, t in enumerate(temps)] if temps and self.glieder else []
         for z, anteil in enumerate(self.e.anteile):
             it = self.tabelle.item(z, SP_ANTEIL)
@@ -745,12 +842,20 @@ class ToleranzketteFenster(QtWidgets.QDialog):
             k.setEnabled(bool(self.glieder))
         self.plan_knopf.setEnabled(bool(self.glieder) and not self.im_planspiel)
 
-    @staticmethod
-    def _werte(e, art: str) -> tuple[float, float]:
+    def _methode_parameter(self) -> dict:
+        art = self.methode.currentData() if hasattr(self, "methode") else "rss"
+        if art == "bender":
+            return {"bender": self.methode_wert.value()}
+        if art == "verschiebung":
+            return {"verschiebung": self.methode_wert.value()}
+        return {}
+
+    def _werte(self, e, art: str) -> tuple[float, float]:
         if art == "wc":
             return e.wc_min, e.wc_max
         if art == "rss":
-            return e.mitte - e.rss, e.mitte + e.rss
+            halb = {"bender": e.bender, "verschiebung": e.verschiebung}.get(self.methode.currentData(), e.rss)
+            return e.mitte - halb, e.mitte + halb
         return e.mc_min, e.mc_max
 
     def ergebnis_zeilen(self) -> tuple[list[str], list[tuple[list[str], bool]]]:
@@ -765,6 +870,8 @@ class ToleranzketteFenster(QtWidgets.QDialog):
         for art, text in self.ERGEBNIS_ZEILEN:
             fett = (art == "rss" and e.statistisch) or (art == "wc" and not e.statistisch)
             lo, hi = self._werte(e, art)
+            if art == "rss" and self.methode.currentData() != "rss":
+                text = self.methode.currentText() + (f" ({self.methode_wert.prefix()}{self.methode_wert.value():g})")
             name = ("✓ " if fett else "") + tr(text)
             if ist is None:
                 zellen = [name, _z(lo), _z(hi), _z(hi - lo)]

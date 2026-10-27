@@ -57,6 +57,8 @@ class Glied:
     form: float = 0.5  # Trapez: Anteil des flachen Teils (0 = Dreieck, 1 = Rechteck)
     teil: str = ""  # Bauteil (fuer den Werkstoff bei der Waermeausdehnung)
     stellglied: bool = False  # Laengenbereich, der zum Einhalten der Anforderung eingestellt wird
+    faktor: float = 1.0  # Empfindlichkeit d(Schlussmass)/d(Glied), z. B. Hebelverhaeltnis (Vorzeichen: richtung)
+    fest: bool = False  # Toleranz beim Verteilen nicht aendern (z. B. Normteil, Waelzlager)
 
     @property
     def mitte(self) -> float:
@@ -115,6 +117,8 @@ class Ergebnis:
     mc_ausserhalb: float | None = None  # Anteil ausserhalb (Monte Carlo)
     n_eff: float = 0.0  # wirksame Beitragsleister (Summe Varianzen)^2 / Summe Varianzen^2
     proben: np.ndarray | None = None  # Monte-Carlo-Werte des Schlussmasses (fuer das Histogramm)
+    bender: float = 0.0  # +- des statistischen Ergebnisses mal Bender-Faktor (modifiziertes RSS)
+    verschiebung: float = 0.0  # +- nach dem Mittenverschiebungs-Modell (Verschiebungen arithmetisch, Rest RSS)
 
     @property
     def statistisch(self) -> bool:
@@ -175,12 +179,63 @@ def stellbereich(glieder: list[Glied], anforderung: tuple[float, float]) -> tupl
         return None
     s = stell[0]
     rest = [g for g in glieder if g is not s]
-    lo = sum(g.richtung * (g.mindest if g.richtung > 0 else g.hoechst) for g in rest)
-    hi = sum(g.richtung * (g.hoechst if g.richtung > 0 else g.mindest) for g in rest)
+    k = lambda g: g.richtung * g.faktor  # noqa: E731
+    lo = sum(k(g) * (g.mindest if k(g) > 0 else g.hoechst) for g in rest)
+    hi = sum(k(g) * (g.hoechst if k(g) > 0 else g.mindest) for g in rest)
     u, o = anforderung
-    if s.richtung > 0:
-        return u - lo, o - hi
-    return hi - o, lo - u
+    ks = k(s)
+    if abs(ks) < 1e-12:
+        return None
+    a, b = (u - lo) / ks, (o - hi) / ks
+    return (a, b) if ks > 0 else (b, a)
+
+
+def verteile_toleranzen(glieder: list[Glied], ziel: float, art: str = "varianz", statistisch: bool = True,
+                        cp: float = 1.0) -> list[Glied]:
+    """Toleranzen der nicht festen Glieder so setzen, dass das Schlussmass die Zielbreite (max - min) erreicht.
+    art "varianz": jedes verstellbare Glied bekommt den gleichen Varianzanteil (Toleranzen angleichen, Klein);
+    "proportional": alle verstellbaren Toleranzen mit demselben Faktor. statistisch: Ziel als +-3 sigma, sonst Worst
+    Case. Mitte jedes Glieds bleibt; liefert Kopien (fuer das Planspiel)."""
+    import copy
+    neu = [copy.copy(g) for g in glieder]
+    frei = [g for g in neu if not g.fest and g.quelle not in ("lage",) and not g.stellglied]
+    if not frei or ziel <= 0:
+        return neu
+    frei_ids = {id(g) for g in frei}  # Identitaet: gleiche Werte duerfen nicht verwechselt werden
+    k = {id(g): abs(g.richtung * g.faktor) for g in neu}
+
+    def setze(g, t):
+        m = g.mitte
+        g.hoechst, g.mindest = m + t / 2, m - t / 2
+
+    if statistisch:
+        sig = lambda g: g.sigma(cp) * k[id(g)]  # noqa: E731
+        rest = ziel ** 2 / 36 - sum(sig(g) ** 2 for g in neu if id(g) not in frei_ids)
+        if rest <= 0:
+            return neu
+        if art == "varianz":
+            for g in frei:  # sigma je Glied gleich: sigma_ziel / Wurzel(n); T aus sigma je Verteilung
+                s_g = math.sqrt(rest / len(frei)) / (k[id(g)] or 1.0)
+                einheits = copy.copy(g)
+                setze(einheits, 1.0)
+                setze(g, s_g / einheits.sigma(cp))
+        else:
+            jetzt = math.sqrt(sum(sig(g) ** 2 for g in frei)) or 1.0
+            f = math.sqrt(rest) / jetzt
+            for g in frei:
+                setze(g, g.toleranz * f)
+    else:
+        rest = ziel - sum(g.toleranz * k[id(g)] for g in neu if id(g) not in frei_ids)
+        if rest <= 0:
+            return neu
+        if art == "varianz":
+            for g in frei:
+                setze(g, rest / len(frei) / (k[id(g)] or 1.0))
+        else:
+            jetzt = sum(g.toleranz * k[id(g)] for g in frei) or 1.0
+            for g in frei:
+                setze(g, g.toleranz * rest / jetzt)
+    return neu
 
 
 def ist_winkel(p) -> bool:
@@ -188,21 +243,29 @@ def ist_winkel(p) -> bool:
     return "Angle" in (p.typ or "") or "°" in p.wert_text()
 
 
+BENDER = 1.5  # Bender 1962: Zuschlag auf das RSS fuer optimistisch angegebene Toleranzen
+VERSCHIEBUNG = 0.2  # Anteil der halben Toleranz, um den sich die Prozessmitte verschieben darf (Mittenverschiebung)
+
+
 def berechne(glieder: list[Glied], cp: float = 1.0, proben: int = 200_000, zufall: int = 1,
-             anforderung: tuple[float, float] | None = None) -> Ergebnis:
+             anforderung: tuple[float, float] | None = None, bender: float = BENDER,
+             verschiebung: float = VERSCHIEBUNG) -> Ergebnis:
     """Schlussmass; cp: Prozessfaehigkeit der Kette fuer Glieder ohne eigenen Wert; anforderung: (untere, obere)
-    Grenze des Schlussmasses fuer Cp, Cpk und Anteil ausserhalb."""
+    Grenze des Schlussmasses fuer Cp, Cpk und Anteil ausserhalb. Empfindlichkeit je Glied: richtung * faktor.
+    Zusaetzlich: modifiziertes RSS (mal bender) und Mittenverschiebungs-Modell (Greenwood/Chase, Scholz): je Glied
+    darf die Mitte um verschiebung * T/2 wandern (arithmetisch summiert), die uebrige Streuung (1 - verschiebung) * T/2
+    als +-3 sigma wird statistisch addiert."""
     if not glieder:
         return Ergebnis(0, 0, 0, 0, 0, 0, 0, 0, 0)
-    r = np.array([g.richtung for g in glieder], float)
-    nenn = float(sum(g.richtung * g.nenn for g in glieder))
+    r = np.array([g.richtung * g.faktor for g in glieder], float)
+    nenn = float(sum(g.richtung * g.faktor * g.nenn for g in glieder))
     hi = np.array([g.hoechst for g in glieder])
     lo = np.array([g.mindest for g in glieder])
     wc_max = float(np.sum(np.where(r > 0, hi, lo) * r))
     wc_min = float(np.sum(np.where(r > 0, lo, hi) * r))
     versatz = np.array([g.versatz for g in glieder])
     mitte = float(np.sum(((hi + lo) / 2 + versatz) * r))
-    sigma = np.array([g.sigma(cp) for g in glieder])
+    sigma = np.array([g.sigma(cp) for g in glieder]) * np.abs(r)
     varianz = float(np.sum(sigma ** 2))
     rss = float(3.0 * math.sqrt(varianz))  # +-3 sigma des Schlussmasses
     rng = np.random.default_rng(zufall)
@@ -210,8 +273,11 @@ def berechne(glieder: list[Glied], cp: float = 1.0, proben: int = 200_000, zufal
     q = np.quantile(werte, [0.00135, 0.99865])
     anteile = [float(s ** 2 / varianz) if varianz > 0 else 0.0 for s in sigma]
     n_eff = varianz ** 2 / float(np.sum(sigma ** 4)) if varianz > 0 else 0.0
+    halbe = (hi - lo) / 2 * np.abs(r)
+    schiebung = float(np.sum(verschiebung * halbe)) + 3.0 * math.sqrt(float(np.sum(
+        ((1 - verschiebung) * halbe / 3) ** 2)))
     e = Ergebnis(nenn, wc_min, wc_max, mitte, rss, float(q[0]), float(q[1]), float(werte.mean()),
-                 float(werte.std()), anteile, n_eff=n_eff, proben=werte)
+                 float(werte.std()), anteile, n_eff=n_eff, proben=werte, bender=bender * rss, verschiebung=schiebung)
     if anforderung is not None and anforderung[1] > anforderung[0]:
         u, o = anforderung
         s = math.sqrt(varianz)
@@ -414,7 +480,7 @@ def kette_aus_flaechen(modell, flaechen: list, pmi, allgemein: str = "",
 
 
 SPALTEN = ("Glied", "Richtung", "Nennmaß", "Höchstmaß", "Mindestmaß", "Toleranz", "Quelle", "Verteilung", "Cp / Form",
-           "Versatz", "Anteil")
+           "Versatz", "Faktor", "Anteil")
 
 
 def als_csv(glieder: list[Glied], e: Ergebnis, cp: float = 1.0) -> str:
@@ -427,7 +493,7 @@ def als_csv(glieder: list[Glied], e: Ergebnis, cp: float = 1.0) -> str:
                    [zahl(x) for x in (g.nenn, g.hoechst, g.mindest, g.toleranz)] +
                    [tr(QUELLE[g.quelle]), tr(VERTEILUNG[g.verteilung]),
                     zahl(g.cp or cp) if g.verteilung == "normal" else
-                    f"a = {zahl(g.form)}" if g.verteilung == "trapez" else "", zahl(g.versatz),
+                    f"a = {zahl(g.form)}" if g.verteilung == "trapez" else "", zahl(g.versatz), zahl(g.faktor),
                     f"{anteil:.1%}".replace(".", ",")])
     w.writerow([])
     zeilen = [(tr("Schlussmaß (nominal)"), e.nenn), (tr("Worst Case min"), e.wc_min), (tr("Worst Case max"), e.wc_max),

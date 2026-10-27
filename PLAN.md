@@ -275,6 +275,10 @@ Throughout: tests (core, offscreen UI, stress test, on-screen test), `--selbstte
      by side; "Übernehmen" makes the scenario the chain, "Verwerfen" restores it; the PDF contains the comparison.
   4. Double-click on the direction cell reverses the link.
   5. UX (see below), CSV/PDF extended.
+- Done 2026-10-28 (stage 4a): sensitivity factor per link (richtung × faktor in worst case, RSS, Monte Carlo, shares,
+  n_eff, adjusting member), statistical method RSS / RSS × Bender factor / mean-shift model (shifts m·T/2 arithmetic +
+  RSS of (1−m)·T/2 as ±3σ; m = 0 gives RSS, m = 1 worst case – both tested), tolerance allocation to a target range
+  (equal variance per adjustable link or proportional, statistical or worst case, fixed links stay) into the what-if.
 - Later (stage 4): modified RSS with factor (Bender) and mixed method as options; mean-shift model (worst case of
   shifts + RSS of variation) and Six Sigma shift; sensitivity coefficients per link (angles, cos factors,
   non-linear chains via Monte Carlo); correlation of links from the same part/process; tolerance allocation

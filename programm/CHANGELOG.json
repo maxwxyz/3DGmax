@@ -154,7 +154,8 @@
    "Zusammenbau: Verbindung umkehren (Teil um 180° drehen, Zylinder Ende gegen Ende) und Teile tauschen (das andere Teil bewegt sich).",
    "Größe der Oberfläche einstellbar (Ansicht › Größe der Oberfläche: 90 bis 150 %, nach einem Neustart).",
    "Vergleich: der Strukturbaum zeigt den Status jedes Teils (● grün neu, orange geändert, rot entfernt im Modus Alt; Baugruppen mit Änderungen darunter mit •).",
-   "Stückliste mit Werkstoff aus der STEP-Datei; die Masse nimmt bei bekanntem Werkstoff dessen Dichte."
+   "Stückliste mit Werkstoff aus der STEP-Datei; die Masse nimmt bei bekanntem Werkstoff dessen Dichte.",
+   "Toleranzkette: Empfindlichkeit (Faktor) je Glied, statistische Verfahren RSS, RSS × Bender-Faktor und Mittenverschiebungs-Modell; Toleranzen verteilen (gleiche Varianz oder proportional, statistisch oder arithmetisch, feste Glieder bleiben) als Planspiel."
   ],
   "en": [
    "First viewer version: load STEP AP242, assembly tree, CAD-style navigation, standard views.",
@@ -310,7 +311,8 @@
    "Assembly: reverse a connection (turn the part by 180°, cylinder end for end) and swap parts (the other part moves).",
    "Adjustable interface size (View › Size of the interface: 90 to 150 %, after a restart).",
    "Comparison: the structure tree shows the status of every part (● green new, orange changed, red removed in Old mode; assemblies with changes below marked •).",
-   "Parts list with the material from the STEP file; the mass uses the material density where the material is known."
+   "Parts list with the material from the STEP file; the mass uses the material density where the material is known.",
+   "Stack-up: sensitivity (factor) per link, statistical methods RSS, RSS × Bender factor and mean-shift model; allocate tolerances (equal variance or proportional, statistical or arithmetic, fixed links stay) as a what-if."
   ]
  },
  "releases": [

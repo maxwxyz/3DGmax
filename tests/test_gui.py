@@ -1250,3 +1250,27 @@ def test_groesse_der_oberflaeche(fenster, monkeypatch):
     app.groesse_einstellen()
     assert os.environ.get("QT_SCALE_FACTOR") == "1.30"
     monkeypatch.delenv("QT_SCALE_FACTOR")
+
+
+def test_toleranzkette_stufe4_verfahren_verteilen(fenster):
+    from programm.kern import toleranzkette as tk
+    from programm.ui.toleranzkette_ui import SP_FAKTOR
+    f = fenster
+    k = f.zeige_toleranzkette(nur_anlegen=True)
+    k.ergaenze([tk.Glied(str(i), 10, 10.05, 9.95) for i in range(5)] + [tk.Glied("Lager", 12, 12.05, 11.95)])
+    rss = k.e.rss
+    k.methode.setCurrentIndex(k.methode.findData("bender"))
+    zeile = [k.ergebnisse.item(1, s).text() for s in range(4)]
+    assert "Bender" in zeile[0] and k.ergebnisse.item(1, 0).font().bold()
+    assert abs(float(zeile[3]) - 2 * 1.5 * rss) < 1e-3
+    k.methode.setCurrentIndex(k.methode.findData("verschiebung"))
+    assert rss < k.e.verschiebung < (k.e.wc_max - k.e.wc_min) / 2
+    k.methode.setCurrentIndex(0)
+    k.tabelle.cellWidget(0, SP_FAKTOR).setValue(2.0)
+    assert abs((k.e.wc_max - k.e.wc_min) - (0.1 * 7)) < 1e-9  # 5 Glieder, eines mit Faktor 2, plus Lager
+    k.glieder[-1].fest = True
+    assert k.verteile(0.4, "varianz", True) and k.im_planspiel
+    assert abs(k.glieder[-1].toleranz - 0.1) < 1e-12 and abs(2 * k.e.rss - 0.4) < 1e-9
+    assert abs(k._ist[0].toleranz - 0.1) < 1e-12  # Ist unveraendert
+    k.beende_planspiel(False)
+    assert abs(k.glieder[0].toleranz - 0.1) < 1e-12

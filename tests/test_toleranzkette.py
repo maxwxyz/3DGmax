@@ -127,3 +127,30 @@ def test_stueckliste_mit_werkstoff_und_dichte():
     assert abs(p["Distanzhülse"].masse(7.85) - p["Distanzhülse"].volumen * 2.7e-6) < 1e-12
     z = sl.zeilen(liste, 7.85)
     assert z[0][3] and sl.SPALTEN[3] == "Werkstoff" and ";" in sl.als_csv(liste, 7.85)
+
+
+def test_empfindlichkeit_bender_mittenverschiebung():
+    a = tk.Glied("a", 10, 10.1, 9.9)
+    b = tk.Glied("b", 5, 5.1, 4.9, -1, faktor=2.0)  # Hebel 2:1
+    e = tk.berechne([a, b])
+    assert abs(e.nenn - 0.0) < 1e-12 and abs((e.wc_max - e.wc_min) - (0.2 + 2 * 0.2)) < 1e-12
+    assert abs(e.rss - 3 * math.sqrt((0.2 / 6) ** 2 + (2 * 0.2 / 6) ** 2)) < 1e-12
+    assert abs(e.bender - 1.5 * e.rss) < 1e-12
+    halb_wc = (e.wc_max - e.wc_min) / 2
+    assert abs(tk.berechne([a, b], verschiebung=0.0).verschiebung - e.rss) < 1e-12  # ohne Verschiebung: RSS
+    assert abs(tk.berechne([a, b], verschiebung=1.0).verschiebung - halb_wc) < 1e-12  # ganz verschoben: Worst Case
+    assert e.rss < e.verschiebung < halb_wc
+
+
+def test_toleranzen_verteilen():
+    glieder = [tk.Glied(str(i), 10, 10.05, 9.95) for i in range(4)] + [tk.Glied("Lager", 12, 12.05, 11.95, fest=True)]
+    # statistisch, gleiche Varianz: Schlussmass +-3 sigma = Ziel, festes Glied unveraendert
+    neu = tk.verteile_toleranzen(glieder, 0.4, "varianz", True)
+    e = tk.berechne(neu)
+    assert abs(2 * e.rss - 0.4) < 1e-9 and abs(neu[-1].toleranz - 0.1) < 1e-12
+    assert len({round(g.toleranz, 9) for g in neu[:4]}) == 1 and abs(glieder[0].toleranz - 0.1) < 1e-12  # Original bleibt
+    # arithmetisch, proportional
+    neu = tk.verteile_toleranzen(glieder, 0.6, "proportional", False)
+    e = tk.berechne(neu)
+    assert abs((e.wc_max - e.wc_min) - 0.6) < 1e-9 and all(abs(g.mitte - 10) < 1e-12 for g in neu[:4])
+    assert tk.verteile_toleranzen(glieder, 0.05, "varianz", False)[0].toleranz == glieder[0].toleranz  # zu eng

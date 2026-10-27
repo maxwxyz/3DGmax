@@ -261,7 +261,12 @@ range …</b> adds springs, shims or adjusting screws between smallest and large
 dimension</b>: select the two faces of the closing dimension (the planar one first), the program finds the path through
 the links and sets order and signs; <b>▶ Walk chain</b> shows the links one after another in the model. <b>Save chain
 …</b> writes a <code>.3dgkette</code> file that <b>Open chain …</b> or <b>File › Open</b> loads later together with its
-model. Example: <b>File › Examples › Stack-up gearbox shaft</b>.</li>
+model. Example: <b>File › Examples › Stack-up gearbox shaft</b>. Next to <b>Process capability Cp</b> you choose the
+statistical method: RSS, RSS × Bender factor (margin, default 1.5) or <b>mean shift</b> (per link the mean shifts by the
+share m of the half tolerance, added arithmetically, the rest varies statistically). The <b>Factor</b> column is a link's
+sensitivity (e.g. 2 for a 2:1 lever). In the what-if, <b>Allocate tolerances …</b> sets the tolerances that are not fixed
+to a target range of the closing dimension – equal variance per link (equalise) or proportional; links marked <b>Fixed
+when allocating</b> (right-click) stay.</li>
 <li><b>Model › Create PMI</b>: select faces, check, adjust and accept the suggestions of the tolerancing advisor
     (own PMI, stored in the project). Existing PMI can be edited; the original values stay visible.</li>
 </ul>

@@ -389,11 +389,11 @@ def kette_pdf(fenster, pfad: str, bild: bool = True) -> str:
                 f"a = {g.form:.2f}" if g.verteilung == "trapez" else "–")
         zeile = [g.name, "+" if g.richtung > 0 else "−", "–" if g.quelle == "lage" else f"{g.nenn:.4g}",
                  f"{g.hoechst:.4g}", f"{g.mindest:.4g}", f"{g.toleranz:.4g}", tr(tk.QUELLE[g.quelle]),
-                 tr(tk.VERTEILUNG[g.verteilung]), form, f"{g.versatz:g}", f"{anteil:.0%}"]
+                 tr(tk.VERTEILUNG[g.verteilung]), form, f"{g.versatz:g}", f"{g.faktor:g}", f"{anteil:.0%}"]
         ist = k._ist_glied(i)
         if ist is not None and (ist.hoechst, ist.mindest, ist.nenn, ist.richtung, ist.verteilung, ist.cp, ist.form,
-                                ist.versatz) != (g.hoechst, g.mindest, g.nenn, g.richtung, g.verteilung, g.cp, g.form,
-                                                 g.versatz):
+                                ist.versatz, ist.faktor) != (g.hoechst, g.mindest, g.nenn, g.richtung, g.verteilung,
+                                                             g.cp, g.form, g.versatz, g.faktor):
             geaendert.add(i)
             zeile[0] += " *"
         tabelle.append(zeile)
