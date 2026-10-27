@@ -3269,12 +3269,13 @@ class Hauptfenster(QtWidgets.QMainWindow):
         e = ko.Einstellung(werte["kontakt"], werte["mindest"], werte["hoechst"], werte["kontakte"])
         self.kollision_aus()
         gepaart = {frozenset((v.teil, v.gegen_teil)) for v in self.baugruppe.verbindungen}
+        bereiche = self._bewegungsbereiche(teile + (gruppe_b or []), werte) if werte.get("bereich") else None
         lader = KollisionLader(teile, gruppe_b, e, self, self._grenzlagen() if werte.get("grenzlagen") else None,
-                               gepaart)
+                               gepaart, bereiche)
         lader.stand.connect(self._prozent)
         lader.fehler.connect(lambda t: (self.kollision.start.setEnabled(True),
                                         QtWidgets.QMessageBox.warning(self, tr("Kollisionen"), t)))
-        lader.fertig.connect(lambda b, l=lader: l.abgebrochen or self._kollision_fertig(b))
+        lader.fertig.connect(lambda b, l=lader: l.abgebrochen or self._kollision_fertig(b, l.freie_bereiche))
         self._kollision_lader = lader
         self.kollision.start.setEnabled(False)
         self._aufgabe(lader, tr("Kollisionen prüfen …"))
@@ -3294,7 +3295,21 @@ class Hauptfenster(QtWidgets.QMainWindow):
             out[nr] = [vb.bewegung_klein(x, 1.0, mitte) for x in self.baugruppe.grenzlagen(nr, mitte)]
         return {n: m for n, m in out.items() if m}
 
-    def _kollision_fertig(self, befunde):
+    def _bewegungsbereiche(self, teile: list, werte: dict) -> list:
+        """Je bewegtem Teil im Pruefumfang und offenem Freiheitsgrad: (Teil, andere, Bewegung, bis, Text, Einheit)."""
+        from ..kern import verbindung as vb
+        out = []
+        for t in teile:
+            if t.nummer not in self.baugruppe.teile() or self.baugruppe.fest(t.nummer):
+                continue
+            basis = self.baugruppe.freiheitsgrade(t.nummer)
+            for z, text in zip(basis, vb.beschreibe(basis)):
+                dreht = vb._gerade_ausrichten(z[:3], z[3:])[0] == "drehung"
+                out.append((t, [x for x in teile if x.nummer != t.nummer], lambda w, z=z: vb.bewegung(z, w),
+                            werte["bereich_grad"] if dreht else werte["bereich_mm"], text, "°" if dreht else "mm"))
+        return out
+
+    def _kollision_fertig(self, befunde, freie_bereiche=()):
         from ..kern import kollision as ko
         self.kollision.start.setEnabled(True)
         gemerkt, self._kollision_gemerkt = getattr(self, "_kollision_gemerkt", None), None
@@ -3305,7 +3320,13 @@ class Hauptfenster(QtWidgets.QMainWindow):
             z[b.art] += 1
         text = tr("{} Kollisionen, {} zu nah, {} Kontakte, {} zu weit").format(
             z[ko.KOLLISION], z[ko.ZU_NAH], z[ko.KONTAKT], z[ko.ZU_WEIT])
-        self.kollision.zeige(befunde, text if befunde else tr("Keine Befunde"))
+        kopf = text if befunde else tr("Keine Befunde")
+        if freie_bereiche:
+            kopf += "\n" + tr("Freier Bewegungsbereich:") + "".join(
+                f"\n· {name}, {art}: {unten:+.4g} … {oben:+.4g} {einheit}"
+                for name, art, unten, oben, einheit in freie_bereiche)
+        self.freie_bereiche = list(freie_bereiche)
+        self.kollision.zeige(befunde, kopf)
         self.zeige_kollision_leiste()
         self._danach()
         self.statusBar().showMessage(tr("Kollisionsprüfung: {}").format(text), 10000)

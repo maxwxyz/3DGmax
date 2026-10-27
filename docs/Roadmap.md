@@ -146,7 +146,7 @@
 | Gear and spline analysis of existing files (z, mn, αn, β, b, x, Wk; pairs) as input for gear tools – PLAN §8.27 | ⬜ |
 | Wiggle in the open degrees of freedom (kinematic) | ✅ |
 | Clash check at the tolerance limit positions (assembly) | ✅ |
-| Clash check over joint ranges (open DOF) | ⬜ |
+| Clash check over joint ranges (open DOF): free range per DOF up to the first collision | ✅ |
 
 ## Reports and exchange
 | Feature | Status |

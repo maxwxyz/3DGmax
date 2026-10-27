@@ -382,6 +382,9 @@ box); the intersection curves of the surfaces are shown with the penetration.</l
 <li><b>Also at the tolerance limit positions</b>: each connected part of the assembly is also checked at the limits of
 its clearance; reported is what only collides or comes too close there (column Kind: “limit position”). Directly
 connected parts are left out – the connection defines their relative position.</li>
+<li><b>Range of motion of open DOF</b> (± mm, ± degrees): each part with open degrees of freedom is moved along each
+degree of freedom up to the first collision. Above the table is the free range per degree of freedom; the collision at
+the limit is listed in the table (“at …”). Collisions that already exist in the start position do not count.</li>
 <li>Settings, statuses and comments are stored in the project; when opening, 3DGmax checks again and matches them to
 the part pairs.</li>
 </ul>

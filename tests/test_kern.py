@@ -718,6 +718,25 @@ def test_schnittansicht_aus_step():
     assert all(not x.schnitt for x in lies_ansichten(ohne))
 
 
+def test_kollision_freier_bereich():
+    """Block gleitet auf dem Boden (Kontakt, keine Kollision) bis an die Wand bei x = 25: frei -30 ... +15."""
+    import numpy as np
+    from OCC.Core.BRepPrimAPI import BRepPrimAPI_MakeBox
+    from OCC.Core.gp import gp_Pnt
+    from programm.kern import kollision as ko, verbindung as vb
+    block = ko.Teil(1, "Block", BRepPrimAPI_MakeBox(gp_Pnt(0, 0, 0), 10, 10, 10).Shape())
+    wand = ko.Teil(2, "Wand", BRepPrimAPI_MakeBox(gp_Pnt(25, 0, 0), 5, 10, 10).Shape())
+    boden = ko.Teil(3, "Boden", BRepPrimAPI_MakeBox(gp_Pnt(-20, 0, -5), 60, 10, 5).Shape())
+    z = np.array([0, 0, 0, 1, 0, 0.0])
+    unten, oben, befunde = ko.freier_bereich(block, [wand, boden], lambda w: vb.bewegung(z, w), 30)
+    assert unten == -30 and abs(oben - 15) < 30 / 24 / 2 ** 6 + 1e-9
+    assert len(befunde) == 1 and befunde[0].b.nummer == 2 and befunde[0].bewegung.startswith("+15")
+    # schon in der Ausgangslage durchdrungen: zaehlt nicht als Grenze
+    drin = ko.Teil(4, "Stift", BRepPrimAPI_MakeBox(gp_Pnt(4, 4, -2), 2, 2, 14).Shape())
+    unten, oben, _ = ko.freier_bereich(block, [drin, boden], lambda w: vb.bewegung(z, w), 10, schritte=5)
+    assert (unten, oben) == (-10, 10)
+
+
 def test_kollision_kontakt_band():
     """Testbaugruppe: Schrauben durchdringen den Deckel, Spalt 0,3 mm zur Grundplatte, Deckel liegt auf."""
     from programm.kern import kollision as ko

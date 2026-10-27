@@ -1299,5 +1299,10 @@
 "Lage doppelt toleriert: {} und toleriertes Lagemaß {} – das Lagemaß als theoretisch exakt (eingerahmt) angeben": "Location toleranced twice: {} and toleranced location dimension {} – give the dimension as basic (boxed)",
 "Maß {} gilt für {} Elemente verschiedener Größe ({})": "Dimension {} applies to {} features of different size ({})",
 "Muster": "Pattern",
-"Theoretisch exaktes Maß {} mit Toleranz": "Basic dimension {} with a tolerance"
+"Theoretisch exaktes Maß {} mit Toleranz": "Basic dimension {} with a tolerance",
+"(bei {})": "(at {})",
+"Bewegungsbereich offener Freiheitsgrade": "Range of motion of open DOF",
+"Freier Bewegungsbereich:": "Free range of motion:",
+"Geprüfter Bereich je Richtung: Verschiebung in mm, Drehung in Grad": "Checked range per direction: translation in mm, rotation in degrees",
+"Zusammenbau: jedes Teil entlang jedes offenen Freiheitsgrads bis zur ersten Kollision bewegen – ergibt den freien Bereich je Freiheitsgrad": "Assembly: move each part along each open degree of freedom up to the first collision – gives the free range per degree of freedom"
 }

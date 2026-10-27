@@ -1356,6 +1356,21 @@ def test_kollision_in_grenzlagen(fenster):
     assert len(f.kollision.befunde) == len(nenn) + len(extra)
 
 
+def test_kollision_bewegungsbereich(fenster):
+    """Schraube im Zusammenbau: Drehung um ihre Achse ist frei (rotationssymmetrisch), der Bereich +-180 Grad."""
+    f = fenster
+    assert f.oeffne_beispiel("zusammenbau", warten=True)
+    f.zeige_kollision_leiste()
+    f.kollision.bereich.setChecked(True)
+    assert f.kollision.bereich_grad.isEnabled()
+    f.kollision.bereich_grad.setValue(90.0)
+    f.starte_kollision(f.kollision.werte(), warten=True)
+    assert len(f.freie_bereiche) == 1
+    name, art, unten, oben, einheit = f.freie_bereiche[0]
+    assert (unten, oben, einheit) == (-90.0, 90.0, "°") and name in f.kollision.kopf.text()
+    assert not any(b.bewegung for b in f.kollision.befunde)
+
+
 @pytest.mark.langsam
 def test_scan_von_hand_ausrichten(fenster):
     """Scan von Hand: Panel mit Scan als waehlbarer Form; drei Punktpaare (Scan = Modell verschoben) ergeben die

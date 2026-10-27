@@ -39,6 +39,7 @@ class Befund:
     tiefe: float = 0.0  # Eindringtiefe (kleinste Kante des orientierten Huellquaders der Durchdringung)
     kurven: object = None  # Schnittkurven der Oberflaechen beider Teile (Kanten, Kollision)
     grenzlage: str = ""  # Befund erst in einer Grenzlage der Toleranzen (Text: Teil und Nummer), sonst leer
+    bewegung: str = ""  # Befund erst bei einer Bewegung entlang eines offenen Freiheitsgrads (Text), sonst leer
 
 
 @dataclass
@@ -227,3 +228,54 @@ def pruefe_grenzlagen(teile: list[Teil], grenzen: dict, gruppe_b: list[Teil] | N
     for i, x in enumerate(out, 1):
         x.nummer = i
     return out
+
+
+def _bewegt(t: Teil, m) -> Teil:
+    import numpy as np
+    from OCC.Core.TopLoc import TopLoc_Location
+    from OCC.Core.gp import gp_Trsf
+    tr_ = gp_Trsf()
+    tr_.SetValues(*[float(np.asarray(m)[i][j]) for i in range(3) for j in range(4)])
+    return Teil(t.nummer, t.name, t.form.Moved(TopLoc_Location(tr_)))
+
+
+def _neue_kollision(t: Teil, andere: list[Teil], e: Einstellung, schon: set) -> Befund | None:
+    """Groesste Kollision des Teils mit einem anderen, die es in der Ausgangslage nicht gibt."""
+    neu = [x for x in pruefe([t], andere, e) if x.art == KOLLISION and x.b.nummer not in schon]
+    return neu[0] if neu else None
+
+
+def freier_bereich(teil: Teil, andere: list[Teil], bewegung, bis: float, schritte: int = 24,
+                   e: Einstellung | None = None, genauigkeit: int = 6, fortschritt=lambda anteil: None):
+    """Bewegungsbereich eines Teils entlang eines offenen Freiheitsgrads bis zur ersten Kollision.
+
+    bewegung(wert) -> 4x4-Bewegung in Weltlage (mm bzw. Grad); geprueft wird je Richtung in schritte Schritten bis
+    +-bis, die erste Kollision wird durch Halbieren eingegrenzt. Kollisionen, die schon in der Ausgangslage bestehen,
+    zaehlen nicht. Ergebnis: (unten, oben, Befunde der Grenzen) – unten/oben ist die letzte freie Lage (bis, wenn
+    nichts stoesst)."""
+    e = Einstellung(e.kontakt, 0.0, 0.0, False) if e else Einstellung(kontakte_melden=False)
+    schon = {x.b.nummer for x in pruefe([teil], andere, e) if x.art == KOLLISION}
+    grenzen, befunde = [], []
+    for k, vorzeichen in enumerate((-1, 1)):
+        frei, stoss = 0.0, None
+        for i in range(1, schritte + 1):
+            fortschritt((k * schritte + i) / (2 * schritte))
+            w = vorzeichen * bis * i / schritte
+            stoss = _neue_kollision(_bewegt(teil, bewegung(w)), andere, e, schon)
+            if stoss is not None:
+                stoss_w = w
+                break
+            frei = w
+        if stoss is not None:
+            for _ in range(genauigkeit):  # Grenze zwischen frei und stoss_w eingrenzen
+                mitte = (frei + stoss_w) / 2
+                x = _neue_kollision(_bewegt(teil, bewegung(mitte)), andere, e, schon)
+                if x is None:
+                    frei = mitte
+                else:
+                    stoss_w, stoss = mitte, x
+            stoss.bewegung = f"{stoss_w:+.4g}"
+            befunde.append(stoss)
+        grenzen.append(frei)
+    fortschritt(1.0)
+    return grenzen[0], grenzen[1], befunde
