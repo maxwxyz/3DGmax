@@ -1,6 +1,38 @@
-# Handoff (2026-10-27)
+# Handoff (2026-10-28, local Mac session, user away ~8 h – work continues autonomously)
 
-## Return handoff from the cloud
+## Current state
+All work on `main`, pushed; no other branches. Version not bumped (user's approval needed). Full suite last green on
+the Mac (200 tests incl. the new ones, ~11 min); `pixi run test-schnell` skips the six `langsam` tests.
+
+Done in this local session (commit):
+- Test strategy (§8.29): `langsam` marker, `test-schnell`, `test-betroffen -- --schnell` – `b5980b6`.
+- macOS Finder double-click / "Open With" loads the file (QFileOpenEvent), all formats registered – `d623a92`.
+- Assembly variation (§8.20 stage 4): gap/flush measures, worst case (LP) and Monte Carlo (weighted fit), contributors,
+  requirement/Cpk, PDF, example; connections pin–slot, sphere–plane, ball joint – `34c7f1d`.
+- UI/UX plan `docs/UI_UX_Plan.md` (§8.30) and stage 1 (command search Ctrl/⌘+K, task start page, menu cleanup);
+  multi-selection highlight fix; all-zones only for visible parts – `34c7f1d`.
+- Stack-up stage 3 (§8.8): distributions by production type, applicable method bold (n_eff ≥ 4), what-if, UX,
+  research of the state of the art with sources – `2342bd6`.
+- Change table with characteristic/old/new/Δ/tendency – `3d1658c`.
+- Comparison view modes (§8.31) and stack-up stage 3b (thermal expansion, materials, per-part temperatures, length
+  ranges, adjusting member, directions from the closing dimension, walk chain, `.3dgkette`, gearbox example),
+  P21 UTF-8 reading – `4efc9df`.
+
+**Deferred questions for the user** (do not block on them):
+- Version bump: many unreleased entries – release as 0.2 when you approve (`packaging/release.py minor --git`).
+- Comparison modes: shortcuts Alt+1…6 chosen because 1–7 are the standard views – OK?
+- Stack-up "Kraftrichtung": implemented as "directions from the closing dimension" (two faces) instead of a load
+  direction, because a load direction alone does not give unambiguous signs – OK?
+
+**Visual check on the real screen still open** (screen locked / no capture permission tonight):
+- Comparison "Side by side": in `View.Dump` the old-state view showed a black background and no view cube – check
+  on screen whether the second view gets the theme gradient and cube (functionally verified: both views ready,
+  cameras coupled, blink runs).
+- Stack-up window layout (result table, share bars, histogram, what-if bar), assembly "Measures" tab, start page,
+  command search popup, comparison mode bar.
+- Plus everything listed under "Next" item 1 below (from the cloud handoff).
+
+## Previous cloud handoff (2026-10-27, kept for reference)
 Cloud session 2026-10-27 (Linux, no screen, no `daten/`). All work is on `main`, pushed; no unfinished branch
 (`claude/inspiring-wright-dqsu4q` only mirrors `main` and can be deleted). Version not bumped.
 
@@ -120,18 +152,18 @@ graphics only, 8.19 QIF graphics, 8.20 3D tolerance analysis,
 8.21 clash/band/intersection analysis, 8.22 plausibility check, 8.23 scan against PMI tolerances).
 
 ## Next (in this order)
-1. Visual check on the Mac: wireframe contrast edges, view cube, start screen, side-panel dragging, tab ✕ and
-   right-click menu on tabs, File › Examples (section view, clash, assembly with wiggle), stack-up window (3D
-   selection, edges, offset, requirement) and PDF, clash dock, assembly dock (clearance, scatter, tolerance wiggle),
-   scan check with point cloud and 3-2-1 alignment, inspection PDF, zones for linear/angular dimensions.
-2. Test strategy finish (PLAN §8.29).
-3. Assembly variation: measures between parts, Monte Carlo, contributors, more connection types (PLAN §8.20).
-4. UI/UX review and plan `docs/UI_UX_Plan.md` (PLAN §8.30), then stage 1 of the new UI.
-5. Step 7 JT via TKJT.
-6. Later: own P21 writer for geometric tolerances (PLAN §8.28) or QIF export; stack-up median planes and chains across
-   parts; clash rest (curves, depth, PDF, meshes); several windows (§8.26); scan rest (manual alignment, ISO 5459
-   tangent datums, sections, E57); zones per section/ACS/CZ/SZ, edges/points; plausibility stage 2; gear analysis
-   (§8.27); hatched section views; STEP-XML (§8.17); PRC compressed tessellation/B-rep.
+1. Visual check on the Mac (see "Visual check on the real screen still open" and: wireframe contrast edges, view cube,
+   start screen, side-panel dragging, tab ✕ and right-click menu on tabs, File › Examples, stack-up window and PDF,
+   clash dock, assembly dock, scan check with point cloud and 3-2-1 alignment, zones for linear/angular dimensions).
+2. Step 7: JT via TKJT (GPL v2+ build option; free JT without PMI: `NIST mtc crada assembly.jt` in
+   `daten/nist_cad_dl/nist-cad-models-mtc-assembly.zip`) – started next in this session.
+3. Remaining plan items (assembly dock requests 2026-10-28: connection reversal, DOF dragger, wiggle play/pause, zones at
+   the assembled position and per instance; UI/UX stage 1 item 4–5 (play/pause toggles, UI scaling), stage 2
+   workspaces; comparison modes stage 2 (tree status colours); stack-up stage 4 and 3D arrows/wiggle; then the
+   roadmap ⬜ items in order).
+4. Later: own P21 writer for geometric tolerances (§8.28) or QIF export; clash rest; several windows (§8.26); scan rest;
+   plausibility stage 2; gear analysis (§8.27); hatched section views; STEP-XML (§8.17); PRC compressed
+   tessellation/B-rep.
 
 ## Environment and commands
 ```bash
