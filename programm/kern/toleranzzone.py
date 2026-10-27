@@ -54,7 +54,32 @@ class Zone:
 # --- Geometrie ---
 
 def _versatz(flaeche, abstand: float):
-    """Versatzflaeche; positiver Abstand zeigt aus dem Material heraus (Orientierung der Flaeche beachtet)."""
+    """Versatzflaeche; positiver Abstand zeigt aus dem Material heraus (Orientierung der Flaeche beachtet).
+    Ebenen werden verschoben (echte Berandung mit Loechern), andere Flaechen ueber ihren Parameterbereich versetzt."""
+    eben = _verschobene_ebene(flaeche, abstand)
+    if eben is not None:
+        return eben
+    return _versatz_parameter(flaeche, abstand)
+
+
+def _verschobene_ebene(flaeche, abstand: float):
+    from OCC.Core.BRepAdaptor import BRepAdaptor_Surface
+    from OCC.Core.BRepBuilderAPI import BRepBuilderAPI_Transform
+    from OCC.Core.GeomAbs import GeomAbs_Plane
+    from OCC.Core.TopAbs import TopAbs_REVERSED
+    from OCC.Core.gp import gp_Trsf, gp_Vec
+    s = BRepAdaptor_Surface(flaeche)
+    if s.GetType() != GeomAbs_Plane:
+        return None
+    n = s.Plane().Axis().Direction()
+    if flaeche.Orientation() == TopAbs_REVERSED:
+        abstand = -abstand
+    t = gp_Trsf()
+    t.SetTranslation(gp_Vec(n.X() * abstand, n.Y() * abstand, n.Z() * abstand))
+    return BRepBuilderAPI_Transform(flaeche, t, True).Shape()
+
+
+def _versatz_parameter(flaeche, abstand: float):
     from OCC.Core.BRep import BRep_Tool
     from OCC.Core.BRepBuilderAPI import BRepBuilderAPI_MakeFace
     from OCC.Core.BRepTools import breptools

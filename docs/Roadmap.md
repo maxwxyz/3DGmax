@@ -11,7 +11,7 @@
 | Pivot stays fixed during zoom/pan, shown as line cross while orbiting/panning | ✅ |
 | Display shaded/with edges/wireframe, light/dark, custom background colors | ✅ |
 | Saved views: camera, window, PMI per view, browse (◀ ▶), search | ✅ |
-| Thumbnails per saved view (HLR edge drawing with PMI, background) | ✅ |
+| Thumbnails per saved view (HLR edge drawing with PMI, background), small by default, large or off | ✅ |
 | Section X/Y/Z, at selected face/edge, from view direction, slider | ✅ |
 | Clipping box around the selection | ✅ |
 | Focus mode: everything except the selection translucent (faces, PMI, tree parts) | ✅ |
@@ -95,6 +95,9 @@
 | Change list entries per instance | ⬜ |
 | Meshes: STL/OBJ/glTF/3MF vs. CAD and mesh vs. mesh (alignment, color map) | ✅ |
 | PLY meshes from scanners | ✅ |
+| Scan against PMI tolerances: best fit + fine alignment, per-PMI evaluation (form, profile, location, axes, sizes, Ⓜ/Ⓛ bonus), colour map over CAD, CSV (PLAN §8.23) | ✅ |
+| Scan check: manual/3-2-1 alignment, report PDF, distances/angles, per-section evaluation | ⬜ |
+| Plausibility check of the specification: contradictions, incomplete specs, over-determination (PLAN §8.22) | ⬜ |
 | Point clouds without triangles (PLY points, XYZ, E57) | ⬜ |
 | Linked side-by-side view of old and new state (synchronized cameras) | ⬜ |
 | Clash/contact/clearance analysis of assemblies or selections (PLAN §8.21) | ⬜ |
@@ -104,7 +107,7 @@
 ## Reports and exchange
 | Feature | Status |
 |---|---|
-| PDF: one page per saved view with view name, model name, PMI | ✅ |
+| PDF: one page per saved view with view name, model name, PMI (columns as visible in the PMI list) | ✅ |
 | PDF comparison report (overview, change list, image per change) | ✅ |
 | PMI change table PDF for suppliers/production | ✅ |
 | Project container (ZIP with models, review status, comments, measurements) | ✅ |
@@ -136,6 +139,7 @@
 ## Operation
 | Feature | Status |
 |---|---|
+| Manual DE/EN with generated screenshots (packaging/doc_screenshots.py), opened in the browser | ✅ |
 | German/English UI, F1 manual with generated menu reference, introduction, what's new | ✅ |
 | Portable apps Windows/macOS/Linux, GitHub workflow with/without tests, self-test | 🟡 (macOS verified locally) |
 | Release script: bump version, keep changelog DE/EN | ✅ |

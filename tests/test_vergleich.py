@@ -536,3 +536,48 @@ def test_vergleich_je_instanz():
     assert geo.entfernt_a is not None and len(geo.entfernt_a) <= 6
     geo = vergleich_geo.vergleiche(alt, modell(50.0), Ausrichtung(np.eye(4), "gleich", 0.0, 1.0), 0.01, 4000, 5.0)
     assert all(s == vergleich_geo.GLEICH for s in geo.status_b.values())
+
+
+def test_scan_gegen_toleranzen():
+    """Erzeugte Scans (werkzeuge/testmodelle.py): sauberer Scan i. O., Scan mit Welligkeit verletzt die Ebenheit."""
+    from programm.kern import ausrichten, scanpruefung as sp
+    from programm.kern.laden import lade_modell
+    from programm.ui.lader import lade_alles
+    from tests.conftest import pfad
+    cad = lade_alles(pfad("nist_ctc_01_asme1_ap242-e1.stp"))
+    for name, flach in (("ctc01_scan", sp.OK), ("ctc01_scan_fehler", sp.NOK)):
+        scan = lade_modell(pfad(f"varianten/{name}.ply"))
+        grob = ausrichten.richte_aus(cad.modell.flaechen, scan.flaechen, 0.05)
+        assert grob.methode == "bestpassung"
+        m = sp.feinausrichten(cad.modell, sp.scan_punkte(scan, None), grob.matrix)
+        z = sp.zuordnen(cad.modell, sp.scan_punkte(scan, m), nur=sp.pmi_flaechen(cad.pmi))
+        erg = {e.pmi.nummer: e for e in sp.bewerte(cad.pmi, cad.modell, z)}
+        ebenheit = next(e for e in erg.values() if e.pmi.typ == "Flatness")
+        assert ebenheit.status == flach
+        # Masse am Durchmesser: Istmass im Rauschen (5 um) um das Nennmass
+        for e in erg.values():
+            if e.pmi.typ == "Size_Diameter" and e.ist is not None:
+                assert abs(e.ist - abs(e.pmi.nennwert)) < 0.01, (name, e.pmi.wert_text(), e.ist)
+        assert not any(e.status == sp.NOK for e in erg.values() if e.pmi.typ != "Flatness"), name
+
+
+def test_neue_varianten_vergleich():
+    """Gleiche Geometrie mit anderen PMI; minimal verschobene Bohrung mit gleichen PMI."""
+    import numpy as np
+    from programm.kern import vergleich_geo, vergleich_pmi
+    from programm.kern.ausrichten import Ausrichtung
+    from programm.ui.lader import lade_alles
+    a = lade_alles(pfad("nist_ctc_01_asme1_ap242-e1.stp"))
+    b = _variante("ctc01_pmi_andere")
+    geo = vergleich_geo.vergleiche(a.modell, b.modell, Ausrichtung(np.eye(4), "gleich", 0, 1), 0.01, 4000, 2.0)
+    assert all(s == vergleich_geo.GLEICH for s in geo.status_b.values())
+    liste = vergleich_pmi.vergleiche_pmi(a.pmi, b.pmi, geo.zuordnung, zuordnung_ab=geo.zuordnung_ab)
+    geaendert = [x for x in liste if x.status != vergleich_pmi.GLEICH]
+    assert len(geaendert) >= 3
+    assert any(x.alt is not None and x.alt.typ == "Flatness" and x.status == vergleich_pmi.ENTFALLEN for x in liste)
+    assert any(x.neu is not None and x.neu.typ == "Straightness" and x.status == vergleich_pmi.NEU for x in liste)
+    c = _variante("ctc01_geo_klein")
+    geo = vergleich_geo.vergleiche(a.modell, c.modell, Ausrichtung(np.eye(4), "gleich", 0, 1), 0.01, 4000, 2.0)
+    anders = [i for i, s in geo.status_b.items() if s != vergleich_geo.GLEICH]
+    assert 1 <= len(anders) <= 6  # nur die Bohrung (und ihre Randflaechen)
+    assert len(c.pmi) == len(a.pmi)

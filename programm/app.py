@@ -23,8 +23,29 @@ def selbsttest() -> int:
     return 0 if ok else 1
 
 
+def _startzeit_melden(zeiten: dict, fenster):
+    """--startzeit: Dauer der Startphasen in der Statuszeile und in einer Datei (fuer Messungen auf Windows/macOS)."""
+    import tempfile
+    import time
+    zeiten["3D bereit"] = time.perf_counter()
+    namen = list(zeiten)
+    from .i18n import tr
+    text = ", ".join(f"{tr(b)}: {zeiten[b] - zeiten[a]:.2f} s" for a, b in zip(namen, namen[1:]))
+    gesamt = zeiten[namen[-1]] - zeiten[namen[0]]
+    pfad = os.path.join(tempfile.gettempdir(), "3DGmax-startzeit.txt")
+    with open(pfad, "a", encoding="utf-8") as f:
+        f.write(f"gesamt {gesamt:.2f} s – {text}\n")
+    fenster.statusBar().showMessage(tr("Start {:.2f} s – {} ({})").format(gesamt, text, pfad), 30000)
+    for name in ("Qt", "Module", "Fenster", "3D bereit"):  # Phasennamen fuer die Uebersetzungspruefung
+        tr(name)
+    print(f"STARTZEIT gesamt {gesamt:.2f} s – {text}", flush=True)
+
+
 def main(argv=None) -> int:
-    """Optionen: datei.stp, --selbsttest, --bild ausgabe.png (Modell laden, 3D-Bild speichern, beenden)."""
+    """Optionen: datei.stp, --selbsttest, --bild ausgabe.png (Modell laden, 3D-Bild speichern, beenden),
+    --startzeit (Dauer der Startphasen messen)."""
+    import time
+    zeiten = {"Start": time.perf_counter()}
     argv = list(sys.argv[1:] if argv is None else argv)
     if "--selbsttest" in argv:
         return selbsttest()
@@ -37,14 +58,24 @@ def main(argv=None) -> int:
     QtCore.QCoreApplication.setOrganizationName("3DGmax")
     QtCore.QCoreApplication.setApplicationName("3DGmax")
     app = QtWidgets.QApplication.instance() or QtWidgets.QApplication(sys.argv[:1])
+    zeiten["Qt"] = time.perf_counter()
     from PySide6 import QtGui
     from .i18n import HIER
     symbol = os.path.join(HIER, "icon.png")
     if os.path.isfile(symbol):
         app.setWindowIcon(QtGui.QIcon(symbol))
     from .ui.hauptfenster import Hauptfenster
+    zeiten["Module"] = time.perf_counter()
     fenster = Hauptfenster()
     fenster.show()
+    zeiten["Fenster"] = time.perf_counter()
+    if "--startzeit" in argv:
+        def warte_3d():
+            if getattr(fenster.ansicht, "_bereit", True) or time.perf_counter() - zeiten["Fenster"] > 10:
+                _startzeit_melden(zeiten, fenster)  # nach 10 s ohne 3D-Ansicht trotzdem melden
+            else:
+                QtCore.QTimer.singleShot(20, warte_3d)
+        QtCore.QTimer.singleShot(0, warte_3d)
     dateien = [a for a in argv if not a.startswith("-")]
     if bild:
         def speichern():

@@ -203,6 +203,17 @@ class PmiPanel(QtWidgets.QWidget):
         self.suche.textChanged.connect(self._filtern)
         self.tabelle.itemSelectionChanged.connect(self._auswahl)
 
+    def sichtbare_spalten(self) -> list[str]:
+        """Interne Namen der sichtbaren Spalten in der Reihenfolge der Anzeige (fuer Berichte)."""
+        kopf = self.tabelle.horizontalHeader()
+        sichtbar = [i for i in range(len(self.SPALTEN)) if not kopf.isSectionHidden(i)]
+        return [self.SPALTEN[i] for i in sorted(sichtbar, key=kopf.visualIndex)]
+
+    def zeilen(self, pmi_liste: list, spalten: list[str]) -> list[list[str]]:
+        """Texte der Spalten wie in der Tabelle (ohne Kennzeichen)."""
+        return [[self._werte(p, self.ansichten_je_pmi.get(p.nummer, []), self.ballon).get(s, "") for s in spalten]
+                for p in pmi_liste]
+
     def zeige(self, pmi: list, ansichten: list | None = None):
         from ..kern import merkmale
         self.pmi = pmi
@@ -503,6 +514,10 @@ class AnsichtenPanel(QtWidgets.QWidget):
     gewaehlt = QtCore.Signal(object)  # Ansicht oder None (alle PMI)
     merken = QtCore.Signal()  # aktuelle Kamera als eigene Ansicht
     entfernen = QtCore.Signal(object)  # eigene Ansicht loeschen
+    vorschau_geaendert = QtCore.Signal(str)  # "klein", "gross", "aus"
+
+    VORSCHAU = {"klein": QtCore.QSize(40, 28), "gross": QtCore.QSize(96, 64), "aus": QtCore.QSize(0, 0)}
+    VORSCHAU_TEXT = (("klein", "Vorschaubilder klein"), ("gross", "Vorschaubilder groß"), ("aus", "Ohne Vorschaubilder"))
 
     def __init__(self, parent=None):
         super().__init__(parent)
@@ -514,7 +529,8 @@ class AnsichtenPanel(QtWidgets.QWidget):
         self.suche.textChanged.connect(self._filtern)
         lay.addWidget(self.suche)
         self.liste = QtWidgets.QListWidget()
-        self.liste.setIconSize(QtCore.QSize(96, 64))
+        self.vorschau = "klein"
+        self.liste.setIconSize(self.VORSCHAU[self.vorschau])
         lay.addWidget(self.liste)
         reihe = QtWidgets.QHBoxLayout()
         self.zurueck = QtWidgets.QPushButton("◀")
@@ -566,18 +582,33 @@ class AnsichtenPanel(QtWidgets.QWidget):
         self.liste.setCurrentRow(0)
         self.liste.blockSignals(False)
 
+    def setze_vorschaugroesse(self, groesse: str):
+        """Groesse der Vorschaubilder: klein (Standard), gross oder aus."""
+        self.vorschau = groesse if groesse in self.VORSCHAU else "klein"
+        self.liste.setIconSize(self.VORSCHAU[self.vorschau])
+
     def _menue(self, pos):
         it = self.liste.itemAt(pos)
         z = self.liste.row(it) if it is not None else -1
-        if z <= 0 or not self.ansichten[z - 1].eigen:
-            return
         m = QtWidgets.QMenu(self)
-        a_name = m.addAction(tr("Umbenennen"))
-        a_weg = m.addAction(tr("Löschen"))
+        a_name = a_weg = None
+        if z > 0 and self.ansichten[z - 1].eigen:
+            a_name = m.addAction(tr("Umbenennen"))
+            a_weg = m.addAction(tr("Löschen"))
+            m.addSeparator()
+        groessen = {}
+        for k, text in self.VORSCHAU_TEXT:
+            a = m.addAction(tr(text))
+            a.setCheckable(True)
+            a.setChecked(k == self.vorschau)
+            groessen[a] = k
         gewaehlt = m.exec(self.liste.viewport().mapToGlobal(pos))
-        if gewaehlt is a_name:
+        if gewaehlt in groessen:
+            self.setze_vorschaugroesse(groessen[gewaehlt])
+            self.vorschau_geaendert.emit(self.vorschau)
+        elif gewaehlt is not None and gewaehlt is a_name:
             self.liste.editItem(it)
-        elif gewaehlt is a_weg:
+        elif gewaehlt is not None and gewaehlt is a_weg:
             self.entfernen.emit(self.ansichten[z - 1])
 
     def _umbenannt(self, it):

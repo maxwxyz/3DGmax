@@ -23,7 +23,16 @@ kern/pmi_ableiten.py, marked "≈ derived"); PRC model edges from the tessellati
 edges from the tessellation wire indices"). PLAN §8.17 records the STEP AP242 XML research (structure/PDM model with
 external geometry, no free samples – deferred). Then: per-instance status colors in comparison, tolerance zones
 stage 2 (§8.5: patterns, Ⓜ/Ⓛ bonus, surface space, Ⓟ, UZ, size envelopes, general tolerances ISO 2768/22081,
-scope selection/faces/all), plans §8.20 (3D tolerance analysis) and §8.21 (clash/band/intersection, DOF).
+scope selection/faces/all, median plane, spherical zone, context menus), focus mode (Shift+T), plans §8.20 (3D
+tolerance analysis) and §8.21 (clash/band/intersection, DOF). Then: new manual DE/EN with generated screenshots
+(`packaging/doc_screenshots.py` under Xvfb, `programm/doc_img/`, F1 opens it in the browser), scan against PMI
+tolerances (§8.23, `kern/scanpruefung.py`, Tools menu), new test data (`werkzeuge/testmodelle.py`: PMI-only,
+small-geometry and combined variants of CTC-01, two generated scans as PLY), more robust best fit for nearly
+symmetric parts, plane zones with the real face boundary, small thumbnails, PDF PMI columns as in the list, lazy
+scipy import (window set-up 0.6 → 0.2 s) and `--startzeit`. PLAN §8.22 records the requested plausibility check.
+Semantic GD&T cannot be written from Python (pythonocc 8.0: XCAFDoc_GeomTolerance not wrapped, writing new-style
+dimensions segfaults, the legacy DimTol path loses the faces) – PMI test variants are therefore text edits of the
+public-domain NIST STEP files.
 
 **Visual check in the cloud:** Xvfb + Mesa are available (`xvfb-run -a -s "-screen 0 1600x1000x24" ...`, then
 `View.Dump`), so real 3D renders were checked for PRC (model, markups, edges), QIF graphics, generated PMI, section
@@ -75,19 +84,23 @@ planes and the view cube, and `DG_BILDSCHIRM=1 pytest tests/test_bildschirm.py` 
 Details: `docs/Roadmap.md`; future topics: PLAN.md §8 (8.5 tolerance zones, 8.6 annotating, 8.8 stack-up,
 8.10 PMI editing/advisor, 8.11 CATIA, 8.15 PRC/3D PDF, 8.16 generated PMI, 8.17 open formats, 8.18 PMI as semantics or
 graphics only, 8.19 QIF graphics, 8.20 3D tolerance analysis,
-8.21 clash/band/intersection analysis).
+8.21 clash/band/intersection analysis, 8.22 plausibility check, 8.23 scan against PMI tolerances).
 
 ## Next (in this order)
 1. Visual check of the cloud work on the Mac (see return handoff above).
 2. Tolerance zones: check stage 2 on the real screen; then zones placed by the datum system (PLAN §8.5 open
-   points) and a sample file with an unequal zone (UZ) to verify the displacement interpretation.
-3. Start-up time: measure on the real machines first (Python part is ~0.9 s on Linux; 3D init, Defender/Gatekeeper
-   and the PyInstaller folder unknown), then lazy imports (scipy) and an early splash.
-4. 3D tolerance analysis with assemblies, materials, temperature and wiggle (PLAN §8.20, large).
+   points: datum shift with Ⓜ/Ⓛ, form/orientation inside the location zone, coaxiality/runout around the datum
+   axis) and a sample file with an unequal zone (UZ) to verify the displacement interpretation.
+3. Plausibility check of the specification (PLAN §8.22) – builds on Check PMI and the zone logic.
+4. Start-up time: run `3DGmax --startzeit` on Windows/macOS (phases in the status bar and
+   `<temp>/3DGmax-startzeit.txt`); Python part is now ~0.5 s on Linux; next candidates: early splash, OCCT viewer
+   creation, PyInstaller folder size (Defender/Gatekeeper scan on first start).
+5. Scan check stage 2 (§8.23 open points: manual / 3-2-1 alignment, report PDF, distances/angles).
+6. 3D tolerance analysis with assemblies, materials, temperature and wiggle (PLAN §8.20, large).
    Clash, band and intersection analysis, DOF wiggle (PLAN §8.21; stages 1–4 can come before §8.20).
-5. Hatched section views; change list entries per instance.
-6. STEP-XML (§8.17, needs sample files) and further open formats; PRC compressed tessellation and B-rep.
-7. Step 7 JT via TKJT (GPL v2+, build option).
+7. Hatched section views; change list entries per instance.
+8. STEP-XML (§8.17, needs sample files) and further open formats; PRC compressed tessellation and B-rep.
+9. Step 7 JT via TKJT (GPL v2+, build option).
 
 ## Environment and commands
 ```bash

@@ -145,10 +145,26 @@ class PdfBericht:
 PMI_SPALTEN = [("Nr", 0.05), ("Art", 0.10), ("Name", 0.25), ("Wert", 0.37), ("Bezüge", 0.13), ("Flächen", 0.10)]
 
 
+# Breitengewichte der PMI-Spalten im PDF (nicht genannte: 1)
+PMI_GEWICHT = {"Nr": 0.5, "Ballon": 0.6, "Flächen": 0.6, "Art": 0.9, "Merkmal": 1.4, "Name": 2.0, "Wert": 3.0,
+               "Bezüge": 1.1, "Ansichten": 1.4, "Modifikatoren": 1.4, "Semantisch": 0.8}
+
+
 def _pmi_zeilen(pmi_liste):
     from .panels import ART_TEXT
     return [[str(p.nummer), tr(ART_TEXT.get(p.art, p.art)), p.name, p.wert_text(), p.bezug_text(), str(len(p.flaechen))]
             for p in pmi_liste]
+
+
+def pmi_tabelle(fenster, pmi_liste) -> tuple[list[tuple[str, float]], list[list[str]]]:
+    """Spalten wie in der PMI-Liste sichtbar (Reihenfolge, Auswahl); ohne Liste die Standardspalten."""
+    panel = getattr(fenster, "pmi", None)
+    if panel is None or not hasattr(panel, "sichtbare_spalten"):
+        return [(tr(t), w) for t, w in PMI_SPALTEN], _pmi_zeilen(pmi_liste)
+    spalten = panel.sichtbare_spalten() or ["Nr", "Wert"]
+    gewichte = [PMI_GEWICHT.get(s, 1.0) for s in spalten]
+    summe = sum(gewichte)
+    return [(tr(s), g / summe) for s, g in zip(spalten, gewichte)], panel.zeilen(pmi_liste, spalten)
 
 
 def _warte():
@@ -201,7 +217,7 @@ def _ansichten_seiten(fenster, bericht, ansichten, modell, nach_nr, erg):
         bericht.absatz(tr("Modell: {} · Ansicht {} von {} · {} von {} PMI").format(
             modell, i + 1, len(ansichten), len(a.pmi_nummern), len(erg.pmi)))
         bericht.bild(fenster.ansicht.bild_qimage(), 0.58)
-        bericht.tabelle([(tr(t), w) for t, w in PMI_SPALTEN], _pmi_zeilen([nach_nr[n] for n in a.pmi_nummern]))
+        bericht.tabelle(*pmi_tabelle(fenster, [nach_nr[n] for n in a.pmi_nummern]))
 
 
 AENDERUNG_SPALTEN = [("Nr", 0.05), ("Art", 0.09), ("Änderung", 0.34), ("Beschreibung", 0.30), ("Prüfstatus", 0.09),

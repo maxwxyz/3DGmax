@@ -110,6 +110,18 @@ def test_anleitung_enthaelt_alle_menuebefehle(fenster):
     assert len(befehle) > 30
     for _pfad, befehl, _k, _t in befehle:
         assert befehl in text
+    # Bilder der Anleitungen liegen vor (packaging/doc_screenshots.py erzeugt sie)
+    import re
+    for name in ("Anleitung.html", "Manual.html"):
+        with open(os.path.join(WURZEL, "programm", name), encoding="utf-8") as d:
+            bilder = re.findall(r'<img src="([^"]+)"', d.read())
+        assert len(bilder) >= 12, name
+        for b in bilder:
+            assert os.path.isfile(os.path.join(WURZEL, "programm", b)), b
+    from programm.ui.hilfe import anleitung_datei
+    with open(anleitung_datei(fenster), encoding="utf-8") as d:
+        datei = d.read()
+    assert "<base href=" in datei and MARKE not in datei
 
 
 def test_uebersetzung_vollstaendig():
@@ -675,3 +687,46 @@ def test_fokusmodus(fenster_ctc01):
     f.aktionen["fokus"].setChecked(False)
     f._fokus_umschalten()
     assert not f.ansicht.fokus_aktiv()
+
+
+def test_pdf_spalten_wie_pmi_liste(fenster_ctc01):
+    """Die PMI-Tabelle im PDF uebernimmt die sichtbaren Spalten und ihre Reihenfolge aus der Liste."""
+    from programm.ui.berichte import pmi_tabelle
+    f = fenster_ctc01
+    kopf = f.pmi.tabelle.horizontalHeader()
+    spalten = list(f.pmi.SPALTEN)
+    kopf.setSectionHidden(spalten.index("Toleranzwert"), False)
+    kopf.setSectionHidden(spalten.index("Name"), True)
+    kopf.moveSection(kopf.visualIndex(spalten.index("Wert")), 0)
+    titel, zeilen = pmi_tabelle(f, f.erg.pmi[:3])
+    namen = f.pmi.sichtbare_spalten()
+    assert namen[0] == "Wert" and "Toleranzwert" in namen and "Name" not in namen
+    assert len(titel) == len(namen) and abs(sum(w for _, w in titel) - 1.0) < 1e-9
+    assert zeilen[0][0] == f.erg.pmi[0].wert_text()
+
+
+def test_vorschaubilder_klein(fenster):
+    f = fenster
+    assert f.ansichten.vorschau == "klein" and f.ansichten.liste.iconSize().width() <= 48
+    f.ansichten.setze_vorschaugroesse("gross")
+    assert f.ansichten.liste.iconSize().width() == 96
+    f.ansichten.setze_vorschaugroesse("aus")
+    assert f.ansichten.liste.iconSize().width() == 0
+    f.ansichten.setze_vorschaugroesse("klein")
+
+
+def test_scanpruefung_im_fenster(fenster_ctc01):
+    """Scan (Netz mit Rauschen, verschoben, Ebenheit verletzt) gegen die PMI: Ergebnisliste, Farbkarte ueber CAD."""
+    from programm.kern import scanpruefung as sp
+    from tests.conftest import pfad
+    f = fenster_ctc01
+    f.pruefe_scan(pfad("varianten/ctc01_scan_fehler.ply"), warten=True)
+    assert f.ansicht.abweichung is not None and f.ansicht.abweichung_ueberlagert
+    nach_typ = {e.pmi.typ: e.status for e in f.scan.ergebnisse}
+    assert nach_typ["Flatness"] == sp.NOK and nach_typ["Perpendicularity"] == sp.OK
+    zeile = next(i for i, e in enumerate(f.scan.ergebnisse) if e.pmi.typ == "Flatness")
+    f.scan.tabelle.selectRow(zeile)
+    assert [p.typ for p in f.pmi.gewaehlte()] == ["Flatness"]
+    assert "Flatness" not in f.scan.als_csv() and ";" in f.scan.als_csv()
+    f.scan_aus()
+    assert f.ansicht.abweichung is None and not f.dock_scan.isVisible()

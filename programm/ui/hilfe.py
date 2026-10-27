@@ -74,6 +74,29 @@ def anleitung_html(fenster) -> str:
     return text.replace(MARKE, menue_html(fenster))
 
 
+def anleitung_datei(fenster) -> str:
+    """Anleitung mit Menuereferenz als Datei im Temp-Ordner (Bilder ueber <base> aus dem Programmordner)."""
+    import tempfile
+    ordner = os.path.join(tempfile.gettempdir(), "3DGmax-Anleitung")
+    os.makedirs(ordner, exist_ok=True)
+    basis = QtCore.QUrl.fromLocalFile(i18n.HIER + os.sep).toString()
+    text = anleitung_html(fenster).replace("<head>", f'<head>\n<base href="{basis}">', 1)
+    pfad = os.path.join(ordner, i18n.anleitung())
+    with open(pfad, "w", encoding="utf-8") as f:
+        f.write(text)
+    return pfad
+
+
+def zeige_anleitung(fenster):
+    """Im Browser (Seitenleiste, Bilder zum Vergroessern); ohne Browser im eigenen Fenster."""
+    try:
+        if QtGui.QDesktopServices.openUrl(QtCore.QUrl.fromLocalFile(anleitung_datei(fenster))):
+            return None
+    except OSError:
+        pass
+    return HilfeFenster.zeige(fenster)
+
+
 class HilfeFenster(QtWidgets.QDialog):
     _offen = None
 
@@ -84,6 +107,7 @@ class HilfeFenster(QtWidgets.QDialog):
         lay = QtWidgets.QVBoxLayout(self)
         self.browser = QtWidgets.QTextBrowser()
         self.browser.setOpenExternalLinks(True)
+        self.browser.setSearchPaths([i18n.HIER])  # Bilder doc_img/...
         self.browser.setHtml(anleitung_html(fenster))
         lay.addWidget(self.browser)
 

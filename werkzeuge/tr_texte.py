@@ -44,6 +44,9 @@ def tr_texte() -> set[str]:
                                        "gleiche Lage", "Bestpassung", "Punktpaare",
                                        "Geometrie geändert", "Geometrie neu", "Geometrie entfernt"}
     out |= set(messwerkzeug.ART_TEXT.values())
+    from programm.ui import scan_ui
+    out |= set(scan_ui.STATUS_TEXT.values()) | set(scan_ui.ScanPanel.SPALTEN) | {"Netze"}
+    out |= {t for _, t in panels.AnsichtenPanel.VORSCHAU_TEXT}
     from programm.kern import messen
     out |= set(messen.WOERTER)
     import re

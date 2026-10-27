@@ -1,118 +1,298 @@
-<!doctype html>
-<html lang="en"><head><meta charset="utf-8"><title>3DGmax – Manual</title>
-<style>body{font-family:sans-serif;line-height:1.45;margin:16px}table{border-collapse:collapse}td,th{border-bottom:1px solid #ccc;padding:3px 8px;text-align:left;vertical-align:top}kbd{border:1px solid #999;border-radius:3px;padding:0 4px}</style>
-</head><body>
-<h1>3DGmax – Manual</h1>
-<p>3DGmax displays 3D models with PMI (dimensions, tolerances, datums) from STEP files (AP242). PMI is read
-semantically, i.e. as evaluable values – not just as a picture. Two revisions can be compared and reviewed in geometry and PMI.</p>
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>3DGmax Manual</title>
+<style>
+  :root{--fg:#1f2937;--muted:#6b7280;--bg:#ffffff;--accent:#2563eb;--line:#d6dbe3;--th:#f0f4f8;--code:#eef2ff;
+        --tip-bg:#fff8e1;--tip-line:#f5a623;--quick-bg:#eef6ff;--quick-line:#b9d7f5;--kbd:#f3f4f6}
+  @media (prefers-color-scheme: dark){
+    :root{--fg:#e5e7eb;--muted:#9ca3af;--bg:#1c1f24;--accent:#60a5fa;--line:#3a4049;--th:#262a31;--code:#262a31;
+          --tip-bg:#3a3114;--tip-line:#d4a017;--quick-bg:#1e2b42;--quick-line:#34507f;--kbd:#2d323a}}
+  body{font-family:-apple-system,"Segoe UI",Helvetica,Arial,sans-serif;max-width:920px;margin:2rem auto;padding:0 1rem;
+       line-height:1.6;color:var(--fg);background:var(--bg)}
+  h1{border-bottom:3px solid var(--accent);padding-bottom:.3rem}
+  h2{margin-top:2.4rem;color:var(--accent)}
+  h3{margin-top:1.4rem}
+  code{background:var(--code);padding:1px 5px;border-radius:3px}
+  table{border-collapse:collapse;width:100%;margin:.6rem 0}
+  th,td{border:1px solid var(--line);padding:.4rem .6rem;text-align:left;vertical-align:top}
+  th{background:var(--th)}
+  .sw{display:inline-block;width:1em;height:1em;border:1px solid #888;vertical-align:middle;margin-right:.3em}
+  .tip{background:var(--tip-bg);border-left:4px solid var(--tip-line);padding:.6rem 1rem;margin:1rem 0}
+  .quick{background:var(--quick-bg);border:1px solid var(--quick-line);border-radius:10px;padding:.2rem 1.2rem 1rem;margin:1rem 0}
+  .quick h2{margin-top:.8rem}
+  kbd{background:var(--kbd);border:1px solid var(--line);border-bottom-width:2px;border-radius:4px;padding:0 5px;font-size:.9em}
+  nav{columns:3;font-size:.95em} nav a{display:block}
+  a{color:var(--accent)}
+  .muted{color:var(--muted)}
+  figure{margin:1.2rem 0}
+  figure a{display:block}
+  figure img{max-width:100%;border:1px solid var(--line);border-radius:10px;box-shadow:0 3px 14px rgba(0,0,0,.10);cursor:zoom-in}
+  figcaption{color:var(--muted);font-size:.9em;margin-top:.35rem}
+  .lang{display:inline-flex;border:1px solid var(--line);border-radius:999px;overflow:hidden;font-size:.85em;margin:.2rem 0 .8rem}
+  .lang a,.lang span{padding:.2rem .8rem;text-decoration:none}
+  .lang span{background:var(--accent);color:#fff}
+  nav#toc .head{font-weight:700;margin-bottom:.2rem}
+  @media (min-width:1150px){
+    body{margin:2rem 2rem 4rem 310px}
+    nav#toc{position:fixed;top:0;left:0;bottom:0;width:270px;overflow-y:auto;columns:auto;padding:1.2rem .8rem;
+            border-right:1px solid var(--line);background:var(--th);box-sizing:border-box}
+    nav#toc a{padding:.22rem .6rem;border-radius:6px;text-decoration:none;color:var(--fg);line-height:1.35;margin:1px 0}
+    nav#toc a:hover{background:var(--line)}
+  }
+</style>
+</head>
+<body>
 
-<h2>Open a model</h2>
+<h1>3DGmax – Manual</h1>
+<p><b>3DGmax</b> shows 3D models with their PMI (dimensions, geometric tolerances, datums, notes). The PMI are read
+<b>semantically</b> – as values that can be evaluated, not only as pictures. This lets you show tolerance zones, measure,
+compare two states in geometry and PMI, and document reviews.
+<span class="muted">Deutsch: <a href="Anleitung.html">Anleitung</a>.</span></p>
+<p class="muted">Shortcuts: <kbd>Ctrl</kbd> means <kbd>⌘</kbd> on the Mac. Single keys such as <kbd>F</kbd> or
+<kbd>G</kbd> work when the 3D view has the focus (click into it once).</p>
+
+<nav id="toc">
+<div class="head">3DGmax – Contents</div>
+<div class="lang"><a href="Anleitung.html">Deutsch</a><span>English</span></div>
+<a href="#quick">Quick start</a><a href="#open">Opening models, formats</a><a href="#window">The window</a>
+<a href="#move">Navigation and views</a><a href="#pmi">PMI</a><a href="#views">Saved views</a>
+<a href="#display">Structure and display</a><a href="#section">Section</a><a href="#measure">Measuring</a>
+<a href="#zones">Tolerance zones</a><a href="#analysis">Analysis, tolerance stack-up, creating PMI</a>
+<a href="#comments">Comments</a><a href="#compare">Comparing two states</a><a href="#review">Reviewing changes</a>
+<a href="#scan">Meshes and scans</a><a href="#export">Export and drawings</a><a href="#project">Project</a>
+<a href="#settings">Settings</a><a href="#menue">All menu commands</a><a href="#faq">Questions</a>
+</nav>
+
+<div class="quick">
+<h2 id="quick">Quick start</h2>
+<ol>
+  <li><b>Open:</b> drag a STEP file into the window or use <b>File › Open</b> (<kbd>Ctrl</kbd>+<kbd>O</kbd>).</li>
+  <li><b>Navigate:</b> drag with the middle button to pan, middle + left button to rotate, the wheel zooms
+      (CATIA style, can be changed). <kbd>F</kbd> fits all, <kbd>1</kbd>–<kbd>7</kbd> are the standard views.</li>
+  <li><b>Look at PMI:</b> click a PMI in the list on the right – its faces and datum system light up in the model.
+      Clicking a face shows its PMI.</li>
+  <li><b>Compare:</b> <b>File › Compare</b>, choose the old and the new state. Yellow = changed, green = new,
+      red = removed; the <b>Changes</b> list leads through all differences.</li>
+  <li><b>Help:</b> <kbd>F1</kbd> opens this manual, <b>Help › Introduction</b> the short introduction.</li>
+</ol>
+</div>
+
+<h2 id="open">Opening models, formats</h2>
+<figure><a href="doc_img/en/start.png"><img src="doc_img/en/start.png" alt="Start page: open a file or drop it here." loading="lazy"></a>
+<figcaption>Start page: open a file or drop it into the window; recent files are under File.</figcaption></figure>
 <ul>
-<li><b>File › Open</b> (<kbd>Ctrl</kbd>+<kbd>O</kbd>) or drag a file into the window. Supported: STEP AP242, AP214, AP203 (.stp, .step).</li>
-<li><b>File › Recent files</b> and the start page list the last files.</li>
-<li>Loading runs in the background; <b>Cancel</b> in the status bar discards the result.</li>
+<li><b>File › Open</b>, drag and drop, or double-click an associated file. Loading runs in the background,
+    <b>Cancel</b> in the status bar discards it.</li>
+<li><b>With PMI:</b> STEP AP242 (also AP214/AP203 without PMI), STEPZ (zipped), QIF 3.0, 3D PDF/PRC (graphical PMI).</li>
+<li><b>Geometry only:</b> IGES; meshes STL, OBJ, glTF/GLB, 3MF, PLY (e.g. scans) – view, measure, analyse and compare
+    against CAD.</li>
+<li>If a file holds only the <b>graphics</b> of a PMI (no semantics), 3DGmax derives kind and values from the text or the
+    markup type; such entries are marked <b>≈</b> (“derived from the graphics – please check”).</li>
 </ul>
 
-<h2>Navigate (always available)</h2>
+<h2 id="window">The window</h2>
+<figure><a href="doc_img/en/modell.png"><img src="doc_img/en/modell.png" alt="Model with PMI, structure and saved views on the left, PMI list on the right." loading="lazy"></a>
+<figcaption>Structure and saved views on the left, the 3D view with the view cube in the middle, the PMI list on the right;
+quick measure of the selection at the bottom right.</figcaption></figure>
+<ul>
+<li><b>Structure</b>: assembly and parts; check boxes show and hide, right-click: isolate, show all, transparent.</li>
+<li><b>Saved views</b>: views from the file with thumbnails; <b>＋ Remember</b> stores your own.</li>
+<li><b>PMI</b>: all characteristics with kind, characteristic, name, value, datums, faces and views; columns can be moved
+    and shown/hidden (right-click the header).</li>
+<li><b>Quick measure</b> (right of the status bar): length, ⌀/R, area, distance, angle of the selection; right-click chooses the values.</li>
+<li>All panels can be shown and hidden under <b>Window</b> and arranged freely; the layout is remembered.</li>
+</ul>
+
+<h2 id="move">Navigation and views</h2>
 <p>The default is <b>CATIA</b>-style navigation. <b>File › Settings</b> switches to <b>Classic</b>.</p>
 <table>
-<tr><th>Action</th><th>CATIA (default)</th><th>Classic</th><th>Trackpad (both)</th></tr>
-<tr><td>Pan</td><td>drag with middle button</td><td>drag with middle or right button, <kbd>Shift</kbd> + left</td><td>two fingers</td></tr>
-<tr><td>Rotate</td><td>hold middle + hold left or right button, drag</td><td>drag with left button</td><td><kbd>⌥</kbd>/<kbd>Alt</kbd> + two fingers</td></tr>
-<tr><td>Zoom</td><td>hold middle, click left/right once, drag up/down; mouse wheel</td><td>mouse wheel (towards the cursor)</td><td>pinch</td></tr>
-<tr><td>Centre</td><td>click middle button: point becomes view centre</td><td>double-click on the model (empty space = centre)</td><td></td></tr>
-<tr><td>Select</td><td colspan="2">click left button</td><td>tap</td></tr>
-<tr><td>Create PMI</td><td colspan="3">select faces, Model › Create PMI: check, adjust and use the tolerancing advisor suggestions (own PMI, saved in the project)</td></tr>
-<tr><td>Tolerance stack-up</td><td colspan="3">Model › Tolerance stack-up: add selected dimensions with + or −; closing dimension by worst case, statistical (RSS) and Monte Carlo</td></tr>
-<tr><td>Tolerance zone</td><td colspan="3">PMI context menu or View › Show tolerance zone: zones of the selected tolerances or of the PMI on the selected faces; View › Show all tolerance zones. Colors: yellow zone, magenta bonus with Ⓜ/Ⓛ, turquoise space the surface may occupy (size + location), violet general tolerances (View › General tolerances …: ISO 2768, ISO 22081). Narrow zones are exaggerated, the part becomes translucent.</td></tr>
-<tr><td>Comments</td><td colspan="3"><kbd>K</kbd> on selected faces or PMI: comment, question, change proposal; list with open/done, saved in the project, export CSV/PDF</td></tr>
-<tr><td>Drawing</td><td colspan="3">File › Export: standard views (projection method by standard), current view or saved views as PDF, SVG, DXF – hidden edges dashed, PMI optional</td></tr>
-<tr><td>PMI search</td><td colspan="3">free text or targeted: <code>datum:A</code>, <code>value:0.5</code>, <code>type:position</code>, <code>kind:tolerance</code>, <code>view:MBD_A</code>, <code>balloon:3</code></td></tr>
-<tr><td>Formats</td><td colspan="3">STEP with PMI, IGES, and meshes STL, OBJ, glTF/GLB, 3MF (view, measure, analyze, compare against CAD)</td></tr>
-<tr><td>Pivot</td><td colspan="3">middle-button click: point to the view center, it stays the pivot while zooming and panning (cross while orbiting); <kbd>F</kbd> or a standard view resets it</td></tr>
-<tr><td>Standard</td><td colspan="3">Model › Standard: ASME Y14.5 or ISO GPS, detected from the file (without a hint ISO GPS); controls terms, check rules and the envelope note</td></tr>
-<tr><td>Bill of characteristics</td><td colspan="3"><kbd>B</kbd> shows balloon numbers of the characteristics (dimensions, geometric tolerances); export as CSV/PDF under File › Export</td></tr>
-<tr><td>Exploded view, parts list</td><td colspan="3"><kbd>X</kbd> pulls assemblies apart (slider in the toolbar); Model › Parts list combines equal parts with quantity, volume and mass</td></tr>
-<tr><td>Analysis</td><td colspan="3">Model › Analysis: draft angle (pull direction, minimum angle), curvature radius, wall thickness as a color map; click shows the value</td></tr>
-<tr><td>Quick measure</td><td colspan="3">bottom right in the status bar: values of the selection (length, ⌀/R, area, distance, angle, axis distance, PMI); right-click chooses the items</td></tr>
-<tr><td>Model properties</td><td colspan="3"><kbd>Ctrl</kbd>+<kbd>I</kbd>: volume, mass (adjustable density), center of gravity, size, file header – for selected parts or the whole model</td></tr>
-<tr><td>View cube</td><td colspan="3">top right in the 3D view: click a face, edge or corner to align the camera, drag to rotate</td></tr>
-<tr><td>Standard views</td><td colspan="3">keys <kbd>1</kbd>–<kbd>7</kbd> (front, back, top, bottom, left, right, iso), <kbd>F</kbd> fits all</td></tr>
+<tr><th>Action</th><th>CATIA (default)</th><th>Classic</th><th>Trackpad</th></tr>
+<tr><td>Pan</td><td>drag with the middle button</td><td>drag with the middle or right button, <kbd>Shift</kbd> + left</td><td>two fingers</td></tr>
+<tr><td>Rotate</td><td>hold middle + left or right button, drag</td><td>drag with the left button</td><td><kbd>⌥</kbd>/<kbd>Alt</kbd> + two fingers</td></tr>
+<tr><td>Zoom</td><td>wheel; or hold middle, click left/right once, drag up/down</td><td>wheel (towards the cursor)</td><td>pinch</td></tr>
+<tr><td>Pivot</td><td>click the middle button: the point becomes view centre and pivot</td><td>double-click the model</td><td></td></tr>
+<tr><td>Select</td><td colspan="2">left button; <kbd>Ctrl</kbd>/<kbd>Shift</kbd> for several faces and edges</td><td>tap</td></tr>
 </table>
-
-<h2>PMI</h2>
 <ul>
-<li>The <b>PMI list</b> (right) shows all dimensions, geometric tolerances and datums with value, tolerance, datum
-reference frame (e.g. <code>⌖ | ⌀0.75 | A | B | C</code>) and the number of associated faces. Filter by type and
-search (<kbd>Ctrl</kbd>+<kbd>F</kbd>) narrow the list.</li>
-<li><b>Click a PMI</b> to highlight its faces and its annotation in the model in orange.</li>
-<li><b>Click a face</b> to select all PMI of that face in the list; clicking an annotation selects its PMI.</li>
-<li>Basic dimensions are shown in square brackets <code>[75]</code>, reference dimensions in parentheses <code>(75)</code>.</li>
-<li><b>Show graphical PMI</b> (<kbd>G</kbd>) toggles the annotations in the model. If the file has no ready-made
-graphics, 3DGmax writes the text from the semantics.</li>
+<li><b>View cube</b> top right: click a face, edge or corner to align the camera, drag to rotate.</li>
+<li><kbd>1</kbd>–<kbd>7</kbd>: front, back, top, bottom, left, right, isometric; <kbd>F</kbd> fit all,
+    <kbd>Z</kbd> zoom to selection, <kbd>N</kbd> look normal to the selection, <kbd>U</kbd> flip,
+    <kbd>P</kbd> perspective, <kbd>Alt</kbd>+<kbd>←</kbd>/<kbd>→</kbd> view back/forward.</li>
 </ul>
 
-<h2>Saved views</h2>
-<p>The list at the bottom left shows the views stored in the model. A view sets the camera and shows only the PMI of
-that view (also in the list). “(No view – all PMI)” removes the filter.</p>
-
-<h2>Structure, display, section</h2>
+<h2 id="pmi">PMI</h2>
+<figure><a href="doc_img/en/pmi.png"><img src="doc_img/en/pmi.png" alt="Selected position tolerance: faces and annotation orange, datums coloured." loading="lazy"></a>
+<figcaption>Selected position tolerance: its faces and annotation in orange, the datum system coloured
+(red 1st, green 2nd, blue 3rd datum).</figcaption></figure>
 <ul>
-<li>Check boxes in the structure show and hide parts; right-click: <b>Isolate</b>, <b>Show all</b>, <b>Transparent</b>.</li>
-<li>Display: <b>Shaded with edges</b> (<kbd>E</kbd>), <b>Shaded</b> (<kbd>S</kbd>), <b>Wireframe</b> (<kbd>W</kbd>).</li>
-<li><b>Section</b>: plane normal to X, Y or Z; the slider moves it, the cut face is filled in orange.</li>
-<li><b>Show auxiliary geometry</b>: points and lines without faces (e.g. construction geometry) are hidden otherwise.</li>
-<li><b>PMI color</b>: By default annotations are shown in a well readable color for the light or dark scheme. Can be switched off under <b>File › Settings</b> – then the file colors apply (CATIA e.g. white).</li>
-<li><b>View › Color scheme</b>: light, dark or like the system. <b>View › Language</b>: German/English (on next start).</li>
+<li><b>Clicking a PMI</b> highlights faces and annotation and shows the datum system; <b>clicking a face</b> selects all
+    PMI of that face; clicking an annotation selects its PMI.</li>
+<li><b>Search</b> (<kbd>Ctrl</kbd>+<kbd>F</kbd>): free text or <code>bezug:A</code>, <code>wert:0.5</code>,
+    <code>typ:position</code>, <code>art:toleranz</code>, <code>ansicht:MBD_A</code>, <code>ballon:3</code>.</li>
+<li>Right-click in the list: zoom, align, select datums, tolerances using this datum, show tolerance zone, show in view,
+    edit, copy.</li>
+<li><b>Show graphical PMI</b> (<kbd>G</kbd>) shows and hides the annotations, <kbd>Shift</kbd>+<kbd>G</kbd> shows only the
+    selected ones. If a file has semantics only, 3DGmax generates a display (violet, switch:
+    <b>View › Show generated PMI display</b>).</li>
+<li><b>Balloon numbers</b> (<kbd>B</kbd>) number the characteristics as in the bill of characteristics (export PDF/CSV).</li>
+<li><b>Standard</b> (Model › Standard): ASME Y14.5 or ISO GPS, detected automatically; it sets terms and checks.
+    <b>Model › Check PMI</b> finds e.g. missing datums, PMI without faces, or orientation tolerances without a datum.</li>
+<li>Basic dimensions are shown in square brackets <code>[75]</code>, reference dimensions in round ones <code>(75)</code>.</li>
 </ul>
 
-<h2>Measure</h2>
+<h2 id="views">Saved views</h2>
+<figure><a href="doc_img/en/ansicht.png"><img src="doc_img/en/ansicht.png" alt="Saved view with camera and the PMI of this view." loading="lazy"></a>
+<figcaption>A saved view sets the camera and shows only its PMI – in the list, too.</figcaption></figure>
+<p>◀ ▶ or <kbd>PgUp</kbd>/<kbd>PgDown</kbd> browse the views, “(No view – all PMI)” removes the filter. <b>＋ Remember</b>
+stores the current camera with the PMI and measurements shown as an own view (in the project and the PDF).
+Right-click in the list: thumbnails small (default), large or off.</p>
+
+<h2 id="display">Structure and display</h2>
+<figure><a href="doc_img/en/fokus.png"><img src="doc_img/en/fokus.png" alt="Focus: selection opaque, rest translucent." loading="lazy"></a>
+<figcaption>Highlight selection (<kbd>Shift</kbd>+<kbd>T</kbd>): the selected faces stay opaque, the rest becomes translucent.</figcaption></figure>
 <ul>
-<li><b>Tools › Measure</b> (<kbd>M</kbd>) opens the “Measure” panel. Choose a measurement, then click in the model;
-navigation keeps working. <kbd>Esc</kbd> ends measuring.</li>
-<li><b>Distance</b>: two elements (point, edge, face) – shortest distance with dX/dY/dZ.</li>
-<li><b>Angle</b>: two planes, axes (cylinder, cone, circle) or lines; the supplement to 180° is shown too.</li>
-<li><b>Radius / Ø</b>: circle, arc, cylinder, sphere, cone (reference radius), torus (minor radius).</li>
-<li><b>Wall thickness</b>: a spot on a face; measured perpendicular into the material up to the opposite face.</li>
-<li><b>Coordinates</b>: X, Y, Z of a point.</li>
-<li><b>Snap</b> (check box): close to end points, edge midpoints and circle centres the point snaps there.</li>
-<li>Results appear in the list and in the model; <b>Delete</b>, <b>Delete all</b>, <b>Copy</b> and <b>Save CSV</b>
-(semicolon, decimal comma).</li>
+<li>Display: <b>Shaded with edges</b> (<kbd>E</kbd>), <b>Shaded</b> (<kbd>S</kbd>), <b>Wireframe</b> (<kbd>W</kbd>; clicks also pick hidden edges).</li>
+<li><b>Highlight selection</b> (<kbd>Shift</kbd>+<kbd>T</kbd>, also in the context menu): everything except the selected
+    faces, PMI and parts (selection in the structure) becomes translucent.</li>
+<li>Parts: <kbd>H</kbd> hide selection, <kbd>I</kbd> isolate, <kbd>T</kbd> transparent, <kbd>Shift</kbd>+<kbd>H</kbd> show all.</li>
+<li><b>Explode</b> (<kbd>X</kbd>) pulls assemblies apart level by level (slider in the toolbar);
+    <b>Model › Parts list</b> groups equal parts with quantity, volume and mass.</li>
+<li><b>Model properties</b> (<kbd>Ctrl</kbd>+<kbd>I</kbd>): volume, mass (density adjustable), centre of gravity, size, file header.</li>
+<li><b>Show auxiliary geometry</b>: points and lines without faces, e.g. construction geometry.</li>
+</ul>
+<figure><a href="doc_img/en/explosion.png"><img src="doc_img/en/explosion.png" alt="Exploded view of an assembly." loading="lazy"></a>
+<figcaption>Explode (<kbd>X</kbd>): parts are pulled apart by assembly level.</figcaption></figure>
+
+<h2 id="section">Section</h2>
+<figure><a href="doc_img/en/schnitt.png"><img src="doc_img/en/schnitt.png" alt="Section normal to X with filled cut face and slider." loading="lazy"></a>
+<figcaption>Section X: the slider in the toolbar moves the plane, the cut face is filled.</figcaption></figure>
+<ul>
+<li><b>View › Section</b>: plane normal to X, Y, Z, at the selected face or edge, from the view direction, or a
+    <b>section box</b> around the selection.</li>
+<li><b>Keep section plane</b> collects up to three planes; normally everything behind any plane is cut away, with
+    <b>Cut away common region only</b> only the region behind all of them (e.g. a quarter section).</li>
+<li><b>Export section contour</b>: the section lines of all planes as SVG, DXF or PDF.</li>
 </ul>
 
-<h2>Compare two revisions</h2>
+<h2 id="measure">Measuring</h2>
+<figure><a href="doc_img/en/messen.png"><img src="doc_img/en/messen.png" alt="Measure panel with a radius measurement on a hole." loading="lazy"></a>
+<figcaption>Measure (<kbd>M</kbd>): choose the kind, then click in the model; results appear in the list and the model.</figcaption></figure>
 <ul>
-<li><b>File › Compare …</b> (<kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>V</kbd>): choose old and new revision, tolerance
-(up to here a face counts as equal) and search distance (up to here as changed, beyond as new/removed). Offset
-revisions are aligned automatically by best fit.</li>
-<li>The new revision is colored: grey equal, yellow changed, green new; removed faces of the old revision red.</li>
-<li>The <b>Changes</b> panel lists PMI and geometry changes numbered (old → new). A click jumps to the location.</li>
-<li><b>Start review</b> steps through; <b>Checked</b> (<kbd>G</kbd>) / <b>Rejected</b> (<kbd>A</kbd>) jump to the next
-open change, plus a comment.</li>
-<li><b>Finish review</b>: reviewer, result, remark → report (JSON and text) with SHA-256 checksum – not a qualified
-electronic signature.</li>
-<li><b>Compare folders</b>: all models of two folders pairwise (pairing by file name, revision suffix ignored),
-overview equal/changed/only old/only new; double-click opens the comparison.</li>
+<li><b>Distance</b> (two elements, with dX/dY/dZ), <b>Angle</b> (planes, axes, lines), <b>Radius/⌀</b>,
+    <b>Wall thickness</b> (normal into the material), <b>Coordinates</b>.</li>
+<li><b>Snapping</b> to end points, edge midpoints and circle centres; navigation keeps working, <kbd>Esc</kbd> ends measuring.</li>
+<li><b>Copy</b>, <b>Save CSV</b> and <b>File › Export › Measurement report (PDF)</b>.</li>
 </ul>
 
-<h2>Check and export</h2>
+<h2 id="zones">Tolerance zones</h2>
+<figure><a href="doc_img/en/toleranzzone.png"><img src="doc_img/en/toleranzzone.png" alt="Position tolerance with Ⓜ on a hole pattern: zone, bonus and surface space." loading="lazy"></a>
+<figcaption>Position tolerance ⌀1 Ⓜ on four holes: <span class="sw" style="background:#fad11a"></span>zone,
+<span class="sw" style="background:#e64dbf"></span>bonus at LMC, <span class="sw" style="background:#1ac7d9"></span>space the hole
+surface may occupy (size + location). The part becomes translucent meanwhile.</figcaption></figure>
+<p><b>View › Show tolerance zone</b> (or right-click a PMI or the model) shows where faces and axes may lie within the
+tolerance – for the selected PMI or, without a PMI selection, for the PMI on the selected faces.
+<b>Show all tolerance zones</b> shows all at once. Narrow zones are exaggerated (factor in the status bar).</p>
+<table>
+<tr><th>Tolerance</th><th>Display</th></tr>
+<tr><td>Position, coaxiality, orientation with ⌀</td><td>cylinder ⌀t around the nominal axis per hole/pin; with Ⓜ/Ⓛ also
+    the bonus zone; plus the space of the surface from size and location tolerance; Ⓟ: zone outside the feature</td></tr>
+<tr><td>Position S⌀</td><td>spherical zone around the sphere centre</td></tr>
+<tr><td>Symmetry, position or orientation of a slot/tab</td><td>two planes around the derived median plane</td></tr>
+<tr><td>Flatness, profile, orientation, runout, cylindricity …</td><td>two offset surfaces ±t/2; unequal zone (UZ/Ⓤ) shifted</td></tr>
+<tr><td>Dimensions ⌀/R</td><td>envelopes at maximum and minimum size</td></tr>
+</table>
+<p>The status bar explains each zone and states what the geometry does not show (e.g. “orientation zone: free in
+location”, “applies per cross-section”). <b>View › General tolerances …</b> adds ISO 2768-1/-2 or ISO 22081 for faces
+without their own specification (violet); if a note in the file states them, they are suggested.</p>
+<div class="tip">Zones are shown at the nominal location. Orientation and form zones may float in location; the datum
+shift with Ⓜ on a datum is not shown yet.</div>
+
+<h2 id="analysis">Analysis, tolerance stack-up, creating PMI</h2>
 <ul>
-<li><b>Model › Check PMI</b>: unused or missing datums, PMI without face or view, duplicates, orientation tolerance
-without datum and more; double-click selects the PMI.</li>
-<li><b>File › Export</b>: views as PDF (one page per saved view with image and PMI), comparison report (PDF, image per
-change), PMI changes (PDF) for suppliers, PMI and changes as CSV. Exports follow the selected language.</li>
-<li><b>File › Save project</b> (<kbd>Ctrl</kbd>+<kbd>S</kbd>): model or comparison with review status, comments and
-measurements as one <code>.3dgmax</code> file (to send); open via <b>File › Open</b>.</li>
+<li><b>Model › Analysis</b>: draft angle, curvature radius or wall thickness as a colour map; a click shows the value.</li>
+<li><b>Model › Tolerance stack-up</b>: add selected dimensions with + or −; closing dimension by worst case, statistically (RSS) and Monte Carlo.</li>
+<li><b>Model › Create PMI</b>: select faces, check, adjust and accept the suggestions of the tolerancing advisor
+    (own PMI, stored in the project). Existing PMI can be edited; the original values stay visible.</li>
 </ul>
 
-<h2>Images</h2>
-<p><b>File › Save image</b> saves the 3D view as PNG, <b>Copy image</b> (<kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>C</kbd>) copies it.</p>
+<h2 id="comments">Comments</h2>
+<p><kbd>K</kbd> on selected faces or PMI creates a comment, question or change request with a marker in the model. The
+<b>Comments</b> panel shows open/done; export as CSV or PDF, stored in the project.</p>
 
-<h2>Limits of this version</h2>
+<h2 id="compare">Comparing two states</h2>
+<figure><a href="doc_img/en/vergleich.png"><img src="doc_img/en/vergleich.png" alt="Comparison of two assembly states with the change list." loading="lazy"></a>
+<figcaption>Comparison: <span class="sw" style="background:#c8ccd2"></span>equal, <span class="sw" style="background:#f5b80d"></span>changed,
+<span class="sw" style="background:#26b34d"></span>new, <span class="sw" style="background:#e52626"></span>removed (translucent, from the old state).</figcaption></figure>
 <ul>
-<li>STEP only. JT, 3D PDF, QIF and other formats will follow. Deviation color map and graphical PMI comparison will follow.</li>
-<li>For parts used several times in an assembly, a PMI is highlighted on all occurrences.</li>
+<li><b>File › Compare</b> (<kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>V</kbd>): choose the old and new state,
+    <b>tolerance</b> (up to this a face counts as equal) and <b>search distance</b> (up to this changed, beyond new/removed).</li>
+<li>Shifted states are aligned automatically (best fit); <b>File › Manual alignment</b> uses point pairs.</li>
+<li>Detected: changed, new, removed, moved, rotated and mirrored elements; in assemblies changed, new, removed, moved and
+    renamed parts, parts used several times per instance.</li>
+<li><b>PMI</b> are matched by kind, type, common faces, value, datums and name and compared field by field (value,
+    deviations, zone, datums …); “geometry under PMI changed” reports equal PMI on changed geometry.</li>
+<li><b>Deviation colour map</b> shows the deviation per point (scale, tolerance limit, value on click);
+    <b>Material + / −</b> shows added and removed volume like CATIA.</li>
+<li><b>Compare folders</b>: all models of two folders in pairs with an overview.</li>
+</ul>
+<figure><a href="doc_img/en/farbkarte.png"><img src="doc_img/en/farbkarte.png" alt="Deviation colour map in a comparison." loading="lazy"></a>
+<figcaption>Deviation colour map: deviation of the new state from the old one per point.</figcaption></figure>
+
+<h2 id="review">Reviewing changes</h2>
+<figure><a href="doc_img/en/pruefen.png"><img src="doc_img/en/pruefen.png" alt="Review: selected change with description, Checked/Rejected." loading="lazy"></a>
+<figcaption>Start review: the first open change is selected; Checked/Rejected moves to the next one.</figcaption></figure>
+<ul>
+<li><b>Start review</b> leads step by step through the changes; <b>Checked</b> / <b>Rejected</b> with a comment.</li>
+<li><b>Finish review</b>: reviewer, result, remark → report with checksum (SHA-256), stored in the project.</li>
+<li>Reports: <b>File › Export › Comparison report (PDF)</b>, <b>PMI changes (PDF)</b>, <b>Changes (CSV)</b>.</li>
+</ul>
+
+<h2 id="scan">Meshes and scans</h2>
+<p>Meshes (STL, OBJ, PLY, glTF, 3MF) can be viewed and measured like CAD models and compared against a CAD model:
+alignment is automatic (best fit) or manual with point pairs, the colour map shows the deviation of the scan per point.</p>
+<p><b>Tools › Check scan against tolerances</b> (with a CAD model with PMI open): choose the scan – it is aligned
+automatically and fitted finely onto the exact faces. The colour map lies over the translucent CAD model, the
+<b>Scan check</b> panel evaluates every PMI: <span class="sw" style="background:#1f9d55"></span>OK,
+<span class="sw" style="background:#d6342c"></span>not OK, <span class="sw" style="background:#c98a00"></span>at the limit
+(within the measurement uncertainty), – not evaluable. Form tolerances are evaluated as range, profile and location
+within the zone, axes and diameters via a best-fit cylinder (with bonus for Ⓜ/Ⓛ). Clicking a row selects the PMI – with
+“Show tolerance zone” you see where the scan leaves the zone. Result as CSV.</p>
+<figure><a href="doc_img/en/scan.png"><img src="doc_img/en/scan.png" alt="Scan check: colour map of the scan over the CAD model, result per PMI." loading="lazy"></a>
+<figcaption>Scan check: the scan (colour map) lies over the translucent CAD model; the flatness is violated by a waviness
+(not OK), the stripes are visible on the face.</figcaption></figure>
+<div class="tip">The evaluation is an approximation for visual inspection, not a standard-conforming evaluation by measuring strategy.</div>
+
+<h2 id="export">Export and drawings</h2>
+<figure><a href="doc_img/en/zeichnung.png"><img src="doc_img/en/zeichnung.png" alt="Drawing with standard views and isometric view from the 3D model." loading="lazy"></a>
+<figcaption>Drawing: standard views (projection method by standard) and isometric view, hidden edges dashed, PMI optional.</figcaption></figure>
+<ul>
+<li><b>File › Export</b>: views as PDF (picture and PMI per view), bill of characteristics (PDF/CSV), measurement report,
+    comments, comparison report, PMI changes, PMI as CSV.</li>
+<li><b>Drawing</b>: standard views, current view or saved views as PDF, SVG or DXF; <b>PMI in drawings</b> adds the annotations.</li>
+<li><b>Save image</b> or <b>Copy image</b> (<kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>C</kbd>) for the 3D view.</li>
+</ul>
+
+<h2 id="project">Project</h2>
+<p><b>File › Save project</b> (<kbd>Ctrl</kbd>+<kbd>S</kbd>) stores the model or comparison with review state, comments,
+measurements, own PMI and views in one <code>.3dgmax</code> file – to pass on. Open it with <b>File › Open</b>.</p>
+
+<h2 id="settings">Settings</h2>
+<ul>
+<li><b>File › Settings</b>: mouse navigation (CATIA/Classic), background, PMI colour (readable default or colours from the file) and more.</li>
+<li><b>View › Color scheme</b>: light, dark or like the system; <b>View › Language</b>: German/English (at the next start).</li>
 </ul>
 
 <!--MENUEBEFEHLE-->
-</body></html>
+
+<h2 id="faq">Questions</h2>
+<p><b>Why don't I see any PMI?</b> The file has none (e.g. STEP AP214) or the selected saved view shows only some –
+choose “(No view – all PMI)”.</p>
+<p><b>What does ≈ in front of a PMI mean?</b> The file holds only graphics for it; kind and values were derived from them and should be checked.</p>
+<p><b>Why is a tolerance zone so thick?</b> Narrow zones are exaggerated for display; the factor is in the status bar.</p>
+<p><b>A part looks translucent.</b> Tolerance zones or “Highlight selection” are switched on (<b>View</b> menu).</p>
+<p class="muted">The pictures of this manual are made by <code>packaging/doc_screenshots.py</code> from the NIST test models.</p>
+</body>
+</html>

@@ -107,7 +107,15 @@
    "Vergleich: mehrfach verbaute Teile werden je Instanz eingefärbt; eine verschobene oder entfernte Instanz färbt die übrigen nicht mehr mit.",
    "Toleranzzonen erweitert: je Bohrung/Zapfen (auch Lochmuster) die Zone, bei Ⓜ/Ⓛ zusätzlich die Bonuszone, dazu der Raum, in dem die Fläche selbst liegen darf (Maß + Lage); projizierte Zone Ⓟ außerhalb des Elements; unsymmetrische Zone (UZ/Ⓤ); Hüllen bei Höchst- und Mindestmaß. Zonen für gewählte PMI, die PMI an gewählten Flächen oder alle auf einmal; Allgemeintoleranzen ISO 2768 / ISO 22081 wählbar. Das Bauteil wird dabei durchscheinend.",
    "Toleranzzonen auch im Kontextmenü (3D-Fenster und PMI-Liste, dort für mehrere PMI); Zone der abgeleiteten Mittelebene bei Nuten/Stegen (Symmetrie, Position, Richtung an Größenmaßelementen), Kugelzone bei S⌀; die Statuszeile nennt, was die Zone nicht zeigt (Richtungszone frei verschiebbar, Formzone frei, je Querschnitt, je Teillänge). Zonenfarben eindeutig gegenüber den Bezugsfarben.",
-   "Ansicht › Auswahl hervorheben (Umschalt+T, auch im Kontextmenü): alles außer den gewählten Flächen, PMI und Teilen wird durchscheinend."
+   "Ansicht › Auswahl hervorheben (Umschalt+T, auch im Kontextmenü): alles außer den gewählten Flächen, PMI und Teilen wird durchscheinend.",
+   "Neue Anleitung auf Deutsch und Englisch mit Bildern aus dem Programm (Schnellstart, alle Funktionen, Fragen, Menüreferenz); F1 öffnet sie im Browser.",
+   "Werkzeuge › Scan gegen Toleranzen prüfen: Netz (z. B. 3D-Scan) laden, automatisch ausrichten (Bestpassung mit Feinausrichtung auf die exakten Flächen), Abweichungen als Farbkarte über dem durchscheinenden CAD-Modell und je PMI bewertet (i. O., n. i. O., am Grenzwert): Formtoleranzen als Spannweite, Profil und Lage in der Zone, Achsen und Durchmesser über Ausgleichszylinder mit Bonus bei Ⓜ/Ⓛ; Ergebnisliste mit CSV.",
+   "Ausrichtung: bei fast symmetrischen Teilen wird nicht mehr versehentlich eine gedrehte oder gespiegelte Lage gewählt.",
+   "Toleranzzonen an Ebenen haben die echte Berandung der Fläche (mit Löchern) statt eines Rechtecks.",
+   "Gespeicherte Ansichten: Vorschaubilder standardmäßig klein; Rechtsklick: groß oder ohne.",
+   "PDF der Ansichten: die PMI-Tabelle übernimmt die in der PMI-Liste sichtbaren Spalten und ihre Reihenfolge.",
+   "Neue Testdaten: Varianten mit anderen PMI, minimal geänderter Geometrie und beidem, sowie zwei erzeugte Scans (mit Rauschen und Versatz; mit Fase, Delle und Welligkeit).",
+   "Schnellerer Start: scipy wird erst bei Bedarf geladen (Fensteraufbau etwa 0,5 s schneller); Startoption --startzeit misst die Startphasen."
   ],
   "en": [
    "First viewer version: load STEP AP242, assembly tree, CAD-style navigation, standard views.",
@@ -216,7 +224,15 @@
    "Comparison: parts used several times are colored per instance; a moved or removed instance no longer colors the others.",
    "Tolerance zones extended: per hole/pin (also patterns) the zone, with Ⓜ/Ⓛ also the bonus zone, plus the space the surface itself may occupy (size + location); projected zone Ⓟ outside the feature; unequal zone (UZ/Ⓤ); envelopes at maximum and minimum size. Zones for the selected PMI, the PMI on selected faces or all at once; general tolerances ISO 2768 / ISO 22081 selectable. The part becomes translucent meanwhile.",
    "Tolerance zones also in the context menus (3D window and PMI list, there for several PMI); zone of the derived median plane for slots/tabs (symmetry, position, orientation on features of size), spherical zone for S⌀; the status bar states what the zone does not show (orientation zone floating, form zone free, per cross-section, per unit length). Zone colors distinct from the datum colors.",
-   "View › Highlight selection (Shift+T, also in the context menu): everything except the selected faces, PMI and parts becomes translucent."
+   "View › Highlight selection (Shift+T, also in the context menu): everything except the selected faces, PMI and parts becomes translucent.",
+   "New manual in German and English with pictures from the program (quick start, all functions, questions, menu reference); F1 opens it in the browser.",
+   "Tools › Check scan against tolerances: load a mesh (e.g. a 3D scan), align automatically (best fit refined on the exact faces), show deviations as a colour map over the translucent CAD model and evaluate every PMI (OK, not OK, at the limit): form tolerances as range, profile and location within the zone, axes and diameters via best-fit cylinders with bonus for Ⓜ/Ⓛ; result list with CSV.",
+   "Alignment: nearly symmetric parts no longer end up in a rotated or mirrored position by mistake.",
+   "Tolerance zones on planes have the real face boundary (with holes) instead of a rectangle.",
+   "Saved views: thumbnails small by default; right-click: large or none.",
+   "PDF of views: the PMI table takes the columns visible in the PMI list and their order.",
+   "New test data: variants with different PMI, minimally changed geometry and both, plus two generated scans (with noise and offset; with chamfer, dent and waviness).",
+   "Faster start-up: scipy is loaded only when needed (window set-up about 0.5 s faster); start option --startzeit measures the start-up phases."
   ]
  },
  "releases": [

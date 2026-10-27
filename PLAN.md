@@ -438,3 +438,44 @@ Plan:
 6. **Degrees of freedom:** derive the open DOF of each part from its mates/joints and wiggle the assembly in every
    open DOF (animation, slider per DOF) to see whether all joints were made; under-/over-constrained parts listed.
 - Shares the assembly, mate and wiggle model with §8.20; stages 1–4 are independent of it and can come first.
+
+### 8.22 Plausibility check of the specification (requested 2026-10-27)
+Find contradictions and incomplete specifications in the PMI of a model, as an extension of Model › Check PMI
+(`kern/pmi_bericht.pruefe`, today: undefined/unused datums, orientation/runout without datum, form tolerance with
+datum, Ⓜ/Ⓛ without feature of size, runout without axis, duplicates, PMI without face or value, standard rules).
+Planned rules (each finding with severity, the PMI involved, a short reason and the rule source ISO/ASME):
+- **Hierarchy contradictions** on the same face: form > orientation > location (e.g. flatness 0.2 with parallelism
+  0.1 on the same face; perpendicularity larger than the position tolerance of the same axis; profile of a surface
+  without datum tighter than with datum is fine, the reverse is not).
+- **Size vs. form**: form tolerance larger than the size tolerance under the envelope requirement (ASME Rule #1,
+  ISO Ⓔ) – ineffective; Ⓔ and a separate form tolerance with the same value.
+- **Completeness**: faces without any dimension, tolerance or general tolerance (not fully toleranced, shown in the
+  model); feature of size without size dimension; position without basic dimensions (when the file carries them);
+  missing general tolerance note; patterns with a count that does not match the faces.
+- **Datum system**: datum feature without its own form tolerance; degrees of freedom left open by the datum
+  reference frame for a location tolerance (e.g. position on a pattern with only a primary plane); datum order
+  that cannot constrain (two parallel planes as primary and secondary); Ⓜ on a planar datum.
+- **Over-determination**: two dimensions for the same distance with different values; closed dimension chains
+  (loop of linear dimensions) – the closing dimension is redundant; size given twice (dimension and note).
+- **Values**: zero or negative tolerances without Ⓜ/Ⓛ, unequal zone larger than the tolerance, projected zone on a
+  non-hole, tolerance finer than the decimals of the nominal, deviations with swapped signs (upper < lower), fit class
+  unknown to ISO 286.
+- **Consistency with geometry**: dimension value differs from the measured model geometry (e.g. Ø20 on a Ø21 hole –
+  needs the measuring functions), datum letters used on different features, PMI on hidden/auxiliary geometry.
+- UI: the existing Check PMI dialog grouped by category, double-click selects PMI and faces, export to the PMI report;
+  optional "incomplete faces" colouring in the model.
+
+### 8.23 Scan against PMI tolerances (done 2026-10-27, stage 1)
+- `kern/scanpruefung.py`: best fit (`ausrichten.richte_aus`, candidate choice by inlier share first – fixes
+  mirrored/rotated fits of nearly symmetric parts) plus fine alignment point-to-plane against the exact B-rep faces;
+  every scan point assigned to the nearest CAD face (foot point inside the face boundary, signed distance exact).
+- Per PMI: form tolerances and profile without datum as range, profile/location with datum within the (unequal)
+  zone, axis tolerances and sizes via a least-squares cylinder per feature (axis offset, actual size, bonus with
+  Ⓜ/Ⓛ), status OK / not OK / at the limit (measurement uncertainty 5 µm) / not evaluable.
+- UI: Tools › Check scan against tolerances (background), colour map over the translucent CAD model, result list
+  (selection selects the PMI and its zone), CSV.
+- Test data (`werkzeuge/testmodelle.py`): `ctc01_scan.ply` (noise 5 µm, rotated/shifted), `ctc01_scan_fehler.ply`
+  (chamfer, dent, waviness on the flatness face); results in `tests/test_vergleich.py`.
+- Open: manual alignment for the scan check (point pairs like the comparison), alignment to the datum system
+  (3-2-1 instead of best fit), evaluation of linear distances and angles, line profile/roundness per section, report
+  PDF with pictures per non-conforming PMI, point clouds without triangles.

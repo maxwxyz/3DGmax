@@ -114,6 +114,8 @@ class Hauptfenster(QtWidgets.QMainWindow):
         self.baum = BaumPanel()
         self.pmi = PmiPanel()
         self.ansichten = AnsichtenPanel()
+        self.ansichten.setze_vorschaugroesse(str(self.ein.value("vorschau", "klein")))
+        self.ansichten.vorschau_geaendert.connect(lambda v: self.ein.setValue("vorschau", v))
         self.dock_baum = self._dock(tr("Struktur"), self.baum, QtCore.Qt.DockWidgetArea.LeftDockWidgetArea)
         self.dock_ansichten = self._dock(tr("Gespeicherte Ansichten"), self.ansichten,
                                          QtCore.Qt.DockWidgetArea.LeftDockWidgetArea)
@@ -130,6 +132,12 @@ class Hauptfenster(QtWidgets.QMainWindow):
         self.dock_analyse.hide()
         self.dock_kommentare = self._dock(tr("Kommentare"), self.kommentare, QtCore.Qt.DockWidgetArea.RightDockWidgetArea)
         self.dock_kommentare.hide()
+        from .scan_ui import ScanPanel
+        self.scan = ScanPanel()
+        self.dock_scan = self._dock(tr("Scanprüfung"), self.scan, QtCore.Qt.DockWidgetArea.RightDockWidgetArea)
+        self.dock_scan.hide()
+        self.scan.gewaehlt.connect(lambda p: self.pmi.waehle(lambda q: q is p))
+        self.scan.beenden.connect(self.scan_aus)
         self.dock_aenderungen = self._dock(tr("Änderungen"), self.aenderungen,
                                            QtCore.Qt.DockWidgetArea.RightDockWidgetArea)
         self.tabifyDockWidget(self.dock_pmi, self.dock_aenderungen)
@@ -453,6 +461,8 @@ class Hauptfenster(QtWidgets.QMainWindow):
           tipp=tr("Änderungsliste des Vergleichs mit Alt/Neu als Tabelle"))
         A("ansicht_vor", tr("Nächste gespeicherte Ansicht"), lambda: self.ansichten.gehe(+1), "PgDown")
         A("ansicht_zurueck", tr("Vorherige gespeicherte Ansicht"), lambda: self.ansichten.gehe(-1), "PgUp")
+        A("scan_pruefen", tr("Scan gegen Toleranzen prüfen …"), lambda: self.pruefe_scan(),
+          tipp=tr("Netz (z. B. 3D-Scan) laden, automatisch ausrichten, Abweichungen zeigen und jede PMI bewerten"))
         A("messen", tr("Messen"), self._messen_umschalten, "M", pruefbar=True,
           tipp=tr("Abstand, Winkel, Radius, Wandstärke, Koordinaten messen"))
         A("messen_ende", tr("Werkzeug beenden"), self._werkzeug_ende, "Esc", tipp=tr("Messen beenden"))
@@ -575,9 +585,11 @@ class Hauptfenster(QtWidgets.QMainWindow):
         m = mb.addMenu(tr("&Werkzeuge"))
         m.addAction(a["messen"])
         m.addAction(a["messen_ende"])
+        m.addSeparator()
+        m.addAction(a["scan_pruefen"])
         self.menue_fenster = mb.addMenu(tr("&Fenster"))
         for d in (self.dock_baum, self.dock_ansichten, self.dock_pmi, self.dock_messen, self.dock_analyse,
-                  self.dock_kommentare, self.dock_aenderungen):
+                  self.dock_kommentare, self.dock_aenderungen, self.dock_scan):
             self.menue_fenster.addAction(d.toggleViewAction())
         m = mb.addMenu(tr("&Hilfe"))
         for n in ("anleitung", "einfuehrung", "neu", "ueber"):
@@ -756,6 +768,7 @@ class Hauptfenster(QtWidgets.QMainWindow):
         self._projekt_messungen()
 
     def zeige_ergebnis(self, erg, vergleich=None):
+        self.scan_aus()  # die Scanpruefung gehoert zum vorigen Modell
         if vergleich is None and self.vergleich is not None:
             self.beende_vergleich(neu_zeigen=False)
         if self.aktionen["explosion"].isChecked():
@@ -2074,6 +2087,57 @@ class Hauptfenster(QtWidgets.QMainWindow):
         else:
             self.statusBar().showMessage(tr("Erst Teile in der Struktur wählen"), 4000)
 
+    def pruefe_scan(self, pfad: str = "", warten: bool = False):
+        """Scan (Netz) gegen die PMI des geoeffneten CAD-Modells pruefen."""
+        from .scan_ui import ScanLader
+        if self.erg is None:
+            return
+        if not pfad:
+            pfad, _ = QtWidgets.QFileDialog.getOpenFileName(
+                self, tr("Scan wählen"), os.path.dirname(self.erg.pfad),
+                tr("Netze") + " (*.stl *.ply *.obj *.3mf *.glb *.gltf);;" + tr("Alle Dateien") + " (*)")
+        if not pfad:
+            return
+        self.scan_aus()
+        lader = ScanLader(self.erg, pfad, self)
+        lader.stand.connect(lambda t: self.statusBar().showMessage(t))
+        lader.fehler.connect(lambda t: QtWidgets.QMessageBox.warning(self, tr("Scanprüfung"), t))
+        lader.fertig.connect(self._scan_fertig)
+        self._scan_lader = lader
+        self.fortschritt.show()
+        lader.start()
+        if warten:
+            lader.wait()
+            QtWidgets.QApplication.processEvents()
+            QtWidgets.QApplication.processEvents()
+
+    def _scan_fertig(self, d):
+        from ..kern import abweichung, scanpruefung as sp
+        self.fortschritt.hide()
+        self._scan = d
+        karte = d["karte"]
+        grenze = max(abweichung.standard_grenze(karte, 0.02), 0.05)
+        self.ansicht.zeige_abweichung(karte, 0.02, grenze, ueberlagert=True)
+        a = d["ausrichtung"]
+        kopf = tr("Scan {}: Ausrichtung {} (mittlerer Abstand {:.4f} mm, {:.0%} der Punkte innerhalb 0,05 mm)").format(
+            os.path.basename(d["pfad"]), tr({"gleich": "gleiche Lage", "bestpassung": "Bestpassung"}.get(a.methode,
+                                                                                                         a.methode)),
+            a.mittel, a.anteil)
+        self.scan.zeige(d["ergebnisse"], kopf)
+        z = self.scan.zaehler()
+        self.dock_scan.show()
+        self.dock_scan.raise_()
+        self.statusBar().showMessage(tr("Scanprüfung: {} i. O., {} n. i. O., {} am Grenzwert, {} nicht auswertbar").format(
+            z[sp.OK], z[sp.NOK], z[sp.GRENZ], z[sp.OFFEN]), 15000)
+
+    def scan_aus(self):
+        if getattr(self, "_scan", None) is None:
+            return
+        self._scan = None
+        self.ansicht.zeige_abweichung(None)
+        self.scan.zeige([], "")
+        self.dock_scan.hide()
+
     def _fokus_umschalten(self):
         self.ansicht.setze_fokus(self.aktionen["fokus"].isChecked(), self.baum.gewaehlte_blaetter())
 
@@ -2155,8 +2219,8 @@ class Hauptfenster(QtWidgets.QMainWindow):
         self.ansicht.setze_farben(pmi, hg)
 
     def zeige_anleitung(self):
-        from .hilfe import HilfeFenster
-        HilfeFenster.zeige(self)
+        from .hilfe import zeige_anleitung
+        zeige_anleitung(self)
 
     def zeige_einfuehrung(self):
         from .hilfe import Einfuehrung

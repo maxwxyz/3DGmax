@@ -13,7 +13,6 @@ import itertools
 from dataclasses import dataclass
 
 import numpy as np
-from scipy.spatial import cKDTree
 
 from OCC.Core.BRep import BRep_Tool
 from OCC.Core.BRepMesh import BRepMesh_IncrementalMesh
@@ -160,6 +159,7 @@ class NetzAbstand:
         mitte = (a + b + c) / 3
         self.rmax = float(max(np.linalg.norm(a - mitte, axis=1).max(), np.linalg.norm(b - mitte, axis=1).max(),
                               np.linalg.norm(c - mitte, axis=1).max()))
+        from scipy.spatial import cKDTree  # erst bei Bedarf: scipy beim Programmstart zu laden kostet ~0.5 s
         self.baum = cKDTree(mitte)
         self.k = min(k, len(a))
 
@@ -298,10 +298,20 @@ def richte_aus(flaechen_a, flaechen_b, toleranz: float = 0.05, anzahl: int = 600
         rot = va @ o @ vb.T
         start = _matrix(rot, ca - rot @ cb)
         m = icp(probe, netz, start, schritte=15)
-        kandidaten.append((guete(probe, netz, m, toleranz)[0], m))
-    kandidaten.sort(key=lambda k: k[0])
-    beste = icp(b, netz, kandidaten[0][1], schritte=20)
-    beste = icp_ebene(b, netz, beste)
+        mittel, anteil = guete(probe, netz, m, toleranz)
+        kandidaten.append((mittel, anteil, len(kandidaten), m))
+    # Die kurze Probe-ICP reicht nicht immer zur Entscheidung: bei fast symmetrischen Teilen hat eine gedrehte oder
+    # gespiegelte Lage oft den gleichen Median, aber deutlich weniger passende Punkte. Daher die besten Kandidaten
+    # nach Median und nach Anteil vollstaendig einpassen und dann nach Anteil (gerundet), sonst Median waehlen.
+    nach_median = sorted(kandidaten, key=lambda k: (k[0], k[2]))[:3]
+    nach_anteil = sorted(kandidaten, key=lambda k: (-k[1], k[0], k[2]))[:3]
+    gewaehlt = {k[2]: k for k in nach_median + nach_anteil}.values()
+    fertig = []
+    for _, _, nr, m in gewaehlt:
+        m = icp_ebene(b, netz, icp(b, netz, m, schritte=20))
+        mittel, anteil = guete(b, netz, m, toleranz)
+        fertig.append((-round(anteil, 2), mittel, nr, m))
+    _, mittel, _, beste = min(fertig, key=lambda k: k[:3])
     mittel, anteil = guete(b, netz, beste, toleranz)
     return Ausrichtung(beste, "bestpassung", mittel, anteil)
 

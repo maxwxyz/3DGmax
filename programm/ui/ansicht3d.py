@@ -100,6 +100,7 @@ class AnsichtBasis(QtWidgets.QWidget):
         self.auswahl3d: list = []  # gewaehlte Flaechen/Kanten (TopoDS)
         self.schnitt_eigen = None  # (punkt, normale) fuer Schnitt an Auswahl / aus Blickrichtung
         self.ausricht_alt = None  # Form des alten Stands im Modus "manuell ausrichten", sonst None
+        self.abweichung_ueberlagert = False  # Farbkarte ueber dem (durchscheinenden) Modell, z. B. Scanpruefung
         self.fokus = False  # Fokusmodus: alles ausser der Auswahl durchscheinend
         self.fokus_teile: set[int] = set()  # im Baum gewaehlte Teile (bleiben deckend)
 
@@ -353,9 +354,11 @@ class AnsichtBasis(QtWidgets.QWidget):
         self.vergleich_entfernt = list(entfernt_formen or [])
         self.vergleich_trsf = trsf
 
-    def zeige_abweichung(self, karte, toleranz: float = 0.01, grenze: float = 0.1):
-        """Abweichungs-Farbkarte (kern.abweichung.Karte) statt der Statusfarben zeigen; None blendet sie aus."""
+    def zeige_abweichung(self, karte, toleranz: float = 0.01, grenze: float = 0.1, ueberlagert: bool = False):
+        """Abweichungs-Farbkarte (kern.abweichung.Karte) statt der Statusfarben zeigen; None blendet sie aus.
+        ueberlagert: das Modell bleibt durchscheinend sichtbar (Scan ueber CAD)."""
         from ..kern import abweichung as ab
+        self.abweichung_ueberlagert = ueberlagert and karte is not None
         self.abweichung = None if karte is None else (karte, toleranz, grenze,
                                                       ab.abweichungs_skala(toleranz, grenze, tr("Abweichung (mm)")))
 
@@ -917,8 +920,8 @@ class OcctAnsicht(AnsichtBasis):
             self._wende_sichtbarkeit_an()
             self._neu_zeichnen()
 
-    def zeige_abweichung(self, karte, toleranz=0.01, grenze=0.1):
-        super().zeige_abweichung(karte, toleranz, grenze)
+    def zeige_abweichung(self, karte, toleranz=0.01, grenze=0.1, ueberlagert=False):
+        super().zeige_abweichung(karte, toleranz, grenze, ueberlagert)
         if self._bereit:
             self._baue_abweichung()
             self._wende_sichtbarkeit_an()
@@ -1135,13 +1138,14 @@ class OcctAnsicht(AnsichtBasis):
                 ctx.Display(kanten, 0, -1, False)
                 ctx.Deactivate(kanten)
         for nr, ais in self._teile.items():
-            if nr in self.versteckt or self.abweichung is not None:
+            if nr in self.versteckt or (self.abweichung is not None and not self.abweichung_ueberlagert):
                 ctx.Erase(ais, False)
             else:
                 ctx.Display(ais, False)
                 # Material davor bzw. Toleranzzonen im Bauteil (Bohrungen) sichtbar; Fokus: alles ausser der Auswahl
                 fokus = self.fokus_aktiv() and nr not in self.fokus_teile
-                durchsichtig = nr in self.transparent or self.material is not None or bool(self.zone_formen) or fokus
+                durchsichtig = nr in self.transparent or self.material is not None or bool(self.zone_formen) or fokus \
+                    or self.abweichung_ueberlagert
                 ctx.SetTransparency(ais, 0.7 if durchsichtig else 0.0, False)
         self._aktiviere_auswahl()
         for ais in self._hilfe:

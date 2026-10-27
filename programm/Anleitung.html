@@ -1,120 +1,301 @@
-<!doctype html>
-<html lang="de"><head><meta charset="utf-8"><title>3DGmax – Anleitung</title>
-<style>body{font-family:sans-serif;line-height:1.45;margin:16px}table{border-collapse:collapse}td,th{border-bottom:1px solid #ccc;padding:3px 8px;text-align:left;vertical-align:top}kbd{border:1px solid #999;border-radius:3px;padding:0 4px}</style>
-</head><body>
-<h1>3DGmax – Anleitung</h1>
-<p>3DGmax zeigt 3D-Modelle mit PMI (Maße, Toleranzen, Bezüge) aus STEP-Dateien (AP242) an. Die PMI liest das
-Programm semantisch, also als auswertbare Werte – nicht nur als Bild. Zwei Stände lassen sich in Geometrie und PMI vergleichen und prüfen.</p>
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Anleitung 3DGmax</title>
+<style>
+  :root{--fg:#1f2937;--muted:#6b7280;--bg:#ffffff;--accent:#2563eb;--line:#d6dbe3;--th:#f0f4f8;--code:#eef2ff;
+        --tip-bg:#fff8e1;--tip-line:#f5a623;--quick-bg:#eef6ff;--quick-line:#b9d7f5;--kbd:#f3f4f6}
+  @media (prefers-color-scheme: dark){
+    :root{--fg:#e5e7eb;--muted:#9ca3af;--bg:#1c1f24;--accent:#60a5fa;--line:#3a4049;--th:#262a31;--code:#262a31;
+          --tip-bg:#3a3114;--tip-line:#d4a017;--quick-bg:#1e2b42;--quick-line:#34507f;--kbd:#2d323a}}
+  body{font-family:-apple-system,"Segoe UI",Helvetica,Arial,sans-serif;max-width:920px;margin:2rem auto;padding:0 1rem;
+       line-height:1.6;color:var(--fg);background:var(--bg)}
+  h1{border-bottom:3px solid var(--accent);padding-bottom:.3rem}
+  h2{margin-top:2.4rem;color:var(--accent)}
+  h3{margin-top:1.4rem}
+  code{background:var(--code);padding:1px 5px;border-radius:3px}
+  table{border-collapse:collapse;width:100%;margin:.6rem 0}
+  th,td{border:1px solid var(--line);padding:.4rem .6rem;text-align:left;vertical-align:top}
+  th{background:var(--th)}
+  .sw{display:inline-block;width:1em;height:1em;border:1px solid #888;vertical-align:middle;margin-right:.3em}
+  .tip{background:var(--tip-bg);border-left:4px solid var(--tip-line);padding:.6rem 1rem;margin:1rem 0}
+  .quick{background:var(--quick-bg);border:1px solid var(--quick-line);border-radius:10px;padding:.2rem 1.2rem 1rem;margin:1rem 0}
+  .quick h2{margin-top:.8rem}
+  kbd{background:var(--kbd);border:1px solid var(--line);border-bottom-width:2px;border-radius:4px;padding:0 5px;font-size:.9em}
+  nav{columns:3;font-size:.95em} nav a{display:block}
+  a{color:var(--accent)}
+  .muted{color:var(--muted)}
+  figure{margin:1.2rem 0}
+  figure a{display:block}
+  figure img{max-width:100%;border:1px solid var(--line);border-radius:10px;box-shadow:0 3px 14px rgba(0,0,0,.10);cursor:zoom-in}
+  figcaption{color:var(--muted);font-size:.9em;margin-top:.35rem}
+  .lang{display:inline-flex;border:1px solid var(--line);border-radius:999px;overflow:hidden;font-size:.85em;margin:.2rem 0 .8rem}
+  .lang a,.lang span{padding:.2rem .8rem;text-decoration:none}
+  .lang span{background:var(--accent);color:#fff}
+  nav#toc .head{font-weight:700;margin-bottom:.2rem}
+  @media (min-width:1150px){
+    body{margin:2rem 2rem 4rem 310px}
+    nav#toc{position:fixed;top:0;left:0;bottom:0;width:270px;overflow-y:auto;columns:auto;padding:1.2rem .8rem;
+            border-right:1px solid var(--line);background:var(--th);box-sizing:border-box}
+    nav#toc a{padding:.22rem .6rem;border-radius:6px;text-decoration:none;color:var(--fg);line-height:1.35;margin:1px 0}
+    nav#toc a:hover{background:var(--line)}
+  }
+</style>
+</head>
+<body>
 
-<h2>Modell öffnen</h2>
+<h1>3DGmax – Anleitung</h1>
+<p><b>3DGmax</b> zeigt 3D-Modelle mit ihren PMI (Maße, Form- und Lagetoleranzen, Bezüge, Hinweise) an. Die PMI werden
+<b>semantisch</b> gelesen, also als auswertbare Werte und nicht nur als Bild. Damit lassen sich Toleranzzonen zeigen,
+Maße messen, zwei Stände in Geometrie und PMI vergleichen und Prüfungen dokumentieren.
+<span class="muted">English: <a href="Manual.html">Manual</a>.</span></p>
+<p class="muted">Tastenkürzel: <kbd>Strg</kbd> steht auf dem Mac für <kbd>⌘</kbd>. Einzeltasten wie <kbd>F</kbd> oder
+<kbd>G</kbd> wirken, wenn die 3D-Ansicht den Fokus hat (einmal hineinklicken).</p>
+
+<nav id="toc">
+<div class="head">3DGmax – Inhalt</div>
+<div class="lang"><span>Deutsch</span><a href="Manual.html">English</a></div>
+<a href="#schnell">Schnellstart</a><a href="#oeffnen">Modell öffnen, Formate</a><a href="#fenster">Das Fenster</a>
+<a href="#bewegen">Bewegen und Ansichten</a><a href="#pmi">PMI</a><a href="#ansichten">Gespeicherte Ansichten</a>
+<a href="#darstellung">Struktur und Darstellung</a><a href="#schnitt">Schnitt</a><a href="#messen">Messen</a>
+<a href="#zonen">Toleranzzonen</a><a href="#analyse">Analyse, Toleranzkette, PMI anlegen</a>
+<a href="#kommentare">Kommentare</a><a href="#vergleich">Zwei Stände vergleichen</a><a href="#pruefen">Änderungen prüfen</a>
+<a href="#scan">Netze und Scans</a><a href="#export">Exportieren und Zeichnungen</a><a href="#projekt">Projekt</a>
+<a href="#einstellungen">Einstellungen</a><a href="#menue">Alle Menübefehle</a><a href="#faq">Fragen</a>
+</nav>
+
+<div class="quick">
+<h2 id="schnell">Schnellstart</h2>
+<ol>
+  <li><b>Öffnen:</b> STEP-Datei ins Fenster ziehen oder <b>Datei › Öffnen</b> (<kbd>Strg</kbd>+<kbd>O</kbd>).</li>
+  <li><b>Bewegen:</b> Mitteltaste ziehen verschiebt, Mitteltaste + linke Taste dreht, Mausrad zoomt
+      (Steuerung wie CATIA, umstellbar). <kbd>F</kbd> zeigt alles, <kbd>1</kbd>–<kbd>7</kbd> sind die Standardansichten.</li>
+  <li><b>PMI ansehen:</b> in der Liste rechts eine PMI anklicken – ihre Flächen und ihr Bezugssystem leuchten im
+      Modell auf. Eine Fläche anklicken zeigt umgekehrt ihre PMI.</li>
+  <li><b>Vergleichen:</b> <b>Datei › Vergleichen</b>, alten und neuen Stand wählen. Gelb = geändert, grün = neu,
+      rot = entfernt; die Liste <b>Änderungen</b> führt durch alle Unterschiede.</li>
+  <li><b>Hilfe:</b> <kbd>F1</kbd> öffnet diese Anleitung, <b>Hilfe › Einführung</b> die kurze Einführung.</li>
+</ol>
+</div>
+
+<h2 id="oeffnen">Modell öffnen, Formate</h2>
+<figure><a href="doc_img/de/start.png"><img src="doc_img/de/start.png" alt="Startseite: Datei öffnen oder hierher ziehen." loading="lazy"></a>
+<figcaption>Startseite: Datei öffnen oder ins Fenster ziehen; zuletzt verwendete Dateien stehen unter Datei.</figcaption></figure>
 <ul>
-<li><b>Datei › Öffnen</b> (<kbd>Strg</kbd>+<kbd>O</kbd>) oder Datei ins Fenster ziehen. Unterstützt: STEP AP242, AP214, AP203 (.stp, .step).</li>
-<li><b>Datei › Zuletzt verwendet</b> und die Startseite zeigen die letzten Dateien.</li>
-<li>Das Laden läuft im Hintergrund; <b>Abbrechen</b> in der Statusleiste verwirft das Ergebnis.</li>
+<li><b>Datei › Öffnen</b>, Ziehen ins Fenster oder Doppelklick auf eine verknüpfte Datei. Das Laden läuft im Hintergrund,
+    <b>Abbrechen</b> in der Statuszeile verwirft es.</li>
+<li><b>Mit PMI:</b> STEP AP242 (auch AP214/AP203 ohne PMI), STEPZ (gepackt), QIF 3.0, 3D-PDF/PRC (Grafik-PMI).</li>
+<li><b>Nur Geometrie:</b> IGES; Netze STL, OBJ, glTF/GLB, 3MF, PLY (z. B. Scans) – ansehen, messen, analysieren und
+    gegen CAD vergleichen.</li>
+<li>Steht in der Datei nur die <b>Grafik</b> einer PMI (keine Semantik), wertet 3DGmax Art und Werte aus dem Text bzw. der
+    Markup-Art aus; solche Einträge sind mit <b>≈</b> gekennzeichnet („aus der Grafik abgeleitet – bitte prüfen“).</li>
 </ul>
 
-<h2>Bewegen (geht immer)</h2>
+<h2 id="fenster">Das Fenster</h2>
+<figure><a href="doc_img/de/modell.png"><img src="doc_img/de/modell.png" alt="Modell mit PMI, links Struktur und gespeicherte Ansichten, rechts PMI-Liste." loading="lazy"></a>
+<figcaption>Links Struktur und gespeicherte Ansichten, Mitte die 3D-Ansicht mit Ansichtswürfel, rechts die PMI-Liste;
+unten rechts die Schnellmessung der Auswahl.</figcaption></figure>
+<ul>
+<li><b>Struktur</b>: Baugruppe und Teile; Haken blenden ein und aus, Rechtsklick: Isolieren, Alle zeigen, Transparent.</li>
+<li><b>Gespeicherte Ansichten</b>: Ansichten aus der Datei mit Vorschaubild; <b>＋ Merken</b> speichert eigene.</li>
+<li><b>PMI</b>: alle Merkmale mit Art, Merkmal, Name, Wert, Bezügen, Flächen und Ansichten; Spalten lassen sich
+    verschieben und ein-/ausblenden (Rechtsklick auf die Kopfzeile).</li>
+<li><b>Schnellmessung</b> (Statuszeile rechts): Länge, ⌀/R, Fläche, Abstand, Winkel der Auswahl; Rechtsklick wählt die Angaben.</li>
+<li>Alle Leisten lassen sich unter <b>Fenster</b> ein- und ausblenden und frei anordnen; die Anordnung bleibt gespeichert.</li>
+</ul>
+
+<h2 id="bewegen">Bewegen und Ansichten</h2>
 <p>Standard ist die Steuerung wie in <b>CATIA</b>. Unter <b>Datei › Einstellungen</b> lässt sich auf <b>Klassisch</b> umstellen.</p>
 <table>
-<tr><th>Aktion</th><th>CATIA (Standard)</th><th>Klassisch</th><th>Trackpad (beide)</th></tr>
+<tr><th>Aktion</th><th>CATIA (Standard)</th><th>Klassisch</th><th>Trackpad</th></tr>
 <tr><td>Verschieben</td><td>Mitteltaste ziehen</td><td>mittlere oder rechte Taste ziehen, <kbd>Umschalt</kbd> + links</td><td>zwei Finger</td></tr>
 <tr><td>Drehen</td><td>Mitteltaste halten + linke oder rechte Taste halten, ziehen</td><td>linke Taste ziehen</td><td><kbd>⌥</kbd>/<kbd>Alt</kbd> + zwei Finger</td></tr>
-<tr><td>Zoomen</td><td>Mitteltaste halten, links/rechts einmal klicken, hoch/runter ziehen; Mausrad</td><td>Mausrad (zur Mausposition)</td><td>aufziehen/zusammenziehen</td></tr>
-<tr><td>Drehzentrum</td><td>Mitteltaste klicken: Punkt wird Bildmitte</td><td>Doppelklick auf das Modell (ins Leere = Mitte)</td><td></td></tr>
-<tr><td>Wählen</td><td colspan="2">linke Taste klicken</td><td>tippen</td></tr>
-<tr><td>PMI anlegen</td><td colspan="3">Flächen wählen, Modell › PMI anlegen: Vorschläge des Tolerierungsberaters prüfen, anpassen, übernehmen (eigene PMI, im Projekt gespeichert)</td></tr>
-<tr><td>Toleranzkette</td><td colspan="3">Modell › Toleranzkette: gewählte Maße mit + oder − übernehmen; Schlussmaß nach Worst Case, statistisch (RSS) und Monte Carlo</td></tr>
-<tr><td>Toleranzzone</td><td colspan="3">PMI-Kontextmenü oder Ansicht › Toleranzzone zeigen: Zonen der gewählten Toleranzen bzw. der PMI an den gewählten Flächen; Ansicht › Alle Toleranzzonen zeigen. Farben: gelb Zone, magenta Bonus bei Ⓜ/Ⓛ, türkis Raum, in dem die Fläche liegen darf (Maß + Lage), violett Allgemeintoleranzen (Ansicht › Allgemeintoleranzen …: ISO 2768, ISO 22081). Schmale Zonen werden überhöht, das Bauteil wird durchscheinend.</td></tr>
-<tr><td>Kommentare</td><td colspan="3"><kbd>K</kbd> an gewählten Flächen oder PMI: Kommentar, Frage, Änderungsvorschlag; Liste mit offen/erledigt, im Projekt gespeichert, Export CSV/PDF</td></tr>
-<tr><td>Zeichnung</td><td colspan="3">Datei › Exportieren: Normansichten (Projektionsmethode nach Norm), aktuelle Ansicht oder gespeicherte Ansichten als PDF, SVG, DXF – verdeckte Kanten gestrichelt, PMI wahlweise</td></tr>
-<tr><td>PMI-Suche</td><td colspan="3">freier Text oder gezielt: <code>bezug:A</code>, <code>wert:0.5</code>, <code>typ:position</code>, <code>art:toleranz</code>, <code>ansicht:MBD_A</code>, <code>ballon:3</code></td></tr>
-<tr><td>Formate</td><td colspan="3">STEP mit PMI, IGES, sowie Netze STL, OBJ, glTF/GLB, 3MF (ansehen, messen, analysieren, gegen CAD vergleichen)</td></tr>
-<tr><td>Drehpunkt</td><td colspan="3">Klick mit der Mitteltaste: Punkt in die Bildmitte, er bleibt Drehpunkt beim Zoomen und Verschieben (Kreuz beim Drehen); <kbd>F</kbd> oder Standardansicht setzt zurück</td></tr>
-<tr><td>Norm</td><td colspan="3">Modell › Norm: ASME Y14.5 oder ISO GPS, automatisch aus der Datei erkannt (ohne Hinweis ISO GPS); steuert Begriffe, Prüfregeln und Hinweis zur Hüllbedingung</td></tr>
-<tr><td>Merkmalsliste</td><td colspan="3"><kbd>B</kbd> zeigt Ballonnummern der Merkmale (Maße, Form- und Lagetoleranzen); Export als CSV/PDF unter Datei › Exportieren</td></tr>
-<tr><td>Explosion, Stückliste</td><td colspan="3"><kbd>X</kbd> zieht Baugruppen auseinander (Regler in der Werkzeugleiste); Modell › Stückliste fasst gleiche Teile mit Anzahl, Volumen und Masse zusammen</td></tr>
-<tr><td>Analyse</td><td colspan="3">Modell › Analyse: Entformungsschräge (Ausformrichtung, Mindestwinkel), Krümmungsradius, Wandstärke als Farbkarte; Klick zeigt den Wert</td></tr>
-<tr><td>Schnellmessung</td><td colspan="3">unten rechts in der Statusleiste: Kennwerte der Auswahl (Länge, ⌀/R, Fläche, Abstand, Winkel, Achsabstand, PMI); Rechtsklick wählt die Angaben</td></tr>
-<tr><td>Modelleigenschaften</td><td colspan="3"><kbd>Strg</kbd>+<kbd>I</kbd>: Volumen, Masse (Dichte einstellbar), Schwerpunkt, Größe, Dateikopf – für gewählte Teile oder das ganze Modell</td></tr>
-<tr><td>Ansichtswürfel</td><td colspan="3">oben rechts in der 3D-Ansicht: Klick auf Seite, Kante oder Ecke richtet die Kamera aus, Ziehen mit der Maus dreht</td></tr>
-<tr><td>Standardansichten</td><td colspan="3">Tasten <kbd>1</kbd>–<kbd>7</kbd> (vorne, hinten, oben, unten, links, rechts, iso), <kbd>F</kbd> passt alles ein</td></tr>
+<tr><td>Zoomen</td><td>Mausrad; oder Mitteltaste halten, links/rechts einmal klicken, hoch/runter ziehen</td><td>Mausrad (zur Mausposition)</td><td>aufziehen/zusammenziehen</td></tr>
+<tr><td>Drehpunkt</td><td>Mitteltaste klicken: Punkt wird Bildmitte und Drehpunkt</td><td>Doppelklick auf das Modell</td><td></td></tr>
+<tr><td>Wählen</td><td colspan="2">linke Taste; <kbd>Strg</kbd>/<kbd>Umschalt</kbd> für mehrere Flächen und Kanten</td><td>tippen</td></tr>
 </table>
-
-<h2>PMI</h2>
 <ul>
-<li>Die <b>PMI-Liste</b> (rechts) zeigt alle Maße, Form- und Lagetoleranzen und Bezüge mit Wert, Toleranz,
-Bezugssystem (z. B. <code>⌖ | ⌀0.75 | A | B | C</code>) und Anzahl der zugeordneten Flächen.
-Filter nach Art und Suche (<kbd>Strg</kbd>+<kbd>F</kbd>) schränken die Liste ein.</li>
-<li><b>PMI anklicken</b> hebt die zugehörigen Flächen und die Beschriftung im Modell orange hervor.</li>
-<li><b>Fläche anklicken</b> wählt alle PMI dieser Fläche in der Liste; ein Klick auf eine Beschriftung wählt ihre PMI.</li>
+<li><b>Ansichtswürfel</b> oben rechts: Klick auf Seite, Kante oder Ecke richtet die Kamera aus, Ziehen dreht.</li>
+<li><kbd>1</kbd>–<kbd>7</kbd>: vorne, hinten, oben, unten, links, rechts, isometrisch; <kbd>F</kbd> ganzes Modell,
+    <kbd>Z</kbd> auf Auswahl zoomen, <kbd>N</kbd> senkrecht auf die Auswahl blicken, <kbd>U</kbd> umdrehen,
+    <kbd>P</kbd> Perspektive, <kbd>Alt</kbd>+<kbd>←</kbd>/<kbd>→</kbd> Ansicht zurück/vor.</li>
+</ul>
+
+<h2 id="pmi">PMI</h2>
+<figure><a href="doc_img/de/pmi.png"><img src="doc_img/de/pmi.png" alt="Gewählte Positionstoleranz: Flächen und Beschriftung orange, Bezüge farbig." loading="lazy"></a>
+<figcaption>Gewählte Positionstoleranz: ihre Flächen und Beschriftung orange, das Bezugssystem farbig
+(rot 1., grün 2., blau 3. Bezug).</figcaption></figure>
+<ul>
+<li><b>PMI anklicken</b> hebt Flächen und Beschriftung hervor und zeigt das Bezugssystem; <b>Fläche anklicken</b> wählt
+    alle PMI dieser Fläche; ein Klick auf eine Beschriftung wählt ihre PMI.</li>
+<li><b>Suche</b> (<kbd>Strg</kbd>+<kbd>F</kbd>): freier Text oder gezielt <code>bezug:A</code>, <code>wert:0.5</code>,
+    <code>typ:position</code>, <code>art:toleranz</code>, <code>ansicht:MBD_A</code>, <code>ballon:3</code>.</li>
+<li>Rechtsklick in der Liste: zoomen, ausrichten, Bezüge wählen, Toleranzen mit diesem Bezug, Toleranzzone zeigen,
+    in Ansicht zeigen, bearbeiten, kopieren.</li>
+<li><b>Grafische PMI zeigen</b> (<kbd>G</kbd>) blendet die Beschriftungen ein und aus, <kbd>Umschalt</kbd>+<kbd>G</kbd>
+    zeigt nur die gewählten. Hat die Datei nur Semantik, erzeugt 3DGmax eine Darstellung (violett, abschaltbar unter
+    <b>Ansicht › Erzeugte PMI-Darstellung zeigen</b>).</li>
+<li><b>Ballonnummern</b> (<kbd>B</kbd>) nummerieren die Merkmale wie in der Merkmalsliste (Export PDF/CSV).</li>
+<li><b>Norm</b> (Modell › Norm): ASME Y14.5 oder ISO GPS, automatisch erkannt; steuert Begriffe und Prüfregeln.
+    <b>Modell › PMI prüfen</b> findet z. B. fehlende Bezüge, PMI ohne Fläche oder Richtungstoleranzen ohne Bezug.</li>
 <li>Theoretisch genaue Maße stehen in eckigen Klammern <code>[75]</code>, Hilfsmaße in runden <code>(75)</code>.</li>
-<li><b>Grafische PMI zeigen</b> (<kbd>G</kbd>) blendet die Beschriftungen im Modell ein/aus. Fehlt in der Datei die
-fertige Grafik, schreibt 3DGmax den Text aus der Semantik.</li>
 </ul>
 
-<h2>Gespeicherte Ansichten</h2>
-<p>Die Liste links unten zeigt die Ansichten aus dem Modell. Eine Ansicht stellt die Kamera ein und zeigt nur die PMI
-dieser Ansicht (auch in der Liste). „(Keine Ansicht – alle PMI)“ hebt den Filter auf.</p>
+<h2 id="ansichten">Gespeicherte Ansichten</h2>
+<figure><a href="doc_img/de/ansicht.png"><img src="doc_img/de/ansicht.png" alt="Gespeicherte Ansicht mit Kamera und den PMI dieser Ansicht." loading="lazy"></a>
+<figcaption>Eine gespeicherte Ansicht stellt die Kamera ein und zeigt nur ihre PMI – auch in der Liste.</figcaption></figure>
+<p>◀ ▶ bzw. <kbd>Bild ↑</kbd>/<kbd>Bild ↓</kbd> blättern durch die Ansichten, „(Keine Ansicht – alle PMI)“ hebt den
+Filter auf. <b>＋ Merken</b> speichert die aktuelle Kamera mit den gerade gezeigten PMI und Messungen als eigene Ansicht
+(im Projekt und im PDF). Rechtsklick in der Liste: Vorschaubilder klein (Standard), groß oder aus.</p>
 
-<h2>Struktur, Darstellung, Schnitt</h2>
+<h2 id="darstellung">Struktur und Darstellung</h2>
+<figure><a href="doc_img/de/fokus.png"><img src="doc_img/de/fokus.png" alt="Fokus: Auswahl deckend, Rest durchscheinend." loading="lazy"></a>
+<figcaption>Auswahl hervorheben (<kbd>Umschalt</kbd>+<kbd>T</kbd>): die gewählten Flächen bleiben deckend, der Rest wird durchscheinend.</figcaption></figure>
 <ul>
-<li>Haken in der Struktur blenden Teile ein und aus; Rechtsklick: <b>Isolieren</b>, <b>Alle zeigen</b>, <b>Transparent</b>.</li>
-<li>Darstellung: <b>Schattiert mit Kanten</b> (<kbd>E</kbd>), <b>Schattiert</b> (<kbd>S</kbd>), <b>Drahtmodell</b> (<kbd>W</kbd>).</li>
-<li><b>Schnitt</b>: Ebene senkrecht zu X, Y oder Z; der Regler verschiebt sie, die Schnittfläche ist orange gefüllt.</li>
-<li><b>Hilfsgeometrie zeigen</b>: Punkte und Linien ohne Flächen (z. B. Konstruktionsgeometrie) sind sonst ausgeblendet.</li>
-<li><b>PMI-Farbe</b>: Standardmäßig werden Beschriftungen in einer gut lesbaren Farbe für das helle bzw. dunkle Schema gezeigt. Unter <b>Datei › Einstellungen</b> abschaltbar – dann gelten die Farben aus der Datei (CATIA z. B. weiß).</li>
-<li><b>Ansicht › Farbschema</b>: hell, dunkel oder wie das System. <b>Ansicht › Sprache</b>: Deutsch/Englisch (beim nächsten Start).</li>
+<li>Darstellung: <b>Schattiert mit Kanten</b> (<kbd>E</kbd>), <b>Schattiert</b> (<kbd>S</kbd>), <b>Drahtmodell</b> (<kbd>W</kbd>; Klick wählt auch verdeckte Kanten).</li>
+<li><b>Auswahl hervorheben</b> (<kbd>Umschalt</kbd>+<kbd>T</kbd>, auch im Kontextmenü): alles außer den gewählten Flächen,
+    PMI und Teilen (Auswahl in der Struktur) wird durchscheinend.</li>
+<li>Teile: <kbd>H</kbd> Auswahl ausblenden, <kbd>I</kbd> isolieren, <kbd>T</kbd> transparent, <kbd>Umschalt</kbd>+<kbd>H</kbd> alle zeigen.</li>
+<li><b>Explosion</b> (<kbd>X</kbd>) zieht Baugruppen stufenweise auseinander (Regler in der Werkzeugleiste);
+    <b>Modell › Stückliste</b> fasst gleiche Teile mit Anzahl, Volumen und Masse zusammen.</li>
+<li><b>Modelleigenschaften</b> (<kbd>Strg</kbd>+<kbd>I</kbd>): Volumen, Masse (Dichte einstellbar), Schwerpunkt, Größe, Dateikopf.</li>
+<li><b>Hilfsgeometrie zeigen</b>: Punkte und Linien ohne Flächen, z. B. Konstruktionsgeometrie.</li>
+</ul>
+<figure><a href="doc_img/de/explosion.png"><img src="doc_img/de/explosion.png" alt="Explosionsansicht einer Baugruppe." loading="lazy"></a>
+<figcaption>Explosion (<kbd>X</kbd>): Teile werden nach Baugruppenebenen auseinandergezogen.</figcaption></figure>
+
+<h2 id="schnitt">Schnitt</h2>
+<figure><a href="doc_img/de/schnitt.png"><img src="doc_img/de/schnitt.png" alt="Schnitt senkrecht zu X mit gefüllter Schnittfläche und Regler." loading="lazy"></a>
+<figcaption>Schnitt X: der Regler in der Werkzeugleiste verschiebt die Ebene, die Schnittfläche ist gefüllt.</figcaption></figure>
+<ul>
+<li><b>Ansicht › Schnitt</b>: Ebene senkrecht zu X, Y, Z, an der gewählten Fläche oder Kante, aus der Blickrichtung,
+    oder eine <b>Schnittbox</b> um die Auswahl.</li>
+<li><b>Schnittebene festhalten</b> sammelt bis zu drei Ebenen; normal wird alles weggeschnitten, was hinter einer Ebene
+    liegt, mit <b>Nur gemeinsamen Bereich wegschneiden</b> nur der Bereich hinter allen (z. B. Viertelschnitt).</li>
+<li><b>Schnittkontur exportieren</b>: die Schnittlinien aller Ebenen als SVG, DXF oder PDF.</li>
 </ul>
 
-<h2>Messen</h2>
+<h2 id="messen">Messen</h2>
+<figure><a href="doc_img/de/messen.png"><img src="doc_img/de/messen.png" alt="Leiste Messen mit Radiusmessung an einer Bohrung." loading="lazy"></a>
+<figcaption>Messen (<kbd>M</kbd>): Messart wählen, dann im Modell klicken; die Ergebnisse stehen in der Liste und im Modell.</figcaption></figure>
 <ul>
-<li><b>Werkzeuge › Messen</b> (<kbd>M</kbd>) öffnet die Leiste „Messen“. Messart wählen, dann im Modell klicken; die
-Navigation geht dabei weiter. <kbd>Esc</kbd> beendet das Messen.</li>
-<li><b>Abstand</b>: zwei Elemente (Punkt, Kante, Fläche) – kürzester Abstand mit dX/dY/dZ.</li>
-<li><b>Winkel</b>: zwei Ebenen, Achsen (Zylinder, Kegel, Kreis) oder Geraden; die Ergänzung zu 180° steht dabei.</li>
-<li><b>Radius / Ø</b>: Kreis, Bogen, Zylinder, Kugel, Kegel (Bezugsradius), Torus (kleiner Radius).</li>
-<li><b>Wandstärke</b>: Stelle auf einer Fläche; gemessen wird senkrecht ins Material bis zur Gegenfläche.</li>
-<li><b>Koordinaten</b>: X, Y, Z eines Punktes.</li>
-<li><b>Fangen</b> (Haken): in der Nähe von Endpunkten, Kantenmitten und Kreismitten wird dorthin gefangen.</li>
-<li>Ergebnisse stehen in der Liste und im Modell; <b>Löschen</b>, <b>Alle löschen</b>, <b>Kopieren</b> und
-<b>CSV speichern</b> (Semikolon, Dezimalkomma – passt für Excel auf Deutsch).</li>
+<li><b>Abstand</b> (zwei Elemente, mit dX/dY/dZ), <b>Winkel</b> (Ebenen, Achsen, Geraden), <b>Radius/⌀</b>,
+    <b>Wandstärke</b> (senkrecht ins Material), <b>Koordinaten</b>.</li>
+<li><b>Fangen</b> an Endpunkten, Kantenmitten und Kreismitten; die Navigation geht beim Messen weiter, <kbd>Esc</kbd> beendet.</li>
+<li><b>Kopieren</b>, <b>CSV speichern</b> (Excel-tauglich) und <b>Datei › Exportieren › Messprotokoll (PDF)</b>.</li>
 </ul>
 
-<h2>Zwei Stände vergleichen</h2>
+<h2 id="zonen">Toleranzzonen</h2>
+<figure><a href="doc_img/de/toleranzzone.png"><img src="doc_img/de/toleranzzone.png" alt="Positionstoleranz mit Ⓜ an einem Lochmuster: Zone, Bonus und Raum der Fläche." loading="lazy"></a>
+<figcaption>Positionstoleranz ⌀1 Ⓜ an vier Bohrungen: <span class="sw" style="background:#fad11a"></span>Zone,
+<span class="sw" style="background:#e64dbf"></span>Bonus bei LMC, <span class="sw" style="background:#1ac7d9"></span>Raum,
+in dem die Bohrungsfläche liegen darf (Maß + Lage). Das Bauteil wird dabei durchscheinend.</figcaption></figure>
+<p><b>Ansicht › Toleranzzone zeigen</b> (oder Rechtsklick auf PMI bzw. im Modell) zeigt, wo Flächen und Achsen innerhalb der
+Toleranz liegen dürfen – für die gewählten PMI oder, ohne PMI-Auswahl, für die PMI an den gewählten Flächen.
+<b>Alle Toleranzzonen zeigen</b> zeigt alle auf einmal. Schmale Zonen werden überhöht (Faktor in der Statuszeile).</p>
+<table>
+<tr><th>Toleranz</th><th>Darstellung</th></tr>
+<tr><td>Position, Koaxialität, Richtung mit ⌀</td><td>Zylinder ⌀t um die Nennachse je Bohrung/Zapfen; mit Ⓜ/Ⓛ zusätzlich die
+    Bonuszone; dazu der Raum der Fläche aus Maßtoleranz und Lagetoleranz; Ⓟ: Zone außerhalb des Elements</td></tr>
+<tr><td>Position S⌀</td><td>Kugelzone um den Kugelmittelpunkt</td></tr>
+<tr><td>Symmetrie, Position oder Richtung an Nut/Steg</td><td>zwei Ebenen um die abgeleitete Mittelebene</td></tr>
+<tr><td>Ebenheit, Profil, Richtung, Lauf, Zylinderform …</td><td>zwei Versatzflächen ±t/2; unsymmetrische Zone (UZ/Ⓤ) verschoben</td></tr>
+<tr><td>Maße ⌀/R</td><td>Hüllen bei Höchst- und Mindestmaß</td></tr>
+</table>
+<p>Die Statuszeile erklärt jede Zone und nennt, was die Geometrie nicht zeigt (z. B. „Richtungszone: in der Lage frei
+verschiebbar“, „gilt je Querschnitt“). <b>Ansicht › Allgemeintoleranzen …</b> ergänzt ISO 2768-1/-2 bzw. ISO 22081 für Flächen ohne
+eigene Angabe (violett); steht die Angabe in einem Hinweis der Datei, wird sie vorgeschlagen.</p>
+<div class="tip">Zonen werden an der Nennlage gezeigt. Richtungs- und Formzonen dürfen sich in der Lage frei bewegen;
+die Bezugsverschiebung bei Ⓜ am Bezug wird noch nicht dargestellt.</div>
+
+<h2 id="analyse">Analyse, Toleranzkette, PMI anlegen</h2>
 <ul>
-<li><b>Datei › Vergleichen …</b> (<kbd>Strg</kbd>+<kbd>Umschalt</kbd>+<kbd>V</kbd>): alten und neuen Stand wählen,
-Toleranz (bis hier gilt eine Fläche als gleich) und Suchweite (bis hier als geändert, darüber neu/entfernt).
-Verschobene Stände werden automatisch per Bestpassung ausgerichtet.</li>
-<li>Der neue Stand wird eingefärbt: grau gleich, gelb geändert, grün neu; entfernte Flächen des alten Stands rot.</li>
-<li>Die Leiste <b>Änderungen</b> listet PMI- und Geometrieänderungen nummeriert (alt → neu). Klick springt zur Stelle.</li>
-<li><b>Prüfen starten</b> führt Schritt für Schritt durch; <b>Geprüft</b> (<kbd>G</kbd>) / <b>Abgelehnt</b>
-(<kbd>A</kbd>) springen zur nächsten offenen Änderung, dazu ein Kommentar.</li>
-<li><b>Prüfung abschließen</b>: Prüfer, Ergebnis, Bemerkung → Protokoll (JSON und Text) mit Prüfsumme SHA-256 –
-keine qualifizierte elektronische Signatur.</li>
-<li><b>Ordner vergleichen</b>: alle Modelle zweier Ordner paarweise (Zuordnung über den Dateinamen, Revisionskennung
-am Ende wird ignoriert), Übersicht gleich/geändert/nur alt/nur neu; Doppelklick öffnet den Vergleich.</li>
+<li><b>Modell › Analyse</b>: Entformungsschräge, Krümmungsradius oder Wandstärke als Farbkarte; Klick zeigt den Wert.</li>
+<li><b>Modell › Toleranzkette</b>: gewählte Maße mit + oder − übernehmen; Schlussmaß nach Worst Case, statistisch (RSS) und Monte Carlo.</li>
+<li><b>Modell › PMI anlegen</b>: Flächen wählen, Vorschläge des Tolerierungsberaters prüfen, anpassen, übernehmen
+    (eigene PMI, im Projekt gespeichert). Vorhandene PMI lassen sich bearbeiten; die Originalwerte bleiben sichtbar.</li>
 </ul>
 
-<h2>Prüfen und Exportieren</h2>
+<h2 id="kommentare">Kommentare</h2>
+<p><kbd>K</kbd> an gewählten Flächen oder PMI legt einen Kommentar, eine Frage oder einen Änderungsvorschlag mit Markierung
+im Modell an. Die Leiste <b>Kommentare</b> zeigt offen/erledigt; Export als CSV oder PDF, gespeichert im Projekt.</p>
+
+<h2 id="vergleich">Zwei Stände vergleichen</h2>
+<figure><a href="doc_img/de/vergleich.png"><img src="doc_img/de/vergleich.png" alt="Vergleich zweier Baugruppenstände mit Änderungsliste." loading="lazy"></a>
+<figcaption>Vergleich: <span class="sw" style="background:#c8ccd2"></span>gleich, <span class="sw" style="background:#f5b80d"></span>geändert,
+<span class="sw" style="background:#26b34d"></span>neu, <span class="sw" style="background:#e52626"></span>entfernt (durchscheinend aus dem alten Stand).</figcaption></figure>
 <ul>
-<li><b>Modell › PMI prüfen</b>: unbenutzte oder fehlende Bezüge, PMI ohne Fläche oder Ansicht, Doppelte,
-Richtungstoleranz ohne Bezug u. a.; Doppelklick wählt die PMI.</li>
-<li><b>Datei › Exportieren</b>: Ansichten als PDF (eine Seite je gespeicherter Ansicht mit Bild und PMI),
-Vergleichsbericht (PDF, Bild je Änderung), PMI-Änderungen (PDF) für Lieferanten, PMI und Änderungen als CSV.
-Exporte folgen der eingestellten Sprache.</li>
-<li><b>Datei › Projekt speichern</b> (<kbd>Strg</kbd>+<kbd>S</kbd>): Modell bzw. Vergleich mit Prüfstand, Kommentaren und
-Messungen als eine Datei <code>.3dgmax</code> (zum Verschicken); öffnen über <b>Datei › Öffnen</b>.</li>
+<li><b>Datei › Vergleichen</b> (<kbd>Strg</kbd>+<kbd>Umschalt</kbd>+<kbd>V</kbd>): alten und neuen Stand wählen,
+    <b>Toleranz</b> (bis hier gilt eine Fläche als gleich) und <b>Suchweite</b> (bis hier geändert, darüber neu/entfernt).</li>
+<li>Verschobene Stände werden automatisch ausgerichtet (Bestpassung); <b>Datei › Manuell ausrichten</b> über Punktpaare.</li>
+<li>Erkannt werden geänderte, neue, entfernte, verschobene, gedrehte und gespiegelte Elemente; in Baugruppen geänderte,
+    neue, entfernte, verschobene und umbenannte Teile, mehrfach verbaute Teile je Instanz.</li>
+<li><b>PMI</b> werden einander über Art, Typ, gemeinsame Flächen, Wert, Bezüge und Namen zugeordnet und Feld für Feld
+    verglichen (Wert, Abmaße, Zone, Bezüge …); „Geometrie unter PMI geändert“ meldet gleiche PMI an geänderter Geometrie.</li>
+<li><b>Abweichungs-Farbkarte</b> zeigt die Abweichung je Punkt (Skala, Toleranzgrenze, Wert per Klick);
+    <b>Material + / −</b> zeigt hinzugekommenes und entferntes Volumen wie in CATIA.</li>
+<li><b>Ordner vergleichen</b>: alle Modelle zweier Ordner paarweise mit Übersicht.</li>
+</ul>
+<figure><a href="doc_img/de/farbkarte.png"><img src="doc_img/de/farbkarte.png" alt="Abweichungs-Farbkarte im Vergleich." loading="lazy"></a>
+<figcaption>Abweichungs-Farbkarte: Abweichung des neuen gegenüber dem alten Stand je Punkt.</figcaption></figure>
+
+<h2 id="pruefen">Änderungen prüfen</h2>
+<figure><a href="doc_img/de/pruefen.png"><img src="doc_img/de/pruefen.png" alt="Prüfrundgang: gewählte Änderung mit Beschreibung, Geprüft/Abgelehnt." loading="lazy"></a>
+<figcaption>Prüfen starten: die erste offene Änderung ist gewählt; Geprüft/Abgelehnt springt zur nächsten.</figcaption></figure>
+<ul>
+<li><b>Prüfen starten</b> führt Schritt für Schritt durch die Änderungen; <b>Geprüft</b> / <b>Abgelehnt</b> mit Kommentar.</li>
+<li><b>Prüfung abschließen</b>: Prüfer, Ergebnis, Bemerkung → Protokoll mit Prüfsumme (SHA-256), gespeichert im Projekt.</li>
+<li>Berichte: <b>Datei › Exportieren › Vergleichsbericht (PDF)</b>, <b>PMI-Änderungen (PDF)</b>, <b>Änderungen (CSV)</b>.</li>
 </ul>
 
-<h2>Bilder</h2>
-<p><b>Datei › Bild speichern</b> speichert die 3D-Ansicht als PNG, <b>Bild in Zwischenablage</b>
-(<kbd>Strg</kbd>+<kbd>Umschalt</kbd>+<kbd>C</kbd>) kopiert sie.</p>
+<h2 id="scan">Netze und Scans</h2>
+<p>Netze (STL, OBJ, PLY, glTF, 3MF) lassen sich wie CAD-Modelle ansehen und messen und im Vergleich gegen ein CAD-Modell
+stellen: die Ausrichtung erfolgt automatisch (Bestpassung) oder manuell über Punktpaare, die Farbkarte zeigt die
+Abweichung des Scans je Punkt.</p>
+<p><b>Werkzeuge › Scan gegen Toleranzen prüfen</b> (CAD-Modell mit PMI geöffnet): Scan wählen – er wird automatisch
+ausgerichtet und auf die exakten Flächen fein eingepasst. Die Farbkarte liegt über dem durchscheinenden CAD-Modell, die
+Leiste <b>Scanprüfung</b> bewertet jede PMI: <span class="sw" style="background:#1f9d55"></span>i. O.,
+<span class="sw" style="background:#d6342c"></span>n. i. O., <span class="sw" style="background:#c98a00"></span>am Grenzwert
+(innerhalb der Messunsicherheit), – nicht auswertbar. Formtoleranzen werden als Spannweite, Profil und Lage in der Zone,
+Achsen und Durchmesser über einen Ausgleichszylinder (mit Bonus bei Ⓜ/Ⓛ) bewertet. Ein Klick auf eine Zeile wählt die
+PMI – mit „Toleranzzone zeigen“ sieht man, wo der Scan die Zone verlässt. Ergebnis als CSV.</p>
+<figure><a href="doc_img/de/scan.png"><img src="doc_img/de/scan.png" alt="Scanprüfung: Farbkarte des Scans über dem CAD-Modell, Ergebnis je PMI." loading="lazy"></a>
+<figcaption>Scanprüfung: der Scan (Farbkarte) liegt über dem durchscheinenden CAD-Modell; die Ebenheit ist durch eine
+Welligkeit verletzt (n. i. O.), die Streifen sind auf der Fläche zu sehen.</figcaption></figure>
+<div class="tip">Die Bewertung ist eine Näherung für die Sichtprüfung, keine normgerechte Auswertung nach Messstrategie.</div>
 
-<h2>Grenzen dieser Version</h2>
+<h2 id="export">Exportieren und Zeichnungen</h2>
+<figure><a href="doc_img/de/zeichnung.png"><img src="doc_img/de/zeichnung.png" alt="Zeichnung mit Normansichten und Isometrie aus dem 3D-Modell." loading="lazy"></a>
+<figcaption>Zeichnung: Normansichten (Projektionsmethode nach Norm) und Isometrie, verdeckte Kanten gestrichelt, PMI wahlweise.</figcaption></figure>
 <ul>
-<li>Nur STEP. JT, 3D-PDF, QIF und weitere Formate folgen. Abweichungsfarbkarte und grafischer PMI-Vergleich folgen.</li>
-<li>Bei Teilen, die mehrfach in einer Baugruppe vorkommen, wird eine PMI an allen Vorkommen hervorgehoben.</li>
+<li><b>Datei › Exportieren</b>: Ansichten als PDF (Bild und PMI je Ansicht), Merkmalsliste (PDF/CSV), Messprotokoll,
+    Kommentare, Vergleichsbericht, PMI-Änderungen, PMI als CSV.</li>
+<li><b>Zeichnung</b>: Normansichten, aktuelle Ansicht oder gespeicherte Ansichten als PDF, SVG oder DXF;
+    <b>PMI in Zeichnungen</b> schaltet die Beschriftungen ein.</li>
+<li><b>Bild speichern</b> bzw. <b>Bild in Zwischenablage</b> (<kbd>Strg</kbd>+<kbd>Umschalt</kbd>+<kbd>C</kbd>) für die 3D-Ansicht.</li>
+</ul>
+
+<h2 id="projekt">Projekt</h2>
+<p><b>Datei › Projekt speichern</b> (<kbd>Strg</kbd>+<kbd>S</kbd>) legt Modell bzw. Vergleich mit Prüfstand, Kommentaren,
+Messungen, eigenen PMI und Ansichten in einer Datei <code>.3dgmax</code> ab – zum Weitergeben. Geöffnet wird sie über
+<b>Datei › Öffnen</b>.</p>
+
+<h2 id="einstellungen">Einstellungen</h2>
+<ul>
+<li><b>Datei › Einstellungen</b>: Maussteuerung (CATIA/Klassisch), Hintergrund, PMI-Farbe (lesbare Standardfarbe oder Farben aus der Datei) u. a.</li>
+<li><b>Ansicht › Farbschema</b>: hell, dunkel oder wie das System; <b>Ansicht › Sprache</b>: Deutsch/Englisch (beim nächsten Start).</li>
 </ul>
 
 <!--MENUEBEFEHLE-->
-</body></html>
+
+<h2 id="faq">Fragen</h2>
+<p><b>Warum sehe ich keine PMI?</b> Die Datei enthält keine (z. B. STEP AP214) oder die gewählte gespeicherte Ansicht
+zeigt nur einen Teil – „(Keine Ansicht – alle PMI)“ wählen.</p>
+<p><b>Was bedeutet ≈ vor einer PMI?</b> Die Datei enthält für sie nur Grafik; Art und Werte wurden daraus abgeleitet und sollten geprüft werden.</p>
+<p><b>Warum ist eine Toleranzzone so dick?</b> Schmale Zonen werden für die Anzeige überhöht; der Faktor steht in der Statuszeile.</p>
+<p><b>Ein Bauteil wirkt durchscheinend.</b> Toleranzzonen oder „Auswahl hervorheben“ sind eingeschaltet (<b>Ansicht</b>-Menü).</p>
+<p class="muted">Bilder dieser Anleitung erzeugt <code>packaging/doc_screenshots.py</code> aus den NIST-Testmodellen.</p>
+</body>
+</html>
