@@ -26,6 +26,53 @@ class Aenderung:
     pmi_neu: object = None
     pruefstatus: str = "offen"
     kommentar: str = ""
+    spalten: tuple = ()  # (Merkmal, alt, neu, Delta, Tendenz) fuer die Aenderungstabelle; leer: aus den PMI
+
+
+SPALTEN = ("Merkmal", "Alt", "Neu", "Δ", "Tendenz")
+
+
+def _breite(p) -> float | None:
+    """Toleranzbreite einer PMI: Mass Hoechst- minus Mindestmass, Form/Lage der Toleranzwert."""
+    if p is None:
+        return None
+    if p.art == "mass":
+        h, m = p.grenzen()
+        return None if h is None or m is None else h - m
+    return float(p.wert) if p.art == "toleranz" and p.wert is not None else None
+
+
+def _zahl_aus(text: str) -> float | None:
+    try:
+        return float(str(text).replace(",", ".").replace("±", "").split()[0])
+    except (ValueError, IndexError):
+        return None
+
+
+def pmi_spalten(alt, neu, felder) -> tuple:
+    """Spalten einer PMI-Aenderung: geaenderte Felder alt/neu, Delta bei einem Zahlenfeld, Tendenz der Toleranz."""
+    from .vergleich_pmi import FELD_TEXT
+    if alt is None or neu is None:
+        return ("", "–" if alt is None else alt.wert_text(), "–" if neu is None else neu.wert_text(), "", "")
+    felder = [f for f in felder if f[0] != "geometrie"]
+    if not felder:
+        return ("", "", "", "", "")
+    merkmal = ", ".join(tr(FELD_TEXT.get(f, f)) for f, _, _ in felder)
+    a, n = " · ".join(str(x) for _, x, _ in felder), " · ".join(str(x) for _, _, x in felder)
+    delta = ""
+    if len(felder) == 1:
+        za, zn = _zahl_aus(felder[0][1]), _zahl_aus(felder[0][2])
+        if za is not None and zn is not None:
+            delta = f"{zn - za:+.4g}"
+    ba, bn = _breite(alt), _breite(neu)
+    tendenz = ""
+    if ba is not None and bn is not None and abs(ba - bn) > 1e-9:
+        tendenz = tr("enger") if bn < ba else tr("weiter")
+    return (merkmal, a, n, delta, tendenz)
+
+
+def spalten(a: Aenderung) -> tuple:
+    return a.spalten or pmi_spalten(a.pmi_alt, a.pmi_neu, [])
 
 
 @dataclass
@@ -79,12 +126,15 @@ def _geo_aenderungen(geo, nachbarn_neu, nachbarn_alt) -> list[Aenderung]:
         for g in _gruppen(menge, nachbarn_neu):
             alt = {geo.zuordnung[f] for f in g if f in geo.zuordnung}
             abw = max(geo.max_abw_b.get(f, 0.0) for f in g)
+            werte = (tr("größte Abweichung"), "", "", f"{abw:.3f} mm", "") if status == GEAENDERT else \
+                (tr("Flächen"), "–", str(len(g)), "", "")
             out.append(Aenderung(0, GEOMETRIE, status, tr(GEO_TITEL[status]),
-                                 tr("{} Fläche(n), größte Abweichung {:.3f} mm").format(len(g), abw), g, alt))
+                                 tr("{} Fläche(n), größte Abweichung {:.3f} mm").format(len(g), abw), g, alt,
+                                 spalten=werte))
     weg = {f for f, s in geo.status_a.items() if s == ENTFERNT}
     for g in _gruppen(weg, nachbarn_alt):
         out.append(Aenderung(0, GEOMETRIE, ENTFERNT, tr(GEO_TITEL[ENTFERNT]), tr("{} Fläche(n)").format(len(g)),
-                             set(), g))
+                             set(), g, spalten=(tr("Flächen"), str(len(g)), "–", "", "")))
     return out
 
 
@@ -146,7 +196,8 @@ def _verschiebungen(aenderungen, alt, neu, ausrichtung, toleranz: float) -> list
                     len(a.flaechen_neu), beschreibung, d[0], d[1], d[2])
             genutzt.add(id(b))
             ersetzt |= {id(a), id(b)}
-            dazu.append(Aenderung(0, GEOMETRIE, VERSCHOBEN, titel, text, set(a.flaechen_neu), set(b.flaechen_alt)))
+            dazu.append(Aenderung(0, GEOMETRIE, VERSCHOBEN, titel, text, set(a.flaechen_neu), set(b.flaechen_alt),
+                                  spalten=(tr("Lage"), "", "", f"{float(np.linalg.norm(d)):.3f} mm", "")))
             break
     return [a for a in aenderungen if id(a) not in ersetzt] + dazu
 
@@ -288,6 +339,7 @@ def _flaechen_von(modell, knoten) -> set[int]:
 
 def _baugruppen_aenderungen(alt, neu, ausrichtung, toleranz) -> list[Aenderung]:
     """Teile neu/entfernt/verschoben/geaendert/umbenannt, wenn einer der Staende mehrere Teile hat."""
+    import numpy as np
     from . import vergleich_baugruppe as vb
     anzahl = lambda e: sum(1 for k in e.baum.blaetter() if not k.hilfsgeometrie)  # noqa: E731
     if getattr(alt, "baum", None) is None or getattr(neu, "baum", None) is None or max(anzahl(alt), anzahl(neu)) < 2:
@@ -300,9 +352,16 @@ def _baugruppen_aenderungen(alt, neu, ausrichtung, toleranz) -> list[Aenderung]:
             teile.append(tr("Lage dX {:+.3f}  dY {:+.3f}  dZ {:+.3f} mm").format(*d))
         if x.status == vb.GEAENDERT:
             teile.append(tr("Volumen {:.1f} → {:.1f} mm³").format(x.alt.volumen, x.neu.volumen))
+        if x.status == vb.GEAENDERT:
+            werte = (tr("Volumen"), f"{x.alt.volumen:.1f}", f"{x.neu.volumen:.1f}",
+                     f"{x.neu.volumen - x.alt.volumen:+.1f} mm³", "")
+        elif x.versatz is not None and x.status == vb.VERSCHOBEN:
+            werte = (tr("Lage"), "", "", f"{float(np.linalg.norm(x.versatz)):.3f} mm", "")
+        else:
+            werte = (tr("Teil"), x.alt.name if x.alt else "–", x.neu.name if x.neu else "–", "", "")
         out.append(Aenderung(0, BAUGRUPPE, x.status, f"{tr(BG_TITEL[x.status])}: {x.name}", " · ".join(teile),
                              _flaechen_von(neu.modell, x.neu.knoten) if x.neu else set(),
-                             _flaechen_von(alt.modell, x.alt.knoten) if x.alt else set()))
+                             _flaechen_von(alt.modell, x.alt.knoten) if x.alt else set(), spalten=werte))
     return out
 
 
@@ -340,7 +399,8 @@ def _grafik_aenderungen(liste, alt, neu, ausrichtung, toleranz) -> list[Aenderun
         else:
             continue
         out.append(Aenderung(0, PMI, GRAFIK, f"{tr(PMI_TITEL[GRAFIK])}: {x.neu.wert_text()}", text,
-                             set(x.neu.flaechen), set(x.alt.flaechen), x.alt, x.neu))
+                             set(x.neu.flaechen), set(x.alt.flaechen), x.alt, x.neu,
+                             spalten=(tr("Darstellung"), "", "", f"{float(np.linalg.norm(versatz)):.2f} mm", "")))
     return out
 
 
@@ -353,7 +413,7 @@ def _pmi_aenderungen(liste) -> list[Aenderung]:
         art = {"mass": "Maß", "toleranz": "Toleranz", "bezug": "Bezug", "hinweis": "Hinweis"}.get(p.art, p.art)
         out.append(Aenderung(0, PMI, x.status, f"{tr(PMI_TITEL[x.status])}: {tr(art)} {p.wert_text()}", x.text(),
                              set(x.neu.flaechen) if x.neu else set(), set(x.alt.flaechen) if x.alt else set(),
-                             x.alt, x.neu))
+                             x.alt, x.neu, spalten=pmi_spalten(x.alt, x.neu, x.felder)))
     return out
 
 

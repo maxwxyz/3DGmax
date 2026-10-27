@@ -178,12 +178,15 @@ CSV_SPALTEN = ("Nr", "Art", "Merkmal", "Typ", "Name", "Wert", "Nennwert", "Oben"
 
 
 def vergleich_csv(vergleich) -> str:
+    from .vergleich import spalten
     zeilen = []
     for a in vergleich.aenderungen:
         alt = a.pmi_alt.wert_text() if a.pmi_alt is not None else ""
         neu = a.pmi_neu.wert_text() if a.pmi_neu is not None else ""
+        merkmal, w_alt, w_neu, delta, tendenz = spalten(a)
         werte = [("Nr", a.nummer), ("Kategorie", tr(KATEGORIE.get(a.kategorie, a.kategorie))),
                  ("Status", tr(STATUS.get(a.status, a.status))), ("Titel", a.titel), ("Beschreibung", a.beschreibung),
+                 ("Merkmal", merkmal), ("Wert alt", w_alt), ("Wert neu", w_neu), ("Δ", delta), ("Tendenz", tendenz),
                  ("Alt", alt), ("Neu", neu),
                  ("Bezüge alt", a.pmi_alt.bezug_text() if a.pmi_alt is not None else ""),
                  ("Bezüge neu", a.pmi_neu.bezug_text() if a.pmi_neu is not None else ""),

@@ -1131,5 +1131,19 @@
 "{:.1f} wirksame Beitragsleister (≥ {}) – statistisches Ergebnis anwendbar": "{:.1f} effective contributors (≥ {}) – statistical result applicable",
 "Δ Breite": "Δ range",
 "Arithmetisch (Worst Case)": "Arithmetic (worst case)",
-"Statistisch (RSS, ±3σ)": "Statistical (RSS, ±3σ)"
+"Statistisch (RSS, ±3σ)": "Statistical (RSS, ±3σ)",
+"Darstellung": "Display",
+"Lage": "Position",
+"enger": "tighter",
+"weiter": "looser",
+"größte Abweichung": "largest deviation",
+"Δ": "Δ",
+"Tendenz": "Tendency",
+"Wert alt": "Old value",
+"Wert neu": "New value",
+"Was sich geändert hat (Feld der PMI, Abweichung, Lage, Volumen)": "What changed (PMI field, deviation, position, volume)",
+"Wert im alten Stand": "Value in the old state",
+"Wert im neuen Stand": "Value in the new state",
+"Differenz neu − alt bzw. Betrag der Abweichung oder Verschiebung": "Difference new − old, or size of the deviation or displacement",
+"Toleranz enger (strenger, oft teurer) oder weiter als vorher": "Tolerance tighter (stricter, often more expensive) or looser than before"
 }

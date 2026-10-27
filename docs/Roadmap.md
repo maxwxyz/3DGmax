@@ -113,6 +113,7 @@
 | Graphical PMI comparison: moved or reshaped presentation of equal PMI | ✅ |
 | Graphical-only PMI (notes) matched and compared by text | ✅ |
 | Assembly comparison (parts new/removed/moved/changed/renamed) | ✅ |
+| Change table with characteristic, old, new, Δ, tendency (tighter/looser), also in PDF/CSV | ✅ |
 | Geometry comparison per part instance (each instance sampled; status shown on the shared faces) | ✅ |
 | Status colors per instance in the 3D view (instance key: face index + location), removed instances shown | ✅ |
 | Change list entries per instance | ⬜ |

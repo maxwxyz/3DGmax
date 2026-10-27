@@ -33,6 +33,13 @@ def test_nur_pmi_geaendert(alt):
     texte = sorted(a.beschreibung for a in v.aenderungen)
     assert all(a.kategorie == "pmi" and a.status == "geaendert" for a in v.aenderungen)
     assert texte == ["Toleranzwert: 0.2 → 0.1", "Toleranzwert: 0.75 → 0.5", "unteres Abmaß/Mindestmaß: -0.2 → -0.3"]
+    # Spalten der Aenderungstabelle: Merkmal, alt, neu, Delta, Tendenz der Toleranzbreite
+    werte = sorted(vergleich.spalten(a) for a in v.aenderungen)
+    assert werte == [("Toleranzwert", "0.2", "0.1", "-0.1", "enger"), ("Toleranzwert", "0.75", "0.5", "-0.25", "enger"),
+                     ("unteres Abmaß/Mindestmaß", "-0.2", "-0.3", "-0.1", "weiter")]
+    from programm.kern import pmi_bericht
+    csv = pmi_bericht.vergleich_csv(v)
+    assert "Tendenz" in csv and "enger" in csv
 
 
 def test_nur_geometrie_geaendert(alt):
@@ -42,6 +49,7 @@ def test_nur_geometrie_geaendert(alt):
     assert arten == [("geometrie", "geaendert"), ("pmi", "geometrie")]
     geo = next(a for a in v.aenderungen if a.kategorie == "geometrie")
     assert len(geo.flaechen_neu) == 2 and "0.500" in geo.beschreibung
+    assert vergleich.spalten(geo)[0] == "größte Abweichung" and vergleich.spalten(geo)[3] == "0.500 mm"
 
 
 def test_geometrie_und_pmi_geaendert(alt):

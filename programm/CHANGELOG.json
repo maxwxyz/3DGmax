@@ -143,7 +143,8 @@
    "Befehlssuche mit Strg/⌘+K: alle Befehle nach Namen (deutsch und englisch), Menüpfad und Tastenkürzel finden und ausführen.",
    "Startseite mit Aufgaben: Modell öffnen, zwei Stände vergleichen, Beispiele; Liste der lesbaren Formate. Doppelte CSV-Exporte im Menü Modell entfernt, „Teil der gewählten Fläche isolieren“ eindeutig benannt.",
    "„Alle Toleranzzonen“ und Allgemeintoleranzen berücksichtigen nur sichtbare Teile und folgen dem Aus- und Einblenden.",
-   "Toleranzkette: Verteilungen Dreieck und Trapez neben normal und gleich, je nach Fertigungsart; arithmetisch immer mit ausgegeben, das anwendbare Verfahren fett (statistisch ab vier wirksamen Beitragsleistern); Planspiel mit Vergleich zum Ist; Doppelklick auf die Richtung kehrt um; Ergebnistabelle, Anteilsbalken und Histogramm; PDF mit allem."
+   "Toleranzkette: Verteilungen Dreieck und Trapez neben normal und gleich, je nach Fertigungsart; arithmetisch immer mit ausgegeben, das anwendbare Verfahren fett (statistisch ab vier wirksamen Beitragsleistern); Planspiel mit Vergleich zum Ist; Doppelklick auf die Richtung kehrt um; Ergebnistabelle, Anteilsbalken und Histogramm; PDF mit allem.",
+   "Vergleich: Änderungstabelle mit Spalten Merkmal, Alt, Neu, Δ und Tendenz (Toleranz enger/weiter); Geometrie mit größter Abweichung bzw. Verschiebung, Baugruppe mit Volumen; auch im Vergleichsbericht (PDF) und im CSV."
   ],
   "en": [
    "First viewer version: load STEP AP242, assembly tree, CAD-style navigation, standard views.",
@@ -288,7 +289,8 @@
    "Command search with Ctrl/⌘+K: find and run every command by name (German and English), menu path and shortcut.",
    "Start page with tasks: open a model, compare two states, examples; list of readable formats. Duplicate CSV exports removed from the Model menu, “Isolate part of the selected face” named clearly.",
    "“All tolerance zones” and general tolerances only consider visible parts and follow hiding and showing.",
-   "Stack-up: triangular and trapezoidal distributions besides normal and uniform, by production type; arithmetic always shown, the applicable method in bold (statistical from four effective contributors); what-if with comparison to the actual chain; double-click on the direction reverses it; result table, share bars and histogram; PDF with all of it."
+   "Stack-up: triangular and trapezoidal distributions besides normal and uniform, by production type; arithmetic always shown, the applicable method in bold (statistical from four effective contributors); what-if with comparison to the actual chain; double-click on the direction reverses it; result table, share bars and histogram; PDF with all of it.",
+   "Comparison: change table with columns characteristic, old, new, Δ and tendency (tolerance tighter/looser); geometry with largest deviation or displacement, assembly with volume; also in the comparison report (PDF) and the CSV."
   ]
  },
  "releases": [

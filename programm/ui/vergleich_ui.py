@@ -164,6 +164,12 @@ class MaterialLader(QtCore.QThread):
             self.fehler.emit(tr(str(e)))
 
 
+SPALTEN_TIPP = {"Merkmal": "Was sich geändert hat (Feld der PMI, Abweichung, Lage, Volumen)",
+               "Alt": "Wert im alten Stand", "Neu": "Wert im neuen Stand",
+               "Δ": "Differenz neu − alt bzw. Betrag der Abweichung oder Verschiebung",
+               "Tendenz": "Toleranz enger (strenger, oft teurer) oder weiter als vorher"}
+
+
 class AenderungenPanel(QtWidgets.QWidget):
     """Nummerierte Aenderungen, Pruefstatus, Kommentar, Pruefrundgang, Abweichungs-Farbkarte."""
 
@@ -220,16 +226,21 @@ class AenderungenPanel(QtWidgets.QWidget):
         self.karte_an.toggled.connect(lambda an: self.karte.emit(an, self.skala.value()))
         self.skala.editingFinished.connect(
             lambda: self.karte_an.isChecked() and self.karte.emit(True, self.skala.value()))
-        self.tabelle = QtWidgets.QTableWidget(0, 4)
-        self.tabelle.setHorizontalHeaderLabels([tr("Nr"), tr("Art"), tr("Änderung"), tr("Prüfstatus")])
+        from ..kern.vergleich import SPALTEN as WERT_SPALTEN
+        koepfe = ["Nr", "Art", "Änderung", *WERT_SPALTEN, "Prüfstatus"]
+        self.tabelle = QtWidgets.QTableWidget(0, len(koepfe))
+        self.tabelle.setHorizontalHeaderLabels([tr(k) for k in koepfe])
+        for i, k in enumerate(koepfe):
+            self.tabelle.horizontalHeaderItem(i).setToolTip(tr(SPALTEN_TIPP.get(k, "")))
         self.tabelle.verticalHeader().setVisible(False)
         self.tabelle.setSelectionBehavior(QtWidgets.QAbstractItemView.SelectionBehavior.SelectRows)
         self.tabelle.setSelectionMode(QtWidgets.QAbstractItemView.SelectionMode.SingleSelection)
         self.tabelle.setEditTriggers(QtWidgets.QAbstractItemView.EditTrigger.NoEditTriggers)
         kopf = self.tabelle.horizontalHeader()
         kopf.setSectionResizeMode(2, QtWidgets.QHeaderView.ResizeMode.Stretch)
-        for i in (0, 1, 3):
-            kopf.setSectionResizeMode(i, QtWidgets.QHeaderView.ResizeMode.ResizeToContents)
+        for i in range(len(koepfe)):
+            if i != 2:
+                kopf.setSectionResizeMode(i, QtWidgets.QHeaderView.ResizeMode.ResizeToContents)
         self.tabelle.setWordWrap(False)
         lay.addWidget(self.tabelle, 1)
         self.detail = QtWidgets.QLabel("")
@@ -304,12 +315,18 @@ class AenderungenPanel(QtWidgets.QWidget):
     def _zeile(self, z, a):
         titel = a.titel if a.kategorie in ("geometrie", "baugruppe") else \
             f"{tr(STATUS_TEXT.get(a.status, a.status))}: {a.titel.split(': ', 1)[-1]}"
+        from ..kern.vergleich import spalten
+        merkmal, alt, neu, delta, tendenz = spalten(a)
         werte = (str(a.nummer), tr(KATEGORIE_TEXT[a.kategorie]), tr(titel) if a.kategorie == "geometrie" else titel,
-                 tr(PRUEF_TEXT[a.pruefstatus]))
+                 merkmal, alt, neu, delta, tendenz, tr(PRUEF_TEXT[a.pruefstatus]))
         for s, w in enumerate(werte):
             it = QtWidgets.QTableWidgetItem(w)
             if s == 2:
                 it.setToolTip(a.beschreibung)
+            elif s in (4, 5) and w:
+                it.setToolTip(w)  # lange Werte (mehrere Felder) ganz zeigen
+            elif s == 7 and w:
+                it.setForeground(QtGui.QColor("#c0392b" if w == tr("enger") else "#2e7d32"))
             self.tabelle.setItem(z, s, it)
 
     def _filtern(self):

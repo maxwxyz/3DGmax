@@ -222,14 +222,19 @@ def _ansichten_seiten(fenster, bericht, ansichten, modell, nach_nr, erg):
         bericht.tabelle(*pmi_tabelle(fenster, [nach_nr[n] for n in a.pmi_nummern]))
 
 
-AENDERUNG_SPALTEN = [("Nr", 0.05), ("Art", 0.09), ("Änderung", 0.34), ("Beschreibung", 0.30), ("Prüfstatus", 0.09),
-                     ("Kommentar", 0.13)]
+AENDERUNG_SPALTEN = [("Nr", 0.04), ("Art", 0.08), ("Änderung", 0.25), ("Merkmal", 0.12), ("Alt", 0.13), ("Neu", 0.13),
+                     ("Δ", 0.07), ("Prüfstatus", 0.08), ("Kommentar", 0.10)]
 
 
 def _aenderung_zeilen(vergleich):
+    from ..kern.vergleich import spalten
     from .vergleich_ui import KATEGORIE_TEXT, PRUEF_TEXT
-    return [[str(a.nummer), tr(KATEGORIE_TEXT[a.kategorie]), a.titel, a.beschreibung, tr(PRUEF_TEXT[a.pruefstatus]),
-             a.kommentar] for a in vergleich.aenderungen]
+    out = []
+    for a in vergleich.aenderungen:
+        merkmal, alt, neu, delta, tendenz = spalten(a)
+        out.append([str(a.nummer), tr(KATEGORIE_TEXT[a.kategorie]), a.titel, merkmal, alt, neu,
+                    delta + (f" ({tendenz})" if tendenz else ""), tr(PRUEF_TEXT[a.pruefstatus]), a.kommentar])
+    return out
 
 
 def vergleich_pdf(fenster, pfad: str, bilder: bool = True) -> str:
