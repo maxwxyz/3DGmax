@@ -53,6 +53,31 @@ class BaumPanel(QtWidgets.QWidget):
             it.addChild(self._eintrag(kind))
         return it
 
+    STATUS_FARBE = {"neu": "#2e9d47", "entfernt": "#c0392b", "geaendert": "#d68910"}
+    STATUS_TEXT = {"neu": "neu", "entfernt": "entfernt", "geaendert": "geändert", "gleich": "unverändert"}
+
+    def setze_status(self, status: dict | None):
+        """Vergleich: Teile nach Status faerben (Punkt, Farbe, Tooltip); Knoten darueber zeigen, dass sich darunter
+        etwas geaendert hat. None: wieder ohne Status."""
+        def gehe(it) -> bool:
+            k = it.data(0, QtCore.Qt.ItemDataRole.UserRole)
+            name = k.name + (tr(" (Hilfsgeometrie)") if k.hilfsgeometrie else "")
+            if it.childCount():
+                geaendert = any([gehe(it.child(i)) for i in range(it.childCount())])
+                it.setText(0, name + ("  •" if status and geaendert else ""))
+                it.setToolTip(0, tr("enthält Änderungen") if status and geaendert else "")
+                return geaendert
+            st = (status or {}).get(k.nummer)
+            farbe = self.STATUS_FARBE.get(st)
+            it.setText(0, ("● " + name) if farbe else name)
+            it.setForeground(0, QtGui.QBrush(QtGui.QColor(farbe)) if farbe else QtGui.QBrush())
+            it.setToolTip(0, tr(self.STATUS_TEXT[st]) if st else "")
+            return farbe is not None
+        self.baum.blockSignals(True)
+        for i in range(self.baum.topLevelItemCount()):
+            gehe(self.baum.topLevelItem(i))
+        self.baum.blockSignals(False)
+
     @staticmethod
     def blaetter(it) -> set[int]:
         k = it.data(0, QtCore.Qt.ItemDataRole.UserRole)

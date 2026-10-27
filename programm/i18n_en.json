@@ -1240,5 +1240,7 @@
 "Größe der Oberfläche": "Size of the interface",
 "(Standard)": "(default)",
 "Schrift und Bedienelemente größer oder kleiner (nach einem Neustart)": "Text and controls larger or smaller (after a restart)",
-"Die Oberfläche wird nach einem Neustart auf {:.0f} % gestellt.": "The interface will be set to {:.0f} % after a restart."
+"Die Oberfläche wird nach einem Neustart auf {:.0f} % gestellt.": "The interface will be set to {:.0f} % after a restart.",
+"enthält Änderungen": "contains changes",
+"unverändert": "unchanged"
 }

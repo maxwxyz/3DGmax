@@ -261,3 +261,32 @@ def _transformiert(seite: Seite, modell_b, ausrichtung: Ausrichtung) -> Seite:
     punkte = seite.punkte @ m[:3, :3].T + m[:3, 3]
     return Seite(flaechen, netze, NetzAbstand(netze), punkte, seite.punkt_flaeche, seite.nachbarn, seite.feinheit,
                  seite.basis)
+
+
+def teil_status(baum, modell, status: dict, instanzen: dict | None = None) -> dict[int, str]:
+    """Status je Blatt des Baums aus dem Flaechenstatus: alle Flaechen neu bzw. entfernt -> neu/entfernt, eine
+    geaendert/neu/entfernt -> geaendert, sonst gleich (mehrfach verbaute Teile je Instanz)."""
+    from OCC.Core.TopAbs import TopAbs_FACE
+    from OCC.Core.TopExp import TopExp_Explorer
+    out = {}
+    for k in baum.blaetter():
+        if k.hilfsgeometrie or k.form is None:
+            continue
+        werte = []
+        ex = TopExp_Explorer(k.form, TopAbs_FACE)
+        while ex.More():
+            i = modell.flaechen_index(ex.Current())
+            if i is not None:
+                werte.append((instanzen or {}).get(instanz_schluessel(i, ex.Current()), status.get(i, GLEICH)))
+            ex.Next()
+        if not werte:
+            continue
+        if all(w == NEU for w in werte):
+            out[k.nummer] = NEU
+        elif all(w == ENTFERNT for w in werte):
+            out[k.nummer] = ENTFERNT
+        elif any(w != GLEICH for w in werte):
+            out[k.nummer] = GEAENDERT
+        else:
+            out[k.nummer] = GLEICH
+    return out

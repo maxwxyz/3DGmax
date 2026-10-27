@@ -679,3 +679,32 @@ def test_vergleichsmodi(fenster):
     assert f.ansicht.ueberlagerung is None and not alt.isVisibleTo(f) and not f._kopplung.isActive()
     f.beende_vergleich()
     assert not f.modus_leiste.isVisibleTo(f) and f.dock_baum.windowTitle() in ("Struktur", "Structure")
+
+
+def test_baum_mit_teilestatus(fenster):
+    """Vergleich der Testbaugruppe: Deckel geaendert, Stift neu; im Modus Alt die entfallene Schraube entfernt."""
+    from programm.kern.vergleich_geo import teil_status
+    f = fenster
+    f.starte_vergleich({"alt": pfad("baugruppe.stp"), "neu": pfad("baugruppe_b.stp"), "toleranz": 0.01,
+                        "suchweite": 2.0}, warten=True)
+    v = f.vergleich
+    neu = teil_status(v.neu.baum, v.neu.modell, v.geo.status_b, v.geo.instanzen_b)
+    namen = {k.nummer: k.name for k in v.neu.baum.blaetter()}
+    nach_name = {namen[n]: s for n, s in neu.items()}
+    assert nach_name["Deckel"] == "geaendert"  # geometrisch; der neue Stift teilt eine Ebene mit dem alten Deckel
+    status = f._teil_status(v, False)  # mit Baugruppenvergleich: Stift neu
+    assert {namen[n]: s for n, s in status.items()}["Stift 4x15"] == "neu"
+    assert "entfernt" in f._teil_status(v, True).values()
+
+    def texte(it):
+        yield it.text(0), it.toolTip(0)
+        for i in range(it.childCount()):
+            yield from texte(it.child(i))
+    eintraege = list(texte(f.baum.baum.topLevelItem(0)))
+    assert any(t.startswith("● Stift") and tip in ("neu", "new") for t, tip in eintraege)
+    assert eintraege[0][0].endswith("•")  # Wurzel: enthaelt Aenderungen
+    f.setze_vergleichsmodus("alt")
+    eintraege = list(texte(f.baum.baum.topLevelItem(0)))
+    assert any(tip in ("entfernt", "removed") for _, tip in eintraege)
+    f.beende_vergleich()
+    assert not any(t.startswith("●") for t, _ in texte(f.baum.baum.topLevelItem(0)))

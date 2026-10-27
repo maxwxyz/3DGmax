@@ -1840,7 +1840,43 @@ class Hauptfenster(QtWidgets.QMainWindow):
         if getattr(self, "_baum_zeigt_alt", False) != alt_baum:
             self.baum.zeige((v.alt if alt_baum else v.neu).baum)
             self._baum_zeigt_alt = alt_baum
+        self.baum.setze_status(self._teil_status(v, alt_baum) if hervor or m == "vergleich" else None)
         self.dock_baum.setWindowTitle(tr("Struktur – alter Stand") if alt_baum else tr("Struktur"))
+
+    def _teil_status(self, v, alt: bool) -> dict:
+        """Status je Teil des gezeigten Stands (gemerkt je Vergleich)."""
+        from ..kern.vergleich_geo import teil_status
+        gemerkt = getattr(self, "_teil_status_merk", None)
+        if gemerkt is None or gemerkt[0] is not v:
+            gemerkt = self._teil_status_merk = (v, {})
+        if alt not in gemerkt[1]:
+            e = v.alt if alt else v.neu
+            status = teil_status(e.baum, e.modell, v.geo.status_a if alt else v.geo.status_b,
+                                 None if alt else v.geo.instanzen_b)
+            # Teile, die der Baugruppenvergleich als neu/entfernt kennt, gehen vor (eine Flaeche kann zufaellig in
+            # einer alten Ebene liegen und zaehlt dann geometrisch als gleich)
+            ziel = "entfernt" if alt else "neu"
+            for a in v.aenderungen:
+                if a.kategorie == "baugruppe" and a.status == ziel:
+                    flaechen = a.flaechen_alt if alt else a.flaechen_neu
+                    for nr in self._blaetter_mit(e, flaechen):
+                        status[nr] = ziel
+            gemerkt[1][alt] = status
+        return gemerkt[1][alt]
+
+    @staticmethod
+    def _blaetter_mit(erg, flaechen: set) -> set[int]:
+        from OCC.Core.TopAbs import TopAbs_FACE
+        from OCC.Core.TopExp import TopExp_Explorer
+        out = set()
+        for k in erg.baum.blaetter():
+            ex = TopExp_Explorer(k.form, TopAbs_FACE) if k.form is not None else None
+            while ex is not None and ex.More():
+                if erg.modell.flaechen_index(ex.Current()) in flaechen:
+                    out.add(k.nummer)
+                    break
+                ex.Next()
+        return out
 
     def _sichtbarkeit_vergleich(self):
         m = self._vergleichsmodus
@@ -1910,6 +1946,7 @@ class Hauptfenster(QtWidgets.QMainWindow):
         if getattr(self, "_baum_zeigt_alt", False) and self.erg is not None:
             self.baum.zeige(self.erg.baum)
         self._baum_zeigt_alt = False
+        self.baum.setze_status(None)
         self.dock_baum.setWindowTitle(tr("Struktur"))
 
     def starte_manuell_ausrichten(self):
