@@ -1304,5 +1304,19 @@
 "Bewegungsbereich offener Freiheitsgrade": "Range of motion of open DOF",
 "Freier Bewegungsbereich:": "Free range of motion:",
 "Geprüfter Bereich je Richtung: Verschiebung in mm, Drehung in Grad": "Checked range per direction: translation in mm, rotation in degrees",
-"Zusammenbau: jedes Teil entlang jedes offenen Freiheitsgrads bis zur ersten Kollision bewegen – ergibt den freien Bereich je Freiheitsgrad": "Assembly: move each part along each open degree of freedom up to the first collision – gives the free range per degree of freedom"
+"Zusammenbau: jedes Teil entlang jedes offenen Freiheitsgrads bis zur ersten Kollision bewegen – ergibt den freien Bereich je Freiheitsgrad": "Assembly: move each part along each open degree of freedom up to the first collision – gives the free range per degree of freedom",
+"Aus Messwerten": "From measured values",
+"CSV laden …": "Load CSV …",
+"CSV/Text (*.csv *.txt);;Alle Dateien (*)": "CSV/text (*.csv *.txt);;All files (*)",
+"Messwerte des Maßes (Istmaße in mm) einfügen – eine Zeile oder je Zeile ein Wert; Dezimalkomma geht. Bei mehreren Spalten zählt die gewählte Spalte.": "Paste the measured values of the dimension (actual sizes in mm) – one line, or one value per line; a decimal comma works. With several columns the chosen column counts.",
+"Messwerte eingeben oder laden: Mittelwert und Standardabweichung ergeben die Verteilung": "Enter or load measured values: their mean and standard deviation give the distribution",
+"Messwerte laden": "Load measured values",
+"Messwerte – {}": "Measured values – {}",
+"Messwerte …": "Measured values …",
+"Mittelwert der Messwerte gegen die Toleranzmitte (mm)": "Mean of the measured values against the tolerance centre (mm)",
+"Spalte": "Column",
+"letzte": "last",
+"n = {}, Mittelwert {:.4f}, σ = {:.4f}, Cpk {}": "n = {}, mean {:.4f}, σ = {:.4f}, Cpk {}",
+"n = {}, σ = {:.4g} …": "n = {}, σ = {:.4g} …",
+"{} Werte – mindestens zwei nötig": "{} values – at least two needed"
 }

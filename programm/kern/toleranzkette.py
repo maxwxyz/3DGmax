@@ -4,7 +4,8 @@ Jedes Glied ist ein Mass mit Nennmass, Hoechst- und Mindestmass und Richtung (+1
 -1 verkleinert es). Statistik je Glied: Mittelwert in Toleranzmitte (plus Versatz); Verteilung nach Fertigungsart
 (Scholz, Tabelle der Verteilungsfaktoren): normal mit sigma = T / (6 * Cp) (Serie; Cp je Glied oder der Kette),
 Dreieck sigma = T / (2 * Wurzel 6) (Kleinserie), Trapez mit flachem Anteil a sigma = T/2 * Wurzel((1 + a^2) / 6),
-gleichverteilt sigma = T / (2 * Wurzel 3) (Einzelteil) - T = Toleranzbreite. Das statistische Ergebnis ist +-3 sigma
+gleichverteilt sigma = T / (2 * Wurzel 3) (Einzelteil) - T = Toleranzbreite; aus Messwerten (ab zwei Werten):
+Normalverteilung mit Mittelwert und Standardabweichung der Stichprobe (Versatz = Mittelwert - Toleranzmitte). Das statistische Ergebnis ist +-3 sigma
 des Schlussmasses, der Anteil eines Glieds sein Varianzanteil.
 
 Anwendbarkeit: statistisch erst ab vier wirksamen Beitragsleistern (zentraler Grenzwertsatz); wirksam zaehlt
@@ -33,7 +34,7 @@ import numpy as np
 from ..i18n import tr
 
 VERTEILUNG = {"normal": "Normal (Serie)", "dreieck": "Dreieck (Kleinserie)", "trapez": "Trapez",
-              "gleich": "Gleich (Einzelteil)"}
+              "gleich": "Gleich (Einzelteil)", "messwerte": "Aus Messwerten"}
 MINDEST_BEITRAGSLEISTER = 4  # ab hier ist das statistische Ergebnis anwendbar
 QUELLE = {"pmi": "PMI", "lage": "Lagetoleranz", "allgemein": "Allgemeintoleranz", "ohne": "ohne Toleranz",
           "bereich": "Längenbereich", "eigen": "eigene Angabe"}
@@ -59,6 +60,17 @@ class Glied:
     stellglied: bool = False  # Laengenbereich, der zum Einhalten der Anforderung eingestellt wird
     faktor: float = 1.0  # Empfindlichkeit d(Schlussmass)/d(Glied), z. B. Hebelverhaeltnis (Vorzeichen: richtung)
     fest: bool = False  # Toleranz beim Verteilen nicht aendern (z. B. Normteil, Waelzlager)
+    messwerte: tuple[float, ...] = field(default_factory=tuple)  # Stichprobe fuer die Verteilung "messwerte"
+
+    @property
+    def gemessen(self) -> bool:
+        """Verteilung aus Messwerten (mindestens zwei Werte)?"""
+        return self.verteilung == "messwerte" and len(self.messwerte) >= 2
+
+    @property
+    def wirk_versatz(self) -> float:
+        """Mittelwert des Prozesses gegen die Toleranzmitte: aus den Messwerten oder der eingegebene Versatz."""
+        return float(np.mean(self.messwerte)) - self.mitte if self.gemessen else self.versatz
 
     @property
     def mitte(self) -> float:
@@ -70,8 +82,10 @@ class Glied:
 
     def cpk(self, cp_kette: float = 1.0) -> float | None:
         """Cpk = Cp * (1 - |Versatz| / (T/2)); None bei Gleichverteilung oder ohne Toleranz."""
-        if self.verteilung != "normal" or self.toleranz <= 0:
+        if self.verteilung not in ("normal", "messwerte") or self.toleranz <= 0:
             return None
+        if self.gemessen:
+            return (self.toleranz / 2 - abs(self.wirk_versatz)) / (3 * self.sigma(cp_kette)) if self.sigma() else None
         return (self.cp or cp_kette) * (1 - abs(self.versatz) / (self.toleranz / 2))
 
     def sigma(self, cp_kette: float = 1.0) -> float:
@@ -82,11 +96,13 @@ class Glied:
             return t / (2 * math.sqrt(6))
         if self.verteilung == "trapez":
             return t / 2 * math.sqrt((1 + self.form ** 2) / 6)
+        if self.gemessen:
+            return float(np.std(self.messwerte, ddof=1))
         return t / (6 * (self.cp or cp_kette))
 
     def ziehe(self, rng, n: int, cp_kette: float = 1.0) -> np.ndarray:
         """n Zufallswerte des Glieds (ohne Richtung)."""
-        m, h = self.mitte + self.versatz, self.toleranz / 2
+        m, h = self.mitte + self.wirk_versatz, self.toleranz / 2
         if self.verteilung == "gleich":
             return rng.uniform(m - h, m + h, n)
         if self.verteilung == "dreieck":
@@ -198,7 +214,7 @@ def verteile_toleranzen(glieder: list[Glied], ziel: float, art: str = "varianz",
     Case. Mitte jedes Glieds bleibt; liefert Kopien (fuer das Planspiel)."""
     import copy
     neu = [copy.copy(g) for g in glieder]
-    frei = [g for g in neu if not g.fest and g.quelle not in ("lage",) and not g.stellglied]
+    frei = [g for g in neu if not g.fest and g.quelle not in ("lage",) and not g.stellglied and not g.gemessen]
     if not frei or ziel <= 0:
         return neu
     frei_ids = {id(g) for g in frei}  # Identitaet: gleiche Werte duerfen nicht verwechselt werden
@@ -263,7 +279,7 @@ def berechne(glieder: list[Glied], cp: float = 1.0, proben: int = 200_000, zufal
     lo = np.array([g.mindest for g in glieder])
     wc_max = float(np.sum(np.where(r > 0, hi, lo) * r))
     wc_min = float(np.sum(np.where(r > 0, lo, hi) * r))
-    versatz = np.array([g.versatz for g in glieder])
+    versatz = np.array([g.wirk_versatz for g in glieder])
     mitte = float(np.sum(((hi + lo) / 2 + versatz) * r))
     sigma = np.array([g.sigma(cp) for g in glieder]) * np.abs(r)
     varianz = float(np.sum(sigma ** 2))
@@ -493,7 +509,9 @@ def als_csv(glieder: list[Glied], e: Ergebnis, cp: float = 1.0) -> str:
                    [zahl(x) for x in (g.nenn, g.hoechst, g.mindest, g.toleranz)] +
                    [tr(QUELLE[g.quelle]), tr(VERTEILUNG[g.verteilung]),
                     zahl(g.cp or cp) if g.verteilung == "normal" else
-                    f"a = {zahl(g.form)}" if g.verteilung == "trapez" else "", zahl(g.versatz), zahl(g.faktor),
+                    f"a = {zahl(g.form)}" if g.verteilung == "trapez" else
+                    f"n = {len(g.messwerte)}, σ = {zahl(g.sigma(cp))}" if g.gemessen else "", zahl(g.wirk_versatz),
+                    zahl(g.faktor),
                     f"{anteil:.1%}".replace(".", ",")])
     w.writerow([])
     zeilen = [(tr("Schlussmaß (nominal)"), e.nenn), (tr("Worst Case min"), e.wc_min), (tr("Worst Case max"), e.wc_max),
@@ -507,6 +525,33 @@ def als_csv(glieder: list[Glied], e: Ergebnis, cp: float = 1.0) -> str:
         w.writerow([text, "", zahl(wert)])
     w.writerow([tr("Anwendbar"), "", tr("statistisch") if e.statistisch else tr("arithmetisch"), anwendbar_text(e)])
     return puffer.getvalue()
+
+
+def messwerte_aus_text(text: str, spalte: int = 0) -> list[float]:
+    """Zahlen aus eingefuegtem Text oder CSV: eine Zeile -> alle Zahlen; mehrere Zeilen -> je Zeile die Zahl der
+    Spalte (1 = erste, 0 = letzte Zahl der Zeile). Dezimalkomma wird erkannt; Zeilen ohne Zahl (Kopf) entfallen."""
+    import re
+
+    def zahlen(zeile):
+        out = []
+        for teil in re.split(r"[;\t ]+|,(?=\s)", zeile.strip()):
+            teil = teil.strip()
+            if "," in teil and "." not in teil:
+                teil = teil.replace(",", ".")
+            try:
+                out.append(float(teil))
+            except ValueError:
+                continue
+        return out
+    zeilen = [z for z in text.splitlines() if z.strip()]
+    if len(zeilen) == 1:
+        return zahlen(zeilen[0])
+    out = []
+    for z in zeilen:
+        werte = zahlen(z)
+        if werte and (spalte == 0 or spalte <= len(werte)):
+            out.append(werte[spalte - 1] if spalte else werte[-1])
+    return out
 
 
 def richtungen_aus_schlussmass(glieder: list[Glied], modell, flaeche_a: int, flaeche_b: int):

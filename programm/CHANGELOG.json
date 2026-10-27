@@ -166,7 +166,8 @@
    "Kollisionsprüfung optional auch in den Grenzlagen der Toleranzen aus dem Zusammenbau: gemeldet wird, was erst dort kollidiert oder zu nah kommt.",
    "Scanprüfung: Ausrichtung „Von Hand …“ über Punktpaare Scan ↔ Modell (z. B. bei wenig Überdeckung), danach Feinausrichtung und auf Wunsch 3-2-1 am Bezugssystem.",
    "Plausibilitätsprüfung: theoretisch exakte Maße mit Toleranz, doppelt tolerierte Lage (toleriertes Lagemaß und Position/Profil zum selben Bezug), Mustermaß an Elementen verschiedener Größe, zu wenige Bezugsstellen für die Stelle im Bezugssystem und Bezugsstellen ohne verwendeten Bezug.",
-   "Kollisionen: Option „Bewegungsbereich offener Freiheitsgrade“ – jedes Teil des Zusammenbaus wird entlang seiner offenen Freiheitsgrade bis zur ersten Kollision bewegt (eingegrenzt durch Halbieren); gemeldet werden der freie Bereich je Freiheitsgrad und die Kollision an der Grenze."
+   "Kollisionen: Option „Bewegungsbereich offener Freiheitsgrade“ – jedes Teil des Zusammenbaus wird entlang seiner offenen Freiheitsgrade bis zur ersten Kollision bewegt (eingegrenzt durch Halbieren); gemeldet werden der freie Bereich je Freiheitsgrad und die Kollision an der Grenze.",
+   "Toleranzkette: Verteilung „Aus Messwerten“ je Glied – Werte einfügen oder als CSV laden (Spalte wählbar, Dezimalkomma); Mittelwert und Standardabweichung der Stichprobe ergeben Versatz, σ und Cpk; beim Verteilen bleiben gemessene Glieder unverändert."
   ],
   "en": [
    "First viewer version: load STEP AP242, assembly tree, CAD-style navigation, standard views.",
@@ -334,7 +335,8 @@
    "Clash check optionally also at the tolerance limit positions from the assembly: reported is what only collides or comes too close there.",
    "Scan check: alignment “By hand …” from point pairs scan ↔ model (e.g. with little overlap), then fine alignment and optionally 3-2-1 on the datum reference frame.",
    "Plausibility check: basic dimensions with a tolerance, location toleranced twice (toleranced location dimension and position/profile to the same datum), pattern dimension on features of different size, too few datum targets for the datum's position in the reference frame, and datum targets whose datum is never used.",
-   "Clashes: option “Range of motion of open DOF” – each assembly part is moved along its open degrees of freedom up to the first collision (narrowed by bisection); the free range per degree of freedom and the collision at the limit are reported."
+   "Clashes: option “Range of motion of open DOF” – each assembly part is moved along its open degrees of freedom up to the first collision (narrowed by bisection); the free range per degree of freedom and the collision at the limit are reported.",
+   "Stack-up: distribution “From measured values” per link – paste values or load a CSV (column selectable, decimal comma); the sample mean and standard deviation give offset, σ and Cpk; allocation leaves measured links unchanged."
   ]
  },
  "releases": [

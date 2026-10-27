@@ -48,6 +48,30 @@ def test_monte_carlo_mit_gemischten_verteilungen():
     assert e.wc_min < e.mc_min < e.mc_max < e.wc_max and abs(sum(e.anteile) - 1) < 1e-9
 
 
+def test_verteilung_aus_messwerten(tmp_path):
+    import numpy as np
+    from programm.kern import kette_datei
+    assert tk.messwerte_aus_text("10,01; 10,02 9,99") == [10.01, 10.02, 9.99]
+    csv = "Nr;Soll;Ist\n1;10;10,012\n2;10;9,995\n3;10;10,004\n"
+    assert tk.messwerte_aus_text(csv) == [10.012, 9.995, 10.004]  # letzte Spalte, Kopf entfaellt
+    assert tk.messwerte_aus_text(csv, 1) == [1.0, 2.0, 3.0]
+    rng = np.random.default_rng(1)
+    werte = tuple(rng.normal(10.02, 0.01, 200))
+    g = tk.Glied("a", 10, 10.1, 9.9, verteilung="messwerte", messwerte=werte)
+    s = float(np.std(werte, ddof=1))
+    assert g.gemessen and abs(g.sigma() - s) < 1e-12 and abs(g.wirk_versatz - (np.mean(werte) - 10)) < 1e-12
+    assert abs(g.cpk() - (0.1 - abs(g.wirk_versatz)) / (3 * s)) < 1e-12
+    e = tk.berechne([g] + [tk.Glied(n, 5, 5.05, 4.95) for n in "bcd"])
+    assert abs(e.mitte - (25 + g.wirk_versatz)) < 1e-9 and abs(e.mc_mittel - e.mitte) < 0.005
+    # zu wenige Werte: wie normal mit dem Cp der Kette
+    assert tk.Glied("a", 10, 10.1, 9.9, verteilung="messwerte", messwerte=(10.0,)).sigma() - 0.2 / 6 < 1e-12
+    # Verteilen laesst gemessene Glieder unveraendert
+    neu = tk.verteile_toleranzen([g, tk.Glied("b", 5, 5.05, 4.95)], 0.1)
+    assert (neu[0].hoechst, neu[0].mindest) == (10.1, 9.9)
+    pfad = kette_datei.speichere(str(tmp_path / "m"), kette_datei.KettenDatei([g], 1.0))
+    assert kette_datei.lade(pfad).glieder[0].messwerte == werte
+
+
 def test_alte_projekte_ohne_form():
     g = tk.Glied(**{"name": "x", "nenn": 1.0, "hoechst": 1.1, "mindest": 0.9, "verteilung": "gleich"})
     assert g.form == 0.5

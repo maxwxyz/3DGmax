@@ -177,6 +177,63 @@ class WerkstoffDialog(QtWidgets.QDialog):
         lay.addWidget(knoepfe)
 
 
+class MesswerteDialog(QtWidgets.QDialog):
+    """Messwerte eines Glieds einfuegen oder aus CSV laden; Vorschau mit n, Mittelwert und Standardabweichung."""
+
+    def __init__(self, glied, parent=None):
+        super().__init__(parent)
+        self.setWindowTitle(tr("Messwerte – {}").format(glied.name))
+        self.glied = glied
+        lay = QtWidgets.QVBoxLayout(self)
+        lay.addWidget(QtWidgets.QLabel(tr("Messwerte des Maßes (Istmaße in mm) einfügen – eine Zeile oder je Zeile ein "
+                                          "Wert; Dezimalkomma geht. Bei mehreren Spalten zählt die gewählte Spalte.")))
+        self.text = QtWidgets.QPlainTextEdit("\n".join(f"{w:g}" for w in glied.messwerte))
+        lay.addWidget(self.text, 1)
+        zeile = QtWidgets.QHBoxLayout()
+        laden = QtWidgets.QPushButton(tr("CSV laden …"))
+        laden.clicked.connect(self._laden)
+        zeile.addWidget(laden)
+        zeile.addWidget(QtWidgets.QLabel(tr("Spalte")))
+        self.spalte = QtWidgets.QSpinBox()
+        self.spalte.setRange(0, 99)
+        self.spalte.setSpecialValueText(tr("letzte"))
+        zeile.addWidget(self.spalte)
+        zeile.addStretch(1)
+        lay.addLayout(zeile)
+        self.info = QtWidgets.QLabel("")
+        lay.addWidget(self.info)
+        knoepfe = QtWidgets.QDialogButtonBox(QtWidgets.QDialogButtonBox.StandardButton.Ok |
+                                             QtWidgets.QDialogButtonBox.StandardButton.Cancel)
+        knoepfe.accepted.connect(self.accept)
+        knoepfe.rejected.connect(self.reject)
+        lay.addWidget(knoepfe)
+        self.text.textChanged.connect(self._vorschau)
+        self.spalte.valueChanged.connect(self._vorschau)
+        self._vorschau()
+
+    def werte(self) -> list[float]:
+        return tk.messwerte_aus_text(self.text.toPlainText(), self.spalte.value())
+
+    def _vorschau(self):
+        import numpy as np
+        w = self.werte()
+        if len(w) < 2:
+            self.info.setText(tr("{} Werte – mindestens zwei nötig").format(len(w)))
+            return
+        g = copy.copy(self.glied)
+        g.messwerte, g.verteilung = tuple(w), "messwerte"
+        cpk = g.cpk()
+        self.info.setText(tr("n = {}, Mittelwert {:.4f}, σ = {:.4f}, Cpk {}").format(
+            len(w), float(np.mean(w)), g.sigma(), f"{cpk:.2f}" if cpk is not None else "–"))
+
+    def _laden(self, pfad: str = ""):
+        pfad = pfad or QtWidgets.QFileDialog.getOpenFileName(self, tr("Messwerte laden"), "",
+                                                             tr("CSV/Text (*.csv *.txt);;Alle Dateien (*)"))[0]
+        if pfad:
+            with open(pfad, encoding="utf-8-sig", errors="replace") as f:
+                self.text.setPlainText(f.read())
+
+
 class ToleranzketteFenster(QtWidgets.QDialog):
     flaechen_zeigen = QtCore.Signal(set)  # Flaechen der gewaehlten Glieder (aus der 3D-Auswahl)
     schluss_aus_auswahl = QtCore.Signal()  # Richtungen aus dem Schlussmass (zwei Flaechen in der 3D-Auswahl)
@@ -770,6 +827,13 @@ class ToleranzketteFenster(QtWidgets.QDialog):
             feld.setValue(g.form)
             feld.valueChanged.connect(lambda w, g=g: self._setze(g, "form", w))
             name = "form"
+        elif g.verteilung == "messwerte":
+            feld = QtWidgets.QPushButton(tr("n = {}, σ = {:.4g} …").format(len(g.messwerte), g.sigma())
+                                         if g.gemessen else tr("Messwerte …"))
+            feld.setToolTip(tr("Messwerte eingeben oder laden: Mittelwert und Standardabweichung ergeben die "
+                               "Verteilung"))
+            feld.clicked.connect(lambda _c=False, g=g: self.messwerte_eingeben(g))
+            name = "messwerte"
         else:
             feld = QtWidgets.QDoubleSpinBox()
             feld.setRange(0.0, 3.0)
@@ -786,7 +850,10 @@ class ToleranzketteFenster(QtWidgets.QDialog):
         versatz.setDecimals(4)
         versatz.setSingleStep(0.01)
         versatz.setToolTip(tr("Mittenversatz des Prozesses gegen die Toleranzmitte (mm): Cpk < Cp"))
-        versatz.setValue(g.versatz)
+        versatz.setValue(g.wirk_versatz)
+        if g.gemessen:  # aus den Messwerten
+            versatz.setEnabled(False)
+            versatz.setToolTip(tr("Mittelwert der Messwerte gegen die Toleranzmitte (mm)"))
         versatz.valueChanged.connect(lambda w, g=g: self._setze(g, "versatz", w))
         t.setCellWidget(z, SP_VERSATZ, versatz)
         faktor = QtWidgets.QDoubleSpinBox()
@@ -805,6 +872,17 @@ class ToleranzketteFenster(QtWidgets.QDialog):
                     schrift.setBold(True)
                     w.setFont(schrift)
                     w.setToolTip(tr("Ist: {}").format(getattr(ist, feldname)))
+
+    def messwerte_eingeben(self, g, werte: list[float] | None = None) -> bool:
+        """Dialog fuer die Messwerte des Glieds (werte: ohne Dialog setzen, fuer Tests)."""
+        if werte is None:
+            d = MesswerteDialog(g, self)
+            if d.exec() != QtWidgets.QDialog.DialogCode.Accepted:
+                return False
+            werte = d.werte()
+        self._setze(g, "messwerte", tuple(werte))
+        QtCore.QTimer.singleShot(0, self._fuelle)
+        return True
 
     def _setze(self, g, feld: str, wert):
         setattr(g, feld, wert)

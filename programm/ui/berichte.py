@@ -386,10 +386,11 @@ def kette_pdf(fenster, pfad: str, bild: bool = True) -> str:
     tabelle, geaendert = [], set()
     for i, (g, anteil) in enumerate(zip(k.glieder, e.anteile)):
         form = (f"{g.cp or k.cp.value():.2f}" if g.verteilung == "normal" else
-                f"a = {g.form:.2f}" if g.verteilung == "trapez" else "–")
+                f"a = {g.form:.2f}" if g.verteilung == "trapez" else
+                f"n = {len(g.messwerte)}, σ = {g.sigma():.4g}" if g.gemessen else "–")
         zeile = [g.name, "+" if g.richtung > 0 else "−", "–" if g.quelle == "lage" else f"{g.nenn:.4g}",
                  f"{g.hoechst:.4g}", f"{g.mindest:.4g}", f"{g.toleranz:.4g}", tr(tk.QUELLE[g.quelle]),
-                 tr(tk.VERTEILUNG[g.verteilung]), form, f"{g.versatz:g}", f"{g.faktor:g}", f"{anteil:.0%}"]
+                 tr(tk.VERTEILUNG[g.verteilung]), form, f"{g.wirk_versatz:.4g}", f"{g.faktor:g}", f"{anteil:.0%}"]
         ist = k._ist_glied(i)
         if ist is not None and (ist.hoechst, ist.mindest, ist.nenn, ist.richtung, ist.verteilung, ist.cp, ist.form,
                                 ist.versatz, ist.faktor) != (g.hoechst, g.mindest, g.nenn, g.richtung, g.verteilung,

@@ -53,7 +53,8 @@ def lade(pfad: str) -> KettenDatei:
     if d.get("format") != FORMAT:
         raise ValueError("keine 3DGmax-Kettendatei")
     felder = set(Glied.__dataclass_fields__)
-    glieder = [Glied(**{**{k: v for k, v in g.items() if k in felder}, "flaechen": tuple(g.get("flaechen", ()))})
+    glieder = [Glied(**{**{k: v for k, v in g.items() if k in felder}, "flaechen": tuple(g.get("flaechen", ())),
+                       "messwerte": tuple(g.get("messwerte", ()))})
                for g in d.get("glieder", [])]
     modell = d.get("modell", "")
     if modell and not os.path.isabs(modell):

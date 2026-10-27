@@ -94,7 +94,8 @@ def lade(pfad: str, ziel: str | None = None) -> dict:
     daten["eigene_pmi"] = [_pmi_von(p) for p in daten.get("eigene_pmi", [])]
     if daten.get("kette"):
         from .toleranzkette import Glied
-        daten["kette"]["glieder"] = [Glied(**{**g, "flaechen": tuple(g.get("flaechen", ()))})
+        daten["kette"]["glieder"] = [Glied(**{**g, "flaechen": tuple(g.get("flaechen", ())),
+                                              "messwerte": tuple(g.get("messwerte", ()))})
                                      for g in daten["kette"]["glieder"]]
     daten["ansichten"] = [Ansicht(**{**a, "pmi_ids": set(a.get("pmi_ids", [])), "ort": tuple(a["ort"]),
                                      "richtung": tuple(a["richtung"]), "oben": tuple(a["oben"])})

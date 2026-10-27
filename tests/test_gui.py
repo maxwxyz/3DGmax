@@ -1145,6 +1145,24 @@ def test_toleranzkette_planspiel_und_anwendbar(fenster, tmp_path):
     assert abs(k.glieder[0].toleranz - 0.1) < 1e-12 and k.e_ist is None
 
 
+def test_toleranzkette_messwerte(fenster):
+    from programm.ui.toleranzkette_ui import MesswerteDialog
+    f = fenster
+    assert f.oeffne_beispiel("kette_getriebe", warten=True)
+    k = f._kette
+    g = k.glieder[1]
+    mitte = k.e.mitte
+    k._setze(g, "verteilung", "messwerte")
+    d = MesswerteDialog(g, k)
+    d.text.setPlainText("43,21\n43,19\n43,22\n43,20")
+    assert "n = 4" in d.info.text() and len(d.werte()) == 4
+    assert k.messwerte_eingeben(g, d.werte()) and g.gemessen
+    k._fuelle()
+    knopf = k.tabelle.cellWidget(1, 8)
+    assert "n = 4" in knopf.text() and not k.tabelle.cellWidget(1, 9).isEnabled()
+    assert abs(k.e.mitte - mitte - g.wirk_versatz * g.richtung) < 1e-9
+
+
 def test_toleranzkette_getriebe_beispiel(fenster, tmp_path):
     """Beispiel: Kette mit Modell laden, Temperaturen und Werkstoffe, Bauteiltemperatur, Stellglied, Laengenbereich,
     Speichern und wieder Oeffnen, Richtungen aus dem Schlussmass, Kette ablaufen."""
