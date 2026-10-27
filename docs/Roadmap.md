@@ -78,11 +78,12 @@
 | Deviation color map (scale, tolerance limit, sign, value on click) | ✅ |
 | Display like CATIA Compare Products: added/removed volume (exact, Boolean) | ✅ |
 | Detect moved elements (translation) and moved PMI | ✅ |
-| Detect rotated/mirrored elements | ⬜ |
+| Detect rotated/mirrored elements (angle and axis, mirror plane) | ✅ |
 | Graphical PMI comparison: moved or reshaped presentation of equal PMI | ✅ |
 | Graphical-only PMI (notes) matched and compared by text | ✅ |
 | Assembly comparison (parts new/removed/moved/changed/renamed) | ✅ |
-| Geometry comparison per part instance (instances currently share one face set) | ⬜ |
+| Geometry comparison per part instance (each instance sampled; status shown on the shared faces) | ✅ |
+| Status and colors per instance in the 3D view and change list | ⬜ |
 | Meshes: STL/OBJ/glTF/3MF vs. CAD and mesh vs. mesh (alignment, color map) | ✅ |
 | PLY meshes from scanners | ✅ |
 | Point clouds without triangles (PLY points, XYZ, E57) | ⬜ |

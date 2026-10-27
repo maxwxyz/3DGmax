@@ -769,5 +769,10 @@
 "Bezug {} ist eine Ebene: Ⓜ/Ⓛ am Bezug ohne Wirkung": "Datum {} is a plane: Ⓜ/Ⓛ on the datum has no effect",
 "Passmaß ohne Ⓔ: nach ISO 8015 ohne Hüllbedingung (Form nicht begrenzt)": "Fit without Ⓔ: under ISO 8015 no envelope requirement (form not limited)",
 "Erzeugte PMI-Darstellung zeigen": "Show generated PMI display",
-"Aus der Semantik erzeugte Beschriftungen (PMI ohne Grafik in der Datei) ein/aus": "Annotations generated from semantics (PMI without graphics in the file) on/off"
+"Aus der Semantik erzeugte Beschriftungen (PMI ohne Grafik in der Datei) ein/aus": "Annotations generated from semantics (PMI without graphics in the file) on/off",
+"Geometrie gedreht": "Geometry rotated",
+"Geometrie gespiegelt": "Geometry mirrored",
+"gedreht um {:+.2f}° um Achse ({:+.3f}, {:+.3f}, {:+.3f})": "rotated by {:+.2f}° about axis ({:+.3f}, {:+.3f}, {:+.3f})",
+"gespiegelt an Ebene mit Normale ({:+.3f}, {:+.3f}, {:+.3f}) bei {:.3f} mm": "mirrored at plane with normal ({:+.3f}, {:+.3f}, {:+.3f}) at {:.3f} mm",
+"{} Fläche(n) {}; Schwerpunkt dX {:+.3f}  dY {:+.3f}  dZ {:+.3f} mm": "{} face(s) {}; centroid dX {:+.3f}  dY {:+.3f}  dZ {:+.3f} mm"
 }

@@ -63,8 +63,9 @@ def _gruppen(flaechen: set[int], nachbarn: dict[int, set[int]]) -> list[set[int]
 
 
 VERSCHOBEN = "verschoben"
+GEDREHT, GESPIEGELT = "gedreht", "gespiegelt"  # Titel; der Status bleibt VERSCHOBEN (gleiche Form, andere Lage)
 GEO_TITEL = {GEAENDERT: "Geometrie geändert", NEU: "Geometrie neu", ENTFERNT: "Geometrie entfernt",
-             VERSCHOBEN: "Geometrie verschoben"}
+             VERSCHOBEN: "Geometrie verschoben", GEDREHT: "Geometrie gedreht", GESPIEGELT: "Geometrie gespiegelt"}
 GRAFIK = "grafik"
 PMI_TITEL = {"geaendert": "PMI geändert", "neu": "PMI neu", "entfallen": "PMI entfallen",
              "geometrie": "Geometrie unter PMI geändert", "verschoben": "PMI verschoben",
@@ -105,7 +106,12 @@ def _kennwerte(flaechen) -> list[tuple]:
 
 
 def _verschiebungen(aenderungen, alt, neu, ausrichtung, toleranz: float) -> list[Aenderung]:
-    """Paare aus 'neu' und 'entfernt' mit gleicher Form und gleichem Versatz aller Flaechen -> 'verschoben'."""
+    """Paare aus 'neu' und 'entfernt' mit gleicher Form in anderer Lage -> 'verschoben' (auch gedreht/gespiegelt).
+
+    Zuerst reiner Versatz (alle Schwerpunkte gleich verschoben), sonst starre Lage ueber die Netzpunkte
+    (Drehung oder Spiegelung), bestaetigt durch den Abstand der abgebildeten Flaechen zu den alten in beide
+    Richtungen.
+    """
     import numpy as np
     neue = [a for a in aenderungen if a.kategorie == GEOMETRIE and a.status == NEU]
     weg = [a for a in aenderungen if a.kategorie == GEOMETRIE and a.status == ENTFERNT]
@@ -125,16 +131,143 @@ def _verschiebungen(aenderungen, alt, neu, ausrichtung, toleranz: float) -> list
                 continue
             versatz = [c1 - c2 for (_, _, c1), (_, _, c2) in zip(kn, kw)]
             d = np.mean(versatz, axis=0)
-            if np.linalg.norm(d) <= toleranz or max(np.linalg.norm(v - d) for v in versatz) > max(10 * toleranz, 1e-3):
-                continue
+            if np.linalg.norm(d) > toleranz and max(np.linalg.norm(v - d) for v in versatz) <= max(10 * toleranz, 1e-3):
+                titel = tr(GEO_TITEL[VERSCHOBEN])
+                text = tr("{} Fläche(n) um dX {:+.3f}  dY {:+.3f}  dZ {:+.3f} mm ({:.3f} mm)").format(
+                    len(a.flaechen_neu), d[0], d[1], d[2], float(np.linalg.norm(d)))
+            else:
+                lage = _starr_gleich([neu.modell.flaechen[i] for i in sorted(a.flaechen_neu)],
+                                     [alt.modell.flaechen[i] for i in sorted(b.flaechen_alt)], m, toleranz)
+                if lage is None:
+                    continue
+                art, beschreibung = beschreibe_lage(*lage)
+                titel = tr(GEO_TITEL[art])
+                text = tr("{} Fläche(n) {}; Schwerpunkt dX {:+.3f}  dY {:+.3f}  dZ {:+.3f} mm").format(
+                    len(a.flaechen_neu), beschreibung, d[0], d[1], d[2])
             genutzt.add(id(b))
             ersetzt |= {id(a), id(b)}
-            dazu.append(Aenderung(0, GEOMETRIE, VERSCHOBEN, tr(GEO_TITEL[VERSCHOBEN]),
-                                  tr("{} Fläche(n) um dX {:+.3f}  dY {:+.3f}  dZ {:+.3f} mm ({:.3f} mm)").format(
-                                      len(a.flaechen_neu), d[0], d[1], d[2], float(np.linalg.norm(d))),
-                                  set(a.flaechen_neu), set(b.flaechen_alt)))
+            dazu.append(Aenderung(0, GEOMETRIE, VERSCHOBEN, titel, text, set(a.flaechen_neu), set(b.flaechen_alt)))
             break
     return [a for a in aenderungen if id(a) not in ersetzt] + dazu
+
+
+def _starr_gleich(flaechen_neu, flaechen_alt, m, toleranz: float):
+    """(R, t) alt -> neu, wenn die neuen Flaechen (im alten System) durch Drehung/Spiegelung auf den alten liegen."""
+    import numpy as np
+    from .ausrichten import NetzAbstand, abtasten
+    netz_neu = _gruppen_netz(flaechen_neu, m)
+    netz_alt = _gruppen_netz(flaechen_alt)
+    p_neu, _ = abtasten(netz_neu, 600)
+    p_alt, _ = abtasten(netz_alt, 600, zufall=2)
+    if len(p_neu) < 3 or len(p_alt) < 3:
+        return None
+    grenze = max(5 * toleranz, 3 * _feinheit(flaechen_alt))
+    ziel_alt = NetzAbstand(netz_alt)
+    for r, t, _ in starre_lagen(p_neu, p_alt):
+        r, t = _nachfuehren(p_neu, ziel_alt, r, t)
+        if np.allclose(r, np.eye(3), atol=1e-6):
+            continue  # reiner Versatz wurde vorher geprueft
+        abgebildet = [(p @ r.T + t if len(p) else p, dr) for p, dr in netz_neu]
+        d1, _, _ = ziel_alt.abfrage(p_neu @ r.T + t)
+        if float(np.max(d1)) > grenze:
+            continue
+        d2, _, _ = NetzAbstand(abgebildet).abfrage(p_alt)
+        if float(np.max(d2)) <= grenze:
+            return r.T, -(t @ r)  # Lage alt -> neu
+    return None
+
+
+def _nachfuehren(punkte, ziel, r, t, schritte: int = 60):
+    """ICP Punkt zu Flaeche: naechste Punkte auf dem Zielnetz, Kabsch mit gleicher Haendigkeit wie r."""
+    import numpy as np
+    spiegel = np.linalg.det(r) < 0
+    for _ in range(schritte):
+        _, q, _ = ziel.abfrage(punkte @ r.T + t)
+        ma, mq = punkte.mean(axis=0), q.mean(axis=0)
+        u, _, vt = np.linalg.svd((punkte - ma).T @ (q - mq))
+        s = np.linalg.det(vt.T @ u.T)
+        r = vt.T @ np.diag([1.0, 1.0, -s if spiegel else s]) @ u.T
+        t = mq - ma @ r.T
+    return r, t
+
+
+def _gruppen_netz(flaechen, m=None):
+    """Netz einer Flaechengruppe, wahlweise mit 4x4-Matrix abgebildet."""
+    from .ausrichten import tesselliere
+    netze = tesselliere(flaechen, _feinheit(flaechen))
+    if m is not None:
+        netze = [(p @ m[:3, :3].T + m[:3, 3] if len(p) else p, t) for p, t in netze]
+    return netze
+
+
+def _feinheit(flaechen) -> float:
+    from OCC.Core.Bnd import Bnd_Box
+    from OCC.Core.BRepBndLib import brepbndlib
+    import numpy as np
+    box = Bnd_Box()
+    for f in flaechen:
+        brepbndlib.Add(f, box)
+    x0, y0, z0, x1, y1, z1 = box.Get()
+    return min(max(float(np.linalg.norm([x1 - x0, y1 - y0, z1 - z0])) * 2e-3, 0.005), 0.2)
+
+
+def starre_lagen(punkte_neu, punkte_alt, iterationen: int = 25) -> list[tuple]:
+    """Kandidaten fuer die starre Abbildung (Drehung oder Spiegelung + Versatz) von 'punkte_neu' auf 'punkte_alt'.
+
+    Ohne Punktzuordnung: Schwerpunkte und Hauptachsen (PCA) vorausrichten, alle acht Vorzeichenkombinationen der
+    Achsen (vier Drehungen, vier Spiegelungen) mit naechsten Nachbarn nachfuehren (ICP mit Kabsch, Haendigkeit
+    bleibt). Ergebnis: [(R, t, groesster Restabstand)] aufsteigend nach Rest, alt ~ neu @ R.T + t; det(R) < 0:
+    gespiegelt. Symmetrische Formen liefern mehrere gute Kandidaten; der Aufrufer prueft gegen die Flaechen.
+    """
+    import itertools
+
+    import numpy as np
+    from scipy.spatial import cKDTree
+    a, b = np.asarray(punkte_neu, float), np.asarray(punkte_alt, float)
+    if len(a) < 3 or len(b) < 3:
+        return []
+    ca, cb = a.mean(axis=0), b.mean(axis=0)
+    _, _, va = np.linalg.svd(a - ca, full_matrices=False)
+    _, _, vb = np.linalg.svd(b - cb, full_matrices=False)
+    baum = cKDTree(b)
+    out = []
+    for vz in itertools.product((1.0, -1.0), repeat=3):
+        r = vb.T @ np.diag(vz) @ va
+        t = cb - ca @ r.T
+        spiegel = np.linalg.det(r) < 0
+        for _ in range(iterationen):
+            _, j = baum.query(a @ r.T + t)
+            q = b[j]
+            ma, mq = a.mean(axis=0), q.mean(axis=0)
+            u, _, vt = np.linalg.svd((a - ma).T @ (q - mq))
+            s = np.linalg.det(vt.T @ u.T)
+            r = vt.T @ np.diag([1.0, 1.0, -s if spiegel else s]) @ u.T
+            t = mq - ma @ r.T
+        d, _ = baum.query(a @ r.T + t)
+        out.append((r, t, float(d.max())))
+    return sorted(out, key=lambda k: k[2])
+
+
+def beschreibe_lage(r, t) -> tuple[str, str]:
+    """(Art, Text) einer starren Abbildung: 'gedreht' (Winkel, Achse) oder 'gespiegelt' (Ebenennormale)."""
+    import numpy as np
+    if np.linalg.det(r) < 0:
+        w, v = np.linalg.eig(r)
+        k = int(np.argmin(np.abs(w + 1)))
+        n = np.real(v[:, k])
+        n = n / np.linalg.norm(n)
+        if n[np.argmax(np.abs(n))] < 0:
+            n = -n
+        abstand = float(t @ n) / 2
+        return "gespiegelt", tr("gespiegelt an Ebene mit Normale ({:+.3f}, {:+.3f}, {:+.3f}) bei {:.3f} mm").format(
+            n[0], n[1], n[2], abstand)
+    winkel = float(np.degrees(np.arccos(np.clip((np.trace(r) - 1) / 2, -1.0, 1.0))))
+    achse = np.array([r[2, 1] - r[1, 2], r[0, 2] - r[2, 0], r[1, 0] - r[0, 1]])
+    achse = achse / (np.linalg.norm(achse) or 1.0)
+    if achse[np.argmax(np.abs(achse))] < 0:
+        achse, winkel = -achse, -winkel
+    return "gedreht", tr("gedreht um {:+.2f}° um Achse ({:+.3f}, {:+.3f}, {:+.3f})").format(
+        winkel, achse[0], achse[1], achse[2])
 
 
 BG_TITEL = {"neu": "Teil neu", "entfernt": "Teil entfernt", "verschoben": "Teil verschoben",

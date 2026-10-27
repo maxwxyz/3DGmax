@@ -435,3 +435,78 @@ def test_hinweise_ueber_text_verglichen():
     assert (vp.GEAENDERT, "ALL FILLETS R2") in erg  # gleicher Name, Text geaendert
     stat = {x.status for x in vp.vergleiche_pmi(alt, neu) if (x.alt and "BREAK" in x.alt.nur_grafik_text)}
     assert stat <= {vp.GLEICH, vp.GEAENDERT} and vp.NEU not in stat  # gleicher Text -> zugeordnet
+
+
+def _platte_mit_l_tasche(trsf):
+    """Platte mit einer L-foermigen (nicht spiegelsymmetrischen) Tasche, Tasche mit 'trsf' gelegt."""
+    from types import SimpleNamespace
+    from OCC.Core.BRepAlgoAPI import BRepAlgoAPI_Cut, BRepAlgoAPI_Fuse
+    from OCC.Core.BRepBuilderAPI import BRepBuilderAPI_Transform
+    from OCC.Core.BRepPrimAPI import BRepPrimAPI_MakeBox
+    from OCC.Core.gp import gp_Pnt
+    from programm.kern.laden import StepModell, _alle_flaechen
+    platte = BRepPrimAPI_MakeBox(gp_Pnt(-60, -60, 0), 120.0, 120.0, 20.0).Shape()
+    l_form = BRepAlgoAPI_Fuse(BRepPrimAPI_MakeBox(gp_Pnt(0, 0, 10), 30.0, 8.0, 11.0).Shape(),
+                              BRepPrimAPI_MakeBox(gp_Pnt(0, 0, 10), 8.0, 18.0, 11.0).Shape()).Shape()
+    l_form = BRepBuilderAPI_Transform(l_form, trsf, True).Shape()
+    form = BRepAlgoAPI_Cut(platte, l_form).Shape()
+    m = StepModell("x.stp", None, None, form, _alle_flaechen(form))
+    m._baue_index()
+    return SimpleNamespace(modell=m, pmi=[], pfad="x.stp")
+
+
+def test_gedrehte_und_gespiegelte_tasche():
+    import numpy as np
+    from OCC.Core.gp import gp_Ax1, gp_Ax2, gp_Dir, gp_Pnt, gp_Trsf, gp_Vec
+    from programm.kern import vergleich
+    from programm.kern.ausrichten import Ausrichtung
+    gleich = Ausrichtung(np.eye(4), "gleich", 0.0, 1.0)
+    alt = _platte_mit_l_tasche(gp_Trsf())
+    dreh = gp_Trsf()
+    dreh.SetRotation(gp_Ax1(gp_Pnt(0, 0, 0), gp_Dir(0, 0, 1)), np.radians(30))
+    schieb = gp_Trsf()
+    schieb.SetTranslation(gp_Vec(-25, -30, 0))
+    neu = _platte_mit_l_tasche(schieb.Multiplied(dreh))
+    v = vergleich.vergleiche(alt, neu, 0.01, 2.0, gleich)
+    lage = [a for a in v.aenderungen if a.status == vergleich.VERSCHOBEN]
+    assert len(lage) == 1 and "gedreht um +30.00°" in lage[0].beschreibung, [a.beschreibung for a in v.aenderungen]
+    spiegel = gp_Trsf()
+    spiegel.SetMirror(gp_Ax2(gp_Pnt(-5, 0, 0), gp_Dir(1, 0, 0)))  # Spiegelung an x = -5
+    neu = _platte_mit_l_tasche(spiegel)
+    v = vergleich.vergleiche(alt, neu, 0.01, 2.0, gleich)
+    lage = [a for a in v.aenderungen if a.status == vergleich.VERSCHOBEN]
+    assert len(lage) == 1 and lage[0].titel == "Geometrie gespiegelt", [a.titel for a in v.aenderungen]
+    assert "(+1.000, +0.000, +0.000) bei -5.000" in lage[0].beschreibung
+
+
+def test_vergleich_je_instanz():
+    """Zwei Instanzen desselben Teils: nur die zweite ist verschoben -> wird erkannt (Flaechen je Instanz)."""
+    from types import SimpleNamespace
+    import numpy as np
+    from OCC.Core.BRep import BRep_Builder
+    from OCC.Core.BRepPrimAPI import BRepPrimAPI_MakeBox
+    from OCC.Core.gp import gp_Trsf, gp_Vec
+    from OCC.Core.TopLoc import TopLoc_Location
+    from OCC.Core.TopoDS import TopoDS_Compound
+    from programm.kern import vergleich_geo
+    from programm.kern.ausrichten import Ausrichtung
+    from programm.kern.laden import StepModell, _alle_flaechen
+    teil = BRepPrimAPI_MakeBox(20.0, 10.0, 5.0).Shape()
+
+    def modell(x2):
+        comp = TopoDS_Compound()
+        bb = BRep_Builder()
+        bb.MakeCompound(comp)
+        for x in (0.0, x2):
+            t = gp_Trsf()
+            t.SetTranslation(gp_Vec(x, 0, 0))
+            bb.Add(comp, teil.Located(TopLoc_Location(t)))
+        m = StepModell("x.stp", None, None, comp, _alle_flaechen(comp))
+        m._baue_index()
+        return m
+    alt, neu = modell(50.0), modell(53.0)
+    assert len(alt.flaechen) == 6  # Instanzen teilen sich die Flaechen
+    geo = vergleich_geo.vergleiche(alt, neu, Ausrichtung(np.eye(4), "gleich", 0.0, 1.0), 0.01, 4000, 5.0)
+    assert any(s != vergleich_geo.GLEICH for s in geo.status_b.values())
+    geo = vergleich_geo.vergleiche(alt, modell(50.0), Ausrichtung(np.eye(4), "gleich", 0.0, 1.0), 0.01, 4000, 5.0)
+    assert all(s == vergleich_geo.GLEICH for s in geo.status_b.values())

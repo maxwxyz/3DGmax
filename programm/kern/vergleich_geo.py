@@ -40,6 +40,11 @@ class Seite:
     punkt_flaeche: np.ndarray  # Flaechenindex je Punkt
     nachbarn: dict[int, set[int]]
     feinheit: float
+    basis: np.ndarray | None = None  # Instanz -> Flaechenindex des Modells (None: eine Instanz je Flaeche)
+
+    def index(self, instanzen: np.ndarray) -> np.ndarray:
+        """Instanznummern (Abtastpunkte, Treffer) auf die Flaechenindizes des Modells abbilden."""
+        return instanzen if self.basis is None else self.basis[instanzen]
 
 
 @dataclass
@@ -92,8 +97,33 @@ def _auf_flaeche(punkte: np.ndarray, flaeche_idx: np.ndarray, flaechen) -> np.nd
     return out
 
 
+def _instanzen(modell) -> tuple[list, np.ndarray | None]:
+    """Alle Flaechen mit ihrer Lage (jede Instanz eines mehrfach verbauten Teils einzeln) und ihr Modellindex."""
+    from OCC.Core.TopExp import TopExp_Explorer
+    from OCC.Core.TopoDS import topods
+    form = getattr(modell, "form", None)
+    if form is None:
+        return modell.flaechen, None
+    gesehen, liste, basis = set(), [], []
+    ex = TopExp_Explorer(form, TopAbs_FACE)
+    while ex.More():
+        f = topods.Face(ex.Current())
+        ex.Next()
+        k = f.Oriented(0).__hash__()  # Lage zaehlt (anders als modell.flaechen_index)
+        idx = modell.flaechen_index(f)
+        if k in gesehen or idx is None:
+            continue
+        gesehen.add(k)
+        liste.append(f)
+        basis.append(idx)
+    if len(liste) <= len(modell.flaechen):
+        return modell.flaechen, None
+    return liste, np.asarray(basis, dtype=int)
+
+
 def bereite_vor(modell, anzahl: int = 8000, feinheit: float | None = None) -> Seite:
-    flaechen = modell.flaechen
+    """Abtastung; mehrfach verbaute Teile werden je Instanz abgetastet (Flaechenstatus fasst sie zusammen)."""
+    flaechen, basis = _instanzen(modell)
     if feinheit is None:
         from OCC.Core.Bnd import Bnd_Box
         from OCC.Core.BRepBndLib import brepbndlib
@@ -106,8 +136,12 @@ def bereite_vor(modell, anzahl: int = 8000, feinheit: float | None = None) -> Se
     netze = tesselliere(flaechen, feinheit)
     punkte, fi = abtasten(netze, anzahl)
     punkte = _auf_flaeche(punkte, fi, flaechen)
-    return Seite(flaechen, netze, NetzAbstand(netze), punkte, fi, _nachbarn(flaechen, modell.flaechen_index),
-                 feinheit)
+    if basis is None:
+        nachbarn = _nachbarn(flaechen, modell.flaechen_index)
+    else:
+        nummer = {f.Oriented(0).__hash__(): i for i, f in enumerate(flaechen)}
+        nachbarn = _nachbarn(flaechen, lambda f: nummer.get(f.Oriented(0).__hash__()))
+    return Seite(flaechen, netze, NetzAbstand(netze), punkte, fi, nachbarn, feinheit, basis)
 
 
 def _exakt(punkt, kandidaten, flaechen, ganze_form=None) -> tuple[float, int]:
@@ -177,16 +211,20 @@ def vergleiche(modell_a, modell_b, ausrichtung: Ausrichtung | None = None, toler
         b = _transformiert(b, modell_b, ausrichtung)
     abw_b, treffer_a = abstaende(pb, a, toleranz)
     abw_a, treffer_b = abstaende(a.punkte, b, toleranz)
-    status_b, max_b = _status(abw_b, b.punkt_flaeche, len(b.flaechen), toleranz, NEU, suchweite)
-    status_a, _ = _status(abw_a, a.punkt_flaeche, len(a.flaechen), toleranz, ENTFERNT, suchweite)
+    # Instanzen auf die Flaechen der Modelle abbilden (eine geaenderte Instanz macht die Flaeche geaendert)
+    flaeche_b, flaeche_a = b.index(b.punkt_flaeche), a.index(a.punkt_flaeche)
+    treffer_a, treffer_b = a.index(treffer_a), b.index(treffer_b)
+    n_b, n_a = len(modell_b.flaechen), len(modell_a.flaechen)
+    status_b, max_b = _status(abw_b, flaeche_b, n_b, toleranz, NEU, suchweite)
+    status_a, _ = _status(abw_a, flaeche_a, n_a, toleranz, ENTFERNT, suchweite)
     zuordnung = {}
-    for fi in range(len(b.flaechen)):
-        sel = (b.punkt_flaeche == fi) & (abw_b <= suchweite)
+    for fi in range(n_b):
+        sel = (flaeche_b == fi) & (abw_b <= suchweite)
         if sel.any():
             zuordnung[fi] = Counter(treffer_a[sel].tolist()).most_common(1)[0][0]
     zuordnung_ab = {}
-    for fi in range(len(a.flaechen)):
-        sel = (a.punkt_flaeche == fi) & (abw_a <= suchweite)
+    for fi in range(n_a):
+        sel = (flaeche_a == fi) & (abw_a <= suchweite)
         if sel.any():
             zuordnung_ab[fi] = Counter(treffer_b[sel].tolist()).most_common(1)[0][0]
     zaehler = Counter(status_b.values())
@@ -204,4 +242,5 @@ def _transformiert(seite: Seite, modell_b, ausrichtung: Ausrichtung) -> Seite:
     m = ausrichtung.matrix
     netze = [(p @ m[:3, :3].T + m[:3, 3] if len(p) else p, t) for p, t in seite.netze]
     punkte = seite.punkte @ m[:3, :3].T + m[:3, 3]
-    return Seite(flaechen, netze, NetzAbstand(netze), punkte, seite.punkt_flaeche, seite.nachbarn, seite.feinheit)
+    return Seite(flaechen, netze, NetzAbstand(netze), punkte, seite.punkt_flaeche, seite.nachbarn, seite.feinheit,
+                 seite.basis)

@@ -131,6 +131,10 @@ Throughout: tests (core, offscreen UI, stress test, on-screen test), `--selbstte
 - Exact **and** approximate (fast) like CATIA Compare Products: added/removed material as volume, adjustable accuracy;
   deviation color map with scale and sign.
 - Detect **moved** elements (face/feature rigidly offset) and moved PMI placement.
+- **Done (2026-10-27):** rotated and mirrored elements (`vergleich._starr_gleich`: PCA start with all eight axis
+  sign combinations, point-to-surface ICP that keeps handedness, confirmed by mesh distance both ways; reported as
+  angle/axis or mirror plane, status "moved"); per-instance comparison (`vergleich_geo._instanzen`: every located
+  face is sampled, results are folded onto the shared face index). Open: per-instance status/colors in the UI.
 - **Graphical PMI comparison** in addition to semantic: match annotations (position, shape), color moved/changed/
   new/removed in the 3D view.
 - Assembly comparison; manual alignment by point pairs in the UI.
