@@ -1,32 +1,76 @@
 # Handoff (2026-10-27)
 
 ## Return handoff from the cloud
-_Empty – the cloud session fills this in when it stops (see "Cloud session prompt" below)._
+Cloud session 2026-10-27 (Linux, no screen, no `daten/`). All work is on `main`, pushed; no unfinished branch
+(`claude/inspiring-wright-dqsu4q` only mirrors `main` and can be deleted). Version not bumped.
 
-Status before the cloud session: everything on `main` committed and pushed, local macOS build done on 2026-10-27.
+**Packages done (commit):**
+1. PRC / 3D PDF reader – `b0c7d7d` (kern/prc.py, prc_bits.py, prc_tabelle.py; mesh with colors, markups as
+   graphical PMI notes, saved views with camera; drawings and thumbnails of mesh models via an own projection
+   with a depth buffer, because OCCT HLR crashes on surface-less faces).
+2. Generated graphical PMI stage 2 – `4e39505` (annotation planes from the saved view or the model plane, frames
+   with compartments, datum triangle and box, overlap-free layout, View › "Show generated PMI display").
+3. Rotated/mirrored elements and per-instance comparison – `1c7fd8e`.
+4. QIF graphical PMI and saved views – `b5774e8` (kern/qif_grafik.py).
+5. Multiple section planes (up to three; union, or common region via chained clip planes) and section contour
+   export SVG/DXF/PDF (kern/schnitt.py) – commit "Multiple section planes and section contour export".
 
-Branch: `main` (no other branches). Version 0.1 plus many unreleased entries in `programm/CHANGELOG.json`
-(bump only via `pixi run python packaging/release.py minor --git`, then `git push --follow-tags`).
-Tests: 113 offscreen + on-screen test green; GitHub workflow "Apps bauen" green on Windows/Linux/macOS.
+Extra on request: STEPZ (`6620f29`); start error log and message box for the portable app (`5ca02ef`, Windows
+build run 28 green). User wishes recorded in PLAN §8.17 (STEP-XML and other open formats) and §8.18 (semantic-only
+PMI shown optionally – done via generated display; graphical-only PMI evaluated in the table – open).
+
+**Not verified without a screen (check on the Mac first)** – only offscreen tests and SVG renders were possible:
+- 3D view of PRC models and markups (filled glyph triangles, colors), view switching with PRC and QIF cameras.
+- Generated PMI stage 2 in the 3D view: text labels oriented in the annotation plane (AIS_TextLabel with
+  Orientation3D), frame lines, purple color, the new menu switch.
+- QIF PMIDisplay in 3D (text height/position, stacked tolerances from `{BR}`), QIF saved views (camera height).
+- Multiple section planes: capping with chained planes ("cut away common region only"), slider after
+  "keep section plane".
+- Windows app start (user reported that nothing happens after SmartScreen): the new build writes
+  `%LOCALAPPDATA%\3DGmax\start_fehler.log` (and `start_fehler.log.absturz` for native crashes); ask for the log.
+  Starting the exe from inside the ZIP or a long first start (Defender scanning the DLLs) are likely causes.
+
+**Not verified without local data (`daten/`):** the five NIST STC PDFs were downloaded from nist.gov in the cloud
+(all load); QIF tests download the NIST QIF from qif-community; NIST AP242 set, D2MI and MTC were not available.
+
+**Findings:**
+- PRC: the public ISO working draft N570 (docs.techsoft3d.com, SC2N570-PRC-WD.pdf) is the usable spec; some type
+  numbers in it are wrong (TESS = 170, MISC numbering as in Asymptote). NIST STC files: authoring version 20225,
+  schema token 39 (one argument) before the blocks, schema of type 2 applies right after the graphics of every
+  PRCBaseWithGraphics, MarkupLinkedItem has an extra bit before the product occurrence reference, annotation planes
+  carry 6 undocumented bits (the reader searches for the default parameterization like the Asymptote reader).
+  Geometry section empty (no B-rep), tessellation is regular TESS_3D, unit inch. Markup text is stroked glyphs, not
+  strings; semantic PMI may sit in the large user data block of the tessellation section.
+- QIF camera quaternion is stored w x y z; matrix rows are the camera axes (checked against STEP MBD_0 of CTC-01).
+- Rigid fits for rotated features must be checked against the surfaces: corner nodes of planar faces admit
+  symmetric wrong fits; point-to-surface ICP plus mesh distance in both directions solves it.
+
+**Next local steps:**
+1. `git pull`, `pixi install`, `pixi run test`; delete branch `claude/inspiring-wright-dqsu4q` (local and GitHub).
+2. Visual check on the real screen of the points above (STC PDFs, CTC-01 QIF, generated PMI on a STEP without
+   presentation, chained section planes), plus view cube and MSAA from before.
+3. Tests with local `daten/` (NIST AP242, D2MI, QIF, STC PDFs).
+4. Then: graphical-only PMI in the table (§8.18), STEP-XML (§8.17), PRC compressed tessellation/B-rep, step 7 JT.
 
 ## Check against plan / roadmap
 | Step (PLAN.md §5) | Status |
 |---|---|
 | 1 Feasibility | ✅ |
-| 2 Viewer | ✅ incl. view cube, quick measure, model properties, camera history, perspective, exploded view (staged by assembly levels), section box, thumbnails (open: LOD for large assemblies, multiple section planes, explosion along axes) |
+| 2 Viewer | ✅ incl. view cube, quick measure, model properties, camera history, perspective, exploded view (staged by assembly levels), section box, up to three section planes, thumbnails (open: LOD for large assemblies, explosion along axes, hatched section views) |
 | 3 Measure | ✅ incl. analyses (draft, curvature, wall thickness), measurement report, tolerance zones, tolerance stack-up 1D, comments, create PMI with advisor |
-| 4 Compare | ✅ incl. manual alignment, deviation color map, material + / −, moved geometry/PMI, assembly comparison, graphical PMI changes (open: rotated elements, per-instance geometry, graphical-only notes) |
-| 5 Output | ✅ PDF per view, comparison PDF, PMI change PDF, bill of characteristics, measurement report, drawings (HLR, PDF/SVG/DXF with PMI), project container (incl. own views), folder comparison |
-| 6 Formats | 🟡 STEP, IGES, STL, OBJ, glTF/GLB, 3MF, PLY, QIF 3.0 (B-rep + semantic PMI) done; open: PRC/3D PDF (§8.15), QIF graphics/views, point clouds |
+| 4 Compare | ✅ incl. manual alignment, deviation color map, material + / −, moved geometry/PMI, assembly comparison, graphical PMI changes, graphical-only notes, rotated/mirrored elements, per-instance geometry (open: per-instance status colors) |
+| 5 Output | ✅ PDF per view, comparison PDF, PMI change PDF, bill of characteristics, measurement report, drawings (HLR, PDF/SVG/DXF with PMI; meshes too), section contour SVG/DXF/PDF, generated PMI stage 2, project container (incl. own views), folder comparison |
+| 6 Formats | 🟡 STEP, STEPZ, IGES, STL, OBJ, glTF/GLB, 3MF, PLY, QIF 3.0 (B-rep, semantic + graphical PMI, views), PRC/3D PDF (mesh, markups, views) done; open: STEP-XML, PRC B-rep/compressed tessellation, U3D, point clouds |
 | 7 JT via TKJT | ⬜ (free JT without PMI: `NIST mtc crada assembly.jt` in daten/nist_cad_dl/nist-cad-models-mtc-assembly.zip) |
 Details: `docs/Roadmap.md`; future topics: PLAN.md §8 (8.5 tolerance zones, 8.6 annotating, 8.8 stack-up,
-8.10 PMI editing/advisor, 8.11 CATIA, 8.15 PRC/3D PDF, 8.16 generated PMI stage 2).
+8.10 PMI editing/advisor, 8.11 CATIA, 8.15 PRC/3D PDF, 8.16 generated PMI, 8.17 open formats, 8.18 PMI as semantics or
+graphics only, 8.19 QIF graphics).
 
 ## Next (in this order)
-1. PRC / 3D PDF reader (PLAN §8.15): extract PRC from PDF, structure + tessellation → mesh, then markups, then B-rep.
-2. Generated graphical PMI stage 2 (PLAN §8.16): annotation planes, frames/datum symbols as vectors, better layout.
-3. QIF: graphical PMI (PMIDisplaySet) and saved views (ViewSet).
-4. Comparison: rotated/mirrored elements, geometry per part instance (StepModell.flaechen deduplicates instances).
+1. Visual check of the cloud work on the Mac (see return handoff above).
+2. Graphical-only PMI evaluated in the table (§8.18): kind from PRC markup type / STEP callout, values from text.
+3. STEP-XML (§8.17) and further open formats; PRC compressed tessellation and B-rep.
+4. Per-instance status colors in comparison; hatched section views.
 5. Step 7 JT via TKJT (GPL v2+, build option).
 **Not checked on a real screen** (screen was locked, checks via `View.Dump`): view cube look, MSAA – first thing
 on the Mac.
@@ -61,6 +105,9 @@ eigenschaften, schnellinfo, stueckliste, vergleich_volumen (material), vergleich
 pmi_erzeugen (generated PMI), kommentare, toleranzzone, toleranzkette, pmi_vorschlag (tolerancing advisor).
 ui: eigenschaften_ui, stueckliste_ui, analyse_ui, kommentar_ui, toleranzkette_ui, pmi_anlegen_ui;
 laden.lade_modell dispatches formats.
+Cloud 2026-10-27: kern prc, prc_bits, prc_tabelle (PRC/3D PDF), qif_grafik (QIF graphics/views), schnitt (section
+contours); zeichnung.projiziere_netz (mesh drawings); vergleich.starre_lagen/_starr_gleich (rotated/mirrored);
+vergleich_geo._instanzen (per instance); tests/test_prc.py, tests/conftest.testdatei (downloaded test files).
 
 ## Findings (not obvious)
 - OCCT viewer on macOS uses logical points; 2D/transform-persistent objects (view cube, color scale, pivot cross)
