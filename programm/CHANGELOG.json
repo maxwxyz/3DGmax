@@ -170,7 +170,8 @@
    "Toleranzkette: Verteilung „Aus Messwerten“ je Glied – Werte einfügen oder als CSV laden (Spalte wählbar, Dezimalkomma); Mittelwert und Standardabweichung der Stichprobe ergeben Versatz, σ und Cpk; beim Verteilen bleiben gemessene Glieder unverändert.",
    "Toleranzkette: mehrere Planspiel-Szenarien – unter einem Namen merken, wieder laden und mit dem Ist vergleichen (anwendbares Verfahren, Bereich, Breite, Cpk, ppm); sie werden mit der Kettendatei gespeichert. Gespeichert wird im Planspiel immer das Ist.",
    "Toleranzkette: korrelierte Glieder (Rechtsklick › Korrelation …) – Glieder einer Gruppe streuen gemeinsam mit ρ; statistisches Ergebnis, Anteile und wirksame Beitragsleister mit Kovarianzen, Monte Carlo über Rangkorrelation.",
-   "Toleranzkette: Betragsverteilung 1. Art (Form, Lauf) und 2. Art (Rayleigh, Position) – schief ab dem Mindestmaß, 99,73 % innerhalb der Toleranz, Mittelwert unter der Toleranzmitte."
+   "Toleranzkette: Betragsverteilung 1. Art (Form, Lauf) und 2. Art (Rayleigh, Position) – schief ab dem Mindestmaß, 99,73 % innerhalb der Toleranz, Mittelwert unter der Toleranzmitte.",
+   "Vergleich: Geometrieänderungen an mehrfach verbauten Teilen stehen je betroffener Instanz in der Änderungsliste (mit Teilname, Auswahl zoomt auf die Instanz und markiert sie im Baum); betrifft eine Änderung alle Instanzen, steht das in der Beschreibung."
   ],
   "en": [
    "First viewer version: load STEP AP242, assembly tree, CAD-style navigation, standard views.",
@@ -342,7 +343,8 @@
    "Stack-up: distribution “From measured values” per link – paste values or load a CSV (column selectable, decimal comma); the sample mean and standard deviation give offset, σ and Cpk; allocation leaves measured links unchanged.",
    "Stack-up: several what-if scenarios – save them by name, load them again and compare them with the actual chain (applicable method, range, width, Cpk, ppm); they are stored in the chain file. While in a what-if, saving always stores the actual chain.",
    "Stack-up: correlated links (right-click › Correlation …) – links of a group vary together with ρ; statistical result, shares and effective contributors with covariances, Monte Carlo via rank correlation.",
-   "Stack-up: folded normal (form, runout) and Rayleigh (position) distributions – skewed from the lower limit, 99.73 % within the tolerance, mean below the tolerance centre."
+   "Stack-up: folded normal (form, runout) and Rayleigh (position) distributions – skewed from the lower limit, 99.73 % within the tolerance, mean below the tolerance centre.",
+   "Comparison: geometry changes on parts used several times are listed per affected instance (with the part name; selecting zooms to the instance and marks it in the tree); a change at all instances says so in the description."
   ]
  },
  "releases": [

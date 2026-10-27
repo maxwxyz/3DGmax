@@ -130,7 +130,7 @@
 | Comparison: both trees side by side in "Side by side" | ⬜ |
 | Geometry comparison per part instance (each instance sampled; status shown on the shared faces) | ✅ |
 | Status colors per instance in the 3D view (instance key: face index + location), removed instances shown | ✅ |
-| Change list entries per instance | ⬜ |
+| Change list entries per instance | ✅ |
 | Meshes: STL/OBJ/glTF/3MF vs. CAD and mesh vs. mesh (alignment, color map) | ✅ |
 | PLY meshes from scanners | ✅ |
 | Scan against PMI tolerances: best fit + fine alignment, per-PMI evaluation (form, profile, location, axes, sizes, Ⓜ/Ⓛ bonus), colour map over CAD, CSV (PLAN §8.23) | ✅ |

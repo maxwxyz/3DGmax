@@ -544,6 +544,36 @@ def test_vergleich_je_instanz():
     assert geo.entfernt_a is not None and len(geo.entfernt_a) <= 6
     geo = vergleich_geo.vergleiche(alt, modell(50.0), Ausrichtung(np.eye(4), "gleich", 0.0, 1.0), 0.01, 4000, 5.0)
     assert all(s == vergleich_geo.GLEICH for s in geo.status_b.values())
+    # Aenderungsliste je Instanz: nur die zweite Instanz betroffen -> ein Eintrag mit ihrem Blatt
+    from programm.kern import vergleich as kv
+    from programm.kern.baum import Knoten
+
+    def mit_baum(m):
+        from OCC.Core.TopoDS import TopoDS_Iterator
+        blaetter = []
+        it = TopoDS_Iterator(m.form)
+        n = 0
+        while it.More():
+            n += 1
+            blaetter.append(Knoten(f"Teil.{n}", it.Value().Moved(m.form.Location()), nummer=n))
+            it.Next()
+        return SimpleNamespace(modell=m, baum=Knoten("Wurzel", m.form, blaetter, True))
+    neu_b = mit_baum(neu)
+    geo = vergleich_geo.vergleiche(alt, neu, Ausrichtung(np.eye(4), "gleich", 0.0, 1.0), 0.01, 4000, 5.0)
+    nachbarn = vergleich_geo._nachbarn(neu.flaechen, neu.flaechen_index)
+    liste = kv._je_instanz(kv._geo_aenderungen(geo, nachbarn, nachbarn), neu_b, geo)
+    geaendert = [a for a in liste if a.status == vergleich_geo.GEAENDERT]
+    assert geaendert and all(a.knoten == 2 and a.titel.endswith("Teil.2") for a in geaendert)
+    # beide Instanzen gleich geaendert (Teil selbst verschoben): ein Eintrag "an allen 2 Instanzen"
+    alle = mit_baum(modell(50.0))
+    t = gp_Trsf()
+    t.SetTranslation(gp_Vec(0, 0, 0.5))
+    alle.modell.form.Location(TopLoc_Location(t))
+    alle.modell._baue_index()
+    geo = vergleich_geo.vergleiche(alt, alle.modell, Ausrichtung(np.eye(4), "gleich", 0.0, 1.0), 0.01, 4000, 5.0)
+    liste = kv._je_instanz(kv._geo_aenderungen(geo, nachbarn, nachbarn), mit_baum(alle.modell), geo)
+    assert vergleich_geo.GLEICH not in geo.instanzen_b.values()
+    assert any("2" in a.beschreibung and not a.knoten for a in liste if a.status == vergleich_geo.GEAENDERT)
 
 
 @pytest.mark.langsam
@@ -679,6 +709,21 @@ def test_vergleichsmodi(fenster):
     assert f.ansicht.ueberlagerung is None and not alt.isVisibleTo(f) and not f._kopplung.isActive()
     f.beende_vergleich()
     assert not f.modus_leiste.isVisibleTo(f) and f.dock_baum.windowTitle() in ("Struktur", "Structure")
+
+
+def test_aenderung_einer_instanz_zeigen(fenster):
+    """Aenderung nur an einer Instanz: Ausschnitt auf diese Instanz, im Baum markiert."""
+    import copy
+    f = fenster
+    f.starte_vergleich({"alt": pfad("baugruppe.stp"), "neu": pfad("baugruppe_b.stp"), "toleranz": 0.01,
+                        "suchweite": 2.0}, warten=True)
+    deckel = next(k for k in f.vergleich.neu.baum.blaetter() if k.name == "Deckel")
+    a = copy.copy(next(x for x in f.vergleich.aenderungen if x.kategorie == "geometrie"))
+    a.knoten = deckel.nummer
+    f._aenderung_gewaehlt(a)
+    assert f.ansicht.letzter_zoom[1] == 1
+    from PySide6 import QtCore
+    assert f.baum.baum.currentItem().data(0, QtCore.Qt.ItemDataRole.UserRole) is deckel
 
 
 def test_baum_mit_teilestatus(fenster):

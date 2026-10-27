@@ -27,6 +27,7 @@ class Aenderung:
     pruefstatus: str = "offen"
     kommentar: str = ""
     spalten: tuple = ()  # (Merkmal, alt, neu, Delta, Tendenz) fuer die Aenderungstabelle; leer: aus den PMI
+    knoten: int = 0  # Blatt im neuen Baum, wenn die Aenderung nur diese Instanz eines mehrfach verbauten Teils betrifft
 
 
 SPALTEN = ("Merkmal", "Alt", "Neu", "Δ", "Tendenz")
@@ -417,6 +418,47 @@ def _pmi_aenderungen(liste) -> list[Aenderung]:
     return out
 
 
+def _je_instanz(liste: list[Aenderung], neu, geo) -> list[Aenderung]:
+    """Geometrieaenderungen an mehrfach verbauten Teilen: betrifft eine Aenderung nicht alle Instanzen, je betroffene
+    Instanz ein Eintrag (mit Teilname und Blatt); sonst der Hinweis "an allen n Instanzen"."""
+    import copy
+    from OCC.Core.TopAbs import TopAbs_FACE
+    from OCC.Core.TopExp import TopExp_Explorer
+    if not geo.instanzen_b or getattr(neu, "baum", None) is None:
+        return liste
+    blaetter = []  # (Knoten, {Flaechenindex}, {Instanzschluessel})
+    for k in neu.baum.blaetter():
+        if k.hilfsgeometrie or k.form is None:
+            continue
+        idx, schluessel, ex = set(), set(), TopExp_Explorer(k.form, TopAbs_FACE)
+        while ex.More():
+            i = neu.modell.flaechen_index(ex.Current())
+            if i is not None:
+                idx.add(i)
+                schluessel.add(vergleich_geo.instanz_schluessel(i, ex.Current()))
+            ex.Next()
+        blaetter.append((k, idx, schluessel))
+    out = []
+    for a in liste:
+        beruehrt = [(k, sl) for k, idx, sl in blaetter if idx & a.flaechen_neu] \
+            if a.kategorie == GEOMETRIE and a.status in (GEAENDERT, NEU) else []
+        if len(beruehrt) < 2:
+            out.append(a)
+            continue
+        betroffen = [k for k, sl in beruehrt
+                     if any(x[0] in a.flaechen_neu and geo.instanzen_b.get(x, GLEICH) != GLEICH for x in sl)]
+        if len(betroffen) == len(beruehrt) or not betroffen:
+            a.beschreibung += " · " + tr("an allen {} Instanzen").format(len(beruehrt))
+            out.append(a)
+            continue
+        for k in betroffen:
+            x = copy.copy(a)
+            x.titel, x.knoten = f"{a.titel}: {k.name}", k.nummer
+            x.beschreibung = a.beschreibung + " · " + tr("{} von {} Instanzen").format(len(betroffen), len(beruehrt))
+            out.append(x)
+    return out
+
+
 def vergleiche(alt, neu, toleranz: float = 0.01, suchweite: float = 2.0, ausrichtung=None,
                fortschritt=lambda text: None) -> Vergleich:
     """alt, neu: Ergebnisse von ui.lader.lade_alles (Modell, PMI, ...)."""
@@ -431,6 +473,7 @@ def vergleiche(alt, neu, toleranz: float = 0.01, suchweite: float = 2.0, ausrich
     nachbarn_neu = vergleich_geo._nachbarn(neu.modell.flaechen, neu.modell.flaechen_index)
     nachbarn_alt = vergleich_geo._nachbarn(alt.modell.flaechen, alt.modell.flaechen_index)
     geo_liste = _verschiebungen(_geo_aenderungen(geo, nachbarn_neu, nachbarn_alt), alt, neu, ausrichtung, toleranz)
+    geo_liste = _je_instanz(geo_liste, neu, geo)
     pmi_liste = _pmi_aenderungen(pmi)
     # PMI, deren Flaechen nur verschoben wurden: "PMI verschoben" statt "Geometrie unter PMI geaendert"
     for a in pmi_liste:

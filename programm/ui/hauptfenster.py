@@ -2141,7 +2141,13 @@ class Hauptfenster(QtWidgets.QMainWindow):
             alt.hebe_flaechen(a.flaechen_alt)  # im alten Stand dieselbe Aenderung zeigen
         self.ansicht.hebe_flaechen(a.flaechen_neu)
         alt_formen = [] if a.flaechen_neu else [self.vergleich.alt.modell.flaechen[i] for i in a.flaechen_alt]
-        self.ansicht.zoome_auf(a.flaechen_neu, alt_formen)
+        instanz = next((k for k in self.vergleich.neu.baum.blaetter() if k.nummer == a.knoten), None) \
+            if a.knoten and getattr(self.vergleich.neu, "baum", None) is not None else None
+        if instanz is not None:  # nur diese Instanz: Ausschnitt auf sie, im Baum markiert
+            self.ansicht.zoome_auf(set(), [instanz.form])
+            self.baum.zeige_knoten(instanz.nummer)
+        else:
+            self.ansicht.zoome_auf(a.flaechen_neu, alt_formen)
         if a.pmi_neu is not None:
             self.pmi.waehle(lambda p: p is a.pmi_neu)
             self.ansicht.hebe_flaechen(a.flaechen_neu)

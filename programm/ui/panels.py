@@ -90,6 +90,26 @@ class BaumPanel(QtWidgets.QWidget):
         self.baum.blockSignals(False)
         self.sichtbar_geaendert.emit(self.blaetter(it), an)
 
+    def zeige_knoten(self, nummer: int):
+        """Knoten markieren und sichtbar machen (ohne Auswahlsignal), z. B. die Instanz einer Aenderung."""
+        def gehe(it):
+            k = it.data(0, QtCore.Qt.ItemDataRole.UserRole)
+            if k is not None and k.nummer == nummer:
+                return it
+            for i in range(it.childCount()):
+                x = gehe(it.child(i))
+                if x is not None:
+                    return x
+            return None
+        for i in range(self.baum.topLevelItemCount()):
+            it = gehe(self.baum.topLevelItem(i))
+            if it is not None:
+                self.baum.blockSignals(True)
+                self.baum.setCurrentItem(it)
+                self.baum.blockSignals(False)
+                self.baum.scrollToItem(it)
+                return
+
     def gewaehlte_blaetter(self) -> set[int]:
         out = set()
         for it in self.baum.selectedItems():

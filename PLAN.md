@@ -136,7 +136,8 @@ Throughout: tests (core, offscreen UI, stress test, on-screen test), `--selbstte
   angle/axis or mirror plane, status "moved"); per-instance comparison (`vergleich_geo._instanzen`: every located
   face is sampled, results are folded onto the shared face index). Per-instance status colors in the 3D view done
   (`GeoErgebnis.instanzen_b`, key = face index + rounded location; `entfernt_a` holds removed located faces).
-  Open: change list entries per instance.
+  Change list entries per instance done (2026-10-28, `vergleich._je_instanz`: split when not all instances are
+  affected, entry carries the leaf; "at all n instances" otherwise).
 - **Graphical PMI comparison** in addition to semantic: match annotations (position, shape), color moved/changed/
   new/removed in the 3D view.
 - Assembly comparison; manual alignment by point pairs in the UI.
