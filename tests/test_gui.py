@@ -570,6 +570,17 @@ def test_toleranzzone_anzeigen(fenster_ctc01):
     f.aktionen["toleranzzonen_alle"].setChecked(False)
     f._zone_aktualisieren([])
     assert f.ansicht.zone_formen == [] and isinstance(d, QtWidgets.QDialog)
+    # Kontextmenue im 3D-Fenster bietet die Zonen an
+    from PySide6 import QtCore
+    gesehen = []
+
+    def schliessen():
+        menue = QtWidgets.QApplication.activePopupWidget()
+        gesehen.extend(menue.actions())
+        menue.close()
+    QtCore.QTimer.singleShot(50, schliessen)
+    f._kontextmenue_3d(QtCore.QPoint(10, 10))
+    assert {f.aktionen[n] for n in ("toleranzzone", "toleranzzonen_alle", "allgemeintoleranzen")} <= set(gesehen)
 
 
 def test_toleranzkette_fenster(fenster_ctc01, tmp_path):

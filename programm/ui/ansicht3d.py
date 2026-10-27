@@ -1326,8 +1326,9 @@ class OcctAnsicht(AnsichtBasis):
             self._kommentar_ais.append(lab)
         self._neu_zeichnen()
 
-    ZONEN_FARBE = {"zone": ((0.10, 0.70, 0.45), 0.45), "bonus": ((0.95, 0.62, 0.15), 0.6),
-                   "huelle": ((0.25, 0.55, 0.95), 0.75), "allgemein": ((0.60, 0.45, 0.85), 0.6)}
+    # Farben unterscheiden sich von den Bezugsfarben (rot, gruen, blau) und der Hervorhebung (orange)
+    ZONEN_FARBE = {"zone": ((0.98, 0.82, 0.10), 0.4), "bonus": ((0.90, 0.30, 0.75), 0.6),
+                   "huelle": ((0.10, 0.78, 0.85), 0.75), "allgemein": ((0.55, 0.40, 0.85), 0.6)}
 
     def zeige_zone(self, formen, rollen=None):
         super().zeige_zone(formen, rollen)

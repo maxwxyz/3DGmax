@@ -29,6 +29,8 @@ ACHSZONE = {"Position", "Coaxiality", "Concentricity"}
 # Richtungs- und Geradheitstoleranzen werden mit Durchmesserzone zur Achszone
 ACHSE_MIT_DURCHMESSER = {"Perpendicularity", "Parallelism", "Angularity", "Straightness"}
 GROESSE = {"Size_Diameter", "Size_Radius", "Size_SphericalDiameter", "Size_SphericalRadius"}
+# ohne Durchmesserzone an zwei gegenueberliegenden Ebenen (Nut, Steg): Zone der abgeleiteten Mittelebene
+MITTELEBENE = {"Symmetry", "Position", "Parallelism", "Perpendicularity", "Angularity", "Straightness"}
 
 # Rollen der Teilformen (Farbe in der Ansicht)
 ZONE, BONUS, HUELLE, ALLGEMEIN = "zone", "bonus", "huelle", "allgemein"
@@ -235,6 +237,107 @@ def _eine_achse(z: Zone, p, modell, achse, t: float, faktor: float, alle_pmi) ->
     return t_max, innen_r, aussen_r
 
 
+def _kugel(flaechen):
+    """(Mittelpunkt, Radius, Flaeche) der ersten Kugelflaeche oder None."""
+    from OCC.Core.BRep import BRep_Tool
+    from OCC.Core.BRepAdaptor import BRepAdaptor_Surface
+    from OCC.Core.GeomAbs import GeomAbs_Sphere
+    for f in flaechen:
+        if BRep_Tool.Surface(f) is None:
+            continue
+        s = BRepAdaptor_Surface(f, True)
+        if s.GetType() == GeomAbs_Sphere:
+            c = s.Sphere().Location()
+            return np.array([c.X(), c.Y(), c.Z()]), s.Sphere().Radius(), f
+    return None
+
+
+def _kugelzone(p, flaechen, t: float, faktor: float, alle_pmi) -> Zone | None:
+    """Kugelfoermige Zone (S⌀) um den Mittelpunkt einer Kugel; dazu der Raum der Kugelflaeche."""
+    from OCC.Core.BRepPrimAPI import BRepPrimAPI_MakeSphere
+    from OCC.Core.gp import gp_Pnt
+    k = _kugel(flaechen)
+    if k is None:
+        return None
+    mitte, r, f = k
+    dmin, dmax = 2 * r, 2 * r
+    for m in alle_pmi or []:
+        if m.art == "mass" and m.typ in ("Size_SphericalDiameter", "Size_SphericalRadius") and m.flaechen & p.flaechen:
+            hoechst, mindest = m.grenzen()
+            if hoechst is not None and mindest is not None:
+                g = 2.0 if m.typ == "Size_SphericalRadius" else 1.0
+                dmin, dmax = mindest * g, hoechst * g
+    z = Zone(breite=t, faktor=faktor, art="kugel")
+
+    def kugel(radius):
+        return BRepPrimAPI_MakeSphere(gp_Pnt(*map(float, mitte)), float(radius)).Shape() if radius > 0 else None
+    z.dazu(kugel(t * faktor / 2))
+    innen_r, aussen_r = dmin / 2 - t / 2, dmax / 2 + t / 2
+    for rr in (innen_r, aussen_r):
+        z.dazu(kugel(r + (rr - r) * faktor), HUELLE)
+    z.hinweise.append(tr("Kugelzone S⌀{:.4g} um den Mittelpunkt").format(t))
+    z.hinweise.append(tr("Fläche zwischen S⌀{:.4g} und S⌀{:.4g}").format(2 * innen_r, 2 * aussen_r))
+    return z if z.formen else None
+
+
+def _ebenen_paar(flaechen):
+    """Zwei gegenueberliegende parallele Ebenen (Nut oder Steg): (Mittelpunkt, Normale, Flaechen) oder None."""
+    from OCC.Core.BRep import BRep_Tool
+    from OCC.Core.BRepAdaptor import BRepAdaptor_Surface
+    from OCC.Core.GeomAbs import GeomAbs_Plane
+    ebenen = []
+    for f in flaechen:
+        if BRep_Tool.Surface(f) is None:
+            continue
+        s = BRepAdaptor_Surface(f, True)
+        if s.GetType() != GeomAbs_Plane:
+            return None  # nur reine Ebenen-Paare (sonst Flaechenzone)
+        pl = s.Plane()
+        n = np.array([pl.Axis().Direction().X(), pl.Axis().Direction().Y(), pl.Axis().Direction().Z()])
+        o = np.array([pl.Location().X(), pl.Location().Y(), pl.Location().Z()])
+        ebenen.append((o, n, f))
+    for i, (o1, n1, f1) in enumerate(ebenen):
+        for o2, n2, f2 in ebenen[i + 1:]:
+            abstand = abs((o2 - o1) @ n1)
+            if abs(n1 @ n2) > 0.9999 and abstand > 1e-6:
+                return o1 + n1 * ((o2 - o1) @ n1) / 2, n1, [f for _, n, f in ebenen if abs(n @ n1) > 0.9999]
+    return None
+
+
+def _ebene_als_flaeche(mitte, n, flaechen, versatz: float):
+    """Rechteck in der um 'versatz' verschobenen Mittelebene, so gross wie die Flaechen in der Ebene."""
+    from OCC.Core.BRepBuilderAPI import BRepBuilderAPI_MakeFace
+    from OCC.Core.gp import gp_Ax3, gp_Dir, gp_Pln, gp_Pnt
+    pl = gp_Pln(gp_Ax3(gp_Pnt(*map(float, mitte + n * versatz)), gp_Dir(*map(float, n))))
+    x = np.array([pl.XAxis().Direction().X(), pl.XAxis().Direction().Y(), pl.XAxis().Direction().Z()])
+    y = np.cross(n, x)
+    ecken = np.array([q for f in flaechen for q in _ecken(f)])
+    u, v = (ecken - mitte) @ x, (ecken - mitte) @ y
+    mf = BRepBuilderAPI_MakeFace(pl, float(u.min()), float(u.max()), float(v.min()), float(v.max()))
+    return mf.Face() if mf.IsDone() else None
+
+
+def _ecken(flaeche):
+    from OCC.Core.Bnd import Bnd_Box
+    from OCC.Core.BRepBndLib import brepbndlib
+    b = Bnd_Box()
+    brepbndlib.Add(flaeche, b)
+    x0, y0, z0, x1, y1, z1 = b.Get()
+    return [(x, y, z) for x in (x0, x1) for y in (y0, y1) for z in (z0, z1)]
+
+
+def _mittelebenenzone(p, flaechen, t: float, faktor: float) -> Zone | None:
+    paar = _ebenen_paar(flaechen)
+    if paar is None:
+        return None
+    mitte, n, ebene = paar
+    z = Zone(breite=t, faktor=faktor, art="mittelebene")
+    for v in (t * faktor / 2, -t * faktor / 2):
+        z.dazu(_ebene_als_flaeche(mitte, n, ebene, v))
+    z.hinweise.append(tr("Zone der abgeleiteten Mittelebene (zwei Ebenen im Abstand {:.4g})").format(t))
+    return z if z.formen else None
+
+
 def _flaechenzone(p, flaechen, t: float, faktor: float) -> Zone | None:
     aussen, innen = _grenzen_aussen_innen(p, t)
     z = Zone(breite=t, faktor=faktor, art="flaechen")
@@ -296,13 +399,42 @@ def zone(p, modell, sichtbar_mindest: float = 0.0, alle_pmi=None, faktor: float 
         return _masszone(p, flaechen, faktor)
     t = b
     durchmesser = "Diameter" in p.modifikatoren or p.zone == "Diameter"
-    if durchmesser and (p.typ in ACHSZONE or p.typ in ACHSE_MIT_DURCHMESSER):
+    z = None
+    if "SphericalDiameter" in p.modifikatoren:
+        z = _kugelzone(p, flaechen, t, faktor, alle_pmi)
+    if z is None and durchmesser and (p.typ in ACHSZONE or p.typ in ACHSE_MIT_DURCHMESSER):
         z = _achszone(p, modell, flaechen, t, faktor, alle_pmi)
-        if z is not None:
-            return z
-    if p.typ in FLAECHENZONE or p.typ in ACHSZONE:
-        return _flaechenzone(p, flaechen, t, faktor)
-    return None
+    if z is None and not durchmesser and p.typ in MITTELEBENE and _mittelebene_gemeint(p, alle_pmi):
+        z = _mittelebenenzone(p, flaechen, t, faktor)
+    if z is None and (p.typ in FLAECHENZONE or p.typ in ACHSZONE):
+        z = _flaechenzone(p, flaechen, t, faktor)
+    if z is not None:
+        z.hinweise += _weitere_hinweise(p)
+    return z
+
+
+def _mittelebene_gemeint(p, alle_pmi) -> bool:
+    """Symmetrie und Position an zwei Ebenen meinen die Mittelebene; Richtungs- und Geradheitstoleranzen nur, wenn
+    die Flaechen ein Groessenmasselement sind (ein Mass auf genau diesen Flaechen), sonst gilt jede Flaeche."""
+    if p.typ in ("Symmetry", "Position"):
+        return True
+    return any(m.art == "mass" and m.flaechen == p.flaechen for m in alle_pmi or [])
+
+
+def _weitere_hinweise(p) -> list[str]:
+    """Angaben, die die Zone ergaenzen, aber nicht als Geometrie gezeigt werden."""
+    out = []
+    for m in p.modifikatoren:
+        if str(m).startswith("je "):
+            out.append(tr("gilt je Teillänge {}").format(str(m)[3:]))
+    if p.typ in ("Parallelism", "Perpendicularity", "Angularity") and not p.zone == "Projected":
+        out.append(tr("Richtungszone: in der Lage frei verschiebbar"))
+    if p.typ in ("Flatness", "Straightness", "CircularityOrRoundness", "Cylindricity") or \
+            (p.typ in ("ProfileOfSurface", "ProfileOfLine") and not p.bezuege):
+        out.append(tr("Formzone: in Lage und Richtung frei"))
+    if p.typ in ("CircularRunout", "ProfileOfLine", "CircularityOrRoundness", "Concentricity"):
+        out.append(tr("gilt je Querschnitt"))
+    return out
 
 
 def zonen(liste, modell, sichtbar_mindest: float = 0.0, alle_pmi=None) -> list[tuple[object, Zone]]:

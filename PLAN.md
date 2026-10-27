@@ -184,8 +184,12 @@ Throughout: tests (core, offscreen UI, stress test, on-screen test), `--selbstte
     (median width). UI: View › "Show tolerance zone(s)", "Show all tolerance zones", "General tolerances …"; the
     part turns translucent while zones are shown. Interpretation of the STEP `unequally_disposed_geometric_tolerance`
     displacement is taken per standard (ISO: shift of the zone centre; ASME Ⓤ: amount outside the material) –
-    **not verified against a sample file** (no test file with UZ). Open: zones placed by the datum system
-    (orientation zones floating in location, datum shift), line profile per section, ACS/ALS, CZ/SZ.
+    **not verified against a sample file** (no test file with UZ). Also done: zone of the derived median plane
+    (two opposed planes; symmetry and position always, orientation/straightness only on a feature of size = a
+    dimension on exactly these faces), spherical zone for S⌀, hints for what the geometry does not show
+    (orientation zone floating, form zone free, per cross-section, per unit length), context menus.
+    Open: zones placed by the datum system (orientation zones floating in location, datum shift), line profile
+    and circular runout per section (shown as surface band), ACS/ALS, CZ/SZ, tolerances on edges/points.
 
 ### 8.6 Annotating and commenting (done: comments on faces/PMI with markers, status, project, CSV/PDF)
 - Comments/change proposals on faces, edges, PMI (list and model), on changed PMI and geometry in a comparison; stored

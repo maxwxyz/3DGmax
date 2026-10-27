@@ -351,7 +351,7 @@ class Hauptfenster(QtWidgets.QMainWindow):
           tipp=tr("Entformungsschräge, Krümmungsradius oder Wandstärke als Farbkarte"))
         A("toleranzzone", tr("Toleranzzone zeigen"), lambda: self._zone_aktualisieren(self.pmi.gewaehlte()),
           pruefbar=True, tipp=tr("Zonen der gewählten Toleranzen (oder der PMI an den gewählten Flächen) als "
-                                 "Hüllgeometrie: grün Zone, orange Bonus bei Ⓜ/Ⓛ, blau Raum der Fläche "
+                                 "Hüllgeometrie: gelb Zone, magenta Bonus bei Ⓜ/Ⓛ, türkis Raum der Fläche "
                                  "(schmale Zonen überhöht)"))
         A("toleranzzonen_alle", tr("Alle Toleranzzonen zeigen"), lambda: self._zone_aktualisieren(self.pmi.gewaehlte()),
           pruefbar=True, tipp=tr("Zonen aller Toleranzen und Maße des Modells, mit Allgemeintoleranzen (violett)"))
@@ -976,7 +976,7 @@ class Hauptfenster(QtWidgets.QMainWindow):
         if hinweise:
             text += " · " + "; ".join(hinweise)
         if max(z.faktor for z in zonen) > 1.01:
-            text += " " + tr("(Darstellung {:.0f}-fach überhöht)").format(max(z.faktor for z in zonen))
+            text += " " + tr("(Darstellung {:.3g}-fach überhöht)").format(max(z.faktor for z in zonen))
         self.statusBar().showMessage(text, 12000)
 
     def waehle_allgemeintoleranzen(self):
@@ -1567,6 +1567,9 @@ class Hauptfenster(QtWidgets.QMainWindow):
             m.addAction(a[n])
         m.addSeparator()
         for n in ("pmi_anlegen", "kommentar"):
+            m.addAction(a[n])
+        m.addSeparator()
+        for n in ("toleranzzone", "toleranzzonen_alle", "allgemeintoleranzen"):
             m.addAction(a[n])
         m.addSeparator()
         for n in ("teil_ausblenden", "teil_isolieren", "alle_zeigen"):

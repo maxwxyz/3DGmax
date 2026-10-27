@@ -426,6 +426,35 @@ def test_toleranzzonen_material_projiziert_muster(ftc10, ftc07):
     assert len(alle) > 30 and len({round(z.faktor, 6) for _, z in alle}) == 1
 
 
+def test_toleranzzonen_mittelebene_kugel(ftc10):
+    from OCC.Core.BRepPrimAPI import BRepPrimAPI_MakeSphere
+    from OCC.Core.gp import gp_Pnt
+    from programm.kern import toleranzzone as tz
+    from programm.kern.laden import StepModell, _alle_flaechen
+    from programm.kern.pmi import MASS, TOLERANZ, Pmi
+    from programm.kern.pmi_lesen import lies_pmi
+    pmi = lies_pmi(ftc10)
+    # Symmetrie an einer Nut: Zone der abgeleiteten Mittelebene (zwei ebene Rechtecke, Abstand t)
+    sym = next(p for p in pmi if p.typ == "Symmetry" and p.flaechen)
+    z = tz.zone(sym, ftc10, alle_pmi=pmi)
+    assert z.art == "mittelebene" and len(z.formen) == 2
+    from OCC.Core.BRepExtrema import BRepExtrema_DistShapeShape
+    assert abs(BRepExtrema_DistShapeShape(*z.formen).Value() - sym.wert) < 1e-6
+    # Richtungstoleranz an zwei Ebenen ohne Mass darauf: jede Flaeche einzeln (Flaechenzone, Richtung frei)
+    senk = next(p for p in pmi if p.typ == "Perpendicularity" and not p.modifikatoren and len(p.flaechen) > 2)
+    z = tz.zone(senk, ftc10, alle_pmi=pmi)
+    assert z.art == "flaechen" and any("Richtungszone" in h or "orientation" in h.lower() for h in z.hinweise)
+    # Kugelzone S⌀ um den Mittelpunkt einer Kugel, mit Raum der Kugelflaeche aus dem Kugelmass
+    kugel = BRepPrimAPI_MakeSphere(gp_Pnt(1, 2, 3), 10.0).Shape()
+    m = StepModell("k.stp", None, None, kugel, _alle_flaechen(kugel))
+    m._baue_index()
+    alle = [Pmi(MASS, "Size_SphericalDiameter", nennwert=20.0, oben=0.1, unten=-0.1, flaechen={0})]
+    pos = Pmi(TOLERANZ, "Position", wert=0.4, modifikatoren=["SphericalDiameter"], flaechen={0})
+    z = tz.zone(pos, m, alle_pmi=alle)
+    assert z.art == "kugel" and z.rollen == [tz.ZONE, tz.HUELLE, tz.HUELLE]
+    assert "19.5" in z.hinweise[-1] and "20.5" in z.hinweise[-1]
+
+
 def test_allgemeintoleranzen(ctc01):
     from programm.kern import toleranzzone as tz
     from programm.kern.pmi import Pmi

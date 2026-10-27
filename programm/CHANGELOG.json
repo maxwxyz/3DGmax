@@ -105,7 +105,8 @@
    "Nur grafische PMI werden in der Tabelle ausgewertet: Art (Maß, Toleranz, Bezug) und, wo die Datei Text enthält, Werte, Abmaße, Toleranzzone, Ⓜ und Bezüge; gekennzeichnet mit ≈ und „aus der Grafik abgeleitet – bitte prüfen“.",
    "3D-PDF/PRC: Modellkanten werden aus der Datei gelesen und angezeigt (Netzmodelle wirkten bisher ohne Kanten flach).",
    "Vergleich: mehrfach verbaute Teile werden je Instanz eingefärbt; eine verschobene oder entfernte Instanz färbt die übrigen nicht mehr mit.",
-   "Toleranzzonen erweitert: je Bohrung/Zapfen (auch Lochmuster) die Zone, bei Ⓜ/Ⓛ zusätzlich die Bonuszone, dazu der Raum, in dem die Fläche selbst liegen darf (Maß + Lage); projizierte Zone Ⓟ außerhalb des Elements; unsymmetrische Zone (UZ/Ⓤ); Hüllen bei Höchst- und Mindestmaß. Zonen für gewählte PMI, die PMI an gewählten Flächen oder alle auf einmal; Allgemeintoleranzen ISO 2768 / ISO 22081 wählbar. Das Bauteil wird dabei durchscheinend."
+   "Toleranzzonen erweitert: je Bohrung/Zapfen (auch Lochmuster) die Zone, bei Ⓜ/Ⓛ zusätzlich die Bonuszone, dazu der Raum, in dem die Fläche selbst liegen darf (Maß + Lage); projizierte Zone Ⓟ außerhalb des Elements; unsymmetrische Zone (UZ/Ⓤ); Hüllen bei Höchst- und Mindestmaß. Zonen für gewählte PMI, die PMI an gewählten Flächen oder alle auf einmal; Allgemeintoleranzen ISO 2768 / ISO 22081 wählbar. Das Bauteil wird dabei durchscheinend.",
+   "Toleranzzonen auch im Kontextmenü (3D-Fenster und PMI-Liste, dort für mehrere PMI); Zone der abgeleiteten Mittelebene bei Nuten/Stegen (Symmetrie, Position, Richtung an Größenmaßelementen), Kugelzone bei S⌀; die Statuszeile nennt, was die Zone nicht zeigt (Richtungszone frei verschiebbar, Formzone frei, je Querschnitt, je Teillänge). Zonenfarben eindeutig gegenüber den Bezugsfarben."
   ],
   "en": [
    "First viewer version: load STEP AP242, assembly tree, CAD-style navigation, standard views.",
@@ -212,7 +213,8 @@
    "Graphical-only PMI are evaluated in the table: kind (dimension, tolerance, datum) and, where the file has text, values, deviations, zone, Ⓜ and datums; marked with ≈ and “derived from the graphics – please check”.",
    "3D PDF/PRC: model edges are read from the file and shown (mesh models looked flat without edges).",
    "Comparison: parts used several times are colored per instance; a moved or removed instance no longer colors the others.",
-   "Tolerance zones extended: per hole/pin (also patterns) the zone, with Ⓜ/Ⓛ also the bonus zone, plus the space the surface itself may occupy (size + location); projected zone Ⓟ outside the feature; unequal zone (UZ/Ⓤ); envelopes at maximum and minimum size. Zones for the selected PMI, the PMI on selected faces or all at once; general tolerances ISO 2768 / ISO 22081 selectable. The part becomes translucent meanwhile."
+   "Tolerance zones extended: per hole/pin (also patterns) the zone, with Ⓜ/Ⓛ also the bonus zone, plus the space the surface itself may occupy (size + location); projected zone Ⓟ outside the feature; unequal zone (UZ/Ⓤ); envelopes at maximum and minimum size. Zones for the selected PMI, the PMI on selected faces or all at once; general tolerances ISO 2768 / ISO 22081 selectable. The part becomes translucent meanwhile.",
+   "Tolerance zones also in the context menus (3D window and PMI list, there for several PMI); zone of the derived median plane for slots/tabs (symmetry, position, orientation on features of size), spherical zone for S⌀; the status bar states what the zone does not show (orientation zone floating, form zone free, per cross-section, per unit length). Zone colors distinct from the datum colors."
   ]
  },
  "releases": [

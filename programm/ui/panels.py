@@ -380,7 +380,8 @@ class PmiPanel(QtWidgets.QWidget):
         a_zoom = m.addAction(tr("Auf Auswahl zoomen"))
         a_normal = m.addAction(tr("Normal auf Auswahl ausrichten"))
         a_zone = m.addAction(tr("Toleranzzone zeigen"))
-        a_zone.setEnabled(len(auswahl) == 1 and auswahl[0].art == TOLERANZ)
+        from ..kern.toleranzzone import breite
+        a_zone.setEnabled(any(breite(p) is not None for p in auswahl))  # Toleranzen und Masse mit Zonendarstellung
         m.addSeparator()
         a_bez = m.addAction(tr("Bezüge dieser Toleranz wählen"))
         a_mit = m.addAction(tr("Toleranzen mit diesem Bezug wählen"))

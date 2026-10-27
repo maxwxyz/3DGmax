@@ -707,7 +707,7 @@
 "Zone der gewählten Toleranz als Hüllgeometrie (schmale Zonen überhöht)": "Zone of the selected tolerance as envelope geometry (narrow zones exaggerated)",
 "Für diese PMI gibt es keine Zonendarstellung": "No zone display for this PMI",
 "Toleranzzone {:.4g} mm": "Tolerance zone {:.4g} mm",
-"(Darstellung {:.0f}-fach überhöht)": "(display exaggerated {:.0f}×)",
+"(Darstellung {:.3g}-fach überhöht)": "(display exaggerated {:.3g}×)",
 "Entfernen": "Remove",
 "Erst Maße mit Nennmaß in der PMI-Liste wählen": "Select dimensions with a nominal value in the PMI list first",
 "Maße in der PMI-Liste wählen und übernehmen; Richtung + vergrößert, − verkleinert das Schlussmaß. Statistik: Normalverteilung, ±3σ = Toleranz (Cp = 1).": "Select dimensions in the PMI list and add them; direction + increases, − decreases the closing dimension. Statistics: normal distribution, ±3σ = tolerance (Cp = 1).",
@@ -803,9 +803,16 @@
 "In der Datei angegeben: {}": "Given in the file: {}",
 "Zone ⌀{:.4g} bei {}, bis ⌀{:.4g} mit Bonus": "zone ⌀{:.4g} at {}, up to ⌀{:.4g} with bonus",
 "Zonen aller Toleranzen und Maße des Modells, mit Allgemeintoleranzen (violett)": "Zones of all tolerances and dimensions of the model, with general tolerances (violet)",
-"Zonen der gewählten Toleranzen (oder der PMI an den gewählten Flächen) als Hüllgeometrie: grün Zone, orange Bonus bei Ⓜ/Ⓛ, blau Raum der Fläche (schmale Zonen überhöht)": "Zones of the selected tolerances (or of the PMI on the selected faces) as envelope geometry: green zone, orange bonus with Ⓜ/Ⓛ, blue space of the surface (narrow zones exaggerated)",
+"Zonen der gewählten Toleranzen (oder der PMI an den gewählten Flächen) als Hüllgeometrie: gelb Zone, magenta Bonus bei Ⓜ/Ⓛ, türkis Raum der Fläche (schmale Zonen überhöht)": "Zones of the selected tolerances (or of the PMI on the selected faces) as envelope geometry: yellow zone, magenta bonus with Ⓜ/Ⓛ, turquoise space of the surface (narrow zones exaggerated)",
 "keine": "none",
 "projizierte Zone {:.4g} mm außerhalb des Elements": "projected zone {:.4g} mm outside the feature",
 "unsymmetrisch: {:.4g} mm aus dem Material, {:.4g} mm ins Material": "unequal: {:.4g} mm out of the material, {:.4g} mm into the material",
-"{} Toleranzzonen": "{} tolerance zones"
+"{} Toleranzzonen": "{} tolerance zones",
+"Fläche zwischen S⌀{:.4g} und S⌀{:.4g}": "surface between S⌀{:.4g} and S⌀{:.4g}",
+"Formzone: in Lage und Richtung frei": "form zone: free in location and orientation",
+"Kugelzone S⌀{:.4g} um den Mittelpunkt": "spherical zone S⌀{:.4g} around the centre",
+"Richtungszone: in der Lage frei verschiebbar": "orientation zone: free in location",
+"Zone der abgeleiteten Mittelebene (zwei Ebenen im Abstand {:.4g})": "zone of the derived median plane (two planes {:.4g} apart)",
+"gilt je Querschnitt": "applies per cross-section",
+"gilt je Teillänge {}": "applies per unit length {}"
 }
