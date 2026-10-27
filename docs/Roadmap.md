@@ -62,7 +62,8 @@
 | Tolerance zones: line profile/roundness per section, ACS/ALS, CZ/SZ, tolerances on edges/points | ⬜ |
 | Tolerance stack-up 1D (dimension chain from PMI, worst case, RSS, Monte Carlo, CSV) | ✅ |
 | Stack-up 1D: Cp adjustable, angular dimensions excluded | ✅ |
-| Stack-up: Cp/Cpk and distribution per link; chain picked in 3D (faces, edges, derived axes) with PMI values and general tolerances for features without PMI; chains across parts | ⬜ |
+| Stack-up: chain picked in 3D (planes, cylinder/cone axes) with direction from the geometry, PMI values (also patterns) and ISO 2768 for features without PMI; distribution and Cp per link; contribution share | ✅ |
+| Stack-up: edges and derived median planes as chain ends, GD&T contributors (position/profile/datum shift), Cpk/shifted mean, chains across parts, PDF report | ⬜ |
 | Assembly placing with snapping (faces/axes/points), accumulated mates, open DOF shown | ⬜ |
 | Tolerance stack-up 3D (geometric tolerances, chain from the model, sensitivity) – PLAN §8.20 | ⬜ |
 | Assemblies built in the project (mates on datum features), materials and thermal expansion in chains | ⬜ |

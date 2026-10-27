@@ -2047,11 +2047,30 @@ class Hauptfenster(QtWidgets.QMainWindow):
             f = ToleranzketteFenster(self)
             f.plus.clicked.connect(lambda: self._kette_uebernehmen(+1))
             f.minus.clicked.connect(lambda: self._kette_uebernehmen(-1))
+            f.auswahl.clicked.connect(self._kette_aus_auswahl)
+            f.flaechen_zeigen.connect(self.ansicht.hebe_flaechen)
             self._kette = f
         if not nur_anlegen:
             f.show()
             f.raise_()
         return f
+
+    def _kette_aus_auswahl(self) -> int:
+        """Glieder aus den im Modell gewaehlten Flaechen (Klickreihenfolge); Allgemeintoleranz aus Wahl oder Datei."""
+        from ..kern import toleranzkette as tk, toleranzzone
+        if self.erg is None:
+            return 0
+        flaechen = [i for f in self.ansicht.auswahl3d for i in [self.erg.modell.flaechen_index(f)] if i is not None]
+        allgemein = self._allgemein or toleranzzone.allgemein_aus_hinweisen(self.erg.pmi)
+        glieder, richtung, hinweise = tk.kette_aus_flaechen(self.erg.modell, flaechen, self.erg.pmi,
+                                                             allgemein.laenge if allgemein else "")
+        self._kette.ergaenze(glieder)
+        if glieder:
+            text = tr("{} Glieder entlang ({:.3g}, {:.3g}, {:.3g})").format(len(glieder), *richtung)
+            self.statusBar().showMessage("; ".join([text] + hinweise), 10000)
+        else:
+            self.statusBar().showMessage("; ".join(hinweise), 8000)
+        return len(glieder)
 
     def _kette_uebernehmen(self, richtung: int):
         from ..kern import toleranzkette as tk

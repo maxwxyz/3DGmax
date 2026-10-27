@@ -5,7 +5,7 @@ import sys
 
 from programm.ui import ansicht3d
 from programm.ui.hilfe import MARKE, anleitung_html, menue_befehle
-from tests.conftest import WURZEL
+from tests.conftest import WURZEL, pfad
 
 
 def test_platzhalter_ohne_grafik(fenster):
@@ -823,3 +823,24 @@ def test_beispiele_modell(fenster):
 
 def test_beispiele_vergleich_und_scan(fenster):
     _beispiele(fenster, ("vergleich_pmi", "vergleich_geo", "baugruppe", "scan"))
+
+
+def test_toleranzkette_aus_3d_auswahl(fenster):
+    """Flaechen in Klickreihenfolge -> Glieder; Zeile waehlen hebt ihre Flaechen hervor; Verteilung je Glied."""
+    f = fenster
+    f.lade(pfad("nist_ftc_10_asme1_ap242-e2.stp"), warten=True)
+    k = f.zeige_toleranzkette(nur_anlegen=True)
+    f.ansicht.setze_auswahl([f.erg.modell.flaechen[i] for i in (181, 187, 183, 185)])
+    assert f._kette_aus_auswahl() == 3
+    assert [g.quelle for g in k.glieder] == ["pmi", "ohne", "pmi"]  # FTC-10 nennt keine Allgemeintoleranz
+    assert "ohne Toleranz" in f.statusBar().currentMessage() or "without tolerance" in f.statusBar().currentMessage()
+    k.leeren()
+    from programm.kern.toleranzzone import Allgemein
+    f._allgemein = Allgemein("m", "")
+    f._kette_aus_auswahl()
+    assert [g.quelle for g in k.glieder] == ["pmi", "allgemein", "pmi"]
+    k.tabelle.selectRow(0)
+    assert f.ansicht.hervor == {181, 187}
+    k.tabelle.cellWidget(1, 7).setCurrentIndex(1)  # gleichverteilt
+    assert k.glieder[1].verteilung == "gleich" and k.e.anteile[1] > k.e.anteile[0]
+    k.leeren()

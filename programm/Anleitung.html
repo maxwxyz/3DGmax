@@ -226,7 +226,13 @@ Zone frei bewegen – das zeigt die türkise Hülle.</div>
 <h2 id="analyse">Analyse, Toleranzkette, PMI anlegen</h2>
 <ul>
 <li><b>Modell › Analyse</b>: Entformungsschräge, Krümmungsradius oder Wandstärke als Farbkarte; Klick zeigt den Wert.</li>
-<li><b>Modell › Toleranzkette</b>: gewählte Maße mit + oder − übernehmen; Schlussmaß nach Worst Case, statistisch (RSS) und Monte Carlo.</li>
+<li><b>Modell › Toleranzkette</b>: gewählte Maße mit + oder − übernehmen, oder Flächen im Modell in
+Kettenreihenfolge wählen (<kbd>Strg</kbd>/<kbd>⌘</kbd>) und <b>＋ Aus 3D-Auswahl</b>: je zwei aufeinanderfolgende
+Flächen bilden ein Glied, die Richtung kommt aus der ersten ebenen Fläche, das Vorzeichen aus der Lage. Werte aus dem
+passenden PMI-Maß (auch bei Mustern), sonst aus der Allgemeintoleranz ISO 2768 (gewählt oder als Hinweis in der
+Datei), sonst „ohne Toleranz“ (rot). Je Glied Verteilung (normal oder gleichverteilt) und Cp; die Spalte
+<b>Anteil</b> zeigt, wie viel jedes Glied zur Streuung beiträgt. Schlussmaß nach Worst Case, statistisch (±3σ) und
+Monte Carlo; eine Zeile wählen hebt ihre Flächen im Modell hervor.</li>
 <li><b>Modell › PMI anlegen</b>: Flächen wählen, Vorschläge des Tolerierungsberaters prüfen, anpassen, übernehmen
     (eigene PMI, im Projekt gespeichert). Vorhandene PMI lassen sich bearbeiten; die Originalwerte bleiben sichtbar.</li>
 </ul>

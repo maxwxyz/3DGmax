@@ -71,7 +71,7 @@ def tr_texte() -> set[str]:
     from programm.ui import pmi_anlegen_ui
     out |= set(pmi_anlegen_ui.PmiAnlegenDialog.SPALTEN)
     from programm.kern import toleranzkette as kt
-    out |= set(kt.SPALTEN)
+    out |= set(kt.SPALTEN) | set(kt.QUELLE.values()) | set(kt.VERTEILUNG.values())
     from programm.kern import kommentare as kk
     out |= set(kk.ART.values()) | set(kk.STATUS.values()) | set(kk.SPALTEN)
     from programm.kern import stueckliste as ks

@@ -570,6 +570,30 @@ def test_toleranzkette():
     assert e.mc_min > e.wc_min and e.mc_max < e.wc_max and abs(e.mc_mittel - e.mitte) < 1e-3
     assert tk.glied_von_pmi(Pmi("toleranz", "Flatness", wert=0.1)) is None
     assert "Worst Case max" in tk.als_csv([a, b, c], e)
+    # Cp und Verteilung je Glied, Anteile
+    a.cp, b.verteilung = 2.0, "gleich"
+    e2 = tk.berechne([a, b, c])
+    s = [0.2 / 12, 0.1 / (2 * 3 ** 0.5), 0.015 / 6]
+    assert abs(e2.rss - 3 * sum(x * x for x in s) ** 0.5) < 1e-9
+    assert abs(sum(e2.anteile) - 1) < 1e-9 and e2.anteile[1] == max(e2.anteile)
+    assert e2.wc_min == e.wc_min and e2.mc_min > e2.wc_min
+
+
+def test_toleranzkette_aus_flaechen():
+    """FTC-10: Glieder aus Flaechen, Richtung aus der Geometrie, PMI auch bei Mustern, sonst ISO 2768."""
+    from programm.kern import toleranzkette as tk
+    from programm.ui.lader import lade_alles
+    erg = lade_alles(pfad("nist_ftc_10_asme1_ap242-e2.stp"))
+    g, r, h = tk.kette_aus_flaechen(erg.modell, [181, 187, 183, 185], erg.pmi, "m")
+    assert [x.pmi_nummer for x in g] == [6, 0, 5] and [x.quelle for x in g] == ["pmi", "allgemein", "pmi"]
+    assert [x.richtung for x in g] == [1, -1, 1] and abs(abs(r[0]) - 1) < 1e-9 and not h
+    e = tk.berechne(g)
+    assert abs(e.nenn - 10.0) < 1e-9 and abs(e.wc_max - e.wc_min - 1.2) < 1e-9  # 3 x +-0.2 (ISO 2768-m 6..30: +-0.2)
+    muster, _, _ = tk.kette_aus_flaechen(erg.modell, [189, 134], erg.pmi)
+    assert [x.pmi_nummer for x in muster] == [8] and abs(muster[0].toleranz - 0.4) < 1e-9
+    ohne, _, h = tk.kette_aus_flaechen(erg.modell, [181, 187, 183], erg.pmi)
+    assert ohne[-1].quelle == "ohne" and h
+    assert tk.kette_aus_flaechen(erg.modell, [181], erg.pmi)[0] == []
 
 
 def test_tolerierungsberater_regeln(ctc01):

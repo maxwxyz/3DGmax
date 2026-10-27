@@ -226,7 +226,13 @@ zone – the turquoise envelope shows it.</div>
 <h2 id="analysis">Analysis, tolerance stack-up, creating PMI</h2>
 <ul>
 <li><b>Model › Analysis</b>: draft angle, curvature radius or wall thickness as a colour map; a click shows the value.</li>
-<li><b>Model › Tolerance stack-up</b>: add selected dimensions with + or −; closing dimension by worst case, statistically (RSS) and Monte Carlo.</li>
+<li><b>Model › Tolerance stack-up</b>: add selected dimensions with + or −, or select faces in the model in chain
+order (<kbd>Ctrl</kbd>/<kbd>⌘</kbd>) and use <b>＋ From 3D selection</b>: each two consecutive faces form a link, the
+direction comes from the first planar face, the sign from the position. Values come from the matching PMI dimension
+(also for patterns), otherwise from the general tolerance ISO 2768 (chosen or stated as a note in the file),
+otherwise “no tolerance” (red). Distribution (normal or uniform) and Cp per link; the <b>Share</b> column shows how much
+each link contributes to the spread. Closing dimension by worst case, statistically (±3σ) and Monte Carlo; selecting a
+row highlights its faces in the model.</li>
 <li><b>Model › Create PMI</b>: select faces, check, adjust and accept the suggestions of the tolerancing advisor
     (own PMI, stored in the project). Existing PMI can be edited; the original values stay visible.</li>
 </ul>

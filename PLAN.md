@@ -217,6 +217,12 @@ Throughout: tests (core, offscreen UI, stress test, on-screen test), `--selbstte
     general tolerances (ISO 2768 / ISO 22081, §8.5) and are marked as such; missing values reported.
   - Accumulated (cumulative) chains across several parts of an assembly (links from different parts plus the
     mating conditions between them), see §8.20.
+- Done 2026-10-27 (stage 2a): `kette_aus_flaechen` – faces in chain order (planes perpendicular to, cylinder/cone
+  axes across the direction of the first planar face), sign from the position, PMI matched by positions at both ends
+  and nominal (patterns included), else ISO 2768-1 from the chosen or file general tolerance, else "no tolerance";
+  per link distribution (normal/uniform) and Cp, variance share per link; UI "From 3D selection", row highlights its
+  faces. Open: edges and derived median planes as chain ends, GD&T contributors from the zone logic (position,
+  profile, datum shift with Ⓜ/Ⓛ), Cpk / shifted means, PDF report, chains across assembly parts.
 
 ### 8.9 Test data
 - NIST: FTC/STC/CTC (AP242); D2MI 827-9999-904 rev C (AP242 with PMI) ↔ 906 (same geometry, no PMI); FTC-06 ↔ STC-06
