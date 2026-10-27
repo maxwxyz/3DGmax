@@ -50,9 +50,10 @@ planes and the view cube, and `DG_BILDSCHIRM=1 pytest tests/test_bildschirm.py` 
 - Contrast of the 1 px model edges on PRC files with grey face colors.
 - Tolerance zones stage 2: colors/transparency of zone, bonus, surface space and general tolerances; "all zones" on
   large models (FTC-10: many profile zones overlap) – maybe needs filtering by characteristic.
-- Windows app start (user reported that nothing happens after SmartScreen): the new build writes
-  `%LOCALAPPDATA%\3DGmax\start_fehler.log` (and `start_fehler.log.absturz` for native crashes); ask for the log.
-  Starting the exe from inside the ZIP or a long first start (Defender scanning the DLLs) are likely causes.
+- Portable apps: the user confirmed Windows, macOS and Linux builds work. New since then: start screen
+  (PyInstaller splash from `packaging/startbild.png` on Windows/Linux before Python loads, then a Qt splash
+  `programm.app.startbild`); verified with a local Linux build under Xvfb (splash at 0.3 s, window at ~1.5 s).
+  Check on Windows (first start with Defender) and macOS (Qt splash only; Gatekeeper delay before it remains).
 
 **Not verified without local data (`daten/`):** the five NIST STC PDFs were downloaded from nist.gov in the cloud
 (all load); QIF tests download the NIST QIF from qif-community; NIST AP242 set, D2MI and MTC were not available.

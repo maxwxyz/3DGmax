@@ -125,7 +125,8 @@
    "Drahtmodell mit Kanten in Kontrastfarbe (Einstellung, standardmäßig an); Ansichtswürfel gedämpfter, Beschriftung besser lesbar, im dunklen Farbschema dunkel.",
    "Toleranzkette: Prozessfähigkeit Cp einstellbar, Winkelmaße werden nicht in die Längenkette übernommen, beim Laden eines anderen Modells wird die Kette geleert, lange Namen schieben keine Spalte mehr aus dem Fenster.",
    "Rechtsklick in der PMI-Liste wählt zuerst die Zeile unter dem Mauszeiger (auch Zwei-Finger-Klick am Trackpad), damit das Kontextmenü auf diese PMI wirkt.",
-   "Schnittansichten: gespeicherte Ansichten mit Schnittebenen aus STEP AP242 (auch Vereinigung und Schnittmenge mehrerer Ebenen) schneiden das Modell beim Wählen auf; neue Testdatei ctc01_schnittansicht.stp."
+   "Schnittansichten: gespeicherte Ansichten mit Schnittebenen aus STEP AP242 (auch Vereinigung und Schnittmenge mehrerer Ebenen) schneiden das Modell beim Wählen auf; neue Testdatei ctc01_schnittansicht.stp.",
+   "Startbild: Die App zeigt sofort beim Start ein Fenster mit Symbol und Fortschrittstext (Windows und Linux schon vor dem Laden von Python, macOS nach dem Laden von Qt), bis das Hauptfenster steht."
   ],
   "en": [
    "First viewer version: load STEP AP242, assembly tree, CAD-style navigation, standard views.",
@@ -252,7 +253,8 @@
    "Wireframe with edges in a contrast colour (setting, on by default); calmer view cube with more legible labels, dark in the dark colour scheme.",
    "Tolerance stack-up: process capability Cp adjustable, angular dimensions are not added to the length chain, the chain is cleared when another model is loaded, long names no longer push a column out of the window.",
    "Right-click in the PMI list first selects the row under the pointer (also two-finger click on a trackpad), so the context menu acts on that PMI.",
-   "Section views: saved views with clipping planes from STEP AP242 (also unions and intersections of several planes) cut the model open when chosen; new test file ctc01_schnittansicht.stp."
+   "Section views: saved views with clipping planes from STEP AP242 (also unions and intersections of several planes) cut the model open when chosen; new test file ctc01_schnittansicht.stp.",
+   "Start screen: the app immediately shows a window with icon and progress text (Windows and Linux even before Python is loaded, macOS after Qt is loaded) until the main window is ready."
   ]
  },
  "releases": [

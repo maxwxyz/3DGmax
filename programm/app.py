@@ -41,12 +41,65 @@ def _startzeit_melden(zeiten: dict, fenster):
     print(f"STARTZEIT gesamt {gesamt:.2f} s – {text}", flush=True)
 
 
+def startbild_pixmap(unterzeile: str, k: float = 2.0):
+    """Bild des Startfensters: Symbol, Name, Unterzeile (k: Pixeldichte, scharf auf Retina/HiDPI)."""
+    from PySide6 import QtCore, QtGui
+    from .i18n import HIER
+    bild = QtGui.QPixmap(int(420 * k), int(200 * k))
+    bild.setDevicePixelRatio(k)
+    bild.fill(QtGui.QColor("#f4f6f9"))
+    maler = QtGui.QPainter(bild)
+    maler.setRenderHint(QtGui.QPainter.RenderHint.Antialiasing)
+    maler.setRenderHint(QtGui.QPainter.RenderHint.SmoothPixmapTransform)
+    symbol = QtGui.QPixmap(os.path.join(HIER, "icon.png"))
+    if not symbol.isNull():
+        maler.drawPixmap(QtCore.QRect(28, 46, 96, 96), symbol)
+    maler.setPen(QtGui.QColor("#1d2330"))
+    schrift = maler.font()
+    schrift.setPointSize(26)
+    schrift.setBold(True)
+    maler.setFont(schrift)
+    maler.drawText(QtCore.QRect(146, 56, 260, 44), QtCore.Qt.AlignmentFlag.AlignLeft, "3DGmax")
+    schrift.setPointSize(11)
+    schrift.setBold(False)
+    maler.setFont(schrift)
+    maler.setPen(QtGui.QColor("#5a6475"))
+    maler.drawText(QtCore.QRect(148, 102, 260, 22), QtCore.Qt.AlignmentFlag.AlignLeft, unterzeile)
+    maler.end()
+    return bild
+
+
+def startbild(app):
+    """Startbild direkt nach Qt (vor OCCT und Hauptfenster), damit sofort sichtbar ist, dass die App startet."""
+    from PySide6 import QtCore, QtGui, QtWidgets
+    from .i18n import tr
+    from .version import VERSION
+    s = QtWidgets.QSplashScreen(startbild_pixmap(tr("Version {}").format(VERSION)))
+    s.showMessage(tr("3D-Module werden geladen …"), QtCore.Qt.AlignmentFlag.AlignBottom |
+                  QtCore.Qt.AlignmentFlag.AlignHCenter, QtGui.QColor("#5a6475"))
+    s.show()
+    app.processEvents()
+    starter_bild_zu()
+    return s
+
+
+def starter_bild_zu():
+    """Startbild des PyInstaller-Starters (Windows/Linux, erscheint vor Python) schliessen."""
+    try:
+        import pyi_splash
+        pyi_splash.close()
+    except Exception:  # noqa: BLE001 - nicht gebaut (ImportError) oder Starter ohne Bildschirm (KeyError)
+        pass
+
+
 def main(argv=None) -> int:
     """Optionen: datei.stp, --selbsttest, --bild ausgabe.png (Modell laden, 3D-Bild speichern, beenden),
     --startzeit (Dauer der Startphasen messen)."""
     import time
     zeiten = {"Start": time.perf_counter()}
     argv = list(sys.argv[1:] if argv is None else argv)
+    if "--selbsttest" in argv or "--bild" in argv:
+        starter_bild_zu()
     if "--selbsttest" in argv:
         return selbsttest()
     bild = argv[argv.index("--bild") + 1] if "--bild" in argv else None
@@ -60,14 +113,21 @@ def main(argv=None) -> int:
     app = QtWidgets.QApplication.instance() or QtWidgets.QApplication(sys.argv[:1])
     zeiten["Qt"] = time.perf_counter()
     from PySide6 import QtGui
-    from .i18n import HIER
+    from .i18n import HIER, tr
     symbol = os.path.join(HIER, "icon.png")
     if os.path.isfile(symbol):
         app.setWindowIcon(QtGui.QIcon(symbol))
+    start = None if bild else startbild(app)
     from .ui.hauptfenster import Hauptfenster
     zeiten["Module"] = time.perf_counter()
+    if start is not None:
+        start.showMessage(tr("Fenster wird aufgebaut …"), QtCore.Qt.AlignmentFlag.AlignBottom |
+                          QtCore.Qt.AlignmentFlag.AlignHCenter, QtGui.QColor("#5a6475"))
+        app.processEvents()
     fenster = Hauptfenster()
     fenster.show()
+    if start is not None:
+        start.finish(fenster)
     zeiten["Fenster"] = time.perf_counter()
     if "--startzeit" in argv:
         def warte_3d():

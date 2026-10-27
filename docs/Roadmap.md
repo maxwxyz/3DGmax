@@ -147,7 +147,8 @@
 |---|---|
 | Manual DE/EN with generated screenshots (packaging/doc_screenshots.py), opened in the browser | ✅ |
 | German/English UI, F1 manual with generated menu reference, introduction, what's new | ✅ |
-| Portable apps Windows/macOS/Linux, GitHub workflow with/without tests, self-test | 🟡 (macOS verified locally) |
+| Portable apps Windows/macOS/Linux, GitHub workflow with/without tests, self-test | ✅ (all three verified by the user) |
+| Start screen before the main window (PyInstaller splash on Windows/Linux, Qt splash) | ✅ |
 | Release script: bump version, keep changelog DE/EN | ✅ |
 | Tests: core, offscreen UI, stress test, on-screen test | ✅ |
 | Demo projects in the repository for the main functions (File › Examples) – PLAN §8.24 | ⬜ |

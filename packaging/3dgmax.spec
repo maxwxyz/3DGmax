@@ -36,9 +36,16 @@ excludes = ["tkinter", "matplotlib", "IPython", "pytest", "PyQt5", "PyQt6", "PyS
 a = Analysis([os.path.join(ROOT, "packaging", "start_3dgmax.py")], pathex=[ROOT], datas=datas,
              hiddenimports=hidden, excludes=excludes, noarchive=False)
 pyz = PYZ(a.pure)
-exe = EXE(pyz, a.scripts, [], exclude_binaries=True, name="3DGmax", console=False, upx=False,
+# Startbild des Starters (Windows/Linux; macOS kennt es nicht): sichtbar, bevor Python und Qt geladen sind,
+# packaging/startbild.py erzeugt das Bild; programm.app schliesst es, sobald das Qt-Startbild steht
+starter = []
+if sys.platform != "darwin":
+    splash = Splash(os.path.join(ROOT, "packaging", "startbild.png"), binaries=a.binaries, datas=a.datas,
+                    text_pos=None, always_on_top=False)
+    starter = [splash, splash.binaries]
+exe = EXE(pyz, a.scripts, *starter[:1], [], exclude_binaries=True, name="3DGmax", console=False, upx=False,
           argv_emulation=False, icon=os.path.join(SRC, "icon.icns" if sys.platform == "darwin" else "icon.ico"))
-coll = COLLECT(exe, a.binaries, a.datas, name="3DGmax", upx=False)
+coll = COLLECT(exe, a.binaries, a.datas, *starter[1:], name="3DGmax", upx=False)
 
 if sys.platform == "darwin":
     doc_types = [{"CFBundleTypeName": "STEP-Modell", "CFBundleTypeRole": "Viewer", "LSHandlerRank": "Alternate",
