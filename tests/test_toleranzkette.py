@@ -165,3 +165,34 @@ def test_iso286_j_a_und_passungen():
     assert art == iso.SPIEL and abs(hoechst - 0.041) < 1e-12 and abs(mindest - 0.007) < 1e-12
     assert iso.passung("H7/k6", 25)[0] == iso.UEBERGANG and iso.passung("H7/s6", 25)[0] == iso.UEBERMASS
     assert iso.passung("g6/H7", 25) is None and iso.passung("H7", 25) is None
+
+
+def test_plausibilitaet_geschlossene_masskette():
+    from types import SimpleNamespace
+    from OCC.Core.BRepPrimAPI import BRepPrimAPI_MakeBox
+    from OCC.Core.gp import gp_Pnt
+    from programm.kern import plausibilitaet as pl
+    from programm.kern.pmi import MASS, Pmi
+    from programm.kern.verbindung import merkmal
+    flaechen = []
+    for x0, x1 in ((0, 10), (10, 25)):  # zwei Quader: Ebenen bei x = 0, 10, 25
+        from OCC.Core.TopAbs import TopAbs_FACE
+        from OCC.Core.TopExp import TopExp_Explorer
+        ex = TopExp_Explorer(BRepPrimAPI_MakeBox(gp_Pnt(x0, 0, 0), x1 - x0, 5, 5).Shape(), TopAbs_FACE)
+        while ex.More():
+            m = merkmal(ex.Current())
+            if m and m[0] == "ebene" and abs(abs(m[2][0]) - 1) < 1e-9:
+                flaechen.append((round(m[1][0], 6), ex.Current()))
+            ex.Next()
+    lage = {}
+    for x, f in flaechen:
+        lage.setdefault(x, len(lage))
+    modell = SimpleNamespace(flaechen=[f for x, f in sorted({x: f for x, f in flaechen}.items())])
+    idx = {x: i for i, x in enumerate(sorted({x for x, _ in flaechen}))}
+    def mass(nr, a, b, tol=True):
+        return Pmi(MASS, "Location_LinearDistance", "", nummer=nr, nennwert=abs(b - a), flaechen={idx[a], idx[b]},
+                   oben=0.1 if tol else None, unten=-0.1 if tol else None)
+    befunde = pl.geschlossene_ketten([mass(1, 0, 10), mass(2, 10, 25), mass(3, 0, 25)], modell)
+    assert len(befunde) == 1 and sorted(befunde[0].nummern) == [1, 2, 3] and "Hilfsmaß" in befunde[0].text
+    assert pl.geschlossene_ketten([mass(1, 0, 10), mass(2, 10, 25), mass(3, 0, 25, tol=False)], modell) == []
+    assert pl.geschlossene_ketten([mass(1, 0, 10), mass(2, 10, 25)], modell) == []

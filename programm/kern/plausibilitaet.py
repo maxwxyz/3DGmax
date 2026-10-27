@@ -6,7 +6,8 @@ Ergaenzt kern.pmi_bericht.pruefe um Regeln, die mehrere PMI oder die Geometrie z
 - Vollstaendigkeit: Flaechen ohne Angabe (ohne Allgemeintoleranz), Ⓜ/Ⓛ ohne Mass am Element.
 - Bezugssystem: Sekundaerbezug parallel zum Primaerbezug, offene Freiheitsgrade einer Lagetoleranz, Bezugselement
   ohne eigene Formtoleranz.
-- Ueberbestimmung: zwei Masse an denselben Flaechen mit verschiedenen Werten.
+- Ueberbestimmung: zwei Masse an denselben Flaechen mit verschiedenen Werten; geschlossene Masskette (tolerierte
+  Laengenmasse zwischen parallelen Ebenen bilden einen Kreis – eines sollte Hilfsmass sein).
 - Werte: unsymmetrische Zone groesser als die Toleranz, oberes < unteres Abmass, unbekannte Passung, projizierte Zone
   ohne Bohrung/Zapfen.
 - Geometrie: Nennmass passt nicht zum Modell (Durchmesser, Radius, Abstand paralleler Ebenen).
@@ -164,6 +165,54 @@ def ueberbestimmung(pmi, modell) -> list:
     return out
 
 
+def geschlossene_ketten(pmi, modell) -> list:
+    """Tolerierte Abstandsmasse zwischen parallelen Ebenen je Richtung als Graph (Knoten: Lagen); ein Kreis aus drei
+    oder mehr Massen ist eine geschlossene Masskette – die Toleranzen widersprechen sich, eines sollte Hilfsmass sein."""
+    from collections import defaultdict, deque
+    from .pmi_bericht import WARNUNG
+    if modell is None:
+        return []
+    kanten = defaultdict(list)  # Richtung -> [(Lage a, Lage b, PMI)]
+    for p in pmi:
+        if p.art != "mass" or p.nennwert is None or p.typ not in ("Location_LinearDistance", "Size_Thickness") or \
+                len(p.flaechen) != 2 or None in p.grenzen():
+            continue
+        e = [_ebene(modell.flaechen[i]) for i in sorted(p.flaechen) if i < len(modell.flaechen)]
+        if len(e) != 2 or None in e or abs(e[0][1] @ e[1][1]) < 0.9999:
+            continue
+        n = e[0][1] * (1 if max(e[0][1], key=abs) > 0 else -1)  # Richtung eindeutig (groesste Komponente positiv)
+        a, b = sorted(round(float(x[0] @ n), 4) for x in e)
+        if b - a > 1e-6:
+            kanten[tuple(np.round(n, 6))].append((a, b, p))
+    out = []
+    for liste in kanten.values():
+        nachbarn = defaultdict(list)
+        for a, b, p in liste:
+            # Weg von a nach b ueber die bisherigen Masse? Dann schliesst p eine Kette
+            vorher = {a: None}
+            offen = deque([a])
+            while offen and b not in vorher:
+                x = offen.popleft()
+                for y, q in nachbarn[x]:
+                    if y not in vorher:
+                        vorher[y] = (x, q)
+                        offen.append(y)
+            if b in vorher:
+                kette, x = [p], b
+                while vorher[x] is not None:
+                    x, q = vorher[x][0], vorher[x][1]
+                    kette.append(q)
+                if len(kette) >= 3:
+                    out.append(_befund(WARNUNG, "widerspruch", tr(
+                        "Geschlossene Maßkette: {} – die Toleranzen bestimmen sich gegenseitig, ein Maß als Hilfsmaß "
+                        "(in Klammern) angeben").format(", ".join(q.wert_text() for q in kette)),
+                        [q.nummer for q in kette], {i for q in kette for i in q.flaechen}))
+                    continue
+            nachbarn[a].append((b, p))
+            nachbarn[b].append((a, p))
+    return out
+
+
 def werte(pmi, modell) -> list:
     from .pmi_bericht import FEHLER, WARNUNG
     out = []
@@ -213,7 +262,8 @@ def geometrie(pmi, modell) -> list:
     return out
 
 
-REGELN = (hierarchie, mass_und_form, vollstaendigkeit, bezugssystem, ueberbestimmung, werte, geometrie)
+REGELN = (hierarchie, mass_und_form, vollstaendigkeit, bezugssystem, ueberbestimmung, geschlossene_ketten, werte,
+          geometrie)
 KATEGORIE_TEXT = {"widerspruch": "Widerspruch", "unvollstaendig": "Unvollständig", "bezug": "Bezugssystem",
                   "wert": "Wert", "geometrie": "Geometrie", "": "Angabe"}
 

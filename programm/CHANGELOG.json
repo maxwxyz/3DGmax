@@ -157,7 +157,8 @@
    "Stückliste mit Werkstoff aus der STEP-Datei; die Masse nimmt bei bekanntem Werkstoff dessen Dichte.",
    "Toleranzkette: Empfindlichkeit (Faktor) je Glied, statistische Verfahren RSS, RSS × Bender-Faktor und Mittenverschiebungs-Modell; Toleranzen verteilen (gleiche Varianz oder proportional, statistisch oder arithmetisch, feste Glieder bleiben) als Planspiel.",
    "Zusammenbau: gewähltes Teil nur in seinen offenen Freiheitsgraden verschieben oder drehen (je Freiheitsgrad ein Feld in mm bzw. Grad); die Verbindungen bleiben erfüllt.",
-   "ISO 286: Toleranzklassen j5–j7, J6–J8 und a/A; Passungen als Paar (z. B. H7/g6) mit Spiel bzw. Übermaß und Art (Spiel-, Übergangs-, Übermaßpassung) im Tooltip der PMI."
+   "ISO 286: Toleranzklassen j5–j7, J6–J8 und a/A; Passungen als Paar (z. B. H7/g6) mit Spiel bzw. Übermaß und Art (Spiel-, Übergangs-, Übermaßpassung) im Tooltip der PMI.",
+   "PMI prüfen: geschlossene Maßketten (tolerierte Abstandsmaße zwischen parallelen Ebenen, die sich zu einem Kreis schließen) werden gemeldet."
   ],
   "en": [
    "First viewer version: load STEP AP242, assembly tree, CAD-style navigation, standard views.",
@@ -316,7 +317,8 @@
    "Parts list with the material from the STEP file; the mass uses the material density where the material is known.",
    "Stack-up: sensitivity (factor) per link, statistical methods RSS, RSS × Bender factor and mean-shift model; allocate tolerances (equal variance or proportional, statistical or arithmetic, fixed links stay) as a what-if.",
    "Assembly: move or rotate the selected part only in its open degrees of freedom (one field per DOF in mm or degrees); the connections stay satisfied.",
-   "ISO 286: tolerance classes j5–j7, J6–J8 and a/A; fits as a pair (e.g. H7/g6) with clearance or interference and type (clearance, transition, interference fit) in the PMI tooltip."
+   "ISO 286: tolerance classes j5–j7, J6–J8 and a/A; fits as a pair (e.g. H7/g6) with clearance or interference and type (clearance, transition, interference fit) in the PMI tooltip.",
+   "Check PMI: closed dimension chains (toleranced distances between parallel planes that close a loop) are reported."
   ]
  },
  "releases": [

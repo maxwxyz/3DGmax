@@ -1270,5 +1270,6 @@
 "{} {}: Spiel {:+.4g} … {:+.4g} mm (negativ: Übermaß)": "{} {}: clearance {:+.4g} … {:+.4g} mm (negative: interference)",
 "Spielpassung": "Clearance fit",
 "Übergangspassung": "Transition fit",
-"Übermaßpassung": "Interference fit"
+"Übermaßpassung": "Interference fit",
+"Geschlossene Maßkette: {} – die Toleranzen bestimmen sich gegenseitig, ein Maß als Hilfsmaß (in Klammern) angeben": "Closed dimension chain: {} – the tolerances determine each other, give one dimension as a reference dimension (in brackets)"
 }
