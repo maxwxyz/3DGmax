@@ -54,8 +54,11 @@ exe = EXE(pyz, a.scripts, *starter[:1], [], exclude_binaries=True, name="3DGmax"
 coll = COLLECT(exe, a.binaries, a.datas, *starter[1:], name="3DGmax", upx=False)
 
 if sys.platform == "darwin":
-    doc_types = [{"CFBundleTypeName": "STEP-Modell", "CFBundleTypeRole": "Viewer", "LSHandlerRank": "Alternate",
-                  "CFBundleTypeExtensions": ["stp", "step"]}]
+    # Finder bietet 3DGmax zum Oeffnen an (Alternate: ersetzt nicht das Standardprogramm); PDF bleibt aussen vor
+    doc_types = [{"CFBundleTypeName": name, "CFBundleTypeRole": "Viewer", "LSHandlerRank": "Alternate",
+                  "CFBundleTypeExtensions": endungen} for name, endungen in (
+        ("STEP-Modell", ["stp", "step", "p21", "stpz", "stepz"]), ("IGES-Modell", ["igs", "iges"]),
+        ("Netz", ["stl", "obj", "gltf", "glb", "3mf", "ply"]), ("QIF", ["qif"]), ("PRC", ["prc"]))]
     app = BUNDLE(coll, name="3DGmax.app", bundle_identifier="de.3dgmax.app", icon=os.path.join(SRC, "icon.icns"),
                  info_plist={"CFBundleShortVersionString": VERSION, "CFBundleVersion": VERSION,
                              "CFBundleDisplayName": "3DGmax", "NSHighResolutionCapable": True,

@@ -92,6 +92,38 @@ def starter_bild_zu():
         pass
 
 
+def datei_oeffner(app):
+    """macOS: Finder (Doppelklick, Oeffnen mit, Ablegen auf das Symbol) schickt Dateien als QFileOpenEvent statt als
+    Argument. Vor dem Fenster eintreffende Dateien werden gemerkt, danach direkt geladen."""
+    from PySide6 import QtCore
+
+    class Oeffner(QtCore.QObject):
+        def __init__(self):
+            super().__init__(app)
+            self.fenster = None
+            self.offen: list[str] = []
+
+        def eventFilter(self, obj, ev):
+            if ev.type() == QtCore.QEvent.Type.FileOpen and ev.file():
+                pfad = os.path.abspath(ev.file())
+                if self.fenster is None:
+                    self.offen.append(pfad)
+                else:
+                    self.fenster.lade(pfad)
+                return True
+            return False
+
+        def bereit(self, fenster) -> list[str]:
+            """Fenster steht: ab jetzt direkt laden; liefert die bis dahin gemeldeten Dateien."""
+            self.fenster = fenster
+            offen, self.offen = self.offen, []
+            return offen
+
+    oeffner = Oeffner()
+    app.installEventFilter(oeffner)
+    return oeffner
+
+
 def main(argv=None) -> int:
     """Optionen: datei.stp, --selbsttest, --bild ausgabe.png (Modell laden, 3D-Bild speichern, beenden),
     --startzeit (Dauer der Startphasen messen)."""
@@ -111,6 +143,7 @@ def main(argv=None) -> int:
     QtCore.QCoreApplication.setOrganizationName("3DGmax")
     QtCore.QCoreApplication.setApplicationName("3DGmax")
     app = QtWidgets.QApplication.instance() or QtWidgets.QApplication(sys.argv[:1])
+    oeffner = datei_oeffner(app)
     zeiten["Qt"] = time.perf_counter()
     from PySide6 import QtGui
     from .i18n import HIER, tr
@@ -136,7 +169,8 @@ def main(argv=None) -> int:
             else:
                 QtCore.QTimer.singleShot(20, warte_3d)
         QtCore.QTimer.singleShot(0, warte_3d)
-    dateien = [a for a in argv if not a.startswith("-")]
+    app.processEvents()  # Dateien aus dem Finder, die mit dem Start kommen
+    dateien = [a for a in argv if not a.startswith("-")] + oeffner.bereit(fenster)
     if bild:
         def speichern():
             ok = fenster.ansicht.bild(os.path.abspath(bild))

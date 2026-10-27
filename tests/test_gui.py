@@ -137,6 +137,22 @@ def test_selbsttest():
     assert selbsttest() == 0
 
 
+def test_datei_aus_dem_finder(app):
+    """macOS-Doppelklick: QFileOpenEvent vor dem Fenster wird gemerkt, danach direkt geladen."""
+    from PySide6 import QtGui
+    from programm.app import datei_oeffner
+    o = datei_oeffner(app)
+    try:
+        app.sendEvent(app, QtGui.QFileOpenEvent("a.stp"))
+        geladen = []
+        fenster = type("F", (), {"lade": lambda self, p: geladen.append(p)})()
+        assert [os.path.basename(p) for p in o.bereit(fenster)] == ["a.stp"]
+        app.sendEvent(app, QtGui.QFileOpenEvent("b.stp"))
+        assert [os.path.basename(p) for p in geladen] == ["b.stp"]
+    finally:
+        app.removeEventFilter(o)
+
+
 def test_einstellungen_standard_catia_und_umschalten(fenster):
     from programm.ui.einstellungen import EinstellungenDialog
     assert fenster.ansicht.navigation == "catia"
@@ -822,6 +838,7 @@ def _beispiele(f, namen):
     f.aktionen["allgemein_zeigen"].setChecked(False)
 
 
+@pytest.mark.langsam
 def test_beispiele_modell(fenster):
     """Datei > Beispiele (ein Modell): Dateien gefunden, Schritte nach dem Laden ausgefuehrt."""
     from programm.kern import beispiele
@@ -831,6 +848,7 @@ def test_beispiele_modell(fenster):
     _beispiele(fenster, ("pmi", "pruefen", "zonen", "schnittansicht", "kette", "kollision", "zusammenbau"))
 
 
+@pytest.mark.langsam
 def test_beispiele_vergleich_und_scan(fenster):
     _beispiele(fenster, ("vergleich_pmi", "vergleich_geo", "baugruppe", "scan"))
 
@@ -838,7 +856,6 @@ def test_beispiele_vergleich_und_scan(fenster):
 def test_toleranzkette_aus_3d_auswahl(fenster):
     """Flaechen in Klickreihenfolge -> Glieder; Zeile waehlen hebt ihre Flaechen hervor; Verteilung je Glied."""
     f = fenster
-@pytest.mark.langsam
     f.lade(pfad("nist_ftc_10_asme1_ap242-e2.stp"), warten=True)
     k = f.zeige_toleranzkette(nur_anlegen=True)
     k.lage.setChecked(False)
@@ -848,7 +865,6 @@ def test_toleranzkette_aus_3d_auswahl(fenster):
     assert "ohne Toleranz" in f.statusBar().currentMessage() or "without tolerance" in f.statusBar().currentMessage()
     k.leeren()
     from programm.kern.toleranzzone import Allgemein
-@pytest.mark.langsam
     f._allgemein = Allgemein("m", "")
     f._kette_aus_auswahl()
     assert [g.quelle for g in k.glieder] == ["pmi", "allgemein", "pmi"]
@@ -885,6 +901,7 @@ def test_kollisionen_im_fenster(fenster, tmp_path):
     assert f.ansicht.kollision is None and not f.kollision.befunde
 
 
+@pytest.mark.langsam
 def test_toleranzkette_lage_pdf_projekt(fenster, tmp_path):
     """Lagetoleranzen der Endflaechen als Glieder, PDF-Bericht, Kette im Projekt gespeichert und wieder geladen."""
     f = fenster
@@ -901,7 +918,6 @@ def test_toleranzkette_lage_pdf_projekt(fenster, tmp_path):
     k.leeren()
     f.oeffne_projekt(projekt, warten=True)
     k = f._kette
-@pytest.mark.langsam
     assert len(k.glieder) == 5 and abs(k.cp.value() - 1.33) < 1e-9 and k.glieder[0].flaechen == (181, 187)
     k.leeren()
 
@@ -977,6 +993,7 @@ def test_reiter_menue_blendet_leisten_ein(fenster_ctc01):
     f.dock_messen.hide()
 
 
+@pytest.mark.langsam
 def test_scanpruefung_punktwolke_bezug_bericht(fenster_ctc01, tmp_path):
     """Punktwolke (XYZ) pruefen, am Bezugssystem A|B|C neu auswerten, Pruefbericht als PDF."""
     from programm.kern.laden import lies_ply
@@ -993,7 +1010,6 @@ def test_scanpruefung_punktwolke_bezug_bericht(fenster_ctc01, tmp_path):
     f.pruefe_scan(f._scan["pfad"], warten=True, bezug=f.scan.gewaehlter_bezug())
     assert f._scan["bezug"] == ("A", "B", "C") and "3-2-1" in f.scan.kopf.text()
     assert f.scan.gewaehlter_bezug() == ("A", "B", "C")
-@pytest.mark.langsam
     pdf = f.exportiere_scan_pdf(str(tmp_path / "bericht.pdf"), bilder=False)
     assert os.path.getsize(pdf) > 1000
     f.scan_aus()
