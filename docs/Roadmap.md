@@ -14,6 +14,7 @@
 | Thumbnails per saved view (HLR edge drawing with PMI, background) | ✅ |
 | Section X/Y/Z, at selected face/edge, from view direction, slider | ✅ |
 | Clipping box around the selection | ✅ |
+| Focus mode: everything except the selection translucent (faces, PMI, tree parts) | ✅ |
 | Multiple section planes (up to three, union or common region), section contour export SVG/DXF/PDF | ✅ |
 | Section views from the model (hatched section in drawings) | ⬜ |
 | 3D selection of faces/edges (multiple), context menu, zoom to selection, align normal (upright: edges level, annotations readable), flip view | ✅ |

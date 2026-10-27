@@ -100,6 +100,8 @@ class AnsichtBasis(QtWidgets.QWidget):
         self.auswahl3d: list = []  # gewaehlte Flaechen/Kanten (TopoDS)
         self.schnitt_eigen = None  # (punkt, normale) fuer Schnitt an Auswahl / aus Blickrichtung
         self.ausricht_alt = None  # Form des alten Stands im Modus "manuell ausrichten", sonst None
+        self.fokus = False  # Fokusmodus: alles ausser der Auswahl durchscheinend
+        self.fokus_teile: set[int] = set()  # im Baum gewaehlte Teile (bleiben deckend)
 
     # --- Schnittstelle (Unterklassen ergaenzen die Darstellung) ---
 
@@ -110,6 +112,16 @@ class AnsichtBasis(QtWidgets.QWidget):
         self.pmi_ids_sichtbar = None
         self.schnitt_zustand = None
         self.schnitt_ebenen = []
+
+    def setze_fokus(self, an: bool, teile: set[int] | None = None):
+        """Fokusmodus: Bauteile durchscheinend, gewaehlte Flaechen und Teile deckend (teile None: unveraendert)."""
+        self.fokus = an
+        if teile is not None:
+            self.fokus_teile = set(teile)
+
+    def fokus_aktiv(self) -> bool:
+        """Fokus wirkt nur, wenn etwas gewaehlt ist (sonst waere alles durchscheinend)."""
+        return self.fokus and bool(self.hervor or self.fokus_teile)
 
     def hebe_flaechen(self, flaechen: set[int]):
         self.hervor = set(flaechen)
@@ -1127,8 +1139,9 @@ class OcctAnsicht(AnsichtBasis):
                 ctx.Erase(ais, False)
             else:
                 ctx.Display(ais, False)
-                # Material davor bzw. Toleranzzonen im Bauteil (Bohrungen) sichtbar
-                durchsichtig = nr in self.transparent or self.material is not None or bool(self.zone_formen)
+                # Material davor bzw. Toleranzzonen im Bauteil (Bohrungen) sichtbar; Fokus: alles ausser der Auswahl
+                fokus = self.fokus_aktiv() and nr not in self.fokus_teile
+                durchsichtig = nr in self.transparent or self.material is not None or bool(self.zone_formen) or fokus
                 ctx.SetTransparency(ais, 0.7 if durchsichtig else 0.0, False)
         self._aktiviere_auswahl()
         for ais in self._hilfe:
@@ -1193,7 +1206,42 @@ class OcctAnsicht(AnsichtBasis):
                 geaendert.add(ais)
         for ais in geaendert:
             self.d.Context.Redisplay(ais, False)
+        self._baue_fokus()
         self._neu_zeichnen()
+
+    def setze_fokus(self, an, teile=None):
+        super().setze_fokus(an, teile)
+        if self._bereit and self.szene is not None:
+            self._baue_fokus()
+            self._neu_zeichnen()
+
+    def _baue_fokus(self):
+        """Gewaehlte Flaechen deckend ueber dem durchscheinenden Bauteil (je Teil mit dessen Lage)."""
+        from OCC.Core.AIS import AIS_Shape
+        from OCC.Core.BRep import BRep_Builder
+        from OCC.Core.TopoDS import TopoDS_Compound
+        ctx = self.d.Context
+        for a in getattr(self, "_fokus_ais", []):
+            ctx.Remove(a, False)
+        self._fokus_ais = []
+        if self.fokus_aktiv():
+            je_teil = {}
+            for idx in self.hervor:
+                for ais, f in self._flaechen_ais.get(idx, []):
+                    je_teil.setdefault(id(ais), (ais, []))[1].append(f)
+            farbe = _farbe((self.thema or {}).get("hervor", (1, 0.45, 0)))
+            for teil, flaechen in je_teil.values():
+                bb, comp = BRep_Builder(), TopoDS_Compound()
+                bb.MakeCompound(comp)
+                for f in flaechen:
+                    bb.Add(comp, f)
+                a = AIS_Shape(comp)
+                a.SetColor(farbe)
+                a.SetLocalTransformation(teil.LocalTransformation())
+                ctx.Display(a, 1, -1, False)
+                ctx.Deactivate(a)
+                self._fokus_ais.append(a)
+        self._wende_sichtbarkeit_an()
 
     def zeige_pmi(self, ids):
         super().zeige_pmi(ids)
@@ -1293,7 +1341,7 @@ class OcctAnsicht(AnsichtBasis):
                 if a is not None:
                     a.SetLocalTransformation(t)
                     ctx.Redisplay(a, False)
-        self._wende_sichtbarkeit_an()
+        self._baue_fokus()  # Fokusflaechen folgen den Teilen (zeigt auch die Sichtbarkeit neu)
 
     def zeige_kommentare(self, marken):
         super().zeige_kommentare(marken)

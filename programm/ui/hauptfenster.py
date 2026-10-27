@@ -442,6 +442,8 @@ class Hauptfenster(QtWidgets.QMainWindow):
           tipp=tr("Ausgeblendete Teile wieder zeigen"))
         A("isolieren", tr("Gewählte Teile isolieren"), self._isolieren, "I")
         A("transparent", tr("Gewählte Teile transparent"), self._transparent, "T")
+        A("fokus", tr("Auswahl hervorheben (Rest durchscheinend)"), self._fokus_umschalten, "Shift+T", pruefbar=True,
+          tipp=tr("Alles außer den gewählten Flächen, PMI und Teilen wird durchscheinend"))
         A("pmi_suche", tr("PMI suchen"), self._suche_fokus, QtGui.QKeySequence.StandardKey.Find)
         A("pmi_export", tr("PMI exportieren (CSV) …"), lambda: self.exportiere_pmi(),
           tipp=tr("Alle PMI mit Werten, Bezügen, Flächen und Ansichten als Tabelle"))
@@ -526,6 +528,7 @@ class Hauptfenster(QtWidgets.QMainWindow):
         m.addAction(a["grafik_auswahl"])
         m.addAction(a["grafik_erzeugt"])
         m.addAction(a["ballone"])
+        m.addAction(a["fokus"])
         m.addAction(a["toleranzzone"])
         m.addAction(a["toleranzzonen_alle"])
         m.addAction(a["allgemeintoleranzen"])
@@ -648,6 +651,8 @@ class Hauptfenster(QtWidgets.QMainWindow):
         self.baum.sichtbar_geaendert.connect(self.ansicht.knoten_sichtbar)
         self.baum.isolieren.connect(self.ansicht.isoliere)
         self.baum.transparent.connect(self.ansicht.knoten_transparent)
+        self.baum.baum.itemSelectionChanged.connect(
+            lambda: self.ansicht.setze_fokus(self.ansicht.fokus, self.baum.gewaehlte_blaetter()))
         self.ansicht.element_gewaehlt.connect(self.messen.element)
         self.ansicht.kontextmenue.connect(self._kontextmenue_3d)
         self.messen.messungen_geaendert.connect(self.ansicht.zeige_messungen)
@@ -1569,7 +1574,7 @@ class Hauptfenster(QtWidgets.QMainWindow):
         for n in ("pmi_anlegen", "kommentar"):
             m.addAction(a[n])
         m.addSeparator()
-        for n in ("toleranzzone", "toleranzzonen_alle", "allgemeintoleranzen"):
+        for n in ("fokus", "toleranzzone", "toleranzzonen_alle", "allgemeintoleranzen"):
             m.addAction(a[n])
         m.addSeparator()
         for n in ("teil_ausblenden", "teil_isolieren", "alle_zeigen"):
@@ -2068,6 +2073,9 @@ class Hauptfenster(QtWidgets.QMainWindow):
             self.ansicht.isoliere(nummern)
         else:
             self.statusBar().showMessage(tr("Erst Teile in der Struktur wählen"), 4000)
+
+    def _fokus_umschalten(self):
+        self.ansicht.setze_fokus(self.aktionen["fokus"].isChecked(), self.baum.gewaehlte_blaetter())
 
     def _transparent(self):
         nummern = self.baum.gewaehlte_blaetter()

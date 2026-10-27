@@ -814,5 +814,7 @@
 "Richtungszone: in der Lage frei verschiebbar": "orientation zone: free in location",
 "Zone der abgeleiteten Mittelebene (zwei Ebenen im Abstand {:.4g})": "zone of the derived median plane (two planes {:.4g} apart)",
 "gilt je Querschnitt": "applies per cross-section",
-"gilt je Teillänge {}": "applies per unit length {}"
+"gilt je Teillänge {}": "applies per unit length {}",
+"Auswahl hervorheben (Rest durchscheinend)": "Highlight selection (rest translucent)",
+"Alles außer den gewählten Flächen, PMI und Teilen wird durchscheinend": "Everything except the selected faces, PMI and parts becomes translucent"
 }

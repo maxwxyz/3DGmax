@@ -657,3 +657,21 @@ def test_schnittkontur_kern(ctc01):
     lo = np.vstack(schnitt.in_ebene(linien, y0)).min(axis=0)
     hi = np.vstack(schnitt.in_ebene(linien, y0)).max(axis=0)
     assert abs((hi[0] - lo[0]) - 800) < 0.5 and abs((hi[1] - lo[1]) - 100) < 0.5  # Plattenbreite, Hoehe
+
+
+def test_fokusmodus(fenster_ctc01):
+    """Fokus: Bauteile durchscheinend, solange etwas gewaehlt ist; Auswahl (Flaechen, Teile) bleibt deckend."""
+    f = fenster_ctc01
+    assert not f.ansicht.fokus_aktiv()
+    f.aktionen["fokus"].setChecked(True)
+    f._fokus_umschalten()
+    assert f.ansicht.fokus and not f.ansicht.fokus_aktiv()  # nichts gewaehlt: nichts durchscheinend
+    f.pmi.waehle(lambda p: p.typ == "Flatness")
+    assert f.ansicht.fokus_aktiv() and f.ansicht.hervor
+    f.pmi.waehle(lambda p: False)
+    f.baum.baum.topLevelItem(0).child(0).setSelected(True)
+    assert f.ansicht.fokus_teile and f.ansicht.fokus_aktiv()
+    f.baum.baum.clearSelection()
+    f.aktionen["fokus"].setChecked(False)
+    f._fokus_umschalten()
+    assert not f.ansicht.fokus_aktiv()
