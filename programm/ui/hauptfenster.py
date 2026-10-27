@@ -2172,7 +2172,11 @@ class Hauptfenster(QtWidgets.QMainWindow):
         from ..kern import toleranzkette as tk, toleranzzone
         if self.erg is None:
             return 0
-        flaechen = [i for f in self.ansicht.auswahl3d for i in [self.erg.modell.flaechen_index(f)] if i is not None]
+        from OCC.Core.TopAbs import TopAbs_FACE
+        # Flaechen als Index (PMI-Zuordnung), Kanten als Form
+        flaechen = [self.erg.modell.flaechen_index(f) if f.ShapeType() == TopAbs_FACE else f
+                    for f in self.ansicht.auswahl3d]
+        flaechen = [f for f in flaechen if f is not None]
         allgemein = self._allgemein or toleranzzone.allgemein_aus_hinweisen(self.erg.pmi)
         glieder, richtung, hinweise = tk.kette_aus_flaechen(self.erg.modell, flaechen, self.erg.pmi,
                                                              allgemein.laenge if allgemein else "",

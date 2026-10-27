@@ -45,6 +45,7 @@ class Glied:
     verteilung: str = "normal"  # Schluessel aus VERTEILUNG
     quelle: str = "pmi"  # Schluessel aus QUELLE
     flaechen: tuple[int, ...] = field(default_factory=tuple)  # Flaechen an den Enden (aus der 3D-Auswahl)
+    versatz: float = 0.0  # Mittenversatz des Prozesses gegen die Toleranzmitte (mm), ergibt Cpk < Cp
 
     @property
     def mitte(self) -> float:
@@ -53,6 +54,12 @@ class Glied:
     @property
     def toleranz(self) -> float:
         return self.hoechst - self.mindest
+
+    def cpk(self, cp_kette: float = 1.0) -> float | None:
+        """Cpk = Cp * (1 - |Versatz| / (T/2)); None bei Gleichverteilung oder ohne Toleranz."""
+        if self.verteilung != "normal" or self.toleranz <= 0:
+            return None
+        return (self.cp or cp_kette) * (1 - abs(self.versatz) / (self.toleranz / 2))
 
     def sigma(self, cp_kette: float = 1.0) -> float:
         if self.verteilung == "gleich":
@@ -72,6 +79,11 @@ class Ergebnis:
     mc_mittel: float
     mc_std: float
     anteile: list[float] = field(default_factory=list)  # Varianzanteil je Glied (0..1)
+    # nur mit Anforderung an das Schlussmass (untere, obere Grenze):
+    cp: float | None = None
+    cpk: float | None = None
+    ausserhalb: float | None = None  # Anteil ausserhalb (Normalverteilung)
+    mc_ausserhalb: float | None = None  # Anteil ausserhalb (Monte Carlo)
 
 
 def glied_von_pmi(p, richtung: int = 1) -> Glied | None:
@@ -89,8 +101,10 @@ def ist_winkel(p) -> bool:
     return "Angle" in (p.typ or "") or "°" in p.wert_text()
 
 
-def berechne(glieder: list[Glied], cp: float = 1.0, proben: int = 200_000, zufall: int = 1) -> Ergebnis:
-    """Schlussmass; cp: Prozessfaehigkeit der Kette fuer Glieder ohne eigenen Wert."""
+def berechne(glieder: list[Glied], cp: float = 1.0, proben: int = 200_000, zufall: int = 1,
+             anforderung: tuple[float, float] | None = None) -> Ergebnis:
+    """Schlussmass; cp: Prozessfaehigkeit der Kette fuer Glieder ohne eigenen Wert; anforderung: (untere, obere)
+    Grenze des Schlussmasses fuer Cp, Cpk und Anteil ausserhalb."""
     if not glieder:
         return Ergebnis(0, 0, 0, 0, 0, 0, 0, 0, 0)
     r = np.array([g.richtung for g in glieder], float)
@@ -99,20 +113,31 @@ def berechne(glieder: list[Glied], cp: float = 1.0, proben: int = 200_000, zufal
     lo = np.array([g.mindest for g in glieder])
     wc_max = float(np.sum(np.where(r > 0, hi, lo) * r))
     wc_min = float(np.sum(np.where(r > 0, lo, hi) * r))
-    mitte = float(np.sum((hi + lo) / 2 * r))
+    versatz = np.array([g.versatz for g in glieder])
+    mitte = float(np.sum(((hi + lo) / 2 + versatz) * r))
     sigma = np.array([g.sigma(cp) for g in glieder])
     varianz = float(np.sum(sigma ** 2))
     rss = float(3.0 * math.sqrt(varianz))  # +-3 sigma des Schlussmasses
     rng = np.random.default_rng(zufall)
     gleich = np.array([g.verteilung == "gleich" for g in glieder])
-    proben_je = rng.standard_normal((proben, len(glieder))) * sigma + (hi + lo) / 2
+    proben_je = rng.standard_normal((proben, len(glieder))) * sigma + (hi + lo) / 2 + versatz
     if gleich.any():
-        proben_je[:, gleich] = rng.uniform(lo[gleich], hi[gleich], (proben, int(gleich.sum())))
+        proben_je[:, gleich] = rng.uniform(lo[gleich], hi[gleich], (proben, int(gleich.sum()))) + versatz[gleich]
     werte = proben_je @ r
     q = np.quantile(werte, [0.00135, 0.99865])
     anteile = [float(s ** 2 / varianz) if varianz > 0 else 0.0 for s in sigma]
-    return Ergebnis(nenn, wc_min, wc_max, mitte, rss, float(q[0]), float(q[1]), float(werte.mean()),
-                    float(werte.std()), anteile)
+    e = Ergebnis(nenn, wc_min, wc_max, mitte, rss, float(q[0]), float(q[1]), float(werte.mean()),
+                 float(werte.std()), anteile)
+    if anforderung is not None and anforderung[1] > anforderung[0]:
+        u, o = anforderung
+        s = math.sqrt(varianz)
+        if s > 0:
+            e.cp = (o - u) / (6 * s)
+            e.cpk = min(o - mitte, mitte - u) / (3 * s)
+            phi = lambda x: 0.5 * (1 + math.erf(x / math.sqrt(2)))  # noqa: E731
+            e.ausserhalb = phi((u - mitte) / s) + 1 - phi((o - mitte) / s)
+        e.mc_ausserhalb = float(np.mean((werte < u) | (werte > o)))
+    return e
 
 
 # --- Kette aus der 3D-Auswahl ---
@@ -134,14 +159,38 @@ def _ebene_oder_achse(flaeche):
             np.array([d.X(), d.Y(), d.Z()]))
 
 
-def lage(flaeche, richtung) -> float | None:
-    """Lage entlang der Richtung: Ebene senkrecht zur Richtung, Achse quer dazu; sonst None."""
-    g = _ebene_oder_achse(flaeche)
+def _kante(kante):
+    """('kante', Punkt, Richtung) einer geraden Kante oder ('achse', Mitte, Normale) einer Kreiskante, sonst None."""
+    from OCC.Core.BRepAdaptor import BRepAdaptor_Curve
+    from OCC.Core.GeomAbs import GeomAbs_Circle, GeomAbs_Line
+    c = BRepAdaptor_Curve(kante)
+    if c.GetType() == GeomAbs_Line:
+        ax = c.Line().Position()
+        art = "kante"
+    elif c.GetType() == GeomAbs_Circle:
+        ax = c.Circle().Axis()
+        art = "achse"
+    else:
+        return None
+    p, d = ax.Location(), ax.Direction()
+    return art, np.array([p.X(), p.Y(), p.Z()]), np.array([d.X(), d.Y(), d.Z()])
+
+
+def _element(form):
+    """Flaeche (Ebene/Achse) oder Kante (gerade/Kreis) als (Art, Punkt, Richtung) oder None."""
+    from OCC.Core.TopAbs import TopAbs_EDGE
+    return _kante(form) if form.ShapeType() == TopAbs_EDGE else _ebene_oder_achse(form)
+
+
+def lage(form, richtung) -> float | None:
+    """Lage entlang der Richtung: Ebene senkrecht zur Richtung, Achse (auch Kreiskante) und gerade Kante quer dazu;
+    sonst None."""
+    g = _element(form)
     if g is None:
         return None
     art, p, d = g
     c = abs(float(d @ richtung))
-    if (art == "ebene" and c < 0.9999) or (art == "achse" and c > 1e-4):
+    if (art == "ebene" and c < 0.9999) or (art in ("achse", "kante") and c > 1e-4):
         return None
     return float(p @ richtung)
 
@@ -172,16 +221,23 @@ def _aussen_normale(flaeche):
 
 def lage_glieder(modell, pmi, flaeche: int, richtung, vorzeichen: int, lagen: dict[int, float]):
     """Glieder der Lagetoleranzen einer Endflaeche (vorzeichen -1: erste, +1: letzte Flaeche); (Glieder, Hinweise)."""
-    from .toleranzzone import _grenzen_aussen_innen
+    from .toleranzzone import _grenzen_aussen_innen, _groesse, bezugsverschiebung
     glieder, hinweise = [], []
     ort = lagen.get(flaeche)
+    art = (_element(modell.flaechen[flaeche]) or ("",))[0]
+    gleiche_art = {}  # Muster nur aus Elementen gleicher Art (Achse mit Achse, Ebene mit Ebene)
+
+    def passt(i: int) -> bool:
+        if i not in gleiche_art:
+            gleiche_art[i] = i < len(modell.flaechen) and (_element(modell.flaechen[i]) or ("",))[0] == art
+        return gleiche_art[i] and i in lagen and abs(lagen[i] - ort) < 1e-4
     for p in pmi:
-        if p.art != "toleranz" or p.wert is None or p.wert <= 0:
+        if p.art != "toleranz" or p.wert is None or (p.wert <= 0 and not p.material):  # 0 Ⓜ: Zone nur Bonus
             continue
         if not (p.typ in LAGE_TYPEN or (p.typ in PROFIL_TYPEN and p.bezuege)):
             continue
         # gilt fuer die Flaeche selbst oder fuer ein Muster gleicher Lage (z. B. zwei Halbschalen, Lochbild)
-        if flaeche not in p.flaechen and not any(i in lagen and abs(lagen[i] - ort) < 1e-4 for i in p.flaechen):
+        if flaeche not in p.flaechen and not any(passt(i) for i in p.flaechen):
             continue
         t = float(p.wert)
         if p.typ in PROFIL_TYPEN and lage(modell.flaechen[flaeche], richtung) is not None \
@@ -192,28 +248,48 @@ def lage_glieder(modell, pmi, flaeche: int, richtung, vorzeichen: int, lagen: di
         else:
             werte = [-t / 2, t / 2]
         name = f"{p.nummer}: {p.wert_text()}"
+        if p.material in ("M", "L"):
+            # Bonus: die Zone waechst bis um die Groessentoleranz des Elements (Worst Case: voller Bonus)
+            dmin, dmax = _groesse(p, pmi, 0.0)
+            if dmax > dmin:
+                werte = [werte[0] - (dmax - dmin) / 2, werte[1] + (dmax - dmin) / 2]
+                name += " " + tr("+ Bonus bis {:g}").format(dmax - dmin)
+            else:
+                hinweise.append(tr("{}: Bonus bei Ⓜ/Ⓛ ohne Maß am Element nicht bestimmbar").format(name))
         glieder.append(Glied(name, 0.0, werte[1], werte[0], 1, p.nummer, quelle="lage", flaechen=(flaeche,)))
-        if p.material:
-            hinweise.append(tr("{}: Bonus bei Ⓜ/Ⓛ nicht enthalten (Worst Case ohne Bonus)").format(name))
+        for bezug, mat, weg in bezugsverschiebung(p, pmi):
+            # Bezug mit Ⓜ/Ⓛ: die Zone darf sich mit dem Bezugselement um dessen Groessentoleranz verschieben
+            glieder.append(Glied(f"{p.nummer}: " + tr("Bezugsverschiebung {} ({})").format(bezug, mat), 0.0,
+                                 weg / 2, -weg / 2, 1, p.nummer, quelle="lage", flaechen=(flaeche,)))
     return glieder, hinweise
 
 
-def kette_aus_flaechen(modell, flaechen: list[int], pmi, allgemein: str = "",
+def _index(modell, e) -> int | None:
+    """Flaechenindex eines Ketteneintrags (Index oder Form); Kanten: None."""
+    from OCC.Core.TopAbs import TopAbs_FACE
+    if isinstance(e, int):
+        return e
+    return modell.flaechen_index(e) if e.ShapeType() == TopAbs_FACE else None
+
+
+def kette_aus_flaechen(modell, flaechen: list, pmi, allgemein: str = "",
                        lagetoleranzen: bool = True) -> tuple[list[Glied], tuple, list[str]]:
-    """Glieder aus Flaechen in Kettenreihenfolge (siehe Modulbeschreibung); (Glieder, Richtung, Hinweise)."""
+    """Glieder aus Flaechen in Kettenreihenfolge (siehe Modulbeschreibung); (Glieder, Richtung, Hinweise).
+    Eintraege: Flaechenindex oder Form (Flaeche oder Kante; Kanten bekommen keine PMI, nur Allgemeintoleranz)."""
     from .toleranzzone import iso2768_laenge
     hinweise = []
     if len(flaechen) < 2:
         return [], (0.0, 0.0, 0.0), [tr("Mindestens zwei Flächen in Kettenreihenfolge wählen")]
-    erste = next((_ebene_oder_achse(modell.flaechen[i]) for i in flaechen
-                  if (_ebene_oder_achse(modell.flaechen[i]) or ("",))[0] == "ebene"), None)
+    formen = [modell.flaechen[e] if isinstance(e, int) else e for e in flaechen]
+    flaechen = [_index(modell, e) for e in flaechen]
+    erste = next((g for g in map(_element, formen) if g is not None and g[0] == "ebene"), None)
     if erste is None:
         return [], (0.0, 0.0, 0.0), [tr("Die Kettenrichtung braucht eine ebene Fläche in der Auswahl")]
     richtung = erste[2] / np.linalg.norm(erste[2])
-    orte = [lage(modell.flaechen[i], richtung) for i in flaechen]
+    orte = [lage(f, richtung) for f in formen]
     if None in orte:
-        i = flaechen[orte.index(None)]
-        return [], tuple(richtung), [tr("Fläche {} liegt nicht quer zur Kettenrichtung").format(i)]
+        k = orte.index(None)
+        return [], tuple(richtung), [tr("Element {} liegt nicht quer zur Kettenrichtung").format(k + 1)]
     if orte[-1] < orte[0]:  # Schlussmass positiv: Richtung von der ersten zur letzten Flaeche
         richtung, orte = -richtung, [-o for o in orte]
     # Lagen aller ebenen/zylindrischen Flaechen quer zur Richtung fuer die PMI-Zuordnung (Muster, geteilte Flaechen)
@@ -228,22 +304,25 @@ def kette_aus_flaechen(modell, flaechen: list[int], pmi, allgemein: str = "",
         if nenn < 1e-6:
             continue  # gleiche Lage: kein Glied
         r = 1 if b > a else -1
-        p = _passendes_mass(pmi, lagen, a, b)
+        ende = tuple(i for i in (fa, fb) if i is not None)
+        p = _passendes_mass(pmi, lagen, a, b) if None not in (fa, fb) else None
         if p is not None:
             h, m = p.grenzen()
             h, m = (p.nennwert, p.nennwert) if h is None or m is None else (h, m)
             glieder.append(Glied(f"{p.nummer}: {p.wert_text()}", nenn, nenn + h - p.nennwert,
-                                 nenn + m - p.nennwert, r, p.nummer, flaechen=(fa, fb)))
+                                 nenn + m - p.nennwert, r, p.nummer, flaechen=ende))
             continue
         t = iso2768_laenge(allgemein, nenn) if allgemein else None
         if t:
             glieder.append(Glied(f"{nenn:.4g} ±{t:g} (ISO 2768-{allgemein})", nenn, nenn + t, nenn - t, r,
-                                 quelle="allgemein", flaechen=(fa, fb)))
+                                 quelle="allgemein", flaechen=ende))
         else:
-            glieder.append(Glied(f"{nenn:.4g}", nenn, nenn, nenn, r, quelle="ohne", flaechen=(fa, fb)))
+            glieder.append(Glied(f"{nenn:.4g}", nenn, nenn, nenn, r, quelle="ohne", flaechen=ende))
             hinweise.append(tr("Glied {:.4g} mm ohne Toleranz (keine PMI, keine Allgemeintoleranz)").format(nenn))
     if lagetoleranzen and glieder:
         for f, vorzeichen in ((flaechen[0], -1), (flaechen[-1], 1)):
+            if f is None or f not in lagen:
+                continue  # Kante: keine PMI
             g, h = lage_glieder(modell, pmi, f, richtung, vorzeichen, lagen)
             glieder.extend(g)
             hinweise.extend(h)
@@ -251,7 +330,7 @@ def kette_aus_flaechen(modell, flaechen: list[int], pmi, allgemein: str = "",
 
 
 SPALTEN = ("Glied", "Richtung", "Nennmaß", "Höchstmaß", "Mindestmaß", "Toleranz", "Quelle", "Verteilung", "Cp",
-           "Anteil")
+           "Versatz", "Anteil")
 
 
 def als_csv(glieder: list[Glied], e: Ergebnis, cp: float = 1.0) -> str:
@@ -263,10 +342,15 @@ def als_csv(glieder: list[Glied], e: Ergebnis, cp: float = 1.0) -> str:
         w.writerow([g.name, "+" if g.richtung > 0 else "−"] +
                    [zahl(x) for x in (g.nenn, g.hoechst, g.mindest, g.toleranz)] +
                    [tr(QUELLE[g.quelle]), tr(VERTEILUNG[g.verteilung]),
-                    zahl(g.cp or cp) if g.verteilung == "normal" else "", f"{anteil:.1%}".replace(".", ",")])
+                    zahl(g.cp or cp) if g.verteilung == "normal" else "", zahl(g.versatz),
+                    f"{anteil:.1%}".replace(".", ",")])
     w.writerow([])
-    for text, wert in ((tr("Schlussmaß (nominal)"), e.nenn), (tr("Worst Case min"), e.wc_min),
-                       (tr("Worst Case max"), e.wc_max), (tr("Statistisch (RSS) ±"), e.rss),
-                       (tr("Monte Carlo 0,135 %"), e.mc_min), (tr("Monte Carlo 99,865 %"), e.mc_max)):
+    zeilen = [(tr("Schlussmaß (nominal)"), e.nenn), (tr("Worst Case min"), e.wc_min), (tr("Worst Case max"), e.wc_max),
+              (tr("Statistisch (RSS) ±"), e.rss), (tr("Monte Carlo 0,135 %"), e.mc_min),
+              (tr("Monte Carlo 99,865 %"), e.mc_max)]
+    if e.cp is not None:
+        zeilen += [("Cp", e.cp), ("Cpk", e.cpk), (tr("Anteil außerhalb (Normalverteilung)"), e.ausserhalb),
+                   (tr("Anteil außerhalb (Monte Carlo)"), e.mc_ausserhalb)]
+    for text, wert in zeilen:
         w.writerow([text, "", zahl(wert)])
     return puffer.getvalue()

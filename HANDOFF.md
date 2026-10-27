@@ -43,7 +43,11 @@ chain cleared on model change, PMI list right-click selects the row first, secti
 the 3D selection (`kette_aus_flaechen`, per-link distribution/Cp, shares) and clash/contact/band analysis
 (`kern/kollision.py`, `ui/kollision_ui.py`, dock "Clashes", example). Then: stack-up stage 2b (location tolerances of the end
 faces, PDF report, chain in the project) and assembly connections with snapping, open DOF and DOF wiggle
-(`kern/verbindung.py`, `ui/baugruppe_ui.py`, dock "Assembly", part positions in `ansicht3d.teil_lagen`). Then:
+(`kern/verbindung.py`, `ui/baugruppe_ui.py`, dock "Assembly", part positions in `ansicht3d.teil_lagen`). Last in the
+cloud: scan check stage 2 (point clouds, 3-2-1 datum alignment, linear/angular dimensions, inspection PDF), tolerance
+zones for linear and angular dimensions, 1D stack-up finalised (Ⓜ/Ⓛ bonus, datum shift, edges, mean offset/Cpk,
+requirement with Cp/Cpk/share outside), STEP PMI writing research (PLAN §8.28: dimensions/datums work with AP242 set
+after creating the writer; geometric tolerances need an own P21 writer), `werkzeuge/tests_betroffen.py` (PLAN §8.29). Then:
 tolerances on the connections (clearance from geometry/PMI, editable), worst-case position scatter per part via
 linear programs (scipy `linprog`, lazily imported), wiggle within the tolerances; plainer tab close buttons (SVG
 written to `<temp>/3DGmax-symbole` by `ui/thema.py`) and a right-click menu on the tab bars to show hidden panels.
@@ -82,13 +86,23 @@ planes and the view cube, and `DG_BILDSCHIRM=1 pytest tests/test_bildschirm.py` 
 - Rigid fits for rotated features must be checked against the surfaces: corner nodes of planar faces admit
   symmetric wrong fits; point-to-surface ICP plus mesh distance in both directions solves it.
 
-**Next local steps:**
-1. `git pull`, `pixi install`, `pixi run test`; delete branch `claude/inspiring-wright-dqsu4q` (local and GitHub).
-2. Visual check on the real screen of the points above (STC PDFs, CTC-01 QIF, generated PMI on a STEP without
-   presentation, chained section planes), plus view cube and MSAA from before.
-3. Tests with local `daten/` (NIST AP242, D2MI, QIF, STC PDFs).
-4. Then: hatched section views, STEP-XML (§8.17, needs samples), PRC compressed
-   tessellation/B-rep, step 7 JT.
+**Next local steps (handoff 2026-10-27 evening: finish these, then start JT):**
+1. `git pull`, `pixi install`; run the affected tests only (`pixi run test-betroffen -- --seit 696df83`) or the full
+   suite once (`pixi run test`, ~25 min); delete branch `claude/inspiring-wright-dqsu4q` (local and GitHub).
+2. Finish the test strategy (PLAN §8.29): measure durations (`pixi run python -m pytest -q --durations=40`), add the
+   `langsam` marker in `tests/conftest.py` and `pixi run test-schnell`; speed up the slowest tests (session fixtures
+   for loaded models/comparisons, smaller scan samples). A duration run was started in the cloud but stopped.
+3. Assembly variation (PLAN §8.20 open, task "assembly measures"): measures between parts (gap/flush between two
+   picked faces) with worst case (linear programs over all connections, as `Baugruppe.streuung`) and Monte Carlo
+   (sample the clearances per connection), contributor ranking (share per connection), PDF; further connection types
+   (point/line contact, pin–slot, 3-2-1 template); chains across parts from the connections.
+4. UI/UX review and `docs/UI_UX_Plan.md` (PLAN §8.30): personas (CATIA designers, 3DCS users, metrology staff,
+   laypeople/students), task walkthroughs, alternatives (workspaces, ribbon, inspector + command palette, wizards),
+   recommendation and staged plan with usability test – then implement stage 1.
+5. Visual check on the Mac of everything since the last local check (see "Still to check on the real screen" and the
+   list in "Next" item 1).
+6. Then step 7: JT via TKJT (GPL v2+, build option; free JT without PMI: `NIST mtc crada assembly.jt` in
+   `daten/nist_cad_dl/nist-cad-models-mtc-assembly.zip`).
 
 ## Check against plan / roadmap
 | Step (PLAN.md §5) | Status |
@@ -106,19 +120,18 @@ graphics only, 8.19 QIF graphics, 8.20 3D tolerance analysis,
 8.21 clash/band/intersection analysis, 8.22 plausibility check, 8.23 scan against PMI tolerances).
 
 ## Next (in this order)
-1. Visual check on the Mac: wireframe contrast edges, view cube, start screen, side-panel dragging, X on panel tabs,
-   File › Examples (section view, clash, assembly with wiggle), stack-up window and PDF, clash dock, assembly dock
-   (picking faces of instances with ⌘, snapping, wiggle animation speed/amplitude).
-2. Assembly: measures between parts (gap/flush) with worst case and Monte Carlo, contributor ranking; point/line
-   contact, pin–slot, 3-2-1 template, dragging with live snapping; chains across parts built from the connections.
-3. Stack-up: Ⓜ/Ⓛ bonus and datum shift as contributors, Cpk / shifted means, edges and median planes as chain ends.
-4. Clash: research CATIA/NX result presentation, intersection curves, penetration depth, PDF report, results in the
-   project, mesh parts; clash over joint ranges.
-5. Several windows / linked cameras (§8.26); scan check stage 2 (§8.23).
-6. Tolerance zones: line profile/roundness per section, ACS/ALS, CZ/SZ, edges/points; UZ sample; plausibility
-   stage 2 (§8.22).
-7. Gear and spline analysis (§8.27); hatched section views; QIF/PRC clip planes.
-8. STEP-XML (§8.17) and further open formats; PRC compressed tessellation and B-rep; step 7 JT via TKJT.
+1. Visual check on the Mac: wireframe contrast edges, view cube, start screen, side-panel dragging, tab ✕ and
+   right-click menu on tabs, File › Examples (section view, clash, assembly with wiggle), stack-up window (3D
+   selection, edges, offset, requirement) and PDF, clash dock, assembly dock (clearance, scatter, tolerance wiggle),
+   scan check with point cloud and 3-2-1 alignment, inspection PDF, zones for linear/angular dimensions.
+2. Test strategy finish (PLAN §8.29).
+3. Assembly variation: measures between parts, Monte Carlo, contributors, more connection types (PLAN §8.20).
+4. UI/UX review and plan `docs/UI_UX_Plan.md` (PLAN §8.30), then stage 1 of the new UI.
+5. Step 7 JT via TKJT.
+6. Later: own P21 writer for geometric tolerances (PLAN §8.28) or QIF export; stack-up median planes and chains across
+   parts; clash rest (curves, depth, PDF, meshes); several windows (§8.26); scan rest (manual alignment, ISO 5459
+   tangent datums, sections, E57); zones per section/ACS/CZ/SZ, edges/points; plausibility stage 2; gear analysis
+   (§8.27); hatched section views; STEP-XML (§8.17); PRC compressed tessellation/B-rep.
 
 ## Environment and commands
 ```bash

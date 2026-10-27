@@ -797,3 +797,42 @@ def test_toleranzzonen_laengen_und_winkelmasse(ctc01):
     xs = sorted(float(_ebene_oder_achse(f)[1][0]) for f in z.formen)
     assert abs(xs[1] - xs[0] - 0.4) < 1e-6
     assert tz.zone(next(p for p in ftc.pmi if p.nummer == 16), ftc.modell, 0.0, ftc.pmi) is None  # eine Flaeche
+
+
+def test_toleranzkette_bonus_kante_cpk():
+    """Bonus bei Ⓜ (⌀1Ⓜ mit ⌀10 ±0.25 -> ±0.75), Nulltoleranz Ⓛ, Kante als Kettenende, Mittenversatz und
+    Anforderung an das Schlussmass (Cp, Cpk, Anteil ausserhalb)."""
+    from OCC.Core.TopAbs import TopAbs_EDGE
+    from OCC.Core.TopExp import TopExp_Explorer
+    from programm.kern import toleranzkette as tk
+    from programm.ui.lader import lade_alles
+    erg = lade_alles(pfad("nist_ftc_10_asme1_ap242-e2.stp"))
+    m = erg.modell
+
+    def kette_zur_achse(nr):
+        p = next(q for q in erg.pmi if q.nummer == nr)
+        zyl = sorted(p.flaechen)[0]
+        achse = tk._element(m.flaechen[zyl])[2]
+        ebene = next(i for i, f in enumerate(m.flaechen)
+                     if (g := tk._element(f)) and g[0] == "ebene" and abs(g[2] @ achse) < 1e-6)
+        g, _, _ = tk.kette_aus_flaechen(m, [ebene, zyl], erg.pmi, "m")
+        return next(x for x in g if x.pmi_nummer == nr)
+    bonus = kette_zur_achse(52)
+    assert abs(bonus.hoechst - 0.75) < 1e-9 and abs(bonus.mindest + 0.75) < 1e-9
+    null_l = kette_zur_achse(53)  # ⌀0Ⓛ mit ⌀3.5 ±0.2: nur Bonus 0.4 -> ±0.2
+    assert abs(null_l.toleranz - 0.4) < 1e-9
+    ex = TopExp_Explorer(m.flaechen[183], TopAbs_EDGE)
+    kanten = []
+    while ex.More():
+        kanten.append(ex.Current())
+        ex.Next()
+    kante = next(k for k in kanten if tk._element(k)[0] == "kante" and abs(tk._element(k)[2][0]) < 1e-6)
+    g, _, _ = tk.kette_aus_flaechen(m, [181, kante], erg.pmi, "m")
+    assert g[0].quelle == "allgemein" and abs(g[0].nenn - 5.0) < 1e-6 and g[0].flaechen == (181,)
+    glieder, _, _ = tk.kette_aus_flaechen(m, [181, 187, 183, 185], erg.pmi, "m", lagetoleranzen=False)
+    e = tk.berechne(glieder, anforderung=(9.0, 11.0))
+    assert abs(e.cp - e.cpk) < 1e-9 and e.cp > 1.5 and e.ausserhalb < 1e-4
+    glieder[0].versatz = 0.1
+    e2 = tk.berechne(glieder, anforderung=(9.0, 11.0))
+    assert abs(e2.mitte - 10.1) < 1e-9 and e2.cpk < e.cpk and abs(glieder[0].cpk() - 0.5) < 1e-9
+    assert "Cpk" in tk.als_csv(glieder, e2)

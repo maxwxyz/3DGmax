@@ -370,8 +370,13 @@ def kette_pdf(fenster, pfad: str, bild: bool = True) -> str:
         zeilen.append([g.name, "+" if g.richtung > 0 else "−", "–" if g.quelle == "lage" else f"{g.nenn:.4g}",
                        f"{g.hoechst:.4g}", f"{g.mindest:.4g}", f"{g.toleranz:.4g}", tr(tk.QUELLE[g.quelle]),
                        tr(tk.VERTEILUNG[g.verteilung]),
-                       f"{g.cp or k.cp.value():.2f}" if g.verteilung == "normal" else "–", f"{anteil:.0%}"])
+                       f"{g.cp or k.cp.value():.2f}" if g.verteilung == "normal" else "–", f"{g.versatz:g}",
+                       f"{anteil:.0%}"])
     bericht.tabelle(spalten, zeilen)
+    if e.cp is not None:
+        bericht.absatz(tr("Anforderung {:.4f} … {:.4f} mm: Cp {:.2f}, Cpk {:.2f}, außerhalb {:.0f} ppm (Normalverteilung), "
+                          "{:.0f} ppm (Monte Carlo)").format(k.unten.value(), k.oben.value(), e.cp, e.cpk,
+                                                            e.ausserhalb * 1e6, e.mc_ausserhalb * 1e6), 10)
     bericht.absatz(tr("Statistik: normalverteilt mit σ = Toleranz / (6 · Cp) oder gleichverteilt über die Toleranz, "
                       "Mittelwert in Toleranzmitte; Anteil = Varianzanteil des Glieds. Lagetoleranzen ohne Bonus bei "
                       "Ⓜ/Ⓛ."), 8.5)

@@ -65,7 +65,8 @@
 | Stack-up 1D: Cp adjustable, angular dimensions excluded | ✅ |
 | Stack-up: chain picked in 3D (planes, cylinder/cone axes) with direction from the geometry, PMI values (also patterns) and ISO 2768 for features without PMI; distribution and Cp per link; contribution share | ✅ |
 | Stack-up: location tolerances of the end faces as links (position, symmetry, coaxiality, profile with datum, UZ), PDF report, chain in the project | ✅ |
-| Stack-up: edges and derived median planes as chain ends, Ⓜ/Ⓛ bonus and datum shift, Cpk/shifted mean, chains across parts | ⬜ |
+| Stack-up 1D final: Ⓜ/Ⓛ bonus, datum shift, edges as chain ends, mean offset (Cpk), requirement with Cp/Cpk/share outside | ✅ |
+| Stack-up: median planes as chain ends, chains across assembly parts | ⬜ |
 | Assembly: connections plane/plane and coaxial with snapping, satisfied check, open DOF per part, DOF wiggle, in the project | ✅ |
 | Assembly: point/line contact, pin–slot, 3-2-1 template, dragging with live snapping, STEP kinematics | ⬜ |
 | Tolerance stack-up 3D (geometric tolerances, chain from the model, sensitivity) – PLAN §8.20 | ⬜ |

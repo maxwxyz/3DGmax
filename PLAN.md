@@ -228,6 +228,12 @@ Throughout: tests (core, offscreen UI, stress test, on-screen test), `--selbstte
   PDF report (picture with the chain faces, result, link table with shares), chain stored in the project.
   Open: Ⓜ/Ⓛ bonus and datum shift as (non-normal) contributors, Cpk / shifted means, edges and median planes as chain
   ends, chains across assembly parts (needs the mating model of §8.20).
+- Done 2026-10-27 (1D finalised): Ⓜ/Ⓛ bonus widens the location link by the feature's size tolerance (worst case),
+  zero tolerance at Ⓜ/Ⓛ allowed, datum with Ⓜ/Ⓛ as an own "datum shift" link (`toleranzzone.bezugsverschiebung`),
+  straight/circular edges as chain ends, mean offset per link (Cpk = Cp·(1−|offset|/(T/2))), requirement on the
+  closing dimension → Cp, Cpk and share outside (normal approximation and Monte Carlo); pattern matching of end
+  features only within the same element type (axis/plane). Open: median planes of features of size as chain ends,
+  chains across assembly parts (from the connections of §8.20), non-normal bonus distributions.
 
 ### 8.9 Test data
 - NIST: FTC/STC/CTC (AP242); D2MI 827-9999-904 rev C (AP242 with PMI) ↔ 906 (same geometry, no PMI); FTC-06 ↔ STC-06
@@ -616,3 +622,37 @@ CAx-IF recommended practice for PMI; validated by reading back with our reader a
 save own/edited PMI, semantic PMI derived from graphical-only PMI (after review), PMI edited in the advisor.
 Alternatives: QIF export (own XML writer, also the exchange format for CMM software); ask pythonocc to wrap
 `XCAFDoc_GeomTolerance` (upstream issue).
+
+### 8.29 Test strategy: run only the affected tests (requested 2026-10-27)
+The full suite takes ~25–28 min (180 tests, many load NIST models, compare, check scans or open the window). Rule
+from now on (CLAUDE.md): before a commit run only the tests affected by the change; the full suite only before a
+release, after changes to core modules and in CI.
+- Done: `werkzeuge/tests_betroffen.py` / `pixi run test-betroffen` – changed files (git diff + untracked) →
+  test functions whose source mentions the changed module, fixed mappings for broad modules (hauptfenster,
+  ansicht3d, laden, p21, pmi_lesen, lader, thema) and for i18n/manual/changelog; changed test files run completely;
+  `--seit <ref>` and `--zeigen`.
+- Open (local): measure the durations once (`pixi run python -m pytest -q --durations=40`), mark the slow tests
+  with a `langsam` marker in `tests/conftest.py` (register the marker, list by name), add `pixi run test-schnell`
+  (`-m "not langsam"`); shorten the slowest tests further (smaller scan samples, shared fixtures for loaded
+  models/comparisons via session scope); keep `test-ci` as the full run in the GitHub workflow.
+
+### 8.30 UI/UX review and plan (requested 2026-10-27, to do locally)
+Inventory 2026-10-27: 129 menu commands (File 41, View 49, Model 20, Tools 5, Window 10, Help 4), 10 side panels
+(Structure, Saved views, PMI, Measure, Analysis, Comments, Changes, Scan check, Clashes, Assembly), one toolbar with
+~12 entries. Functions are hard to find, the View menu is overloaded, panels compete for the same space.
+Target users, none of them overwhelmed: experienced CATIA designers (expect CATIA navigation, tree, compass-like
+cube, context menus), 3DCS users (expect a model/moves/tolerances/measures workflow and result tables), metrology
+staff (expect alignment, characteristics, reports), laypeople and students (need guidance, plain words, examples).
+Write `docs/UI_UX_Plan.md` (English) with:
+1. Review of the current UI against these personas (task walkthroughs: open and read PMI, compare two states, check a
+   scan, build a stack-up, assemble and wiggle), concrete problems with screenshots from `packaging/doc_screenshots.py`.
+2. Alternatives with pros/cons and effort: (a) workspaces/task tabs at the top ("View · Check · Compare · Tolerances ·
+   Assembly · Scan") that show only their panels and commands; (b) ribbon like CATIA/Office; (c) one context
+   inspector panel plus a command palette (Ctrl/⌘+K) like modern design tools; (d) guided task wizards for beginners on
+   top of (a). Progressive disclosure: simple/expert mode, defaults that work, advanced options folded.
+3. Recommendation (expected: (a) + command palette + task start page with the examples; CATIA shortcuts kept),
+   consistent panel layout (header with purpose, inputs, primary button, result table, export row), wording and
+   icon rules, empty states that say what to do, keyboard map.
+4. Staged implementation plan with measurable acceptance (time per task, clicks, first-use success with students),
+   and a short usability test protocol for the local test.
+

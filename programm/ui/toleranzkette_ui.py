@@ -62,6 +62,23 @@ class ToleranzketteFenster(QtWidgets.QDialog):
         self.cp.valueChanged.connect(self._fuelle)
         reihe.addWidget(self.cp)
         lay.addLayout(reihe)
+        reihe = QtWidgets.QHBoxLayout()
+        self.anforderung = QtWidgets.QCheckBox(tr("Anforderung an das Schlussmaß"))
+        self.anforderung.setToolTip(tr("Grenzen des Schlussmaßes (z. B. Spalt): Cp, Cpk und Anteil außerhalb"))
+        self.unten, self.oben = QtWidgets.QDoubleSpinBox(), QtWidgets.QDoubleSpinBox()
+        for k in (self.unten, self.oben):
+            k.setRange(-100000.0, 100000.0)
+            k.setDecimals(3)
+            k.setSuffix(" mm")
+            k.setEnabled(False)
+            k.valueChanged.connect(self._rechne)
+        self.anforderung.toggled.connect(self._anforderung_an)
+        reihe.addWidget(self.anforderung)
+        reihe.addWidget(self.unten)
+        reihe.addWidget(QtWidgets.QLabel("…"))
+        reihe.addWidget(self.oben)
+        reihe.addStretch(1)
+        lay.addLayout(reihe)
         self.ergebnis = QtWidgets.QLabel("")
         self.ergebnis.setTextInteractionFlags(QtCore.Qt.TextInteractionFlag.TextSelectableByMouse)
         self.ergebnis.setTextFormat(QtCore.Qt.TextFormat.RichText)
@@ -144,6 +161,28 @@ class ToleranzketteFenster(QtWidgets.QDialog):
             cp.setValue(g.cp or 0.0)
             cp.valueChanged.connect(lambda w, g=g: self._cp_glied(g, w))
             t.setCellWidget(z, 8, cp)
+            versatz = QtWidgets.QDoubleSpinBox()
+            versatz.setRange(-1000.0, 1000.0)
+            versatz.setDecimals(4)
+            versatz.setSingleStep(0.01)
+            versatz.setToolTip(tr("Mittenversatz des Prozesses gegen die Toleranzmitte (mm): Cpk < Cp"))
+            versatz.setValue(g.versatz)
+            versatz.valueChanged.connect(lambda w, g=g: self._versatz(g, w))
+            t.setCellWidget(z, 9, versatz)
+        self._rechne()
+
+    def _versatz(self, g, wert):
+        g.versatz = wert
+        self._rechne()
+
+    def _anforderung_an(self, an: bool):
+        for k in (self.unten, self.oben):
+            k.setEnabled(an)
+        if an and self.glieder and self.unten.value() == self.oben.value() == 0:
+            for k, w in ((self.unten, self.e.wc_min), (self.oben, self.e.wc_max)):  # Vorschlag: Worst Case
+                k.blockSignals(True)
+                k.setValue(round(w, 3))
+                k.blockSignals(False)
         self._rechne()
 
     def _rechne(self):
@@ -152,10 +191,11 @@ class ToleranzketteFenster(QtWidgets.QDialog):
             w = t.cellWidget(z, 8)
             if w is not None:
                 w.setEnabled(g.verteilung == "normal")
-        self.e = tk.berechne(self.glieder, cp=self.cp.value())
+        anforderung = (self.unten.value(), self.oben.value()) if self.anforderung.isChecked() else None
+        self.e = tk.berechne(self.glieder, cp=self.cp.value(), anforderung=anforderung)
         e = self.e
         for z, anteil in enumerate(e.anteile):
-            t.setItem(z, 9, QtWidgets.QTableWidgetItem(f"{anteil:.0%}"))
+            t.setItem(z, 10, QtWidgets.QTableWidgetItem(f"{anteil:.0%}"))
         if not self.glieder:
             self.ergebnis.setText(tr("Noch keine Glieder."))
         else:
@@ -165,7 +205,11 @@ class ToleranzketteFenster(QtWidgets.QDialog):
                 f"(±{(e.wc_max - e.wc_min) / 2:.4f}) <br>"
                 f"<b>{tr('Statistisch (RSS)')}</b> {e.mitte:.4f} ± {e.rss:.4f} mm (±3σ) "
                 f"&nbsp; · &nbsp; "
-                f"<b>{tr('Monte Carlo')}</b> {e.mc_min:.4f} … {e.mc_max:.4f} mm ({tr('99,73 %')})")
+                f"<b>{tr('Monte Carlo')}</b> {e.mc_min:.4f} … {e.mc_max:.4f} mm ({tr('99,73 %')})"
+                + ("" if e.cp is None else
+                   f"<br><b>Cp</b> {e.cp:.2f} &nbsp; <b>Cpk</b> {e.cpk:.2f} &nbsp; · &nbsp; <b>{tr('außerhalb')}</b> "
+                   f"{e.ausserhalb * 1e6:.0f} ppm ({tr('Normalverteilung')}), {e.mc_ausserhalb * 1e6:.0f} ppm "
+                   f"(Monte Carlo)"))
         self.export.setEnabled(bool(self.glieder))
         self.pdf.setEnabled(bool(self.glieder))
 
