@@ -2540,6 +2540,7 @@ class Hauptfenster(QtWidgets.QMainWindow):
             f.pdf.clicked.connect(lambda: self.exportiere_kette_pdf())
             f.flaechen_zeigen.connect(self.ansicht.hebe_flaechen)
             f.schluss_aus_auswahl.connect(self._kette_schluss)
+            f.strecke_zeigen.connect(self._kette_strecke)
             f.oeffnen.connect(lambda: self.oeffne_kette())
             f.teil_von = self._teil_von_flaechen
             self._kette = f
@@ -2607,6 +2608,17 @@ class Hauptfenster(QtWidgets.QMainWindow):
                 os.path.basename(k.modell) or "?"), 8000)
         else:
             self.statusBar().showMessage(tr("Kette geladen: {} Glieder").format(len(k.glieder)), 6000)
+
+    def _kette_strecke(self, g):
+        """Glied beim Ablaufen als Pfeil zwischen seinen Flaechen: + gruen, − rot, mit Wert und Name."""
+        from ..kern import toleranzkette as tk
+        strecke = tk.glied_strecke(g, self.erg.modell) if g is not None and self.erg is not None else None
+        if strecke is None:
+            self.ansicht.zeige_hilfslinien([])
+            return
+        plus = g.richtung > 0
+        text = f"{'+' if plus else '−'}{abs(g.nenn):g}  {g.name}"
+        self.ansicht.zeige_hilfslinien([(*strecke, text, (0.18, 0.62, 0.28) if plus else (0.75, 0.22, 0.17))])
 
     def _kette_schluss(self):
         """Reihenfolge und Vorzeichen der Glieder aus den zwei gewaehlten Flaechen des Schlussmasses."""

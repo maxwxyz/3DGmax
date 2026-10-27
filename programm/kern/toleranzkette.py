@@ -566,3 +566,26 @@ def richtungen_aus_schlussmass(glieder: list[Glied], modell, flaeche_a: int, fla
         if g.quelle != "lage":
             hinweise.append(tr("{}: nicht auf dem Weg des Schlussmaßes").format(g.name))
     return [glieder[i] for i, _ in weg] + rest, hinweise
+
+
+def glied_strecke(g: Glied, modell) -> tuple[tuple, tuple] | None:
+    """Strecke eines Glieds fuer die Anzeige: vom Schwerpunkt der ersten Flaeche entlang der Kettenrichtung bis zur
+    Lage der zweiten (Ebene senkrecht bzw. Achse quer zur Richtung); None ohne zwei passende Flaechen."""
+    from OCC.Core.BRepGProp import brepgprop
+    from OCC.Core.GProp import GProp_GProps
+    flaechen = [modell.flaechen[i] for i in g.flaechen if isinstance(i, int) and i < len(modell.flaechen)]
+    if len(flaechen) < 2:
+        return None
+    ebene = next((x for x in map(_ebene_oder_achse, flaechen) if x is not None and x[0] == "ebene"), None)
+    if ebene is None:
+        return None
+    n = ebene[2] / np.linalg.norm(ebene[2])
+    orte = [lage(f, n) for f in flaechen[:2]]
+    if None in orte:
+        return None
+    pr = GProp_GProps()
+    brepgprop.SurfaceProperties(flaechen[0], pr)
+    c = pr.CentreOfMass()
+    start = np.array([c.X(), c.Y(), c.Z()]) + n * (orte[0] - float(np.array([c.X(), c.Y(), c.Z()]) @ n))
+    ende = start + n * (orte[1] - orte[0])
+    return tuple(float(x) for x in start), tuple(float(x) for x in ende)

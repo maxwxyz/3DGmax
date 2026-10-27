@@ -72,7 +72,8 @@
 | Stack-up stage 3b: thermal expansion (materials from STEP/library, per-part temperatures), length ranges and adjusting member, directions from the closing dimension, walk chain, chain file .3dgkette, gearbox example | ✅ |
 | Stack-up stage 4: modified RSS (Bender), mean-shift model, sensitivity factor per link, tolerance allocation (equal variance / proportional) | ✅ |
 | Stack-up: correlated links, more distributions (beta, DIN histogram), fit from measurements, several saved scenarios | ⬜ |
-| Stack-up: arrows per link in 3D, wiggle of the closing faces | ⬜ |
+| Stack-up: link shown as a line in 3D while walking the chain | ✅ |
+| Stack-up: wiggle of the closing faces by the worst-case extremes | ⬜ |
 | Stack-up: median planes as chain ends, chains across assembly parts | ⬜ |
 | Assembly: connections plane/plane and coaxial with snapping, satisfied check, open DOF per part, DOF wiggle, in the project | ✅ |
 | Assembly: point contact (sphere on plane), pin–slot (line on plane), ball joint | ✅ |

@@ -181,6 +181,7 @@ class ToleranzketteFenster(QtWidgets.QDialog):
     flaechen_zeigen = QtCore.Signal(set)  # Flaechen der gewaehlten Glieder (aus der 3D-Auswahl)
     schluss_aus_auswahl = QtCore.Signal()  # Richtungen aus dem Schlussmass (zwei Flaechen in der 3D-Auswahl)
     oeffnen = QtCore.Signal()  # Kettendatei oeffnen (Hauptfenster laedt ggf. das Modell)
+    strecke_zeigen = QtCore.Signal(object)  # Glied beim Ablaufen (Glied) oder None
 
     ERGEBNIS_ZEILEN = (("wc", "Arithmetisch (Worst Case)"), ("rss", "Statistisch (RSS, ±3σ)"),
                        ("mc", "Monte Carlo (99,73 %)"))
@@ -551,6 +552,7 @@ class ToleranzketteFenster(QtWidgets.QDialog):
         else:
             self._ablauf_uhr.stop()
             self.tabelle.clearSelection()
+            self.strecke_zeigen.emit(None)
 
     def _ablauf_schritt(self):
         """Naechstes Glied waehlen (hebt seine Flaechen hervor) und Richtung und Wert nennen."""
@@ -560,6 +562,7 @@ class ToleranzketteFenster(QtWidgets.QDialog):
         self._ablauf_nr = (self._ablauf_nr + 1) % len(self.glieder)
         g = self.glieder[self._ablauf_nr]
         self.tabelle.selectRow(self._ablauf_nr)
+        self.strecke_zeigen.emit(g)
         self.ergebnis.setText(html.escape(tr("Glied {} von {}: {} {} – {}").format(
             self._ablauf_nr + 1, len(self.glieder), "+" if g.richtung > 0 else "−", _z(abs(g.nenn)), g.name)))
 

@@ -196,3 +196,14 @@ def test_plausibilitaet_geschlossene_masskette():
     assert len(befunde) == 1 and sorted(befunde[0].nummern) == [1, 2, 3] and "Hilfsmaß" in befunde[0].text
     assert pl.geschlossene_ketten([mass(1, 0, 10), mass(2, 10, 25), mass(3, 0, 25, tol=False)], modell) == []
     assert pl.geschlossene_ketten([mass(1, 0, 10), mass(2, 10, 25)], modell) == []
+
+
+def test_glied_strecke_im_getriebe():
+    from programm.kern import kette_datei
+    from programm.kern.laden import lade_modell
+    from tests.conftest import pfad
+    k = kette_datei.lade(pfad("getriebe.3dgkette"))
+    m = lade_modell(pfad("getriebe.stp"))
+    start, ende = tk.glied_strecke(k.glieder[0], m)  # Waelzlager 12 mm, entlang X
+    assert abs(abs(ende[0] - start[0]) - 12.0) < 1e-6 and abs(ende[1] - start[1]) < 1e-9
+    assert tk.glied_strecke(tk.Glied("x", 1, 1, 1), m) is None

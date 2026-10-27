@@ -159,7 +159,8 @@
    "Zusammenbau: gewähltes Teil nur in seinen offenen Freiheitsgraden verschieben oder drehen (je Freiheitsgrad ein Feld in mm bzw. Grad); die Verbindungen bleiben erfüllt.",
    "ISO 286: Toleranzklassen j5–j7, J6–J8 und a/A; Passungen als Paar (z. B. H7/g6) mit Spiel bzw. Übermaß und Art (Spiel-, Übergangs-, Übermaßpassung) im Tooltip der PMI.",
    "PMI prüfen: geschlossene Maßketten (tolerierte Abstandsmaße zwischen parallelen Ebenen, die sich zu einem Kreis schließen) werden gemeldet.",
-   "Explosionsansicht wahlweise nur entlang X, Y oder Z (neben radial)."
+   "Explosionsansicht wahlweise nur entlang X, Y oder Z (neben radial).",
+   "Toleranzkette: „Kette ablaufen“ zeigt das aktuelle Glied als Linie zwischen seinen Flächen im Modell (+ grün, − rot, mit Wert)."
   ],
   "en": [
    "First viewer version: load STEP AP242, assembly tree, CAD-style navigation, standard views.",
@@ -320,7 +321,8 @@
    "Assembly: move or rotate the selected part only in its open degrees of freedom (one field per DOF in mm or degrees); the connections stay satisfied.",
    "ISO 286: tolerance classes j5–j7, J6–J8 and a/A; fits as a pair (e.g. H7/g6) with clearance or interference and type (clearance, transition, interference fit) in the PMI tooltip.",
    "Check PMI: closed dimension chains (toleranced distances between parallel planes that close a loop) are reported.",
-   "Exploded view optionally only along X, Y or Z (besides radial)."
+   "Exploded view optionally only along X, Y or Z (besides radial).",
+   "Stack-up: “Walk chain” shows the current link as a line between its faces in the model (+ green, − red, with value)."
   ]
  },
  "releases": [

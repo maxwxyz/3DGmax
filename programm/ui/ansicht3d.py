@@ -407,6 +407,10 @@ class AnsichtBasis(QtWidgets.QWidget):
     def zeige_messungen(self, messungen: list):
         self.messungen = list(messungen)
 
+    def zeige_hilfslinien(self, linien: list):
+        """Hilfslinien [(Start, Ende, Text, Farbe RGB)], z. B. das Glied beim Ablaufen einer Toleranzkette; [] aus."""
+        self.hilfslinien = list(linien)
+
     def fang_toleranz(self) -> float:
         """Fangweite in mm (etwa 12 Pixel)."""
         return 1.0
@@ -2206,6 +2210,39 @@ class OcctAnsicht(AnsichtBasis):
             lab.SetHeight(20)
             self._mess_ais.append(lab)
         for a in self._mess_ais:
+            a.SetZLayer(Graphic3d_ZLayerId_Topmost)
+            ctx.Display(a, False)
+            ctx.Deactivate(a)
+        self._neu_zeichnen()
+
+    def zeige_hilfslinien(self, linien):
+        super().zeige_hilfslinien(linien)
+        if not self._bereit:
+            return
+        from OCC.Core.AIS import AIS_Shape, AIS_TextLabel
+        from OCC.Core.BRepBuilderAPI import BRepBuilderAPI_MakeEdge
+        from OCC.Core.Graphic3d import Graphic3d_ZLayerId_Topmost
+        from OCC.Core.gp import gp_Pnt
+        from OCC.Core.TCollection import TCollection_ExtendedString
+        ctx = self.d.Context
+        for ais in getattr(self, "_hilfs_ais", []):
+            ctx.Remove(ais, False)
+        self._hilfs_ais = []
+        for start, ende, text, rgb in self.hilfslinien:
+            a, b = gp_Pnt(*start), gp_Pnt(*ende)
+            if a.Distance(b) > 1e-9:
+                linie = AIS_Shape(BRepBuilderAPI_MakeEdge(a, b).Edge())
+                linie.SetColor(_farbe(rgb))
+                linie.SetWidth(3.0)
+                self._hilfs_ais.append(linie)
+            lab = AIS_TextLabel()
+            lab.SetFont(SCHRIFT)
+            lab.SetPosition(gp_Pnt((a.X() + b.X()) / 2, (a.Y() + b.Y()) / 2, (a.Z() + b.Z()) / 2))
+            lab.SetText(TCollection_ExtendedString(text, True))
+            lab.SetColor(_farbe(rgb))
+            lab.SetHeight(20)
+            self._hilfs_ais.append(lab)
+        for a in self._hilfs_ais:
             a.SetZLayer(Graphic3d_ZLayerId_Topmost)
             ctx.Display(a, False)
             ctx.Deactivate(a)
