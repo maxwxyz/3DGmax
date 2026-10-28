@@ -275,3 +275,49 @@ def test_lage_komponenten_rueckwaerts():
         q *= np.sign(np.linalg.det(q))
         w = bm._lage_komponenten(q, np.array([1.0, 2.0, 3.0]))
         assert np.allclose(k3._drehung(w["rx"], w["ry"], w["rz"]), q, atol=1e-9)
+
+
+def test_bonus_und_bezugsverschiebung_in_verbindung():
+    """Bolzen ⌀9,9 in Bohrung ⌀10 H8 mit Position ⌀0,1 Ⓜ: Spiel (10,022 - 9,9) / 2 + 0,1 / 2 = 0,111, Bonus bei LMC
+    ⌀0,022 -> 0,011 radial (Positionszone bis ⌀0,122, virtuelle Bedingung ⌀9,9 = Bolzen); Bezug Ⓜ mit ⌀±0,05 verschiebt
+    um weitere ⌀0,1. Achse zu Ebene: Worst Case ±(0,111 + 0,011), Bonus als eigener Beitragender."""
+    from OCC.Core.BRepAlgoAPI import BRepAlgoAPI_Cut
+    from OCC.Core.BRepPrimAPI import BRepPrimAPI_MakeBox, BRepPrimAPI_MakeCylinder
+    from OCC.Core.gp import gp_Ax2, gp_Dir, gp_Pnt
+    from programm.kern.pmi import BezugsRef, Pmi
+    loch_form = BRepPrimAPI_MakeCylinder(gp_Ax2(gp_Pnt(20, 20, 0), gp_Dir(0, 0, 1)), 5.0, 10.0).Shape()
+    platte = BRepAlgoAPI_Cut(BRepPrimAPI_MakeBox(40.0, 40.0, 10.0).Shape(), loch_form).Shape()
+    loch = next(f for f in _flaechen(platte) if vb.merkmal(f)[0] == "achse")
+    seite = next(f for f in _flaechen(platte) if (m := vb.merkmal(f)) and m[0] == "ebene" and m[2][0] < -0.99)
+    bolzen = BRepPrimAPI_MakeCylinder(gp_Ax2(gp_Pnt(20, 20, 0), gp_Dir(0, 0, 1)), 4.95, 10.0).Shape()
+    mantel = next(f for f in _flaechen(bolzen) if vb.merkmal(f)[0] == "achse")
+    b = vb.Baugruppe()
+    v = b.verbinde(2, mantel, 0, 1, loch, 7)
+    pos = Pmi("toleranz", "Position", wert=0.1, material="M", flaechen={7}, bezuege=[BezugsRef("A")])
+    pmi = [Pmi("mass", "Size_Diameter", nennwert=10.0, passung="H8", flaechen={7}), pos]
+    vb.toleranz_aus_pmi(b, v, None, pmi)
+    assert abs(v.toleranz - 0.111) < 1e-9 and abs(v.bonus - 0.011) < 1e-9 and "Bonus" in v.bonus_quelle
+    assert all(abs(o - 0.122) < 1e-9 for _, _, o in b.zeilen(v))  # Wiggle/Streuung mit vollem Bonus
+    zeilen, grenzen, _ = b.mc_zeilen(v)
+    yb = b.mc_bonus(v)(np.random.default_rng(1), 5000)
+    assert np.allclose(grenzen, 0.111) and yb.shape == (5000, len(zeilen))
+    r = np.linalg.norm(yb[:, :2], axis=1)  # Betrag = Abstand des Istmasses vom MMC, hoechstens der volle Bonus
+    assert r.max() <= 0.011 + 1e-12 and abs(r.mean() - 0.0055) < 3e-4
+    m = b.neue_messgroesse(2, mantel, 0, 1, seite, 3)
+    assert m.art == bm.ACHSE_EBENE
+    e = bm.Analyse(b).berechne(m, mantel, seite, proben=20_000)
+    # Normale aus dem Material: Abstand -20
+    assert abs(e.nenn + 20.0) < 1e-9 and abs(e.wc_max + 19.878) < 1e-6 and abs(e.wc_min + 20.122) < 1e-6
+    spiel, bonus = (next(x for x in e.beitraege if x.bonus == mit) for mit in (False, True))
+    assert abs(spiel.bereich - 0.222) < 1e-6 and abs(bonus.bereich - 0.022) < 1e-6
+    assert 0 < bonus.anteil_var < spiel.anteil_var and e.mc_max < e.wc_max
+    assert "Bezugsverschiebung" in bm.beitrag_art(bonus, {v.nummer: v.art})
+    # Bezug A mit Ⓜ an einer Bohrung ⌀8 ±0,05: Zone verschiebt sich um bis zu ⌀0,1 (0,05 radial)
+    pos.bezuege = [BezugsRef("A", modifikatoren=["MaximumMaterialRequirement"])]
+    pmi += [Pmi("bezug", "Datum", name="A", flaechen={9}),
+            Pmi("mass", "Size_Diameter", nennwert=8.0, oben=0.05, unten=-0.05, flaechen={9})]
+    vb.toleranz_aus_pmi(b, v, None, pmi)
+    assert abs(v.bonus - 0.061) < 1e-9 and "Bezugsverschiebung A Ⓜ" in v.bonus_quelle
+    b.setze_toleranz(v.nummer, 0.0)  # ohne Spiel bleibt nur der Bonus
+    e = bm.Analyse(b).berechne(m, mantel, seite, proben=2000)
+    assert abs(e.wc_max + 19.939) < 1e-6 and [x.bonus for x in e.beitraege if x.bereich > 0] == [True]

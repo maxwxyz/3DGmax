@@ -17,6 +17,8 @@ Am Punkt: statt des Flaechenschwerpunkts misst ein angeklickter Punkt auf A (bel
   Kontaktrechnung.
 - Beitragende: Worst-Case-Bereich, wenn nur diese Verbindung streut (alle anderen in Nennlage), und Varianzanteil
   aus Monte Carlo (Verbindungen unabhaengig).
+- Ⓜ/Ⓛ-Bonus und Bezugsverschiebung einer Verbindung (Verbindung.bonus) sind ein eigener Beitragender auf denselben
+  Zeilen: Worst Case voller Bonus (Spielraum + Bonus), Monte Carlo mit gezogenem Istmass (Verbindung.mc_bonus).
 - Waermeausdehnung (deterministisch, je Temperaturfall): jedes Teil dehnt sich um seinen Fixierpunkt aus (Mitte
   seiner Verbindungsmerkmale; feste Teile: Mitte der Merkmale, an denen andere Teile haengen) mit
   u_i(x) = u_gegen(o_i) + alpha_i * (T_i - 20 °C) * (x - o_i); der Fixierpunkt folgt dem Gegenteil (Verbindungsbaum).
@@ -57,6 +59,7 @@ class Beitrag:
     bereich: float  # Worst-Case-Breite (max - min), wenn nur diese Verbindung streut
     anteil_wc: float  # Anteil an der Summe der Bereiche
     anteil_var: float  # Varianzanteil aus Monte Carlo
+    bonus: bool = False  # Ⓜ/Ⓛ-Bonus bzw. Bezugsverschiebung der Verbindung statt ihres Spielraums
 
 
 @dataclass
@@ -145,13 +148,15 @@ class Analyse:
         self.n = 6 * len(self.teile)
         lp, mc = [], []
         for v in baugruppe.verbindungen:
-            for z, lo, hi in baugruppe.zeilen(v):
-                lp.append((v.nummer, self._relativ(v, z), lo, hi))
+            mit = baugruppe.zeilen(v)
+            for (z, lo, hi), (_, _, o) in zip(baugruppe.zeilen(v, bonus=False), mit):
+                lp.append((v.nummer, self._relativ(v, z), lo, hi, o - hi))  # letzte Spalte: Bonus der Zeile
             zeilen, grenzen, ziehen = baugruppe.mc_zeilen(v)
-            mc.append((v.nummer, np.array([self._relativ(v, z) for z in zeilen]).reshape(-1, self.n), grenzen, ziehen))
+            mc.append((v.nummer, np.array([self._relativ(v, z) for z in zeilen]).reshape(-1, self.n), grenzen, ziehen,
+                       baugruppe.mc_bonus(v)))
         self.lp = lp
         self.mc = mc
-        a = np.array([z for _, z, _, _ in lp]).reshape(-1, self.n)
+        a = np.array([z for _, z, *_ in lp]).reshape(-1, self.n)
         if len(a) and self.n:
             _, s, vt = np.linalg.svd(a)
             rang = int((s > 1e-9 * max(1.0, float(s.max()))).sum())
@@ -316,14 +321,16 @@ class Analyse:
         return k3.Kette3D(glieder, tuple(float(x) for x in p - ursprung), (0.0, 0.0, 1.0), "z",
                           basis=basis.tolist())
 
-    def _extrem(self, c: np.ndarray, nur: int | None = None) -> tuple[float, float]:
-        """Min und Max von c . x im Spielraum (nur: nur diese Verbindung streut)."""
+    def _extrem(self, c: np.ndarray, nur: int | None = None, bonus: bool = False) -> tuple[float, float]:
+        """Min und Max von c . x im Spielraum samt Bonus (nur: nur diese Verbindung streut, mit bonus nur ihr
+        Ⓜ/Ⓛ-Bonus, sonst nur ihr Spielraum)."""
         from scipy.optimize import linprog
         if not len(self.basis) or not self.lp:
             return 0.0, 0.0
-        a = np.array([z for _, z, _, _ in self.lp]) @ self.basis.T
-        lo = np.array([0.0 if nur is not None and nr != nur else u for nr, _, u, _ in self.lp])
-        hi = np.array([0.0 if nur is not None and nr != nur else o for nr, _, _, o in self.lp])
+        a = np.array([z for _, z, *_ in self.lp]) @ self.basis.T
+        grenzen = [(u - b, o + b) if nur is None else (0.0, 0.0) if nr != nur else (-b, b) if bonus else (u, o)
+                   for nr, _, u, o, b in self.lp]
+        lo, hi = np.array([g[0] for g in grenzen]), np.array([g[1] for g in grenzen])
         cz = self.basis @ c
         werte = []
         for vz in (1.0, -1.0):
@@ -332,10 +339,11 @@ class Analyse:
             werte.append(float(cz @ r.x) if r.status == 0 else 0.0)
         return werte[1], werte[0]
 
-    def _stichproben(self, anzahl: int, zufall: int) -> list[tuple[int, np.ndarray, np.ndarray, np.ndarray]]:
-        """Je Verbindung (Nummer, Zeilen k x n, Spielraeume k, Werte anzahl x k)."""
+    def _stichproben(self, anzahl: int, zufall: int) -> list[tuple]:
+        """Je Verbindung (Nummer, Zeilen k x n, Spielraeume k, Werte anzahl x k, Bonuswerte anzahl x k oder None)."""
         rng = np.random.default_rng(zufall)
-        return [(nr, zeilen, grenzen, ziehen(rng, anzahl)) for nr, zeilen, grenzen, ziehen in self.mc]
+        return [(nr, zeilen, grenzen, ziehen(rng, anzahl), None if bonus is None else bonus(rng, anzahl))
+                for nr, zeilen, grenzen, ziehen, bonus in self.mc]
 
     def berechne(self, m: Messgroesse, fa, fb, proben: int = 20_000, zufall: int = 1) -> Ergebnis:
         nenn, c = self.vektor(m, fa, fb)
@@ -343,24 +351,26 @@ class Analyse:
         unbestimmt = bool(np.linalg.norm(frei) > 1e-6 * max(1.0, float(np.linalg.norm(c))))
         lo, hi = self._extrem(c)
         stich = self._stichproben(proben, zufall)
-        teile = []
+        teile = []  # ((Verbindung, Bonus?), Beitrag je Probe)
         if stich and self.n:
-            gesamt = np.vstack([z for _, z, _, _ in stich])
-            grenzen = np.concatenate([gr for _, _, gr, _ in stich])
+            gesamt = np.vstack([z for _, z, *_ in stich])
+            grenzen = np.concatenate([gr for _, _, gr, *_ in stich])
             gewicht = 1.0 / np.maximum(grenzen, 1e-6 * max(1e-9, float(grenzen.max())))
             g = c @ np.linalg.pinv(gesamt * gewicht[:, None]) * gewicht  # Messgroesse = g . y (gewichteter Ausgleich)
             k = 0
-            for nr, zeilen, _, y in stich:
-                teile.append((nr, y @ g[k:k + len(zeilen)]))
+            for nr, zeilen, _, y, yb in stich:
+                teile.append(((nr, False), y @ g[k:k + len(zeilen)]))
+                if yb is not None:  # Bonus wirkt auf dieselben Zeilen (y + yb)
+                    teile.append(((nr, True), yb @ g[k:k + len(zeilen)]))
                 k += len(zeilen)
         werte = nenn + (np.sum([t for _, t in teile], axis=0) if teile else np.zeros(proben))
-        var = {nr: float(np.var(t)) for nr, t in teile}
+        var = {schluessel: float(np.var(t)) for schluessel, t in teile}
         summe_var = sum(var.values()) or 1.0
-        bereiche = {v.nummer: max(0.0, float(np.subtract(*self._extrem(c, v.nummer)[::-1])))
-                    for v in self.bg.verbindungen}
+        bereiche = {(v.nummer, bonus): max(0.0, float(np.subtract(*self._extrem(c, v.nummer, bonus)[::-1])))
+                    for v in self.bg.verbindungen for bonus in ((False, True) if v.bonus > 0 else (False,))}
         summe_wc = sum(bereiche.values()) or 1.0
-        beitraege = sorted((Beitrag(nr, b, b / summe_wc, var.get(nr, 0.0) / summe_var) for nr, b in bereiche.items()),
-                           key=lambda x: (-x.anteil_var, -x.anteil_wc))
+        beitraege = sorted((Beitrag(nr, b, b / summe_wc, var.get((nr, bonus), 0.0) / summe_var, bonus)
+                            for (nr, bonus), b in bereiche.items()), key=lambda x: (-x.anteil_var, -x.anteil_wc))
         q = np.quantile(werte, [0.00135, 0.99865])
         e = Ergebnis(nenn, nenn + lo, nenn + hi, float(werte.mean()), float(werte.std()), float(q[0]), float(q[1]),
                      unbestimmt=unbestimmt, beitraege=beitraege, proben=werte)
@@ -427,6 +437,13 @@ def _bewerte(e: Ergebnis, smin: float | None, smax: float | None):
     ks = [x for x in ((smax - e.mittel) / (3 * s) if smax is not None else None,
                       (e.mittel - smin) / (3 * s) if smin is not None else None) if x is not None]
     e.cpk = min(ks)
+
+
+def beitrag_art(b: Beitrag, arten: dict) -> str:
+    """Art des Beitragenden: Verbindungsart, beim Bonus "Bonus Ⓜ/Ⓛ / Bezugsverschiebung (Art)"."""
+    from .verbindung import ART_TEXT as VERBINDUNG_ART
+    art = tr(VERBINDUNG_ART.get(arten.get(b.verbindung), ""))
+    return tr("Bonus Ⓜ/Ⓛ / Bezugsverschiebung ({})").format(art) if b.bonus else art
 
 
 def text(m: Messgroesse, namen: dict) -> str:
