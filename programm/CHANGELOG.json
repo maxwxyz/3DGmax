@@ -60,7 +60,8 @@
    "Einheitliche Panels: leere Tabellen sagen, was zu tun ist; je Panel ist der Hauptknopf hervorgehoben.",
    "Werkstoffe in Ketten von Hand: ein Werkstoff für die ganze Kette, je Glied überschreibbar (1D: Werkstoffe …, 2D/3D: Spalte bzw. Feld je Glied); 2D- und 3D-Ketten rechnen die Wärmeausdehnung bei zwei Grenztemperaturen (Längen und Verschiebungen wachsen, Winkel bleiben) und geben Werkstoffe und Temperaturen an die 1D-Kette weiter.",
    "Funktion → Tolerierung: Vorschau live im 3D – Bezugsflächen A/B/C farbig, welche Freiheitsgrade jeder Bezug sperrt und welche offen bleiben (Pfeil bzw. Kreis), die vorgeschlagenen Angaben als türkise Vorschau-Callouts und auf Wunsch ihre Toleranzzonen; jede Änderung in der Tabelle zieht nach, „Tolerierung vorschlagen …“ macht echte PMI daraus.",
-   "Panels einheitlich aufgebaut: oben ein Satz zum Zweck (Messen, Analyse, Kommentare, Kollision, Scanprüfung, Änderungen), dann Eingaben, Hauptknopf, Ergebnistabelle und unten Export."
+   "Panels einheitlich aufgebaut: oben ein Satz zum Zweck (Messen, Analyse, Kommentare, Kollision, Scanprüfung, Änderungen), dann Eingaben, Hauptknopf, Ergebnistabelle und unten Export.",
+   "Baugruppenvariation: Bonus bei Ⓜ/Ⓛ und Bezugsverschiebung in Verbindungen – Lagetoleranzen mit Materialbedingung an den Verbindungsflächen (z. B. Position ⌀0,1 Ⓜ an der Bohrung) und Bezüge mit Ⓜ/Ⓛ vergrößern den Spielraum; Worst Case mit vollem Bonus, Monte Carlo mit gezogenem Istmaß; eigener Beitragender „Bonus Ⓜ/Ⓛ / Bezugsverschiebung“ in Tabelle und PDF."
   ],
   "en": [
    "Assembly: drag parts in 3D with the left mouse button (classic navigation: with Alt) – only along the open degrees of freedom; close to a matching plane or axis the part snaps live (faces highlighted), releasing creates the connection; the 3D handle snaps the same way.",
@@ -122,7 +123,8 @@
    "Unified panels: empty tables say what to do; each panel highlights its main button.",
    "Materials in hand-built chains: one material for the whole chain, overridable per link (1D: Materials …, 2D/3D: column or field per link); 2D and 3D chains compute thermal expansion at two limit temperatures (lengths and translations grow, angles stay) and pass materials and temperatures on to the 1D chain.",
    "Function → tolerancing: live preview in 3D – datum features A/B/C coloured, which degrees of freedom each datum locks and which stay open (arrow or circle), the proposed annotations as teal preview callouts and optionally their tolerance zones; every change in the table updates it, “Propose tolerancing …” turns it into real PMI.",
-   "Panels share one layout: a sentence on their purpose at the top (measure, analysis, comments, clashes, scan check, changes), then inputs, main button, result table and export at the bottom."
+   "Panels share one layout: a sentence on their purpose at the top (measure, analysis, comments, clashes, scan check, changes), then inputs, main button, result table and export at the bottom.",
+   "Assembly variation: Ⓜ/Ⓛ bonus and datum shift in connections – location tolerances with a material condition on the connection faces (e.g. position ⌀0.1 Ⓜ on the hole) and datums with Ⓜ/Ⓛ enlarge the clearance; worst case with the full bonus, Monte Carlo with a drawn actual size; own contributor “Bonus Ⓜ/Ⓛ / datum shift” in the table and PDF."
   ]
  },
  "releases": [

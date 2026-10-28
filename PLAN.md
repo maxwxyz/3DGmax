@@ -863,6 +863,18 @@ Plan (each stage usable on its own; builds on §8.5 zones and the 1D chain of §
   traffic light per measure (`bewertung`: green worst case incl. thermal shift within the target, yellow Monte Carlo
   ≤ 0.27 % outside, red otherwise), measures at a clicked point (`Messgroesse.punkt` in file position of part A;
   point to plane / point to axis for any face A), all in the PDF. Still open: datum shift, one-sided contact.
+- Done 2026-10-28 (plan item c of the evening order): datum shift / Ⓜ/Ⓛ bonus in connections. `Verbindung.bonus`
+  (same unit as the clearance: half diameter, planar ±h) from the location tolerances on both connection faces:
+  Ⓜ/Ⓛ on the feature grows by its size tolerance (`toleranzzone._groesse`), datums with Ⓜ/Ⓛ by the datum feature's
+  size tolerance (`toleranzzone.bezugsverschiebung`) – the same rule as the 1D chain. `Baugruppe.zeilen` includes
+  the bonus by default (wiggle, scatter, clash check, 3D chain use the full bonus); the measures analysis keeps it as
+  its own contributor "Bonus Ⓜ/Ⓛ / datum shift" on the same rows: worst case with the full bonus, Monte Carlo
+  (`Baugruppe.mc_bonus`) draws the actual size (normal within the size tolerance, 3σ = half tolerance) and uses its
+  departure from MMC/LMC in full in a random direction (non-normal), added to the clearance draw of that connection.
+  Checked: hole ⌀10 H8 with position ⌀0.1 Ⓜ and bolt ⌀9.9 → clearance 0.111 plus bonus 0.011 radial (zone up to
+  ⌀0.122 at LMC), axis-to-plane worst case ±0.122. Assumptions: the size draw is independent of the clearance draw
+  (the size clearance in the connection already uses the worst-case sizes); the datum feature's own location
+  tolerance is not added (as in `bezugsverschiebung`). Still open: one-sided contact.
 - Done 2026-10-28: clash check at the tolerance limit positions (each connected part at the extremes of its
   clearance, others nominal; only findings that do not exist nominally, worst case per pair). Finding: the symmetric
   ±h of a planar contact lets a lid sink into its seat and the octagon of the radial play (up to 8 % larger) lets a

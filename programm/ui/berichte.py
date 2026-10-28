@@ -439,7 +439,9 @@ def messgroessen_pdf(fenster, pfad: str) -> str:
     spalten = [(tr(s), w) for s, w in (("Nr", 0.06), ("Teil", 0.2), ("Gegenteil", 0.2), ("Art", 0.2),
                                         ("Spielraum", 0.12), ("Herkunft", 0.22))]
     bericht.tabelle(spalten, [[str(v.nummer), namen.get(v.teil, str(v.teil)), namen.get(v.gegen_teil, str(v.gegen_teil)),
-                               tr(vb.ART_TEXT[v.art]), f"{v.toleranz:.4g}", v.quelle] for v in b.verbindungen])
+                               tr(vb.ART_TEXT[v.art]),
+                               f"{v.toleranz:.4g}" + (f" + {v.bonus:.4g}" if v.bonus > 0 else ""),
+                               " ".join(x for x in (v.quelle, vb.bonus_text(v)) if x)] for v in b.verbindungen])
     for m in b.masse:
         e = ergebnisse[m.nummer]
         bericht.ueberschrift(f"{m.nummer}: {bm.text(m, namen)}")
@@ -468,13 +470,14 @@ def messgroessen_pdf(fenster, pfad: str) -> str:
             h.zeige(e, None, soll)
             bericht.bild(h.grab().toImage(), 0.14)
         spalten = [(tr(s), 1 / len(BaugruppePanel.BEITRAG_SPALTEN)) for s in BaugruppePanel.BEITRAG_SPALTEN]
-        bericht.tabelle(spalten, [[str(x.verbindung), tr(vb.ART_TEXT[next(v.art for v in b.verbindungen
-                                                                         if v.nummer == x.verbindung)]),
-                                   f"{x.bereich:.4f}", f"{x.anteil_wc:.0%}", f"{x.anteil_var:.0%}"]
-                                  for x in e.beitraege])
+        arten = {v.nummer: v.art for v in b.verbindungen}
+        bericht.tabelle(spalten, [[str(x.verbindung), bm.beitrag_art(x, arten), f"{x.bereich:.4f}",
+                                   f"{x.anteil_wc:.0%}", f"{x.anteil_var:.0%}"] for x in e.beitraege])
     bericht.absatz(tr("Lineares Modell: Teile bewegen sich in den Spielräumen ihrer Verbindungen; Worst Case per "
                       "linearem Programm, Monte Carlo normalverteilt (Spielraum = 3σ) mit gewichtetem Ausgleich bei "
-                      "Überbestimmung. Bereich: Worst-Case-Breite, wenn nur diese Verbindung streut."), 8.5)
+                      "Überbestimmung. Bereich: Worst-Case-Breite, wenn nur diese Verbindung streut. Bonus Ⓜ/Ⓛ / "
+                      "Bezugsverschiebung: Worst Case voller Bonus, Monte Carlo mit gezogenem Istmaß (normalverteilt in "
+                      "der Größentoleranz), dessen Abstand zum MMC/LMC in zufälliger Richtung voll genutzt wird."), 8.5)
     return bericht.fertig()
 
 
