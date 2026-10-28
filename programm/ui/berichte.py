@@ -323,7 +323,8 @@ def merkmale_pdf(fenster, pfad: str, bild: bool = True) -> str:
         fenster.zeige_ballone_aktuell()
         bericht.neue_seite()
     spalten = [(tr(t), b) for t, b in zip(merkmale.SPALTEN, MERKMAL_BREITEN)]
-    bericht.tabelle(spalten, merkmale.zeilen(liste, erg.ansichten) or [["–"] + [""] * (len(spalten) - 1)])
+    messung = fenster.messung_aktuell() if hasattr(fenster, "messung_aktuell") else None
+    bericht.tabelle(spalten, merkmale.zeilen(liste, erg.ansichten, messung) or [["–"] + [""] * (len(spalten) - 1)])
     return bericht.fertig()
 
 

@@ -375,6 +375,9 @@ def _lade_qif(pfad: str, doc, t0: float) -> StepModell:
     from OCC.Core.TDataStd import TDataStd_Name
     from .qif import NS, QifDokument
     q = QifDokument(pfad)
+    if q.wurzel.find(f".//{NS}Face") is None and q.wurzel.find(f".//{NS}FaceSet") is None:
+        raise LadeFehler("QIF-Datei ohne Geometrie (z. B. nur Messergebnisse) – erst das Modell öffnen, dann "
+                         "Werkzeuge › Messergebnisse (QIF) einlesen")
     form, zuordnung = q.baue_form()
     st = XCAFDoc_DocumentTool.ShapeTool(doc.Main())
     lab = st.AddShape(form, False)

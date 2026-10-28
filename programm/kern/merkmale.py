@@ -52,7 +52,8 @@ SPALTEN = ("Ballon", "Nr", "Merkmal", "Wert", "Nennmaß", "Obere Grenze", "Unter
            "Flächen", "Messwert", "i. O.", "Bemerkung")
 
 
-def zeilen(merkmale: list[Merkmal], ansichten: list | None = None) -> list[list[str]]:
+def zeilen(merkmale: list[Merkmal], ansichten: list | None = None, messung: dict | None = None) -> list[list[str]]:
+    """messung: Ballonnummer -> (Messwert, Bewertung) aus kern.qif_ergebnisse (fuellt Messwert und i. O.)."""
     je_pmi: dict[int, list[str]] = {}
     for a in ansichten or []:
         for nr in a.pmi_nummern:
@@ -64,15 +65,19 @@ def zeilen(merkmale: list[Merkmal], ansichten: list | None = None) -> list[list[
         out.append([str(m.ballon), str(p.nummer), tr(p.merkmal()), p.wert_text(),
                     _z(p.nennwert if p.art == MASS else None), _z(oben), _z(unten), p.bezug_text(),
                     ", ".join(je_pmi.get(p.nummer, [])), str(len(p.flaechen)), "", "", ""])
+        w, urteil = (messung or {}).get(m.ballon, (None, ""))
+        if w is not None and w.wert is not None:
+            out[-1][10] = _z(w.wert)
+            out[-1][11] = {"gut": tr("ja"), "schlecht": tr("nein")}.get(urteil, "")
     return out
 
 
-def als_csv(merkmale: list[Merkmal], ansichten: list | None = None) -> str:
+def als_csv(merkmale: list[Merkmal], ansichten: list | None = None, messung: dict | None = None) -> str:
     puffer = io.StringIO()
     w = csv.writer(puffer, delimiter=";")
     w.writerow([tr(s) for s in SPALTEN])
-    for z in zeilen(merkmale, ansichten):
-        w.writerow([x.replace(".", ",") if i in (4, 5, 6) else x for i, x in enumerate(z)])
+    for z in zeilen(merkmale, ansichten, messung):
+        w.writerow([x.replace(".", ",") if i in (4, 5, 6, 10) else x for i, x in enumerate(z)])
     return puffer.getvalue()
 
 

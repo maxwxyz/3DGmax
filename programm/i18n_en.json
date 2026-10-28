@@ -1417,5 +1417,17 @@
 "Toleranzart nicht schreibbar": "tolerance type not writable",
 "nur für Einzelteile mit Einheiten": "only for single parts with units",
 "{} eigene PMI neu angelegt: {}": "{} own PMI created: {}",
-"Keine Winkeleinheit in der Datei": "no angle unit in the file"
+"Keine Winkeleinheit in der Datei": "no angle unit in the file",
+"Bewertung": "Assessment",
+"Die Merkmalsliste (CSV/PDF) übernimmt die Messwerte, solange das Modell geladen ist.": "The characteristics list (CSV/PDF) takes over the measured values while the model is loaded.",
+"Erst das Modell öffnen, dann die Messergebnisse": "Open the model first, then the measurement results",
+"Gesamtstatus der Datei: {}": "Overall status in the file: {}",
+"Messergebnisse": "Measurement results",
+"Messergebnisse (QIF) einlesen …": "Read measurement results (QIF) …",
+"Messergebnisse öffnen": "Open measurement results",
+"QIF-Messergebnisse den Merkmalen zuordnen (Kennung = Ballonnummer, sonst Name) und bewerten – die Merkmalsliste übernimmt die Messwerte": "Assign QIF measurement results to the characteristics (designator = balloon number, otherwise name) and assess them – the characteristics list takes over the measured values",
+"Status (Datei)": "Status (file)",
+"n. i. O.": "not OK",
+"{} Merkmale gemessen: {} i. O., {} n. i. O.": "{} characteristics measured: {} OK, {} not OK",
+"{} Messungen ohne passendes Merkmal": "{} measurements without a matching characteristic"
 }

@@ -88,6 +88,8 @@ def tr_texte() -> set[str]:
     out |= {t for _, t in analyse_ui.ARTEN} | set(analyse_ui.HINWEIS.values()) | {"Blickrichtung (zum Betrachter)"}
     from programm.kern import schnellinfo
     out |= set(schnellinfo.GRUPPEN.values())
+    from programm.ui import messergebnisse_ui
+    out |= set(messergebnisse_ui.SPALTEN)
     for t, x in hilfe.SCHRITTE:
         out |= {t, x}
     return out

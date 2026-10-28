@@ -180,7 +180,8 @@
 | STEP AP242/AP214/AP203 | ✅ |
 | QIF 3.0: exact B-rep and semantic PMI (validated against STEP for NIST CTC-01/FTC-06) | ✅ |
 | QIF: graphical PMI (PMIDisplaySet: texts with symbols, frames, leaders, witness lines, polylines, areas) and saved views (camera, visible PMI) | ✅ |
-| QIF: measurement results, measurement plan | ⬜ |
+| QIF: measurement results read, assigned to the characteristics and assessed | ✅ |
+| QIF: write measurement plan / characteristics (QIF Plans) | ⬜ |
 | IGES, STL, OBJ, glTF/GLB, 3MF, PLY (meshes: view, measure, analyze, compare against CAD) | ✅ |
 | JT 8/9 via TKJT converter jt2glb (mesh, structure, names, colours), build variant DG_MIT_JT=1; JT 10 detected and reported | 🟡 (step 7; end-to-end test needs a JT 9 file) |
 | JT 10, PMI from JT, JT B-rep (XT) | ⬜ |

@@ -489,6 +489,9 @@ class Hauptfenster(QtWidgets.QMainWindow):
         A("step_pmi_speichern", tr("STEP mit geänderten PMI speichern …"), lambda: self.speichere_step_pmi(),
           tipp=tr("Kopie der STEP-Datei: bearbeitete PMI-Werte ersetzt, eigene PMI als semantische AP242-PMI angehängt "
                   "– alles andere bleibt unverändert"))
+        A("messergebnisse", tr("Messergebnisse (QIF) einlesen …"), lambda: self.lies_messergebnisse(),
+          tipp=tr("QIF-Messergebnisse den Merkmalen zuordnen (Kennung = Ballonnummer, sonst Name) und bewerten – "
+                  "die Merkmalsliste übernimmt die Messwerte"))
         A("stueckliste", tr("Stückliste …"), self.zeige_stueckliste,
           tipp=tr("Teile mit Anzahl, Volumen und Masse – Export als CSV"))
         A("kommentar", tr("Kommentar …"), lambda: self.neuer_kommentar(), "K",
@@ -763,6 +766,7 @@ class Hauptfenster(QtWidgets.QMainWindow):
         m.addAction(a["kollision"])
         m.addAction(a["scan_pruefen"])
         m.addAction(a["verzahnung"])
+        m.addAction(a["messergebnisse"])
         self.menue_fenster = mb.addMenu(tr("&Fenster"))
         for d in (self.dock_baum, self.dock_ansichten, self.dock_pmi, self.dock_messen, self.dock_analyse,
                   self.dock_kommentare, self.dock_aenderungen, self.dock_scan, self.dock_kollision,
@@ -2532,9 +2536,40 @@ class Hauptfenster(QtWidgets.QMainWindow):
         if not pfad:
             return None
         with open(pfad, "w", encoding="utf-8-sig", newline="") as f:
-            f.write(merkmale.als_csv(merkmale.liste(self.erg.pmi), self.erg.ansichten))
+            f.write(merkmale.als_csv(merkmale.liste(self.erg.pmi), self.erg.ansichten, self.messung_aktuell()))
         self.statusBar().showMessage(tr("Merkmalsliste gespeichert: {}").format(pfad), 8000)
         return pfad
+
+    def messung_aktuell(self) -> dict | None:
+        """Ballonnummer -> (Messwert, Bewertung) der eingelesenen Messergebnisse zum geladenen Modell."""
+        gemerkt = getattr(self, "_messung", None)
+        return gemerkt[1] if gemerkt and gemerkt[0] is self.erg else None
+
+    def lies_messergebnisse(self, pfad: str = ""):
+        from ..kern import merkmale, qif_ergebnisse as qe
+        from .messergebnisse_ui import MessergebnisseFenster
+        if self.erg is None:
+            self.statusBar().showMessage(tr("Erst das Modell öffnen, dann die Messergebnisse"), 6000)
+            return None
+        pfad = pfad or QtWidgets.QFileDialog.getOpenFileName(self, tr("Messergebnisse öffnen"), "",
+                                                             "QIF (*.qif *.QIF *.xml)")[0]
+        if not pfad:
+            return None
+        try:
+            werte, angaben = qe.lies(pfad)
+        except Exception as e:  # noqa: BLE001 - kaputte Datei dem Nutzer melden
+            QtWidgets.QMessageBox.warning(self, tr("Messergebnisse"), str(e))
+            return None
+        liste = merkmale.liste(self.erg.pmi)
+        je = qe.zuordnen(werte, liste)
+        messung = {m.ballon: qe.massgebend(m, je[m.ballon]) for m in liste if m.ballon in je}
+        self._messung = (self.erg, messung)
+        frei = len(werte) - sum(len(v) for v in je.values())
+        f = MessergebnisseFenster(liste, messung, angaben, frei, self)
+        f.gewaehlt.connect(lambda p: self.pmi.waehle(lambda q: q is p))
+        f.show()
+        self._messergebnisse = f
+        return f
 
     def zeige_stueckliste(self, nur_anlegen: bool = False):
         if self.erg is None:
