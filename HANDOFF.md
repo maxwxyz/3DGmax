@@ -37,6 +37,9 @@ Done in this local session (commit):
 - Clashes with mesh parts and mixed pairs (approximate, marked ≈) – `d102cce`.
 - Drawing: hatched section views – `3b89458`; sheet formats A4–A0 with frame, title block, standard scale – `6e4850b`.
 - Gear recognition (§8.27) stage 1 – `0c1a2ec`; gear pairs – `fb273a5` (test generator `werkzeuge/zahnrad.py`).
+- Plausibility: gear data in notes vs geometry – `b9ad4aa`.
+- Save STEP with edited PMI (§8.28): lossless value replacement – `aecf915`; own PMI appended as semantic AP242
+  entities (single parts) – `e0a123d`, angular dimensions – `d56697f`. Full suite green before these (247 passed).
 
 **Deferred questions for the user** (do not block on them):
 - UI/UX stage 2 (workspaces) changes the layout a lot – implement only after you have read `docs/UI_UX_Plan.md`?
@@ -47,6 +50,9 @@ Done in this local session (commit):
 - Comparison modes: shortcuts Alt+1…6 chosen because 1–7 are the standard views – OK?
 - Stack-up "Kraftrichtung": implemented as "directions from the closing dimension" (two faces) instead of a load
   direction, because a load direction alone does not give unambiguous signs – OK?
+
+**Check in CATIA/NX please:** open a STEP written by File › Save STEP with edited PMI (edited values and own PMI
+from the advisor) – OCCT and our reader read it; a commercial reader is the real test of the CAx-IF structure.
 
 **Visual check on the real screen still open** (screen locked / no capture permission tonight):
 - Comparison "Side by side": in `View.Dump` the old-state view showed a black background and no view cube – check
