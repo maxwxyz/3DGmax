@@ -33,6 +33,21 @@ BEISPIELE = (
              "NIST FTC-10: Auflage, Zentrierung, Verdrehsicherung und Anschlag sind zugeordnet – Bezüge A|B|C "
              "vorgeschlagen; Rollen, Bezüge, Passungen und Toleranzen in der Tabelle ändern, dann „Tolerierung "
              "vorschlagen …“", (FTC10,)),
+    Beispiel("messen", "Messen",
+             "NIST CTC-01: Messen ist an (Abstand) – zwei Elemente im Modell anklicken; Winkel, Radius, Wandstärke "
+             "und Koordinaten in der Leiste Messen", (CTC01,)),
+    Beispiel("analyse", "Analyse: Entformungsschräge",
+             "NIST FTC-10: Entformung in +Z mit 1° Mindestschräge – grün genug Schräge, rot zu wenig; in der Leiste "
+             "Analyse auch Krümmung und Wandstärke", (FTC10,)),
+    Beispiel("merkmale", "Merkmalsliste mit Ballonnummern",
+             "NIST FTC-10: jedes Merkmal (Maß, Form- und Lagetoleranz) mit Nummer im Modell und in der PMI-Liste; "
+             "Datei › Export: Merkmalsliste als CSV oder PDF", (FTC10,)),
+    Beispiel("kette2d", "2D-Toleranzkette (Hebel)",
+             "Vorlage Hebel mit Lagerabstand: Längen und Winkel mit Abmaßen, Schlussgröße linear und nichtlinear – "
+             "ohne Modell, alles in der Leiste änderbar", ()),
+    Beispiel("kette3d", "3D-Kette aus einer Baugruppen-Messgröße",
+             "Testbaugruppe: Bündigkeit der Schraubenköpfe als 3D-Kette – je Teil auf dem Verbindungsweg ein Glied "
+             "mit seinen Spielräumen, im Modell gezeigt", ("baugruppe.stp",)),
     Beispiel("zonen", "Toleranzzonen mit Allgemeintoleranzen",
              "NIST FTC-10: alle Toleranzzonen (gelb), Bonus bei Ⓜ/Ⓛ (magenta), Allgemeintoleranzen ISO 2768-mK "
              "(violett)", (FTC10,)),

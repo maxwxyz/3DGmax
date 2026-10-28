@@ -131,8 +131,7 @@ display only; tolerance zones move to "Tolerieren").
   chain, function → tolerancing (today several of these are separate windows). Dialogs only for short, finishing
   inputs: open, export, settings, materials, allocation, approval. A panel never closes through a work action
   (e.g. "Scan ausblenden" closed the scan tab) – actions hide or show content, only the × closes the tab.
-- Done 2026-10-28: scan check with the comparison mode bar (Vergleich/Soll/Ist/Blinken; side by side for scans
-  still open) and the same review walk (status, comment, G/A keys, counter, report and CSV).
+- Done 2026-10-28: scan check with the comparison mode bar (Vergleich/Soll/Ist/Nebeneinander/Blinken) and the same review walk (status, comment, G/A keys, counter, report and CSV).
 - **Compare and check in one workspace:** a scan check is a comparison "target (CAD) ↔ actual (scan)": the same mode
   bar (overlay, side by side with coupled cameras, blink, target only, actual only), the PMI results (ok / not ok /
   at the limit) in the place of the change list with the same review walk (checked / rejected, comment) and the same
@@ -165,6 +164,8 @@ display only; tolerance zones move to "Tolerieren").
 - **Multi-selection order (user, 2026-10-28):** with several selected faces/elements the earlier ones are shown
   slightly darker than the last selected one (same hue, only a little darker), so the last selection – which e.g.
   decides the reference face of a measure or the end of a chain – is recognisable.
+- Done 2026-10-28: examples review – new examples measure, analysis (draft), characteristics with balloons, 2D chain
+  (lever template, no model), 3D chain from an assembly measure (19 examples, each tested); scan side by side.
 - **Examples for the main functions (user, 2026-10-28):** after the UI stage 2 rebuild, check that every main
   function has an example under File › Examples (and on the start page) that shows it working and explains in one
   line what to look at: compare (geometry, PMI, assembly), scan check, tolerance chain 1D/2D/3D and from an assembly

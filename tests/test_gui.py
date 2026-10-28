@@ -940,7 +940,11 @@ def test_scanpruefung_im_fenster(fenster_ctc01):
     assert f.ansicht.abweichung is not None and not f.ansicht.abweichung_ueberlagert
     f.scan_leiste.knoepfe["soll"].click()
     assert f.ansicht.abweichung is None and f.scan.aus.isChecked()  # Knopf "Scan ausblenden" folgt
+    f.scan_leiste.knoepfe["nebeneinander"].click()  # links Soll, rechts Ist, gekoppelt
+    assert f.ansicht_alt is not None and f.ansicht_alt.isVisibleTo(f) and f._kopplung.isActive()
+    assert f.ansicht.abweichung is not None and not f.ansicht.abweichung_ueberlagert
     f.scan_leiste.knoepfe["blinken"].click()
+    assert not f.ansicht_alt.isVisibleTo(f)
     zeigt = []
     for _ in range(3):
         f._scan_blinken()
@@ -988,7 +992,7 @@ def _beispiele(f, namen):
             continue
         assert beispiele.dateien(b) is not None, b.name
         assert f.oeffne_beispiel(b.name, warten=True), b.name
-        assert f.erg is not None and getattr(f, "_nach_laden", None) is None, b.name
+        assert (f.erg is not None or not b.dateien) and getattr(f, "_nach_laden", None) is None, b.name
         if b.name == "pmi":
             assert f._ansicht_pmi_ids
         elif b.name == "zonen":
@@ -1003,6 +1007,21 @@ def _beispiele(f, namen):
             assert f._kette.glieder and abs(f._kette.cp.value() - 1.33) < 1e-9
         elif b.name == "kollision":
             assert f.ansicht.kollision is not None and f.ansicht.kollision[1] is not None
+        elif b.name == "messen":
+            assert f.ansicht.messmodus and f.dock_messen.isVisible()
+            f.aktionen["messen"].trigger()
+        elif b.name == "analyse":
+            assert f.dock_analyse.isVisible() and f.ansicht.abweichung is not None
+            f.ansicht.zeige_abweichung(None)
+        elif b.name == "merkmale":
+            assert f.aktionen["ballone"].isChecked() and f.ansicht.ballone
+            f.aktionen["ballone"].trigger()
+        elif b.name == "kette2d":
+            assert len(f._kette2d.kette.segmente) == 3
+            f._kette2d.reject()
+        elif b.name == "kette3d":
+            assert len(f._kette3d.kette.glieder) == 3 and f.ansicht.hilfslinien
+            f._kette3d.reject()
         elif b.name == "funktion":
             w = f._funktion
             assert len(w.rollen) >= 3 and [x.buchstabe for x in w.bezugssystem().bezuege][:2] == ["A", "B"]
@@ -1025,9 +1044,10 @@ def test_beispiele_modell(fenster):
     from programm.kern import beispiele
     assert {b.name for b in beispiele.BEISPIELE} == {"pmi", "pruefen", "zonen", "schnittansicht", "kette", "scan",
                                                       "vergleich_pmi", "vergleich_geo", "baugruppe", "kollision",
-                                                      "zusammenbau", "variation", "kette_getriebe", "funktion"}
+                                                      "zusammenbau", "variation", "kette_getriebe", "funktion",
+                                                      "messen", "analyse", "merkmale", "kette2d", "kette3d"}
     _beispiele(fenster, ("pmi", "pruefen", "zonen", "schnittansicht", "kette", "kollision", "zusammenbau",
-                         "funktion"))
+                         "funktion", "messen", "analyse", "merkmale", "kette2d", "kette3d"))
 
 
 def test_baugruppenvariation_im_fenster(fenster, tmp_path):
@@ -1262,7 +1282,8 @@ def test_reiter_menue_blendet_leisten_ein(fenster_ctc01):
     for _ in range(5):
         app.processEvents()
     leiste = next(l for l in f.findChildren(QtWidgets.QTabBar, options=QtCore.Qt.FindChildOption.FindDirectChildrenOnly)
-                  if l.isVisible() and l.count() > 1)
+                  if l.isVisible() and l.count() > 1 and  # die Gruppe mit der PMI-Liste (es gibt mehrere)
+                  f.dock_pmi.windowTitle() in [l.tabText(i) for i in range(l.count())])
     assert leiste.contextMenuPolicy() == QtCore.Qt.ContextMenuPolicy.CustomContextMenu
     f.dock_kommentare.hide()
     m = f._tab_menue(leiste, QtCore.QPoint(5, 5), ausfuehren=False)
@@ -2174,3 +2195,29 @@ def test_messen_in_der_leiste(fenster_ctc01):
     f.dock_messen.toggleViewAction().trigger()  # Leiste schliessen
     app.processEvents()
     assert not f.aktionen["messen"].isChecked() and not f.ansicht.messmodus
+
+
+def test_inspektor(fenster_ctc01):
+    """Inspektor zeigt zur letzten Auswahl Eigenschaften und Befehle: Flaeche im Modell, PMI in der Liste, Teil in
+    der Struktur; ohne Auswahl einen Hinweis."""
+    f = fenster_ctc01
+    app = QtWidgets.QApplication.instance()
+    i = f.inspektor
+    f.ansicht.setze_auswahl([])
+    app.processEvents()
+    assert i.leer.isVisibleTo(i)
+    loch = next(p for p in f.erg.pmi if p.typ == "Size_Diameter" and p.flaechen)
+    f.ansicht.setze_auswahl([f.erg.modell.flaechen[min(loch.flaechen)]])
+    app.processEvents()
+    texte = {i.tabelle.item(z, 0).text() for z in range(i.tabelle.rowCount())}
+    assert i.titel.text().startswith(("Fläche", "Face")) and ("PMI an der Auswahl" in texte or "PMI on the selection" in texte)
+    befehle = {k.defaultAction() for k in i.knoepfe}
+    assert f.aktionen["zoom_auswahl"] in befehle and f.aktionen["toleranzzone"] in befehle
+    f.pmi.waehle(lambda p: p is loch)
+    app.processEvents()
+    assert i.titel.text().startswith(f"{loch.nummer}:") and any("Toleranzkette" in k.text() or "chain" in k.text()
+                                                                   for k in i.knoepfe)
+    f.baum.baum.setCurrentItem(f.baum.baum.topLevelItem(0))
+    app.processEvents()
+    assert f.aktionen["isolieren"] in {k.defaultAction() for k in i.knoepfe}
+    assert "inspektor" in __import__("programm.ui.arbeitsbereiche", fromlist=["x"]).GEMEINSAM

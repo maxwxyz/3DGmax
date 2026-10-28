@@ -10,17 +10,17 @@ from ..i18n import tr
 
 # (Schluessel, kurzer Name im Reiter, voller Name, Tooltip, Leisten) - Leisten als Namen der Attribute dock_<name>
 BEREICHE = (
-    ("ansehen", "Ansehen", "Ansehen", "Modell, PMI und gespeicherte Ansichten lesen", ("baum", "ansichten", "pmi")),
+    ("ansehen", "Ansehen", "Ansehen", "Modell, PMI und gespeicherte Ansichten lesen", ("baum", "ansichten", "inspektor", "pmi")),
     ("vergleichen", "Vergleich", "Vergleichen & Prüfen", "Zwei Stände vergleichen und die Änderungen prüfen, Scan "
-                                                          "gegen Toleranzen prüfen", ("baum", "aenderungen", "scan", "pmi")),
+                                                          "gegen Toleranzen prüfen", ("baum", "inspektor", "aenderungen", "scan", "pmi")),
     ("messen", "Messen", "Messen & Analysieren", "Messen, Analysen (Entformung, Krümmung, Wandstärke), Kommentare",
-     ("baum", "messen", "analyse", "kommentare")),
+     ("baum", "inspektor", "messen", "analyse", "kommentare")),
     ("tolerieren", "Tolerieren", "Tolerieren", "PMI und Toleranzzonen, PMI anlegen, Toleranzkette, Funktion → "
-                                              "Tolerierung", ("baum", "pmi", "kette", "kette2d", "kette3d", "funktion")),
+                                              "Tolerierung", ("baum", "inspektor", "pmi", "kette", "kette2d", "kette3d", "funktion")),
     ("zusammenbau", "Zusammenbau", "Zusammenbau", "Teile verbinden, Wiggle, Baugruppenvariation, Kollisionen",
-     ("baum", "zusammenbau", "kollision")),
+     ("baum", "inspektor", "zusammenbau", "kollision")),
 )
-GEMEINSAM = {"baum", "pmi", "ansichten"}  # in mehreren Bereichen: oeffnen sie sich, bleibt der Bereich
+GEMEINSAM = {"baum", "pmi", "ansichten", "inspektor"}  # in mehreren Bereichen: oeffnen sie sich, bleibt der Bereich
 
 
 def leisten(schluessel: str) -> tuple:

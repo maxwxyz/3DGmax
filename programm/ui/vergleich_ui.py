@@ -620,6 +620,8 @@ MODI = (("vergleich", "Vergleich", "Neuer Stand nach Status gefärbt, entfernte 
 SCAN_MODI = (("vergleich", "Vergleich", "Scan mit Abweichungs-Farbkarte, darüber das CAD-Modell durchscheinend"),
              ("soll", "Soll", "Nur das CAD-Modell"),
              ("ist", "Ist", "Nur der Scan mit Farbkarte"),
+             ("nebeneinander", "Nebeneinander", "Links Soll (CAD-Modell), rechts Ist (Scan mit Farbkarte), Kameras "
+                                                "gekoppelt"),
              ("blinken", "Blinken", "Wechselt zwischen Soll und Ist; Leertaste wechselt von Hand"))
 BLINK_TAKTE = ((300, "0,3 s"), (600, "0,6 s"), (1000, "1 s"), (2000, "2 s"))
 

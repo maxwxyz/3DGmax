@@ -203,6 +203,10 @@ class Hauptfenster(QtWidgets.QMainWindow):
         self.dock_baum.setObjectName("dock_Struktur")  # eindeutig fuer den gemerkten Fensterzustand
         self.dock_ansichten = self._dock(tr("Gespeicherte Ansichten"), self.ansichten,
                                          QtCore.Qt.DockWidgetArea.LeftDockWidgetArea)
+        from .inspektor import InspektorPanel
+        self.inspektor = InspektorPanel()  # Eigenschaften und Befehle der aktuellen Auswahl
+        self.dock_inspektor = self._dock(tr("Inspektor"), self.inspektor, QtCore.Qt.DockWidgetArea.LeftDockWidgetArea)
+        self.tabifyDockWidget(self.dock_ansichten, self.dock_inspektor)
         self.dock_pmi = self._dock(tr("PMI"), self.pmi, QtCore.Qt.DockWidgetArea.RightDockWidgetArea)
         self.messen = MessPanel()
         self.dock_messen = self._dock(tr("Messen"), self.messen, QtCore.Qt.DockWidgetArea.RightDockWidgetArea)
@@ -511,7 +515,7 @@ class Hauptfenster(QtWidgets.QMainWindow):
                     d.show()
                 elif name not in GEMEINSAM:  # Struktur, PMI, Ansichten verschwinden beim Umschalten nie
                     d.hide()
-            vorne = next((n for n in gewollt if n not in ("baum", "ansichten") and self._leiste_moeglich(n, schluessel)),
+            vorne = next((n for n in gewollt if n not in ("baum", "ansichten", "inspektor") and self._leiste_moeglich(n, schluessel)),
                          None)
             if vorne is not None:
                 getattr(self, "dock_" + vorne).raise_()
@@ -1023,6 +1027,7 @@ class Hauptfenster(QtWidgets.QMainWindow):
         self.start.vergleichen.connect(lambda: self.starte_vergleich())
         self._beispiel_menue(self.start.beispiele_menue)
         self.pmi.gewaehlt.connect(self._pmi_gewaehlt)
+        self.pmi.gewaehlt.connect(lambda pmi: pmi and self.inspektor_zeigen("pmi"))
         self.pmi.filter_geaendert.connect(self._pmi_filter)
         self.pmi.befehl.connect(self._pmi_befehl)
         self.ansichten.gewaehlt.connect(self._ansicht_gewaehlt)
@@ -1047,6 +1052,8 @@ class Hauptfenster(QtWidgets.QMainWindow):
             lambda n, an: self.ansicht_alt and self.ansicht_alt.knoten_transparent(n, an))
         self.baum.baum.itemSelectionChanged.connect(
             lambda: self.ansicht.setze_fokus(self.ansicht.fokus, self.baum.gewaehlte_blaetter()))
+        self.baum.baum.itemSelectionChanged.connect(lambda: self.inspektor_zeigen("baum"))
+        self.ansicht.auswahl_geaendert.connect(lambda formen: self.inspektor_zeigen("3d" if formen else None))
         self.ansicht.element_gewaehlt.connect(self.messen.element)
         self.ansicht.kontextmenue.connect(self._kontextmenue_3d)
         self.messen.messungen_geaendert.connect(self.ansicht.zeige_messungen)
@@ -1275,6 +1282,10 @@ class Hauptfenster(QtWidgets.QMainWindow):
             self.oeffne_kette(pfade[0], warten)
             self.statusBar().showMessage(text, 20000)
             return True
+        if name == "kette2d":  # ohne Modell
+            self.zeige_kette2d().lade_vorlage("hebel")
+            self.statusBar().showMessage(text, 20000)
+            return True
 
         def zeigen(*schritte):
             def weiter():
@@ -1299,6 +1310,11 @@ class Hauptfenster(QtWidgets.QMainWindow):
             "zusammenbau": [self._beispiel_zusammenbau],
             "variation": [self._beispiel_variation],
             "funktion": [self._beispiel_funktion],
+            "messen": [lambda: self.aktionen["messen"].isChecked() or self.aktionen["messen"].trigger()],
+            "analyse": [lambda: (self.zeige_analyse_leiste(), self.ansicht.standard("iso"),
+                                 self.starte_analyse("entformung", {"richtung": "+z", "mindest": 1.0}, warten))],
+            "merkmale": [lambda: self.aktionen["ballone"].isChecked() or self.aktionen["ballone"].trigger()],
+            "kette3d": [self._beispiel_variation, lambda: self.messgroesse_als_kette3d(2)],
         }[name]
         self._nach_laden = zeigen(*schritte)
         self.lade(pfade[0], warten)
@@ -1432,6 +1448,68 @@ class Hauptfenster(QtWidgets.QMainWindow):
     def _schnell_aus(self) -> set[str]:
         wert = self.ein.value("schnellinfo_aus", []) or []
         return {wert} if isinstance(wert, str) else set(wert)  # QSettings liefert eine Einzelangabe als Text
+
+    def inspektor_zeigen(self, quelle: str | None = None):
+        """Inspektor nach der zuletzt geaenderten Auswahl: 3D (Flaechen/Kanten), Struktur (Teile) oder PMI-Liste."""
+        from ..kern import schnellinfo
+        if quelle is not None:
+            self._inspektor_quelle = quelle
+        quelle = getattr(self, "_inspektor_quelle", None)
+        a = self.aktionen
+        if self.erg is None:
+            return self.inspektor.zeige("", [], [])
+        if quelle == "3d" and self.ansicht.auswahl3d:
+            formen = list(self.ansicht.auswahl3d)
+            namen = {k.nummer: k.name for k in self.erg.baum.blaetter()}
+            teile = sorted({namen.get(t, "") for t in self.ansicht.auswahl_teile if t is not None} - {""})
+            idx = [i for i in (self.erg.modell.flaechen_index(f) for f in formen) if i is not None]
+            pmi = [p for p in self.erg.pmi if p.flaechen & set(idx)]
+            titel = (tr("{} Elemente").format(len(formen)) if len(formen) > 1 else
+                     tr("Fläche {}").format(idx[0]) if idx else tr("Kante"))
+            eigen = [(tr("Teil"), ", ".join(teile))] if teile else []
+            eigen += schnellinfo.info(formen)
+            eigen += [(tr("PMI an der Auswahl"), ", ".join(f"{p.nummer}: {p.wert_text()}" for p in pmi[:6]) +
+                       (" …" if len(pmi) > 6 else ""))] if pmi else []
+            befehle = [a[n] for n in ("zoom_auswahl", "normal_auswahl", "schnitt_auswahl", "teil_isolieren",
+                                      "fokus", "teil_ausblenden")]
+            if pmi:
+                befehle.append(a["toleranzzone"])
+            return self.inspektor.zeige(titel, eigen, befehle)
+        if quelle == "pmi" and self.pmi.gewaehlte():
+            pmi = self.pmi.gewaehlte()
+            titel = (f"{pmi[0].nummer}: {pmi[0].wert_text()}" if len(pmi) == 1 else tr("{} PMI").format(len(pmi)))
+            return self.inspektor.zeige(titel, schnellinfo.pmi_info(pmi), self._inspektor_pmi_aktionen(pmi))
+        if quelle == "baum" and self.baum.gewaehlte_blaetter():
+            nummern = self.baum.gewaehlte_blaetter()
+            knoten = [k for k in self.erg.baum.blaetter() if k.nummer in nummern]
+            titel = knoten[0].name if len(knoten) == 1 else tr("{} Teile").format(len(knoten))
+            eigen = [(tr("Teile"), ", ".join(k.name for k in knoten[:8]) + (" …" if len(knoten) > 8 else ""))]
+            return self.inspektor.zeige(titel, eigen, [a[n] for n in ("isolieren", "transparent", "fokus")])
+        return self.inspektor.zeige("", [], [])
+
+    def _inspektor_pmi_aktionen(self, pmi: list) -> list:
+        """Befehle fuer gewaehlte PMI (eigene QActions, einmal angelegt)."""
+        b = getattr(self, "_insp_pmi", None)
+        if b is None:
+            def aktion(text, tipp, slot):
+                x = QtGui.QAction(text, self)
+                x.setToolTip(tipp)
+                x.triggered.connect(slot)
+                return x
+            b = self._insp_pmi = {
+                "zoom": aktion(tr("Auf PMI zoomen"), tr("Ausschnitt auf die Flächen und die Darstellung der PMI"),
+                               lambda: self._pmi_befehl("zoomen", self.pmi.gewaehlte())),
+                "bearbeiten": aktion(tr("Bearbeiten …"), tr("Wert, Toleranz und Passung der PMI ändern"),
+                                     lambda: self._pmi_befehl("bearbeiten", self.pmi.gewaehlte()[0])),
+                "kette": aktion(tr("In die Toleranzkette (+)"), tr("Gewählte Maße als Glieder an die Toleranzkette "
+                                                                    "anhängen"), lambda: self._kette_uebernehmen(+1)),
+            }
+        out = [b["zoom"], self.aktionen["toleranzzone"]]
+        if len(pmi) == 1 and pmi[0].art in ("mass", "toleranz"):
+            out.append(b["bearbeiten"])
+        if any(p.art == "mass" and p.nennwert is not None for p in pmi):
+            out.append(b["kette"])
+        return out
 
     def _schnell_auswahl(self, formen):
         self._schnell_formen = list(formen)
@@ -2121,9 +2199,8 @@ class Hauptfenster(QtWidgets.QMainWindow):
     def _baum_ansicht(self):
         return self.ansicht_alt if self._vergleichsmodus == "alt" and self.ansicht_alt is not None else self.ansicht
 
-    def _alte_ansicht(self):
-        """Ansicht des alten Stands anlegen bzw. mit dem alten Stand des aktuellen Vergleichs fuellen."""
-        v = self.vergleich
+    def _zweite_ansicht_anlegen(self):
+        """Zweite 3D-Ansicht links (Vergleich: alter Stand, Scanpruefung: Soll) - einmal anlegen."""
         if self.ansicht_alt is None:
             self.ansicht_alt = ansicht3d.erzeuge(self)
             self.ansicht_alt.setze_thema(self.thema)
@@ -2133,6 +2210,21 @@ class Hauptfenster(QtWidgets.QMainWindow):
             self._farben_anwenden()
             self.teiler.insertWidget(0, self.ansicht_alt)
             self.ansicht_alt.hide()
+        return self.ansicht_alt
+
+    def _soll_ansicht(self):
+        """Scanpruefung nebeneinander: links das CAD-Modell (Soll)."""
+        a = self._zweite_ansicht_anlegen()
+        if self._alt_szene_fuer is not self.erg:
+            e = self.erg
+            a.zeige(ansicht3d.Szene(e.modell, e.baum, e.farben, e.grafik, e.pmi))
+            self._alt_szene_fuer = e
+        return a
+
+    def _alte_ansicht(self):
+        """Ansicht des alten Stands anlegen bzw. mit dem alten Stand des aktuellen Vergleichs fuellen."""
+        v = self.vergleich
+        self._zweite_ansicht_anlegen()
         if self._alt_szene_fuer is not v:
             a = v.alt
             self.ansicht_alt.zeige(ansicht3d.Szene(a.modell, a.baum, a.farben, a.grafik, a.pmi))
@@ -2261,7 +2353,7 @@ class Hauptfenster(QtWidgets.QMainWindow):
     def _kameras_koppeln(self):
         """Die zuletzt bewegte Kamera auf die andere Ansicht uebertragen (Nebeneinander, Blinken, Alt)."""
         alt = self.ansicht_alt
-        if alt is None or self.vergleich is None:
+        if alt is None or (self.vergleich is None and getattr(self, "_scanmodus", "") != "nebeneinander"):
             return
         ka, kn = alt.kamera_daten(), self.ansicht.kamera_daten()
         za, zn = self._kamera_zuletzt
@@ -4109,7 +4201,14 @@ class Hauptfenster(QtWidgets.QMainWindow):
             self._scan_blink.start()
         else:
             self._scan_blink.stop()
-        self._scan_zeigen("soll" if modus == "blinken" else modus)
+        if modus == "nebeneinander":  # links Soll (CAD), rechts Ist (Scan), Kameras gekoppelt
+            self._soll_ansicht().show()
+            self._kamera_zuletzt = (None, None)
+            self._kopplung.start()
+        elif self.vergleich is None and self.ansicht_alt is not None:
+            self.ansicht_alt.hide()
+            self._kopplung.stop()
+        self._scan_zeigen({"blinken": "soll", "nebeneinander": "ist"}.get(modus, modus))
         self.scan_leiste.zeige_stand(True if modus == "blinken" else None)
 
     def _scan_zeigen(self, art: str):
@@ -4132,6 +4231,9 @@ class Hauptfenster(QtWidgets.QMainWindow):
         self._scan = None
         self._scan_karte = None
         self._scan_blink.stop()
+        if self.vergleich is None and self.ansicht_alt is not None:
+            self.ansicht_alt.hide()
+            self._kopplung.stop()
         self.scan_leiste.hide()
         self.ansicht.zeige_abweichung(None)
         self.scan.zeige([], "")
