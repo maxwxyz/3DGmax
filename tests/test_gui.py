@@ -699,6 +699,13 @@ def test_pmi_bearbeiten_und_loeschen(fenster_ctc01, tmp_path):
     f.oeffne_projekt(projekt, warten=True)
     m2 = next(p for p in f.erg.pmi if p.step_id == m.step_id)
     assert m2.oben == 0.3 and m2.bearbeitet
+    # in eine Kopie der STEP-Datei schreiben: geschrieben oder begruendet uebersprungen, Datei lesbar
+    from programm.ui.lader import lade_alles
+    ziel = f.speichere_step_pmi(str(tmp_path / "neu.stp"), melden=False)
+    b = f._step_bericht
+    assert ziel and {x for x in b.geschrieben + [u[:2] for u in b.uebersprungen] if x[0] == m2.nummer}
+    if (m2.nummer, "oben") in b.geschrieben:
+        assert next(p for p in lade_alles(ziel).pmi if p.step_id == m.step_id).oben == 0.3
     loch = next(p for p in f.erg.pmi if p.typ == "Size_Diameter" and p.flaechen)
     f.ansicht.setze_auswahl([f.erg.modell.flaechen[i] for i in sorted(loch.flaechen)])
     neue = f.pmi_anlegen(uebernehmen=["Position"])

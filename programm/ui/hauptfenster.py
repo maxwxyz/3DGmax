@@ -486,6 +486,9 @@ class Hauptfenster(QtWidgets.QMainWindow):
         A("verzahnung", tr("Verzahnung erkennen …"), lambda: self.erkenne_verzahnung(),
           tipp=tr("Zähnezahl, Modul, Eingriffswinkel, Schrägung, Profilverschiebung und Zahnweite der gewählten Teile "
                   "(ohne Auswahl: aller sichtbaren) aus der Geometrie – Export CSV/JSON"))
+        A("step_pmi_speichern", tr("STEP mit geänderten PMI speichern …"), lambda: self.speichere_step_pmi(),
+          tipp=tr("Kopie der STEP-Datei, in der nur die bearbeiteten PMI-Werte ersetzt sind – alles andere bleibt "
+                  "unverändert"))
         A("stueckliste", tr("Stückliste …"), self.zeige_stueckliste,
           tipp=tr("Teile mit Anzahl, Volumen und Masse – Export als CSV"))
         A("kommentar", tr("Kommentar …"), lambda: self.neuer_kommentar(), "K",
@@ -664,6 +667,7 @@ class Hauptfenster(QtWidgets.QMainWindow):
         m.addAction(a["vergleich_beenden"])
         m.addSeparator()
         m.addAction(a["projekt_speichern"])
+        m.addAction(a["step_pmi_speichern"])
         me = m.addMenu(tr("Exportieren"))
         for n in ("pdf_ansichten", "merkmale_pdf", "pdf_messungen", "pdf_kommentare", "pdf_vergleich",
                   "pdf_pmi_aenderungen"):
@@ -2656,6 +2660,38 @@ class Hauptfenster(QtWidgets.QMainWindow):
         self.pmi.zeige(self.erg.pmi, self.erg.ansichten)
         self.pmi.waehle(lambda q: q is p)
         self.statusBar().showMessage(tr("PMI {} geändert: {}").format(p.nummer, p.wert_text()), 6000)
+
+    def speichere_step_pmi(self, pfad: str = "", melden: bool = True):
+        """Bearbeitete PMI-Werte in eine Kopie der STEP-Datei schreiben (kern.step_schreiben) und berichten."""
+        from ..kern import step_schreiben
+        if self.erg is None or not self.erg.pfad.lower().endswith((".stp", ".step")):
+            self.statusBar().showMessage(tr("Nur für STEP-Dateien"), 5000)
+            return None
+        if not any(p.bearbeitet and p.original and p.quelle != "eigen" for p in self.erg.pmi):
+            self.statusBar().showMessage(tr("Keine bearbeiteten PMI aus der Datei"), 5000)
+            return None
+        basis, endung = os.path.splitext(self.erg.pfad)
+        pfad = pfad or self._speicherpfad(tr("STEP speichern"), basis + "_geaendert" + endung, "STEP (*.stp *.step)")
+        if not pfad:
+            return None
+        if os.path.abspath(pfad) == os.path.abspath(self.erg.pfad):
+            QtWidgets.QMessageBox.warning(self, tr("STEP speichern"), tr("Bitte unter neuem Namen speichern – die "
+                                                                         "Originaldatei bleibt unverändert."))
+            return None
+        b = step_schreiben.schreibe(self.erg.pfad, pfad, self.erg.pmi)
+        felder = {"nennwert": tr("Nennmaß"), "oben": tr("Oberes Abmaß"), "unten": tr("Unteres Abmaß"),
+                  "wert": tr("Toleranzwert"), "passung": tr("Toleranzklasse"), "material": tr("Materialbedingung")}
+        zeilen = [tr("{} Werte geschrieben.").format(len(b.geschrieben))]
+        zeilen += [tr("Nicht geschrieben: PMI {} {} – {}").format(n, felder.get(f, f), grund)
+                   for n, f, grund in b.uebersprungen]
+        if b.grafik_veraltet:
+            zeilen.append(tr("Die grafische Darstellung von PMI {} zeigt noch die alten Werte.").format(
+                ", ".join(map(str, b.grafik_veraltet))))
+        self._step_bericht = b
+        if melden:
+            QtWidgets.QMessageBox.information(self, tr("STEP gespeichert"), f"{pfad}\n\n" + "\n".join(zeilen))
+        self.statusBar().showMessage(tr("STEP gespeichert: {}").format(pfad), 8000)
+        return pfad
 
     def loesche_eigene_pmi(self, liste):
         weg = {id(p) for p in liste if p.quelle == "eigen"}

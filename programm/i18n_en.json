@@ -1393,5 +1393,20 @@
 "Profilüberdeckung εα": "Transverse contact ratio εα",
 "Sprungüberdeckung εβ": "Overlap ratio εβ",
 "Hinweis nennt Verzahnungsdaten, im Modell ist keine Evolventenverzahnung erkennbar": "A note states gear data, but no involute gear is recognisable in the model",
-"Verzahnung: Hinweis {} = {:g}, Geometrie {:.4g}": "Gear: note {} = {:g}, geometry {:.4g}"
+"Verzahnung: Hinweis {} = {:g}, Geometrie {:.4g}": "Gear: note {} = {:g}, geometry {:.4g}",
+"Bitte unter neuem Namen speichern – die Originaldatei bleibt unverändert.": "Please save under a new name – the original file stays unchanged.",
+"Die grafische Darstellung von PMI {} zeigt noch die alten Werte.": "The graphical presentation of PMI {} still shows the old values.",
+"Keine bearbeiteten PMI aus der Datei": "No edited PMI from the file",
+"Kopie der STEP-Datei, in der nur die bearbeiteten PMI-Werte ersetzt sind – alles andere bleibt unverändert": "Copy of the STEP file in which only the edited PMI values are replaced – everything else stays unchanged",
+"Nicht geschrieben: PMI {} {} – {}": "Not written: PMI {} {} – {}",
+"Nur für STEP-Dateien": "STEP files only",
+"STEP gespeichert": "STEP saved",
+"STEP gespeichert: {}": "STEP saved: {}",
+"STEP mit geänderten PMI speichern …": "Save STEP with edited PMI …",
+"STEP speichern": "Save STEP",
+"Wert wird von mehreren PMI geteilt": "value is shared by several PMI",
+"Zahl nicht gefunden": "number not found",
+"keine Entsprechung in der Datei": "no counterpart in the file",
+"nicht schreibbar": "not writable",
+"{} Werte geschrieben.": "{} values written."
 }

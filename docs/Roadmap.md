@@ -100,7 +100,8 @@
 | Datum reference frame display for a selected tolerance | ✅ |
 | Create PMI with tolerancing advisor (stage 1: rules per selection, own PMI in project) | ✅ |
 | Edit existing PMI (values, fit, material condition; saved in the project) | ✅ |
-| Write PMI back to STEP AP242 (dimensions/datums via OCCT, geometric tolerances via own P21 writer – PLAN §8.28), advisor stage 2 | ⬜ |
+| Write edited PMI values back into a copy of the STEP file (lossless, own P21 editing) – PLAN §8.28 stage 1 | ✅ |
+| Write new/own PMI to STEP AP242 (dimensions, datums, geometric tolerances as new P21 entities), advisor stage 2 | ⬜ |
 
 ## Measuring
 | Feature | Status |

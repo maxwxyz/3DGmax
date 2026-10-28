@@ -807,6 +807,15 @@ CAx-IF recommended practice for PMI; validated by reading back with our reader a
 save own/edited PMI, semantic PMI derived from graphical-only PMI (after review), PMI edited in the advisor.
 Alternatives: QIF export (own XML writer, also the exchange format for CMM software); ask pythonocc to wrap
 `XCAFDoc_GeomTolerance` (upstream issue).
+- Experiment 2026-10-28: the OCCT round trip (read with GD&T mode into XCAF, write AP242) is lossy – NIST FTC-10 81 → 69
+  semantic PMI (datum targets gone, some diameters/positions merged), CTC-01 changes dimension types. So existing PMI
+  must not go through XCAF.
+- Done 2026-10-28 (stage 1, `kern/step_schreiben.py`, File › Save STEP with edited PMI): edited values are written by
+  replacing only the numbers of their measure entities in the original text (tolerance magnitude, 'nominal value' /
+  'upper limit' / 'lower limit', TOLERANCE_VALUE bounds; file units), the rest of the file stays byte-identical;
+  report for fit class, material condition, values without counterpart, shared measure entities; hint that the
+  polyline presentation still shows the old values. Open (stage 2): new/own PMI as appended P21 entities (CAx-IF
+  practice), fit class and modifiers, optionally regenerated presentation.
 
 ### 8.29 Test strategy: run only the affected tests (requested 2026-10-27)
 The full suite takes ~25–28 min (180 tests, many load NIST models, compare, check scans or open the window). Rule
