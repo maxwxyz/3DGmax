@@ -2,7 +2,8 @@
 
 kontur() schneidet exakt (BRepAlgoAPI_Section) und tastet die Schnittkanten ab; Netzmodelle ohne Geometrie
 werden ueber ihre Dreiecke geschnitten. blatt() legt die Konturen mehrerer Ebenen nebeneinander auf ein Blatt,
-die Ausgabe als SVG/DXF uebernimmt kern.zeichnung.
+schnittansichten() die Schnittansichten (Rest hinter der Ebene als Kantenansicht, Schnittflaeche schraffiert, ISO
+128-50: 45 Grad, schmale Linie); die Ausgabe als SVG/DXF uebernimmt kern.zeichnung.
 """
 
 from __future__ import annotations
@@ -141,6 +142,83 @@ def blatt(form, ebenen: list[Ebene], abstand: float = 20.0) -> list:
     for i, e in enumerate(ebenen, 1):
         a = zeichnung.Ansicht2D(e.name or f"Schnitt {i}")
         a.linien[zeichnung.SICHTBAR] = in_ebene(kontur(form, e), e)
+        lo, hi = a.grenzen()
+        a.versatz = (x - lo[0], -lo[1])
+        x += float(hi[0] - lo[0]) + abstand
+        out.append(a)
+    return out
+
+
+def schraffur(konturen: list[np.ndarray], abstand: float, winkel: float = 45.0) -> list[np.ndarray]:
+    """Schraffurlinien in den geschlossenen 2D-Konturen (gerade/ungerade: Loecher bleiben frei)."""
+    w = np.radians(winkel)
+    r = np.array([[np.cos(w), np.sin(w)], [-np.sin(w), np.cos(w)]])  # Linienrichtung -> x
+    stuecke = []
+    for k in konturen:
+        k = np.asarray(k, float) @ r.T
+        if len(k) >= 3 and np.linalg.norm(k[0] - k[-1]) > 1e-9:
+            k = np.vstack([k, k[:1]])  # schliessen
+        if len(k) >= 2:
+            stuecke.append((k[:-1], k[1:]))
+    if not stuecke:
+        return []
+    a = np.vstack([s[0] for s in stuecke])
+    b = np.vstack([s[1] for s in stuecke])
+    y0, y1 = min(a[:, 1].min(), b[:, 1].min()), max(a[:, 1].max(), b[:, 1].max())
+    out = []
+    for y in np.arange(np.floor(y0 / abstand) * abstand + abstand / 2, y1, abstand):
+        kreuzt = (a[:, 1] <= y) != (b[:, 1] <= y)  # halboffen: Ecken zaehlen einmal
+        if not kreuzt.any():
+            continue
+        t = (y - a[kreuzt, 1]) / (b[kreuzt, 1] - a[kreuzt, 1])
+        xs = np.sort(a[kreuzt, 0] + t * (b[kreuzt, 0] - a[kreuzt, 0]))
+        for x_a, x_b in zip(xs[0::2], xs[1::2]):
+            if x_b - x_a > 1e-9:
+                out.append(np.array([[x_a, y], [x_b, y]]) @ r)
+    return out
+
+
+def _rest(form, ebene: Ebene):
+    """Form ohne die weggeschnittene Seite (Normalenrichtung) oder None (Netz, Fehler)."""
+    from OCC.Core.BRepAlgoAPI import BRepAlgoAPI_Cut
+    from OCC.Core.BRepBuilderAPI import BRepBuilderAPI_MakeFace
+    from OCC.Core.BRepPrimAPI import BRepPrimAPI_MakeHalfSpace
+    from OCC.Core.gp import gp_Dir, gp_Pln, gp_Pnt
+    n = np.asarray(ebene.normale, float)
+    n = n / np.linalg.norm(n)
+    p = np.asarray(ebene.punkt, float)
+    flaeche = BRepBuilderAPI_MakeFace(gp_Pln(gp_Pnt(*map(float, p)), gp_Dir(*map(float, n)))).Face()
+    weg = BRepPrimAPI_MakeHalfSpace(flaeche, gp_Pnt(*map(float, p + n))).Solid()
+    schnitt = BRepAlgoAPI_Cut(form, weg)
+    return schnitt.Shape() if schnitt.IsDone() and not schnitt.Shape().IsNull() else None
+
+
+def schnittansicht(form, ebene: Ebene, verdeckt: bool = False, abstand: float | None = None):
+    """Ansicht auf die Schnittflaeche (von der weggeschnittenen Seite): Kanten des Rests, Schnittkontur und
+    Schraffur (Abstand nach Groesse, etwa 1/40 der Konturbreite, 0,5 ... 5 mm)."""
+    n = np.asarray(ebene.normale, float)
+    richtung, oben = -n, _oben(n)
+    rest = _rest(form, ebene) if not zeichnung._netze(form) else None
+    if rest is not None:
+        a = zeichnung.projiziere(rest, richtung, oben, ebene.name, verdeckt)
+    else:
+        a = zeichnung.Ansicht2D(ebene.name)
+    _, x, y = zeichnung._achsen(richtung, oben)
+    m = np.column_stack([x, y])
+    konturen = [np.asarray(k, float) @ m for k in kontur(form, ebene)]
+    a.linien[zeichnung.SICHTBAR] += konturen
+    if konturen:
+        alle = np.vstack(konturen)
+        breite = float(max(np.ptp(alle[:, 0]), np.ptp(alle[:, 1])))
+        a.linien[zeichnung.SCHRAFFUR] = schraffur(konturen, abstand or min(5.0, max(0.5, breite / 40)))
+    return a
+
+
+def schnittansichten(form, ebenen: list[Ebene], abstand: float = 20.0) -> list:
+    """Je Ebene eine Schnittansicht, nebeneinander (fuer zeichnung.als_svg/als_dxf)."""
+    out, x = [], 0.0
+    for e in ebenen:
+        a = schnittansicht(form, e)
         lo, hi = a.grenzen()
         a.versatz = (x - lo[0], -lo[1])
         x += float(hi[0] - lo[0]) + abstand

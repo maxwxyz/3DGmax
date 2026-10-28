@@ -17,7 +17,7 @@
 | Clipping box around the selection | ✅ |
 | Focus mode: everything except the selection translucent (faces, PMI, tree parts) | ✅ |
 | Multiple section planes (up to three, union or common region), section contour export SVG/DXF/PDF | ✅ |
-| Section views from the model (hatched section in drawings) | ⬜ |
+| Section views from the model (hatched section in drawings) | ✅ |
 | 3D selection of faces/edges (multiple), context menu, zoom to selection, align normal (upright: edges level, annotations readable), flip view | ✅ |
 | View cube with axes (chamfered edges/corners, click aligns, drag rotates) | ✅ |
 | Wireframe: click through to hidden edges | ✅ |

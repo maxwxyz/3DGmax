@@ -721,6 +721,11 @@ def test_mehrere_schnittebenen_und_kontur(fenster_ctc01, tmp_path):
     dxf = f.exportiere_schnittkontur(str(tmp_path / "s.dxf"))
     assert svg and "<polyline" in open(svg, encoding="utf-8").read()
     assert "LINE" in open(dxf).read()
+    # Schnittansichten mit Schraffur (eine je Ebene)
+    dxf = f.exportiere_zeichnung("schnitt", str(tmp_path / "a.dxf"))
+    text = open(dxf).read()
+    assert "SCHRAFFUR" in text.split("ENTITIES")[1] and "SICHTBAR" in text.split("ENTITIES")[1]
+    assert f.exportiere_zeichnung("schnitt", str(tmp_path / "a.pdf"))
     f.aktionen["schnitt_aus"].trigger()
     assert f.ansicht.schnitt_ebenen == [] and f.ansicht.alle_schnitt_ebenen() == []
 
@@ -734,6 +739,27 @@ def test_schnittkontur_kern(ctc01):
     lo = np.vstack(schnitt.in_ebene(linien, y0)).min(axis=0)
     hi = np.vstack(schnitt.in_ebene(linien, y0)).max(axis=0)
     assert abs((hi[0] - lo[0]) - 800) < 0.5 and abs((hi[1] - lo[1]) - 100) < 0.5  # Plattenbreite, Hoehe
+
+
+def test_schnittansicht_schraffur():
+    """Platte mit Bohrung: Schraffur in der Schnittflaeche, die Bohrung bleibt frei; Rest hinter der Ebene."""
+    import numpy as np
+    from OCC.Core.BRepAlgoAPI import BRepAlgoAPI_Cut
+    from OCC.Core.BRepPrimAPI import BRepPrimAPI_MakeBox, BRepPrimAPI_MakeCylinder
+    from OCC.Core.gp import gp_Ax2, gp_Dir, gp_Pnt
+    from programm.kern import schnitt, zeichnung
+    form = BRepAlgoAPI_Cut(BRepPrimAPI_MakeBox(40, 30, 10).Shape(),
+                           BRepPrimAPI_MakeCylinder(gp_Ax2(gp_Pnt(20, 15, -1), gp_Dir(0, 0, 1)), 5, 12).Shape()).Shape()
+    a = schnitt.schnittansicht(form, schnitt.Ebene(np.array([20.0, 15, 5]), np.array([0.0, -1, 0]), "A–A"))
+    linien = a.linien[zeichnung.SCHRAFFUR]
+    x = np.vstack(linien)[:, 0]
+    assert len(linien) > 10 and abs(x.min()) < 1e-6 and abs(x.max() - 40) < 1e-6
+    assert not any(min(l[:, 0]) < 24.9 and max(l[:, 0]) > 15.1 for l in linien)  # Bohrung frei
+    lo, hi = a.grenzen()
+    assert np.allclose(hi - lo, [40, 10], atol=1e-6)
+    assert 'stroke-width="0.13"' in zeichnung.als_svg([a])
+    # Schraffur ohne Kontur: nichts
+    assert schnitt.schraffur([], 1.0) == []
 
 
 def test_fokusmodus(fenster_ctc01):

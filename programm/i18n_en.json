@@ -1340,5 +1340,8 @@
 "Serie: normal (Toleranz = ±3σ · Cp); Kleinserie: Dreieck; Einzelteil: gleichverteilt; Trapez: dazwischen; Betrag 1./2. Art: Form-, Lauf- und Positionsabweichungen ab 0 (schief)": "Series: normal (tolerance = ±3σ · Cp); small batch: triangular; one-off: uniform; trapezoidal: in between; folded normal/Rayleigh: form, runout and position deviations from 0 (skewed)",
 "an allen {} Instanzen": "at all {} instances",
 "{} von {} Instanzen": "{} of {} instances",
-"Netzteil: aus Dreiecken genähert (genau etwa bis zur Netzfeinheit)": "Mesh part: approximated from triangles (accurate to about the mesh size)"
+"Netzteil: aus Dreiecken genähert (genau etwa bis zur Netzfeinheit)": "Mesh part: approximated from triangles (accurate to about the mesh size)",
+"Je Schnittebene (festgehaltene und aktuelle) eine Ansicht auf die Schnittfläche, schraffiert – als PDF, SVG oder DXF": "One view onto the cut face per section plane (kept and current), hatched – as PDF, SVG or DXF",
+"Schnittansicht": "Section view",
+"Zeichnung: Schnittansichten …": "Drawing: section views …"
 }

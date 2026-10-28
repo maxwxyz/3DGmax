@@ -2,7 +2,8 @@
 
 projiziere(): sichtbare und verdeckte Kanten einer Form fuer eine Blickrichtung als 2D-Polylinien (mm in der
 Bildebene). blatt(): Drei-Tafel-Projektion plus Iso, Anordnung nach Norm (ISO: Projektionsmethode 1 / E,
-ASME: Methode 3 / A). Ausgabe als SVG und DXF (R12, LINE) hier, PDF ueber Qt in ui.berichte.
+ASME: Methode 3 / A). Schnittansichten mit Schraffur in kern.schnitt. Ausgabe als SVG und DXF (R12, LINE) hier,
+PDF ueber Qt in ui.berichte.
 """
 
 from __future__ import annotations
@@ -11,13 +12,14 @@ from dataclasses import dataclass, field
 
 import numpy as np
 
-SICHTBAR, VERDECKT, PMI = "sichtbar", "verdeckt", "pmi"
+SICHTBAR, VERDECKT, PMI, SCHRAFFUR = "sichtbar", "verdeckt", "pmi", "schraffur"
 
 
 @dataclass
 class Ansicht2D:
     name: str
-    linien: dict[str, list[np.ndarray]] = field(default_factory=lambda: {SICHTBAR: [], VERDECKT: [], PMI: []})
+    linien: dict[str, list[np.ndarray]] = field(default_factory=lambda: {SICHTBAR: [], VERDECKT: [], PMI: [],
+                                                                         SCHRAFFUR: []})
     versatz: tuple[float, float] = (0.0, 0.0)  # Lage auf dem Blatt (mm)
     pmi_flaechen: list[np.ndarray] = field(default_factory=list)  # gefuellte Dreiecke (Pfeile, Schrift) 2D
     texte: list[tuple] = field(default_factory=list)  # (Ort 2D, Winkel Grad, Hoehe, Text) aus Platzhaltern
@@ -301,7 +303,7 @@ def als_svg(ansichten: list[Ansicht2D], titel: str = "") -> str:
     for a, art, p in _alle(ansichten):
         q = np.column_stack([p[:, 0] - lo[0], hi[1] - p[:, 1]])  # SVG: y nach unten
         stil = {SICHTBAR: 'stroke-width="0.35"', VERDECKT: 'stroke-width="0.18" stroke-dasharray="2 1"',
-                PMI: 'stroke-width="0.18" stroke="#1d4ed8"'}[art]
+                PMI: 'stroke-width="0.18" stroke="#1d4ed8"', SCHRAFFUR: 'stroke-width="0.13"'}[art]
         punkte = " ".join(f"{x:.3f},{y:.3f}" for x, y in q)
         teile.append(f'<polyline {stil} points="{punkte}"/>')
     teile.append("</g>")
@@ -325,13 +327,14 @@ def als_dxf(ansichten: list[Ansicht2D]) -> str:
     """DXF R12 (ASCII): Linien auf den Layern SICHTBAR und VERDECKT (Linientyp DASHED)."""
     z = ["0", "SECTION", "2", "TABLES", "0", "TABLE", "2", "LTYPE", "70", "1",
          "0", "LTYPE", "2", "DASHED", "70", "0", "3", "Dashed", "72", "65", "73", "2", "40", "3.0", "49", "2.0",
-         "49", "-1.0", "0", "ENDTAB", "0", "TABLE", "2", "LAYER", "70", "3",
+         "49", "-1.0", "0", "ENDTAB", "0", "TABLE", "2", "LAYER", "70", "4",
          "0", "LAYER", "2", "SICHTBAR", "70", "0", "62", "7", "6", "CONTINUOUS",
          "0", "LAYER", "2", "VERDECKT", "70", "0", "62", "8", "6", "DASHED",
-         "0", "LAYER", "2", "PMI", "70", "0", "62", "5", "6", "CONTINUOUS", "0", "ENDTAB", "0", "ENDSEC",
+         "0", "LAYER", "2", "PMI", "70", "0", "62", "5", "6", "CONTINUOUS",
+         "0", "LAYER", "2", "SCHRAFFUR", "70", "0", "62", "9", "6", "CONTINUOUS", "0", "ENDTAB", "0", "ENDSEC",
          "0", "SECTION", "2", "ENTITIES"]
     for _, art, p in _alle(ansichten):
-        layer = {SICHTBAR: "SICHTBAR", VERDECKT: "VERDECKT", PMI: "PMI"}[art]
+        layer = {SICHTBAR: "SICHTBAR", VERDECKT: "VERDECKT", PMI: "PMI", SCHRAFFUR: "SCHRAFFUR"}[art]
         for (xa, ya), (xb, yb) in zip(p[:-1], p[1:]):
             z += ["0", "LINE", "8", layer, "10", f"{xa:.4f}", "20", f"{ya:.4f}", "30", "0.0",
                   "11", f"{xb:.4f}", "21", f"{yb:.4f}", "31", "0.0"]

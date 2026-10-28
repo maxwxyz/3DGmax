@@ -520,6 +520,9 @@ class Hauptfenster(QtWidgets.QMainWindow):
         A("zeichnung_ansichten", tr("Zeichnung: gespeicherte Ansichten (PDF) …"),
           lambda: self.exportiere_zeichnung("ansichten"),
           tipp=tr("Eine Zeichnungsseite je gespeicherter Ansicht, aus deren Kamera und mit deren PMI"))
+        A("zeichnung_schnitt", tr("Zeichnung: Schnittansichten …"), lambda: self.exportiere_zeichnung("schnitt"),
+          tipp=tr("Je Schnittebene (festgehaltene und aktuelle) eine Ansicht auf die Schnittfläche, schraffiert – als "
+                  "PDF, SVG oder DXF"))
         A("zeichnung_pmi", tr("PMI in Zeichnungen"), lambda: self.ein.setValue(
             "zeichnung_pmi", self.aktionen["zeichnung_pmi"].isChecked()), pruefbar=True,
           tipp=tr("Grafische PMI der Ansicht in die Zeichnung übernehmen"))
@@ -663,7 +666,7 @@ class Hauptfenster(QtWidgets.QMainWindow):
                   "pdf_pmi_aenderungen"):
             me.addAction(a[n])
         me.addSeparator()
-        for n in ("zeichnung_blatt", "zeichnung_aktuell", "zeichnung_ansichten", "zeichnung_pmi"):
+        for n in ("zeichnung_blatt", "zeichnung_aktuell", "zeichnung_ansichten", "zeichnung_schnitt", "zeichnung_pmi"):
             me.addAction(a[n])
         me.addSeparator()
         for n in ("pmi_export", "merkmale_csv", "kommentare_csv", "aenderungen_export"):
@@ -2412,8 +2415,12 @@ class Hauptfenster(QtWidgets.QMainWindow):
         from . import berichte
         if self.erg is None:
             return None
+        ebenen = self.ansicht.alle_schnitt_ebenen() if art == "schnitt" else []
+        if art == "schnitt" and not ebenen:
+            self.statusBar().showMessage(tr("Erst einen Schnitt wählen"), 5000)
+            return None
         basis = os.path.splitext(self.erg.pfad)[0] + {"blatt": "_zeichnung", "aktuell": "_ansicht",
-                                                      "ansichten": "_ansichten_zeichnung"}[art]
+                                                      "ansichten": "_ansichten_zeichnung", "schnitt": "_schnitte"}[art]
         filter_text = "PDF (*.pdf)" if art == "ansichten" else "PDF (*.pdf);;SVG (*.svg);;DXF (*.dxf)"
         pfad = pfad or self._speicherpfad(tr("Zeichnung speichern"), basis + ".pdf", filter_text)
         if not pfad:
@@ -2444,7 +2451,16 @@ class Hauptfenster(QtWidgets.QMainWindow):
                     berichte.zeichnung_pdf(seiten, pfad, name, "")
                 self.statusBar().showMessage(tr("Zeichnung gespeichert: {}").format(pfad), 8000)
                 return pfad if seiten else None
-            if art == "blatt":
+            if art == "schnitt":
+                import numpy as np
+                from ..kern import schnitt
+                buchstaben = "ABC"
+                liste = [schnitt.Ebene(np.asarray(p, float), -np.asarray(r, float),
+                                       tr("Schnitt {}").format(f"{buchstaben[i]}–{buchstaben[i]}"))
+                         for i, (p, r) in enumerate(ebenen)]
+                ansichten = schnitt.schnittansichten(form, liste)
+                methode = tr("Schnittansicht")
+            elif art == "blatt":
                 ansichten = zeichnung.blatt(form, art_norm)
                 methode = tr("Projektionsmethode 3 (ASME)") if art_norm == norm.ASME else tr("Projektionsmethode 1 (ISO E)")
             else:
