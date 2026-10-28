@@ -40,6 +40,13 @@ Done in this local session (commit):
 - Plausibility: gear data in notes vs geometry – `b9ad4aa`.
 - Save STEP with edited PMI (§8.28): lossless value replacement – `aecf915`; own PMI appended as semantic AP242
   entities (single parts) – `e0a123d`, angular dimensions – `d56697f`. Full suite green before these (247 passed).
+- QIF measurement results (assign by balloon, assess, into the characteristics list; official QIF sample under
+  Boost licence in `tests/daten/qif/`) – `96c09f4`; ring zones per cross-section – `72b6699`; 3-2-1 template –
+  `1eb9c93`; histogram in the assembly report – `542fc64`; axis measures – `7b273cd`; scan roundness/runout per
+  cross-section – `dea17e8`; datums as contact per ISO 5459 – `2abb796`.
+- Not done for lack of a verifiable source or test data (kept open in the roadmap): ISO 286 b/t–zc/>500 mm (isofits
+  has none of them), surface texture/weld symbols (no sample file), large-assembly LOD (no large model; 3.7 MB STEP
+  loads in 2.4 s).
 
 **Deferred questions for the user** (do not block on them):
 - UI/UX stage 2 (workspaces) changes the layout a lot – implement only after you have read `docs/UI_UX_Plan.md`?
