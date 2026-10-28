@@ -109,3 +109,36 @@ def test_gewinde_und_ganzes_teil_nist():
     ganz = next(p for p in pmi if getattr(p, "ganzes_teil", False))
     z = tz.zone(ganz, m, alle_pmi=pmi)
     assert len(z.formen) > 100 and any("ganze Teil" in h for h in z.hinweise)
+
+
+def test_huelle_einer_halbschale_nur_ueber_ihren_winkel():
+    """Bohrung aus zwei Halbschalen (wie oft in STEP aus CATIA): die Huellen einer Lagetoleranz auf einer Halbschale
+    liegen nur ueber deren Winkel, nicht als voller Zylinder um die ganze Achse."""
+    from OCC.Core.Bnd import Bnd_Box
+    from OCC.Core.BRepAlgoAPI import BRepAlgoAPI_Cut
+    from OCC.Core.BRepBndLib import brepbndlib
+    from OCC.Core.BRepPrimAPI import BRepPrimAPI_MakeBox, BRepPrimAPI_MakeCylinder
+    from OCC.Core.ShapeUpgrade import ShapeUpgrade_ShapeDivideClosed
+    from OCC.Core.gp import gp_Ax2, gp_Dir, gp_Pnt
+    form = BRepAlgoAPI_Cut(BRepPrimAPI_MakeBox(60, 40, 20).Shape(), BRepPrimAPI_MakeCylinder(
+        gp_Ax2(gp_Pnt(30, 20, -1), gp_Dir(0, 0, 1)), 10, 22).Shape()).Shape()
+    teilen = ShapeUpgrade_ShapeDivideClosed(form)
+    teilen.SetNbSplitPoints(1)
+    teilen.Perform()
+    flaechen = _flaechen(teilen.Result())
+    halbe = [i for i, f in enumerate(flaechen) if tz._achse([f]) is not None]
+    assert len(halbe) == 2
+    modell = SimpleNamespace(flaechen=flaechen)
+    p = Pmi(TOLERANZ, "Perpendicularity", "", wert=0.02, modifikatoren=["Diameter"],
+            bezuege=[BezugsRef("A", 1)], flaechen={halbe[0]})
+    z = tz.zone(p, modell, faktor=10.0)
+    huellen = [f for f, r in zip(z.formen, z.rollen) if r == tz.HUELLE]
+    assert len(huellen) == 2
+    seite = []
+    for f in huellen:
+        b = Bnd_Box()
+        brepbndlib.Add(f, b)
+        x0, y0, _z0, x1, y1, _z1 = b.Get()
+        assert y1 - y0 < 10.5 and abs((x1 - x0) / 2 - 10) < 0.2  # halber Ring, Radius ~10 (ueberhoeht +-0,1)
+        seite.append(y0 > 19.9)
+    assert len(set(seite)) == 1  # beide Huellen auf der Seite der Halbschale

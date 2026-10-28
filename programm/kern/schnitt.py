@@ -128,6 +128,115 @@ def kontur(form, ebene: Ebene, abweichung: float | None = None) -> list[np.ndarr
     return _verketten(stuecke, groesse * 1e-6)
 
 
+def _anzeige_netze(form) -> list[tuple[np.ndarray, np.ndarray]]:
+    """(Punkte, Dreiecke) der vorhandenen Triangulierung aller Flaechen (auch exakter: die der Anzeige), in Lage."""
+    from OCC.Core.BRep import BRep_Tool
+    from OCC.Core.TopAbs import TopAbs_FACE
+    from OCC.Core.TopExp import TopExp_Explorer
+    from OCC.Core.TopLoc import TopLoc_Location
+    from OCC.Core.TopoDS import topods
+    out = []
+    ex = TopExp_Explorer(form, TopAbs_FACE)
+    while ex.More():
+        loc = TopLoc_Location()
+        tri = BRep_Tool.Triangulation(topods.Face(ex.Current()), loc)
+        ex.Next()
+        if tri is None or tri.NbTriangles() == 0:
+            continue
+        trsf = loc.Transformation()
+        pts = np.array([(q.X(), q.Y(), q.Z()) for q in (tri.Node(i).Transformed(trsf)
+                                                       for i in range(1, tri.NbNodes() + 1))], float)
+        tris = np.array([tri.Triangle(i).Get() for i in range(1, tri.NbTriangles() + 1)], int) - 1
+        out.append((pts, tris))
+    return out
+
+
+def _segmente(netze, punkt, n) -> np.ndarray:
+    """Schnitt der Dreiecke mit der Ebene, vektorisiert: (m, 2, 3) Linienstuecke."""
+    alle = []
+    for p, t in netze:
+        d = (p - punkt) @ n
+        dd = d[t]  # (k, 3)
+        quer = (dd.min(axis=1) < 0) & (dd.max(axis=1) >= 0)  # auf der Ebene zaehlt als positive Seite
+        if not quer.any():
+            continue
+        t, dd = t[quer], dd[quer]
+        stuecke = []
+        for i, j in ((0, 1), (1, 2), (2, 0)):
+            a, b = dd[:, i], dd[:, j]
+            schneidet = (a < 0) != (b < 0)
+            s = np.where(schneidet, a / np.where(schneidet, a - b, 1.0), 0.0)
+            q = p[t[:, i]] * (1 - s)[:, None] + p[t[:, j]] * s[:, None]
+            stuecke.append((schneidet, q))
+        # je Dreieck genau zwei geschnittene Kanten: die ersten zwei gueltigen Punkte
+        maske = np.stack([m for m, _ in stuecke], axis=1)  # (k, 3)
+        punkte = np.stack([q for _, q in stuecke], axis=1)  # (k, 3, 3)
+        zwei = maske.sum(axis=1) == 2
+        reihenfolge = np.argsort(~maske[zwei], axis=1, kind="stable")[:, :2]
+        alle.append(np.take_along_axis(punkte[zwei], reihenfolge[:, :, None], axis=1))
+    if not alle:
+        return np.zeros((0, 2, 3))
+    seg = np.concatenate(alle)
+    return seg[np.linalg.norm(seg[:, 1] - seg[:, 0], axis=1) > 1e-12]  # Ecke genau auf der Ebene: kein Stueck
+
+
+def _verketten_schnell(segmente: np.ndarray, eps: float) -> list[np.ndarray]:
+    """Linienstuecke ueber gerundete Endpunkte (Raster eps) zu Linienzuegen verbinden - linear statt quadratisch."""
+    schluessel = [tuple(k) for k in np.round(segmente.reshape(-1, 3) / eps).astype(np.int64)]
+    an = {}
+    for i, k in enumerate(schluessel):
+        an.setdefault(k, []).append(i // 2)
+    benutzt = np.zeros(len(segmente), bool)
+    out = []
+    for start in range(len(segmente)):
+        if benutzt[start]:
+            continue
+        benutzt[start] = True
+        kette = [segmente[start][0], segmente[start][1]]
+        for richtung in (1, -1):  # erst am Ende weiter, dann am Anfang
+            while True:
+                ende = kette[-1] if richtung == 1 else kette[0]
+                k = tuple(np.round(ende / eps).astype(np.int64))
+                naechstes = next((j for j in an.get(k, []) if not benutzt[j]), None)
+                if naechstes is None:
+                    break
+                benutzt[naechstes] = True
+                a, b = segmente[naechstes]
+                weiter = b if tuple(np.round(a / eps).astype(np.int64)) == k else a
+                if richtung == 1:
+                    kette.append(weiter)
+                else:
+                    kette.insert(0, weiter)
+        out.append(np.array(kette))
+    return out
+
+
+def kontur_anzeige(form, ebene: Ebene) -> list[np.ndarray]:
+    """Schnittkontur fuer die Anzeige aus der Triangulierung (so genau wie das Bild, schnell auch bei grossen
+    Teilen; der exakte Schnitt braucht bei komplexen Teilen Sekunden). Ohne Triangulierung wird einmal vernetzt."""
+    netze = _anzeige_netze(form)
+    if not netze:
+        from OCC.Core.Bnd import Bnd_Box
+        from OCC.Core.BRepBndLib import brepbndlib
+        from OCC.Core.BRepMesh import BRepMesh_IncrementalMesh
+        box = Bnd_Box()
+        brepbndlib.Add(form, box)
+        if box.IsVoid():
+            return []
+        x0, y0, z0, x1, y1, z1 = box.Get()
+        BRepMesh_IncrementalMesh(form, max(x1 - x0, y1 - y0, z1 - z0) * 1e-3, False, 0.5, True)
+        netze = _anzeige_netze(form)
+        if not netze:
+            return kontur(form, ebene)
+    n = np.asarray(ebene.normale, float)
+    n = n / np.linalg.norm(n)
+    seg = _segmente(netze, np.asarray(ebene.punkt, float), n)
+    if not len(seg):
+        return []
+    groesse = float(np.ptp(seg.reshape(-1, 3), axis=0).max()) or 1.0
+    return _verketten_schnell(seg, groesse * 1e-7)
+
+
 def in_ebene(linien: list[np.ndarray], ebene: Ebene) -> list[np.ndarray]:
     """3D-Linienzuege in 2D-Koordinaten der Ebene."""
     x, y = ebene.achsen()

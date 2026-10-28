@@ -48,6 +48,7 @@ class Kette3D:
     richtung: tuple = (0.0, 0.0, 1.0)  # Richtung am Funktionspunkt (fuer "winkel")
     schluss: str = "z"
     ziel: tuple = (0.0, 0.0, 0.0)  # Zielpunkt (abstand) bzw. Zielrichtung (winkel) in der Basis
+    basis: list | None = None  # Lage der Basis im Modell (4x4), z. B. aus einer Baugruppen-Messgroesse; None: Welt
 
 
 def _drehung(rx: float, ry: float, rz: float) -> np.ndarray:
@@ -110,9 +111,9 @@ def als_glieder(k: Kette3D) -> list[Glied]:
     for (i, c), d in e.items():
         g = k.glieder[i]
         w = g.werte[c]
-        linear += d * w.nenn
         if abs(d) < 1e-12 or w.oben == w.unten == 0:
-            continue
+            continue  # untolerierte Komponenten stecken im Linearisierungsrest
+        linear += d * w.nenn
         einheit = "°" if c.startswith("r") else ""
         glieder.append(Glied(f"{g.name} – {tr(KOMPONENTEN_TEXT[c])} {w.nenn:g}{einheit}", w.nenn, w.nenn + w.oben,
                              w.nenn + w.unten, 1 if d > 0 else -1, verteilung=g.verteilung, quelle="eigen",
@@ -140,14 +141,14 @@ def monte_carlo(k: Kette3D, proben: int = 20_000, cp: float = 1.0, zufall: int =
 def als_dict(k: Kette3D) -> dict:
     from dataclasses import asdict
     return {"glieder": [asdict(g) for g in k.glieder], "punkt": list(k.punkt), "richtung": list(k.richtung),
-            "schluss": k.schluss, "ziel": list(k.ziel)}
+            "schluss": k.schluss, "ziel": list(k.ziel), "basis": k.basis}
 
 
 def von_dict(d: dict) -> Kette3D:
     glieder = [Glied3D(g["name"], {c: Komponente(**g["werte"][c]) for c in KOMPONENTEN}, g.get("verteilung", "normal"))
                for g in d.get("glieder", [])]
     return Kette3D(glieder, tuple(d.get("punkt", (0, 0, 0))), tuple(d.get("richtung", (0, 0, 1))),
-                   d.get("schluss", "z"), tuple(d.get("ziel", (0, 0, 0))))
+                   d.get("schluss", "z"), tuple(d.get("ziel", (0, 0, 0))), d.get("basis"))
 
 
 def glied(name: str, **komponenten) -> Glied3D:

@@ -447,6 +447,34 @@ cylinders the fit of their role (hole → H, shaft → the shaft letter); values
 size (starting values; the chain and the cost optimisation set the final ones). Proposals go through the existing
 "PMI anlegen" dialog into own PMI and can be written to STEP AP242 (§8.28). Roles are stored in the project.
 Checked on a generated plate (A seat, B bore Ø20 H7 ⟂ A, C pin Ø6 H7 position Ⓜ A|B) and on NIST FTC-10.
+**Done 2026-10-28 (user request): editable function table.** Rows are features (`gruppen`: first face → all faces;
+several faces on the same cylinder – axis and diameter – or in the same plane become one, e.g. two half shells),
+role per combo box in the table, fit class and tolerance typed in (`werte`; empty/"auto" = start value from role and
+IT grade, shown greyed), "Flächen aus Auswahl" swaps the faces of a feature keeping role and values; geometry of a
+feature sums the area and spans all faces (`_geo`); stored in the project (old role-only format still read).
+Found on the way: position/perpendicularity envelopes were full cylinders around the axis even for a half shell –
+now offset copies of the actual faces (`_eine_achse`).
+
+**Planned after UI stage 2 (requested 2026-10-28): materials in hand-built chains (1D, 2D, 3D).** Today a chain
+built by hand (no model, or links typed in) has no material, so thermal expansion cannot use it. Clever default: a
+chain-wide material (combo with the material library of `kern/werkstoffe`, default steel) plus an optional material
+per link that overrides it (column "Werkstoff" in the 1D table, a field per segment/link in the 2D/3D editors; empty =
+chain material, shown greyed like the "auto" start values). Links taken from a model keep the material read from STEP;
+a link's material can still be changed. Stored in `.3dgkette`/`.3dgkette2d`/`.3dgkette3d` and the project; the
+thermal case (two limit temperatures, per-part temperatures) then works for hand-built 2D/3D chains as for 1D
+(lengths × α × ΔT on the length components; angles unchanged).
+
+**Planned (requested 2026-10-28): preview of the proposal in 3D.** Before "PMI anlegen", show the proposed
+tolerancing in the model. **Datum proposal first:** the proposed datum system (3-2-1) right after the roles are set –
+datum features coloured A/B/C with datum flags (triangle + letter) at the faces, per datum the degrees of freedom it
+locks (arrows/rings as in the DOF display of the assembly) and the DOF still open, with the reason from
+`bezugssystem` as tooltip; changing a role or picking another face as A/B/C updates it live. Then each proposal as a
+generated callout (stage 3 dimension lines/frames, marked as preview) at its face, the selected table row highlighted
+in the model and vice versa. Live: changing a role, a grade or ticking proposals on/off updates the preview at once
+(only the changed callouts are rebuilt); leaving the window or "Verwerfen" removes it, "PMI anlegen" turns the
+preview into own PMI. Optional toggle "Toleranzzonen": the zones of the proposed tolerances (§8.5, computed from the
+proposal before it becomes PMI – same colours as today, zone of the selected row highlighted), updated live with
+grade changes; plus an overlap check of the preview callouts (plan item 7).
 
 **Done 2026-10-28 – manual chains:** "＋ Glied" appends an own link (also without a model), name/nominal/limits
 editable by double-click for own links (PMI links stay protected outside the what-if), "－ Entfernen" removes.
@@ -479,6 +507,14 @@ vanish, the window warns and points to the non-linear result. Checked: tilt of t
 −1.75 mm/° in Z, linear σ within 10 % of the non-linear one. Open: deriving 3D chains from the assembly connections
 and the tolerance zones automatically (the assembly variation of §8.20 already covers gap/flush between parts),
 storing 2D/3D chains in files and the project.
+**Done 2026-10-28 (plan item 2):** `Analyse.als_kette3d` turns an assembly measure into a 3D chain – base glied
+"Bezug" aligned to the reference plane/direction of B (closing size = Z), then one glied per moving part on the
+connection path B → common mate → A (B side reversed), each the small displacement about the feature point of the
+part's first connection with per-component limits from an LP over the clearances to its mates (mates nominal). At
+that origin translation and tilt rows decouple: on the example assembly the linearised worst case equals the
+assembly analysis exactly (head to lid ±0.03, heads flush ±0.06, lid to plate ±0.1); with the fixing point as origin
+the box doubled the tilt lever (±0.24). `Kette3D.basis` places the chain in the model. Remaining: 2D chains and
+chains picked directly from model faces without an assembly (stage 2a of 1D covers the 1D case).
 
 **What a functional dimension chain is for** (answer for the user, background for the guide):
 - Analysis: does the function (gap, overlap, preload, alignment) hold for the given part tolerances – worst case or
@@ -771,6 +807,12 @@ Plan (each stage usable on its own; builds on §8.5 zones and the 1D chain of §
   variance shares; PDF; example. New connection types: pin–slot / line on plane (2 rows at the engagement ends),
   sphere on plane (1 row), ball joint (3 rows). Open: temperature, datum-shift effects, 3-2-1 template, chains
   across parts, measures on axes/points, histogram in the report, one-sided contact instead of symmetric play.
+- Done 2026-10-28 (plan item 1 of the evening order): thermal expansion of the measures at one operating temperature
+  (`Analyse.waermeverschiebung`: each part expands about its fixing point = centre of its connection features, the
+  fixing point follows the mating part along the connection tree; α preset from STEP materials, editable per part),
+  traffic light per measure (`bewertung`: green worst case incl. thermal shift within the target, yellow Monte Carlo
+  ≤ 0.27 % outside, red otherwise), measures at a clicked point (`Messgroesse.punkt` in file position of part A;
+  point to plane / point to axis for any face A), all in the PDF. Still open: datum shift, one-sided contact.
 - Done 2026-10-28: clash check at the tolerance limit positions (each connected part at the extremes of its
   clearance, others nominal; only findings that do not exist nominally, worst case per pair). Finding: the symmetric
   ±h of a planar contact lets a lid sink into its seat and the octagon of the radial play (up to 8 % larger) lets a

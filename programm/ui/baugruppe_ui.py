@@ -21,6 +21,8 @@ def _tabelle(spalten) -> QtWidgets.QTableWidget:
     return t
 
 
+AMPEL = {"gruen": "#2e9e48", "gelb": "#c99400", "rot": "#c0392b"}  # Bewertung der Messgroessen
+
 class BaugruppePanel(QtWidgets.QWidget):
     verbinden = QtCore.Signal(float)  # Versatz in mm
     verbinden_321 = QtCore.Signal(float)  # 3-2-1-Vorlage aus sechs gewaehlten Ebenen
@@ -34,13 +36,16 @@ class BaugruppePanel(QtWidgets.QWidget):
     tauschen = QtCore.Signal(int)
     mass_anlegen = QtCore.Signal()
     mass_entfernen = QtCore.Signal(int)  # Nummer der Messgroesse
+    neu_rechnen = QtCore.Signal()  # Temperatur oder Werkstoffe geaendert
     soll = QtCore.Signal(int, str)  # Nummer der Messgroesse, Soll-Text
     mass_pdf = QtCore.Signal()
+    mass_kette = QtCore.Signal(int)  # Nummer der Messgroesse als 3D-Kette
 
     VERBINDUNG_SPALTEN = ("Nr", "Teil", "Gegenteil", "Art", "Versatz", "Erfüllt", "Spielraum", "Herkunft")
     TEIL_SPALTEN = ("Teil", "Freiheitsgrade", "Lagestreuung X/Y/Z", "Offene Bewegungen")
     WIGGLE_ART = (("frei", "Freie Freiheitsgrade"), ("toleranz", "Innerhalb der Toleranzen"))
-    MASS_SPALTEN = ("Nr", "Messgröße", "Nennwert", "Worst Case", "Monte Carlo (99,73 %)", "Soll", "Außerhalb", "Cpk")
+    MASS_SPALTEN = ("Nr", "Messgröße", "Nennwert", "Worst Case", "Monte Carlo (99,73 %)", "Soll", "Außerhalb", "Cpk",
+                    "Δ Wärme", "Bewertung")
     BEITRAG_SPALTEN = ("Verbindung", "Art", "Bereich", "Anteil Worst Case", "Anteil statistisch")
 
     def __init__(self, parent=None):
@@ -117,11 +122,10 @@ class BaugruppePanel(QtWidgets.QWidget):
         self.bewegen_box.hide()
         lay.addWidget(self.bewegen_box)
         reihe = QtWidgets.QHBoxLayout()
-        self.wiggle_an = QtWidgets.QPushButton(tr("▶ Wiggle"))
+        self.wiggle_an = QtWidgets.QPushButton()  # nur Symbol: Abspielen / Anhalten
         self.wiggle_an.setCheckable(True)
-        self.wiggle_an.setToolTip(tr("Gewähltes Teil in seinen offenen Freiheitsgraden hin und her bewegen"))
-        self.wiggle_an.toggled.connect(
-            lambda an: self.wiggle_an.setText(tr("⏸ Anhalten") if an else tr("▶ Wiggle")))  # Zustand sichtbar
+        self._wiggle_symbol(False)
+        self.wiggle_an.toggled.connect(self._wiggle_symbol)  # Zustand sichtbar
         self.wiggle_an.toggled.connect(self._teil_gewaehlt)
         self.wiggle_art = QtWidgets.QComboBox()
         self.wiggle_art.setToolTip(tr("Wie bewegt wird: freie Freiheitsgrade oder innerhalb der Toleranzen bis zu den "
@@ -160,6 +164,14 @@ class BaugruppePanel(QtWidgets.QWidget):
         self._baue_masse()
         self.zeige(vb.Baugruppe(), {})
 
+    def _wiggle_symbol(self, an: bool):
+        """Abspielen- bzw. Anhalten-Symbol ohne Text; der Tooltip sagt, was ein Klick tut."""
+        stil = self.style()
+        bild = QtWidgets.QStyle.StandardPixmap.SP_MediaPause if an else QtWidgets.QStyle.StandardPixmap.SP_MediaPlay
+        self.wiggle_an.setIcon(stil.standardIcon(bild))
+        self.wiggle_an.setToolTip(tr("Wiggle anhalten") if an else
+                                  tr("Wiggle: gewähltes Teil in seinen offenen Freiheitsgraden hin und her bewegen"))
+
     def _baue_masse(self):
         seite = QtWidgets.QWidget()
         self.reiter.addTab(seite, tr("Messgrößen"))
@@ -183,14 +195,51 @@ class BaugruppePanel(QtWidgets.QWidget):
         self.mass_pdf_knopf = QtWidgets.QPushButton(tr("Als PDF …"))
         self.mass_pdf_knopf.setToolTip(tr("Bericht der Messgrößen mit Histogramm und Beitragsleistern als PDF"))
         self.mass_pdf_knopf.clicked.connect(self.mass_pdf.emit)
+        self.am_punkt = QtWidgets.QCheckBox(tr("am Klickpunkt"))
+        self.am_punkt.setToolTip(tr("Statt in der Flächenmitte am angeklickten Punkt der gemessenen Fläche messen "
+                                    "(beliebige Fläche zur Ebene oder Achse der Bezugsfläche), z. B. den Spalt an "
+                                    "einer Ecke"))
         reihe.addWidget(self.mass_knopf, 1)
+        reihe.addWidget(self.am_punkt)
+        self.mass_kette_knopf = QtWidgets.QPushButton(tr("Als 3D-Kette"))
+        self.mass_kette_knopf.setToolTip(tr("Gewählte Messgröße als 3D-Toleranzkette öffnen: je Teil auf dem "
+                                            "Verbindungsweg ein Glied mit seinen Spielräumen, zum Bearbeiten und "
+                                            "Übernehmen in die Toleranzkette"))
+        self.mass_kette_knopf.clicked.connect(lambda: (nr := self.gewaehlte_messgroesse()) and
+                                              self.mass_kette.emit(nr))
         reihe.addWidget(self.mass_weg)
+        reihe.addWidget(self.mass_kette_knopf)
         reihe.addWidget(self.mass_pdf_knopf)
         lay.addLayout(reihe)
+        waerme = QtWidgets.QHBoxLayout()
+        self.waerme = QtWidgets.QCheckBox(tr("Wärmeausdehnung bei"))
+        self.waerme.setToolTip(tr("Messgrößen zusätzlich bei einer Betriebstemperatur: jedes Teil dehnt sich um seinen "
+                                  "Fixierpunkt (Mitte seiner Verbindungen) mit dem Ausdehnungskoeffizienten seines "
+                                  "Werkstoffs; Bezug 20 °C"))
+        self.temperatur = QtWidgets.QDoubleSpinBox()
+        self.temperatur.setRange(-273.0, 1000.0)
+        self.temperatur.setDecimals(1)
+        self.temperatur.setSuffix(" °C")
+        self.temperatur.setValue(80.0)
+        self.temperatur.setToolTip(tr("Temperatur aller Teile im Betrieb"))
+        self.werkstoff_knopf = QtWidgets.QPushButton(tr("Werkstoffe …"))
+        self.werkstoff_knopf.setToolTip(tr("Ausdehnungskoeffizient je Teil (vorbelegt aus der STEP-Datei)"))
+        self.werkstoff_knopf.clicked.connect(self._werkstoffe_dialog)
+        self.waerme.toggled.connect(lambda _an: self.neu_rechnen.emit())
+        self.temperatur.editingFinished.connect(lambda: self.waerme.isChecked() and self.neu_rechnen.emit())
+        for w in (self.waerme, self.temperatur, self.werkstoff_knopf):
+            waerme.addWidget(w)
+        waerme.addStretch(1)
+        lay.addLayout(waerme)
+        self.alpha: dict[int, float] = {}  # Teil (Knotennummer) -> 1e-6/K
+        self.teil_namen: dict[int, str] = {}
         self.masse = _tabelle(self.MASS_SPALTEN)
         self.masse.setEditTriggers(QtWidgets.QAbstractItemView.EditTrigger.DoubleClicked)
         self.masse.itemChanged.connect(self._soll_geaendert)
         self.masse.itemSelectionChanged.connect(self._zeige_beitraege)
+        self.masse.itemSelectionChanged.connect(
+            lambda: self.mass_kette_knopf.setEnabled(self.gewaehlte_messgroesse() is not None))
+        self.mass_kette_knopf.setEnabled(False)
         lay.addWidget(self.masse, 1)
         titel = QtWidgets.QLabel(tr("Beitragende der gewählten Messgröße"))
         titel.setObjectName("leise")
@@ -222,12 +271,19 @@ class BaugruppePanel(QtWidgets.QWidget):
             werte.append(bm.soll_text(m))
             werte.append("" if e is None or e.aussen is None else f"{e.aussen:.2%}")
             werte.append("" if e is None or e.cpk is None else f"{e.cpk:.2f}")
+            werte.append("" if e is None or e.waerme is None else f"{e.waerme:+.4f}")
+            stufe, grund = bm.bewertung(e, m) if e is not None else ("", "")
+            werte.append({"gruen": "● " + tr("eingehalten"), "gelb": "● " + tr("knapp"),
+                          "rot": "● " + tr("nicht eingehalten")}.get(stufe, ""))
             for s, w in enumerate(werte):
                 it = QtWidgets.QTableWidgetItem(w)
                 if s != 5:
                     it.setFlags(it.flags() & ~QtCore.Qt.ItemFlag.ItemIsEditable)
                 if s == 6 and e is not None and e.aussen:
                     it.setForeground(QtGui.QBrush(QtGui.QColor("#c0392b")))
+                if s == len(werte) - 1 and stufe:
+                    it.setForeground(QtGui.QBrush(QtGui.QColor(AMPEL[stufe])))
+                    it.setToolTip(grund)
                 t.setItem(z, s, it)
         t.blockSignals(False)
         t.resizeColumnsToContents()
@@ -238,6 +294,31 @@ class BaugruppePanel(QtWidgets.QWidget):
         for k in (self.mass_weg, self.mass_pdf_knopf):
             k.setEnabled(bool(baugruppe.masse))
         self._zeige_beitraege()
+
+    def _werkstoffe_dialog(self):
+        """Ausdehnungskoeffizient je Teil eintragen (1e-6/K)."""
+        d = QtWidgets.QDialog(self)
+        d.setWindowTitle(tr("Werkstoffe"))
+        form = QtWidgets.QFormLayout(d)
+        felder = {}
+        for nr, name in sorted(self.teil_namen.items(), key=lambda x: x[1]):
+            f = QtWidgets.QDoubleSpinBox()
+            f.setRange(0.0, 500.0)
+            f.setDecimals(1)
+            f.setSuffix(" ·10⁻⁶/K")
+            f.setValue(self.alpha.get(nr, 0.0))
+            f.setToolTip(tr("Ausdehnungskoeffizient α (Stahl 11,5, Aluminium 23, Messing 19, PA6 80)"))
+            form.addRow(name, f)
+            felder[nr] = f
+        knoepfe = QtWidgets.QDialogButtonBox(QtWidgets.QDialogButtonBox.StandardButton.Ok |
+                                             QtWidgets.QDialogButtonBox.StandardButton.Cancel)
+        knoepfe.accepted.connect(d.accept)
+        knoepfe.rejected.connect(d.reject)
+        form.addRow(knoepfe)
+        if d.exec() == QtWidgets.QDialog.DialogCode.Accepted:
+            self.alpha.update({nr: f.value() for nr, f in felder.items()})
+            if self.waerme.isChecked():
+                self.neu_rechnen.emit()
 
     def gewaehlte_messgroesse(self):
         zeilen = {i.row() for i in self.masse.selectedIndexes()}

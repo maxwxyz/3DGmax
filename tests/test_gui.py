@@ -206,6 +206,21 @@ def test_pmi_farbe_kontrast_oder_datei(fenster_ctc01):
                               "sprache": f.ein.value("sprache", "auto"), "pmi_kontrast": False})
     assert f.ansicht.pmi_farbe(g) == g.farbe
     assert f.ein.value("pmi_kontrast", type=bool) is False
+    # wieder an: gilt auch fuer die zweite Ansicht (Vergleich/nebeneinander) und weitere Fenster
+    from programm.ui import ansicht3d
+    f.ansicht_alt = ansicht3d.erzeuge(f)
+    f.ansicht_alt.setze_pmi_kontrast(False)
+    zweites = f.neues_fenster()
+    zweites.ansicht.setze_pmi_kontrast(False)
+    try:
+        f.wende_einstellungen_an({"navigation": "catia", "thema": f.ein.value("thema", "auto"),
+                                  "sprache": f.ein.value("sprache", "auto"), "pmi_kontrast": True})
+        assert f.ansicht.pmi_kontrast and f.ansicht_alt.pmi_kontrast and zweites.ansicht.pmi_kontrast
+    finally:
+        zweites.close()
+        zweites.deleteLater()
+        f.ansicht_alt.deleteLater()
+        f.ansicht_alt = None
 
 
 def test_pmi_liste_name_ansichten_bezuege(app, tmp_path, monkeypatch):
@@ -712,8 +727,24 @@ def test_pmi_bearbeiten_und_loeschen(fenster_ctc01, tmp_path):
     f.ansicht.setze_auswahl([f.erg.modell.flaechen[i] for i in sorted(loch.flaechen)])
     neue = f.pmi_anlegen(uebernehmen=["Position"])
     n = len(f.erg.pmi)
-    f.loesche_eigene_pmi(neue)
+    gefunden = []  # Callouts, die die Ansicht beim Loeschen noch findet (sonst bleiben sie im 3D stehen)
+    alt = f.ansicht.entferne_grafik
+    f.ansicht.entferne_grafik = lambda ids: (gefunden.extend(
+        c for c, g in f.ansicht.szene.grafik.items() if g.pmi_ids & ids), alt(ids))
+    try:
+        f.loesche_eigene_pmi(neue)
+    finally:
+        f.ansicht.entferne_grafik = alt
+    assert gefunden
     assert len(f.erg.pmi) == n - 1 and not any(neue[0].step_id in g.pmi_ids for g in f.erg.grafik.values())
+    # Entf in der PMI-Liste loescht gewaehlte eigene PMI, PMI aus der Datei bleiben
+    from PySide6.QtTest import QTest
+    neue = f.pmi_anlegen(uebernehmen=["Position"])
+    n = len(f.erg.pmi)
+    f.pmi.waehle(lambda p: p in neue or p is m2)
+    f.pmi.tabelle.setFocus()
+    QTest.keyClick(f.pmi.tabelle, QtCore.Qt.Key.Key_Delete)
+    assert len(f.erg.pmi) == n - 1 and m2 in f.erg.pmi and not any(p in f.erg.pmi for p in neue)
 
 
 def test_mehrere_schnittebenen_und_kontur(fenster_ctc01, tmp_path):
@@ -978,8 +1009,30 @@ def test_baugruppenvariation_im_fenster(fenster, tmp_path):
     z.masse.item(0, 5).setText("≥ 4,1")  # Soll per Doppelklick: fast alles ausserhalb
     m = f.baugruppe.masse[0]
     assert m.soll_min == 4.1 and m.soll_max is None and float(z.masse.item(0, 6).text().rstrip("%")) > 90
+    assert "nicht eingehalten" in z.masse.item(0, 9).text()  # Ampel: rot
+    # Waermeausdehnung: Werkstoffe vorbelegt, Verschiebung je Messgroesse
+    assert z.alpha and all(v > 0 for v in z.alpha.values())
+    z.temperatur.setValue(100.0)
+    z.waerme.setChecked(True)
+    assert z.masse.item(0, 8).text().startswith(("+", "-"))
     pdf = f.exportiere_messgroessen_pdf(str(tmp_path / "m.pdf"))
     assert pdf and os.path.getsize(pdf) > 1000
+    z.waerme.setChecked(False)
+    assert z.masse.item(0, 8).text() == ""
+    # gewaehlte Messgroesse im 3D: beide Flaechen gewaehlt, Messlinie mit Name und Werten
+    z.masse.selectRow(0)
+    assert len(f.ansicht.auswahl3d) == 2 and f.ansicht.auswahl_teile == [m.teil_a, m.teil_b]
+    assert f.ansicht.hilfslinien and "4.0000" in f.ansicht.hilfslinien[0][2]
+    z.masse.clearSelection()
+    assert not f.ansicht.hilfslinien
+    # Messgroesse als 3D-Kette: Glied je Teil auf dem Weg, Linien im Modell
+    z.masse.selectRow(1)
+    assert z.mass_kette_knopf.isEnabled()
+    z.mass_kette_knopf.click()
+    k3f = f._kette3d
+    assert k3f.isVisible() and len(k3f.kette.glieder) == 3 and k3f.kette.basis is not None
+    assert len(f.ansicht.hilfslinien) > 3
+    k3f.close()
     # Messgroesse aus der Auswahl: Zylinder geht nicht, gleiche Ebene am selben Teil auch nicht
     knoten = {k.nummer: k for k in f.erg.baum.blaetter()}
     from programm.kern.verbindung import flaeche_im_teil
@@ -987,6 +1040,20 @@ def test_baugruppenvariation_im_fenster(fenster, tmp_path):
     fl = flaeche_im_teil(knoten[deckel].form, 15, f.erg.modell)
     f.ansicht.setze_auswahl([fl, fl], [deckel, deckel])
     assert f.messgroesse_auswahl() is None
+    # am Klickpunkt: ohne Klick auf die gemessene Flaeche keine Messgroesse, mit Klick Punkt zu Ebene
+    schraube = m.teil_a
+    kopf = flaeche_im_teil(knoten[schraube].form, 17, f.erg.modell)
+    z.am_punkt.setChecked(True)
+    f.ansicht.setze_auswahl([kopf, fl], [schraube, deckel])
+    f.ansicht.klickpunkte.clear()
+    assert f.messgroesse_auswahl() is None
+    from programm.kern import baugruppe_mass as bm
+    p0, _ = bm.ebene(kopf, f.baugruppe.lage(schraube))
+    f.ansicht.klickpunkte[(schraube, 17)] = tuple(p0 + [2.0, 0.0, 0.0])
+    neu = f.messgroesse_auswahl()
+    assert neu is not None and neu.punkt is not None and z.masse.rowCount() == 3
+    z.am_punkt.setChecked(False)
+    f._messgroesse_entfernen(neu.nummer)
     projekt = f.speichere_projekt(str(tmp_path / "p.3dgmax"))
     f.oeffne_projekt(projekt, warten=True)
     assert [x.soll_min for x in f.baugruppe.masse] == [4.1, -0.05] and f.zusammenbau.masse.rowCount() == 2
@@ -1472,9 +1539,15 @@ def test_zusammenbau_umkehren_tauschen_knopf(fenster):
     teil = f.baugruppe.verbindungen[0].teil
     z.tausch_knopf.click()
     assert f.baugruppe.verbindungen[0].gegen_teil == teil
-    assert z.wiggle_an.text().startswith("⏸")  # das Beispiel laesst den Wiggle laufen
+    assert z.wiggle_an.isChecked() and not z.wiggle_an.text()  # das Beispiel laesst den Wiggle laufen; nur Symbol
+    assert "anhalten" in z.wiggle_an.toolTip()
     z.wiggle_an.setChecked(False)
-    assert z.wiggle_an.text().startswith("▶")
+    assert "anhalten" not in z.wiggle_an.toolTip() and not z.wiggle_an.icon().isNull()
+    # andere Datei laden: 3D-Griff und Wiggle des Beispiels sind weg (sie gehoeren zum vorigen Modell)
+    z.wiggle_an.setChecked(True)
+    assert f.ansicht.manipulator is not None
+    f.lade(pfad("nist_ctc_01_asme1_ap242-e1.stp"), warten=True)
+    assert f.ansicht.manipulator is None and not z.wiggle_an.isChecked()
 
 
 def test_groesse_der_oberflaeche(fenster, monkeypatch):
@@ -1706,10 +1779,35 @@ def test_funktion_zur_tolerierung(fenster):
     neue = f._funktion_anlegen(w.vorschlaege(), fragen=False)
     assert neue and len(f.erg.pmi) == vorher + len(neue)
     assert any(p.typ == "Size_Diameter" and p.passung == "H7" for p in neue)
+    # Tabelle aenderbar: Toleranz und Passung von Hand, Funktion per Auswahlliste, Flaechen nachtraeglich tauschen
+    zeile = sorted(w.rollen).index(bohrung)
+    w.tabelle.item(zeile, w.SP_TOLERANZ).setText("0,04")
+    w.tabelle.item(zeile, w.SP_PASSUNG).setText("H8")
+    assert w.werte[bohrung] == {"toleranz": 0.04, "passung": "H8"}
+    eigene = [v.pmi for v in w.vorschlaege() if bohrung in v.pmi.flaechen]
+    assert {p.wert for p in eigene if p.art == "toleranz"} == {0.04} and \
+        [p.passung for p in eigene if p.art == "mass"] == ["H8"]
+    app = QtWidgets.QApplication.instance()
+    app.processEvents()
+    w.tabelle.item(zeile, w.SP_TOLERANZ).setText("auto")  # zurueck zum Startwert
+    assert w.werte[bohrung] == {"passung": "H8"}
+    app.processEvents()
+    box = w.tabelle.cellWidget(sorted(w.rollen).index(auflage), w.SP_FUNKTION)
+    box.setCurrentIndex(box.findData("dichtung"))
+    assert w.rollen[auflage] == "dichtung"
+    box = w.tabelle.cellWidget(sorted(w.rollen).index(auflage), w.SP_FUNKTION)
+    box.setCurrentIndex(box.findData("auflage"))
+    andere = max((i for i in geo if geo[i]["art"] == "zylinder" and geo[i]["bohrung"] and i != bohrung
+                  and fu._parallel(geo[i]["richtung"], n)), key=lambda i: geo[i]["groesse"])
+    w.tabelle.selectRow(sorted(w.rollen).index(bohrung))
+    assert w.ersetze_flaechen([andere]) and andere in w.rollen and bohrung not in w.rollen
+    assert w.rollen[andere] == "zentrierung" and w.werte[andere] == {"passung": "H8"}
+    assert not w.ersetze_flaechen([andere, auflage])  # Zylinder und Ebene sind kein Element
     projekt = f.speichere_projekt(os.path.join(tempfile.mkdtemp(), "f.3dgmax"))
     w.rollen = {}
     f.oeffne_projekt(projekt, warten=True)
-    assert f._funktion.rollen == {auflage: "auflage", bohrung: "zentrierung"}  # Rollen im Projekt
+    assert f._funktion.rollen == {auflage: "auflage", andere: "zentrierung"}  # Rollen im Projekt
+    assert f._funktion.werte == {andere: {"passung": "H8"}}
 
 
 def test_toleranzkette_von_hand_ohne_modell(fenster):
@@ -1797,3 +1895,37 @@ def test_raumketten_datei_und_projekt(fenster, tmp_path):
     w3.setze_kette(type(alt3)())
     f.oeffne_projekt(projekt, warten=True)
     assert f._kette2d.kette == alt2 and f._kette3d.kette == alt3
+
+
+def test_startbild_bleibt_beim_starterbild(monkeypatch):
+    """Gebautes Programm: das Bild des Starters bleibt bis zum Hauptfenster stehen (kein zweites, springendes
+    Startbild) und zeigt den Fortschritt."""
+    import sys
+    import types
+    from programm import app as app_modul
+    texte, zu = [], []
+    fake = types.SimpleNamespace(is_alive=lambda: True, update_text=texte.append, close=lambda: zu.append(1))
+    monkeypatch.setitem(sys.modules, "pyi_splash", fake)
+    s = app_modul.startbild(QtWidgets.QApplication.instance())
+    assert not isinstance(s, QtWidgets.QSplashScreen) and texte and not zu
+    s.showMessage("x", 0, None)
+    s.finish(None)
+    assert texte[-1] == "x" and zu == [1]
+
+
+def test_toleranzkette_fenster_verkleinerbar(fenster):
+    """Das Kettenfenster laesst sich verkleinern: Knopfreihe bricht um, Ergebnistabelle bekommt eine Querlaufleiste,
+    das Histogramm wird kleiner (vorher mehr als 2000 px Mindestbreite)."""
+    f = fenster
+    f.oeffne_beispiel("kette", warten=True)
+    k = f.zeige_toleranzkette()
+    app = QtWidgets.QApplication.instance()
+    assert k.minimumSizeHint().width() < 800
+    k.resize(700, 500)
+    for _ in range(10):
+        app.processEvents()
+    assert k.width() == 700 and k.ergebnisse.horizontalScrollBar().maximum() > 0
+    k.resize(1500, 800)
+    for _ in range(10):
+        app.processEvents()
+    assert k.ergebnisse.horizontalScrollBar().maximum() == 0  # genug Platz: ganze Tabelle ohne Leiste

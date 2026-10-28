@@ -113,6 +113,39 @@ display only; tolerance zones move to "Tolerieren").
   review report.
 - **Visible affordances:** drop-down lists with a clear arrow, editable table cells tinted and editable with one
   click (done 2026-10-28 for the chain window; apply the same to every table).
+- **Smooth side-panel resizing (user report 2026-10-28, still slow and jerky):** the 3D view already batches
+  `MustBeResized` (at most every 250 ms, otherwise after the drag) – so the cost is elsewhere. Analysis first, then fix:
+  1. Measure per resize step on the Mac and on Windows: time in Qt layout of the dock contents, in Python handlers
+     (resize/paint events, table `resizeColumnsToContents`, word-wrapped labels with height-for-width, splitters
+     inside docks), and in OCCT (buffer re-creation, redraw); test with an empty model, a large model and with every
+     dock open/closed to isolate the culprit.
+  2. Likely fixes depending on the result: freeze the 3D view during the drag (show the last frame as an image and
+     resize the GL surface once at the end), no content re-layout of hidden tabs, fixed or interactive column widths
+     instead of fitting to contents on every resize, cache height-for-width of long hint texts, avoid nested
+     splitters in docks.
+  3. Acceptance: dragging a side panel follows the mouse at ≥ 30 fps with the NIST FTC-10 model loaded (Mac and
+     Windows, normal and mixed DPI); an on-screen test measures the frame time of a scripted drag.
+- **Comparison state always visible (user, 2026-10-28):** "Vergleich beenden" closes the "Änderungen" tab (done);
+  without a comparison the tab cannot be opened empty – the View menu entry is disabled and the panel says "no
+  comparison active" with a button "Zwei Stände vergleichen …" instead of a dead "Prüfen starten". In the comparison
+  the tree and the status bar show which two states are loaded (old/new file names, both trees side by side), so it is
+  clear whether both models are there.
+- **Multi-selection order (user, 2026-10-28):** with several selected faces/elements the earlier ones are shown
+  slightly darker than the last selected one (same hue, only a little darker), so the last selection – which e.g.
+  decides the reference face of a measure or the end of a chain – is recognisable.
+- **Examples for the main functions (user, 2026-10-28):** after the UI stage 2 rebuild, check that every main
+  function has an example under File › Examples (and on the start page) that shows it working and explains in one
+  line what to look at: compare (geometry, PMI, assembly), scan check, tolerance chain 1D/2D/3D and from an assembly
+  measure, function → tolerancing, assembly connections/wiggle and variation, clashes, zones, drawing/section,
+  JT/QIF/PRC import. Missing ones get one; examples that open into an empty tab (e.g. "Zusammenbau und Wiggle" shows
+  no measures – that is the variation example) say so in their text or open the right tab.
+- **CATIA navigation – roll ring and rounded arcball (user, 2026-10-28):** the pure roll area moves further out
+  (narrow band near the window edge instead of everything outside 0.45 · min(w, h)); the decision is no longer fixed
+  at the press – it follows the cursor while the buttons are held: in the band pure roll about the view axis, moving
+  inwards blends continuously into the normal trackball like FreeCAD's "Rounded Arcball" (sphere inside, hyperbolic
+  sheet outside, so the rotation axis tilts smoothly towards the view axis – no jump at the border). A faint circle
+  shows the roll band while orbiting. Acceptance: on-screen test – a drag from the centre outwards and back rotates
+  without a jump, a drag along the band rolls by the swept angle, a drag in the centre orbits as today.
 
 **Stage 3 – inspector and guidance:** context inspector for the selection (face/part/PMI: properties and actions),
 guided flows for scan check and assembly variation, unified panel layout everywhere.

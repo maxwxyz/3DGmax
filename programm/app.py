@@ -69,11 +69,37 @@ def startbild_pixmap(unterzeile: str, k: float = 2.0):
     return bild
 
 
+class _StarterBild:
+    """Startbild des PyInstaller-Starters weiterverwenden (gleiche Schnittstelle wie QSplashScreen): kein Wechsel
+    auf ein zweites Bild, das je nach Bildschirmskalierung anders gross waere und springen wuerde."""
+
+    def __init__(self, modul):
+        self._m = modul
+
+    def showMessage(self, text, *_):  # noqa: N802 - wie QSplashScreen
+        try:
+            self._m.update_text(text)
+        except Exception:  # noqa: BLE001 - Starterbild schon zu
+            pass
+
+    def finish(self, _fenster):
+        starter_bild_zu()
+
+
 def startbild(app):
-    """Startbild direkt nach Qt (vor OCCT und Hauptfenster), damit sofort sichtbar ist, dass die App startet."""
+    """Startbild direkt nach Qt (vor OCCT und Hauptfenster), damit sofort sichtbar ist, dass die App startet; im
+    gebauten Programm unter Windows/Linux bleibt das Bild des Starters bis zum Hauptfenster stehen."""
     from PySide6 import QtCore, QtGui, QtWidgets
     from .i18n import tr
     from .version import VERSION
+    try:
+        import pyi_splash
+        if pyi_splash.is_alive():
+            s = _StarterBild(pyi_splash)
+            s.showMessage(tr("3D-Module werden geladen …"))
+            return s
+    except Exception:  # noqa: BLE001 - nicht gebaut oder Starter ohne Bildschirm
+        pass
     s = QtWidgets.QSplashScreen(startbild_pixmap(tr("Version {}").format(VERSION)))
     s.showMessage(tr("3D-Module werden geladen …"), QtCore.Qt.AlignmentFlag.AlignBottom |
                   QtCore.Qt.AlignmentFlag.AlignHCenter, QtGui.QColor("#5a6475"))

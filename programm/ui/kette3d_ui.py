@@ -330,12 +330,17 @@ class Kette3DFenster(QtWidgets.QDialog):
         a = 0.08 * groesse
         out, vorher = [], np.zeros(3)
         for g, (r, t) in zip(self.kette.glieder, lagen):
-            out.append((tuple(vorher), tuple(t), g.name, (0.13, 0.42, 0.85), 3.0))
+            if np.linalg.norm(t - vorher) > 1e-9:  # Glied ohne Versatz: nur Achsenkreuz, keine gestapelte Beschriftung
+                out.append((tuple(vorher), tuple(t), g.name, (0.13, 0.42, 0.85), 3.0))
             for achse, farbe in ((0, (0.75, 0.22, 0.17)), (1, (0.18, 0.62, 0.28)), (2, (0.13, 0.42, 0.85))):
                 out.append((tuple(t), tuple(t + r[:, achse] * a), "", farbe, 1.5))
             vorher = t
         p, _ = k3.funktionspunkt(self.kette)
         out.append((tuple(vorher), tuple(p), tr("Funktionspunkt"), (0.90, 0.55, 0.10), 2.0))
+        if self.kette.basis is not None:  # Basis liegt im Modell (z. B. Bezugsebene einer Messgroesse)
+            m = np.asarray(self.kette.basis, float)
+            welt = lambda x: tuple(m[:3, :3] @ np.asarray(x, float) + m[:3, 3])  # noqa: E731
+            out = [(welt(a), welt(b), *rest) for a, b, *rest in out]
         return out
 
     def _zeigen(self):

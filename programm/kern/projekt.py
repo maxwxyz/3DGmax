@@ -60,8 +60,10 @@ def speichere(pfad: str, modell_pfad: str | None = None, vergleich=None, messung
         daten["kollision"] = kollision
     if raumketten:  # {"kette2d": als_dict, "kette3d": als_dict} der 2D-/3D-Kettenfenster
         daten["raumketten"] = raumketten
-    if funktion:  # Funktionsrollen je Flaechenindex (kern.funktion)
-        daten["funktion"] = {str(i): rolle for i, rolle in funktion.items()}
+    if funktion:  # Funktion -> Tolerierung: Rollen, Gruppen (Element aus mehreren Flaechen), Werte von Hand
+        daten["funktion"] = {teil: {str(i): x for i, x in (funktion.get(teil) or {}).items()}
+                             for teil in ("rollen", "gruppen", "werte")} if "rollen" in funktion else \
+            {"rollen": {str(i): rolle for i, rolle in funktion.items()}}
     if vergleich is not None:
         quellen = [vergleich.alt.pfad, vergleich.neu.pfad]
         alt, neu = _eindeutig([os.path.basename(q) for q in quellen])
@@ -99,8 +101,11 @@ def lade(pfad: str, ziel: str | None = None) -> dict:
     from .kommentare import von_dict
     daten["kommentare"] = [von_dict(k) for k in daten.get("kommentare", [])]
     daten["eigene_pmi"] = [_pmi_von(p) for p in daten.get("eigene_pmi", [])]
-    if daten.get("funktion"):
-        daten["funktion"] = {int(i): rolle for i, rolle in daten["funktion"].items()}
+    if daten.get("funktion"):  # altes Format: nur Rollen je Flaeche
+        f = daten["funktion"]
+        f = f if "rollen" in f else {"rollen": f}
+        daten["funktion"] = {teil: {int(i): x for i, x in (f.get(teil) or {}).items()}
+                             for teil in ("rollen", "gruppen", "werte")}
     if daten.get("kette"):
         from .toleranzkette import Glied
         daten["kette"]["glieder"] = [Glied(**{**g, "flaechen": tuple(g.get("flaechen", ())),

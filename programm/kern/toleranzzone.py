@@ -546,7 +546,7 @@ def _achszone(p, modell, flaechen, t: float, faktor: float, alle_pmi) -> Zone | 
     z = Zone(breite=t, faktor=faktor, art="zylinder")
     bezug = bezugsachse(p, modell, alle_pmi) if p.typ in ("Coaxiality", "Concentricity") else None
     verschiebung = sum(v for _n, _m, v in bezugsverschiebung(p, alle_pmi))
-    werte = [_eine_achse(z, p, modell, achse, t, faktor, alle_pmi, bezug, verschiebung) for achse in achsen]
+    werte = [_eine_achse(z, p, modell, achse, t, faktor, alle_pmi, bezug, verschiebung, flaechen) for achse in achsen]
     t_max, innen_r, aussen_r = werte[0]  # Hinweise zum ersten Element (Muster haben gleiche Werte)
     if bezug is not None:
         z.hinweise.append(tr("Zone um die Bezugsachse {}").format(bezug[4]))
@@ -564,10 +564,23 @@ def _achszone(p, modell, flaechen, t: float, faktor: float, alle_pmi) -> Zone | 
     return z if z.formen else None
 
 
+def _auf_achse(flaechen, start, richtung) -> list:
+    """Die Flaechen, deren Zylinder-/Kegelachse auf dieser Achse liegt."""
+    out = []
+    for f in flaechen:
+        a = _achse([f])
+        if a is not None and abs(float(a[1] @ richtung)) > 0.9999:
+            q = a[0] - start
+            if np.linalg.norm(q - richtung * (q @ richtung)) < 1e-3:
+                out.append(f)
+    return out
+
+
 def _eine_achse(z: Zone, p, modell, achse, t: float, faktor: float, alle_pmi, bezug=None,
-                verschiebung: float = 0.0) -> tuple[float, float, float]:
+                verschiebung: float = 0.0, flaechen=None) -> tuple[float, float, float]:
     """Zone, Bonuszone und Huellen eines Elements; Rueckgabe (groesste Zone, Huellradius innen, aussen).
-    bezug: Bezugsachse (Koaxialitaet: Zone um sie); verschiebung: Bezugsverschiebung (Durchmesser)."""
+    bezug: Bezugsachse (Koaxialitaet: Zone um sie); verschiebung: Bezugsverschiebung (Durchmesser); flaechen: alle
+    Flaechen der PMI - die Huellen folgen den Flaechen auf dieser Achse (Halbschalen nur ueber ihren Winkel)."""
     start, d, laenge, r, erste = achse
     laenge = max(laenge, 1e-3)
     innen = _ist_innen(erste, start, d)
@@ -594,8 +607,14 @@ def _eine_achse(z: Zone, p, modell, achse, t: float, faktor: float, alle_pmi, be
     # Raum, in dem die Zylinderflaeche liegen kann (Mass + Lage); Abweichungen ueberhoeht wie die Zone
     innen_r = min(dd / 2 - tol / 2 for dd, tol in toleranzen.items())
     aussen_r = max(dd / 2 + tol / 2 for dd, tol in toleranzen.items())
+    teile = _auf_achse(flaechen, start, d) if flaechen else []
     for rr in (innen_r, aussen_r):
-        z.dazu(_zylinder(start, d, r + (rr - r) * faktor, laenge), HUELLE)
+        dr = (rr - r) * faktor  # Radiusaenderung
+        if teile:  # Huelle als versetzte Flaechen: eine Halbschale bekommt keine volle Huelle um die ganze Achse
+            for f in teile:
+                z.dazu(_versatz(f, -dr if innen else dr), HUELLE)
+        else:
+            z.dazu(_zylinder(start, d, r + dr, laenge), HUELLE)
     return t_max, innen_r, aussen_r
 
 

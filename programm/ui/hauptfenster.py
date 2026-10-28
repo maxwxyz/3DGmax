@@ -20,9 +20,14 @@ DATEIFILTER = ("{} (*.stp *.step *.p21 *.stpz *.stepz *.gz *.igs *.iges *.stl *.
                "*.prc *.pdf *.jt *.3dgmax *.3dgkette);;STEP (*.stp *.step *.p21 *.stpz *.stepz *.stp.gz *.step.gz);;QIF (*.qif);;"
                "PRC / 3D-PDF (*.prc *.pdf);;JT (*.jt);;IGES (*.igs *.iges);;{} (*.stl *.obj *.gltf *.glb *.3mf *.ply);;"
                "3DGmax (*.3dgmax *.3dgkette)")  # Platzhalter: uebersetzte Namen
-ENDUNGEN = (".stp", ".step", ".p21", ".stpz", ".stepz", ".stp.gz", ".step.gz", ".igs", ".iges", ".stl", ".obj",
-            ".gltf", ".glb", ".3mf", ".ply", ".qif", ".prc", ".pdf", ".3dgmax")
 MAX_ZULETZT = 10
+
+
+def ablegbar(pfad: str) -> bool:
+    """Datei zum Ablegen per Drag & Drop: alle ladbaren Formate (Liste aus kern.laden, z. B. auch JT) und Projekte;
+    kern.laden erst hier laden (zieht OCCT nach, Start bleibt schnell)."""
+    from ..kern.laden import ENDUNGEN
+    return pfad.lower().endswith(tuple(ENDUNGEN) + (".3dgmax",))
 
 
 def einstellungen() -> QtCore.QSettings:
@@ -70,8 +75,11 @@ class Startseite(QtWidgets.QWidget):
         zeile.addStretch(1)
         lay.addSpacing(12)
         lay.addLayout(zeile)
-        hinweis = QtWidgets.QLabel(tr("STEP, IGES, QIF, PRC/3D-PDF, STL, OBJ, glTF, 3MF, PLY – oder Datei hierher "
-                                      "ziehen · Befehl suchen mit Strg/⌘+K"))
+        hinweis = self.formate = QtWidgets.QLabel(tr("STEP, IGES, QIF, PRC/3D-PDF, STL, OBJ, glTF, 3MF, PLY – oder "
+                                                     "Datei hierher ziehen · Befehl suchen mit Strg/⌘+K"))
+        # JT nur in der Programmvariante mit Konverter; erst nach dem Start pruefen (kern.laden laedt OCCT)
+        QtCore.QTimer.singleShot(0, self._jt_nennen)
+        hinweis.setWordWrap(True)  # schmales Fenster: umbrechen statt die Mindestbreite vorzugeben
         hinweis.setObjectName("leise")
         hinweis.setAlignment(QtCore.Qt.AlignmentFlag.AlignCenter)
         lay.addWidget(hinweis)
@@ -89,6 +97,12 @@ class Startseite(QtWidgets.QWidget):
         z2.addStretch(1)
         lay.addLayout(z2)
         lay.addStretch(2)
+
+    def _jt_nennen(self):
+        from ..kern.laden import jt_wandler
+        if jt_wandler() is not None:
+            self.formate.setText(tr("STEP, IGES, QIF, JT, PRC/3D-PDF, STL, OBJ, glTF, 3MF, PLY – oder Datei hierher "
+                                    "ziehen · Befehl suchen mit Strg/⌘+K"))
 
     def zeige_zuletzt(self, pfade: list[str]):
         self.zuletzt.clear()
@@ -127,6 +141,10 @@ def kameras_abgleichen():
                 a.setze_kamera_daten(k)
     _KOPPLUNG["zuletzt"] = {id(a): a.kamera_daten() for a in ansichten}
 
+
+def _alle_fenster() -> list:
+    """Alle offenen Hauptfenster (Einstellungen und Thema gelten fuer alle)."""
+    return [w for w in QtWidgets.QApplication.topLevelWidgets() if isinstance(w, Hauptfenster)]
 
 class Hauptfenster(QtWidgets.QMainWindow):
     def __init__(self):
@@ -218,6 +236,7 @@ class Hauptfenster(QtWidgets.QMainWindow):
         self.zusammenbau.toleranz.connect(self._spielraum)
         self.zusammenbau.umkehren.connect(lambda n: self._verbindung_aendern(self.baugruppe.umkehren, n))
         self.zusammenbau.teile.itemSelectionChanged.connect(self._frei_anzeigen)
+        self.zusammenbau.masse.itemSelectionChanged.connect(self.messgroesse_zeigen)
         self.zusammenbau.frei_bewegen.connect(self._frei_bewegen)
         self.ansicht.manipulator_bewegt.connect(self._manipulator_bewegt)
         self.ansicht.manipulator_fertig.connect(self._manipulator_fertig)
@@ -226,8 +245,10 @@ class Hauptfenster(QtWidgets.QMainWindow):
         self.zusammenbau.tauschen.connect(lambda n: self._verbindung_aendern(self.baugruppe.tauschen, n))
         self.zusammenbau.mass_anlegen.connect(self.messgroesse_auswahl)
         self.zusammenbau.mass_entfernen.connect(self._messgroesse_entfernen)
+        self.zusammenbau.neu_rechnen.connect(self._zusammenbau_zeigen)
         self.zusammenbau.soll.connect(self._soll)
         self.zusammenbau.mass_pdf.connect(lambda: self.exportiere_messgroessen_pdf())
+        self.zusammenbau.mass_kette.connect(self.messgroesse_als_kette3d)
         self.scan.gewaehlt.connect(lambda p: self.pmi.waehle(lambda q: q is p))
         self.scan.beenden.connect(self.scan_aus)
         self.scan.neu_auswerten.connect(lambda b: self.pruefe_scan(self._scan["pfad"], bezug=b)
@@ -377,7 +398,14 @@ class Hauptfenster(QtWidgets.QMainWindow):
     def _dock(self, titel, widget, bereich):
         d = QtWidgets.QDockWidget(titel, self)
         d.setObjectName("dock_" + type(widget).__name__)  # sprachunabhaengig (Fensterzustand merken)
-        d.setWidget(widget)
+        # in einem Rollbereich: der Inhalt bestimmt nicht die Mindestgroesse des Fensters (sonst passt es bei
+        # skalierter Oberflaeche nicht auf den Bildschirm und Teile der Leisten - z. B. der Wiggle-Knopf - fehlen)
+        rollen = QtWidgets.QScrollArea()
+        rollen.setWidgetResizable(True)
+        rollen.setFrameShape(QtWidgets.QFrame.Shape.NoFrame)
+        rollen.setWidget(widget)
+        rollen.setMinimumSize(180, 120)
+        d.setWidget(rollen)
         d.setFeatures(QtWidgets.QDockWidget.DockWidgetFeature.DockWidgetMovable |
                       QtWidgets.QDockWidget.DockWidgetFeature.DockWidgetClosable)
         self.addDockWidget(bereich, d)
@@ -1047,6 +1075,9 @@ class Hauptfenster(QtWidgets.QMainWindow):
             self._allgemein = None  # Allgemeintoleranzen gehoeren zum vorigen Modell
             self.kollision_aus()
             self._wiggle(None)
+            self.zusammenbau.wiggle_an.setChecked(False)
+            self._frei = None  # 3D-Griff und Freiheitsgrade gehoeren zum vorigen Modell
+            self._manipulator_zeigen()
             self.baugruppe.zuruecksetzen()
             self.zusammenbau.zeige(self.baugruppe, {})
             self.ansicht.setze_teil_lagen({})
@@ -1227,12 +1258,12 @@ class Hauptfenster(QtWidgets.QMainWindow):
     # --- Drag-and-drop ---
 
     def dragEnterEvent(self, ev):
-        if any(u.toLocalFile().lower().endswith(ENDUNGEN) for u in ev.mimeData().urls()):
+        if any(ablegbar(u.toLocalFile()) for u in ev.mimeData().urls()):
             ev.acceptProposedAction()
 
     def dropEvent(self, ev):
         for u in ev.mimeData().urls():
-            if u.toLocalFile().lower().endswith(ENDUNGEN):
+            if ablegbar(u.toLocalFile()):
                 self.lade(u.toLocalFile())
                 break
 
@@ -1770,7 +1801,8 @@ class Hauptfenster(QtWidgets.QMainWindow):
                                  self._kette_daten(),
                                  self.baugruppe.als_dict() if self.baugruppe.verbindungen or self.baugruppe.lagen
                                  else None, self._kollision_daten(),
-                                 getattr(getattr(self, "_funktion", None), "rollen", None), self._raumketten())
+                                 self._funktion.zustand() if getattr(self, "_funktion", None) is not None
+                                 and self._funktion.rollen else None, self._raumketten())
         self.statusBar().showMessage(tr("Projekt gespeichert: {}").format(ziel), 6000)
         return ziel
 
@@ -1844,9 +1876,7 @@ class Hauptfenster(QtWidgets.QMainWindow):
             if d["raumketten"].get("kette3d"):
                 self.zeige_kette3d(nur_anlegen=True).setze_kette(kette3d.von_dict(d["raumketten"]["kette3d"]))
         if d and d.get("funktion") and self.erg is not None:
-            w = self.zeige_funktion(nur_anlegen=True)
-            w.rollen = dict(d["funktion"])
-            w._fuelle()
+            self.zeige_funktion(nur_anlegen=True).setze_zustand(d["funktion"])
         if d and d.get("kommentare"):
             self.kommentare.setze(d["kommentare"])
             self.dock_kommentare.show()
@@ -2787,10 +2817,12 @@ class Hauptfenster(QtWidgets.QMainWindow):
             return
         ids = {p.step_id for p in liste if id(p) in weg}
         self.erg.pmi = [p for p in self.erg.pmi if id(p) not in weg]
+        # erst die Ansicht: ihre Szene teilt sich das Grafik-Woerterbuch mit erg - danach faende sie nichts mehr
+        self.ansicht.entferne_grafik(ids)
         for cid in [c for c, g in self.erg.grafik.items() if g.pmi_ids & ids]:
             del self.erg.grafik[cid]
-        self.ansicht.entferne_grafik(ids)
         self.pmi.zeige(self.erg.pmi, self.erg.ansichten)
+        self.statusBar().showMessage(tr("{} eigene PMI gelöscht").format(len(weg)), 5000)
 
     def zeige_kette2d(self, nur_anlegen: bool = False):
         """Fenster 2D-Toleranzkette (Vektorzug); Uebernahme ersetzt die Glieder im Fenster Toleranzkette."""
@@ -3372,19 +3404,71 @@ class Hauptfenster(QtWidgets.QMainWindow):
                 ecken, mitte = self._teil_ecken(nr)
                 streuung[nr] = self.baugruppe.streuung(nr, ecken, mitte)
         namen = self._teil_namen()
+        self._alpha_vorbelegen(namen)
         self.zusammenbau.zeige(self.baugruppe, namen, streuung)
         self.zusammenbau.zeige_masse(self.baugruppe, namen, self.messgroessen_ergebnisse())
         self.ansicht.setze_teil_lagen(self.baugruppe.lagen)
         if self.aktionen["toleranzzone"].isChecked() or self.aktionen["toleranzzonen_alle"].isChecked():
             self._zone_aktualisieren(self.pmi.gewaehlte())  # Zonen folgen den Teilen
 
+    def messgroesse_zeigen(self):
+        """Gewaehlte Messgroesse im 3D: ihre zwei Flaechen gewaehlt, Messlinie vom Bezug zum Messpunkt mit Name,
+        Nennwert und Worst Case; ohne Wahl wieder aus."""
+        import numpy as np
+        from ..kern import baugruppe_mass as bm
+        nr = self.zusammenbau.gewaehlte_messgroesse()
+        m = next((x for x in self.baugruppe.masse if x.nummer == nr), None)
+        if m is None or self.erg is None:
+            if getattr(self, "_mass_linie", False):
+                self.ansicht.zeige_hilfslinien([])
+                self._mass_linie = False
+            return None
+        fa, fb = self.baugruppe.mass_formen[nr]
+        self.ansicht.setze_auswahl([fa, fb], [m.teil_a, m.teil_b])
+        p, q, n, _tp, _tq = bm.Analyse(self.baugruppe)._geometrie(m, fa, fb)
+        fuss = p - n * float(n @ (p - q))
+        e = self.zusammenbau._ergebnisse.get(nr)
+        text = f"{m.nummer}: " + (f"{e.nenn:.4f} ({e.wc_min:.4f} … {e.wc_max:.4f})" if e else "")  # Name: Tabelle
+        farbe = (0.85, 0.25, 0.0)
+        linien = [(tuple(fuss), tuple(p), text, farbe, 3.0)]
+        lang = float(np.linalg.norm(p - fuss))
+        if lang > 1e-9:  # Pfeilspitze am Messpunkt
+            richtung = (p - fuss) / lang
+            quer = np.cross(richtung, [0.0, 0.0, 1.0])
+            quer = quer if np.linalg.norm(quer) > 1e-6 else np.cross(richtung, [0.0, 1.0, 0.0])
+            quer /= np.linalg.norm(quer)
+            spitze = min(lang * 0.3, 2.0)
+            for s in (1, -1):
+                linien.append((tuple(p), tuple(p - richtung * spitze + quer * s * spitze * 0.5), "", farbe, 3.0))
+        self.ansicht.zeige_hilfslinien(linien)
+        self._mass_linie = True
+        return linien
+
+    def _alpha_vorbelegen(self, namen: dict[int, str]):
+        """Ausdehnungskoeffizient je Teil aus den STEP-Werkstoffen (Bibliothek), vorhandene Eingaben bleiben."""
+        from ..kern import werkstoffe
+        z = self.zusammenbau
+        z.teil_namen = dict(namen)
+        aus_datei = werkstoffe.werkstoffe_aus_step(getattr(self.erg.modell, "datei", None)) if self.erg else {}
+        for nr, name in namen.items():
+            if nr not in z.alpha:
+                w = aus_datei.get(name) or aus_datei.get(name.split(" (")[0])
+                z.alpha[nr] = (werkstoffe.alpha_fuer(w) if w else None) or werkstoffe.BIBLIOTHEK["Stahl"]
+
     def messgroessen_ergebnisse(self) -> dict:
-        """Nummer der Messgroesse -> Ergebnis (Worst Case, Monte Carlo, Beitragende) ueber alle Verbindungen."""
+        """Nummer der Messgroesse -> Ergebnis (Worst Case, Monte Carlo, Beitragende) ueber alle Verbindungen; mit
+        Waermeausdehnung zusaetzlich die Verschiebung beim Temperaturfall."""
         if not self.baugruppe.masse:
             return {}
         from ..kern.baugruppe_mass import Analyse
         a = Analyse(self.baugruppe)
-        return {m.nummer: a.berechne(m, *self.baugruppe.mass_formen[m.nummer]) for m in self.baugruppe.masse}
+        out = {m.nummer: a.berechne(m, *self.baugruppe.mass_formen[m.nummer]) for m in self.baugruppe.masse}
+        z = self.zusammenbau
+        if z.waerme.isChecked():
+            temp = {nr: z.temperatur.value() for nr in self.baugruppe.teile()}
+            for m in self.baugruppe.masse:
+                out[m.nummer].waerme = a.waermeverschiebung(m, *self.baugruppe.mass_formen[m.nummer], z.alpha, temp)
+        return out
 
     def messgroesse_auswahl(self):
         """Spalt oder Buendigkeit zwischen den zwei gewaehlten Ebenen (erst gemessene, dann Bezugsflaeche)."""
@@ -3397,13 +3481,32 @@ class Hauptfenster(QtWidgets.QMainWindow):
             return None
         (fa, ta), (fb, tb) = paare
         m = self.erg.modell
-        x = self.baugruppe.neue_messgroesse(ta, fa, m.flaechen_index(fa), tb, fb, m.flaechen_index(fb))
+        punkt = None
+        if self.zusammenbau.am_punkt.isChecked():
+            punkt = self.ansicht.klickpunkte.get((ta, m.flaechen_index(fa)))
+            if punkt is None:
+                self.statusBar().showMessage(tr("Die gemessene Fläche zuerst an der gewünschten Stelle anklicken"), 6000)
+                return None
+        x = self.baugruppe.neue_messgroesse(ta, fa, m.flaechen_index(fa), tb, fb, m.flaechen_index(fb), punkt)
         if isinstance(x, str):
             self.statusBar().showMessage(x, 6000)
             return None
         self.zeige_zusammenbau()
         self.zusammenbau.reiter.setCurrentIndex(1)
         return x
+
+    def messgroesse_als_kette3d(self, nummer: int):
+        """Messgroesse des Zusammenbaus als 3D-Kette im Fenster 3D-Toleranzkette (im Modell gezeigt)."""
+        from ..kern.baugruppe_mass import Analyse
+        m = next((x for x in self.baugruppe.masse if x.nummer == nummer), None)
+        if m is None:
+            return None
+        k = Analyse(self.baugruppe).als_kette3d(m, *self.baugruppe.mass_formen[nummer], self._teil_namen())
+        f = self.zeige_kette3d()
+        f.setze_kette(k)
+        f.im_modell.setChecked(True)
+        f._zeigen()
+        return f
 
     def _messgroesse_entfernen(self, nummer: int):
         self.baugruppe.entferne_messgroesse(nummer)
@@ -3795,9 +3898,13 @@ class Hauptfenster(QtWidgets.QMainWindow):
     def setze_thema(self, name):
         self.ein.setValue("thema", name)
         self.thema = thema.wende_an(QtWidgets.QApplication.instance(), name)
-        for a in (self.ansicht, self.ansicht_alt):
-            if a is not None:
-                a.setze_thema(self.thema)
+        for f in _alle_fenster():  # das Thema gilt fuer die ganze App, also fuer alle Fenster
+            f.thema = self.thema
+            if "thema_" + name in f.aktionen:
+                f.aktionen["thema_" + name].setChecked(True)
+            for a in (f.ansicht, f.ansicht_alt):
+                if a is not None:
+                    a.setze_thema(self.thema)
 
     def setze_skalierung(self, v: float):
         if abs(v - skalierung(self.ein)) < 0.01:
@@ -3821,23 +3928,38 @@ class Hauptfenster(QtWidgets.QMainWindow):
 
     def wende_einstellungen_an(self, w: dict):
         self.ein.setValue("navigation", w["navigation"])
-        self.ansicht.setze_navigation(w["navigation"])
         self.ein.setValue("pmi_kontrast", w.get("pmi_kontrast", True))
-        self.ansicht.setze_pmi_kontrast(w.get("pmi_kontrast", True))
         self.ein.setValue("draht_kontrast", w.get("draht_kontrast", True))
-        self.ansicht.setze_draht_kontrast(w.get("draht_kontrast", True))
         for k in ("pmi_eigen", "pmi_eigene_farbe", "hg_eigen", "hg_oben", "hg_unten"):
             if k in w:
                 self.ein.setValue(k, w[k])
-        self._farben_anwenden()
         if w["thema"] != self.ein.value("thema", "auto"):
             self.setze_thema(w["thema"])
-            self.aktionen["thema_" + w["thema"]].setChecked(True)
+        for f in _alle_fenster():  # alle Ansichten aller Fenster, nicht nur die Hauptansicht dieses Fensters
+            f._ansichten_einstellen()
         if w["sprache"] != self.ein.value("sprache", "auto"):
             self.ein.setValue("sprache", w["sprache"])
             self.aktionen["sprache_" + w["sprache"]].setChecked(True)
             QtWidgets.QMessageBox.information(self, tr("Sprache"),
                                               tr("Die Sprache wird beim nächsten Start übernommen."))
+
+    def _ansichten_einstellen(self):
+        """Navigation, Kontrast, Farben und Thema aus den Einstellungen in alle Ansichten dieses Fensters."""
+        e = self.ein
+        for a in (self.ansicht, self.ansicht_alt):
+            if a is None:
+                continue
+            a.setze_navigation(e.value("navigation", "catia"))
+            a.setze_pmi_kontrast(e.value("pmi_kontrast", True, type=bool))
+            a.setze_draht_kontrast(e.value("draht_kontrast", True, type=bool))
+        name = e.value("thema", "auto")
+        if "thema_" + name in self.aktionen:
+            self.aktionen["thema_" + name].setChecked(True)
+        self.thema = thema.wende_an(QtWidgets.QApplication.instance(), name)
+        for a in (self.ansicht, self.ansicht_alt):
+            if a is not None:
+                a.setze_thema(self.thema)
+        self._farben_anwenden()
 
     def _farben_anwenden(self):
         from .einstellungen import rgb

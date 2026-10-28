@@ -113,6 +113,7 @@ class AnsichtBasis(QtWidgets.QWidget):
         self.teil_lagen: dict = {}  # Knotennummer -> 4x4 (numpy) aus dem Zusammenbau (kern.verbindung)
         self.manipulator: dict | None = None  # Rahmen des 3D-Griffs (kern.verbindung.manipulator_rahmen)
         self.auswahl_teile: list = []  # Knotennummer je Eintrag in auswahl3d (None: unbekannt)
+        self.klickpunkte: dict = {}  # (Teil, Flaechenindex) -> zuletzt angeklickter Punkt (Weltlage)
         self.material = None
         self.kollision = None  # (Knotennummern der zwei Teile, Durchdringung oder None, Punkte) eines Befunds
         self.box = None  # Schnittbox ((x0, y0, z0), (x1, y1, z1)) oder None
@@ -148,8 +149,11 @@ class AnsichtBasis(QtWidgets.QWidget):
         """Fokus wirkt nur, wenn etwas gewaehlt ist (sonst waere alles durchscheinend)."""
         return self.fokus and bool(self.hervor or self.fokus_teile)
 
-    def hebe_flaechen(self, flaechen: set[int]):
+    def hebe_flaechen(self, flaechen: set[int], teile: dict | None = None):
+        """Flaechen hervorheben; teile: Flaechenindex -> Teil-Instanzen, auf die sich die Hervorhebung beschraenkt
+        (gleiche Teile teilen sich die Flaechenindizes - sonst leuchten alle Schrauben, wenn eine gewaehlt ist)."""
         self.hervor = set(flaechen)
+        self.hervor_teile = {i: set(t) for i, t in (teile or {}).items()}
 
     def zeige_pmi(self, ids: set[int] | None):
         self.pmi_ids_sichtbar = None if ids is None else set(ids)
@@ -833,7 +837,8 @@ class OcctAnsicht(AnsichtBasis):
         """Maus auf dem Wuerfel: Klick richtet aus, Ziehen dreht. True = Ereignis verbraucht."""
         E = QtCore.QEvent.Type
         links = QtCore.Qt.MouseButton.LeftButton
-        if typ == E.MouseButtonPress and ev.button() == links and self.nav.start is None:
+        # nur die linke Taste gedrueckt (nicht nav.start: ein liegen gebliebener Gestenzustand sperrte den Wuerfel)
+        if typ == E.MouseButtonPress and ev.button() == links and ev.buttons() == links:
             besitzer = self._wuerfel_unter_maus(x, y)
             if besitzer is None:
                 return False
@@ -1282,6 +1287,7 @@ class OcctAnsicht(AnsichtBasis):
         form, texte = _grafik_form(g, sz.pmi_text)
         if form is not None:
             ais = AIS_Shape(form)
+            _unbeleuchtet(ais)  # gefuellte grafische PMI (Dreiecke) sonst je nach Blickwinkel weiss statt Kontrastfarbe
             ais.SetColor(farbe)
             ais.SetWidth(2.0)
             liste.append(ais)
@@ -1395,9 +1401,16 @@ class OcctAnsicht(AnsichtBasis):
             return _abgetoent(self.szene.farben[idx], grund)
         return None
 
-    def hebe_flaechen(self, flaechen):
+    def _hervorgehoben(self, idx: int, ais) -> bool:
+        """Flaeche einer Teil-Instanz hervorgehoben (beachtet die Beschraenkung auf gewaehlte Instanzen)."""
+        if idx not in self.hervor:
+            return False
+        teile = getattr(self, "hervor_teile", {}).get(idx)
+        return not teile or any(self._teile.get(t) is ais for t in teile)
+
+    def hebe_flaechen(self, flaechen, teile=None):
         alt = self.hervor
-        super().hebe_flaechen(flaechen)
+        super().hebe_flaechen(flaechen, teile)
         if not self._bereit or self.szene is None:
             return
         t = self.thema or {}
@@ -1405,7 +1418,7 @@ class OcctAnsicht(AnsichtBasis):
         geaendert = set()
         for idx in alt | self.hervor:
             for ais, f in self._flaechen_ais.get(idx, []):
-                if idx in self.hervor:
+                if self._hervorgehoben(idx, ais):
                     ais.SetCustomColor(f, _farbe(t.get("hervor", (1, 0.45, 0))))
                 else:
                     ais.SetCustomColor(f, _farbe(self._grundfarbe(idx, f) or grund))
@@ -1434,6 +1447,8 @@ class OcctAnsicht(AnsichtBasis):
             je_teil = {}
             for idx in self.hervor:
                 for ais, f in self._flaechen_ais.get(idx, []):
+                    if not self._hervorgehoben(idx, ais):
+                        continue
                     je_teil.setdefault(id(ais), (ais, []))[1].append(f)
             farbe = _farbe((self.thema or {}).get("hervor", (1, 0.45, 0)))
             for teil, flaechen in je_teil.values():
@@ -1711,6 +1726,7 @@ class OcctAnsicht(AnsichtBasis):
                     ebene.SetOn(True)
                     self.d.View.AddClipPlane(ebene)
                     self._box_ebenen.append(ebene)
+        self._schnittkanten_spaeter()
         self._neu_zeichnen()
 
     def zeige_material(self, dazu, weg):
@@ -2183,6 +2199,7 @@ class OcctAnsicht(AnsichtBasis):
             if kette:
                 self.d.View.AddClipPlane(kette[0])
                 self._ansicht_clips.append(kette[0])
+        self._schnittkanten_spaeter()
         self._neu_zeichnen()
 
     def _entferne_schnitt(self):
@@ -2238,6 +2255,7 @@ class OcctAnsicht(AnsichtBasis):
         from OCC.Core.gp import gp_Dir, gp_Pln, gp_Pnt
         from OCC.Core.Graphic3d import Graphic3d_ClipPlane
         self._entferne_schnitt()
+        self._schnittkanten_spaeter()
         if achse is None or self.szene is None:
             self._neu_zeichnen()
             return
@@ -2259,6 +2277,76 @@ class OcctAnsicht(AnsichtBasis):
         self._clips = ebenen
         self._clip = ebenen[-1] if ebenen else None
         self._neu_zeichnen()
+
+    def aktive_schnittebenen(self) -> list[tuple]:
+        """Alle wirksamen Schnittebenen (Punkt, Richtung zur behaltenen Seite): Schnitt, Ansicht, Box."""
+        out = list(self.alle_schnitt_ebenen()) if self.schnitt_zustand is not None else []
+        out += [e for gruppe in self.ansicht_schnitt for e in gruppe]
+        if self.box is not None:
+            lo, hi = self.box
+            for achse in range(3):
+                for wert, vz in ((lo[achse], 1.0), (hi[achse], -1.0)):
+                    p, d = [0.0, 0.0, 0.0], [0.0, 0.0, 0.0]
+                    p[achse], d[achse] = float(wert), vz
+                    out.append((tuple(p), tuple(d)))
+        return out
+
+    def _schnittkanten_spaeter(self, ms: int = 250):
+        """Schnittkanten erst rechnen, wenn der Regler ruht (Schnitt je Teil kostet bei grossen Baugruppen)."""
+        t = getattr(self, "_schnittkanten_uhr", None)
+        if t is None:
+            t = self._schnittkanten_uhr = QtCore.QTimer(self)
+            t.setSingleShot(True)
+            t.timeout.connect(self.baue_schnittkanten)
+        t.start(ms)
+
+    def baue_schnittkanten(self, budget: float = 2.0) -> int:
+        """Umrandung der Teile in jeder Schnittebene als Kanten (kern.schnitt.kontur je sichtbarer Instanz in ihrer
+        Lage); knapp auf der behaltenen Seite, damit verkettete Ebenen sie richtig wegschneiden. Rechnet hoechstens
+        budget Sekunden (grosse Baugruppen: die naechsten Teile beim naechsten Mal). Rueckgabe: Zahl der Linienzuege."""
+        import time
+        import numpy as np
+        from OCC.Core.AIS import AIS_Shape
+        from OCC.Core.BRep import BRep_Builder
+        from OCC.Core.BRepBuilderAPI import BRepBuilderAPI_MakePolygon
+        from OCC.Core.TopLoc import TopLoc_Location
+        from OCC.Core.TopoDS import TopoDS_Compound
+        from OCC.Core.gp import gp_Pnt
+        from ..kern import schnitt
+        ctx = self.d.Context
+        if getattr(self, "_schnittkanten_ais", None) is not None:
+            ctx.Remove(self._schnittkanten_ais, False)
+            self._schnittkanten_ais = None
+        ebenen = self.aktive_schnittebenen() if self._bereit and self.szene is not None else []
+        if not ebenen:
+            self._neu_zeichnen()
+            return 0
+        bb, comp = BRep_Builder(), TopoDS_Compound()
+        bb.MakeCompound(comp)
+        start, anzahl = time.monotonic(), 0
+        for nr, ais in self._teile.items():
+            if nr in self.versteckt or time.monotonic() - start > budget:
+                continue
+            form = ais.Shape().Moved(TopLoc_Location(ais.LocalTransformation()))
+            for punkt, richtung in ebenen:
+                n = np.asarray(richtung, float) / np.linalg.norm(richtung)
+                for zug in schnitt.kontur_anzeige(form, schnitt.Ebene(np.asarray(punkt, float), n)):
+                    eps = 1e-3 * max(1.0, float(np.ptp(zug, axis=0).max()) if len(zug) else 1.0)
+                    poly = BRepBuilderAPI_MakePolygon()
+                    for q in zug:
+                        poly.Add(gp_Pnt(*map(float, np.asarray(q, float) + n * eps)))
+                    if poly.IsDone():
+                        bb.Add(comp, poly.Wire())
+                        anzahl += 1
+        if anzahl:
+            a = AIS_Shape(comp)
+            a.SetColor(_farbe((self.thema or {}).get("kante", (0.15, 0.17, 0.2))))
+            a.SetWidth(2.5)
+            ctx.Display(a, 0, -1, False)
+            ctx.Deactivate(a)
+            self._schnittkanten_ais = a
+        self._neu_zeichnen()
+        return anzahl
 
     def bild(self, pfad):
         if not self._bereit:
@@ -2614,6 +2702,10 @@ class OcctAnsicht(AnsichtBasis):
             teil = next((nr for nr, a in self._teile.items() if a == obj), None)  # Instanz, nicht nur die Flaeche
             self._waehle_3d(form, mehr, teil)
             idx = self.szene.modell.flaechen_index(form)
+            if teil is not None and idx is not None:  # fuer Messgroessen am Punkt
+                p = self._punkt_unter_maus(x, y, form)
+                if p is not None:
+                    self.klickpunkte[(teil, idx)] = (p.X(), p.Y(), p.Z())
             self.flaeche_gewaehlt.emit(-1 if idx is None else idx)
 
     # --- 3D-Auswahl ---
@@ -2641,8 +2733,14 @@ class OcctAnsicht(AnsichtBasis):
             ctx.Remove(self._auswahl_ais, False)
             self._auswahl_ais = None
         kanten = [f for f in self.auswahl3d if f.ShapeType() == TopAbs_EDGE]
-        flaechen = {self.szene.modell.flaechen_index(f) for f in self.auswahl3d if f.ShapeType() != TopAbs_EDGE}
-        self.hebe_flaechen({i for i in flaechen if i is not None})
+        paare = [(self.szene.modell.flaechen_index(f), t) for f, t in zip(self.auswahl3d, self.auswahl_teile)
+                 if f.ShapeType() != TopAbs_EDGE]
+        teile = {}  # nur die gewaehlte Instanz hervorheben, wenn sie bekannt ist
+        for i, t in paare:
+            if i is not None and t is not None:
+                teile.setdefault(i, set()).add(t)
+        self.hebe_flaechen({i for i, _ in paare if i is not None},
+                           teile if all(t is not None for i, t in paare if i is not None) else None)
         if kanten:
             bb, comp = BRep_Builder(), TopoDS_Compound()
             bb.MakeCompound(comp)

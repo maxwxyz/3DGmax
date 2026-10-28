@@ -233,6 +233,9 @@ class PmiPanel(QtWidgets.QWidget):
         self.tabelle.setWordWrap(False)
         self.tabelle.setContextMenuPolicy(QtCore.Qt.ContextMenuPolicy.CustomContextMenu)
         self.tabelle.customContextMenuRequested.connect(self._menue)
+        for taste in (QtGui.QKeySequence.StandardKey.Delete, QtGui.QKeySequence(QtCore.Qt.Key.Key_Backspace)):
+            weg = QtGui.QShortcut(taste, self.tabelle, context=QtCore.Qt.ShortcutContext.WidgetShortcut)
+            weg.activated.connect(self.loesche_eigene)
         kopf = self.tabelle.horizontalHeader()
         for i, name in enumerate(self.SPALTEN):
             kopf.setSectionResizeMode(i, QtWidgets.QHeaderView.ResizeMode.Stretch if name == "Wert"
@@ -484,6 +487,12 @@ class PmiPanel(QtWidgets.QWidget):
             self.befehl.emit("loeschen", auswahl)
         elif gewaehlt.data():
             self.befehl.emit("ansicht", gewaehlt.data())
+
+    def loesche_eigene(self):
+        """Entf/Ruecktaste: gewaehlte eigene PMI loeschen (PMI aus der Datei bleiben)."""
+        eigene = [p for p in self.gewaehlte() if p.quelle == "eigen"]
+        if eigene:
+            self.befehl.emit("loeschen", eigene)
 
     def kopiere(self, auswahl: list):
         zeilen = ["\t".join((str(p.nummer), tr(ART_TEXT.get(p.art, p.art)), p.name, p.wert_text(), p.bezug_text()))

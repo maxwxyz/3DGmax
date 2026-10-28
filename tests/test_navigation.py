@@ -70,3 +70,14 @@ def test_rad_und_unbekannter_modus():
     assert Navigation("xyz").modus == "catia"
     assert Navigation().rad(1, 3, 4)[0][0] == "zoomen"
     assert Navigation().rad(0, 3, 4) == []
+
+
+def test_liegen_gebliebener_zustand_stoert_nicht():
+    """Ging das Loslassen verloren (ausserhalb losgelassen, Fensterwechsel, Menue), beginnt der naechste Druck mit
+    nur einem Knopf eine neue Geste: ein Linksklick bleibt ein Klick (sonst reagierten Auswahl und Wuerfel nicht)."""
+    for modus in ("catia", "klassisch"):
+        n = Navigation(modus)
+        n.druecken(MITTE, MITTE, 0, 100, 100)
+        _ziehe(n, MITTE)  # ... und das Loslassen kommt nie an
+        n.druecken(LINKS, LINKS, 0, 300, 300)
+        assert n.start == (300, 300) and n.loslassen(LINKS, 0, 300, 300) == [("klick", 300, 300)]

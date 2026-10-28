@@ -101,6 +101,38 @@ Done in this local session (commit):
   has none of them), surface texture/weld symbols (no sample file), large-assembly LOD (no large model; 3.7 MB STEP
   loads in 2.4 s).
 
+- **Evening order 2026-10-28 ("1–4, then the new UI, then 5–8"):**
+  - Item 1 done: assembly variation with thermal expansion at an operating temperature (α from STEP materials,
+    dialog "Werkstoffe …"), traffic light per measure, measures at a clicked point ("am Klickpunkt": point to plane /
+    point to axis), all in the PDF. Datum shift stays open.
+  - Item 2 done (assembly part): "Als 3D-Kette" turns an assembly measure into a 3D chain (one link per part on the
+    connection path, LP limits per component); on the example it matches the assembly analysis exactly. Found and
+    fixed on the way: 2D/3D → 1D hand-over lost the nominal of untoleranced components (worst case centred wrongly).
+  - Windows JT build fixed (MSVC `link.exe` next to `cl.exe` instead of GNU `link`, response file); run 40669857102
+    green; Linux/macOS with JT green in run 40669274020.
+  - User reports fixed: splash with old logo and jump (launcher image now regenerated and kept until the main window,
+    progress text in it); contrast setting reached only the main view → now all views of all windows, filled PMI
+    drawn unlit. Side-panel resizing: analysis + fix entered in `docs/UI_UX_Plan.md` stage 2 (not done yet).
+  - Later the same evening (user reports, all fixed with tests): JT on Windows (no console window – closing it
+    killed the converter; drag & drop of .jt – the main window had its own extension list without JT; clearer error
+    text without TKJT "skipping element" notes), zones of half shells (envelopes followed the full axis), editable
+    function table (role, fit, tolerance, swap faces, multi-face features), shrinkable chain window (flow layout
+    `ui/fluss.py`), assembly measure shown in 3D (only the instance concerned is highlighted – `hebe_flaechen` got an
+    instance restriction), section contour edges (`kern/schnitt.kontur_anzeige` from the display mesh, 0.1 s instead
+    of 15 s with the exact section), view cube/left click after a lost mouse release (stale gesture state reset),
+    docks in scroll areas (window min width 1624 → 805 px), 3D handle cleared on loading another file, wiggle
+    button icon-only. Not reproducible here: the thin blue stripe while loading on Windows (asked for a screenshot).
+  - Next: item 3 (wiggle of the closing faces at the worst-case extremes), item 4 (median planes as chain ends,
+    chains across parts), then UI stage 2 (incl. resizing analysis, roll ring hint), then items 5–8.
+  - Added to the plan (user, 2026-10-28): live 3D preview of the function → tolerancing proposal (PLAN §8.33,
+    Roadmap ⬜); fits well with UI stage 2 (the function window becomes a panel).
+  - Fixed: deleting own PMI left their callouts in 3D (view and `erg` share the graphics dict; the view is now
+    cleared first); Del/Backspace in the PMI list deletes selected own PMI.
+  - Added to the plan (user, 2026-10-28, after UI stage 2): materials in hand-built 1D/2D/3D chains – chain default
+    plus per-link override (PLAN §8.33, Roadmap ⬜).
+  - Added to UI stage 2 (user, 2026-10-28): CATIA roll band further out, continuous blend into the trackball
+    (rounded arcball) while dragging – `docs/UI_UX_Plan.md`.
+
 **Deferred questions for the user** (do not block on them):
 - UI/UX stage 2 (workspaces) changes the layout a lot – implement only after you have read `docs/UI_UX_Plan.md`?
 - JT: JT 10.5 (NIST) now works; a JT 8/9 file and a JT with colours/PMI from CATIA/NX would still be good tests.
@@ -233,13 +265,16 @@ planes and the view cube, and `DG_BILDSCHIRM=1 pytest tests/test_bildschirm.py` 
 | 4 Compare | ✅ incl. manual alignment, deviation color map, material + / −, moved geometry/PMI, assembly comparison, graphical PMI changes, graphical-only notes, rotated/mirrored elements, per-instance geometry and status colors (open: change list per instance) |
 | 5 Output | ✅ PDF per view, comparison PDF, PMI change PDF, bill of characteristics, measurement report, drawings (HLR, PDF/SVG/DXF with PMI; meshes too), section contour SVG/DXF/PDF, generated PMI stage 2, project container (incl. own views), folder comparison |
 | 6 Formats | 🟡 STEP, STEPZ, IGES, STL, OBJ, glTF/GLB, 3MF, PLY, QIF 3.0 (B-rep, semantic + graphical PMI, views), PRC/3D PDF (mesh with edges, markups, views; graphical-only PMI evaluated) done; open: STEP-XML, PRC B-rep/compressed tessellation, U3D, point clouds |
-| 7 JT via TKJT | ⬜ (free JT without PMI: `NIST mtc crada assembly.jt` in daten/nist_cad_dl/nist-cad-models-mtc-assembly.zip) |
+| 7 JT via TKJT | ✅ JT 10 via fork + own patch, builds on macOS/Linux/Windows (GitHub workflow option "jt") – was ⬜ (free JT without PMI: `NIST mtc crada assembly.jt` in daten/nist_cad_dl/nist-cad-models-mtc-assembly.zip) |
 Details: `docs/Roadmap.md`; future topics: PLAN.md §8 (8.5 tolerance zones, 8.6 annotating, 8.8 stack-up,
 8.10 PMI editing/advisor, 8.11 CATIA, 8.15 PRC/3D PDF, 8.16 generated PMI, 8.17 open formats, 8.18 PMI as semantics or
 graphics only, 8.19 QIF graphics, 8.20 3D tolerance analysis,
 8.21 clash/band/intersection analysis, 8.22 plausibility check, 8.23 scan against PMI tolerances).
 
 ## Next (in this order)
+0. Evening order 2026-10-28: plan items 3 and 4 (see "Current state"), UI stage 2 (`docs/UI_UX_Plan.md`, incl.
+   side-panel resizing analysis), then items 5–8 (live snapping + STEP kinematics, presentation for written PMI,
+   overlap check for generated PMI, DXF dimension entities).
 1. Visual check on the Mac (see "Visual check on the real screen still open" and: wireframe contrast edges, view cube,
    start screen, side-panel dragging, tab ✕ and right-click menu on tabs, File › Examples, stack-up window and PDF,
    clash dock, assembly dock, scan check with point cloud and 3-2-1 alignment, zones for linear/angular dimensions).

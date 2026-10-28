@@ -89,9 +89,9 @@ def als_glieder(k: Kette2D) -> list[Glied]:
         s = k.segmente[i]
         nenn = getattr(s, g)
         oben, unten = getattr(s, g + "_oben"), getattr(s, g + "_unten")
-        linear += d * nenn
         if abs(d) < 1e-12 or oben == unten == 0:
-            continue
+            continue  # untolerierte Groessen stecken im Linearisierungsrest
+        linear += d * nenn
         einheit = "°" if g == "winkel" else ""
         name = f"{s.name} – {tr('Winkel') if g == 'winkel' else tr('Länge')} {nenn:g}{einheit}"
         glieder.append(Glied(name, nenn, nenn + oben, nenn + unten, 1 if d > 0 else -1, verteilung=s.verteilung,

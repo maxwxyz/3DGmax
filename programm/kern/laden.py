@@ -178,11 +178,20 @@ def jt_wandler() -> str | None:
     return next((k for k in kandidaten if k and os.path.isfile(k) and os.access(k, os.X_OK)), None)
 
 
+def jt_meldung(ausgabe: str, zeilen: int = 4) -> str:
+    """Letzte aussagekraeftige Zeilen der Konverter-Ausgabe: Hinweise von TKJT auf uebersprungene, unbekannte
+    Elementtypen ("unknown object type GUID ... skipping element") sind kein Fehler und fallen weg."""
+    rest = [z.strip() for z in (ausgabe or "").splitlines()
+            if z.strip() and "skipping element" not in z]
+    return "\n".join(rest[-zeilen:]) or "–"
+
+
 def _lade_jt(pfad: str) -> "StepModell":
     """JT 8 bis 10 ueber TKJT (externer Konverter nach GLB, dann wie glTF)."""
     import os
     import shutil
     import subprocess
+    import sys
     import tempfile
     from ..i18n import tr
     version = jt_version(pfad)
@@ -194,9 +203,16 @@ def _lade_jt(pfad: str) -> "StepModell":
     ordner = tempfile.mkdtemp(prefix="3dgmax_jt_")
     try:
         ziel = os.path.join(ordner, os.path.splitext(os.path.basename(pfad))[0] + ".glb")
-        r = subprocess.run([wandler, pfad, ziel], capture_output=True, text=True, timeout=600)
+        # Windows: ohne eigenes Konsolenfenster (Schliessen des Fensters wuerde die Umwandlung abbrechen)
+        fenster = {"creationflags": subprocess.CREATE_NO_WINDOW} if sys.platform == "win32" else {}
+        try:
+            r = subprocess.run([wandler, pfad, ziel], capture_output=True, text=True, errors="replace",
+                               timeout=1800, **fenster)
+        except subprocess.TimeoutExpired:
+            raise LadeFehler(tr("JT-Umwandlung nach 30 min abgebrochen: {}").format(os.path.basename(pfad))) from None
         if r.returncode != 0 or not os.path.isfile(ziel):
-            raise LadeFehler(tr("JT-Datei nicht lesbar: {}").format((r.stderr or r.stdout).strip()[-300:]))
+            raise LadeFehler(tr("JT-Datei nicht lesbar (Konverter-Code {}): {}").format(
+                r.returncode, jt_meldung(r.stderr or r.stdout)))
         modell = lade_modell(ziel)
         modell.pfad = pfad
         return modell

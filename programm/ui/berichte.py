@@ -449,6 +449,15 @@ def messgroessen_pdf(fenster, pfad: str) -> str:
         if e.aussen is not None:
             bericht.absatz(tr("Soll {}: außerhalb {:.2%}{}").format(
                 bm.soll_text(m), e.aussen, "" if e.cpk is None else tr(", Cpk {:.2f}").format(e.cpk)), 10)
+        if e.waerme is not None:
+            bericht.absatz(tr("Wärmeausdehnung bei {:g} °C: {:+.4f} mm").format(
+                fenster.zusammenbau.temperatur.value(), e.waerme), 10)
+        stufe, wort = bm.bewertung(e, m)
+        if stufe:
+            bericht.absatz(tr("Bewertung: {}").format(wort), 10)
+        if m.punkt is not None:
+            bericht.absatz(tr("Gemessen am Punkt ({:.2f}, {:.2f}, {:.2f}) des Teils {}").format(
+                *m.punkt, namen.get(m.teil_a, m.teil_a)), 9)
         if e.unbestimmt:
             bericht.absatz(tr("Hängt von offenen Freiheitsgraden ab (in Nennlage gerechnet)."), 9)
         if e.proben is not None and len(e.proben) and e.wc_max > e.wc_min:

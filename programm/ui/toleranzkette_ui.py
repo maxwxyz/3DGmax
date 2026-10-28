@@ -10,6 +10,8 @@ from PySide6 import QtCore, QtGui, QtWidgets
 
 from ..i18n import tr
 from ..kern import toleranzkette as tk
+from .fluss import FlussLayout
+
 
 def _z(x: float, vorzeichen: str = "") -> str:
     """Zahl mit vier Stellen, ohne "-0.0000"."""
@@ -67,6 +69,18 @@ METHODEN = (("rss", "RSS", "Varianzen addieren, Schlussmaß ±3σ"),
             ("verschiebung", "Mittenverschiebung", "Je Glied darf die Mitte um den Anteil m der halben Toleranz wandern "
                                                    "(arithmetisch), der Rest streut statistisch"))
 PLAN_FARBE = QtGui.QColor(255, 196, 0, 40)  # Tabelle im Planspiel leicht getoent
+
+
+def _paar(*widgets) -> QtWidgets.QWidget:
+    """Zusammengehoerige Elemente, die im Fliesslayout nicht getrennt umbrechen (z. B. Beschriftung und Feld)."""
+    w = QtWidgets.QWidget()
+    lay = QtWidgets.QHBoxLayout(w)
+    lay.setContentsMargins(0, 0, 0, 0)
+    for x in widgets:
+        lay.addWidget(x)
+    return w
+
+
 AENDERBAR_FARBE = QtGui.QColor(37, 99, 235, 34)  # Zellen, die man aendern kann (von Hand, im Planspiel)
 
 
@@ -142,7 +156,7 @@ class Histogramm(QtWidgets.QWidget):
 
     def __init__(self, parent=None):
         super().__init__(parent)
-        self.setMinimumSize(260, 140)
+        self.setMinimumSize(160, 100)  # wird bei kleinem Fenster einfach kleiner
         self.setMouseTracking(True)
         self.e = self.ist = None
         self.anforderung = None
@@ -495,7 +509,11 @@ class ToleranzketteFenster(QtWidgets.QDialog):
                                       "alle überlagert)"))
         self.ergebnisse.cellClicked.connect(self._verfahren_gewaehlt)
         self.hist_art = None  # None: das anwendbare Verfahren (✓) zeigen
-        self.ergebnisse.setSizePolicy(QtWidgets.QSizePolicy.Policy.Fixed, QtWidgets.QSizePolicy.Policy.Fixed)
+        # so breit wie der Inhalt, bei kleinem Fenster schmaler mit Querlaufleiste (kein Mindestmass des Fensters)
+        self.ergebnisse.setSizePolicy(QtWidgets.QSizePolicy.Policy.Maximum, QtWidgets.QSizePolicy.Policy.Fixed)
+        self.ergebnisse.setVerticalScrollBarPolicy(QtCore.Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
+        self.ergebnisse.setSizeAdjustPolicy(QtWidgets.QAbstractScrollArea.SizeAdjustPolicy.AdjustToContents)
+        self.ergebnisse.horizontalScrollBar().rangeChanged.connect(lambda *_: self._ergebnis_hoehe())
         self.ergebnis = QtWidgets.QLabel("")  # Schlussmass und Begruendung des anwendbaren Verfahrens
         self.ergebnis.setWordWrap(True)
         self.ergebnis.setTextInteractionFlags(QtCore.Qt.TextInteractionFlag.TextSelectableByMouse)
@@ -504,6 +522,7 @@ class ToleranzketteFenster(QtWidgets.QDialog):
         self.histogramm.grenze_gezogen.connect(self._grenze_gezogen)
         self.ampel = QtWidgets.QLabel("")  # Anforderung eingehalten? gruen / gelb / rot mit Begruendung
         self.ampel.setWordWrap(True)
+        self.ampel.setMinimumWidth(160)
         self.ampel.setMaximumWidth(520)
         self.ampel.setTextFormat(QtCore.Qt.TextFormat.RichText)
         self.alle_ueberlagern = QtWidgets.QCheckBox(tr("Alle Verfahren im Histogramm überlagern"))
@@ -548,7 +567,7 @@ class ToleranzketteFenster(QtWidgets.QDialog):
     # --- Aufbau ---
 
     def _baue_eingaben(self):
-        reihe = QtWidgets.QHBoxLayout()
+        reihe = FlussLayout()  # bricht bei wenig Breite um, das Fenster bleibt verkleinerbar
         self.plus = QtWidgets.QPushButton(tr("＋ Gewählte Maße (+)"))
         self.plus.setToolTip(tr("In der PMI-Liste gewählte Maße als Glieder anhängen, die das Schlussmaß vergrößern"))
         self.minus = QtWidgets.QPushButton(tr("＋ Gewählte Maße (−)"))
@@ -595,8 +614,7 @@ class ToleranzketteFenster(QtWidgets.QDialog):
         self.lage.setToolTip(tr("Position, Symmetrie, Koaxialität und Profil mit Bezug an der ersten und letzten Fläche "
                                 "als eigene Glieder (Zwischenflächen heben sich auf)"))
         reihe.addWidget(self.lage)
-        reihe.addStretch(1)
-        reihe.addWidget(QtWidgets.QLabel(tr("Prozessfähigkeit Cp")))
+        cp_text = QtWidgets.QLabel(tr("Prozessfähigkeit Cp"))
         self.cp = QtWidgets.QDoubleSpinBox()
         self.cp.setToolTip(tr("Prozessfähigkeit der Kette: normalverteilte Glieder streuen mit σ = T / (6 · Cp); 1,33 "
                               "übliche Serie, 1,0 gerade fähig"))
@@ -607,7 +625,7 @@ class ToleranzketteFenster(QtWidgets.QDialog):
         self.cp.setToolTip(tr("Cp der Kette für normalverteilte Glieder ohne eigenen Wert: σ = Toleranz / (6 · Cp); "
                               "1,0 = ±3σ, 1,33 = ±4σ"))
         self.cp.valueChanged.connect(self._rechne)
-        reihe.addWidget(self.cp)
+        reihe.addWidget(_paar(cp_text, self.cp))
         self.methode = QtWidgets.QComboBox()
         for schluessel, text, tipp in METHODEN:
             self.methode.addItem(tr(text), schluessel)
@@ -620,8 +638,7 @@ class ToleranzketteFenster(QtWidgets.QDialog):
         self.methode_wert.setSingleStep(0.05)
         self.methode.currentIndexChanged.connect(self._methode_gewaehlt)
         self.methode_wert.valueChanged.connect(self._rechne)
-        reihe.addWidget(self.methode)
-        reihe.addWidget(self.methode_wert)
+        reihe.addWidget(_paar(self.methode, self.methode_wert))
         self.plan_knopf = QtWidgets.QPushButton(tr("Planspiel …"))
         self.plan_knopf.setToolTip(tr("Werte vorübergehend ändern und mit dem Ist vergleichen, ohne die Kette zu "
                                       "verändern"))
@@ -687,12 +704,26 @@ class ToleranzketteFenster(QtWidgets.QDialog):
         reihe.addStretch(1)
         return reihe
 
+    def _ergebnis_hoehe(self):
+        """Ergebnistabelle so hoch wie ihre Zeilen, plus Querlaufleiste, wenn sie schmaler als ihr Inhalt ist."""
+        t = self.ergebnisse
+        leiste = t.horizontalScrollBar()
+        hoehe = t.horizontalHeader().sizeHint().height() + sum(t.rowHeight(z) for z in range(t.rowCount())) \
+            + 2 * t.frameWidth() + (leiste.sizeHint().height() if leiste.maximum() > 0 else 0)
+        if t.height() != hoehe or t.minimumHeight() != hoehe:
+            t.setFixedHeight(hoehe)
+
     def _ampel_hoehe(self):
-        """Feste Hoehe der umbrechenden Ampelzeile, damit das Layout sie einrechnet (sonst ueberlappt der Text
-        darunter die Ergebnistabelle)."""
-        breite = min(self.ampel.maximumWidth(), max(self.ergebnisse.width(), 320))
-        self.ampel.setFixedWidth(breite)
-        self.ampel.setFixedHeight(self.ampel.heightForWidth(breite) if self.ampel.text() else 0)
+        """Feste Hoehe der umbrechenden Ampelzeile bei ihrer aktuellen Breite, damit das Layout sie einrechnet
+        (sonst ueberlappt der Text darunter die Ergebnistabelle); folgt der Fensterbreite."""
+        breite = max(self.ampel.minimumWidth(), min(self.ampel.maximumWidth(), self.ampel.width()))
+        hoehe = self.ampel.heightForWidth(breite) if self.ampel.text() else 0
+        if self.ampel.height() != hoehe or self.ampel.minimumHeight() != hoehe:
+            self.ampel.setFixedHeight(hoehe)
+
+    def resizeEvent(self, ev):  # noqa: N802 - Qt
+        super().resizeEvent(ev)
+        QtCore.QTimer.singleShot(0, self._ampel_hoehe)  # nach dem Layout: neue Breite der Ampelzeile
 
     def _unten_hoehe(self):
         """Ergebnisbereich nicht kleiner als sein Inhalt (feste Ergebnistabelle samt Ampel), sonst ueberlappt er."""
@@ -1622,11 +1653,12 @@ class ToleranzketteFenster(QtWidgets.QDialog):
                     it.setFont(schrift)
                 t.setItem(z, s, it)
         t.resizeColumnsToContents()
-        t.setFixedWidth(sum(t.columnWidth(s) for s in range(t.columnCount())) + 2 * t.frameWidth())
-        self.ampel.setMaximumWidth(max(t.width(), 320))
+        inhalt = sum(t.columnWidth(s) for s in range(t.columnCount())) + 2 * t.frameWidth()
+        t.setMaximumWidth(inhalt)
+        t.setMinimumWidth(min(inhalt, 160))
+        self.ampel.setMaximumWidth(max(inhalt, 320))
+        self._ergebnis_hoehe()
         self._ampel_hoehe()
-        t.setFixedHeight(t.horizontalHeader().sizeHint().height() + sum(t.rowHeight(z) for z in range(t.rowCount()))
-                         + 2 * t.frameWidth())
         e = self.e
         text = f"<b>{tr('Schlussmaß')}</b> {_z(e.nenn)} mm &nbsp; · &nbsp; {html.escape(tk.anwendbar_text(e))}"
         anforderung = self.anforderung_werte()

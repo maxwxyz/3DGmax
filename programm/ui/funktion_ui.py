@@ -5,7 +5,7 @@ from __future__ import annotations
 
 import html
 
-from PySide6 import QtCore, QtWidgets
+from PySide6 import QtCore, QtGui, QtWidgets
 
 from ..i18n import tr
 from ..kern import funktion as fu
@@ -23,47 +23,61 @@ ROLLEN_HILFE = {
 
 
 class FunktionFenster(QtWidgets.QDialog):
+    """Elemente (eine oder mehrere Flaechen, z. B. zwei Halbschalen) mit Rolle, Passung und Toleranz; Passung und
+    Toleranz leer bzw. "auto" = Startwert aus der Rolle."""
+
     flaechen_zeigen = QtCore.Signal(set)
     anlegen = QtCore.Signal(list)  # PMI-Vorschlaege (kern.pmi_vorschlag.Vorschlag) zum Uebernehmen
+    SPALTEN = ("Fläche", "Geometrie", "Funktion", "Passung", "Toleranz (mm)")
+    SP_FUNKTION, SP_PASSUNG, SP_TOLERANZ = 2, 3, 4
 
     def __init__(self, parent=None):
         super().__init__(parent)
         self.setWindowTitle(tr("Funktion → Tolerierung"))
-        self.resize(640, 520)
-        self.rollen: dict[int, str] = {}
+        self.resize(760, 540)
+        self.rollen: dict[int, str] = {}  # erste Flaeche des Elements -> Rolle
+        self.gruppen: dict[int, tuple] = {}  # erste Flaeche -> alle Flaechen (nur Elemente aus mehreren Flaechen)
+        self.werte: dict[int, dict] = {}  # erste Flaeche -> {"toleranz": mm, "passung": "H8"} von Hand
         self.modell = None
         self.auswahl = lambda: []  # gewaehlte Flaechenindizes (setzt das Hauptfenster)
         lay = QtWidgets.QVBoxLayout(self)
-        hinweis = QtWidgets.QLabel(tr("Flächen im Modell wählen und ihre Funktion zuordnen. Daraus folgen das "
-                                      "Bezugssystem (3-2-1 nach ISO 5459) und die Tolerierung nach ISO 1101/286 – "
-                                      "als Startwerte, die Toleranzkette legt die Werte fest."))
+        hinweis = QtWidgets.QLabel(tr("Flächen im Modell wählen und ihre Funktion zuordnen – mehrere Flächen auf "
+                                      "demselben Zylinder oder in derselben Ebene (z. B. zwei Halbschalen) werden ein "
+                                      "Element. Daraus folgen das Bezugssystem (3-2-1 nach ISO 5459) und die "
+                                      "Tolerierung nach ISO 1101/286; Funktion, Passung und Toleranz sind in der "
+                                      "Tabelle änderbar."))
         hinweis.setWordWrap(True)
         hinweis.setObjectName("leise")
         lay.addWidget(hinweis)
         reihe = QtWidgets.QHBoxLayout()
         self.rolle = QtWidgets.QComboBox()
-        for schluessel, (name, _) in fu.ROLLEN.items():
-            self.rolle.addItem(tr(name), schluessel)
-            self.rolle.setItemData(self.rolle.count() - 1, tr(ROLLEN_HILFE[schluessel]),
-                                   QtCore.Qt.ItemDataRole.ToolTipRole)
+        self._fuelle_rollen(self.rolle)
         self.rolle.setToolTip(tr("Funktion der gewählten Flächen"))
         self.setzen = QtWidgets.QPushButton(tr("Rolle für Auswahl"))
-        self.setzen.setToolTip(tr("Den im Modell gewählten Flächen diese Funktion zuordnen"))
+        self.setzen.setToolTip(tr("Den im Modell gewählten Flächen diese Funktion zuordnen (Flächen eines Zylinders "
+                                  "bzw. einer Ebene als ein Element)"))
         self.setzen.clicked.connect(lambda: self.setze_rolle(self.auswahl(), self.rolle.currentData()))
+        self.tauschen = QtWidgets.QPushButton(tr("Flächen aus Auswahl"))
+        self.tauschen.setToolTip(tr("Die Flächen des in der Tabelle gewählten Elements durch die im Modell gewählten "
+                                    "ersetzen (Funktion und Werte bleiben)"))
+        self.tauschen.clicked.connect(lambda: self.ersetze_flaechen(self.auswahl()))
         self.weg = QtWidgets.QPushButton(tr("Entfernen"))
         self.weg.setToolTip(tr("Rolle der in der Tabelle gewählten Flächen entfernen"))
         self.weg.clicked.connect(self._entfernen)
-        for w in (self.rolle, self.setzen, self.weg):
+        for w in (self.rolle, self.setzen, self.tauschen, self.weg):
             reihe.addWidget(w)
         reihe.addStretch(1)
         lay.addLayout(reihe)
-        self.tabelle = QtWidgets.QTableWidget(0, 3)
-        self.tabelle.setHorizontalHeaderLabels([tr("Fläche"), tr("Geometrie"), tr("Funktion")])
+        self.tabelle = QtWidgets.QTableWidget(0, len(self.SPALTEN))
+        self.tabelle.setHorizontalHeaderLabels([tr(s) for s in self.SPALTEN])
         self.tabelle.verticalHeader().setVisible(False)
         self.tabelle.setSelectionBehavior(QtWidgets.QAbstractItemView.SelectionBehavior.SelectRows)
-        self.tabelle.setEditTriggers(QtWidgets.QAbstractItemView.EditTrigger.NoEditTriggers)
+        trigger = QtWidgets.QAbstractItemView.EditTrigger
+        self.tabelle.setEditTriggers(trigger.SelectedClicked | trigger.DoubleClicked | trigger.EditKeyPressed |
+                                     trigger.AnyKeyPressed)
         self.tabelle.horizontalHeader().setStretchLastSection(True)
         self.tabelle.itemSelectionChanged.connect(self._zeige)
+        self.tabelle.itemChanged.connect(self._wert_geaendert)
         lay.addWidget(self.tabelle, 1)
         self.bezug_text = QtWidgets.QLabel("")
         self.bezug_text.setWordWrap(True)
@@ -85,60 +99,206 @@ class FunktionFenster(QtWidgets.QDialog):
         lay.addLayout(knoepfe)
         self._fuelle()
 
+    @staticmethod
+    def _fuelle_rollen(box: QtWidgets.QComboBox):
+        for schluessel, (name, _) in fu.ROLLEN.items():
+            box.addItem(tr(name), schluessel)
+            box.setItemData(box.count() - 1, tr(ROLLEN_HILFE[schluessel]), QtCore.Qt.ItemDataRole.ToolTipRole)
+
     def setze_modell(self, modell):
         if modell is not self.modell:
             self.modell = modell
-            self.rollen = {}
+            self.rollen, self.gruppen, self.werte = {}, {}, {}
             self._fuelle()
 
+    def flaechen(self, erste: int) -> tuple:
+        return self.gruppen.get(erste, (erste,))
+
+    def _element_von(self, flaeche: int) -> int | None:
+        return next((e for e in self.rollen if flaeche in self.flaechen(e)), None)
+
+    def _loese(self, flaechen):
+        """Flaechen aus bestehenden Elementen nehmen (ein Element ohne Flaechen faellt weg)."""
+        for f in flaechen:
+            e = self._element_von(f)
+            if e is None:
+                continue
+            rest = tuple(x for x in self.flaechen(e) if x != f)
+            rolle, werte = self.rollen.pop(e), self.werte.pop(e, None)
+            self.gruppen.pop(e, None)
+            if rest:
+                self._setze(rest, rolle, werte)
+
+    def _setze(self, flaechen, rolle: str, werte: dict | None = None) -> int:
+        erste = min(flaechen)
+        self.rollen[erste] = rolle
+        if len(flaechen) > 1:
+            self.gruppen[erste] = tuple(sorted(flaechen))
+        if werte:
+            self.werte[erste] = werte
+        return erste
+
     def setze_rolle(self, flaechen, rolle: str) -> int:
-        """Rolle fuer Flaechen (nur Ebenen und Zylinder); Anzahl der zugeordneten Flaechen."""
-        n = 0
-        for i in flaechen:
-            if self.modell is not None and fu._geometrie(self.modell.flaechen[i]) is not None:
-                self.rollen[i] = rolle
-                n += 1
+        """Rolle fuer Flaechen (nur Ebenen und Zylinder): mehrere Flaechen eines Zylinders bzw. einer Ebene als ein
+        Element, sonst je Flaeche; Anzahl der zugeordneten Flaechen."""
+        flaechen = [i for i in flaechen if self.modell is not None and fu._geometrie(self.modell.flaechen[i])]
+        if not flaechen:
+            return 0
+        bisher = {self._element_von(i) for i in flaechen} - {None}
+        if len(flaechen) == 1 and len(bisher) == 1:  # Flaeche eines Elements gewaehlt: Rolle des Elements
+            self.rollen[bisher.pop()] = rolle
+        elif len(flaechen) > 1 and fu.ein_element(self.modell, flaechen):
+            self._loese(flaechen)
+            self._setze(flaechen, rolle)
+        else:
+            self._loese(flaechen)
+            for i in flaechen:
+                self._setze((i,), rolle)
         self._fuelle()
-        return n
+        return len(flaechen)
+
+    def ersetze_flaechen(self, flaechen) -> bool:
+        """Flaechen des gewaehlten Elements durch die Auswahl ersetzen; False ohne genau ein Element oder wenn die
+        Auswahl kein Element bildet."""
+        zeilen = sorted({i.row() for i in self.tabelle.selectedIndexes()})
+        flaechen = [i for i in flaechen if self.modell is not None and fu._geometrie(self.modell.flaechen[i])]
+        if len(zeilen) != 1 or not flaechen or (len(flaechen) > 1 and not fu.ein_element(self.modell, flaechen)):
+            return False
+        alt = self.tabelle.item(zeilen[0], 0).data(QtCore.Qt.ItemDataRole.UserRole)
+        rolle, werte = self.rollen.pop(alt), self.werte.pop(alt, None)
+        self.gruppen.pop(alt, None)
+        self._loese(flaechen)
+        erste = self._setze(flaechen, rolle, werte)
+        self._fuelle()
+        self.tabelle.selectRow(sorted(self.rollen).index(erste))
+        return True
 
     def _entfernen(self):
         for z in sorted({i.row() for i in self.tabelle.selectedIndexes()}, reverse=True):
-            self.rollen.pop(self.tabelle.item(z, 0).data(QtCore.Qt.ItemDataRole.UserRole), None)
+            e = self.tabelle.item(z, 0).data(QtCore.Qt.ItemDataRole.UserRole)
+            self.rollen.pop(e, None)
+            self.gruppen.pop(e, None)
+            self.werte.pop(e, None)
         self._fuelle()
 
     def _fuelle(self):
+        from .toleranzkette_ui import AENDERBAR_FARBE
         t = self.tabelle
+        t.blockSignals(True)
         t.setRowCount(len(self.rollen))
         for z, (i, rolle) in enumerate(sorted(self.rollen.items())):
-            g = fu._geometrie(self.modell.flaechen[i]) if self.modell is not None else None
+            g = fu._geo(self.modell, i, self.gruppen) if self.modell is not None else None
             art = "" if g is None else (tr("Ebene") if g["art"] == "ebene" else
                                         tr("Bohrung ⌀{:g}").format(round(g["groesse"], 3)) if g["bohrung"] else
                                         tr("Zapfen ⌀{:g}").format(round(g["groesse"], 3)))
-            for s, text in enumerate((str(i), art, tr(fu.ROLLEN[rolle][0]))):
+            start = fu.startwerte(self.modell, i, rolle, self.gruppen) if self.modell is not None else {}
+            w = self.werte.get(i, {})
+            flaechen = " + ".join(str(x) for x in self.flaechen(i))
+            for s, text in enumerate((flaechen, art)):
                 it = QtWidgets.QTableWidgetItem(text)
                 it.setData(QtCore.Qt.ItemDataRole.UserRole, i)
-                if s == 2:
-                    it.setToolTip(tr(ROLLEN_HILFE[rolle]))
+                it.setFlags(it.flags() & ~QtCore.Qt.ItemFlag.ItemIsEditable)
+                if s == 0 and len(self.flaechen(i)) > 1:
+                    it.setToolTip(tr("Ein Element aus {} Flächen").format(len(self.flaechen(i))))
                 t.setItem(z, s, it)
+            box = QtWidgets.QComboBox()
+            self._fuelle_rollen(box)
+            box.setCurrentIndex(box.findData(rolle))
+            box.setToolTip(tr(ROLLEN_HILFE[rolle]))
+            box.currentIndexChanged.connect(lambda _k, e=i, b=box: self._rolle_geaendert(e, b.currentData()))
+            t.setItem(z, self.SP_FUNKTION, QtWidgets.QTableWidgetItem(""))
+            t.setCellWidget(z, self.SP_FUNKTION, box)
+            zylinder = g is not None and g["art"] == "zylinder"
+            for s, eigen, auto, hilfe in (
+                    (self.SP_PASSUNG, w.get("passung"), start.get("passung", ""),
+                     tr("Toleranzklasse nach ISO 286, z. B. H7 oder g6; leer = aus der Funktion ({})")),
+                    (self.SP_TOLERANZ, w.get("toleranz"), "",
+                     tr("Wert aller Form- und Lagetoleranzen dieses Elements in mm; leer = Startwert aus dem IT-Grad "
+                        "({})"))):
+                it = QtWidgets.QTableWidgetItem("" if eigen is None else (f"{eigen:g}" if s == self.SP_TOLERANZ
+                                                                         else eigen))
+                if s == self.SP_PASSUNG and not zylinder:
+                    it.setFlags(it.flags() & ~QtCore.Qt.ItemFlag.ItemIsEditable)
+                    it.setToolTip(tr("Passungen nur an Zylindern"))
+                else:
+                    it.setBackground(AENDERBAR_FARBE)
+                    if eigen is None:  # Startwert grau anzeigen; Eingabe ersetzt ihn
+                        it.setText(auto if s == self.SP_PASSUNG else tr("auto"))
+                        it.setForeground(QtGui.QColor(128, 128, 128))
+                    stand = auto if s == self.SP_PASSUNG else (
+                        tr("Form {:g}, Lage {:g} mm").format(start["form"], start["lage"]) if start else "–")
+                    it.setToolTip(hilfe.format(stand or "–"))
+                it.setData(QtCore.Qt.ItemDataRole.UserRole, i)
+                t.setItem(z, s, it)
+        t.blockSignals(False)
         t.resizeColumnsToContents()
         for k in (self.bezuege_knopf, self.tol_knopf):
             k.setEnabled(bool(self.rollen))
+        self.tauschen.setEnabled(bool(self.rollen))
+
+    def _rolle_geaendert(self, erste: int, rolle: str):
+        self.rollen[erste] = rolle
+        zeile = sorted(self.rollen).index(erste)
+        self._fuelle()
+        self.tabelle.selectRow(zeile)
+
+    def _wert_geaendert(self, it: QtWidgets.QTableWidgetItem):
+        """Passung oder Toleranz von Hand; leer oder "auto" = Startwert."""
+        if it.column() not in (self.SP_PASSUNG, self.SP_TOLERANZ):
+            return
+        erste = it.data(QtCore.Qt.ItemDataRole.UserRole)
+        text = it.text().strip()
+        start = fu.startwerte(self.modell, erste, self.rollen.get(erste, "frei"), self.gruppen)
+        w = self.werte.setdefault(erste, {})
+        if it.column() == self.SP_PASSUNG:
+            w.pop("passung", None)
+            if text and text != start.get("passung"):
+                w["passung"] = text
+        else:
+            w.pop("toleranz", None)
+            try:
+                wert = float(text.replace(",", ".")) if text and text != tr("auto") else None
+            except ValueError:
+                wert = None
+            if wert is not None and wert > 0:
+                w["toleranz"] = wert
+        if not w:
+            self.werte.pop(erste, None)
+        QtCore.QTimer.singleShot(0, self._fuelle)  # nicht waehrend des Editors neu aufbauen
+
+    def zustand(self) -> dict:
+        """Fuer das Projekt: Rollen, Gruppen und von Hand gesetzte Werte."""
+        return {"rollen": dict(self.rollen), "gruppen": {e: list(f) for e, f in self.gruppen.items()},
+                "werte": {e: dict(w) for e, w in self.werte.items()}}
+
+    def setze_zustand(self, d: dict):
+        """Aus zustand() oder dem alten Format (nur Rollen je Flaeche)."""
+        if "rollen" not in d:
+            d = {"rollen": d}
+        zahl = lambda x: {int(k): v for k, v in (x or {}).items()}  # noqa: E731 - JSON-Schluessel sind Text
+        self.rollen = zahl(d.get("rollen"))
+        self.gruppen = {e: tuple(f) for e, f in zahl(d.get("gruppen")).items()}
+        self.werte = zahl(d.get("werte"))
+        self._fuelle()
 
     def _zeige(self):
-        self.flaechen_zeigen.emit({self.tabelle.item(i.row(), 0).data(QtCore.Qt.ItemDataRole.UserRole)
-                                   for i in self.tabelle.selectedIndexes()})
+        self.flaechen_zeigen.emit({f for i in self.tabelle.selectedIndexes()
+                                   for f in self.flaechen(self.tabelle.item(i.row(), 0).data(
+                                       QtCore.Qt.ItemDataRole.UserRole))})
 
     def bezugssystem(self) -> fu.Bezugssystem:
-        return fu.bezugssystem(self.modell, self.rollen)
+        return fu.bezugssystem(self.modell, self.rollen, self.gruppen)
 
     def zeige_bezuege(self) -> fu.Bezugssystem:
         s = self.bezugssystem()
         zeilen = [f"<b>{b.buchstabe}</b> ({tr('Ebene') if b.element == 'ebene' else tr('Achse')}, "
-                  f"{tr('Fläche')} {b.flaeche}): {html.escape(tr(b.grund))}" for b in s.bezuege]
+                  f"{tr('Fläche')} {' + '.join(str(x) for x in self.flaechen(b.flaeche))}): "
+                  f"{html.escape(tr(b.grund))}" for b in s.bezuege]
         zeilen += [html.escape(h) for h in s.hinweise]
         self.bezug_text.setText("<br>".join(zeilen))
-        self.flaechen_zeigen.emit({b.flaeche for b in s.bezuege})
+        self.flaechen_zeigen.emit({f for b in s.bezuege for f in self.flaechen(b.flaeche)})
         return s
 
     def vorschlaege(self) -> list:
-        return fu.tolerierung(self.modell, self.rollen, self.zeige_bezuege()) if self.rollen else []
+        return fu.tolerierung(self.modell, self.rollen, self.zeige_bezuege(), self.gruppen, self.werte) \
+            if self.rollen else []

@@ -41,6 +41,8 @@ class Navigation:
     # --- Ereignisse ---
 
     def druecken(self, knopf: int, knoepfe: int, umschalt: int, x: int, y: int) -> list:
+        if knoepfe == knopf:  # nur dieser Knopf gedrueckt: ein alter Zustand ist liegen geblieben (Loslassen
+            self._zuruecksetzen()  # ausserhalb, Fensterwechsel, Menue) und darf die neue Geste nicht stoeren
         if self.start is None:
             self.start = (x, y)
             self.knopf = knopf

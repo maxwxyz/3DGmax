@@ -49,3 +49,24 @@ def test_nist_jt10_wird_geladen():
         pytest.skip("JT-Konverter nicht gebaut (packaging/jt/bauen.sh)")
     m = laden.lade_modell(p)
     assert m.pfad == p and laden.ist_netz(m) and len(m.flaechen) >= 8
+
+
+def test_fehlermeldung_ohne_tkjt_hinweise(tmp_path, monkeypatch):
+    """Bricht der Konverter ab, nennt die Meldung den Code und die letzten echten Zeilen - nicht die vielen Hinweise
+    von TKJT auf uebersprungene, unbekannte Elementtypen."""
+    skript = tmp_path / "jt2glb"
+    hinweis = "JtReader: unknown object type GUID 98134716-0010-0818-19-98-08-00-09-83-5d-5a, skipping element"
+    skript.write_text(f"#!{sys.executable}\nimport sys\nfor _ in range(50):\n    print({hinweis!r}, file=sys.stderr)\n"
+                      "print('Segment 7 kaputt', file=sys.stderr)\nsys.exit(3)\n")
+    skript.chmod(skript.stat().st_mode | stat.S_IEXEC)
+    monkeypatch.setenv("DG_JT2GLB", str(skript))
+    with pytest.raises(laden.LadeFehler) as e:
+        laden.lade_modell(_jt(tmp_path, "9.5"))
+    assert "3" in str(e.value) and "Segment 7 kaputt" in str(e.value) and "skipping" not in str(e.value)
+    assert laden.jt_meldung(hinweis + "\n" + hinweis) == "–"
+
+
+def test_jt_per_drag_and_drop():
+    from programm.ui.hauptfenster import ablegbar
+    assert ablegbar("C:/Daten/Teil.JT") and ablegbar("a.stp") and ablegbar("p.3dgmax") and not ablegbar("x.txt")
+    assert all(ablegbar("a" + e) for e in laden.ENDUNGEN)

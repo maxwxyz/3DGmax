@@ -92,7 +92,7 @@ def tr_texte() -> set[str]:
     out |= {n for n, _ in k2u.VORLAGEN.values()}
     from programm.kern import funktion as fu
     from programm.ui import funktion_ui as fui
-    out |= set(fu.GRUENDE) | set(fui.ROLLEN_HILFE.values())
+    out |= set(fu.GRUENDE) | set(fui.ROLLEN_HILFE.values()) | set(fui.FunktionFenster.SPALTEN)
     from programm.kern import fertigung as fe
     out |= {v.name for v in fe.VERFAHREN.values()} | {"Fertigung"}
     from programm.ui import messwerkzeug as mw

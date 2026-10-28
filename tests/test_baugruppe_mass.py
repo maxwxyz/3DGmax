@@ -216,3 +216,62 @@ def test_waermeausdehnung_im_zusammenbau():
     dt = a.waermeverschiebung(mg, fa, fb, {1: 11.5, 2: 23.0}, {1: 100.0, 2: 100.0})
     assert abs(abs(dt) - (10 * 11.5e-6 * 80 + 5 * 23e-6 * 80)) < 1e-9
     assert a.waermeverschiebung(mg, fa, fb, {1: 11.5, 2: 23.0}, {}) == 0.0  # 20 °C: keine Dehnung
+
+
+def test_messgroessen_am_punkt():
+    b, f = _baugruppe()
+    a = bm.Analyse(b)
+    flaeche = b.neue_messgroesse(4, f(4, 17), 17, 3, f(3, 15), 15)
+    p0, _ = bm.ebene(f(4, 17), b.lage(4))
+    mitte = b.neue_messgroesse(4, f(4, 17), 17, 3, f(3, 15), 15, punkt=p0)
+    rand = b.neue_messgroesse(4, f(4, 17), 17, 3, f(3, 15), 15, punkt=p0 + [3.0, 0.0, 0.0])
+    assert mitte.art == rand.art == bm.BUENDIG and mitte.punkt is not None
+    e0, e1, e2 = (a.berechne(m, *b.mass_formen[m.nummer]) for m in (flaeche, mitte, rand))
+    assert abs(e1.nenn - e0.nenn) < 1e-9 and abs(e1.wc_max - e0.wc_max) < 1e-9
+    assert abs(e2.nenn - 4.0) < 1e-9 and e2.wc_max - e2.wc_min > e1.wc_max - e1.wc_min  # Kippen wirkt mit Hebel
+    # beliebige Flaeche am Punkt: Schaftmantel zur Deckeloberseite, Deckeloberseite zur Schaftachse
+    q, d = bm.achse(f(4, 19), b.lage(4))
+    seite = np.cross(d, [1.0, 0.0, 0.0])
+    seite /= np.linalg.norm(seite)
+    pe = b.neue_messgroesse(4, f(4, 19), 19, 3, f(3, 15), 15, punkt=q + seite * 1.0)
+    assert pe.art == bm.PUNKT_EBENE
+    pa = b.neue_messgroesse(3, f(3, 15), 15, 4, f(4, 19), 19, punkt=q + seite * 7.0)
+    assert pa.art == bm.PUNKT_ACHSE and abs(a.berechne(pa, *b.mass_formen[pa.nummer]).nenn - 7.0) < 1e-6
+    b2 = vb.Baugruppe()
+    b2.lade(b.als_dict(), f)
+    assert b2.masse[2].punkt == rand.punkt
+
+
+def test_messgroesse_als_3d_kette():
+    from programm.kern import kette3d as k3
+    b, f = _baugruppe()
+    a = bm.Analyse(b)
+    for args in ((4, 17, 3, 15), (4, 17, 5, 17), (3, 15, 2, 2)):  # Kopf zu Deckel, Koepfe, Deckel zu Platte
+        m = b.neue_messgroesse(args[0], f(args[0], args[1]), args[1], args[2], f(args[2], args[3]), args[3])
+        e = a.berechne(m, *b.mass_formen[m.nummer])
+        k = a.als_kette3d(m, *b.mass_formen[m.nummer], {4: "S1", 5: "S2"})
+        assert abs(k3.schlussgroesse(k) - e.nenn) < 1e-9
+        from programm.kern import toleranzkette as tk
+        e1 = tk.berechne(k3.als_glieder(k), proben=2000)
+        assert abs(e1.nenn - e.nenn) < 1e-9 and abs(e1.wc_max - e.wc_max) < 1e-6  # Uebergabe an 1D stimmt
+        wc = sum(g.faktor * (g.hoechst - g.mindest) / 2 for g in k3.als_glieder(k))
+        assert abs(wc - (e.wc_max - e.wc_min) / 2) < 1e-6  # hier entkoppelt: gleich der Baugruppenanalyse
+    assert [g.name for g in k.glieder] == ["Bezug", "3"]
+    m = b.masse[1]
+    namen = [g.name for g in a.als_kette3d(m, *b.mass_formen[m.nummer], {4: "S1", 5: "S2"}).glieder]
+    assert namen == ["Bezug", "S2 (umgekehrt)", "S1"]
+    # Basis im Modell: Funktionspunkt in Weltlage = Messpunkt
+    basis = np.asarray(k.basis)
+    p, _ = k3.funktionspunkt(k)
+    assert np.allclose(basis[:3, :3] @ p + basis[:3, 3], bm.ebene(f(3, 15), b.lage(3))[0])
+    assert k3.von_dict(k3.als_dict(k)).basis == k.basis
+
+
+def test_lage_komponenten_rueckwaerts():
+    from programm.kern import kette3d as k3
+    rng = np.random.default_rng(3)
+    for _ in range(20):
+        q, _ = np.linalg.qr(rng.normal(size=(3, 3)))
+        q *= np.sign(np.linalg.det(q))
+        w = bm._lage_komponenten(q, np.array([1.0, 2.0, 3.0]))
+        assert np.allclose(k3._drehung(w["rx"], w["ry"], w["rz"]), q, atol=1e-9)

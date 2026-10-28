@@ -7,6 +7,8 @@ Eine Messgroesse ist der Abstand eines Punkts p der Flaeche A (Flaechenschwerpun
 deren Normalen n; ihre Aenderung ist c . (x_A - x_B) mit c = (p x n, n) - die Ebene von B bewegt sich starr mit B.
 An Achsen (Bohrung, Zapfen): Achse zu Ebene misst den Achspunkt in der Mitte der Zylinderflaeche (Achse parallel zur
 Ebene), Achsabstand zweier paralleler Achsen den Abstand entlang ihrer Verbindungssenkrechten u (linearisiert).
+Am Punkt: statt des Flaechenschwerpunkts misst ein angeklickter Punkt auf A (beliebige Flaeche) zur Ebene von B
+(Normale) bzw. zur Achse von B (radial) - z. B. der Spalt an einer Ecke.
 - Worst Case: Extremwerte per linearem Programm ueber alle Verbindungen zugleich; Bewegungen nur im Zeilenraum der
   Verbindungen (freie Freiheitsgrade bleiben in Nennlage, die Messgroesse heisst dann "unbestimmt").
 - Monte Carlo: je Verbindung werden die Spielraeume gezogen (normalverteilt, Spielraum = 3 sigma, abgeschnitten;
@@ -30,7 +32,9 @@ import numpy as np
 from ..i18n import tr
 
 SPALT, BUENDIG, ACHSE_EBENE, ACHSABSTAND = "spalt", "buendig", "achse_ebene", "achsabstand"
-ART_TEXT = {SPALT: "Spalt", BUENDIG: "Bündigkeit", ACHSE_EBENE: "Achse zu Ebene", ACHSABSTAND: "Achsabstand"}
+PUNKT_EBENE, PUNKT_ACHSE = "punkt_ebene", "punkt_achse"
+ART_TEXT = {SPALT: "Spalt", BUENDIG: "Bündigkeit", ACHSE_EBENE: "Achse zu Ebene", ACHSABSTAND: "Achsabstand",
+            PUNKT_EBENE: "Punkt zu Ebene", PUNKT_ACHSE: "Punkt zu Achse"}
 
 
 @dataclass
@@ -44,6 +48,7 @@ class Messgroesse:
     soll_min: float | None = None
     soll_max: float | None = None
     name: str = ""
+    punkt: list[float] | None = None  # Messpunkt auf A in Dateilage des Teils (None: Flaechenschwerpunkt)
 
 
 @dataclass
@@ -67,6 +72,7 @@ class Ergebnis:
     cp: float | None = None
     cpk: float | None = None
     unbestimmt: bool = False  # haengt von freien Freiheitsgraden ab
+    waerme: float | None = None  # Aenderung durch Waermeausdehnung (mm) beim gewaehlten Temperaturfall
     beitraege: list[Beitrag] = field(default_factory=list)
     proben: np.ndarray | None = None
 
@@ -101,10 +107,15 @@ def achse(flaeche, lage: np.ndarray | None = None):
     return p, d / np.linalg.norm(d)
 
 
-def art_fuer(fa, fb) -> str | None:
+def art_fuer(fa, fb, am_punkt: bool = False) -> str | None:
     """Spalt bei gegenueberliegenden, Buendigkeit bei gleichgerichteten parallelen Ebenen, Achse zu Ebene (Achse
-    parallel zur Ebene) und Achsabstand (parallele Achsen), sonst None."""
+    parallel zur Ebene) und Achsabstand (parallele Achsen), sonst None. Am Punkt: Spalt/Buendigkeit bei parallelen
+    Ebenen, sonst Punkt zu Ebene bzw. Punkt zu Achse (A beliebig)."""
     a, b = ebene(fa), ebene(fb)
+    if am_punkt:
+        if b is not None:
+            return art_fuer(fa, fb) if a is not None and art_fuer(fa, fb) else PUNKT_EBENE
+        return PUNKT_ACHSE if achse(fb) is not None else None
     xa, xb = (achse(fa) if a is None else None), (achse(fb) if b is None else None)
     if xa is not None and xb is not None:
         return ACHSABSTAND if abs(abs(float(xa[1] @ xb[1])) - 1) < 1e-3 and \
@@ -159,6 +170,15 @@ class Analyse:
     def _geometrie(self, m: Messgroesse, fa, fb):
         """Messpunkt p (Teil tp), Bezugspunkt q (Teil tq) und Messrichtung n in der Zusammenbaulage."""
         la, lb = self.bg.lage(m.teil_a), self.bg.lage(m.teil_b)
+        if m.punkt is not None:
+            p = la[:3, :3] @ np.asarray(m.punkt, float) + la[:3, 3]
+            if m.art == PUNKT_ACHSE:
+                q, d = achse(fb, lb)
+                quer = (p - q) - d * float((p - q) @ d)
+                n = quer / np.linalg.norm(quer)
+            else:
+                q, n = ebene(fb, lb)
+            return p, q, n, m.teil_a, m.teil_b
         if m.art == ACHSABSTAND:
             pa, _ = achse(fa, la)
             qb, d = achse(fb, lb)
@@ -224,6 +244,78 @@ class Analyse:
         fuss = p - n * float(n @ (p - q))  # Fusspunkt von p auf B
         return float(n @ (self._waerme_weg(tp, p, dehnung) - self._waerme_weg(tq, fuss, dehnung)))
 
+    def _mutter(self, teil: int) -> int | None:
+        """Gegenteil der ersten Verbindung des Teils (Verbindungsbaum), None fuer feste Teile."""
+        return next((v.gegen_teil for v in self.bg.verbindungen if v.teil == teil), None)
+
+    def _pfad(self, teil: int) -> list[int]:
+        out = [teil]
+        while (m := self._mutter(out[-1])) is not None and m not in out:
+            out.append(m)
+        return out
+
+    def _kettenpunkt(self, teil: int) -> np.ndarray:
+        """Ursprung des Kettenglieds: Merkmalspunkt am Gegenteil der ersten Verbindung (dort sind Verschiebung und
+        Kippen der Zeilen entkoppelt, der Kasten um den Spielraum bleibt eng)."""
+        v = next(v for v in self.bg.verbindungen if v.teil == teil)
+        return np.asarray(self.bg.merkmale(v)[1][1], float)
+
+    def _torsor_grenzen(self, teil: int, mitte: np.ndarray) -> list[tuple[float, float]]:
+        """Min/Max je Komponente (w, v um mitte) der Bewegung des Teils gegen seine Gegenteile (die in Nennlage
+        bleiben), aus den Spielraeumen der Verbindungen des Teils; freie Freiheitsgrade 0."""
+        from .verbindung import Baugruppe
+        zeilen = [z for v in self.bg.verbindungen if v.teil == teil for z in self.bg.zeilen(v, mitte)]
+        if not zeilen:
+            return [(0.0, 0.0)] * 6
+        a = np.array([z for z, _, _ in zeilen])
+        _, sv, vt = np.linalg.svd(a)
+        basis = vt[:int((sv > 1e-9 * max(1.0, float(sv.max()))).sum())]
+        ab, lo, hi = a @ basis.T, np.array([u for _, u, _ in zeilen]), np.array([o for _, _, o in zeilen])
+        out = []
+        for k in range(6):
+            c = basis[:, k]
+            ext = [Baugruppe._extrem(ab, lo, hi, vz * c) for vz in (1.0, -1.0)]
+            werte = [float(c @ z) for z in ext if z is not None]
+            out.append((min(werte, default=0.0), max(werte, default=0.0)))
+        return out
+
+    def als_kette3d(self, m: Messgroesse, fa, fb, namen: dict | None = None):
+        """3D-Toleranzkette (kern.kette3d) der Messgroesse: Basis in der Bezugsebene bzw. -richtung von B (Z = n),
+        je Teil auf dem Verbindungsweg von B zu A ein Glied mit der kleinen Bewegung um seinen Fixierpunkt
+        (Komponentengrenzen aus den Spielraeumen gegen die Gegenteile, Teile auf der B-Seite umgekehrt);
+        Schlussgroesse Z des Messpunkts. Komponenten unabhaengig (Kasten um den Spielraum): konservativ gegenueber
+        der Baugruppenanalyse."""
+        import math
+        from . import kette3d as k3
+        namen = namen or {}
+        p, q, n, tp, tq = self._geometrie(m, fa, fb)
+        weg_a, weg_b = self._pfad(tp), self._pfad(tq)
+        gemeinsam = next((t for t in weg_a if t in weg_b), None)
+        seite_b = weg_b[:weg_b.index(gemeinsam)] if gemeinsam in weg_b else weg_b
+        seite_a = list(reversed(weg_a[:weg_a.index(gemeinsam)] if gemeinsam in weg_a else weg_a))
+        r = _rahmen(n)  # Spalten: Achsen der Basis in Welt
+        weg = [(t, vz) for t, vz in [(t, -1.0) for t in seite_b] + [(t, 1.0) for t in seite_a] if not self.bg.fest(t)]
+        ursprung = self._kettenpunkt(weg[0][0]) if weg else p  # Bezugsglied endet am ersten Teil, nicht in 0,0,0
+        glieder = [k3.glied(tr("Bezug"), **_lage_komponenten(r.T, r.T @ (ursprung - q)))]
+        for teil, vz in weg:
+            o = self._kettenpunkt(teil)
+            grenzen = self._torsor_grenzen(teil, o)
+            g = k3.Glied3D(tr("{} (umgekehrt)").format(namen.get(teil, teil)) if vz < 0 else
+                           str(namen.get(teil, teil)))
+            for i, c in enumerate(("rx", "ry", "rz", "x", "y", "z")):
+                lo, hi = grenzen[i]
+                lo, hi = (-hi, -lo) if vz < 0 else (lo, hi)
+                if c.startswith("r"):
+                    lo, hi = math.degrees(lo), math.degrees(hi)
+                nenn = float((o - ursprung)["xyz".index(c)]) if not c.startswith("r") else 0.0
+                g.werte[c] = k3.Komponente(nenn, hi, lo)
+            glieder.append(g)
+            ursprung = o
+        basis = np.eye(4)
+        basis[:3, :3], basis[:3, 3] = r, q
+        return k3.Kette3D(glieder, tuple(float(x) for x in p - ursprung), (0.0, 0.0, 1.0), "z",
+                          basis=basis.tolist())
+
     def _extrem(self, c: np.ndarray, nur: int | None = None) -> tuple[float, float]:
         """Min und Max von c . x im Spielraum (nur: nur diese Verbindung streut)."""
         from scipy.optimize import linprog
@@ -274,6 +366,46 @@ class Analyse:
                      unbestimmt=unbestimmt, beitraege=beitraege, proben=werte)
         _bewerte(e, m.soll_min, m.soll_max)
         return e
+
+
+def _rahmen(n: np.ndarray) -> np.ndarray:
+    """Orthonormale Achsen (Spalten) mit Z = n."""
+    from .verbindung import _senkrechte
+    t1, t2 = _senkrechte(n)
+    if np.linalg.det(np.c_[t1, t2, n]) < 0:
+        t1, t2 = t2, t1
+    return np.c_[t1, t2, n]
+
+
+def _lage_komponenten(r: np.ndarray, t: np.ndarray) -> dict:
+    """Komponenten x..rz eines Glieds (kern.kette3d: erst verschieben, dann Drehung um X, Y, Z) fuer Drehung r und
+    Verschiebung t."""
+    import math
+    b = math.asin(max(-1.0, min(1.0, float(r[0, 2]))))
+    if abs(math.cos(b)) > 1e-9:
+        a, c = math.atan2(-r[1, 2], r[2, 2]), math.atan2(-r[0, 1], r[0, 0])
+    else:  # kardanische Sperre
+        a, c = math.atan2(r[2, 1], r[1, 1]), 0.0
+    return {"x": float(t[0]), "y": float(t[1]), "z": float(t[2]), "rx": math.degrees(a), "ry": math.degrees(b),
+            "rz": math.degrees(c)}
+
+
+def bewertung(e: Ergebnis, m: Messgroesse) -> tuple[str, str]:
+    """Ampel wie bei der Toleranzkette ("gruen" | "gelb" | "rot" | ""): gruen, wenn der Worst-Case-Bereich (samt
+    Waermeausdehnung) im Soll liegt; gelb (knapp), wenn Monte Carlo hoechstens 0,27 % ausserhalb sieht; sonst rot."""
+    from .toleranzkette import GRENZE_RISIKO
+    if m.soll_min is None and m.soll_max is None:
+        return "", ""
+    d = e.waerme or 0.0
+    lo, hi = e.wc_min + d, e.wc_max + d
+    u = m.soll_min if m.soll_min is not None else -np.inf
+    o = m.soll_max if m.soll_max is not None else np.inf
+    if u <= lo and hi <= o:
+        return "gruen", tr("Worst Case im Soll")
+    if (e.aussen or 0.0) <= GRENZE_RISIKO:
+        return "gelb", tr("knapp: Worst Case verlässt das Soll, Monte Carlo {:.0f} ppm außerhalb").format(
+            (e.aussen or 0.0) * 1e6)
+    return "rot", tr("nicht eingehalten: {:.2%} außerhalb (Monte Carlo)").format(e.aussen or 0.0)
 
 
 def _bewerte(e: Ergebnis, smin: float | None, smax: float | None):

@@ -11,6 +11,10 @@ Der Konstrukteur ordnet den Flaechen eines Teils ihre Funktion zu (Rolle). Darau
    Ebenheit und Hinweis zur Rauheit; Anschlag - Flaechenprofil zum Bezugssystem; Freiflaeche - Allgemeintoleranz.
 Passungen aus den Vorzugspassungen des ISO-Systems (Bohrungsbasis H, ISO 286-1/-2); Toleranzwerte als IT-Grad bei der
 Groesse des Elements (Startwerte - die Kette und die Kostenoptimierung legen die endgueltigen Werte fest).
+
+Ein Element kann aus mehreren Flaechen bestehen (gruppen: erste Flaeche -> alle Flaechen), z. B. zwei Halbschalen
+einer Bohrung oder eine durch Nuten geteilte Auflage; Rollen und Werte haengen an der ersten Flaeche. werte: je Element
+eine von Hand gesetzte Toleranz (alle Form-/Lagetoleranzen des Elements) und/oder Passung.
 """
 
 from __future__ import annotations
@@ -83,6 +87,56 @@ def _geometrie(flaeche) -> dict | None:
             "inhalt": pr.Mass(), "groesse": 2 * d["r"], "bohrung": d["bohrung"], "laenge": ausdehnung}
 
 
+def _geo(modell, i: int, gruppen: dict | None = None) -> dict | None:
+    """Geometrie eines Elements (eine Flaeche oder eine Gruppe auf demselben Zylinder bzw. in derselben Ebene):
+    Richtung und Groesse der ersten Flaeche, Inhalt summiert, Ausdehnung ueber alle Flaechen."""
+    flaechen = (gruppen or {}).get(i, (i,))
+    g = _geometrie(modell.flaechen[flaechen[0]])
+    if g is None or len(flaechen) < 2:
+        return g
+    from OCC.Core.Bnd import Bnd_Box
+    from OCC.Core.BRepBndLib import brepbndlib
+    b = Bnd_Box()
+    inhalt = 0.0
+    for j in flaechen:
+        gj = _geometrie(modell.flaechen[j])
+        inhalt += gj["inhalt"] if gj else 0.0
+        brepbndlib.Add(modell.flaechen[j], b)
+    x0, y0, z0, x1, y1, z1 = b.Get()
+    g = dict(g, inhalt=inhalt)
+    g["laenge" if g["art"] == "zylinder" else "groesse"] = math.dist((x0, y0, z0), (x1, y1, z1))
+    return g
+
+
+def ein_element(modell, flaechen) -> bool:
+    """Bilden die Flaechen ein Element: alle auf demselben Zylinder (Achse, Durchmesser) oder in derselben Ebene."""
+    geo = [_geometrie(modell.flaechen[i]) for i in flaechen]
+    if len(geo) < 2 or any(g is None for g in geo) or len({g["art"] for g in geo}) != 1:
+        return False
+    a = geo[0]
+    for g in geo[1:]:
+        q = g["punkt"] - a["punkt"]
+        if not _parallel(g["richtung"], a["richtung"]):
+            return False
+        if a["art"] == "zylinder" and (abs(g["groesse"] - a["groesse"]) > 1e-4 or
+                                       np.linalg.norm(q - a["richtung"] * float(q @ a["richtung"])) > 1e-3):
+            return False
+        if a["art"] == "ebene" and abs(float(q @ a["richtung"])) > 1e-3:
+            return False
+    return True
+
+
+def startwerte(modell, i: int, rolle: str, gruppen: dict | None = None) -> dict:
+    """Startwerte eines Elements ohne Eingabe: Formtoleranz, Lagetoleranz (IT-Grad bei der Groesse) und Passung."""
+    g = _geo(modell, i, gruppen)
+    if g is None or rolle == "frei":
+        return {}
+    form, lage = GRADE.get(rolle, (7, 8))
+    passung = ROLLEN[rolle][1]
+    klasse = (passung[0] if g.get("bohrung") else passung[1]) if passung and g["art"] == "zylinder" else ""
+    return {"form": _it(form, g["groesse"]), "lage": _it(lage, g["groesse"]), "grad": (form, lage), "passung": klasse}
+
+
 def _parallel(a, b) -> bool:
     return abs(abs(float(a @ b)) - 1) < 1e-4
 
@@ -91,9 +145,9 @@ def _senkrecht(a, b) -> bool:
     return abs(float(a @ b)) < 1e-4
 
 
-def bezugssystem(modell, rollen: dict[int, str]) -> Bezugssystem:
+def bezugssystem(modell, rollen: dict[int, str], gruppen: dict | None = None) -> Bezugssystem:
     """Bezugssystem A|B|C aus den Funktionsrollen (3-2-1); Begruendung je Bezug, Hinweis bei offenen Freiheitsgraden."""
-    geo = {i: g for i in rollen if (g := _geometrie(modell.flaechen[i])) is not None}
+    geo = {i: g for i in rollen if (g := _geo(modell, i, gruppen)) is not None}
     ebenen = lambda *r: sorted((i for i in geo if geo[i]["art"] == "ebene" and rollen[i] in r),  # noqa: E731
                                key=lambda i: -geo[i]["inhalt"])
     achsen = lambda *r: sorted((i for i in geo if geo[i]["art"] == "zylinder" and rollen[i] in r),  # noqa: E731
@@ -165,16 +219,38 @@ def _it(grad: int, groesse: float) -> float:
     return round(_it_mm(grad, groesse), 4)
 
 
-def tolerierung(modell, rollen: dict[int, str], system: Bezugssystem | None = None) -> list[Vorschlag]:
-    """PMI-Vorschlaege aus Rollen und Bezugssystem: Bezuege, Passmasse, Form-, Richtungs- und Lagetoleranzen."""
-    system = system or bezugssystem(modell, rollen)
+def tolerierung(modell, rollen: dict[int, str], system: Bezugssystem | None = None, gruppen: dict | None = None,
+                werte: dict | None = None) -> list[Vorschlag]:
+    """PMI-Vorschlaege aus Rollen und Bezugssystem: Bezuege, Passmasse, Form-, Richtungs- und Lagetoleranzen;
+    gruppen und werte siehe Modulbeschreibung."""
+    system = system or bezugssystem(modell, rollen, gruppen)
+    out = _tolerierung(modell, rollen, system, gruppen or {})
+    for v in out:  # von Hand gesetzte Werte des Elements
+        w = (werte or {}).get(_element(v.pmi.flaechen, gruppen or {}), {})
+        if v.pmi.art == TOLERANZ and w.get("toleranz") is not None:
+            v.pmi.wert = float(w["toleranz"])
+        if v.pmi.art == MASS and w.get("passung"):
+            v.pmi.passung = w["passung"]
+    return out
+
+
+def _element(flaechen, gruppen: dict) -> int:
+    """Erste Flaeche des Elements, zu dem die Flaechen gehoeren."""
+    for erste, alle in gruppen.items():
+        if set(flaechen) <= set(alle):
+            return erste
+    return min(flaechen) if flaechen else -1
+
+
+def _tolerierung(modell, rollen: dict[int, str], system: Bezugssystem, gruppen: dict) -> list[Vorschlag]:
     drf = [BezugsRef(b.buchstabe, k) for k, b in enumerate(system.bezuege, 1)]
     bezug_von = {b.flaeche: b for b in system.bezuege}
+    alle = lambda i: set(gruppen.get(i, (i,)))  # noqa: E731 - Flaechen des Elements
     out: list[Vorschlag] = []
     for b in system.bezuege:
-        out.append(Vorschlag(Pmi(BEZUG, "Datum", b.buchstabe, flaechen={b.flaeche}), b.grund))
+        out.append(Vorschlag(Pmi(BEZUG, "Datum", b.buchstabe, flaechen=alle(b.flaeche)), b.grund))
     for i, rolle in sorted(rollen.items()):
-        g = _geometrie(modell.flaechen[i])
+        g = _geo(modell, i, gruppen)
         if g is None or rolle == "frei":
             continue
         form, lage = GRADE.get(rolle, (7, 8))
@@ -184,48 +260,48 @@ def tolerierung(modell, rollen: dict[int, str], system: Bezugssystem | None = No
             if passung:
                 klasse = passung[0] if g["bohrung"] else passung[1]
                 out.append(Vorschlag(Pmi(MASS, "Size_Diameter", "", nennwert=round(g["groesse"], 4), passung=klasse,
-                                         flaechen={i}),
+                                         flaechen=alle(i)),
                                      tr("Passung nach Funktion: {} ({})").format(tr(ROLLEN[rolle][0]),
                                                                                  "/".join(passung))))
             t = _it(lage, g["groesse"])
             if i in bezug_von and len(vorher) == 1:
                 out.append(Vorschlag(Pmi(TOLERANZ, "Perpendicularity", "", wert=t, modifikatoren=["Diameter"],
-                                         bezuege=vorher[:1], flaechen={i}), "Bezugsachse senkrecht zur Auflage"))
+                                         bezuege=vorher[:1], flaechen=alle(i)), "Bezugsachse senkrecht zur Auflage"))
             elif i in bezug_von and vorher:  # tertiaerer Bezug: Lage zu den vorigen Bezuegen
                 material = "M" if rolle == "verdrehsicherung" else ""
                 out.append(Vorschlag(Pmi(TOLERANZ, "Position", "", wert=t, material=material,
-                                         modifikatoren=["Diameter"], bezuege=vorher, flaechen={i}),
+                                         modifikatoren=["Diameter"], bezuege=vorher, flaechen=alle(i)),
                                      "Lage des Stifts zum Bezugssystem, Ⓜ für Montierbarkeit" if material else
                                      "Lage der Achse zum Bezugssystem"))
             elif i not in bezug_von and drf:
                 material = "M" if rolle == "verdrehsicherung" else ""
                 out.append(Vorschlag(Pmi(TOLERANZ, "Position", "", wert=t, material=material,
-                                         modifikatoren=["Diameter"], bezuege=list(drf), flaechen={i}),
+                                         modifikatoren=["Diameter"], bezuege=list(drf), flaechen=alle(i)),
                                      "Lage des Stifts zum Bezugssystem, Ⓜ für Montierbarkeit" if material else
                                      "Lage der Achse zum Bezugssystem"))
             if rolle == "fuehrung":
-                out.append(Vorschlag(Pmi(TOLERANZ, "Cylindricity", "", wert=_it(form, g["groesse"]), flaechen={i}),
+                out.append(Vorschlag(Pmi(TOLERANZ, "Cylindricity", "", wert=_it(form, g["groesse"]), flaechen=alle(i)),
                                      "Gleichmäßiges Spiel entlang der Führung"))
         else:
             t_form, t_lage = _it(form, g["groesse"]), _it(lage, g["groesse"])
             if rolle in ("auflage", "dichtung") or (i in bezug_von and bezug_von[i].freiheitsgrade == 3):
-                out.append(Vorschlag(Pmi(TOLERANZ, "Flatness", "", wert=t_form, flaechen={i}),
+                out.append(Vorschlag(Pmi(TOLERANZ, "Flatness", "", wert=t_form, flaechen=alle(i)),
                                      "Ebenheit der Funktionsfläche" if rolle != "dichtung" else "Dichtheit"))
             if rolle == "dichtung":
                 out.append(Vorschlag(Pmi(HINWEIS, "Note", "", nur_grafik_text="Ra ≤ 0,8 µm, drallfrei",
-                                         flaechen={i}), "Dichtfläche: Rauheit und Drallfreiheit"))
+                                         flaechen=alle(i)), "Dichtfläche: Rauheit und Drallfreiheit"))
             if i in bezug_von and vorher:
                 out.append(Vorschlag(Pmi(TOLERANZ, "Perpendicularity", "", wert=t_lage, bezuege=vorher[:1],
-                                         flaechen={i}), "Bezugsfläche rechtwinklig zum vorigen Bezug"))
+                                         flaechen=alle(i)), "Bezugsfläche rechtwinklig zum vorigen Bezug"))
             elif i not in bezug_von and drf:
                 parallel_a = system.bezuege and system.bezuege[0].element == "ebene" and _parallel(
-                    g["richtung"], _geometrie(modell.flaechen[system.bezuege[0].flaeche])["richtung"])
+                    g["richtung"], _geo(modell, system.bezuege[0].flaeche, gruppen)["richtung"])
                 if rolle == "auflage" and parallel_a:
-                    out.append(Vorschlag(Pmi(TOLERANZ, "Parallelism", "", wert=t_lage, bezuege=drf[:1], flaechen={i}),
+                    out.append(Vorschlag(Pmi(TOLERANZ, "Parallelism", "", wert=t_lage, bezuege=drf[:1], flaechen=alle(i)),
                                          "Weitere Auflage parallel zu A"))
                 else:
                     out.append(Vorschlag(Pmi(TOLERANZ, "ProfileOfSurface", "", wert=2 * t_lage, bezuege=list(drf),
-                                             flaechen={i}), "Lage und Form der Fläche zum Bezugssystem"))
+                                             flaechen=alle(i)), "Lage und Form der Fläche zum Bezugssystem"))
     return out
 
 
