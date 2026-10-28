@@ -7,6 +7,7 @@ from PySide6 import QtCore, QtWidgets
 from ..i18n import tr
 from ..kern import messen
 from .tabellen import leer_hinweis
+from .panel_aufbau import zweck_zeile
 
 ART_TEXT = {"abstand": "Abstand", "winkel": "Winkel", "radius": "Radius / Ø", "wandstaerke": "Wandstärke",
             "koordinaten": "Koordinaten"}
@@ -45,6 +46,7 @@ class MessPanel(QtWidgets.QWidget):
         self.toleranz = lambda: 1.0  # Fangweite in mm (abhaengig vom Zoom)
         lay = QtWidgets.QVBoxLayout(self)
         lay.setContentsMargins(6, 6, 6, 6)
+        lay.addWidget(zweck_zeile(tr("Abstände, Winkel, Radien, Wandstärken und Koordinaten direkt im Modell messen")))
         reihe = QtWidgets.QGridLayout()
         self.knoepfe: dict[str, QtWidgets.QToolButton] = {}
         for i, art in enumerate(messen.ARTEN):

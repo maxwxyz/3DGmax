@@ -188,6 +188,11 @@ guided flows for scan check and assembly variation, unified panel layout everywh
   each step ticks itself from the app state, one primary button executes it, back/next for free navigation.
 - Unified panels: every result table shows a sentence what to do while it is empty (`tabellen.leer_hinweis`), each
   tool panel has one highlighted primary button (Verbinden, Messgröße aus Auswahl, Prüfen, Berechnen, guided step).
+  Order checked for every tool panel: purpose sentence on top (`panel_aufbau.zweck_zeile`; added to Messen, Analyse,
+  Kommentare, Kollision, Scanprüfung, Änderungen – Zusammenbau tabs, Funktion, 2D/3D chain, guided flows already had
+  one), inputs, primary button, result table, secondary commands and export at the bottom. Open: in the assembly tab
+  "Messgrößen" the PDF export still sits in the top row (left alone while the datum-shift work changes that panel);
+  the chain windows get their table layout from the readability work. Acceptance test with users (≥ 80 %) not run.
 - Acceptance: first-use success ≥ 80 % for laypeople on "check a scan" and "measure a gap" with the example data.
 
 ## 6. Usability test protocol (local)

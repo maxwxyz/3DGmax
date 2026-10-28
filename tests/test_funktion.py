@@ -148,3 +148,20 @@ def test_bezuege_von_hand(teil):
     assert s.hinweise and all(b.grund == "Von Hand als Bezug festgelegt" for b in s.bezuege)
     v = fu.tolerierung(teil, rollen, s)
     assert {p.name for p in (x.pmi for x in v) if p.art == BEZUG} == {"A", "B"}
+
+
+def test_bezug_vorschau_freiheitsgrade(teil):
+    """Vorschau des Bezugssystems: A Ebene sperrt 3, B Achse senkrecht dazu 2, C Stift 1 - nichts offen; nur die
+    Achse: 4 gesperrt, offen Verschieben entlang und Drehen um die Achse."""
+    from programm.kern import bezug_vorschau as bv
+    unten = _finde(teil, "ebene", z=lambda g: g["punkt"][2] if abs(g["richtung"][2]) > 0.9 else 1,
+                   n=lambda g: g["richtung"][2] + 1)
+    bohrung = _finde(teil, "zylinder", d=lambda g: g["groesse"] - 20)
+    stift = _finde(teil, "zylinder", d=lambda g: g["groesse"] - 6)
+    rollen = {unten: "auflage", bohrung: "zentrierung", stift: "verdrehsicherung"}
+    v = bv.vorschau(teil, fu.bezugssystem(teil, rollen))
+    assert v.gesperrt == {"A": 3, "B": 2, "C": 1} and not v.offen
+    nur = bv.vorschau(teil, fu.bezugssystem(teil, {bohrung: "zentrierung"}))
+    achse = fu._geo(teil, bohrung)["richtung"]
+    assert nur.gesperrt == {"A": 4} and sorted(b.art for b in nur.offen) == ["drehung", "verschiebung"]
+    assert all(abs(abs(float(b.richtung @ achse)) - 1) < 1e-6 for b in nur.offen)

@@ -506,6 +506,14 @@ in the model and vice versa. Live: changing a role, a grade or ticking proposals
 preview into own PMI. Optional toggle "Toleranzzonen": the zones of the proposed tolerances (§8.5, computed from the
 proposal before it becomes PMI – same colours as today, zone of the selected row highlighted), updated live with
 grade changes; plus an overlap check of the preview callouts (plan item 7).
+Done 2026-10-28: `kern/bezug_vorschau.py` computes the locked DOF per datum in the order A, B, C from the geometry
+(plane as planar seat, axis as cylinder fit, rows as in `kern/verbindung`, rank increase per datum) and the open
+motions; the window has "Vorschau im 3D" (on by default) and "Toleranzzonen"; every table change re-sends the preview
+(250 ms debounce). The main window shows datum faces A/B/C (`zeige_bezugssystem`), open DOF as helper lines (double
+arrow / circle about the axis at datum A), the proposals as generated callouts in their own teal colour (temporary
+PMI with step ids −900001…, `Grafik.vorschau`, always visible, not in `erg.pmi`), zones via `toleranzzone.zonen`;
+the selected row highlights its callouts; hiding the window or "Tolerierung vorschlagen …" removes the preview.
+Overlap check applies (same placement as generated PMI).
 
 **Done 2026-10-28 – manual chains:** "＋ Glied" appends an own link (also without a model), name/nominal/limits
 editable by double-click for own links (PMI links stay protected outside the what-if), "－ Entfernen" removes.

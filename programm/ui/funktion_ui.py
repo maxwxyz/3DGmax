@@ -29,6 +29,7 @@ class FunktionFenster(QtWidgets.QDialog):
 
     flaechen_zeigen = QtCore.Signal(set)
     anlegen = QtCore.Signal(list)  # PMI-Vorschlaege (kern.pmi_vorschlag.Vorschlag) zum Uebernehmen
+    vorschau = QtCore.Signal(object)  # Vorschau im 3D: {"bezuege", "offen", "vorschlaege", "zonen"} oder None
     SPALTEN = ("Fläche", "Geometrie", "Funktion", "Bezug", "Passung", "Toleranz (mm)")
     SP_FUNKTION, SP_BEZUG, SP_PASSUNG, SP_TOLERANZ = 2, 3, 4, 5
 
@@ -97,10 +98,28 @@ class FunktionFenster(QtWidgets.QDialog):
         self.tol_knopf.setToolTip(tr("Bezüge, Passungen, Form-, Richtungs- und Lagetoleranzen je Rolle vorschlagen und "
                                      "als eigene PMI übernehmen (danach als STEP speicherbar)"))
         self.tol_knopf.clicked.connect(lambda: self.anlegen.emit(self.vorschlaege()))
+        self.vorschau_knopf = QtWidgets.QPushButton(tr("Vorschau im 3D"))
+        self.vorschau_knopf.setCheckable(True)
+        self.vorschau_knopf.setChecked(True)
+        self.vorschau_knopf.setToolTip(tr("Vorschlag live im Modell zeigen: Bezugsflächen A/B/C farbig, offene "
+                                          "Freiheitsgrade als Pfeile bzw. Kreise, die vorgeschlagenen Angaben als "
+                                          "Vorschau-Callouts – jede Änderung in der Tabelle zieht nach"))
+        self.vorschau_knopf.toggled.connect(lambda _a: self._vorschau_planen())
+        self.zonen_knopf = QtWidgets.QPushButton(tr("Toleranzzonen"))
+        self.zonen_knopf.setCheckable(True)
+        self.zonen_knopf.setToolTip(tr("In der Vorschau auch die Toleranzzonen der vorgeschlagenen Toleranzen zeigen"))
+        self.zonen_knopf.toggled.connect(lambda _a: self._vorschau_planen())
         knoepfe.addWidget(self.bezuege_knopf)
+        knoepfe.addWidget(self.vorschau_knopf)
+        knoepfe.addWidget(self.zonen_knopf)
         knoepfe.addStretch(1)
         knoepfe.addWidget(self.tol_knopf)
         lay.addLayout(knoepfe)
+        self._vorschau_uhr = QtCore.QTimer(self)  # mehrere Aenderungen hintereinander: einmal neu zeigen
+        self._vorschau_uhr.setSingleShot(True)
+        self._vorschau_uhr.setInterval(250)
+        self._vorschau_uhr.timeout.connect(self.sende_vorschau)
+        self._vorschau_an = False  # zuletzt eine Vorschau gesendet (beim Ausblenden entfernen)
         self._fuelle()
 
     @staticmethod
@@ -259,6 +278,7 @@ class FunktionFenster(QtWidgets.QDialog):
         for k in (self.bezuege_knopf, self.tol_knopf):
             k.setEnabled(bool(self.rollen))
         self.tauschen.setEnabled(bool(self.rollen))
+        self._vorschau_planen()  # jede Aenderung der Tabelle zieht die Vorschau nach
 
     def _bezug_geaendert(self, erste: int, buchstabe: str):
         """Buchstabe von Hand (ein Buchstabe nur einmal: bei einem anderen Element wird er dort geloescht)."""
@@ -322,17 +342,60 @@ class FunktionFenster(QtWidgets.QDialog):
                                    for f in self.flaechen(self.tabelle.item(i.row(), 0).data(
                                        QtCore.Qt.ItemDataRole.UserRole))})
 
+    def _vorschau_planen(self):
+        self.zonen_knopf.setEnabled(self.vorschau_knopf.isChecked())
+        self._vorschau_uhr.start()
+
+    def vorschau_daten(self) -> dict | None:
+        """Was die Vorschau zeigt: Bezuege [(Buchstabe, Stelle, Flaechen)], offene Bewegungen
+        (kern.bezug_vorschau), PMI-Vorschlaege und ob die Zonen dazukommen; None ohne Vorschau."""
+        from ..kern import bezug_vorschau as bv
+        if not (self.vorschau_knopf.isChecked() and self.rollen and self.modell is not None and self.isVisible()):
+            return None
+        s = self.bezugssystem()
+        v = bv.vorschau(self.modell, s, self.gruppen)
+        self._zeige_bezug_text(s, v)
+        return {"bezuege": [(b.buchstabe, "ABC".index(b.buchstabe) + 1, set(self.flaechen(b.flaeche)))
+                            for b in s.bezuege],
+                "offen": v.offen, "vorschlaege": fu.tolerierung(self.modell, self.rollen, s, self.gruppen, self.werte),
+                "zonen": self.zonen_knopf.isChecked()}
+
+    def sende_vorschau(self):
+        d = self.vorschau_daten()
+        if d is not None or self._vorschau_an:
+            self.vorschau.emit(d)
+        self._vorschau_an = d is not None
+
+    def hideEvent(self, ev):
+        super().hideEvent(ev)
+        if self._vorschau_an:  # Fenster zu: Vorschau weg
+            self._vorschau_an = False
+            self.vorschau.emit(None)
+
+    def showEvent(self, ev):
+        super().showEvent(ev)
+        self._vorschau_planen()
+
+    def _zeige_bezug_text(self, s: fu.Bezugssystem, v=None):
+        zeilen = [f"<b>{b.buchstabe}</b> ({tr('Ebene') if b.element == 'ebene' else tr('Achse')}, "
+                  f"{tr('Fläche')} {' + '.join(str(x) for x in self.flaechen(b.flaeche))}"
+                  + (f", {tr('sperrt {}').format(v.gesperrt.get(b.buchstabe, 0))}" if v is not None else "")
+                  + f"): {html.escape(tr(b.grund))}" for b in s.bezuege]
+        if v is not None and s.bezuege:
+            offen = [(tr("Verschiebung entlang ({})") if o.art == "verschiebung" else tr("Drehung um ({})")).format(
+                ", ".join(f"{x:.2g}" for x in o.richtung.round(3) + 0.0)) for o in v.offen]
+            zeilen.append(tr("Offen: {}").format(", ".join(offen)) if offen else tr("Alle 6 Freiheitsgrade gesperrt"))
+        else:
+            zeilen += [html.escape(h) for h in s.hinweise]
+        self.bezug_text.setText("<br>".join(zeilen))
+
     def bezugssystem(self) -> fu.Bezugssystem:
         return fu.bezugssystem(self.modell, self.rollen, self.gruppen,
                                {e: b for e, b in self.bezuege_hand.items() if e in self.rollen})
 
     def zeige_bezuege(self) -> fu.Bezugssystem:
         s = self.bezugssystem()
-        zeilen = [f"<b>{b.buchstabe}</b> ({tr('Ebene') if b.element == 'ebene' else tr('Achse')}, "
-                  f"{tr('Fläche')} {' + '.join(str(x) for x in self.flaechen(b.flaeche))}): "
-                  f"{html.escape(tr(b.grund))}" for b in s.bezuege]
-        zeilen += [html.escape(h) for h in s.hinweise]
-        self.bezug_text.setText("<br>".join(zeilen))
+        self._zeige_bezug_text(s)
         self.flaechen_zeigen.emit({f for b in s.bezuege for f in self.flaechen(b.flaeche)})
         return s
 

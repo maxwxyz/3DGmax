@@ -9,6 +9,7 @@ from PySide6 import QtCore, QtGui, QtWidgets
 
 from ..i18n import tr
 from ..kern import pruefung
+from .panel_aufbau import zweck_zeile
 
 STATUS_TEXT = {"geaendert": "geändert", "neu": "neu", "entfernt": "entfernt", "entfallen": "entfallen",
                "geometrie": "Geometrie unter PMI geändert", "verschoben": "verschoben",
@@ -189,6 +190,7 @@ class AenderungenPanel(QtWidgets.QWidget):
         self.vergleich = None
         lay = QtWidgets.QVBoxLayout(self)
         lay.setContentsMargins(6, 6, 6, 6)
+        lay.addWidget(zweck_zeile(tr("Unterschiede zweier Stände an Geometrie und PMI auflisten, zeigen und abhaken")))
         self.kopf = QtWidgets.QLabel("")
         self.kopf.setWordWrap(True)
         lay.addWidget(self.kopf)

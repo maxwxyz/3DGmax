@@ -10,6 +10,7 @@ from ..i18n import tr
 from ..kern import scanpruefung as sp
 from .tabellen import aenderbar_machen
 from .vergleich_ui import PRUEF_TEXT
+from .panel_aufbau import zweck_zeile
 
 STATUS_TEXT = {sp.OK: "✓ i. O.", sp.NOK: "✗ n. i. O.", sp.GRENZ: "≈ am Grenzwert", sp.OFFEN: "– nicht auswertbar"}
 STATUS_FARBE = {sp.OK: "#1f9d55", sp.NOK: "#d6342c", sp.GRENZ: "#c98a00", sp.OFFEN: "#7a7f87"}
@@ -99,6 +100,7 @@ class ScanPanel(QtWidgets.QWidget):
         super().__init__(parent)
         lay = QtWidgets.QVBoxLayout(self)
         lay.setContentsMargins(6, 6, 6, 6)
+        lay.addWidget(zweck_zeile(tr("Scan (Netz oder Punktwolke) gegen das Modell und seine PMI-Toleranzen prüfen")))
         self.kopf = QtWidgets.QLabel("")
         self.kopf.setWordWrap(True)
         lay.addWidget(self.kopf)

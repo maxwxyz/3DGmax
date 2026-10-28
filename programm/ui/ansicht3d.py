@@ -408,7 +408,9 @@ class AnsichtBasis(QtWidgets.QWidget):
 
     def pmi_farbe(self, g) -> tuple:
         """Anzeigefarbe einer Annotation: eigene Farbe, Schemafarbe (gut lesbar) oder Farbe aus der Datei;
-        aus der Semantik erzeugte Beschriftungen immer in eigener Farbe."""
+        aus der Semantik erzeugte Beschriftungen immer in eigener Farbe, Vorschau-Callouts in ihrer."""
+        if getattr(g, "vorschau", False):
+            return VORSCHAU_FARBE
         if getattr(g, "erzeugt", False):
             return ERZEUGT_FARBE
         if self.pmi_eigene_farbe is not None:
@@ -599,6 +601,7 @@ def pmi_schrift() -> str:
 
 
 ERZEUGT_FARBE = (0.50, 0.28, 0.72)  # aus der Semantik erzeugte PMI (nicht aus der Datei)
+VORSCHAU_FARBE = (0.0, 0.55, 0.50)  # Vorschau-Callouts (Funktion -> Tolerierung), noch keine PMI
 # Bezugssystem: primaer, sekundaer, tertiaer (gut unterscheidbar, auch neben der Hervorhebung in Orange)
 BEZUG_FARBEN = {1: (0.85, 0.20, 0.25), 2: (0.20, 0.65, 0.35), 3: (0.25, 0.45, 0.90)}
 SCHRIFT = "Helvetica Neue" if sys.platform == "darwin" else ("Segoe UI" if sys.platform == "win32" else "DejaVu Sans")
@@ -1395,8 +1398,9 @@ class OcctAnsicht(AnsichtBasis):
         for cid, liste in self._callouts.items():
             normal = _farbe(self.pmi_farbe(self.szene.grafik[cid]))
             g = self.szene.grafik[cid]
-            zeigen = self.grafik_an and not self.grafik_nur_auswahl and (self.erzeugt_an or not g.erzeugt) and \
-                (self.pmi_ids_sichtbar is None or bool(g.pmi_ids & self.pmi_ids_sichtbar))
+            vorschau = getattr(g, "vorschau", False)  # Vorschau immer sichtbar, solange sie besteht
+            zeigen = vorschau or self.grafik_an and not self.grafik_nur_auswahl and (self.erzeugt_an or not g.erzeugt) \
+                and (self.pmi_ids_sichtbar is None or bool(g.pmi_ids & self.pmi_ids_sichtbar))
             hervor = bool(g.pmi_ids & self.pmi_ids_hervor)
             zeigen = (zeigen or hervor) and self.explosion <= 0  # Beschriftungen passen nur zur Einbaulage
             for ais in liste:

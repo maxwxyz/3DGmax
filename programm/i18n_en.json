@@ -1943,5 +1943,20 @@
 "Werkstoff dieses Bauteils": "Material of this part",
 "Winkel und Linearisierungsrest dehnen sich nicht": "Angles and the linearisation remainder do not expand",
 "keiner": "none",
-"wie Bauteil / Kette": "as part / chain"
+"wie Bauteil / Kette": "as part / chain",
+"Alle 6 Freiheitsgrade gesperrt": "All 6 degrees of freedom locked",
+"Drehung offen": "Rotation open",
+"In der Vorschau auch die Toleranzzonen der vorgeschlagenen Toleranzen zeigen": "Also show the tolerance zones of the proposed tolerances in the preview",
+"Offen: {}": "Open: {}",
+"Toleranzzonen": "Tolerance zones",
+"Verschiebung offen": "Translation open",
+"Vorschau im 3D": "Preview in 3D",
+"Vorschlag live im Modell zeigen: Bezugsflächen A/B/C farbig, offene Freiheitsgrade als Pfeile bzw. Kreise, die vorgeschlagenen Angaben als Vorschau-Callouts – jede Änderung in der Tabelle zieht nach": "Show the proposal live in the model: datum features A/B/C coloured, open degrees of freedom as arrows or circles, the proposed annotations as preview callouts – every change in the table updates it",
+"sperrt {}": "locks {}",
+"Abstände, Winkel, Radien, Wandstärken und Koordinaten direkt im Modell messen": "Measure distances, angles, radii, wall thicknesses and coordinates directly in the model",
+"Formanalysen am Modell als Farbkarte: Entformungsschräge, Krümmung oder Wandstärke": "Shape analyses on the model as a colour map: draft, curvature or wall thickness",
+"Anmerkungen an Flächen, Teilen oder PMI festhalten und abhaken – sie werden im Projekt gespeichert": "Record notes on faces, parts or PMI and tick them off – they are saved in the project",
+"Teile auf Durchdringungen, Kontakte und zu kleine oder zu große Abstände prüfen": "Check parts for penetrations, contacts and distances that are too small or too large",
+"Scan (Netz oder Punktwolke) gegen das Modell und seine PMI-Toleranzen prüfen": "Check a scan (mesh or point cloud) against the model and its PMI tolerances",
+"Unterschiede zweier Stände an Geometrie und PMI auflisten, zeigen und abhaken": "List, show and tick off the differences of two states in geometry and PMI"
 }

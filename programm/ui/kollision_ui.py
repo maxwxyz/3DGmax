@@ -9,6 +9,7 @@ from PySide6 import QtCore, QtGui, QtWidgets
 from ..i18n import tr
 from ..kern import kollision as ko
 from .tabellen import aenderbar_machen, leer_hinweis
+from .panel_aufbau import zweck_zeile
 
 ART_FARBE = {ko.KOLLISION: "#c0392b", ko.ZU_NAH: "#d35400", ko.KONTAKT: "#2471a3", ko.ZU_WEIT: "#7d3c98"}
 UMFANG = (("alle", "Alle Teile untereinander"), ("gegen", "Gewählte Teile gegen den Rest"),
@@ -79,6 +80,8 @@ class KollisionPanel(QtWidgets.QWidget):
         super().__init__(parent)
         lay = QtWidgets.QVBoxLayout(self)
         lay.setContentsMargins(6, 6, 6, 6)
+        lay.addWidget(zweck_zeile(tr("Teile auf Durchdringungen, Kontakte und zu kleine oder zu große Abstände "
+                                     "prüfen")))
         form = QtWidgets.QFormLayout()
         self.umfang = QtWidgets.QComboBox()
         self.umfang.setToolTip(tr("Welche Paare geprüft werden: alle Teile untereinander, die gewählten untereinander "
