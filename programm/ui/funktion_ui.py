@@ -28,8 +28,8 @@ class FunktionFenster(QtWidgets.QDialog):
 
     flaechen_zeigen = QtCore.Signal(set)
     anlegen = QtCore.Signal(list)  # PMI-Vorschlaege (kern.pmi_vorschlag.Vorschlag) zum Uebernehmen
-    SPALTEN = ("Fläche", "Geometrie", "Funktion", "Passung", "Toleranz (mm)")
-    SP_FUNKTION, SP_PASSUNG, SP_TOLERANZ = 2, 3, 4
+    SPALTEN = ("Fläche", "Geometrie", "Funktion", "Bezug", "Passung", "Toleranz (mm)")
+    SP_FUNKTION, SP_BEZUG, SP_PASSUNG, SP_TOLERANZ = 2, 3, 4, 5
 
     def __init__(self, parent=None):
         super().__init__(parent)
@@ -38,6 +38,7 @@ class FunktionFenster(QtWidgets.QDialog):
         self.rollen: dict[int, str] = {}  # erste Flaeche des Elements -> Rolle
         self.gruppen: dict[int, tuple] = {}  # erste Flaeche -> alle Flaechen (nur Elemente aus mehreren Flaechen)
         self.werte: dict[int, dict] = {}  # erste Flaeche -> {"toleranz": mm, "passung": "H8"} von Hand
+        self.bezuege_hand: dict[int, str] = {}  # erste Flaeche -> "A"/"B"/"C" von Hand (leer: Vorschlag)
         self.modell = None
         self.auswahl = lambda: []  # gewaehlte Flaechenindizes (setzt das Hauptfenster)
         lay = QtWidgets.QVBoxLayout(self)
@@ -108,7 +109,7 @@ class FunktionFenster(QtWidgets.QDialog):
     def setze_modell(self, modell):
         if modell is not self.modell:
             self.modell = modell
-            self.rollen, self.gruppen, self.werte = {}, {}, {}
+            self.rollen, self.gruppen, self.werte, self.bezuege_hand = {}, {}, {}, {}
             self._fuelle()
 
     def flaechen(self, erste: int) -> tuple:
@@ -165,10 +166,12 @@ class FunktionFenster(QtWidgets.QDialog):
         if len(zeilen) != 1 or not flaechen or (len(flaechen) > 1 and not fu.ein_element(self.modell, flaechen)):
             return False
         alt = self.tabelle.item(zeilen[0], 0).data(QtCore.Qt.ItemDataRole.UserRole)
-        rolle, werte = self.rollen.pop(alt), self.werte.pop(alt, None)
+        rolle, werte, bezug = self.rollen.pop(alt), self.werte.pop(alt, None), self.bezuege_hand.pop(alt, None)
         self.gruppen.pop(alt, None)
         self._loese(flaechen)
         erste = self._setze(flaechen, rolle, werte)
+        if bezug:
+            self.bezuege_hand[erste] = bezug
         self._fuelle()
         self.tabelle.selectRow(sorted(self.rollen).index(erste))
         return True
@@ -179,6 +182,7 @@ class FunktionFenster(QtWidgets.QDialog):
             self.rollen.pop(e, None)
             self.gruppen.pop(e, None)
             self.werte.pop(e, None)
+            self.bezuege_hand.pop(e, None)
         self._fuelle()
 
     def _fuelle(self):
@@ -208,6 +212,16 @@ class FunktionFenster(QtWidgets.QDialog):
             box.currentIndexChanged.connect(lambda _k, e=i, b=box: self._rolle_geaendert(e, b.currentData()))
             t.setItem(z, self.SP_FUNKTION, QtWidgets.QTableWidgetItem(""))
             t.setCellWidget(z, self.SP_FUNKTION, box)
+            bezug = QtWidgets.QComboBox()  # Bezug von Hand: auto = aus den Rollen vorgeschlagen
+            bezug.addItem(tr("auto"), "")
+            for b in "ABC":
+                bezug.addItem(b, b)
+            bezug.setCurrentIndex(max(0, bezug.findData(self.bezuege_hand.get(i, ""))))
+            bezug.setToolTip(tr("Bezug von Hand festlegen (A, B, C); auto: aus den Funktionsrollen vorschlagen – sobald "
+                                "ein Bezug von Hand gesetzt ist, gilt nur die Zuordnung von Hand"))
+            bezug.currentIndexChanged.connect(lambda _k, e=i, b=bezug: self._bezug_geaendert(e, b.currentData()))
+            t.setItem(z, self.SP_BEZUG, QtWidgets.QTableWidgetItem(""))
+            t.setCellWidget(z, self.SP_BEZUG, bezug)
             zylinder = g is not None and g["art"] == "zylinder"
             for s, eigen, auto, hilfe in (
                     (self.SP_PASSUNG, w.get("passung"), start.get("passung", ""),
@@ -235,6 +249,17 @@ class FunktionFenster(QtWidgets.QDialog):
         for k in (self.bezuege_knopf, self.tol_knopf):
             k.setEnabled(bool(self.rollen))
         self.tauschen.setEnabled(bool(self.rollen))
+
+    def _bezug_geaendert(self, erste: int, buchstabe: str):
+        """Buchstabe von Hand (ein Buchstabe nur einmal: bei einem anderen Element wird er dort geloescht)."""
+        for e in [e for e, b in self.bezuege_hand.items() if b == buchstabe and e != erste]:
+            self.bezuege_hand.pop(e)
+        if buchstabe:
+            self.bezuege_hand[erste] = buchstabe
+        else:
+            self.bezuege_hand.pop(erste, None)
+        QtCore.QTimer.singleShot(0, self._fuelle)
+        self.zeige_bezuege()
 
     def _rolle_geaendert(self, erste: int, rolle: str):
         self.rollen[erste] = rolle
@@ -269,7 +294,7 @@ class FunktionFenster(QtWidgets.QDialog):
     def zustand(self) -> dict:
         """Fuer das Projekt: Rollen, Gruppen und von Hand gesetzte Werte."""
         return {"rollen": dict(self.rollen), "gruppen": {e: list(f) for e, f in self.gruppen.items()},
-                "werte": {e: dict(w) for e, w in self.werte.items()}}
+                "werte": {e: dict(w) for e, w in self.werte.items()}, "bezuege": dict(self.bezuege_hand)}
 
     def setze_zustand(self, d: dict):
         """Aus zustand() oder dem alten Format (nur Rollen je Flaeche)."""
@@ -279,6 +304,7 @@ class FunktionFenster(QtWidgets.QDialog):
         self.rollen = zahl(d.get("rollen"))
         self.gruppen = {e: tuple(f) for e, f in zahl(d.get("gruppen")).items()}
         self.werte = zahl(d.get("werte"))
+        self.bezuege_hand = zahl(d.get("bezuege"))
         self._fuelle()
 
     def _zeige(self):
@@ -287,7 +313,8 @@ class FunktionFenster(QtWidgets.QDialog):
                                        QtCore.Qt.ItemDataRole.UserRole))})
 
     def bezugssystem(self) -> fu.Bezugssystem:
-        return fu.bezugssystem(self.modell, self.rollen, self.gruppen)
+        return fu.bezugssystem(self.modell, self.rollen, self.gruppen,
+                               {e: b for e, b in self.bezuege_hand.items() if e in self.rollen})
 
     def zeige_bezuege(self) -> fu.Bezugssystem:
         s = self.bezugssystem()

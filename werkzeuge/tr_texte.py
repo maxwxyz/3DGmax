@@ -93,7 +93,7 @@ def tr_texte() -> set[str]:
     from programm.kern import funktion as fu
     from programm.ui import funktion_ui as fui
     from programm.ui import arbeitsbereiche as ab
-    out |= {b[1] for b in ab.BEREICHE} | {b[2] for b in ab.BEREICHE}
+    out |= {b[k] for b in ab.BEREICHE for k in (1, 2, 3)}
     out |= set(fu.GRUENDE) | set(fui.ROLLEN_HILFE.values()) | set(fui.FunktionFenster.SPALTEN)
     from programm.kern import fertigung as fe
     out |= {v.name for v in fe.VERFAHREN.values()} | {"Fertigung"}

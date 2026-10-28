@@ -8,6 +8,7 @@ from PySide6 import QtCore, QtGui, QtWidgets
 
 from ..i18n import tr
 from ..kern import kollision as ko
+from .tabellen import aenderbar_machen
 
 ART_FARBE = {ko.KOLLISION: "#c0392b", ko.ZU_NAH: "#d35400", ko.KONTAKT: "#2471a3", ko.ZU_WEIT: "#7d3c98"}
 UMFANG = (("alle", "Alle Teile untereinander"), ("gegen", "Gewählte Teile gegen den Rest"),
@@ -138,7 +139,7 @@ class KollisionPanel(QtWidgets.QWidget):
         self.tabelle.verticalHeader().setVisible(False)
         self.tabelle.setSelectionBehavior(QtWidgets.QAbstractItemView.SelectionBehavior.SelectRows)
         self.tabelle.setSelectionMode(QtWidgets.QAbstractItemView.SelectionMode.SingleSelection)
-        self.tabelle.setEditTriggers(QtWidgets.QAbstractItemView.EditTrigger.DoubleClicked)
+        aenderbar_machen(self.tabelle)
         self.tabelle.horizontalHeader().setStretchLastSection(True)
         self.tabelle.itemSelectionChanged.connect(self._auswahl)
         self.tabelle.itemChanged.connect(self._kommentar)

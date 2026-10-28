@@ -1812,5 +1812,13 @@
 "Teile verbinden, Wiggle, Baugruppenvariation, Kollisionen": "Connect parts, wiggle, assembly variation, clashes",
 "Arbeitsbereich: zeigt die Seitenleisten für diese Aufgabe": "Workspace: shows the side panels for this task",
 "Im Vergleich geladene Stände: alt → neu": "States loaded in the comparison: old → new",
-"Vergleich: {} → {}": "Comparison: {} → {}"
+"Vergleich: {} → {}": "Comparison: {} → {}",
+"Darstellung: schattiert mit Kanten, schattiert oder Drahtmodell": "Display: shaded with edges, shaded or wireframe",
+"＋ Hinzufügen": "＋ Add",
+"Glieder anhängen: leer, aus der PMI-Liste, aus der 3D-Auswahl oder als Längenbereich": "Append links: empty, from the PMI list, from the 3D selection or as a length range",
+"Richtungen und Optionen der Kette": "Directions and options of the chain",
+"▶ Ablaufen": "▶ Walk",
+"Modell öffnen; Pfeil: auch zwei Stände vergleichen": "Open a model; arrow: also compare two states",
+"Bezug von Hand festlegen (A, B, C); auto: aus den Funktionsrollen vorschlagen – sobald ein Bezug von Hand gesetzt ist, gilt nur die Zuordnung von Hand": "Set the datum by hand (A, B, C); auto: proposed from the function roles – once a datum is set by hand, only the manual assignment applies",
+"Von Hand als Bezug festgelegt": "Set as datum by hand"
 }

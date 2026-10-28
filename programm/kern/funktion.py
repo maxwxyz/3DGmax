@@ -145,8 +145,12 @@ def _senkrecht(a, b) -> bool:
     return abs(float(a @ b)) < 1e-4
 
 
-def bezugssystem(modell, rollen: dict[int, str], gruppen: dict | None = None) -> Bezugssystem:
-    """Bezugssystem A|B|C aus den Funktionsrollen (3-2-1); Begruendung je Bezug, Hinweis bei offenen Freiheitsgraden."""
+def bezugssystem(modell, rollen: dict[int, str], gruppen: dict | None = None,
+                 vorgabe: dict[int, str] | None = None) -> Bezugssystem:
+    """Bezugssystem A|B|C aus den Funktionsrollen (3-2-1); Begruendung je Bezug, Hinweis bei offenen Freiheitsgraden.
+    vorgabe: Element -> Buchstabe von Hand ("A", "B", "C"); dann gilt nur diese Zuordnung."""
+    if vorgabe:
+        return _bezugssystem_von_hand(modell, rollen, gruppen, vorgabe)
     geo = {i: g for i in rollen if (g := _geo(modell, i, gruppen)) is not None}
     ebenen = lambda *r: sorted((i for i in geo if geo[i]["art"] == "ebene" and rollen[i] in r),  # noqa: E731
                                key=lambda i: -geo[i]["inhalt"])
@@ -206,6 +210,33 @@ def bezugssystem(modell, rollen: dict[int, str], gruppen: dict | None = None) ->
                 s.bezuege.append(BezugVorschlag(next(buchstaben), anschlag[0], "ebene", 1,
                                                 "Anschlag in Achsrichtung (1 Freiheitsgrad)"))
     s.offen = 6 - sum(b.freiheitsgrade for b in s.bezuege)
+    if not s.bezuege:
+        s.hinweise.append(tr("Keine Auflage oder Zentrierung festgelegt – erst Funktionsrollen vergeben"))
+    elif s.offen > 0:
+        s.hinweise.append(tr("Noch {} Freiheitsgrad(e) offen – Verdrehsicherung oder Anschlag festlegen, falls die "
+                             "Funktion sie braucht (rotationssymmetrische Teile brauchen keine)").format(s.offen))
+    return s
+
+
+def _bezugssystem_von_hand(modell, rollen, gruppen, vorgabe: dict[int, str]) -> Bezugssystem:
+    """Bezuege in der Reihenfolge der Buchstaben; gesperrte Freiheitsgrade wie beim Vorschlag (A Ebene 3 / Achse 4,
+    B 2 - parallele Achse zu einer Achse A nur 1, C 1)."""
+    s = Bezugssystem()
+    vorher = []
+    for erste, buchstabe in sorted(vorgabe.items(), key=lambda e: e[1]):
+        g = _geo(modell, erste, gruppen) if erste in rollen else None
+        if g is None or buchstabe not in "ABC" or not buchstabe:
+            continue
+        element = "ebene" if g["art"] == "ebene" else "achse"
+        if not vorher:
+            fg = 3 if element == "ebene" else 4
+        elif len(vorher) == 1:
+            fg = 1 if element == "achse" and vorher[0][0] == "achse" and _parallel(g["richtung"], vorher[0][1]) else 2
+        else:
+            fg = 1
+        s.bezuege.append(BezugVorschlag(buchstabe, erste, element, fg, "Von Hand als Bezug festgelegt"))
+        vorher.append((element, g["richtung"]))
+    s.offen = max(0, 6 - sum(b.freiheitsgrade for b in s.bezuege))
     if not s.bezuege:
         s.hinweise.append(tr("Keine Auflage oder Zentrierung festgelegt – erst Funktionsrollen vergeben"))
     elif s.offen > 0:
@@ -318,4 +349,4 @@ GRUENDE = (
     "Passung nach Funktion: {} ({})", *(name for name, _ in ROLLEN.values()), "Bezugsachse senkrecht zur Auflage", "Lage der Achse zum Bezugssystem",
     "Lage des Stifts zum Bezugssystem, Ⓜ für Montierbarkeit", "Gleichmäßiges Spiel entlang der Führung", "Ebenheit der Funktionsfläche", "Dichtheit",
     "Dichtfläche: Rauheit und Drallfreiheit", "Bezugsfläche rechtwinklig zum vorigen Bezug",
-    "Weitere Auflage parallel zu A", "Lage und Form der Fläche zum Bezugssystem")
+    "Weitere Auflage parallel zu A", "Lage und Form der Fläche zum Bezugssystem", "Von Hand als Bezug festgelegt")

@@ -200,14 +200,19 @@ def projiziere_netz(netze, richtung, oben, name: str = "", verdeckt: bool = True
     return a
 
 
-def projiziere(form, richtung, oben, name: str = "", verdeckt: bool = True, abweichung: float = 0.05) -> Ansicht2D:
+def projiziere(form, richtung, oben, name: str = "", verdeckt: bool = True, abweichung: float = 0.05,
+               schnell: bool = False) -> Ansicht2D:
     """Blick in 'richtung' (vom Betrachter ins Modell), 'oben' zeigt nach oben. Exakte HLR, Kanten und Umrisse.
 
-    Reine Netze (STL, PRC, ...) haben keine Kurven fuer HLR; sie laufen ueber projiziere_netz().
+    Reine Netze (STL, PRC, ...) haben keine Kurven fuer HLR; sie laufen ueber projiziere_netz(). schnell: HLR auf der
+    Triangulierung (HLRBRep_PolyAlgo) - fuer Vorschaubilder; FTC-10 0,03 s statt 0,1 s, unter Last bis 1 s, und die
+    HLR haelt die Python-Sperre (die Oberflaeche ruckelt so lange).
     """
     netze = _netze(form)
     if netze:
         return projiziere_netz(netze, richtung, oben, name, verdeckt)
+    if schnell:
+        return _projiziere_poly(form, richtung, oben, name, verdeckt, abweichung)
     from OCC.Core.gp import gp_Ax2, gp_Dir, gp_Pnt
     from OCC.Core.HLRAlgo import HLRAlgo_Projector
     from OCC.Core.HLRBRep import HLRBRep_Algo, HLRBRep_HLRToShape
@@ -219,6 +224,35 @@ def projiziere(form, richtung, oben, name: str = "", verdeckt: bool = True, abwe
     algo.Update()
     algo.Hide()
     h = HLRBRep_HLRToShape(algo)
+    a = Ansicht2D(name)
+    for teil in (h.VCompound(), h.OutLineVCompound(), h.Rg1LineVCompound()):
+        a.linien[SICHTBAR] += _polylinien(teil, abweichung)
+    if verdeckt:
+        for teil in (h.HCompound(), h.OutLineHCompound()):
+            a.linien[VERDECKT] += _polylinien(teil, abweichung)
+    return a
+
+
+def _projiziere_poly(form, richtung, oben, name: str, verdeckt: bool, abweichung: float) -> Ansicht2D:
+    """Polygonale HLR auf der Triangulierung (vernetzt bei Bedarf grob nach der Groesse)."""
+    from OCC.Core.Bnd import Bnd_Box
+    from OCC.Core.BRepBndLib import brepbndlib
+    from OCC.Core.BRepMesh import BRepMesh_IncrementalMesh
+    from OCC.Core.gp import gp_Ax2, gp_Dir, gp_Pnt
+    from OCC.Core.HLRAlgo import HLRAlgo_Projector
+    from OCC.Core.HLRBRep import HLRBRep_PolyAlgo, HLRBRep_PolyHLRToShape
+    box = Bnd_Box()
+    brepbndlib.Add(form, box)
+    if not box.IsVoid():
+        x0, y0, z0, x1, y1, z1 = box.Get()
+        BRepMesh_IncrementalMesh(form, max(x1 - x0, y1 - y0, z1 - z0) * 2e-3, False, 0.5, True)
+    d, x, _ = _achsen(richtung, oben)
+    algo = HLRBRep_PolyAlgo()
+    algo.Load(form)
+    algo.Projector(HLRAlgo_Projector(gp_Ax2(gp_Pnt(0, 0, 0), gp_Dir(*d), gp_Dir(*x))))
+    algo.Update()
+    h = HLRBRep_PolyHLRToShape()
+    h.Update(algo)
     a = Ansicht2D(name)
     for teil in (h.VCompound(), h.OutLineVCompound(), h.Rg1LineVCompound()):
         a.linien[SICHTBAR] += _polylinien(teil, abweichung)

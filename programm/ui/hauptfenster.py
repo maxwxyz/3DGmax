@@ -149,6 +149,8 @@ def _alle_fenster() -> list:
 class Hauptfenster(QtWidgets.QMainWindow):
     def __init__(self):
         super().__init__()
+        from . import radsperre
+        radsperre.installieren(QtWidgets.QApplication.instance())  # Rad rollt Tabellen, aendert keine Werte
         from ..i18n import qt_uebersetzung
         qt_uebersetzung(QtWidgets.QApplication.instance())  # Qt-Knoepfe deutsch, auch ohne app.main (Skripte, Tests)
         FENSTER.append(self)
@@ -191,7 +193,14 @@ class Hauptfenster(QtWidgets.QMainWindow):
             lay.addWidget(titel)
             lay.addWidget(panel, 1)
             baeume.addWidget(teil)
-        self.dock_baum = self._dock(tr("Struktur"), baeume, QtCore.Qt.DockWidgetArea.LeftDockWidgetArea)
+        struktur = QtWidgets.QWidget()  # oben Schnitt und Explosion (fuellt _baue_leiste), darunter die Baeume
+        struktur_lay = QtWidgets.QVBoxLayout(struktur)
+        struktur_lay.setContentsMargins(0, 0, 0, 0)
+        self._struktur_werkzeuge = QtWidgets.QWidget()
+        struktur_lay.addWidget(self._struktur_werkzeuge)
+        struktur_lay.addWidget(baeume, 1)
+        self.dock_baum = self._dock(tr("Struktur"), struktur, QtCore.Qt.DockWidgetArea.LeftDockWidgetArea)
+        self.dock_baum.setObjectName("dock_Struktur")  # eindeutig fuer den gemerkten Fensterzustand
         self.dock_ansichten = self._dock(tr("Gespeicherte Ansichten"), self.ansichten,
                                          QtCore.Qt.DockWidgetArea.LeftDockWidgetArea)
         self.dock_pmi = self._dock(tr("PMI"), self.pmi, QtCore.Qt.DockWidgetArea.RightDockWidgetArea)
@@ -405,17 +414,20 @@ class Hauptfenster(QtWidgets.QMainWindow):
 
     # --- Aufbau ---
 
-    def _dock(self, titel, widget, bereich):
+    def _dock(self, titel, widget, bereich, rollen: bool = True):
         d = QtWidgets.QDockWidget(titel, self)
         d.setObjectName("dock_" + type(widget).__name__)  # sprachunabhaengig (Fensterzustand merken)
         # in einem Rollbereich: der Inhalt bestimmt nicht die Mindestgroesse des Fensters (sonst passt es bei
         # skalierter Oberflaeche nicht auf den Bildschirm und Teile der Leisten - z. B. der Wiggle-Knopf - fehlen)
-        rollen = QtWidgets.QScrollArea()
-        rollen.setWidgetResizable(True)
-        rollen.setFrameShape(QtWidgets.QFrame.Shape.NoFrame)
-        rollen.setWidget(widget)
-        rollen.setMinimumSize(180, 120)
-        d.setWidget(rollen)
+        if rollen:
+            bereich_rollen = QtWidgets.QScrollArea()
+            bereich_rollen.setWidgetResizable(True)
+            bereich_rollen.setFrameShape(QtWidgets.QFrame.Shape.NoFrame)
+            bereich_rollen.setWidget(widget)
+            bereich_rollen.setMinimumSize(180, 120)
+            d.setWidget(bereich_rollen)
+        else:  # Werkzeugleiste mit eigenen rollenden Tabellen: Knoepfe bleiben beim Rollen stehen
+            d.setWidget(widget)
         d.setFeatures(QtWidgets.QDockWidget.DockWidgetFeature.DockWidgetMovable |
                       QtWidgets.QDockWidget.DockWidgetFeature.DockWidgetClosable)
         self.addDockWidget(bereich, d)
@@ -459,7 +471,7 @@ class Hauptfenster(QtWidgets.QMainWindow):
         Modell gehoert und neben der 3D-Ansicht benutzt wird, ist eine Leiste). Schliessen/Esc schliesst die Leiste,
         Wiederoeffnen zeigt den Inhalt wieder."""
         f.setWindowFlags(QtCore.Qt.WindowType.Widget)
-        d = self._dock(titel, f, QtCore.Qt.DockWidgetArea.BottomDockWidgetArea)
+        d = self._dock(titel, f, QtCore.Qt.DockWidgetArea.BottomDockWidgetArea, rollen=False)
         setattr(self, "dock_" + name, d)
         gruppe = next((x for n in self.WERKZEUG_LEISTEN if n != name and (x := getattr(self, "dock_" + n, None))
                        is not None and not x.isFloating()), None)
@@ -486,29 +498,30 @@ class Hauptfenster(QtWidgets.QMainWindow):
     def setze_arbeitsbereich(self, schluessel: str):
         """Seitenleisten des Arbeitsbereichs zeigen, die anderen ausblenden; Leisten, die nur in einem Zustand Sinn
         ergeben (Aenderungen im Vergleich, Scanpruefung mit Scan), nur dann."""
-        from .arbeitsbereiche import BEREICHE, leisten
+        from .arbeitsbereiche import BEREICHE, GEMEINSAM, leisten
         self._bereich_schaltet = True
         try:
             gewollt = leisten(schluessel)
-            alle = {n for b in BEREICHE for n in b[3]}
+            alle = {n for b in BEREICHE for n in b[4]}
             for name in sorted(alle):
                 d = getattr(self, "dock_" + name, None)
                 if d is None:
                     continue
-                if name in gewollt and self._leiste_moeglich(name):
+                if name in gewollt and self._leiste_moeglich(name, schluessel):
                     d.show()
-                else:
+                elif name not in GEMEINSAM:  # Struktur, PMI, Ansichten verschwinden beim Umschalten nie
                     d.hide()
-            vorne = next((n for n in gewollt if n not in ("baum", "ansichten") and self._leiste_moeglich(n)), None)
+            vorne = next((n for n in gewollt if n not in ("baum", "ansichten") and self._leiste_moeglich(n, schluessel)),
+                         None)
             if vorne is not None:
                 getattr(self, "dock_" + vorne).raise_()
             self.ein.setValue("arbeitsbereich", schluessel)
         finally:
             self._bereich_schaltet = False
 
-    def _leiste_moeglich(self, name: str) -> bool:
-        if name == "aenderungen":
-            return self.vergleich is not None
+    def _leiste_moeglich(self, name: str, bereich: str = "") -> bool:
+        if name == "aenderungen":  # im Bereich Vergleich auch ohne Vergleich: Hinweis und "Zwei Staende vergleichen"
+            return self.vergleich is not None or bereich == "vergleichen"
         if name == "scan":
             return getattr(self, "_scan", None) is not None
         return True
@@ -912,31 +925,55 @@ class Hauptfenster(QtWidgets.QMainWindow):
         self._fuelle_zuletzt()
 
     def _baue_leiste(self):
+        """Eine Werkzeugzeile: ganz links Oeffnen/Vergleichen, dann die Arbeitsbereiche, Ansicht und Darstellung; was
+        nicht passt, liegt unter ». Schnitt und Explosion (mit Reglern) stehen oben in der Leiste Struktur, Messen in
+        der Leiste Messen."""
         from .arbeitsbereiche import Bereichsleiste
-        bt = QtWidgets.QToolBar(tr("Arbeitsbereiche"))
-        bt.setObjectName("arbeitsbereiche")
-        bt.setMovable(False)
-        self.bereiche = Bereichsleiste()
-        self.bereiche.gewaehlt.connect(self.setze_arbeitsbereich)
-        bt.addWidget(self.bereiche)
-        self.addToolBar(QtCore.Qt.ToolBarArea.TopToolBarArea, bt)
-        self.addToolBarBreak()
+        from .fluss import FlussLayout
         tb = self.addToolBar(tr("Werkzeuge"))
         tb.setObjectName("werkzeuge")
         tb.setMovable(False)
         tb.setToolButtonStyle(QtCore.Qt.ToolButtonStyle.ToolButtonTextOnly)
         a = self.aktionen
-        tb.addAction(a["oeffnen"])
-        tb.addAction(a["vergleichen"])
+        datei = QtWidgets.QToolButton()  # ganz links: Oeffnen (Klick) und Vergleichen (Menue) in einem Knopf
+        datei.setDefaultAction(a["oeffnen"])
+        datei.setPopupMode(QtWidgets.QToolButton.ToolButtonPopupMode.MenuButtonPopup)
+        datei_menue = QtWidgets.QMenu(datei)
+        datei_menue.addAction(a["oeffnen"])
+        datei_menue.addAction(a["vergleichen"])
+        datei.setMenu(datei_menue)
+        datei.setToolTip(tr("Modell öffnen; Pfeil: auch zwei Stände vergleichen"))
+        self.datei_knopf = datei
+        tb.addWidget(datei)
+        tb.addSeparator()
+        self.bereiche = Bereichsleiste()
+        self.bereiche.gewaehlt.connect(self.setze_arbeitsbereich)
+        tb.addWidget(self.bereiche)
         tb.addSeparator()
         tb.addAction(a["alles"])  # Standardansichten: Ansichtswuerfel in der 3D-Ansicht und Menue Ansicht
-        tb.addSeparator()
+        darstellung = QtWidgets.QToolButton()  # drei Darstellungen in einem Knopf, er nennt die aktive
+        darstellung.setPopupMode(QtWidgets.QToolButton.ToolButtonPopupMode.InstantPopup)
+        darstellung.setToolTip(tr("Darstellung: schattiert mit Kanten, schattiert oder Drahtmodell"))
+        menue = QtWidgets.QMenu(darstellung)
         for n in ansicht3d.DARSTELLUNGEN:
-            tb.addAction(a["darstellung_" + n])
-        tb.addSeparator()
-        tb.addAction(a["grafik"])
-        tb.addAction(a["messen"])
-        tb.addSeparator()
+            menue.addAction(a["darstellung_" + n])
+            a["darstellung_" + n].toggled.connect(
+                lambda an, n=n: an and darstellung.setText(a["darstellung_" + n].text().replace("&", "")))
+        darstellung.setMenu(menue)
+        darstellung.setText(next(a["darstellung_" + n].text().replace("&", "") for n in ansicht3d.DARSTELLUNGEN
+                                 if a["darstellung_" + n].isChecked()))
+        self.darstellung_knopf = darstellung
+        tb.addWidget(darstellung)
+        tb.addAction(a["grafik"])  # Messen schaltet die Leiste Messen (Knopf oben in ihr, Taste M)
+        messen = QtWidgets.QToolButton()  # Schalter Messen oben in der Leiste Messen
+        messen.setDefaultAction(a["messen"])
+        messen.setSizePolicy(QtWidgets.QSizePolicy.Policy.Expanding, QtWidgets.QSizePolicy.Policy.Fixed)
+        self.messen.layout().insertWidget(0, messen)
+        # Leiste zu (x, Menue, anderer Arbeitsbereich): Messen aus
+        self.dock_messen.toggleViewAction().toggled.connect(
+            lambda an: an or not a["messen"].isChecked() or a["messen"].trigger())
+        # Schnitt und Explosion: Zeile oben in der Leiste Struktur (Ansicht der Teile, wie die Sichtbarkeit im Baum)
+        zeile = FlussLayout(self._struktur_werkzeuge)
         knopf = QtWidgets.QToolButton()
         knopf.setText(tr("Schnitt"))
         knopf.setToolTip(tr("Schnittebene wählen"))
@@ -947,34 +984,39 @@ class Hauptfenster(QtWidgets.QMainWindow):
             menue.addAction(a[n])
         knopf.setMenu(menue)
         self.schnitt_knopf = knopf
-        tb.addWidget(knopf)
+        zeile.addWidget(knopf)
         self.schnitt_regler = QtWidgets.QSlider(QtCore.Qt.Orientation.Horizontal)
         self.schnitt_regler.setRange(0, 1000)
         self.schnitt_regler.setValue(500)
-        self.schnitt_regler.setMaximumWidth(160)
+        self.schnitt_regler.setFixedWidth(130)
         self.schnitt_regler.setToolTip(tr("Lage der Schnittebene"))
         self.schnitt_regler.valueChanged.connect(lambda _: self._schnitt(self._schnitt_achse))
-        self.schnitt_regler_aktion = tb.addWidget(self.schnitt_regler)
-        self.schnitt_regler_aktion.setVisible(False)  # nur bei aktivem Schnitt
+        zeile.addWidget(self.schnitt_regler)
+        self.schnitt_regler_aktion = self.schnitt_regler  # sichtbar nur bei aktivem Schnitt
+        self.schnitt_regler.setVisible(False)
         self._schnitt_achse = None
-        tb.addAction(a["explosion"])
+        explosion = QtWidgets.QToolButton()
+        explosion.setDefaultAction(a["explosion"])
+        zeile.addWidget(explosion)
         self.explosion_regler = QtWidgets.QSlider(QtCore.Qt.Orientation.Horizontal)
         self.explosion_regler.setRange(0, 100)
         self.explosion_regler.setValue(50)
-        self.explosion_regler.setMaximumWidth(140)
+        self.explosion_regler.setFixedWidth(110)
         self.explosion_regler.setToolTip(tr("Abstand der Teile in der Explosionsansicht"))
         self.explosion_regler.valueChanged.connect(lambda w: self.ansicht.setze_explosion(w / 100.0))
         self.explosion_regler.sliderReleased.connect(self._explosion_einpassen)
-        self.explosion_regler_aktion = tb.addWidget(self.explosion_regler)
-        self.explosion_regler_aktion.setVisible(False)  # nur bei aktiver Explosionsansicht
+        zeile.addWidget(self.explosion_regler)
+        self.explosion_regler_aktion = self.explosion_regler  # sichtbar nur bei aktiver Explosionsansicht
+        self.explosion_regler.setVisible(False)
         self.explosion_achse = QtWidgets.QComboBox()
         for daten, text in ((None, tr("radial")), ("x", tr("entlang X")), ("y", tr("entlang Y")), ("z", tr("entlang Z"))):
             self.explosion_achse.addItem(text, daten)
         self.explosion_achse.setToolTip(tr("Richtung der Explosion: von der Mitte weg oder nur entlang einer Achse"))
         self.explosion_achse.currentIndexChanged.connect(lambda _i: self.ansicht.setze_explosion_achse(
             self.explosion_achse.currentData()))
-        self.explosion_achse_aktion = tb.addWidget(self.explosion_achse)
-        self.explosion_achse_aktion.setVisible(False)
+        zeile.addWidget(self.explosion_achse)
+        self.explosion_achse_aktion = self.explosion_achse
+        self.explosion_achse.setVisible(False)
 
     def _verbinde(self):
         self.start.oeffnen.connect(self.oeffnen)
@@ -2109,13 +2151,13 @@ class Hauptfenster(QtWidgets.QMainWindow):
             self._blink.start()
         else:
             self._blink.stop()
-        alt_baum = m == "alt"
-        if getattr(self, "_baum_zeigt_alt", False) != alt_baum:
-            self.baum.zeige((v.alt if alt_baum else v.neu).baum)
-            self._baum_zeigt_alt = alt_baum
-        self.baum.setze_status(self._teil_status(v, alt_baum) if hervor or m == "vergleich" else None)
-        self.dock_baum.setWindowTitle(tr("Struktur – alter Stand") if alt_baum else tr("Struktur"))
-        self._zweiter_baum(v if m == "nebeneinander" else None, hervor)
+        # im Vergleich immer beide Strukturen (oben neu, unten alt, beschriftet) - unabhaengig vom Anzeigemodus
+        if getattr(self, "_baum_zeigt_alt", False):
+            self.baum.zeige(v.neu.baum)
+            self._baum_zeigt_alt = False
+        self.baum.setze_status(self._teil_status(v, False) if hervor or m == "vergleich" else None)
+        self.dock_baum.setWindowTitle(tr("Struktur"))
+        self._zweiter_baum(v, hervor)
 
     def _zweiter_baum(self, v, hervor: bool = True):
         """Nebeneinander: beide Strukturen untereinander (neu oben, alt unten); v None blendet den alten aus."""
@@ -3163,9 +3205,9 @@ class Hauptfenster(QtWidgets.QMainWindow):
         if daten is None:
             self.ansicht.zeige_hilfslinien([])
             return
-        glieder, text, ist = daten
+        glieder, text, ist, hervor = daten
         self.ansicht.zeige_hilfslinien(tk.kettenbild(glieder, self.erg.modell if self.erg else None, text, ist,
-                                                     self.ansicht.oben_richtung()), einpassen=neu)
+                                                     self.ansicht.oben_richtung(), hervor), einpassen=neu)
 
     def _kette_schluss(self):
         """Reihenfolge und Vorzeichen der Glieder aus den zwei gewaehlten Flaechen des Schlussmasses."""

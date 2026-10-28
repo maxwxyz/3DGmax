@@ -117,7 +117,7 @@ display only; tolerance zones move to "Tolerieren").
 - Done 2026-10-28 (step 2.4): earlier selected faces 0.78 × the highlight colour, the last one full; comparison
   state ("Vergleich: alt → neu") permanently in the status bar.
 
-- **Top bars (user, 2026-10-28, next):** one row – workspace selector left in the toolbar, overflow » instead of a
+- **Top bars (user, 2026-10-28) – done the same day:** one row – workspace selector left in the toolbar, overflow » instead of a
   second row; section and explosion (with their sliders) move into a small row at the top of the structure panel;
   structure, PMI and saved views are never hidden by a workspace switch (only tool panels change); during a
   comparison both structures (new/old) are always shown, labelled.
@@ -136,8 +136,14 @@ display only; tolerance zones move to "Tolerieren").
   at the limit) in the place of the change list with the same review walk (checked / rejected, comment) and the same
   review report.
 - **Visible affordances:** drop-down lists with a clear arrow, editable table cells tinted and editable with one
-  click (done 2026-10-28 for the chain window; apply the same to every table).
-- **Smooth side-panel resizing (user report 2026-10-28, still slow and jerky):** the 3D view already batches
+  click – done 2026-10-28 for every table (`ui/tabellen.py`, delegate tints cells with ItemIsEditable); pressed
+  toggle buttons styled (QPushButton:checked); mouse wheel over number fields/lists scrolls instead of changing
+  values (`ui/radsperre.py`); chain panel: Add/Chain menus, buttons do not scroll away.
+- **Smooth side-panel resizing – analysed and fixed 2026-10-28:** measured per step (resizeDocks + events, FTC-10):
+  median 5 ms, but 90th percentile 1088 ms – the preview thread of the saved views ran exact HLR, which holds the GIL
+  (about 1 s per view under load). Previews now use the polygonal HLR (`zeichnung.projiziere(schnell=True)`,
+  0.03 s): 90th percentile 13 ms. Original item:
+  **Smooth side-panel resizing (user report 2026-10-28, still slow and jerky):** the 3D view already batches
   `MustBeResized` (at most every 250 ms, otherwise after the drag) – so the cost is elsewhere. Analysis first, then fix:
   1. Measure per resize step on the Mac and on Windows: time in Qt layout of the dock contents, in Python handlers
      (resize/paint events, table `resizeColumnsToContents`, word-wrapped labels with height-for-width, splitters

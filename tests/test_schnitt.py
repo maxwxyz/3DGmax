@@ -34,3 +34,13 @@ def test_verketten_schnell_linear():
     seg = np.stack([p[:-1], p[1:]], axis=1)[np.random.default_rng(1).permutation(5000)]
     zuege = schnitt._verketten_schnell(seg, 1e-9)
     assert len(zuege) == 1 and len(zuege[0]) == 5001
+
+
+def test_schnelle_vorschau_wie_exakte_kontur():
+    """Vorschaubilder ueber die polygonale HLR: gleicher Umriss (Ausdehnung) wie die exakte HLR, viel schneller."""
+    from programm.kern import zeichnung
+    form = _platte_mit_bohrung()
+    exakt = zeichnung.projiziere(form, (0, 1, 0), (0, 0, 1), verdeckt=False)
+    schnell = zeichnung.projiziere(form, (0, 1, 0), (0, 0, 1), verdeckt=False, schnell=True)
+    ausdehnung = lambda a: np.ptp(np.vstack(a.linien[zeichnung.SICHTBAR]), axis=0)  # noqa: E731
+    assert schnell.linien[zeichnung.SICHTBAR] and np.allclose(ausdehnung(schnell), ausdehnung(exakt), atol=0.5)

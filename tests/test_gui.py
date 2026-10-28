@@ -1803,6 +1803,13 @@ def test_funktion_zur_tolerierung(fenster):
     assert w.ersetze_flaechen([andere]) and andere in w.rollen and bohrung not in w.rollen
     assert w.rollen[andere] == "zentrierung" and w.werte[andere] == {"passung": "H8"}
     assert not w.ersetze_flaechen([andere, auflage])  # Zylinder und Ebene sind kein Element
+    # Bezug von Hand: die Bohrung als A - das Bezugssystem folgt der Zuordnung
+    box = w.tabelle.cellWidget(sorted(w.rollen).index(andere), w.SP_BEZUG)
+    box.setCurrentIndex(box.findData("A"))
+    assert w.bezuege_hand == {andere: "A"} and [b.flaeche for b in w.bezugssystem().bezuege] == [andere]
+    box = w.tabelle.cellWidget(sorted(w.rollen).index(andere), w.SP_BEZUG)
+    box.setCurrentIndex(box.findData(""))
+    assert w.bezuege_hand == {} and w.bezugssystem().bezuege[0].flaeche == auflage
     projekt = f.speichere_projekt(os.path.join(tempfile.mkdtemp(), "f.3dgmax"))
     w.rollen = {}
     f.oeffne_projekt(projekt, warten=True)
@@ -2016,7 +2023,9 @@ def test_arbeitsbereiche(fenster):
     assert {"zusammenbau", "kollision", "baum"} <= sicht() and "messen" not in sicht()
     f.bereiche.zeige("vergleichen")
     app.processEvents()
-    assert "aenderungen" not in sicht() and "scan" not in sicht()  # ohne Vergleich bzw. Scan nicht leer zeigen
+    assert "aenderungen" in sicht() and "scan" not in sicht()  # Aenderungen mit "Zwei Staende vergleichen", kein Scan
+    assert f.aenderungen.neu_knopf.isVisibleTo(f.aenderungen) and "zusammenbau" not in sicht()
+    assert "baum" in sicht()  # gemeinsame Leisten verschwinden beim Umschalten nicht
     f.bereiche.zeige("messen")
     app.processEvents()
     assert {"messen", "analyse"} <= sicht() and f.ein.value("arbeitsbereich") == "messen"
@@ -2052,3 +2061,83 @@ def test_werkzeuge_als_leisten(fenster):
     fu.reject()
     k.reject()
     f.bereiche.zeige("ansehen")
+
+
+def test_aenderbare_zellen_sichtbar(fenster):
+    """Tabellen mit aenderbaren Zellen (Spielraum, Soll, Kommentare, Kollisionen): getoent und mit einem Klick
+    bearbeitbar; nicht aenderbare Zellen bleiben ungetoent."""
+    from programm.ui.tabellen import AENDERBAR_FARBE, AenderbarDelegate
+    f = fenster
+    assert f.oeffne_beispiel("variation", warten=True)
+    t = f.zusammenbau.masse
+    assert isinstance(t.itemDelegate(), AenderbarDelegate)
+    assert t.editTriggers() & QtWidgets.QAbstractItemView.EditTrigger.CurrentChanged
+    farbe = lambda z, s: (lambda o: (t.itemDelegate().initStyleOption(o, t.model().index(z, s)),  # noqa: E731
+                                     o.backgroundBrush.color())[1])(QtWidgets.QStyleOptionViewItem())
+    assert farbe(0, 5) == AENDERBAR_FARBE  # Soll
+    assert farbe(0, 1) != AENDERBAR_FARBE  # Name der Messgroesse
+    for tab in (f.zusammenbau.verbindungen, f.kollision.tabelle, f.kommentare.tabelle):
+        assert isinstance(tab.itemDelegate(), AenderbarDelegate)
+
+
+def test_mausrad_aendert_keine_werte(fenster):
+    """Mausrad ueber einem Zahlenfeld in einer Tabelle (ohne Fokus) aendert den Wert nicht; mit Fokus wie gewohnt."""
+    from PySide6 import QtGui
+    f = fenster
+    k = f.zeige_toleranzkette()
+    k.leeren()
+    k.neues_glied("Deckel", 5.0, 0.05, -0.05, -1)
+    QtWidgets.QApplication.instance().processEvents()
+    feld = k.cp  # Zahlenfeld der Kette
+
+    def rad(w):
+        p = QtCore.QPointF(5, 5)
+        ev = QtGui.QWheelEvent(p, w.mapToGlobal(p), QtCore.QPoint(), QtCore.QPoint(0, 120), QtCore.Qt.MouseButton.NoButton,
+                               QtCore.Qt.KeyboardModifier.NoModifier, QtCore.Qt.ScrollPhase.NoScrollPhase, False)
+        QtWidgets.QApplication.sendEvent(w, ev)
+
+    vorher = feld.value()
+    feld.clearFocus()
+    rad(feld)
+    assert feld.value() == vorher and feld.focusPolicy() == QtCore.Qt.FocusPolicy.StrongFocus
+    k.reject()
+
+
+def test_glied_waehlen_zeigt_es_im_3d(fenster):
+    """Glied in der Tabelle waehlen: bei eingeblendeter Kette ist es im Kettenbild hervorgehoben, sonst erscheint nur
+    sein Pfeil."""
+    from programm.kern import toleranzkette as tk
+    f = fenster
+    assert f.oeffne_beispiel("kette_getriebe", warten=True)
+    k = f._kette
+    app = QtWidgets.QApplication.instance()
+    k.bild3d.setChecked(False)
+    k.tabelle.selectRow(1)
+    app.processEvents()
+    einzeln = list(f.ansicht.hilfslinien)
+    assert einzeln and all(li[3] != tk.FARBEN["schluss"] for li in einzeln)  # nur das Glied, kein Schlussmass
+    k.bild3d.setChecked(True)
+    k.tabelle.selectRow(2)
+    app.processEvents()
+    hervor = [li for li in f.ansicht.hilfslinien if li[3] == tk.FARBEN["hervor"]]
+    assert hervor and len(f.ansicht.hilfslinien) > len(einzeln)  # ganzes Kettenbild, das Glied hervorgehoben
+    k.bild3d.setChecked(False)
+    k.tabelle.clearSelection()
+
+
+
+def test_messen_in_der_leiste(fenster_ctc01):
+    """Messen schaltet der Knopf oben in der Leiste Messen (nicht mehr in der Werkzeugzeile); Leiste zu: Messen aus.
+    Oeffnen und Vergleichen stehen als ein Knopf ganz links."""
+    f = fenster_ctc01
+    app = QtWidgets.QApplication.instance()
+    leiste = f.findChild(QtWidgets.QToolBar, "werkzeuge")
+    assert f.aktionen["messen"] not in leiste.actions()
+    assert f.datei_knopf.defaultAction() is f.aktionen["oeffnen"]
+    assert f.aktionen["vergleichen"] in f.datei_knopf.menu().actions()
+    f.aktionen["messen"].trigger()
+    app.processEvents()
+    assert f.aktionen["messen"].isChecked() and f.dock_messen.isVisible() and f.ansicht.messmodus
+    f.dock_messen.toggleViewAction().trigger()  # Leiste schliessen
+    app.processEvents()
+    assert not f.aktionen["messen"].isChecked() and not f.ansicht.messmodus

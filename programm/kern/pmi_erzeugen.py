@@ -308,12 +308,27 @@ def _platz(rahmen: _Rahmen, start, raus, x, y, quader, belegt, h) -> np.ndarray:
     m = np.column_stack([x, y])
     modell = quader @ m
     andere = [b @ m for b in belegt]
+    iso = ISO_BILD
+    andere_iso = [b @ iso for b in belegt]  # Rahmen anderer Ebenen: im ueblichen Gesamtbild nicht uebereinander
     ursprung = start - x * (rahmen.breite / 2) - y * (rahmen.hoehe / 2)
     for _ in range(400):
         e = rahmen.ecken(ursprung, x, y)
-        e2 = e @ m
-        frei = not _ueberlappt(e2, modell, 0.5 * h) and all(not _ueberlappt(e2, b, 0.4 * h) for b in andere)
+        e2, ei = e @ m, e @ iso
+        frei = not _ueberlappt(e2, modell, 0.5 * h) and all(not _ueberlappt(e2, b, 0.4 * h) for b in andere) and \
+            all(not _ueberlappt(ei, b, 0.3 * h) for b in andere_iso) and \
+            all(not _ueberlappt(e, b, 0.3 * h) for b in belegt)
         if frei:
             return ursprung
         ursprung = ursprung + raus * 0.8 * h
     return ursprung
+
+
+def _iso_bild() -> np.ndarray:
+    """Projektion ins isometrische Bild (Blick (-1,-1,-1), Z oben) als 3x2-Matrix."""
+    blick = -np.ones(3) / np.sqrt(3)
+    oben = np.array([0.0, 0.0, 1.0]) - blick * (-blick[2])
+    oben /= np.linalg.norm(oben)
+    return np.column_stack([np.cross(blick, oben), oben])
+
+
+ISO_BILD = _iso_bild()

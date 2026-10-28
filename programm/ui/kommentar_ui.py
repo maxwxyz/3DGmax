@@ -6,6 +6,7 @@ from PySide6 import QtCore, QtWidgets
 
 from ..i18n import tr
 from ..kern import kommentare as km
+from .tabellen import aenderbar_machen
 
 
 class KommentarDialog(QtWidgets.QDialog):
@@ -57,7 +58,7 @@ class KommentarPanel(QtWidgets.QWidget):
         self.tabelle.verticalHeader().setVisible(False)
         self.tabelle.setSelectionBehavior(QtWidgets.QAbstractItemView.SelectionBehavior.SelectRows)
         self.tabelle.setSelectionMode(QtWidgets.QAbstractItemView.SelectionMode.SingleSelection)
-        self.tabelle.setEditTriggers(QtWidgets.QAbstractItemView.EditTrigger.DoubleClicked)
+        aenderbar_machen(self.tabelle)
         self.tabelle.horizontalHeader().setStretchLastSection(True)
         self.tabelle.setToolTip(tr("Doppelklick auf den Text ändert ihn"))
         lay.addWidget(self.tabelle, 1)

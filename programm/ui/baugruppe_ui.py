@@ -8,6 +8,7 @@ from PySide6 import QtCore, QtGui, QtWidgets
 from ..i18n import tr
 from ..kern import baugruppe_mass as bm
 from ..kern import verbindung as vb
+from .tabellen import aenderbar_machen
 
 
 def _tabelle(spalten) -> QtWidgets.QTableWidget:
@@ -86,7 +87,7 @@ class BaugruppePanel(QtWidgets.QWidget):
         reihe.addWidget(self.knopf_321)
         lay.addLayout(reihe)
         self.verbindungen = _tabelle(self.VERBINDUNG_SPALTEN)
-        self.verbindungen.setEditTriggers(QtWidgets.QAbstractItemView.EditTrigger.DoubleClicked)
+        aenderbar_machen(self.verbindungen)  # Spielraum: getoent, ein Klick
         self.verbindungen.setToolTip(tr("Spielraum per Doppelklick ändern: eben, Langloch und Punkt ± entlang der "
                                         "Normalen, koaxial und Kugel radiales Spiel (mm)"))
         self.verbindungen.itemChanged.connect(self._spielraum_geaendert)
@@ -234,7 +235,7 @@ class BaugruppePanel(QtWidgets.QWidget):
         self.alpha: dict[int, float] = {}  # Teil (Knotennummer) -> 1e-6/K
         self.teil_namen: dict[int, str] = {}
         self.masse = _tabelle(self.MASS_SPALTEN)
-        self.masse.setEditTriggers(QtWidgets.QAbstractItemView.EditTrigger.DoubleClicked)
+        aenderbar_machen(self.masse)  # Soll: getoent, ein Klick
         self.masse.itemChanged.connect(self._soll_geaendert)
         self.masse.itemSelectionChanged.connect(self._zeige_beitraege)
         self.masse.itemSelectionChanged.connect(

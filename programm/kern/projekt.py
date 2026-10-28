@@ -62,7 +62,7 @@ def speichere(pfad: str, modell_pfad: str | None = None, vergleich=None, messung
         daten["raumketten"] = raumketten
     if funktion:  # Funktion -> Tolerierung: Rollen, Gruppen (Element aus mehreren Flaechen), Werte von Hand
         daten["funktion"] = {teil: {str(i): x for i, x in (funktion.get(teil) or {}).items()}
-                             for teil in ("rollen", "gruppen", "werte")} if "rollen" in funktion else \
+                             for teil in ("rollen", "gruppen", "werte", "bezuege")} if "rollen" in funktion else \
             {"rollen": {str(i): rolle for i, rolle in funktion.items()}}
     if vergleich is not None:
         quellen = [vergleich.alt.pfad, vergleich.neu.pfad]
@@ -105,7 +105,7 @@ def lade(pfad: str, ziel: str | None = None) -> dict:
         f = daten["funktion"]
         f = f if "rollen" in f else {"rollen": f}
         daten["funktion"] = {teil: {int(i): x for i, x in (f.get(teil) or {}).items()}
-                             for teil in ("rollen", "gruppen", "werte")}
+                             for teil in ("rollen", "gruppen", "werte", "bezuege")}
     if daten.get("kette"):
         from .toleranzkette import Glied
         daten["kette"]["glieder"] = [Glied(**{**g, "flaechen": tuple(g.get("flaechen", ())),

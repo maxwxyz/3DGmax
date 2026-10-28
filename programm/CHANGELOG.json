@@ -37,7 +37,15 @@
    "Toleranzkette, 2D-/3D-Kette und Funktion → Tolerierung sind Leisten unter der 3D-Ansicht statt eigener Fenster (Bereich Tolerieren, in Reitern); breit und niedrig stehen Glieder und Ergebnis nebeneinander.",
    "Navigation (CATIA): Rollen nur noch im äußeren Bereich eines größeren Kreises (halbe kleinere Fensterseite); beim Hineinfahren mit gedrückter Taste geht das Rollen stufenlos in das Drehen über (wie „Rounded Arcball“).",
    "Navigationswürfel: klarer Look (graue Seiten, helle Kanten statt überstrahlt weiß); unter macOS stimmen Bild und Trefferbereich auch nach einem Bildschirmwechsel (Retina ↔ extern).",
-   "Mehrfachauswahl: früher gewählte Flächen etwas dunkler als die zuletzt gewählte; im Vergleich zeigt die Statuszeile die beiden geladenen Stände."
+   "Mehrfachauswahl: früher gewählte Flächen etwas dunkler als die zuletzt gewählte; im Vergleich zeigt die Statuszeile die beiden geladenen Stände.",
+   "Leisten oben: eine Zeile mit den Arbeitsbereichen links (kurze Namen), Darstellung als ein Knopf; Schnitt und Explosion mit ihren Reglern oben in der Leiste Struktur; Struktur, PMI und Ansichten verschwinden beim Bereichswechsel nicht mehr; im Vergleich zeigt die Struktur immer beide Stände.",
+   "Seitenleisten ziehen ruckelt nach dem Laden nicht mehr: die Vorschaubilder der gespeicherten Ansichten rechnen schnell auf dem Netz (vorher hielt die exakte Kantenberechnung die Oberfläche bis zu 1 s fest).",
+   "Änderbare Tabellenzellen (z. B. Soll und Spielraum im Zusammenbau, Kommentare, Kollisionen) sind leicht getönt und mit einem Klick bearbeitbar; gedrückte Umschaltknöpfe (z. B. „Kette im 3D“) sind deutlich als gedrückt zu erkennen.",
+   "Mausrad über Zahlenfeldern und Auswahllisten rollt die Tabelle bzw. Leiste, statt den Wert zu ändern (erst nach einem Klick ins Feld ändert das Rad den Wert).",
+   "Toleranzkette: ein gewähltes Glied wird im Kettenbild hervorgehoben bzw. ohne Kettenbild als einzelner Pfeil gezeigt; weniger Knöpfe (Hinzufügen und Kette als Menüs), die Knöpfe bleiben beim Rollen stehen; der Wiggle der Schlussfläche zeigt dicke farbige Kanten, auch von der Seite sichtbar.",
+   "Leiste oben: „Öffnen ▾“ ganz links (Pfeil: Vergleichen), Messen nicht mehr oben, sondern als Schalter in der Leiste Messen – schließt man die Leiste, endet das Messen; Knöpfe in den Seitenleisten sind als Knöpfe erkennbar.",
+   "Erzeugte PMI liegen nicht mehr übereinander: die Platzierung prüft auch Rahmen anderer Schreibebenen (im Gesamtbild und im Raum).",
+   "Funktion → Tolerierung: Bezüge lassen sich in der Tabelle von Hand festlegen (A, B, C statt Vorschlag); das Bezugssystem und die Toleranzvorschläge folgen der Zuordnung."
   ],
   "en": [
    "3D tolerance chain: enter positions with translation and rotation (each component with deviations) by hand in a guided editor, choose function point and closing quantity, show the chain in the model, compute linearly and non-linearly and adopt it into the tolerance chain.",
@@ -76,7 +84,15 @@
    "Tolerance chain, 2D/3D chain and function → tolerancing are panels below the 3D view instead of separate windows (Tolerancing workspace, tabbed); when wide and low, links and result sit side by side.",
    "Navigation (CATIA): rolling only in the outer band of a larger circle (half the smaller window side); moving inwards with the button held blends rolling smoothly into orbiting (like “rounded arcball”).",
    "View cube: clearer look (grey sides, light edges instead of washed-out white); on macOS image and hit area match also after a screen change (Retina ↔ external).",
-   "Multi-selection: earlier selected faces slightly darker than the last one; during a comparison the status bar shows both loaded states."
+   "Multi-selection: earlier selected faces slightly darker than the last one; during a comparison the status bar shows both loaded states.",
+   "Top bars: one row with the workspaces on the left (short names), display as one button; section and explosion with their sliders at the top of the structure panel; structure, PMI and views no longer disappear when switching workspaces; during a comparison the structure always shows both states.",
+   "Dragging side panels no longer stutters after loading: the previews of saved views are computed quickly on the mesh (the exact hidden-line computation held the interface for up to 1 s).",
+   "Editable table cells (e.g. requirement and clearance in the assembly, comments, clashes) are tinted and editable with one click; pressed toggle buttons (e.g. “Chain in 3D”) clearly look pressed.",
+   "The mouse wheel over number fields and lists scrolls the table or panel instead of changing the value (after a click into the field the wheel changes the value).",
+   "Tolerance chain: a selected link is highlighted in the chain picture or, without it, shown as a single arrow; fewer buttons (Add and Chain as menus), the buttons stay when scrolling; the closing-face wiggle shows thick coloured edges, visible also from the side.",
+   "Top bar: “Open ▾” on the far left (arrow: compare), measuring no longer at the top but as a switch in the Measure panel – closing the panel ends measuring; buttons in side panels are recognisable as buttons.",
+   "Generated PMI no longer lie on top of each other: placement also checks frames in other writing planes (overall view and in space).",
+   "Function → tolerancing: datums can be set by hand in the table (A, B, C instead of the proposal); the datum system and the tolerance proposals follow the assignment."
   ]
  },
  "releases": [

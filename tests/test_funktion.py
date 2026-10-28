@@ -102,3 +102,49 @@ def test_element_aus_halbschalen_und_eigene_werte():
     assert {p.wert for p in eigene if p.art == TOLERANZ} == {0.05}
     assert [p.passung for p in eigene if p.art == MASS] == ["H8"]
     assert all(x.pmi.wert != 0.05 for x in v if unten in x.pmi.flaechen and x.pmi.art == TOLERANZ)
+
+
+def test_erzeugte_pmi_liegen_nicht_uebereinander():
+    """Alle Vorschlaege der Funktion auf FTC-10 als PMI erzeugt: im isometrischen Gesamtbild ueberlappt kein Rahmen
+    einen anderen (vorher nur je Schreibebene geprueft - Rahmen verschiedener Ebenen lagen uebereinander)."""
+    import numpy as np
+    from programm.kern import pmi_erzeugen as pe
+    from programm.ui.lader import lade_alles
+    from tests.conftest import pfad
+    m = lade_alles(pfad("nist_ftc_10_asme1_ap242-e2.stp")).modell
+    geo = {i: g for i in range(len(m.flaechen)) if (g := fu._geometrie(m.flaechen[i])) is not None}
+    ebenen = sorted((i for i in geo if geo[i]["art"] == "ebene"), key=lambda i: -geo[i]["inhalt"])
+    boh = sorted((i for i in geo if geo[i]["art"] == "zylinder" and geo[i]["bohrung"]), key=lambda i: -geo[i]["groesse"])
+    rollen = {ebenen[0]: "auflage", boh[0]: "zentrierung", boh[1]: "verdrehsicherung", ebenen[1]: "dichtung",
+              ebenen[2]: "anschlag", boh[2]: "presssitz"}
+    pmi = [v.pmi for v in fu.tolerierung(m, rollen)]
+    for k, p in enumerate(pmi, 1):
+        p.step_id, p.nummer = -2000 - k, k
+    neu = pe.ergaenze(pmi, {}, m, [])
+
+    def bild(g):
+        pts = np.vstack([np.array(li) for li in g.linien[1:]] +
+                        [np.array([ph.ursprung, ph.ursprung + ph.x * ph.breite + ph.y * ph.hoehe]) for ph in g.platzhalter])
+        q = pts @ pe.ISO_BILD
+        return q.min(0), q.max(0)
+    b = [bild(g) for g in neu.values()]
+    assert len(b) > 8
+    assert not [(i, j) for i in range(len(b)) for j in range(i + 1, len(b))
+                if np.all(b[i][0] < b[j][1]) and np.all(b[j][0] < b[i][1])]
+
+
+def test_bezuege_von_hand(teil):
+    """Bezuege in der Tabelle von Hand festlegen: Reihenfolge und Elemente folgen der Vorgabe, die Tolerierung
+    bezieht sich darauf."""
+    unten = _finde(teil, "ebene", z=lambda g: g["punkt"][2] if abs(g["richtung"][2]) > 0.9 else 1,
+                   n=lambda g: g["richtung"][2] + 1)
+    bohrung = _finde(teil, "zylinder", d=lambda g: g["groesse"] - 20)
+    stift = _finde(teil, "zylinder", d=lambda g: g["groesse"] - 6)
+    rollen = {unten: "auflage", bohrung: "zentrierung", stift: "verdrehsicherung"}
+    auto = fu.bezugssystem(teil, rollen)
+    assert [b.flaeche for b in auto.bezuege] == [unten, bohrung, stift]
+    s = fu.bezugssystem(teil, rollen, vorgabe={stift: "B", unten: "A"})  # Stift statt Bohrung als B, kein C
+    assert [(b.buchstabe, b.flaeche) for b in s.bezuege] == [("A", unten), ("B", stift)] and s.offen == 1
+    assert s.hinweise and all(b.grund == "Von Hand als Bezug festgelegt" for b in s.bezuege)
+    v = fu.tolerierung(teil, rollen, s)
+    assert {p.name for p in (x.pmi for x in v) if p.art == BEZUG} == {"A", "B"}

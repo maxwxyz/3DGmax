@@ -80,6 +80,10 @@ QToolButton:hover {{ background: {t['hover']}; }}
 QToolButton:checked {{ background: {t['wahl']}; color: {t['akzent']}; }}
 QToolButton:disabled, QToolButton:checked:disabled {{ color: {t['aus']}; background: transparent; }}
 QDockWidget {{ color: {t['text']}; }}
+QDockWidget QToolButton {{ background: {t['flaeche']}; border: 1px solid {t['rand2']}; padding: 5px 10px; }}
+QDockWidget QToolButton:hover {{ background: {t['hover']}; }}
+QDockWidget QToolButton:checked {{ background: {t['wahl']}; color: {t['akzent']}; border: 1px solid {t['akzent']}; font-weight: 600; }}
+QDockWidget QTabBar QToolButton {{ background: transparent; border: none; padding: 2px; }}
 QDockWidget::title {{ background: {t['fenster']}; padding: 7px 10px 5px 10px; font-weight: 600; color: {t['text2']}; }}
 QMainWindow::separator {{ background: {t['rand']}; width: 5px; height: 5px; }}
 QMainWindow::separator:hover {{ background: {t['akzent']}; }}
@@ -121,6 +125,7 @@ QLineEdit:focus {{ border: 1px solid {t['akzent']}; }}
 QPushButton {{ background: {t['flaeche']}; color: {t['text']}; border: 1px solid {t['rand2']}; border-radius: 6px; padding: 5px 12px; }}
 QPushButton:hover {{ background: {t['hover']}; }}
 QPushButton:disabled {{ color: {t['aus']}; }}
+QPushButton:checked {{ background: {t['wahl']}; color: {t['akzent']}; border: 1px solid {t['akzent']}; font-weight: 600; }}
 QPushButton#primaer {{ background: {t['akzent']}; border-color: {t['akzent']}; color: white; font-weight: 600; }}
 QPushButton#primaer:hover {{ background: {t['akzent_hover']}; }}
 QLabel {{ color: {t['text']}; }}

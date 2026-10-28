@@ -2398,6 +2398,12 @@ class OcctAnsicht(AnsichtBasis):
             ctx.Display(flaeche, 1, -1, False)
             ctx.SetTransparency(flaeche, 0.25, False)
             self._schluss_ais.append(flaeche)
+            kanten = AIS_Shape(form)  # dicke Kanten in derselben Farbe: auch von der Seite (Flaeche ohne Dicke) sichtbar
+            kanten.SetColor(_farbe(farbe or (0.13, 0.42, 0.85)))
+            kanten.SetWidth(4.0)
+            kanten.SetZLayer(Graphic3d_ZLayerId_Topmost)
+            ctx.Display(kanten, 0, -1, False)
+            self._schluss_ais.append(kanten)
             if text and ort is not None:
                 lab = AIS_TextLabel()
                 lab.SetFont(SCHRIFT)

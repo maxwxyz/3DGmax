@@ -738,7 +738,8 @@ class VorschauLader(QtCore.QThread):
             if self.abbrechen:
                 return
             try:
-                z = zeichnung.projiziere(self.form, a.richtung, a.oben, a.name, verdeckt=False, abweichung=0.5)
+                z = zeichnung.projiziere(self.form, a.richtung, a.oben, a.name, verdeckt=False, abweichung=0.5,
+                                         schnell=True)
                 zeichnung.pmi_hinzu(z, self.grafik_je_ansicht[i], self.pmi_text, a.richtung, a.oben)
                 self.fertig.emit(i, zeichnung.als_svg([z], a.name))
             except Exception:  # noqa: BLE001 - ohne Vorschau weiter

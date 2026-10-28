@@ -690,7 +690,7 @@ def test_vergleichsmodi(fenster):
     assert f.ansicht.kamera_daten() == k2
     f.setze_vergleichsmodus("alt")
     assert alt.isVisibleTo(f) and not f.ansicht.isVisibleTo(f)
-    assert f.dock_baum.windowTitle().endswith(("alter Stand", "old state")) and f._baum_ansicht() is alt
+    assert f._baum_ansicht() is alt and f.baum_alt.isVisibleTo(f)  # beide Strukturen, auch im Modus Alt
     f._alt_neu_wechseln()  # Leertaste: Alt -> Neu
     assert f._vergleichsmodus == "neu" and f.ansicht.isVisibleTo(f) and not alt.isVisibleTo(f)
     f.modus_leiste.hervor.setChecked(False)
@@ -720,7 +720,7 @@ def test_vergleichsmodi(fenster):
     f.baum_alt.sichtbar_geaendert.emit({schraube.nummer}, False)
     assert schraube.nummer in f.ansicht_alt.versteckt and schraube.nummer not in f.ansicht.versteckt
     f.setze_vergleichsmodus("neu")
-    assert not f.baum_alt.isVisibleTo(f)
+    assert f.baum_alt.isVisibleTo(f)  # im Vergleich bleiben beide Strukturen sichtbar
     f.beende_vergleich()
     assert not f.modus_leiste.isVisibleTo(f) and f.dock_baum.windowTitle() in ("Struktur", "Structure")
     assert not f.baum_alt.isVisibleTo(f)
@@ -763,8 +763,8 @@ def test_baum_mit_teilestatus(fenster):
     eintraege = list(texte(f.baum.baum.topLevelItem(0)))
     assert any(t.startswith("● Stift") and tip in ("neu", "new") for t, tip in eintraege)
     assert eintraege[0][0].endswith("•")  # Wurzel: enthaelt Aenderungen
-    f.setze_vergleichsmodus("alt")
-    eintraege = list(texte(f.baum.baum.topLevelItem(0)))
+    f.setze_vergleichsmodus("alt")  # der alte Stand steht immer in der zweiten Struktur darunter
+    eintraege = list(texte(f.baum_alt.baum.topLevelItem(0)))
     assert any(tip in ("entfernt", "removed") for _, tip in eintraege)
     f.beende_vergleich()
     assert not any(t.startswith("●") for t, _ in texte(f.baum.baum.topLevelItem(0)))

@@ -834,7 +834,8 @@ def glied_strecke(g: Glied, modell) -> tuple[tuple, tuple] | None:
 
 # Farben des Kettenbilds (RGB 0..1): Masse + / −, Lagetoleranzen, Laengenbereiche, Schlussmass, Ist-Stand im Planspiel
 FARBEN = {"plus": (0.18, 0.62, 0.28), "minus": (0.75, 0.22, 0.17), "lage": (0.55, 0.27, 0.75),
-          "bereich": (0.90, 0.55, 0.10), "schluss": (0.13, 0.42, 0.85), "ist": (0.55, 0.55, 0.55)}
+          "bereich": (0.90, 0.55, 0.10), "schluss": (0.13, 0.42, 0.85), "ist": (0.55, 0.55, 0.55),
+          "hervor": (1.0, 0.45, 0.0)}  # in der Tabelle gewaehltes Glied
 
 
 def abmass_text(g: Glied) -> str:
@@ -879,10 +880,11 @@ def _huelle(modell) -> np.ndarray | None:
 
 
 def kettenbild(glieder: list[Glied], modell=None, schluss_text: str = "", ist: list[Glied] | None = None,
-               quer=None) -> list:
+               quer=None, hervor: int | None = None) -> list:
     """Kette als Pfeildiagramm im Modell: je Glied ein Pfeil auf eigener Spur neben dem Modell, Spitze an Fuss entlang
     der Kettenrichtung, an der Lage seiner Flaechen (sonst im Anschluss an das vorige Glied); Lagetoleranzen als
-    Klammer ueber ihre Zonenbreite, das Schlussmass als blauer Pfeil vom Anfang bis zum Ende der Kette; der Text steht
+    Klammer ueber ihre Zonenbreite, das Schlussmass als blauer Pfeil vom Anfang bis zum Ende der Kette (hervor: Index
+    des in der Tabelle gewaehlten Glieds - dick in der Hervorhebungsfarbe); der Text steht
     am Anfang der jeweils ersten Linie (dort ueberdecken sich die Beschriftungen der Spuren nicht). ist: Glieder
     vor dem Planspiel - geaenderte Glieder zusaetzlich grau mit dem Ist-Wert. quer: Richtung, in der die Spuren
     nebeneinander liegen (z. B. "oben" der Kamera; die Spuren beginnen ausserhalb des Modells). Rueckgabe: Linien
@@ -936,12 +938,13 @@ def kettenbild(glieder: list[Glied], modell=None, schluss_text: str = "", ist: l
         else:
             x0, x1 = x, x + g.richtung * g.faktor * g.nenn
         anfang = x0 if anfang is None else anfang
-        rgb = FARBEN[glied_art(g)]
+        gewaehlt = hervor is not None and k - 1 == hervor
+        rgb = FARBEN["hervor"] if gewaehlt else FARBEN[glied_art(g)]
         if g.quelle == "lage" or abs(x1 - x0) < 1e-9:
             gross = max(g.toleranz, 0.02 * laenge)  # sichtbar auch bei kleiner Zone
             linien += klammer(x1, -gross / 2, gross / 2, k, _glied_text(g), rgb)
         else:
-            linien += pfeil(x0, x1, k, _glied_text(g), rgb)
+            linien += pfeil(x0, x1, k, _glied_text(g), rgb, 5.0 if gewaehlt else 3.0)
         alt = ist[k - 1] if ist is not None and k - 1 < len(ist) else None
         if alt is not None and (alt.nenn, alt.hoechst, alt.mindest, alt.richtung) != \
                 (g.nenn, g.hoechst, g.mindest, g.richtung):

@@ -11,6 +11,7 @@ from PySide6 import QtCore, QtGui, QtWidgets
 from ..i18n import tr
 from ..kern import toleranzkette as tk
 from .fluss import FlussLayout
+from .tabellen import AENDERBAR_FARBE  # Zellen, die man aendern kann (von Hand, im Planspiel)
 
 
 def _z(x: float, vorzeichen: str = "") -> str:
@@ -81,7 +82,6 @@ def _paar(*widgets) -> QtWidgets.QWidget:
     return w
 
 
-AENDERBAR_FARBE = QtGui.QColor(37, 99, 235, 34)  # Zellen, die man aendern kann (von Hand, im Planspiel)
 
 
 class AnteilBalken(QtWidgets.QStyledItemDelegate):
@@ -592,7 +592,7 @@ class ToleranzketteFenster(QtWidgets.QDialog):
         self.schluss.setToolTip(tr("Zwei Flächen des Schlussmaßes im Modell wählen (erst die ebene, Strg/⌘ dann die "
                                    "zweite): Reihenfolge und Vorzeichen aller Glieder folgen aus der Geometrie"))
         self.schluss.clicked.connect(self.schluss_aus_auswahl.emit)
-        self.ablauf = QtWidgets.QPushButton(tr("▶ Kette ablaufen"))
+        self.ablauf = QtWidgets.QPushButton(tr("▶ Ablaufen"))
         self.ablauf.setCheckable(True)
         self.ablauf.setToolTip(tr("Glieder nacheinander im Modell zeigen, um die Richtungen zu prüfen"))
         self.ablauf.toggled.connect(self._ablauf)
@@ -610,24 +610,29 @@ class ToleranzketteFenster(QtWidgets.QDialog):
         self._wiggle_symbol(False)
         self.wiggle.toggled.connect(self._wiggle_symbol)
         self.wiggle.toggled.connect(self.schluss_wiggle.emit)
-        for k in (self.neu_glied, self.plus, self.minus, self.auswahl, self.bereich, self.drehen, self.weg, self.schluss, self.ablauf,
-                  self.bild3d, self.wiggle):
-            reihe.addWidget(k)
         self.drehen.clicked.connect(self._drehen)
         self.weg.clicked.connect(self._entfernen)
         self.lage = QtWidgets.QCheckBox(tr("Lagetoleranzen"))
         self.lage.setChecked(True)
         self.lage.setToolTip(tr("Position, Symmetrie, Koaxialität und Profil mit Bezug an der ersten und letzten Fläche "
                                 "als eigene Glieder (Zwischenflächen heben sich auf)"))
-        reihe.addWidget(self.lage)
         self.mitte_anfang = QtWidgets.QCheckBox(tr("Anfang: Mittelebene"))
         self.mitte_anfang.setToolTip(tr("Die ersten zwei gewählten Flächen (z. B. Flanken einer Nut) bilden eine "
                                         "Mittelebene als Kettenanfang: halbe Breite mit Faktor 0,5"))
         self.mitte_ende = QtWidgets.QCheckBox(tr("Ende: Mittelebene"))
         self.mitte_ende.setToolTip(tr("Die letzten zwei gewählten Flächen bilden eine Mittelebene als Kettenende: "
                                       "halbe Breite mit Faktor 0,5"))
-        reihe.addWidget(self.mitte_anfang)
-        reihe.addWidget(self.mitte_ende)
+        # wenige Knoepfe sichtbar: Hinzufuegen und Kettenbefehle als Menues (die Knoepfe/Schalter bleiben als
+        # Objekte erhalten - das Hauptfenster und Tests haengen an ihren Signalen)
+        reihe.addWidget(self._menue_knopf(tr("＋ Hinzufügen"), tr("Glieder anhängen: leer, aus der PMI-Liste, aus der "
+                                                                 "3D-Auswahl oder als Längenbereich"),
+                                          (self.neu_glied, self.plus, self.minus, self.auswahl, self.bereich)))
+        reihe.addWidget(self.weg)
+        reihe.addWidget(self._menue_knopf(tr("Kette"), tr("Richtungen und Optionen der Kette"),
+                                          (self.drehen, self.schluss, None, self.lage, self.mitte_anfang,
+                                           self.mitte_ende)))
+        for k in (self.ablauf, self.bild3d, self.wiggle):
+            reihe.addWidget(k)
         cp_text = QtWidgets.QLabel(tr("Prozessfähigkeit Cp"))
         self.cp = QtWidgets.QDoubleSpinBox()
         self.cp.setToolTip(tr("Prozessfähigkeit der Kette: normalverteilte Glieder streuen mit σ = T / (6 · Cp); 1,33 "
@@ -1109,7 +1114,7 @@ class ToleranzketteFenster(QtWidgets.QDialog):
         self._fuelle()
 
     def _ablauf(self, an: bool):
-        self.ablauf.setText(tr("⏸ Anhalten") if an else tr("▶ Kette ablaufen"))
+        self.ablauf.setText(tr("⏸ Anhalten") if an else tr("▶ Ablaufen"))
         self._ablauf_nr = -1
         if an and self.glieder:
             self._ablauf_uhr.start()
@@ -1132,6 +1137,31 @@ class ToleranzketteFenster(QtWidgets.QDialog):
         self.ergebnis.setText(html.escape(tr("Glied {} von {}: {} {} – {}").format(
             self._ablauf_nr + 1, len(self.glieder), "+" if g.richtung > 0 else "−", _z(abs(g.nenn)), g.name)))
 
+    def _menue_knopf(self, text: str, tipp: str, eintraege) -> QtWidgets.QToolButton:
+        """Knopf mit Menue: Knoepfe werden Befehle (Klick loest den Knopf aus), Schalter abhakbare Eintraege (beide
+        Richtungen abgeglichen), None ein Trenner."""
+        knopf = QtWidgets.QToolButton()
+        knopf.setText(text)
+        knopf.setToolTip(tipp)
+        knopf.setPopupMode(QtWidgets.QToolButton.ToolButtonPopupMode.InstantPopup)
+        menue = QtWidgets.QMenu(knopf)
+        menue.setToolTipsVisible(True)
+        for e in eintraege:
+            if e is None:
+                menue.addSeparator()
+                continue
+            a = menue.addAction(e.text())
+            a.setToolTip(e.toolTip())
+            if isinstance(e, QtWidgets.QCheckBox):
+                a.setCheckable(True)
+                a.setChecked(e.isChecked())
+                a.toggled.connect(e.setChecked)
+                e.toggled.connect(a.setChecked)
+            else:
+                a.triggered.connect(e.click)
+        knopf.setMenu(menue)
+        return knopf
+
     def _wiggle_symbol(self, an: bool):
         """Abspielen- bzw. Anhalten-Symbol ohne Text; der Tooltip sagt, was ein Klick tut."""
         bild = QtWidgets.QStyle.StandardPixmap.SP_MediaPause if an else QtWidgets.QStyle.StandardPixmap.SP_MediaPlay
@@ -1150,7 +1180,10 @@ class ToleranzketteFenster(QtWidgets.QDialog):
         if self.ablauf.isChecked():
             return
         if self.bild3d.isChecked() and self.glieder and getattr(self, "e", None) is not None:
-            self.bild_zeigen.emit((list(self.glieder), self.schluss_text(), self._ist if self.im_planspiel else None))
+            zeilen = {i.row() for i in self.tabelle.selectedIndexes()}
+            hervor = min(zeilen) if len(zeilen) == 1 else None
+            self.bild_zeigen.emit((list(self.glieder), self.schluss_text(), self._ist if self.im_planspiel else None,
+                                   hervor))
         else:
             self.bild_zeigen.emit(None)
 
@@ -1247,6 +1280,13 @@ class ToleranzketteFenster(QtWidgets.QDialog):
     def _zeige_flaechen(self):
         zeilen = {i.row() for i in self.tabelle.selectedIndexes()}
         self.flaechen_zeigen.emit({f for z in zeilen if z < len(self.glieder) for f in self.glieder[z].flaechen})
+        if self.ablauf.isChecked():
+            return  # beim Ablaufen zeigt der Rundgang das Glied
+        if self.bild3d.isChecked():
+            self._bild_senden()  # Kettenbild mit dem gewaehlten Glied hervorgehoben
+        else:  # nur der Pfeil des gewaehlten Glieds
+            self.strecke_zeigen.emit(self.glieder[min(zeilen)] if len(zeilen) == 1 and min(zeilen) < len(self.glieder)
+                                     else None)
 
     # --- Planspiel ---
 

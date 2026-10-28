@@ -129,6 +129,7 @@
 | UI stage 2: workspaces (panel sets per task) | ✅ |
 | UI stage 2: tool windows as panels (chain, 2D/3D chain, function) | ✅ |
 | UI stage 2: CATIA roll band with rounded-arcball blend, view cube look and DPR, selection order, comparison state | ✅ |
+| UI stage 2: one toolbar row, section/explosion in the structure panel, calm workspace switching, smooth panel resizing | ✅ |
 | Create PMI with tolerancing advisor (stage 1: rules per selection, own PMI in project) | ✅ |
 | Edit existing PMI (values, fit, material condition; saved in the project) | ✅ |
 | Write edited PMI values back into a copy of the STEP file (lossless, own P21 editing) – PLAN §8.28 stage 1 | ✅ |
