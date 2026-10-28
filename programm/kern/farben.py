@@ -35,6 +35,17 @@ def _flaechenfarbe(datei: P21Datei, ref, tiefe=0):
     return None
 
 
+def _stil_ziel(stil) -> Ref | None:
+    """Gestaltetes Element eines STYLED_ITEM (name, styles, item). Zusammengesetzte Instanzen (z. B. CATIA:
+    ANNOTATION_OCCURRENCE() ... STYLED_ITEM(...)) tragen die Argumente nur im Teil STYLED_ITEM; andere Teile sind
+    leer - nicht den ersten Teil nehmen."""
+    for teil in ("STYLED_ITEM", "OVER_RIDING_STYLED_ITEM", *stil.parts):
+        args = stil.parts.get(teil)
+        if args and len(args) >= 3 and isinstance(args[2], Ref):
+            return args[2]
+    return None
+
+
 def flaechen_farben(modell: StepModell) -> dict[int, tuple[float, float, float]]:
     """Flaechenindex -> RGB (0..1). Koerperfarben zuerst, Flaechenfarben ueberschreiben."""
     datei = modell.datei
@@ -42,10 +53,10 @@ def flaechen_farben(modell: StepModell) -> dict[int, tuple[float, float, float]]
         return dict(getattr(modell, "prc_farben", {}))
     koerper, flaechen = {}, {}
     for s in datei.of_type("STYLED_ITEM") + datei.of_type("OVER_RIDING_STYLED_ITEM"):
-        args = s.args(next(iter(s.parts)))
-        if not isinstance(args[2], Ref):
+        ref = _stil_ziel(s)
+        if ref is None:
             continue
-        ziel = datei.get(args[2])
+        ziel = datei.get(ref)
         if ziel is None:
             continue
         if ziel.is_a("ADVANCED_FACE") or ziel.is_a("FACE_SURFACE"):

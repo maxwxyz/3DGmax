@@ -11,6 +11,7 @@ Schnittstelle, merkt sich nur den Zustand.
 from __future__ import annotations
 
 import contextlib
+import math
 import os
 import sys
 import time
@@ -2088,6 +2089,42 @@ class OcctAnsicht(AnsichtBasis):
         self._kamera_bewegt()
         self.d.View.Redraw()
 
+    ROLL_KREIS = 0.45  # Rollen, wenn die Drehgeste ausserhalb dieses Kreises beginnt (Anteil der kleineren Seite)
+
+    def _rollen_aktiv(self) -> bool:
+        """Wie CATIA: beginnt die Drehgeste ausserhalb des Kreises um die Bildmitte, rollt die Ansicht um die
+        Blickachse (einmal je Geste entschieden)."""
+        if getattr(self, "_rollen", None) is None:
+            start = getattr(self, "_geste_start", None)
+            w, h = self.d.View.Window().Size()
+            if start is None or w <= 0 or h <= 0:
+                self._rollen = False
+            else:
+                r = math.hypot(start[0] - w / 2, start[1] - h / 2)
+                self._rollen = r > self.ROLL_KREIS * min(w, h)
+        return self._rollen
+
+    def _rolle(self, dx, dy):
+        """Drehung um die Blickachse durch den Drehpunkt um den Winkel, den die Maus um dessen Lage im Bild
+        ueberstreicht (ohne gesetzten Drehpunkt die Bildmitte, wie CATIA)."""
+        from OCC.Core.gp import gp_Ax1, gp_Dir, gp_Trsf
+        jetzt = getattr(self, "_maus_jetzt", None)
+        if jetzt is None:
+            return
+        p = self._mitte_cache  # Drehpunkt (ohne gesetzten Punkt die Bildmitte): Winkel um seine Lage im Bild
+        cx, cy = self.d.View.Convert(p.X(), p.Y(), p.Z())
+        vorher = (jetzt[0] - dx, jetzt[1] - dy)
+        winkel = math.atan2(jetzt[1] - cy, jetzt[0] - cx) - math.atan2(vorher[1] - cy, vorher[0] - cx)
+        winkel = (winkel + math.pi) % (2 * math.pi) - math.pi
+        cam = self.d.View.Camera()
+        blick = cam.Direction()
+        t = gp_Trsf()
+        # die Kamera dreht gegen das Bild: mit -winkel folgt das Bild der Maus
+        t.SetRotation(gp_Ax1(self._mitte_cache, gp_Dir(blick.X(), blick.Y(), blick.Z())), -winkel)
+        cam.Transform(t)
+        self._kamera_bewegt()
+        self.d.View.Redraw()
+
     def _verschiebe(self, dx, dy):
         from OCC.Core.gp import gp_Trsf, gp_Vec
         v = self.d.View
@@ -2424,8 +2461,10 @@ class OcctAnsicht(AnsichtBasis):
             if typ == E.MouseButtonPress:
                 if self.nav.start is None:
                     self._mitte_cache = self._mitte()
+                    self._geste_start, self._rollen = (x, y), None  # Rollen entscheidet der Startpunkt
                 befehle = self.nav.druecken(knopf, knoepfe, umschalt, x, y)
             elif typ == E.MouseMove:
+                self._maus_jetzt = (x, y)
                 befehle = self.nav.bewegen(knoepfe, umschalt, x, y)
             elif typ == E.MouseButtonRelease:
                 befehle = self.nav.loslassen(knopf, knoepfe, x, y)
@@ -2462,7 +2501,9 @@ class OcctAnsicht(AnsichtBasis):
         art, *werte = befehl
         if art in ("drehen", "schieben") and getattr(self, "_drehpunkt_ais", None) is None:
             self._zeige_drehpunkt(an=True)  # Kreuz zeigt, um welchen Punkt gedreht wird
-        if art == "drehen":
+        if art == "drehen" and self._rollen_aktiv():
+            self._rolle(*werte)
+        elif art == "drehen":
             self._drehe(*werte)
         elif art == "schieben":
             self._verschiebe(*werte)

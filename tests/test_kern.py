@@ -948,3 +948,39 @@ def test_erzeugte_masslinie():
     hinweis = neu[-2].linien[0]
     r = np.linalg.norm(hinweis[0][:2] - [30, 20])
     assert abs(r - 5) < 1e-6 and neu[-2].dreiecke  # Pfeil auf dem Bohrungsmantel
+
+
+def test_farben_mit_zusammengesetztem_stil_catia():
+    """CATIA: grafische PMI als zusammengesetzte Instanz (ANNOTATION_OCCURRENCE() ... STYLED_ITEM(...)) - der erste
+    Teil hat keine Argumente; Farben werden trotzdem gelesen statt mit IndexError abzubrechen."""
+    from types import SimpleNamespace
+    from programm.kern import farben, p21
+    text = """ISO-10303-21;
+HEADER;
+FILE_DESCRIPTION((''),'2;1');
+FILE_NAME('t','',(''),(''),'','','');
+FILE_SCHEMA(('AP242_MANAGED_MODEL_BASED_3D_ENGINEERING_MIM_LF'));
+ENDSEC;
+DATA;
+#1=ADVANCED_FACE('',(),#9,.T.);
+#2=COLOUR_RGB('',0.2,0.4,0.6);
+#3=FILL_AREA_STYLE_COLOUR('',#2);
+#4=FILL_AREA_STYLE('',(#3));
+#5=SURFACE_STYLE_FILL_AREA(#4);
+#6=SURFACE_SIDE_STYLE('',(#5));
+#7=SURFACE_STYLE_USAGE(.BOTH.,#6);
+#8=PRESENTATION_STYLE_ASSIGNMENT((#7));
+#9=PLANE('',#10);
+#10=AXIS2_PLACEMENT_3D('',#11,$,$);
+#11=CARTESIAN_POINT('',(0.,0.,0.));
+#12=STYLED_ITEM('',(#8),#1);
+#13=(ANNOTATION_CURVE_OCCURRENCE()ANNOTATION_OCCURRENCE()GEOMETRIC_REPRESENTATION_ITEM()REPRESENTATION_ITEM('')STYLED_ITEM('',(#8),#14));
+#14=POLYLINE('',(#11,#11));
+ENDSEC;
+END-ISO-10303-21;
+"""
+    datei = p21.lese_text(text)
+    assert datei.get(p21.Ref(13)) is not None
+    modell = SimpleNamespace(datei=datei, step_zu_flaeche={1: 0}, form_von_step=lambda eid: None,
+                             flaechen_index=lambda f: None)
+    assert farben.flaechen_farben(modell) == {0: (0.2, 0.4, 0.6)}

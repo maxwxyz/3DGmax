@@ -39,7 +39,7 @@ else:
 # Build-Variante mit JT (DG_MIT_JT=1): Konverter jt2glb aus packaging/jt/bauen.sh (TKJT, GPL v2+) mitliefern
 jt_binaer = []
 if os.environ.get("DG_MIT_JT") == "1":
-    _jt = os.path.join(ROOT, "extern", "jt2glb")
+    _jt = os.path.join(ROOT, "extern", "jt2glb.exe" if sys.platform == "win32" else "jt2glb")
     if not os.path.isfile(_jt):
         raise SystemExit("DG_MIT_JT=1, aber extern/jt2glb fehlt (packaging/jt/bauen.sh)")
     jt_binaer = [(_jt, ".")]

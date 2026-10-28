@@ -85,7 +85,7 @@ class ScanPanel(QtWidgets.QWidget):
     """Ergebnis der Scanpruefung je PMI; Doppelklick waehlt die PMI (Flaechen, Zone)."""
 
     gewaehlt = QtCore.Signal(object)  # Pmi
-    beenden = QtCore.Signal()
+    beenden = QtCore.Signal(bool)  # True: Scan ausblenden, False: wieder einblenden (der Reiter bleibt)
     neu_auswerten = QtCore.Signal(object)  # Bezugssystem (Tupel) oder None fuer Bestpassung
     manuell = QtCore.Signal()  # Startlage von Hand (Punktpaare)
     bericht = QtCore.Signal()
@@ -140,8 +140,10 @@ class ScanPanel(QtWidgets.QWidget):
         self.pdf.setToolTip(tr("Prüfbericht mit Farbkarte und Ergebnis je Merkmal als PDF"))
         self.pdf.clicked.connect(self.bericht.emit)
         self.aus = QtWidgets.QPushButton(tr("Scan ausblenden"))
-        self.aus.setToolTip(tr("Punktwolke und Farbkarte ausblenden"))
-        self.aus.clicked.connect(self.beenden.emit)
+        self.aus.setCheckable(True)
+        self.aus.toggled.connect(lambda an: self.aus.setText(tr("Scan einblenden") if an else tr("Scan ausblenden")))
+        self.aus.setToolTip(tr("Punktwolke und Farbkarte aus- bzw. wieder einblenden; Ergebnisse und Reiter bleiben"))
+        self.aus.toggled.connect(self.beenden.emit)
         reihe.addWidget(self.csv)
         reihe.addWidget(self.pdf)
         reihe.addStretch(1)

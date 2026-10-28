@@ -86,6 +86,10 @@ Done in this local session (commit):
 - **UI:** combo boxes got a visible arrow (theme `pfeil_symbol`, the QSS border had removed Qt's arrow); editable
   chain cells tinted + one-click editing; pivot moves with panning, rotation about the view centre without a set pivot
   (screen test updated); histogram overlay of all methods by default.
+- **User reports 2026-10-28 fixed:** colour reading crashed on CATIA complex STYLED_ITEM instances (`farben._stil_ziel`,
+  reproduced with the old code); JT in GitHub builds (workflow option, `packaging/jt/bauen.py`, Windows via MSVC – first
+  CI run must confirm); CATIA roll ring (`OcctAnsicht._rolle`, screen test); scan hide keeps the tab
+  (`scan_verwerfen` for a full reset); arrow when walking the chain. Circle hint for the roll ring → UI stage 2.
 - **Fix:** PMI glyph texts drawn unlit (`_unbeleuchtet`) – with the fixed-function pipeline they shone white.
 - 2D/3D chains in files/project, CZ hint, scan line profile per section – done (see §8.34).
 - **Remaining tolerance zones done (§8.34):** line profile, ACS, CZ/SZ, edges/points, thread axes with Ⓟ, whole part.

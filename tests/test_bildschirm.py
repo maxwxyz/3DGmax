@@ -347,3 +347,77 @@ def test_auswahl_trifft_bei_skalierter_oberflaeche():
     assert zeile, r.stdout[-2000:] + r.stderr[-2000:]
     erg = eval(zeile.split(" ", 1)[1])  # noqa: S307 - eigene Ausgabe
     assert all(v for k, v in erg.items() if k != "text"), erg
+
+
+ROLLEN = r'''
+import math, os, sys, tempfile
+sys.path.insert(0, sys.argv[1])
+os.environ["DG_EINSTELLUNGEN"] = os.path.join(tempfile.mkdtemp(), "e.ini")
+from PySide6 import QtCore, QtGui, QtWidgets
+app = QtWidgets.QApplication([])
+from programm.ui.hauptfenster import Hauptfenster
+f = Hauptfenster(); f.resize(1200, 800); f.show()
+B = QtCore.Qt.MouseButton
+def maus(typ, pos, knopf):
+    v = f.ansicht.viewer
+    fx, fy = f.ansicht._occt_faktor()
+    q = QtCore.QPointF(pos[0] / fx, pos[1] / fy)
+    knoepfe = knopf if typ != QtCore.QEvent.Type.MouseButtonRelease else B.NoButton
+    ev = QtGui.QMouseEvent(typ, q, v.mapToGlobal(q), knopf, knoepfe, QtCore.Qt.KeyboardModifier.NoModifier)
+    QtWidgets.QApplication.sendEvent(v, ev)
+def bildwinkel(a, p1, p2):
+    x1, y1 = a.d.View.Convert(p1.X(), p1.Y(), p1.Z())
+    x2, y2 = a.d.View.Convert(p2.X(), p2.Y(), p2.Z())
+    return math.atan2(y2 - y1, x2 - x1)
+def los():
+    erg = {}
+    try:
+        from OCC.Core.gp import gp_Pnt
+        f.lade(os.path.join(sys.argv[1], "tests", "daten", "getriebe.stp"), warten=True)
+        for _ in range(20):
+            QtWidgets.QApplication.processEvents()
+        a = f.ansicht
+        a.standard("iso")
+        a.drehpunkt_zuruecksetzen(melden=False)
+        a.setze_navigation("klassisch")  # linke Taste ziehen dreht (CATIA: Mitte + links, gleiche Rollregel)
+        w, h = a.d.View.Window().Size()
+        cam = a.d.View.Camera()
+        q = a._mitte()
+        s = cam.Direction().Crossed(cam.Up())
+        p1 = gp_Pnt(q.X() - 40 * s.X(), q.Y() - 40 * s.Y(), q.Z() - 40 * s.Z())
+        p2 = gp_Pnt(q.X() + 40 * s.X(), q.Y() + 40 * s.Y(), q.Z() + 40 * s.Z())
+        cx, cy = a.d.View.Convert(q.X(), q.Y(), q.Z())
+        r = 0.48 * min(w, h)
+        start = (cx + r, cy)
+        ende = (cx + r * math.cos(0.4), cy + r * math.sin(0.4))  # Maus im Uhrzeigersinn (Bild-y nach unten)
+        blick = cam.Direction()
+        vorher = bildwinkel(a, p1, p2)
+        maus(QtCore.QEvent.Type.MouseButtonPress, start, B.LeftButton)
+        for k in range(1, 21):
+            t = 0.4 * k / 20
+            maus(QtCore.QEvent.Type.MouseMove, (cx + r * math.cos(t), cy + r * math.sin(t)), B.LeftButton)
+        maus(QtCore.QEvent.Type.MouseButtonRelease, ende, B.LeftButton)
+        erg["rollen"] = bool(getattr(a, "_rollen", False))
+        erg["blick_gleich"] = abs(blick.Dot(a.d.View.Camera().Direction()) - 1) < 1e-6
+        d = (bildwinkel(a, p1, p2) - vorher + math.pi) % (2 * math.pi) - math.pi
+        erg["folgt_der_maus"] = abs(d - 0.4) < 0.06
+        erg["text"] = f"{d:.3f}"
+    except Exception as e:
+        erg["fehler"] = False
+        erg["text"] = repr(e)
+    print("ERGEBNIS", erg, flush=True)
+    app.quit()
+QtCore.QTimer.singleShot(1500, los)
+app.exec()
+'''
+
+
+def test_rollen_ausserhalb_des_kreises():
+    """Wie CATIA: Drehgeste ausserhalb des Kreises um die Bildmitte rollt um die Blickachse, das Bild folgt der Maus."""
+    env = dict(os.environ)
+    env.pop("QT_QPA_PLATFORM", None)
+    r = subprocess.run([sys.executable, "-c", ROLLEN, WURZEL], capture_output=True, text=True, env=env, timeout=120)
+    zeile = next((z for z in r.stdout.splitlines() if z.startswith("ERGEBNIS")), "")
+    assert zeile, r.stdout[-2000:] + r.stderr[-2000:]
+    erg = eval(zeile.split(" ", 1)[1])  # noqa: S307 - eigene Ausgabe
+    assert all(v for k, v in erg.items() if k != "text"), erg

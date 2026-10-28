@@ -169,11 +169,12 @@ def jt_wandler() -> str | None:
     import os
     import sys
     kandidaten = [os.environ.get("DG_JT2GLB", "")]
+    name = "jt2glb.exe" if sys.platform == "win32" else "jt2glb"
     basis = getattr(sys, "_MEIPASS", None)
     if basis:
-        kandidaten.append(os.path.join(basis, "jt2glb"))
+        kandidaten.append(os.path.join(basis, name))
     wurzel = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-    kandidaten.append(os.path.join(wurzel, "extern", "jt2glb"))
+    kandidaten.append(os.path.join(wurzel, "extern", name))
     return next((k for k in kandidaten if k and os.path.isfile(k) and os.access(k, os.X_OK)), None)
 
 

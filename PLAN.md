@@ -360,6 +360,10 @@ Throughout: tests (core, offscreen UI, stress test, on-screen test), `--selbstte
      jt2glb then takes the next coarser LOD.
   Result: all LODs give finite coordinates and unit normals; jt2glb writes 46 276 triangles in 0.2 s; the app shows
   the assembly correctly (checked on screen). Units: coordinates in mm (cover 152.4 = 6 in).
+- 2026-10-28 (user report: JT not openable in the GitHub build): build script rewritten in Python
+  (`packaging/jt/bauen.py`, clang++/g++ or MSVC cl/link with libraries looked up in the pixi environment), workflow
+  input "jt" (default on) builds the converter (Windows: ilammy/msvc-dev-cmd) and bundles it (`DG_MIT_JT=1`);
+  `jt2glb.exe` on Windows in spec and loader. Windows build not verified locally – check the first CI run.
 - Open: PMI from JT (TKJT has a PMI manager element), JT B-rep (XT, needs Parasolid), the one shape whose finest LOD
   has inconsistent mesh symbols (coarser LOD used).
 

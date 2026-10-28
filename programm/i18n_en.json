@@ -1742,5 +1742,7 @@
 "Zeile anklicken: das Histogramm zeigt nur dieses Verfahren (erneut klicken: wieder alle überlagert)": "Click a row: the histogram shows only this method (click again: all overlaid again)",
 "Klicken zum Ändern": "Click to change",
 "Spannweite": "range",
-"Drehpunkt: Bildmitte": "Pivot: centre of the view"
+"Drehpunkt: Bildmitte": "Pivot: centre of the view",
+"Scan einblenden": "Show scan",
+"Punktwolke und Farbkarte aus- bzw. wieder einblenden; Ergebnisse und Reiter bleiben": "Hide or show the point cloud and colour map again; results and tab stay"
 }

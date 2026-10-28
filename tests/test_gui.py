@@ -885,7 +885,12 @@ def test_scanpruefung_im_fenster(fenster_ctc01):
     f.scan.tabelle.selectRow(zeile)
     assert [p.typ for p in f.pmi.gewaehlte()] == ["Flatness"]
     assert "Flatness" not in f.scan.als_csv() and ";" in f.scan.als_csv()
-    f.scan_aus()
+    f.scan.aus.setChecked(True)  # nur ausblenden: Reiter und Ergebnisse bleiben
+    assert f.ansicht.abweichung is None and f.dock_scan.isVisible() and f.scan.ergebnisse
+    assert f.scan.aus.text() == "Scan einblenden"
+    f.scan.aus.setChecked(False)
+    assert f.ansicht.abweichung is not None
+    f.scan_verwerfen()
     assert f.ansicht.abweichung is None and not f.dock_scan.isVisible()
 
 
@@ -946,7 +951,7 @@ def _beispiele(f, namen):
             f.zusammenbau.wiggle_an.setChecked(False)
     f.beende_vergleich()
     f.kollision_aus()
-    f.scan_aus()
+    f.scan_verwerfen()
     f.aktionen["toleranzzonen_alle"].setChecked(False)
     f.aktionen["allgemein_zeigen"].setChecked(False)
 
@@ -1190,7 +1195,7 @@ def test_scanpruefung_punktwolke_bezug_bericht(fenster_ctc01, tmp_path):
     assert f.scan.gewaehlter_bezug() == ("A", "B", "C")
     pdf = f.exportiere_scan_pdf(str(tmp_path / "bericht.pdf"), bilder=False)
     assert os.path.getsize(pdf) > 1000
-    f.scan_aus()
+    f.scan_verwerfen()
 
 
 def test_befehlssuche_und_startseite(fenster):

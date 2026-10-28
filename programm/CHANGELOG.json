@@ -9,7 +9,11 @@
    "Toleranzkette: Histogramm zeigt standardmäßig alle Verfahren überlagert; eine Ergebniszeile zeigt nur dieses Verfahren.",
    "Auswahllisten zeigen überall einen deutlichen Pfeil; änderbare Zellen der Toleranzkette (von Hand, Planspiel) sind getönt und lassen sich mit einem Klick bearbeiten.",
    "Navigation: Der Drehpunkt wandert beim Verschieben mit (wie in CATIA und FreeCAD); ohne gesetzten Drehpunkt wird um die Bildmitte gedreht.",
-   "Neues, klareres Logo und App-Symbol (ohne Kleinteile, mittig ausgerichtet)."
+   "Neues, klareres Logo und App-Symbol (ohne Kleinteile, mittig ausgerichtet).",
+   "Behoben: STEP-Dateien aus CATIA mit grafischen PMI brachen beim Lesen der Farben ab (zusammengesetzte Stil-Instanzen).",
+   "Navigation wie CATIA: Drehen außerhalb des Kreises um die Bildmitte rollt die Ansicht um die Blickachse.",
+   "„Scan ausblenden“ blendet nur aus (wieder einblendbar), der Reiter mit den Ergebnissen bleibt offen; beim Ablaufen der Toleranzkette zeigt ein Pfeil die Wirkrichtung.",
+   "GitHub-Build „Apps bauen“: Auswahl „Mit JT-Leser“ (Standard an) baut den JT-Konverter für Windows, macOS und Linux mit."
   ],
   "en": [
    "3D tolerance chain: enter positions with translation and rotation (each component with deviations) by hand in a guided editor, choose function point and closing quantity, show the chain in the model, compute linearly and non-linearly and adopt it into the tolerance chain.",
@@ -20,7 +24,11 @@
    "Tolerance chain: the histogram shows all methods overlaid by default; a result row shows only that method.",
    "Drop-down lists show a clear arrow everywhere; editable cells of the tolerance chain (by hand, what-if) are tinted and can be edited with one click.",
    "Navigation: the pivot moves along when panning (as in CATIA and FreeCAD); without a set pivot the view rotates about the view centre.",
-   "New, cleaner logo and app icon (no small details, centred)."
+   "New, cleaner logo and app icon (no small details, centred).",
+   "Fixed: STEP files from CATIA with graphical PMI failed while reading colours (complex style instances).",
+   "Navigation as in CATIA: rotating outside the circle around the view centre rolls the view about the viewing axis.",
+   "\"Hide scan\" only hides (can be shown again), the results tab stays open; walking the tolerance chain shows an arrow in the direction of effect.",
+   "GitHub build \"Apps bauen\": option \"with JT reader\" (on by default) builds the JT converter for Windows, macOS and Linux."
   ]
  },
  "releases": [

@@ -2962,15 +2962,10 @@ class Hauptfenster(QtWidgets.QMainWindow):
             self.statusBar().showMessage(tr("Kette geladen: {} Glieder").format(len(k.glieder)), 6000)
 
     def _kette_strecke(self, g):
-        """Glied beim Ablaufen als Pfeil zwischen seinen Flaechen: + gruen, − rot, mit Wert und Name."""
+        """Glied beim Ablaufen als Pfeil zwischen seinen Flaechen, Spitze in Wirkrichtung, Farbe wie im Kettenbild."""
         from ..kern import toleranzkette as tk
-        strecke = tk.glied_strecke(g, self.erg.modell) if g is not None and self.erg is not None else None
-        if strecke is None:
-            self.ansicht.zeige_hilfslinien([])
-            return
-        plus = g.richtung > 0
-        text = f"{'+' if plus else '−'}{abs(g.nenn):g}  {g.name}"
-        self.ansicht.zeige_hilfslinien([(*strecke, text, (0.18, 0.62, 0.28) if plus else (0.75, 0.22, 0.17))])
+        linien = tk.glied_pfeil(g, self.erg.modell) if g is not None and self.erg is not None else []
+        self.ansicht.zeige_hilfslinien(linien)
 
     def _kette_bild(self, daten):
         """Ganze Kette als Pfeildiagramm im Modell (kern.toleranzkette.kettenbild); None blendet es aus."""
@@ -3272,6 +3267,11 @@ class Hauptfenster(QtWidgets.QMainWindow):
         self._scan = d
         karte = d["karte"]
         grenze = max(abweichung.standard_grenze(karte, 0.02), 0.05)
+        self._scan_karte = (karte, grenze)
+        self.scan.aus.blockSignals(True)
+        self.scan.aus.setChecked(False)
+        self.scan.aus.setText(tr("Scan ausblenden"))
+        self.scan.aus.blockSignals(False)
         self.ansicht.zeige_abweichung(karte, 0.02, grenze, ueberlagert=True)
         kopf = self._scan_kopf(d)
         self.scan.setze_bezugssysteme(sp.bezugssysteme(self.erg.pmi), d.get("bezug"))
@@ -3734,10 +3734,23 @@ class Hauptfenster(QtWidgets.QMainWindow):
         self.ansicht.zeige_kollision(None)
         self.kollision.zeige([], "")
 
-    def scan_aus(self):
+    def scan_aus(self, aus: bool = True):
+        """Scan (Punktwolke mit Farbkarte) aus- oder wieder einblenden; Reiter und Ergebnisse bleiben (der Reiter
+        schliesst nur ueber sein ×)."""
+        if getattr(self, "_scan", None) is None:
+            return
+        karte = getattr(self, "_scan_karte", None)
+        if aus or karte is None:
+            self.ansicht.zeige_abweichung(None)
+        else:
+            self.ansicht.zeige_abweichung(karte[0], 0.02, karte[1], ueberlagert=True)
+
+    def scan_verwerfen(self):
+        """Scan ganz entfernen (Ergebnisse, Anzeige) und den Reiter schliessen."""
         if getattr(self, "_scan", None) is None:
             return
         self._scan = None
+        self._scan_karte = None
         self.ansicht.zeige_abweichung(None)
         self.scan.zeige([], "")
         self.dock_scan.hide()

@@ -44,10 +44,11 @@ pixi run test           # tests (offscreen)
 `packaging/build_mac.sh`, `packaging/build_linux.sh`, `packaging\build_windows.bat` (each accepts `--ohne-tests`
 to skip tests), or on GitHub: *Actions › Apps bauen*.
 
-**JT variant:** `packaging/jt/bauen.sh` fetches the TKJT fork [wwmayer/TKJT](https://github.com/wwmayer/TKJT) with JT 10
-reading (Open Cascade, GPL v2+, commit 687cc51, as used by FreeCAD; own fixes in `packaging/jt/tkjt_jt10.patch`) into
-`extern/` and builds the converter `extern/jt2glb` (JT → GLB with names, placements and colours);
-`DG_MIT_JT=1 packaging/build_mac.sh` bundles it. Building needs `liblzma-devel` (in the pixi dev environment).
+**JT variant:** `packaging/jt/bauen.py` (macOS, Linux, Windows with MSVC; `bauen.sh` calls it) fetches the TKJT
+fork [wwmayer/TKJT](https://github.com/wwmayer/TKJT) with JT 10 reading (Open Cascade, GPL v2+, commit 687cc51, as
+used by FreeCAD; own fixes in `packaging/jt/tkjt_jt10.patch`) into `extern/` and builds the converter
+`extern/jt2glb` (`jt2glb.exe` on Windows). `DG_MIT_JT=1` bundles it into the app; on GitHub the workflow *Apps bauen*
+has the option "Mit JT-Leser" (on by default, artifacts named `…-JT`). Building needs `liblzma-devel` (pixi dev).
 
 ## License
 © 2026 Max Wilfinger. GNU General Public License v3 or later (GPL-3.0-or-later), see [LICENSE](LICENSE).
