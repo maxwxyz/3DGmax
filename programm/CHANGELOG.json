@@ -46,7 +46,8 @@
    "Leiste oben: „Öffnen ▾“ ganz links (Pfeil: Vergleichen), Messen nicht mehr oben, sondern als Schalter in der Leiste Messen – schließt man die Leiste, endet das Messen; Knöpfe in den Seitenleisten sind als Knöpfe erkennbar.",
    "Erzeugte PMI liegen nicht mehr übereinander: die Platzierung prüft auch Rahmen anderer Schreibebenen (im Gesamtbild und im Raum).",
    "Funktion → Tolerierung: Bezüge lassen sich in der Tabelle von Hand festlegen (A, B, C statt Vorschlag); das Bezugssystem und die Toleranzvorschläge folgen der Zuordnung.",
-   "Beispiel „Funktion → Tolerierung“ (Datei › Beispiele): FTC-10 mit zugeordneten Rollen und vorgeschlagenen Bezügen; die Spalte Bezug zeigt den Vorschlag je Element („auto (A)“)."
+   "Beispiel „Funktion → Tolerierung“ (Datei › Beispiele): FTC-10 mit zugeordneten Rollen und vorgeschlagenen Bezügen; die Spalte Bezug zeigt den Vorschlag je Element („auto (A)“).",
+   "Hilfe: „Was ist neu“ und der Einführungs-Assistent beim ersten Start entfallen; die Änderungen stehen weiter in den Versionshinweisen, F1 öffnet die Anleitung."
   ],
   "en": [
    "3D tolerance chain: enter positions with translation and rotation (each component with deviations) by hand in a guided editor, choose function point and closing quantity, show the chain in the model, compute linearly and non-linearly and adopt it into the tolerance chain.",
@@ -94,7 +95,8 @@
    "Top bar: “Open ▾” on the far left (arrow: compare), measuring no longer at the top but as a switch in the Measure panel – closing the panel ends measuring; buttons in side panels are recognisable as buttons.",
    "Generated PMI no longer lie on top of each other: placement also checks frames in other writing planes (overall view and in space).",
    "Function → tolerancing: datums can be set by hand in the table (A, B, C instead of the proposal); the datum system and the tolerance proposals follow the assignment.",
-   "Example “Function → tolerancing” (File › Examples): FTC-10 with assigned roles and proposed datums; the datum column shows the proposal per feature (“auto (A)”)."
+   "Example “Function → tolerancing” (File › Examples): FTC-10 with assigned roles and proposed datums; the datum column shows the proposal per feature (“auto (A)”).",
+   "Help: \"What's new\" and the introduction wizard on first start are gone; changes remain in the release notes, F1 opens the manual."
   ]
  },
  "releases": [
