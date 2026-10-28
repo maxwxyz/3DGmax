@@ -53,6 +53,9 @@ Done in this local session (commit):
 - Screen was available this time: on-screen checks done for the 3D handle, side-by-side views (fixed), stack-up window
   with what-if bar and scenarios (looks fine). Local macOS build after `afec0af` OK (qtbase_de.qm bundled,
   `--selbsttest` OK).
+- Generated PMI stage 3 (dimension lines, leader arrows) and PMI texts as glyph faces in model space (on the Mac GPU
+  AIS_TextLabel draws in screen pixels) – `ed32ec1`; first display much faster (scene built once, previews after the
+  view is ready; FTC-10 19 s → 1.5 s) – `f2633bb`. Full suite green after these.
 - Not done for lack of a verifiable source or test data (kept open in the roadmap): ISO 286 b/t–zc/>500 mm (isofits
   has none of them), surface texture/weld symbols (no sample file), large-assembly LOD (no large model; 3.7 MB STEP
   loads in 2.4 s).
