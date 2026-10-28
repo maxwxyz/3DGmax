@@ -8,7 +8,7 @@ from PySide6 import QtCore, QtGui, QtWidgets
 
 from ..i18n import tr
 from ..kern import kollision as ko
-from .tabellen import aenderbar_machen
+from .tabellen import aenderbar_machen, leer_hinweis
 
 ART_FARBE = {ko.KOLLISION: "#c0392b", ko.ZU_NAH: "#d35400", ko.KONTAKT: "#2471a3", ko.ZU_WEIT: "#7d3c98"}
 UMFANG = (("alle", "Alle Teile untereinander"), ("gegen", "Gewählte Teile gegen den Rest"),
@@ -127,6 +127,7 @@ class KollisionPanel(QtWidgets.QWidget):
         self.bereich.toggled.connect(self._aktiv)
         lay.addLayout(form)
         self.start = QtWidgets.QPushButton(tr("Prüfen"))
+        self.start.setObjectName("primaer")
         self.start.setToolTip(tr("Kollisionsprüfung mit den Einstellungen oben starten"))
         self.start.clicked.connect(lambda: self.starten.emit(self.werte()))
         lay.addWidget(self.start)
@@ -135,6 +136,8 @@ class KollisionPanel(QtWidgets.QWidget):
         self.kopf.setWordWrap(True)
         lay.addWidget(self.kopf)
         self.tabelle = QtWidgets.QTableWidget(0, len(ko.SPALTEN))
+        leer_hinweis(self.tabelle, tr("Noch kein Befund – „Prüfen“ sucht Durchdringungen und Abstände unter dem "
+                                      "Mindestabstand"))
         self.tabelle.setHorizontalHeaderLabels([tr(s) for s in ko.SPALTEN])
         self.tabelle.verticalHeader().setVisible(False)
         self.tabelle.setSelectionBehavior(QtWidgets.QAbstractItemView.SelectionBehavior.SelectRows)

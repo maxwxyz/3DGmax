@@ -91,6 +91,7 @@ class AnalysePanel(QtWidgets.QWidget):
         lay.addWidget(self.hinweis)
         reihe = QtWidgets.QHBoxLayout()
         self.start = QtWidgets.QPushButton(tr("Berechnen"))
+        self.start.setObjectName("primaer")
         self.start.setToolTip(tr("Gewählte Analyse für das Modell berechnen und als Farbkarte zeigen"))
         self.start.setObjectName("primaer")
         self.ende = QtWidgets.QPushButton(tr("Analyse aus"))

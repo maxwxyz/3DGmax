@@ -99,8 +99,8 @@
 | 3D chains by hand: positions with six toleranced components, guided editor, templates, shown in the model, linear and non-linear, handover to the 1D window (PLAN §8.33) | ✅ |
 | 2D/3D chains: save/open as .3dgkette2d/.3dgkette3d and in the project | ✅ |
 | 2D/3D chains: pick from the model/assembly connections, sliding contacts | ⬜ |
-| Stack-up: wiggle of the closing faces by the worst-case extremes | ⬜ |
-| Stack-up: median planes as chain ends, chains across assembly parts | ⬜ |
+| Stack-up: wiggle of the closing faces by the worst-case extremes | ✅ |
+| Stack-up: median planes as chain ends, chains across assembly parts | ✅ |
 | Assembly: connections plane/plane and coaxial with snapping, satisfied check, open DOF per part, DOF wiggle, in the project | ✅ |
 | Assembly: point contact (sphere on plane), pin–slot (line on plane), ball joint | ✅ |
 | Assembly: reverse a connection (180°, cylinder end for end) and swap parts | ✅ |
@@ -109,7 +109,7 @@
 | All tolerance / general-tolerance zones only for visible parts | ✅ |
 | UI/UX plan (`docs/UI_UX_Plan.md`); stage 1: command search Ctrl/⌘+K, task start page, menu cleanup | ✅ |
 | UI scaling option (90–150 %, as in ZGmax) | ✅ |
-| UI/UX stage 2: workspaces; stage 3: inspector and guided flows | ⬜ |
+| UI/UX stage 2: workspaces; stage 3: inspector, guided flows and unified panels | ✅ |
 | Assembly: move the selected part only along its open DOF (numeric fields per DOF) | ✅ |
 | Assembly: 3D dragger (gizmo with arrows and rings) for the same moves | ✅ |
 | Assembly: 3-2-1 template (six planes, one step) | ✅ |
@@ -194,7 +194,7 @@
 | Gear pairs: centre distance, working pressure angle, contact ratios, backlash from the centre distance | ✅ |
 | Gear data in notes checked against the geometry (plausibility) | ✅ |
 | Gear analysis: involute splines (30°, ISO 4156 / DIN 5480) | ✅ |
-| Gear analysis: bevel/worm gears, straight-sided splines | ⬜ |
+| Gear analysis: bevel gears, planetary gear sets, ring gears, gear stages (overall ratio), fitted and plug-in splines (ISO 4156 / DIN 5480, ISO 14; flank/diameter centred), worm gears; full data sheet (contact ratios, profile shift, modifications/micro-geometry, form diameters, backlash) as input for gear tools | ⬜ |
 | Wiggle in the open degrees of freedom (kinematic) | ✅ |
 | Clash check at the tolerance limit positions (assembly) | ✅ |
 | Clash check over joint ranges (open DOF): free range per DOF up to the first collision | ✅ |

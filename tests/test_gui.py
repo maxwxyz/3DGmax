@@ -2340,3 +2340,55 @@ def test_zusammenbau_ziehen_einrasten(fenster):
     assert np.allclose(f.baugruppe.lage(5)[:3, 3], [0, 0, 1])
     f.zusammenbau_zuruecksetzen()
     assert not f.baugruppe.verbindungen
+
+
+def test_gefuehrte_ablaeufe(fenster, tmp_path):
+    """Gefuehrt: Scan pruefen und Spalt messen - die Schritte haken sich am Zustand der App ab, der Knopf je Schritt
+    fuehrt ihn aus; mit den Beispieldaten bis zum Bericht."""
+    from programm.kern import beispiele
+    f = fenster
+    fu = f.starte_fuehrung("scan")
+    assert f.dock_fuehrung.isVisible() and fu.aktuell == 0 and len(fu.schritte()) == 5
+    fu._ausfuehren()  # Beispielmodell oeffnen
+    assert f.erg is not None and fu.aktuell == 1
+    f.pruefe_scan(beispiele.datei("ctc01_scan_fehler.ply"), warten=True)  # wie "Scan oeffnen …" mit dem Beispiel
+    fu.aktualisieren()
+    assert fu.aktuell == 2
+    fu._ausfuehren()  # Ausrichtung passt
+    assert fu.aktuell == 3
+    fu._ausfuehren()  # Pruefen starten
+    for _ in range(len(f.scan.ergebnisse)):
+        f.scan.setze_status("geprueft")
+    fu.aktualisieren()
+    assert fu.aktuell == 4
+    f.exportiere_scan_pdf(str(tmp_path / "s.pdf"), bilder=False)
+    fu.aktualisieren()
+    assert "✓" in fu.liste.item(4).text() and "Alle Schritte" in fu.hilfe.text() or "All steps" in fu.hilfe.text()
+    f.scan_verwerfen()
+    fu = f.starte_fuehrung("spalt")
+    assert fu.aktuell == 1  # ein Modell ist schon offen: Schritt 1 gilt als erledigt
+    fu.gehe(0)
+    fu._ausfuehren()  # Testbaugruppe oeffnen
+    assert os.path.basename(f.erg.pfad) == "baugruppe.stp" and fu.aktuell == 1
+    f._beispiel_variation()  # Verbindungen, Spielraeume, Messgroessen mit Soll wie von Hand angelegt
+    fu.aktualisieren()
+    assert fu.aktuell == 5  # nur der Bericht fehlt noch
+    f.exportiere_messgroessen_pdf(str(tmp_path / "m.pdf"))
+    fu.aktualisieren()
+    assert all("✓" in fu.liste.item(i).text() for i in range(6))
+    fu.gehe(2)  # Schritt von Hand waehlen
+    assert fu.aktuell == 2 and fu.zurueck.isEnabled()
+    f.dock_fuehrung.hide()
+
+
+def test_einheitliches_panel_layout(fenster):
+    """Panels einheitlich: leere Tabellen sagen, was zu tun ist; je Panel ein hervorgehobener Hauptknopf."""
+    from programm.ui.toleranzkette_ui import ToleranzketteFenster
+    f = fenster
+    tabellen = [f.messen.tabelle, f.kommentare.tabelle, f.kollision.tabelle, f.zusammenbau.verbindungen,
+                f.zusammenbau.masse, f.pmi.tabelle, ToleranzketteFenster(f).tabelle]
+    for t in tabellen:
+        assert t.rowCount() == 0 and t._leer_hinweis.text, t
+        t.viewport().repaint()  # Hinweis zeichnen ohne Fehler
+    for k in (f.zusammenbau.knopf, f.zusammenbau.mass_knopf, f.kollision.start, f.analyse.start):
+        assert k.objectName() == "primaer"

@@ -4,7 +4,7 @@
 All work on `main`, pushed; no other branches. Version 0.2 released (tag v0.2). Full suite last green on
 the Mac (200 tests incl. the new ones, ~11 min); `pixi run test-schnell` skips the six `langsam` tests.
 
-Side session 2026-10-28 (branch `claude/pmi-darstellung-8f2b0b`, not merged – the main session merges after its UI
+Side session 2026-10-28 (branch `claude/pmi-darstellung-8f2b0b`, merged into main after UI
 work): plan item 6 done – own PMI written to STEP carry their presentation (PLAN §8.28 stage 3,
 `kern/pmi_darstellung.py`; reader places part presentation at the instance in assemblies, `praesentation.in_teillage`
 called from `ui/lader.py`). `step_schreiben.schreibe(..., grafik=self.erg.grafik)` from the main window would write
@@ -147,9 +147,9 @@ Done in this local session (commit):
 - Help › "Was ist neu" and the first-start introduction wizard removed (user request 2026-10-28): actions `neu`,
   `einfuehrung`, `Hauptfenster.erster_start` (only showed those two), `hilfe.Einfuehrung`/`SCHRITTE`/`zeige_neu`,
   `version.aenderungen_html`, their translations; settings keys `einfuehrung_gesehen`/`version_gesehen` no longer
-  read. CHANGELOG files and the release script stay. Branch `claude/ohne-einfuehrung-6b55f6`.
+  read. CHANGELOG files and the release script stay. Merged into main (`08bd2dc`).
 
-- **Side session (branch `claude/modell-hinzufuegen-f74208`, not merged; the main session merges):** "Add model"
+- **Side session (branch `claude/modell-hinzufuegen-f74208`, merged into main):** "Add model"
   (File menu and assembly panel, `kern/zusammenfuegen.py`): further files become parts of the current model (own top
   node, faces/PMI/views remapped, placed next to the model, stored in the project as `zusaetze`). Tests:
   `test_kern.py::test_modell_hinzufuegen_zusammenfuegen`, `test_gui.py::test_modell_hinzufuegen_verbinden_projekt`;
@@ -159,6 +159,20 @@ Done in this local session (commit):
   `test_bildschirm.py::test_teil_ziehen_einrasten`. STEP kinematics researched (PLAN §8.20): OCCT 8.0.1 parses
   `StepKinematics_*` but does not transfer them, no public sample file – nothing imported; needs a CAD-exported
   AP242 file with a mechanism.
+  - UI stage 2 done (`a76d128`, `c17c7b9`, `27bd1e2`): workspaces with panel sets, tool windows as bottom panels,
+    one toolbar row (File dropdown left, measure toggle in the measure panel, section/explosion in the structure
+    panel), CATIA roll circle with smooth blend, view cube rebuild per screen, selection order (earlier ×0.78),
+    editable cells tinted, wheel never changes unfocused fields (`ui/radsperre.py`), smooth panel resizing (fast
+    polygonal HLR previews, p90 1088 → 13 ms), comparison always with both trees. Then `eefae08` (example
+    function → tolerancing, manual datums), `64e2430` (scan check as a comparison: target/actual modes, side by side,
+    review walk with status/comment in CSV/PDF).
+  - UI stage 3 done: inspector panel (`ui/inspektor.py`), guided flows "Scan prüfen"/"Spalt messen"
+    (`ui/fuehrung.py`, Help › Guided and start page), unified panels (empty-table hints `tabellen.leer_hinweis`, one
+    primary button per panel). Tests `test_inspektor`, `test_gefuehrte_ablaeufe`, `test_einheitliches_panel_layout`.
+  - Parallel sessions (own worktree branches, merge only after the user says so): item 6 presentation for written
+    PMI + "make semantic"; "Modell hinzufügen" then item 5 (live snapping, STEP kinematics); removal of "Was ist neu"
+    and the first-start introduction (touches the Help-menu loop in `hauptfenster.py`, which now also lists
+    `gefuehrt_scan`/`gefuehrt_spalt`).
 
 **Deferred questions for the user** (do not block on them):
 - UI/UX stage 2 (workspaces) changes the layout a lot – implement only after you have read `docs/UI_UX_Plan.md`?
@@ -299,10 +313,15 @@ graphics only, 8.19 QIF graphics, 8.20 3D tolerance analysis,
 8.21 clash/band/intersection analysis, 8.22 plausibility check, 8.23 scan against PMI tolerances).
 
 ## Next (in this order)
-0. Evening order 2026-10-28: plan items 3 and 4 (see "Current state"), UI stage 2 (`docs/UI_UX_Plan.md`, incl.
-   side-panel resizing analysis), then items 5–8 (live snapping + STEP kinematics, presentation for written PMI
-   – done on branch `claude/pmi-darstellung-8f2b0b`,
-   overlap check for generated PMI, DXF dimension entities).
+0. Evening order 2026-10-28 – items 1–7 and UI stages 1–3 done; side branches merged (no intro, item 6 PMI
+   presentation + "make semantic", "Modell hinzufügen" + item 5 dragging with live snapping). Next, in this order
+   (user, 2026-10-28):
+   a. Materials in hand-built 1D/2D/3D chains (chain default plus per-link override, PLAN §8.33).
+   b. Live 3D preview for function → tolerancing (datums first, tolerance zones optional).
+   c. Datum shift in the assembly variation (MMC/LMC bonus in connections).
+   Moved to the end (after item 4 below): item 8 DXF dimension entities; then the user checks (CATIA reading of
+   written STEP with own PMI/presentation, screenshot of the blue stripe while loading on Windows, an AP242 file with
+   a mechanism for STEP kinematics).
 1. Visual check on the Mac (see "Visual check on the real screen still open" and: wireframe contrast edges, view cube,
    start screen, side-panel dragging, tab ✕ and right-click menu on tabs, File › Examples, stack-up window and PDF,
    clash dock, assembly dock, scan check with point cloud and 3-2-1 alignment, zones for linear/angular dimensions).
@@ -315,6 +334,7 @@ graphics only, 8.19 QIF graphics, 8.20 3D tolerance analysis,
 4. Later: own P21 writer for geometric tolerances (§8.28) or QIF export; clash rest; several windows (§8.26); scan rest;
    plausibility stage 2; gear analysis (§8.27); hatched section views; STEP-XML (§8.17); PRC compressed
    tessellation/B-rep.
+5. At the very end: item 8 (DXF dimension entities for drawings), then the open user checks listed in item 0.
 
 ## Environment and commands
 ```bash

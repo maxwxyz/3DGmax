@@ -9,6 +9,7 @@ from PySide6 import QtCore, QtGui, QtWidgets
 
 from ..i18n import tr
 from ..kern import funktion as fu
+from .tabellen import leer_hinweis
 
 ROLLEN_HILFE = {
     "auflage": "Fläche, mit der das Teil aufliegt oder anliegt – Kandidat für den Primärbezug",
@@ -70,6 +71,8 @@ class FunktionFenster(QtWidgets.QDialog):
         reihe.addStretch(1)
         lay.addLayout(reihe)
         self.tabelle = QtWidgets.QTableWidget(0, len(self.SPALTEN))
+        leer_hinweis(self.tabelle, tr("Noch keine Elemente – Flächen im Modell wählen, oben die Funktion wählen und "
+                                      "„Rolle für Auswahl“"))
         self.tabelle.setHorizontalHeaderLabels([tr(s) for s in self.SPALTEN])
         self.tabelle.verticalHeader().setVisible(False)
         self.tabelle.setSelectionBehavior(QtWidgets.QAbstractItemView.SelectionBehavior.SelectRows)

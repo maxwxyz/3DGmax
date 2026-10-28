@@ -1083,6 +1083,35 @@ tools (the user names MASTA as an example of a tool that needs these inputs), an
   Gear pairs done the same day (`verzahnung.paare`: parallel axes, same mn/αn/β, distance within 20 % of the
   reference; a without backlash from inv αwt, εα, εβ, normal backlash 2 Δa sin αn). Notes vs geometry done
   (`plausibilitaet.verzahnung`). Open: splines (ISO 4156), bevel/worm, tooth thickness tolerances.
+- Next stage (user, 2026-10-28; after the assembly/chain topics): bevel gears (straight and spiral, cone angles,
+  module at the outer cone), planetary gear sets (sun/planets/ring in one assembly: carrier axis, number of planets,
+  assembly condition (z_s + z_r)/n integer, ratios), ring gears (internal toothing as its own case, incl. the internal
+  tip circle and space width), gear stages (pairs chained across shafts: overall ratio, centre distances, direction
+  of rotation), fitted and plug-in splines (involute per ISO 4156 / DIN 5480, straight-sided per ISO 14, serrations;
+  fit class and effective vs actual space width/tooth thickness), worm gears. Test data again self-generated with
+  OCCT so the true values are known.
+- Full data sheet per gear, pair and stage (user, 2026-10-28) – everything gear design/rating tools take as input,
+  as far as it can be measured on the geometry; each value with how it was found and its uncertainty, "not
+  determinable" instead of a guess:
+  - Gear: number of teeth z, normal/transverse module, normal/transverse pressure angle, helix angle and hand, base
+    helix angle, lead, face width (total and effective), reference/tip/root/base/form diameters (incl. tip form and
+    root form diameter, start of active profile), tooth height/addendum/dedendum and their coefficients, profile shift
+    coefficient (from tooth thickness, Wk or the dimension over balls), tooth thickness and space width, span
+    measurement Wk with k, dimension over balls/pins with the ball diameter, chamfers/tip edge rounding, root fillet
+    radius, internal/external, bore and hub data where visible.
+  - Micro-geometry when modelled: profile and lead modifications (tip/root relief with amount and start diameter,
+    profile crowning, lead crowning, end relief, helix angle modification, topological modifications as a deviation
+    map against the ideal involute); report "none modelled" when the flanks are pure involutes.
+  - Pair/stage: ratio and overall ratio, centre distance (actual and zero-backlash), working pressure angle, sum of
+    profile shift, transverse/overlap/total contact ratio (εα, εβ, εγ), tip clearance, backlash (normal, circumferential,
+    radial), sliding velocity ratio/specific sliding at tip and root, direction of rotation per shaft.
+  - Splines: flank-centred vs major/minor-diameter-centred (from which diameters fit with clearance), fit class,
+    number of teeth, module, pressure angle (30/37.5/45°), major/minor diameters, effective and actual space
+    width/tooth thickness, form diameters.
+  - Planetary sets: sun/planet/ring teeth, number of planets, assembly condition, carrier ratio, planet spacing.
+  - Output: table in the window, CSV/JSON and a neutral exchange layout that maps 1:1 to the input fields of common
+    gear tools (research their field lists first; no tool-specific file format without a public specification),
+    plus a comparison against the PMI/notes (§8.22).
 
 ### 8.28 Writing STEP AP242 with semantic PMI (research 2026-10-27, by experiment)
 Findings (pythonocc-core 8.0.1.2 and OCP 8.0.1.1, both on OCCT 8.0.1; scripts were throw-away):

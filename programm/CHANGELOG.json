@@ -54,7 +54,10 @@
    "Scanprüfung nebeneinander: links Soll (CAD), rechts Ist (Scan mit Farbkarte), Kameras gekoppelt.",
    "Hilfe: „Was ist neu“ und der Einführungs-Assistent beim ersten Start entfallen; die Änderungen stehen weiter in den Versionshinweisen, F1 öffnet die Anleitung.",
    "STEP mit eigenen PMI speichern schreibt jetzt auch deren Darstellung (Rahmen, Maßtext, Hinweislinie, Pfeile, Texte als Glyphen) als AP242-Präsentation im Teil, verknüpft mit der Semantik – CAD-Systeme zeigen die PMI damit an; in Baugruppen erscheint die Darstellung eines Teils an der Lage seiner Instanz.",
-   "PMI-Liste: „Semantisch machen …“ für nur grafische PMI (Reparieren) – Art aus dem Namen der Grafik, Flächen aus Hinweislinie und Pfeilspitzen vorgeschlagen, Werte prüfen bzw. ergänzen; die PMI behält die Grafik der Datei, beim Speichern als STEP wird nur die Semantik angehängt und mit ihr verknüpft."
+   "PMI-Liste: „Semantisch machen …“ für nur grafische PMI (Reparieren) – Art aus dem Namen der Grafik, Flächen aus Hinweislinie und Pfeilspitzen vorgeschlagen, Werte prüfen bzw. ergänzen; die PMI behält die Grafik der Datei, beim Speichern als STEP wird nur die Semantik angehängt und mit ihr verknüpft.",
+   "Inspektor: zur Auswahl (Fläche/Kante, Teil oder PMI) die Eigenschaften und passenden Befehle an einer Stelle.",
+   "Geführte Abläufe für Einsteiger (Hilfe › Geführt bzw. Startseite): „Scan prüfen“ und „Spalt messen“ Schritt für Schritt – jeder Schritt mit Erklärung und Knopf, erledigte Schritte werden automatisch abgehakt.",
+   "Einheitliche Panels: leere Tabellen sagen, was zu tun ist; je Panel ist der Hauptknopf hervorgehoben."
   ],
   "en": [
    "Assembly: drag parts in 3D with the left mouse button (classic navigation: with Alt) – only along the open degrees of freedom; close to a matching plane or axis the part snaps live (faces highlighted), releasing creates the connection; the 3D handle snaps the same way.",
@@ -110,7 +113,10 @@
    "Scan check side by side: target (CAD) left, actual (scan with colour map) right, cameras coupled.",
    "Help: \"What's new\" and the introduction wizard on first start are gone; changes remain in the release notes, F1 opens the manual.",
    "Saving STEP with own PMI now also writes their presentation (frame, dimension text, leader, arrows, texts as glyphs) as AP242 presentation in the part, linked to the semantics – CAD systems can display the PMI; in assemblies the presentation of a part appears at the position of its instance.",
-   "PMI list: “Make semantic …” for graphical-only PMI (repair) – kind proposed from the graphic's name, faces from the leader and arrow tips, values to check or complete; the PMI keeps the file's graphic, saving as STEP only appends the semantics and links them to it."
+   "PMI list: “Make semantic …” for graphical-only PMI (repair) – kind proposed from the graphic's name, faces from the leader and arrow tips, values to check or complete; the PMI keeps the file's graphic, saving as STEP only appends the semantics and links them to it.",
+   "Inspector: properties and matching commands for the selection (face/edge, part or PMI) in one place.",
+   "Guided flows for beginners (Help › Guided or the start page): “Check a scan” and “Measure a gap” step by step – each step with an explanation and a button, finished steps are ticked automatically.",
+   "Unified panels: empty tables say what to do; each panel highlights its main button."
   ]
  },
  "releases": [
