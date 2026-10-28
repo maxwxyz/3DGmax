@@ -437,6 +437,13 @@ def messgroessen_pdf(fenster, pfad: str) -> str:
                 bm.soll_text(m), e.aussen, "" if e.cpk is None else tr(", Cpk {:.2f}").format(e.cpk)), 10)
         if e.unbestimmt:
             bericht.absatz(tr("Hängt von offenen Freiheitsgraden ab (in Nennlage gerechnet)."), 9)
+        if e.proben is not None and len(e.proben) and e.wc_max > e.wc_min:
+            from .toleranzkette_ui import Histogramm
+            h = Histogramm()
+            h.resize(900, 150)
+            soll = (m.soll_min, m.soll_max) if m.soll_min is not None and m.soll_max is not None else None
+            h.zeige(e, None, soll)
+            bericht.bild(h.grab().toImage(), 0.14)
         spalten = [(tr(s), 1 / len(BaugruppePanel.BEITRAG_SPALTEN)) for s in BaugruppePanel.BEITRAG_SPALTEN]
         bericht.tabelle(spalten, [[str(x.verbindung), tr(vb.ART_TEXT[next(v.art for v in b.verbindungen
                                                                          if v.nummer == x.verbindung)]),
