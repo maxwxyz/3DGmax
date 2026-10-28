@@ -64,9 +64,9 @@ Done in this local session (commit):
 from the advisor) – OCCT and our reader read it; a commercial reader is the real test of the CAx-IF structure.
 
 **Visual check on the real screen still open** (screen locked / no capture permission tonight):
-- Comparison "Side by side": in `View.Dump` the old-state view showed a black background and no view cube – check
-  on screen whether the second view gets the theme gradient and cube (functionally verified: both views ready,
-  cameras coupled, blink runs).
+- (Resolved 2026-10-28: the second OCCT view in the process rendered without shaders – black background, no
+  lighting, unlabelled cube; also further windows. Further views now use the fixed-function pipeline; they look a bit
+  lighter than the first view, visible when blinking – tell me if all views should use the same pipeline.)
 - Stack-up window layout (result table, share bars, histogram, what-if bar), assembly "Measures" tab, start page,
   command search popup, comparison mode bar.
 - Plus everything listed under "Next" item 1 below (from the cloud handoff).

@@ -255,3 +255,47 @@ def test_3d_griff_ziehen():
     assert zeile, r.stdout[-2000:] + r.stderr[-2000:]
     erg = eval(zeile.split(" ", 1)[1])  # noqa: S307 - eigene Ausgabe
     assert all(v for k, v in erg.items() if k != "text"), erg
+
+
+ZWEITE = r'''
+import os, sys, tempfile
+sys.path.insert(0, sys.argv[1])
+os.environ["DG_EINSTELLUNGEN"] = os.path.join(tempfile.mkdtemp(), "e.ini")
+from PySide6 import QtCore, QtGui, QtWidgets
+app = QtWidgets.QApplication([])
+from programm.ui.hauptfenster import Hauptfenster
+f = Hauptfenster(); f.resize(1400, 850); f.show()
+def los():
+    erg = {}
+    try:
+        d = sys.argv[1]
+        f.starte_vergleich({"alt": os.path.join(d, "tests/daten/baugruppe.stp"),
+                            "neu": os.path.join(d, "tests/daten/baugruppe_b.stp"), "toleranz": 0.01,
+                            "suchweite": 2.0}, warten=True)
+        f.setze_vergleichsmodus("nebeneinander")
+        for _ in range(60):
+            QtWidgets.QApplication.processEvents()
+        pfad = os.path.join(tempfile.mkdtemp(), "alt.png")
+        f.ansicht_alt.d.View.Dump(pfad)
+        bild = QtGui.QImage(pfad)
+        ecke = bild.pixelColor(5, bild.height() - 5)
+        erg["hintergrund"] = ecke.red() + ecke.green() + ecke.blue() > 150  # Verlauf, nicht schwarz
+    except Exception as e:
+        erg["fehler"] = False
+        erg["text"] = repr(e)
+    print("ERGEBNIS", erg, flush=True)
+    app.quit()
+QtCore.QTimer.singleShot(1500, los)
+app.exec()
+'''
+
+
+def test_zweite_ansicht_mit_hintergrund():
+    """Nebeneinander: die zweite OCCT-Ansicht im Prozess zeigt den Verlauf (feste Pipeline statt Shader)."""
+    env = dict(os.environ)
+    env.pop("QT_QPA_PLATFORM", None)
+    r = subprocess.run([sys.executable, "-c", ZWEITE, WURZEL], capture_output=True, text=True, env=env, timeout=300)
+    zeile = next((z for z in r.stdout.splitlines() if z.startswith("ERGEBNIS")), "")
+    assert zeile, r.stdout[-2000:] + r.stderr[-2000:]
+    erg = eval(zeile.split(" ", 1)[1])  # noqa: S307 - eigene Ausgabe
+    assert all(v for k, v in erg.items() if k != "text"), erg

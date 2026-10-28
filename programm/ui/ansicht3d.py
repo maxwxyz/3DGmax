@@ -610,6 +610,7 @@ def ist_schild(g) -> bool:
 
 
 class OcctAnsicht(AnsichtBasis):
+    _gestartet = 0  # Anzahl gestarteter OCCT-Ansichten im Prozess
     def __init__(self, parent=None):
         super().__init__(parent)
         from OCC.Display.backend import load_backend
@@ -654,6 +655,9 @@ class OcctAnsicht(AnsichtBasis):
     def _starte(self):
         if self._bereit:
             return
+        if OcctAnsicht._gestartet:  # weitere Ansicht im Prozess: Shader greifen im zweiten OpenGL-Kontext nicht
+            self.d.SetFfpEnable(True)  # (schwarzer Hintergrund, kein Licht, Wuerfel ohne Schrift) - feste Pipeline
+        OcctAnsicht._gestartet += 1
         self.d.Create(window_handle=int(self.viewer.winId()), parent=self.viewer, display_glinfo=False)
         self.d.SetModeShaded()
         self.d.Context.SetAutomaticHilight(True)
