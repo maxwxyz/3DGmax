@@ -436,6 +436,21 @@ checked on the 3-4-5 triangle (sensitivities 0.6/0.8/−24·π/180, linear σ wi
 sketch of the loop with the closing vector. Open: storing 2D chains in a file/project, picking segments from the
 model, kinematic adjustments (contact points that slide), stage 5 3D.
 
+**Done 2026-10-28 – stage 5 (3D chain, by hand, guided):** `kern/kette3d.py` + window Model › "3D-Toleranzkette …".
+Chain of positions: each link is translation X/Y/Z then rotation about X, Y, Z (degrees, intrinsic, applied after
+its translation, i.e. it acts on the following links), each of the six components with deviations (= the small
+displacement torsor of the link) and a distribution per link; a function point with direction sits in the last
+link. Closing quantity from a list: X/Y/Z position of the point, distance to a target point, angle of the point
+direction to a target direction. Same pipeline as 2D: central-difference sensitivities → 1D links with factors +
+linearisation remainder → handover to the 1D window; non-linear Monte Carlo per sample. Guided UI: link list (rename
+by double-click), 6 × 3 editor (nominal, upper, lower) with units, distribution list, templates "base with arm"
+(tilt as lever) and "three stacked plates", "Im 3D zeigen" draws the link origins, axis crosses and the function
+point in the model. A distance with nominal ≈ 0 is not differentiable (like a position deviation): sensitivities
+vanish, the window warns and points to the non-linear result. Checked: tilt of the base ±0.05° on a 100 mm arm gives
+−1.75 mm/° in Z, linear σ within 10 % of the non-linear one. Open: deriving 3D chains from the assembly connections
+and the tolerance zones automatically (the assembly variation of §8.20 already covers gap/flush between parts),
+storing 2D/3D chains in files and the project.
+
 **What a functional dimension chain is for** (answer for the user, background for the guide):
 - Analysis: does the function (gap, overlap, preload, alignment) hold for the given part tolerances – worst case or
   with a defined risk (ppm)?

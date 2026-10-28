@@ -1,7 +1,11 @@
 {
  "unreleased": {
-  "de": [],
-  "en": []
+  "de": [
+   "3D-Toleranzkette: Lagen mit Verschiebung und Drehung (je Komponente mit Abmaßen) von Hand im geführten Editor eingeben, Funktionspunkt und Schlussgröße wählen, Kette im Modell zeigen, linear und nichtlinear rechnen und in die Toleranzkette übernehmen."
+  ],
+  "en": [
+   "3D tolerance chain: enter positions with translation and rotation (each component with deviations) by hand in a guided editor, choose function point and closing quantity, show the chain in the model, compute linearly and non-linearly and adopt it into the tolerance chain."
+  ]
  },
  "releases": [
   {

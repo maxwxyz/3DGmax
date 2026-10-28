@@ -77,8 +77,8 @@ Done in this local session (commit):
   views (done: fixed-function for every view); UI stage 2 still only after the user's review of the UI/UX plan.
 - **§8.33 stage 1 done:** cost-optimal allocation with process table (`kern/fertigung.py`), column "Fertigung".
   §8.33 stages 2/3 done: `kern/funktion.py` + window "Funktion → Tolerierung" (roles → datum system 3-2-1 →
-  GPS proposal with fits → own PMI → STEP). Stage 4 done: 2D vector loop window (`kern/kette2d.py`, `ui/kette2d_ui.py`). Next: stage 5 3D chain (by hand with guided
-  fields as the user asked, plus from the assembly connections).
+  GPS proposal with fits → own PMI → STEP). Stage 4 done: 2D vector loop window (`kern/kette2d.py`, `ui/kette2d_ui.py`). Stage 5 done (by hand): 3D chain window
+  (`kern/kette3d.py`, `ui/kette3d_ui.py`). Open: 2D/3D chains from the model/assembly, storing them in files/project.
 - **Tooltips:** rule from the user – every non-obvious control gets a tooltip. `werkzeuge/tooltips.py` lists controls
   without one (main window, docks, all dialogs constructible with the main window as parent);
   `tests/test_gui.py::test_tooltips_vollstaendig` keeps it at zero. Stack-up: tooltips per method/column, spread

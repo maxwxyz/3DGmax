@@ -1750,3 +1750,25 @@ def test_kette2d_fenster(fenster):
     w.in_kette.click()
     k = f._kette
     assert len(k.glieder) >= 3 and any(g.faktor != 1.0 for g in k.glieder) and k.glieder[-1].toleranz == 0
+
+
+def test_kette3d_fenster(fenster):
+    """3D-Kette von Hand: Vorlage, Editor-Feld aendern, Schlussgroesse waehlen, im 3D zeigen, uebernehmen."""
+    f = fenster
+    w = f.zeige_kette3d()
+    w.lade_vorlage("turm")
+    assert w.liste.count() == 2 and "20.0000 mm" in w.ergebnis.text()
+    w.liste.setCurrentRow(1)
+    w.editor.cellWidget(0, 0).setValue(120.0)  # Armlaenge
+    w.schluss.setCurrentIndex(w.schluss.findData("x"))
+    assert abs(w.ergebnisse()["nenn"] - 120) < 1e-9  # Verschiebung im Rahmen davor, Drehung wirkt danach
+    w.schluss.setCurrentIndex(w.schluss.findData("y"))
+    assert abs(w.ergebnisse()["nenn"]) < 1e-9
+    w.im_modell.setChecked(True)
+    assert any(li[2] == "Funktionspunkt" for li in f.ansicht.hilfslinien)
+    w.im_modell.setChecked(False)
+    w.neues_glied()
+    assert w.liste.count() == 3
+    w.schluss.setCurrentIndex(w.schluss.findData("z"))  # Hoehe: Kippung des Sockels wirkt mit Hebel 120
+    w.in_kette.click()
+    assert any(g.faktor != 1.0 for g in f._kette.glieder)

@@ -89,7 +89,8 @@
 | Function roles per face → datum system and ISO GPS tolerance proposal → STEP PMI (PLAN §8.33) | ✅ |
 | Stack-up: build chains by hand without a model ("＋ Glied", editable cells) | ✅ |
 | 2D vector-loop chains by hand with guided fields, sketch, linear (DLM) and non-linear Monte Carlo, handover to the 1D window (PLAN §8.33) | ✅ |
-| 2D chains: save in file/project, pick segments from the model, sliding contacts | ⬜ |
+| 3D chains by hand: positions with six toleranced components, guided editor, templates, shown in the model, linear and non-linear, handover to the 1D window (PLAN §8.33) | ✅ |
+| 2D/3D chains: save in file/project, pick from the model/assembly connections, sliding contacts | ⬜ |
 | Stack-up: wiggle of the closing faces by the worst-case extremes | ⬜ |
 | Stack-up: median planes as chain ends, chains across assembly parts | ⬜ |
 | Assembly: connections plane/plane and coaxial with snapping, satisfied check, open DOF per part, DOF wiggle, in the project | ✅ |
@@ -105,7 +106,7 @@
 | Assembly: 3D dragger (gizmo with arrows and rings) for the same moves | ✅ |
 | Assembly: 3-2-1 template (six planes, one step) | ✅ |
 | Assembly: dragging with live snapping, STEP kinematics | ⬜ |
-| Tolerance stack-up 3D (geometric tolerances, chain from the model, sensitivity) – PLAN §8.20 | ⬜ |
+| Tolerance stack-up 3D (geometric tolerances, chain from the model, sensitivity) – PLAN §8.20: by hand ✅ (§8.33), automatically from the model ⬜ | 🟡 |
 | Assemblies built in the project (mates on datum features), materials and thermal expansion in chains | ⬜ |
 | Wiggle within tolerances (assembly connections, extreme positions, 1:1 or exaggerated); worst-case position scatter per part | ✅ |
 | Assembly variation: measures between parts (gap/flush), worst case and Monte Carlo over all connections, requirement with Cpk/share outside, contributor ranking, PDF, example | ✅ |

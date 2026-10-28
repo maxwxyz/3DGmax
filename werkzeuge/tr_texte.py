@@ -82,6 +82,10 @@ def tr_texte() -> set[str]:
     out |= set(kt.SPALTEN) | set(kt.QUELLE.values()) | set(kt.VERTEILUNG.values())
     from programm.ui import toleranzkette_ui as ktu
     out |= set(ktu.Histogramm.NAMEN.values()) | set(berichte.KETTE_AMPEL.values())
+    from programm.kern import kette3d as k3d
+    from programm.ui import kette3d_ui as k3u
+    out |= set(k3d.SCHLUSS.values()) | set(k3d.KOMPONENTEN_TEXT.values()) | {n for n, _ in k3u.VORLAGEN.values()}
+    out |= {n for n, _ in k3u.SPALTEN_EDITOR} | {h for _, h in k3u.SPALTEN_EDITOR}
     from programm.kern import kette2d as k2d
     from programm.ui import kette2d_ui as k2u
     out |= set(k2d.SCHLUSS.values()) | {n for n, _ in k2u.SPALTEN} | {h for _, h in k2u.SPALTEN}

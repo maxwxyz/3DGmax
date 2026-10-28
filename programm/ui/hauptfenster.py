@@ -517,6 +517,9 @@ class Hauptfenster(QtWidgets.QMainWindow):
         A("kette2d", tr("2D-Toleranzkette …"), lambda: self.zeige_kette2d(),
           tipp=tr("Kette als Vektorzug in der Ebene (Längen und Winkel) von Hand aufbauen, linear und nichtlinear "
                   "rechnen und in die Toleranzkette übernehmen"))
+        A("kette3d", tr("3D-Toleranzkette …"), lambda: self.zeige_kette3d(),
+          tipp=tr("Kette aus Lagen im Raum (Verschiebungen und Drehungen mit Abmaßen) von Hand aufbauen, Kippungen "
+                  "als Hebel erfassen und in die Toleranzkette übernehmen"))
         A("toleranzkette", tr("Toleranzkette …"), lambda: self.zeige_toleranzkette(),
           tipp=tr("Maßkette aus gewählten Maßen: Worst Case, statistisch (RSS) und Monte Carlo"))
         A("analyse", tr("Analyse …"), self.zeige_analyse_leiste,
@@ -763,6 +766,7 @@ class Hauptfenster(QtWidgets.QMainWindow):
         m.addAction(a["analyse"])
         m.addAction(a["toleranzkette"])
         m.addAction(a["kette2d"])
+        m.addAction(a["kette3d"])
         m.addAction(a["funktion"])
         m.addAction(a["pmi_anlegen"])
         m.addAction(a["kommentar"])
@@ -2781,11 +2785,25 @@ class Hauptfenster(QtWidgets.QMainWindow):
             f.raise_()
         return f
 
+    def zeige_kette3d(self, nur_anlegen: bool = False):
+        """Fenster 3D-Toleranzkette (Lagen); Uebernahme ersetzt die Glieder im Fenster Toleranzkette."""
+        from .kette3d_ui import Kette3DFenster
+        f = getattr(self, "_kette3d", None)
+        if f is None:
+            f = Kette3DFenster(self)
+            f.uebernehmen.connect(self._kette2d_uebernehmen)
+            f.zeigen.connect(lambda linien: self.ansicht.zeige_hilfslinien(linien or [], einpassen=bool(linien)))
+            self._kette3d = f
+        if not nur_anlegen:
+            f.show()
+            f.raise_()
+        return f
+
     def _kette2d_uebernehmen(self, glieder: list):
         k = self.zeige_toleranzkette()
         k.beende_planspiel(False)
         k.setze_glieder(glieder)
-        self.statusBar().showMessage(tr("2D-Kette als {} Glieder übernommen (linearisiert)").format(len(glieder)), 6000)
+        self.statusBar().showMessage(tr("Kette als {} Glieder übernommen (linearisiert)").format(len(glieder)), 6000)
 
     def zeige_funktion(self, nur_anlegen: bool = False):
         """Fenster Funktion -> Tolerierung (kern.funktion) fuer das geladene Modell."""
