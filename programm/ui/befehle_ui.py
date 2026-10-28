@@ -85,6 +85,7 @@ class BefehlsSuche(QtWidgets.QDialog):
         lay.setContentsMargins(8, 8, 8, 8)
         self.eingabe = QtWidgets.QLineEdit()
         self.eingabe.setPlaceholderText(tr("Befehl suchen, z. B. Schnitt, Vergleich, Toleranzkette …"))
+        self.eingabe.setToolTip(tr("Name einer Funktion tippen; ↑ ↓ wählen, Enter führt sie aus"))
         self.eingabe.setClearButtonEnabled(True)
         self.eingabe.textChanged.connect(self._fuelle)
         self.eingabe.installEventFilter(self)

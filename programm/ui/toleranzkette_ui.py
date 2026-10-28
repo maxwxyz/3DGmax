@@ -19,6 +19,48 @@ def _z(x: float, vorzeichen: str = "") -> str:
 
 SP_RICHTUNG, SP_NENN, SP_HOCH, SP_MIN, SP_TOL, SP_VERTEILUNG, SP_CP, SP_VERSATZ, SP_FAKTOR, SP_ANTEIL = \
     1, 2, 3, 4, 5, 7, 8, 9, 10, 11
+SP_STREUUNG = len(tk.SPALTEN)  # nur im Fenster: Bild der Verteilung des Glieds mit seinen Grenzen
+SP_FERTIGUNG = len(tk.SPALTEN) + 1  # nur im Fenster: Fertigungsverfahren (kostenoptimale Verteilung)
+# Erklaerung je Spalte der Gliedertabelle (Tooltip im Kopf und in den Zellen)
+SPALTEN_HILFE = {
+    "Glied": "Name des Glieds (aus der PMI, der 3D-Auswahl oder eigene Angabe); in Klammern Stellglied, fest, "
+             "Korrelationsgruppe",
+    "Richtung": "+ vergrößert das Schlussmaß, − verkleinert es (Doppelklick kehrt um)",
+    "Nennmaß": "Nennmaß des Glieds in mm (Lagetoleranzen: 0, sie wirken nur als Abweichung)",
+    "Höchstmaß": "Größtes zulässiges Maß (Nennmaß + oberes Abmaß)",
+    "Mindestmaß": "Kleinstes zulässiges Maß (Nennmaß + unteres Abmaß)",
+    "Toleranz": "Toleranzbreite T = Höchstmaß − Mindestmaß",
+    "Quelle": "Woher die Werte stammen: PMI-Maß, Lagetoleranz, Allgemeintoleranz (ISO 2768/22081), Längenbereich "
+              "oder eigene Angabe; rot: ohne Toleranz",
+    "Verteilung": "Wie die Istmaße in der Fertigung streuen: Normal (Serie, σ = T/(6·Cp)), Dreieck (Kleinserie), "
+                  "Trapez, Gleich (Einzelteil, jeder Wert gleich wahrscheinlich), Betrag 1./2. Art (Form, Position: "
+                  "einseitig ab dem Mindestmaß), aus Messwerten",
+    "Cp / Form": "Normal: Prozessfähigkeit Cp des Glieds (leer: Cp der Kette); Trapez: Anteil des flachen Teils "
+                 "(0 = Dreieck, 1 = Rechteck)",
+    "Versatz": "Mittenversatz des Prozesses gegen die Toleranzmitte in mm (ergibt Cpk < Cp)",
+    "Faktor": "Empfindlichkeit: wie stark das Glied auf das Schlussmaß wirkt (1 = direkt, z. B. 2 bei einem "
+              "Hebel 2:1)",
+    "Anteil": "Anteil des Glieds an der Streuung des Schlussmaßes (Varianzanteil) – hier lohnt sich Einengen",
+    "Streuung": "Verteilung des Glieds (Monte-Carlo-Werte) zwischen Mindest- und Höchstmaß (rote Linien)",
+    "Fertigung": "Fertigungsverfahren des Glieds mit erreichbarem IT-Grad (fein … grob) und Kostenfaktor – Grundlage "
+                 "der kostenoptimalen Verteilung; daneben der IT-Grad der jetzigen Toleranz",
+}
+# Erklaerung je Verfahren der Ergebnistabelle (Tooltip in der ersten Spalte)
+VERFAHREN_HILFE = {
+    "wc": "Arithmetisch (Worst Case): alle Glieder gleichzeitig an der ungünstigsten Grenze – Schlussmaß = Summe der "
+          "Nennmaße, Breite = Summe der Toleranzen. Sicher (100 %), aber bei vielen Gliedern unwirtschaftlich eng. "
+          "Gilt, solange weniger als 4 Glieder wirksam zur Streuung beitragen.",
+    "rss": "Statistisch (RSS, Root Sum Square): die Streuungen der Glieder addieren sich quadratisch – σ² = Σ "
+           "(Faktor · σᵢ)², Ergebnis Mitte ± 3σ (99,73 %). Setzt unabhängige Glieder und genug Beitragsleister "
+           "(≥ 4 wirksame) voraus; Bender-Zuschlag oder Mittenverschiebung über die Auswahl oben.",
+    "mc": "Monte Carlo: 200 000 Ketten werden aus den Verteilungen der Glieder ausgewürfelt und summiert; das "
+          "Ergebnis sind die 0,135-%- und 99,865-%-Quantile. Erfasst schiefe Verteilungen, Korrelation und "
+          "Messwerte ohne Annahme einer Normalverteilung.",
+    "temp": "Das anwendbare Verfahren bei der Grenztemperatur: jedes Glied dehnt sich um ΔL = α · L · (T − 20 °C) "
+            "mit dem Werkstoff seines Bauteils",
+    "cpk": "Cpk: Abstand der Mitte zur näheren Anforderungsgrenze in Vielfachen von 3σ (≥ 1,33 üblich gefordert)",
+    "aus": "Anteil der Monte-Carlo-Ketten außerhalb der Anforderung (ppm = Teile pro Million)",
+}
 METHODEN = (("rss", "RSS", "Varianzen addieren, Schlussmaß ±3σ"),
             ("bender", "RSS × Bender-Faktor", "Zuschlag auf das RSS (Bender 1962: 1,5) für zu optimistisch angegebene "
                                                "Toleranzen"),
@@ -51,18 +93,112 @@ class AnteilBalken(QtWidgets.QStyledItemDelegate):
         return QtCore.QSize(110, super().sizeHint(option, index).height())
 
 
+def streuung(g, cp: float, klassen: int = 24) -> tuple:
+    """Bild der Verteilung eines Glieds: (relative Hoehen je Klasse, Bereich lo/hi, Mindest-, Hoechstmass); feste
+    Zufallszahlen, damit das Bild beim Neuzeichnen nicht zittert."""
+    import numpy as np
+    werte = g.ziehe(np.random.default_rng(7), 4000, cp)
+    rand = 0.2 * (g.toleranz or 1e-3)
+    lo, hi = min(g.mindest - rand, float(werte.min())), max(g.hoechst + rand, float(werte.max()))
+    n, _ = np.histogram(werte, np.linspace(lo, hi, klassen + 1))
+    return tuple((n / (n.max() or 1)).tolist()), lo, hi, g.mindest, g.hoechst
+
+
+class StreuungsBild(QtWidgets.QStyledItemDelegate):
+    """Kleines Histogramm des Glieds mit Mindest- und Hoechstmass (rot) in der Zelle."""
+
+    def paint(self, maler, option, index):
+        super().paint(maler, option, index)
+        daten = index.data(QtCore.Qt.ItemDataRole.UserRole)
+        if not daten:
+            return
+        hoehen, lo, hi, mindest, hoechst = daten
+        r = option.rect.adjusted(6, 4, -6, -4)
+        breite = r.width() / len(hoehen)
+        farbe = option.palette.color(QtGui.QPalette.ColorRole.Highlight)
+        farbe.setAlpha(150)
+        maler.save()
+        for k, v in enumerate(hoehen):
+            h = v * r.height()
+            maler.fillRect(QtCore.QRectF(r.left() + k * breite, r.bottom() - h, breite, h), farbe)
+        maler.setPen(QtGui.QPen(QtGui.QColor("#c0392b"), 1.4))
+        for v in (mindest, hoechst):
+            x = r.left() + (v - lo) / ((hi - lo) or 1) * r.width()
+            maler.drawLine(QtCore.QPointF(x, r.top()), QtCore.QPointF(x, r.bottom()))
+        maler.restore()
+
+    def sizeHint(self, option, index):
+        return QtCore.QSize(110, 24)
+
+
 class Histogramm(QtWidgets.QWidget):
-    """Monte-Carlo-Werte des Schlussmasses als Histogramm; Linien: Worst Case (gestrichelt), Anforderung (rot).
-    Im Planspiel das Ist als Umriss dahinter."""
+    """Schlussmass nach dem gewaehlten Verfahren: Worst Case als Band (alle Werte darin moeglich, keine Verteilung),
+    statistisch als Normalverteilung (Mitte, halbe Breite = 3 sigma), Monte Carlo als Histogramm; "alle" ueberlagert
+    die drei. Linien: Worst Case (gestrichelt), Anforderung (rot, ziehbar: grenze_gezogen). Im Planspiel das Ist als
+    Umriss dahinter (Monte Carlo). Maus: Wert und Anteil darunter/darueber nach dem gezeigten Verfahren."""
+    NAMEN = {"wc": "Worst Case", "rss": "Statistisch", "mc": "Monte Carlo", "alle": "Alle überlagert"}
+    grenze_gezogen = QtCore.Signal(int, float)  # 0 untere, 1 obere Grenze; neuer Wert in mm
 
     def __init__(self, parent=None):
         super().__init__(parent)
-        self.setMinimumHeight(96)
+        self.setMinimumSize(260, 140)
+        self.setMouseTracking(True)
         self.e = self.ist = None
         self.anforderung = None
+        self.art, self.halb = "mc", 0.0  # gezeigtes Verfahren, halbe statistische Breite
+        self._maus = None  # x-Position der Maus (Pixel) fuer die Anzeige
+        self._ziehen = None  # Nummer der gezogenen Grenze
 
-    def zeige(self, e, ist=None, anforderung=None):
-        self.e, self.ist, self.anforderung = e, ist, anforderung
+    def zeige(self, e, ist=None, anforderung=None, art: str = "mc", halb: float | None = None):
+        """art: "wc", "rss", "mc" oder "alle"; halb: halbe statistische Breite (Standard: RSS)."""
+        self.e, self.ist, self.anforderung, self.art = e, ist, anforderung, art
+        self.halb = halb if halb is not None else getattr(e, "rss", 0.0)  # Messgroessen im Zusammenbau: ohne RSS
+        self.update()
+
+    def wert_bei(self, px: float) -> float:
+        lo, hi = self._bereich()
+        return lo + px / max(self.width(), 1) * (hi - lo)
+
+    def _px(self, wert: float) -> float:
+        lo, hi = self._bereich()
+        return (wert - lo) / (hi - lo) * self.width()
+
+    def anteil_unter(self, wert: float) -> float | None:
+        """Anteil kleiner als der Wert (0..1): statistisch aus der Normalverteilung, sonst aus den Monte-Carlo-Proben;
+        None beim Worst Case (dort gibt es keine Verteilung)."""
+        import math
+        import numpy as np
+        if self.e is None or self.art == "wc":
+            return None
+        if self.art == "rss":
+            s = self.halb / 3 or 1e-12
+            return 0.5 * (1 + math.erf((wert - self.e.mitte) / (s * math.sqrt(2))))
+        if self.e.proben is None or not len(self.e.proben):
+            return None
+        return float(np.mean(self.e.proben < wert))
+
+    def mousePressEvent(self, ev):
+        if self.e is None or not self.anforderung:
+            return
+        x = ev.position().x()
+        nah = min(range(2), key=lambda i: abs(self._px(self.anforderung[i]) - x))
+        if abs(self._px(self.anforderung[nah]) - x) <= 6:
+            self._ziehen = nah
+
+    def mouseMoveEvent(self, ev):
+        self._maus = ev.position().x()
+        if self._ziehen is not None and self.anforderung:
+            self.grenze_gezogen.emit(self._ziehen, round(self.wert_bei(self._maus), 4))
+        elif self.anforderung and self.e is not None:
+            nah = any(abs(self._px(v) - self._maus) <= 6 for v in self.anforderung)
+            self.setCursor(QtCore.Qt.CursorShape.SizeHorCursor if nah else QtCore.Qt.CursorShape.ArrowCursor)
+        self.update()
+
+    def mouseReleaseEvent(self, _ev):
+        self._ziehen = None
+
+    def leaveEvent(self, _ev):
+        self._maus = None
         self.update()
 
     def _bereich(self):
@@ -73,9 +209,29 @@ class Histogramm(QtWidgets.QWidget):
         rand = (hi - lo) * 0.05 or 0.01
         return lo - rand, hi + rand
 
+    def _dichten(self, kanten):
+        """Dichten je Verfahren auf den Klassen (gleicher Massstab fuer das Ueberlagern): {art: (e, Werte)}."""
+        import numpy as np
+        breite = kanten[1] - kanten[0]
+        mitten = (kanten[:-1] + kanten[1:]) / 2
+        aus = {}
+        zeigen = ("wc", "rss", "mc") if self.art == "alle" else (self.art,)
+        if "mc" in zeigen:
+            for name, e in (("ist", self.ist), ("mc", self.e)):
+                if e is not None and e.proben is not None and len(e.proben):
+                    n, _ = np.histogram(e.proben, kanten)
+                    aus[name] = n / (len(e.proben) * breite)
+        if "rss" in zeigen and self.halb > 0:
+            s = self.halb / 3
+            aus["rss"] = np.exp(-0.5 * ((mitten - self.e.mitte) / s) ** 2) / (s * np.sqrt(2 * np.pi))
+        if "wc" in zeigen and self.e.wc_max > self.e.wc_min:
+            aus["wc"] = np.where((mitten >= self.e.wc_min) & (mitten <= self.e.wc_max),
+                                 1.0 / (self.e.wc_max - self.e.wc_min), 0.0)
+        return aus
+
     def paintEvent(self, _ev):
         import numpy as np
-        if self.e is None or self.e.proben is None or not len(self.e.proben):
+        if self.e is None:
             return
         p = QtGui.QPainter(self)
         p.setRenderHint(QtGui.QPainter.RenderHint.Antialiasing)
@@ -84,24 +240,46 @@ class Histogramm(QtWidgets.QWidget):
         x = lambda v: (v - lo) / (hi - lo) * w  # noqa: E731
         kanten = np.linspace(lo, hi, 81)
         pal = self.palette()
-        for e, fuellen in ((self.ist, False), (self.e, True)):
-            if e is None or e.proben is None:
-                continue
-            n, _ = np.histogram(e.proben, kanten)
-            hoch = n.max() or 1
-            weg = QtGui.QPainterPath(QtCore.QPointF(0, h))
-            for k, c in enumerate(n):
-                y = h - c / hoch * (h - 4)
-                weg.lineTo(x(kanten[k]), y)
-                weg.lineTo(x(kanten[k + 1]), y)
-            weg.lineTo(w, h)
-            farbe = pal.color(QtGui.QPalette.ColorRole.Highlight)
-            if fuellen:
-                farbe.setAlpha(120)
-                p.fillPath(weg, farbe)
-            else:
-                p.setPen(QtGui.QPen(pal.color(QtGui.QPalette.ColorRole.Mid), 1.2))
-                p.drawPath(weg)
+        dichten = self._dichten(kanten)
+        hoch = max((float(d.max()) for d in dichten.values()), default=0.0) or 1.0
+        if self.art != "alle" and "wc" in dichten:  # Worst Case allein: Band ueber die volle Hoehe
+            hoch = float(dichten["wc"].max()) or 1.0
+
+        def weg(d):
+            pfad = QtGui.QPainterPath(QtCore.QPointF(0, h))
+            for k, c in enumerate(d):
+                y = h - c / hoch * (h - 18)
+                pfad.lineTo(x(kanten[k]), y)
+                pfad.lineTo(x(kanten[k + 1]), y)
+            pfad.lineTo(w, h)
+            return pfad
+        markiert = pal.color(QtGui.QPalette.ColorRole.Highlight)
+        if "wc" in dichten:
+            farbe = pal.color(QtGui.QPalette.ColorRole.Text)
+            farbe.setAlpha(28)
+            p.fillPath(weg(dichten["wc"]), farbe)
+        if "ist" in dichten:
+            p.setPen(QtGui.QPen(pal.color(QtGui.QPalette.ColorRole.Mid), 1.2))
+            p.drawPath(weg(dichten["ist"]))
+        if "mc" in dichten:
+            farbe = QtGui.QColor(markiert)
+            farbe.setAlpha(120)
+            p.fillPath(weg(dichten["mc"]), farbe)
+        if "rss" in dichten:
+            mitten = (kanten[:-1] + kanten[1:]) / 2
+            kurve = QtGui.QPainterPath()
+            for k, c in enumerate(dichten["rss"]):
+                punkt = QtCore.QPointF(x(mitten[k]), h - c / hoch * (h - 18))
+                kurve.moveTo(punkt) if k == 0 else kurve.lineTo(punkt)
+            if self.art == "rss":
+                flaeche = QtGui.QPainterPath(kurve)
+                flaeche.lineTo(x(mitten[-1]), h)
+                flaeche.lineTo(x(mitten[0]), h)
+                farbe = QtGui.QColor(markiert)
+                farbe.setAlpha(70)
+                p.fillPath(flaeche, farbe)
+            p.setPen(QtGui.QPen(QtGui.QColor("#1f6fd1"), 1.8))
+            p.drawPath(kurve)
         p.setPen(QtGui.QPen(pal.color(QtGui.QPalette.ColorRole.Text), 1, QtCore.Qt.PenStyle.DashLine))
         for v in (self.e.wc_min, self.e.wc_max):
             p.drawLine(QtCore.QPointF(x(v), 0), QtCore.QPointF(x(v), h))
@@ -116,7 +294,18 @@ class Histogramm(QtWidgets.QWidget):
         p.drawText(QtCore.QRectF(0, h, w, 14), QtCore.Qt.AlignmentFlag.AlignLeft, f"{lo:.3f}")
         p.drawText(QtCore.QRectF(0, h, w, 14), QtCore.Qt.AlignmentFlag.AlignRight, f"{hi:.3f}")
         p.drawText(QtCore.QRectF(0, h, w, 14), QtCore.Qt.AlignmentFlag.AlignHCenter,
-                   tr("Monte Carlo · gestrichelt: Worst Case · rot: Anforderung"))
+                   tr("{} · gestrichelt: Worst Case · rot: Anforderung (ziehbar)").format(tr(self.NAMEN[self.art])))
+        if self._maus is not None and 0 <= self._maus <= w:
+            wert = self.wert_bei(self._maus)
+            unter = self.anteil_unter(wert)
+            p.setPen(QtGui.QPen(pal.color(QtGui.QPalette.ColorRole.Text), 1, QtCore.Qt.PenStyle.DotLine))
+            p.drawLine(QtCore.QPointF(self._maus, 0), QtCore.QPointF(self._maus, h))
+            text = f"{wert:.4f} mm" if unter is None else tr("{} mm · darunter {} · darüber {}").format(
+                f"{wert:.4f}", f"{unter * 100:.2f} %", f"{(1 - unter) * 100:.2f} %")
+            breite = p.fontMetrics().horizontalAdvance(text) + 8
+            links = min(max(self._maus + 6, 0), w - breite)
+            p.setPen(pal.color(QtGui.QPalette.ColorRole.Text))
+            p.drawText(QtCore.QRectF(links, 2, breite, 16), QtCore.Qt.AlignmentFlag.AlignLeft, text)
         p.end()
 
 
@@ -239,6 +428,7 @@ class ToleranzketteFenster(QtWidgets.QDialog):
     schluss_aus_auswahl = QtCore.Signal()  # Richtungen aus dem Schlussmass (zwei Flaechen in der 3D-Auswahl)
     oeffnen = QtCore.Signal()  # Kettendatei oeffnen (Hauptfenster laedt ggf. das Modell)
     strecke_zeigen = QtCore.Signal(object)  # Glied beim Ablaufen (Glied) oder None
+    bild_zeigen = QtCore.Signal(object)  # ganze Kette im 3D: (Glieder, Text des Schlussmasses, Ist-Glieder) oder None
 
     ERGEBNIS_ZEILEN = (("wc", "Arithmetisch (Worst Case)"), ("rss", "Statistisch (RSS, ±3σ)"),
                        ("mc", "Monte Carlo (99,73 %)"))
@@ -246,11 +436,12 @@ class ToleranzketteFenster(QtWidgets.QDialog):
     def __init__(self, parent=None):
         super().__init__(parent)
         self.setWindowTitle(tr("Toleranzkette"))
-        self.resize(1000, 640)
+        self.resize(1150, 760)
         self.glieder: list[tk.Glied] = []
         self._ist: list[tk.Glied] | None = None  # Planspiel: Kopie der echten Kette
         self._ist_cp = 1.0
         self.e_ist = None
+        self.kosten_hinweis = ""  # Ergebnis der kostenoptimalen Verteilung (im Planspiel)
         self.szenarien: dict[str, tuple[float, list]] = {}  # gemerkte Planspiele: Name -> (Cp, Glieder)
         self.werkstoffe: dict = {}  # Bauteil -> {"name": Werkstoff, "alpha": 1e-6/K}
         self.teil_von = lambda flaechen: ""  # Bauteil zu Flaechen (setzt das Hauptfenster)
@@ -268,8 +459,10 @@ class ToleranzketteFenster(QtWidgets.QDialog):
         self.plan_leiste = self._baue_planleiste()
         self._szenarien_liste()
         lay.addWidget(self.plan_leiste)
-        self.tabelle = QtWidgets.QTableWidget(0, len(tk.SPALTEN))
-        self.tabelle.setHorizontalHeaderLabels([tr(s) for s in tk.SPALTEN])
+        self.tabelle = QtWidgets.QTableWidget(0, len(tk.SPALTEN) + 2)
+        self.tabelle.setHorizontalHeaderLabels([tr(s) for s in tk.SPALTEN] + [tr("Streuung"), tr("Fertigung")])
+        for i, name in enumerate(tk.SPALTEN + ("Streuung", "Fertigung")):
+            self.tabelle.horizontalHeaderItem(i).setToolTip(tr(SPALTEN_HILFE[name]))
         self.tabelle.verticalHeader().setVisible(False)
         self.tabelle.setSelectionBehavior(QtWidgets.QAbstractItemView.SelectionBehavior.SelectRows)
         self.tabelle.setEditTriggers(QtWidgets.QAbstractItemView.EditTrigger.NoEditTriggers)
@@ -277,27 +470,61 @@ class ToleranzketteFenster(QtWidgets.QDialog):
         self.tabelle.cellDoubleClicked.connect(self._doppelklick)
         self.tabelle.itemChanged.connect(self._wert_geaendert)
         self.tabelle.setItemDelegateForColumn(SP_ANTEIL, AnteilBalken(self.tabelle))
+        self.tabelle.setItemDelegateForColumn(SP_STREUUNG, StreuungsBild(self.tabelle))
         kopf = self.tabelle.horizontalHeader()
         kopf.setSectionResizeMode(QtWidgets.QHeaderView.ResizeMode.ResizeToContents)
         kopf.setSectionResizeMode(0, QtWidgets.QHeaderView.ResizeMode.Stretch)  # lange Namen ohne Querlauf
-        lay.addWidget(self.tabelle, 3)
         self.tabelle.setContextMenuPolicy(QtCore.Qt.ContextMenuPolicy.CustomContextMenu)
         self.tabelle.customContextMenuRequested.connect(self._kontextmenue)
-        lay.addLayout(self._baue_anforderung())
-        lay.addLayout(self._baue_temperatur())
+        # Glieder oben, Ergebnis unten; der Teiler laesst sich ziehen
+        self.teiler = QtWidgets.QSplitter(QtCore.Qt.Orientation.Vertical)
+        self.teiler.setChildrenCollapsible(False)
+        self.teiler.addWidget(self.tabelle)
+        unten = self._unten = QtWidgets.QWidget()
+        unten_lay = QtWidgets.QVBoxLayout(unten)
+        unten_lay.setContentsMargins(0, 0, 0, 0)
+        unten_lay.addLayout(self._baue_anforderung())
+        unten_lay.addLayout(self._baue_temperatur())
         self.ergebnisse = QtWidgets.QTableWidget(0, 0)
         self.ergebnisse.verticalHeader().setVisible(False)
         self.ergebnisse.setEditTriggers(QtWidgets.QAbstractItemView.EditTrigger.NoEditTriggers)
         self.ergebnisse.setSelectionMode(QtWidgets.QAbstractItemView.SelectionMode.NoSelection)
         self.ergebnisse.horizontalHeader().setStretchLastSection(False)
-        lay.addWidget(self.ergebnisse)
+        self.ergebnisse.setToolTip(tr("Zeile anklicken: das Histogramm zeigt dieses Verfahren (erneut klicken: wieder "
+                                      "das anwendbare mit ✓)"))
+        self.ergebnisse.cellClicked.connect(self._verfahren_gewaehlt)
+        self.hist_art = None  # None: das anwendbare Verfahren (✓) zeigen
+        self.ergebnisse.setSizePolicy(QtWidgets.QSizePolicy.Policy.Fixed, QtWidgets.QSizePolicy.Policy.Fixed)
         self.ergebnis = QtWidgets.QLabel("")  # Schlussmass und Begruendung des anwendbaren Verfahrens
         self.ergebnis.setWordWrap(True)
         self.ergebnis.setTextInteractionFlags(QtCore.Qt.TextInteractionFlag.TextSelectableByMouse)
         self.ergebnis.setTextFormat(QtCore.Qt.TextFormat.RichText)
-        lay.addWidget(self.ergebnis)
-        self.histogramm = Histogramm()
-        lay.addWidget(self.histogramm, 1)
+        self.histogramm = Histogramm()  # rechts neben der Ergebnistabelle
+        self.histogramm.grenze_gezogen.connect(self._grenze_gezogen)
+        self.ampel = QtWidgets.QLabel("")  # Anforderung eingehalten? gruen / gelb / rot mit Begruendung
+        self.ampel.setWordWrap(True)
+        self.ampel.setMaximumWidth(520)
+        self.ampel.setTextFormat(QtCore.Qt.TextFormat.RichText)
+        self.alle_ueberlagern = QtWidgets.QCheckBox(tr("Alle Verfahren im Histogramm überlagern"))
+        self.alle_ueberlagern.setToolTip(tr("Worst Case als Band, statistisch als Kurve, Monte Carlo als Histogramm"))
+        self.alle_ueberlagern.toggled.connect(lambda _an: self._zeige_histogramm())
+        links = QtWidgets.QVBoxLayout()
+        links.addWidget(self.ampel)
+        links.addWidget(self.ergebnisse)
+        links.addStretch(1)
+        rechts = QtWidgets.QVBoxLayout()
+        rechts.addWidget(self.histogramm, 1)
+        rechts.addWidget(self.alle_ueberlagern)
+        nebeneinander = QtWidgets.QHBoxLayout()
+        nebeneinander.addLayout(links)
+        nebeneinander.addLayout(rechts, 1)
+        unten_lay.addLayout(nebeneinander, 1)
+        unten_lay.addWidget(self.ergebnis)
+        unten_lay.addLayout(self._baue_freigabe())
+        self.teiler.addWidget(unten)
+        self.teiler.setStretchFactor(0, 3)
+        self.teiler.setStretchFactor(1, 2)
+        lay.addWidget(self.teiler, 1)
         knoepfe = QtWidgets.QDialogButtonBox(QtWidgets.QDialogButtonBox.StandardButton.Close)
         self.kette_oeffnen = knoepfe.addButton(tr("Kette öffnen …"), QtWidgets.QDialogButtonBox.ButtonRole.ActionRole)
         self.kette_oeffnen.setToolTip(tr("Gespeicherte Kette (.3dgkette) laden, auch mit ihrem Modell"))
@@ -308,7 +535,9 @@ class ToleranzketteFenster(QtWidgets.QDialog):
                                            "weiterzuarbeiten"))
         self.kette_speichern.clicked.connect(lambda: self.speichere_kette())
         self.export = knoepfe.addButton(tr("Als CSV speichern …"), QtWidgets.QDialogButtonBox.ButtonRole.ActionRole)
+        self.export.setToolTip(tr("Glieder und Ergebnisse als Tabelle (CSV) speichern"))
         self.pdf = knoepfe.addButton(tr("PDF-Bericht …"), QtWidgets.QDialogButtonBox.ButtonRole.ActionRole)
+        self.pdf.setToolTip(tr("Bericht mit Bild der Kette, Ergebnis, Bewertung, Freigabe und Histogramm als PDF"))
         knoepfe.rejected.connect(self.reject)
         lay.addWidget(knoepfe)
         self.export.clicked.connect(lambda: self.speichere())
@@ -319,12 +548,20 @@ class ToleranzketteFenster(QtWidgets.QDialog):
     def _baue_eingaben(self):
         reihe = QtWidgets.QHBoxLayout()
         self.plus = QtWidgets.QPushButton(tr("＋ Gewählte Maße (+)"))
+        self.plus.setToolTip(tr("In der PMI-Liste gewählte Maße als Glieder anhängen, die das Schlussmaß vergrößern"))
         self.minus = QtWidgets.QPushButton(tr("＋ Gewählte Maße (−)"))
+        self.minus.setToolTip(tr("In der PMI-Liste gewählte Maße als Glieder anhängen, die das Schlussmaß verkleinern"))
         self.auswahl = QtWidgets.QPushButton(tr("＋ Aus 3D-Auswahl"))
         self.auswahl.setToolTip(tr("Flächen in Kettenreihenfolge: je zwei aufeinanderfolgende bilden ein Glied"))
         self.drehen = QtWidgets.QPushButton(tr("Richtung umkehren"))
         self.drehen.setToolTip(tr("Gewählte Glieder umkehren (auch per Doppelklick auf die Richtung)"))
-        self.weg = QtWidgets.QPushButton(tr("Entfernen"))
+        self.weg = QtWidgets.QPushButton(tr("－ Entfernen"))
+        self.weg.setToolTip(tr("Gewählte Glieder aus der Kette entfernen"))
+        self.neu_glied = QtWidgets.QPushButton(tr("＋ Glied"))
+        self.neu_glied.setToolTip(tr("Leeres Glied anhängen, um die Kette von Hand aufzubauen (auch ohne Modell): Name, "
+                                     "Nennmaß, Höchst- und Mindestmaß per Doppelklick eintragen, Richtung per "
+                                     "Doppelklick umkehren"))
+        self.neu_glied.clicked.connect(lambda: self.neues_glied())
         self.bereich = QtWidgets.QPushButton(tr("＋ Längenbereich …"))
         self.bereich.setToolTip(tr("Feder, Passscheibe oder Stellschraube als Glied zwischen kleinster und größter "
                                    "Länge"))
@@ -340,7 +577,14 @@ class ToleranzketteFenster(QtWidgets.QDialog):
         self._ablauf_uhr = QtCore.QTimer(self)
         self._ablauf_uhr.setInterval(900)
         self._ablauf_uhr.timeout.connect(self._ablauf_schritt)
-        for k in (self.plus, self.minus, self.auswahl, self.bereich, self.drehen, self.weg, self.schluss, self.ablauf):
+        self.bild3d = QtWidgets.QPushButton(tr("Kette im 3D"))
+        self.bild3d.setCheckable(True)
+        self.bild3d.setToolTip(tr("Alle Glieder als Pfeile mit Maß und Toleranz im Modell: Maße grün (+) und rot (−), "
+                                  "Lagetoleranzen violett, Längenbereiche orange, Schlussmaß blau; im Planspiel "
+                                  "geänderte Glieder zusätzlich grau mit dem Ist-Wert"))
+        self.bild3d.toggled.connect(lambda _an: self._bild_senden())
+        for k in (self.neu_glied, self.plus, self.minus, self.auswahl, self.bereich, self.drehen, self.weg, self.schluss, self.ablauf,
+                  self.bild3d):
             reihe.addWidget(k)
         self.drehen.clicked.connect(self._drehen)
         self.weg.clicked.connect(self._entfernen)
@@ -352,6 +596,8 @@ class ToleranzketteFenster(QtWidgets.QDialog):
         reihe.addStretch(1)
         reihe.addWidget(QtWidgets.QLabel(tr("Prozessfähigkeit Cp")))
         self.cp = QtWidgets.QDoubleSpinBox()
+        self.cp.setToolTip(tr("Prozessfähigkeit der Kette: normalverteilte Glieder streuen mit σ = T / (6 · Cp); 1,33 "
+                              "übliche Serie, 1,0 gerade fähig"))
         self.cp.setRange(0.5, 3.0)
         self.cp.setSingleStep(0.1)
         self.cp.setDecimals(2)
@@ -366,6 +612,8 @@ class ToleranzketteFenster(QtWidgets.QDialog):
             self.methode.setItemData(self.methode.count() - 1, tr(tipp), QtCore.Qt.ItemDataRole.ToolTipRole)
         self.methode.setToolTip(tr("Statistisches Verfahren für das Schlussmaß"))
         self.methode_wert = QtWidgets.QDoubleSpinBox()
+        self.methode_wert.setToolTip(tr("Bender-Faktor (× auf das RSS) bzw. Anteil m der halben Toleranz, um den jede "
+                                        "Mitte wandern darf"))
         self.methode_wert.setDecimals(2)
         self.methode_wert.setSingleStep(0.05)
         self.methode.currentIndexChanged.connect(self._methode_gewaehlt)
@@ -421,6 +669,8 @@ class ToleranzketteFenster(QtWidgets.QDialog):
         self.anforderung = QtWidgets.QCheckBox(tr("Anforderung an das Schlussmaß"))
         self.anforderung.setToolTip(tr("Grenzen des Schlussmaßes (z. B. Spalt): Cp, Cpk und Anteil außerhalb"))
         self.unten, self.oben = QtWidgets.QDoubleSpinBox(), QtWidgets.QDoubleSpinBox()
+        self.unten.setToolTip(tr("Untere und obere Grenze des Schlussmaßes (auch im Histogramm ziehbar)"))
+        self.oben.setToolTip(self.unten.toolTip())
         for k in (self.unten, self.oben):
             k.setRange(-100000.0, 100000.0)
             k.setDecimals(3)
@@ -435,12 +685,139 @@ class ToleranzketteFenster(QtWidgets.QDialog):
         reihe.addStretch(1)
         return reihe
 
+    def _ampel_hoehe(self):
+        """Feste Hoehe der umbrechenden Ampelzeile, damit das Layout sie einrechnet (sonst ueberlappt der Text
+        darunter die Ergebnistabelle)."""
+        breite = min(self.ampel.maximumWidth(), max(self.ergebnisse.width(), 320))
+        self.ampel.setFixedWidth(breite)
+        self.ampel.setFixedHeight(self.ampel.heightForWidth(breite) if self.ampel.text() else 0)
+
+    def _unten_hoehe(self):
+        """Ergebnisbereich nicht kleiner als sein Inhalt (feste Ergebnistabelle samt Ampel), sonst ueberlappt er."""
+        self._unten.layout().activate()
+        noetig = self._unten.layout().minimumSize().height()
+        self._unten.setMinimumHeight(noetig)
+        oben, unten = self.teiler.sizes()
+        if unten < noetig:  # Teiler nach oben schieben, die Glieder behalten den Rest
+            self.teiler.setSizes([max(oben + unten - noetig, 80), noetig])
+
+    def _baue_freigabe(self):
+        """Manuelle Freigabe: Kette als in Ordnung und geprueft markieren, unabhaengig vom Ergebnis, mit Kommentar."""
+        reihe = QtWidgets.QHBoxLayout()
+        self.geprueft = QtWidgets.QCheckBox(tr("Kette i. O. / geprüft"))
+        self.geprueft.setToolTip(tr("Manuelle Freigabe, auch abweichend vom Ergebnis (z. B. Funktion im Versuch "
+                                    "nachgewiesen) – mit Name, Datum und Kommentar im Bericht und in der Kettendatei"))
+        self.pruefer = QtWidgets.QLineEdit()
+        self.pruefer.setToolTip(tr("Name der Person, die die Kette freigibt"))
+        self.pruefer.setPlaceholderText(tr("Name"))
+        self.pruefer.setMaximumWidth(160)
+        self.pruef_kommentar = QtWidgets.QLineEdit()
+        self.pruef_kommentar.setToolTip(tr("Begründung der Freigabe, z. B. Versuch, Erfahrung, Abstimmung – erscheint "
+                                           "im Bericht"))
+        self.pruef_kommentar.setPlaceholderText(tr("Kommentar zur Freigabe"))
+        self.pruef_datum = QtWidgets.QLabel("")
+        self.pruef_datum.setObjectName("leise")
+        self.geprueft.toggled.connect(self._freigabe_umgeschaltet)
+        for w in (self.geprueft, self.pruefer, self.pruef_kommentar, self.pruef_datum):
+            reihe.addWidget(w, 1 if w is self.pruef_kommentar else 0)
+        return reihe
+
+    def _freigabe_umgeschaltet(self, an: bool):
+        import datetime
+        import getpass
+        if an:
+            if not self.pruefer.text():
+                try:
+                    self.pruefer.setText(getpass.getuser())
+                except Exception:  # noqa: BLE001 - ohne Benutzername bleibt das Feld leer
+                    pass
+            self.pruef_datum.setText(datetime.date.today().isoformat())
+        else:
+            self.pruef_datum.setText("")
+        self._zeige_ampel()
+
+    @property
+    def freigabe(self) -> dict:
+        """Manuelle Freigabe fuer Datei und Bericht ({} ohne Freigabe und Kommentar)."""
+        if not self.geprueft.isChecked() and not self.pruef_kommentar.text():
+            return {}
+        return {"geprueft": self.geprueft.isChecked(), "name": self.pruefer.text(),
+                "datum": self.pruef_datum.text(), "kommentar": self.pruef_kommentar.text()}
+
+    def setze_freigabe(self, f: dict):
+        self.geprueft.blockSignals(True)
+        self.geprueft.setChecked(bool(f.get("geprueft")))
+        self.geprueft.blockSignals(False)
+        self.pruefer.setText(f.get("name", ""))
+        self.pruef_kommentar.setText(f.get("kommentar", ""))
+        self.pruef_datum.setText(f.get("datum", ""))
+        self._zeige_ampel()
+
+    def bewertung(self) -> tuple[str, str]:
+        """Ampel der Anforderung nach dem anwendbaren Verfahren (kern.toleranzkette.bewertung)."""
+        e = getattr(self, "e", None)
+        if e is None or not self.glieder:
+            return "", ""
+        return tk.bewertung(e, self.anforderung_werte(), self._werte(e, "rss" if e.statistisch else "wc"))
+
+    AMPEL_FARBEN = {"gruen": "#2e9e48", "gelb": "#e0a800", "rot": "#c0392b"}
+
+    def _zeige_ampel(self):
+        stufe, text = self.bewertung()
+        teile = []
+        if stufe:
+            teile.append(f"<span style='color:{self.AMPEL_FARBEN[stufe]}; font-size:16px'>●</span> "
+                         f"{html.escape(text)}")
+        f = self.freigabe
+        if f.get("geprueft"):
+            teile.append("✔ " + html.escape(tr("manuell freigegeben: {} {}").format(f["name"], f["datum"]).strip()
+                                            + (" – " + f["kommentar"] if f["kommentar"] else "")))
+        self.ampel.setText("<br>".join(teile))
+        self.ampel.setVisible(bool(teile))
+        self._ampel_hoehe()
+        QtCore.QTimer.singleShot(0, self._unten_hoehe)
+
+    def _verfahren_gewaehlt(self, zeile: int, _spalte: int):
+        """Zeile der Ergebnistabelle: Histogramm auf dieses Verfahren (nochmals: zurueck zum anwendbaren)."""
+        arten = [a for a, _ in self.ERGEBNIS_ZEILEN]
+        if zeile >= len(arten):
+            return
+        art = arten[zeile]
+        self.hist_art = None if self.hist_art == art else art
+        self.alle_ueberlagern.setChecked(False)
+        self._zeige_histogramm()
+
+    def histogramm_art(self) -> str:
+        """Gezeigtes Verfahren: "alle", die angeklickte Zeile oder das anwendbare (✓)."""
+        if self.alle_ueberlagern.isChecked():
+            return "alle"
+        if self.hist_art:
+            return self.hist_art
+        return "rss" if self.e.statistisch else "wc"
+
+    def _zeige_histogramm(self):
+        e = getattr(self, "e", None)
+        if e is None or not self.glieder:
+            self.histogramm.zeige(None)
+            return
+        lo, hi = self._werte(e, "rss")
+        self.histogramm.zeige(e, self.e_ist, self.anforderung_werte(), self.histogramm_art(), (hi - lo) / 2)
+        art = self.histogramm_art()
+        for z, (a, _) in enumerate(self.ERGEBNIS_ZEILEN):  # gezeigte Zeile markieren
+            for s in range(self.ergebnisse.columnCount()):
+                it = self.ergebnisse.item(z, s)
+                if it is not None:
+                    it.setBackground(self.palette().color(QtGui.QPalette.ColorRole.AlternateBase)
+                                     if a == art else QtGui.QBrush())
+
     def _baue_temperatur(self):
         reihe = QtWidgets.QHBoxLayout()
         self.waerme = QtWidgets.QCheckBox(tr("Wärmeausdehnung bei"))
         self.waerme.setToolTip(tr("Schlussmaß zusätzlich bei zwei Grenztemperaturen: ΔL = α · L · (T − 20 °C) je "
                                   "Glied mit dem Werkstoff seines Bauteils"))
         self.t1, self.t2 = QtWidgets.QDoubleSpinBox(), QtWidgets.QDoubleSpinBox()
+        self.t1.setToolTip(tr("Grenztemperaturen (z. B. Kaltstart und Betrieb); Bezug ist 20 °C nach ISO 1"))
+        self.t2.setToolTip(self.t1.toolTip())
         for k, w in ((self.t1, -20.0), (self.t2, 80.0)):
             k.setRange(-273.0, 1000.0)
             k.setDecimals(1)
@@ -450,6 +827,7 @@ class ToleranzketteFenster(QtWidgets.QDialog):
             k.valueChanged.connect(self._rechne)
         self.waerme.toggled.connect(lambda an: (self.t1.setEnabled(an), self.t2.setEnabled(an), self._rechne()))
         self.werkstoff_knopf = QtWidgets.QPushButton(tr("Werkstoffe …"))
+        self.werkstoff_knopf.setToolTip(tr("Werkstoff und Ausdehnungskoeffizient je Bauteil, auch eigene Temperaturen"))
         self.werkstoff_knopf.clicked.connect(lambda: WerkstoffDialog(self, self).open())
         reihe.addWidget(self.waerme)
         reihe.addWidget(self.t1)
@@ -475,10 +853,18 @@ class ToleranzketteFenster(QtWidgets.QDialog):
         self._rechne()
 
     def verteile(self, ziel: float, art: str = "varianz", statistisch: bool = True) -> bool:
-        """Im Planspiel die nicht festen Toleranzen auf die Zielbreite des Schlussmasses verteilen."""
+        """Im Planspiel die nicht festen Toleranzen auf die Zielbreite des Schlussmasses verteilen; art "kosten":
+        kostenoptimal nach den Fertigungsverfahren der Glieder (Ergebnis und Kosten in der Statuszeile)."""
         if not self.im_planspiel:
             self.starte_planspiel()
-        neu = tk.verteile_toleranzen(self.glieder, ziel, art, statistisch, self.cp.value())
+        self.kosten_hinweis = ""
+        if art == "kosten":
+            v = tk.verteile_kostenoptimal(self.glieder, ziel, statistisch, self.cp.value())
+            neu = v.glieder
+            self.kosten_hinweis = " ".join([tr("Fertigungskosten (relativ) {:.2f} → {:.2f}").format(
+                v.kosten_vorher, v.kosten_nachher)] + v.hinweise)
+        else:
+            neu = tk.verteile_toleranzen(self.glieder, ziel, art, statistisch, self.cp.value())
         if all(a.toleranz == b.toleranz for a, b in zip(neu, self.glieder)):
             return False
         self.glieder = neu
@@ -498,10 +884,16 @@ class ToleranzketteFenster(QtWidgets.QDialog):
         art = QtWidgets.QComboBox()
         art.addItem(tr("Gleiche Varianz je Glied (angleichen)"), "varianz")
         art.addItem(tr("Proportional zu den jetzigen Toleranzen"), "proportional")
+        art.addItem(tr("Kostenoptimal nach Fertigungsverfahren"), "kosten")
+        art.setToolTip(tr("Angleichen: jedes Glied gleicher Varianzanteil; proportional: alle mit demselben Faktor; "
+                          "kostenoptimal: geringste Fertigungskosten – billige Verfahren bekommen weite, teure enge "
+                          "Toleranzen, je Glied zwischen feinstem und grobem IT-Grad seines Verfahrens"))
+        ziel.setToolTip(tr("Gewünschte Breite des Schlussmaßes (Vorgabe: Breite der Anforderung)"))
         basis = QtWidgets.QComboBox()
         basis.addItem(tr("Statistisch (±3σ)"), True)
         basis.addItem(tr("Arithmetisch (Worst Case)"), False)
         basis.setCurrentIndex(0 if self.e.statistisch else 1)
+        basis.setToolTip(tr("Ziel als ±3σ (statistisch) oder als Summe der Toleranzen (Worst Case)"))
         for text, w in ((tr("Zielbreite des Schlussmaßes"), ziel), (tr("Verfahren"), art), (tr("Grundlage"), basis)):
             form.addRow(text, w)
         hinweis = QtWidgets.QLabel(tr("Feste Glieder (Rechtsklick) bleiben; das Ergebnis erscheint im Planspiel."))
@@ -667,6 +1059,7 @@ class ToleranzketteFenster(QtWidgets.QDialog):
             self._ablauf_uhr.stop()
             self.tabelle.clearSelection()
             self.strecke_zeigen.emit(None)
+            self._bild_senden()
 
     def _ablauf_schritt(self):
         """Naechstes Glied waehlen (hebt seine Flaechen hervor) und Richtung und Wert nennen."""
@@ -680,13 +1073,28 @@ class ToleranzketteFenster(QtWidgets.QDialog):
         self.ergebnis.setText(html.escape(tr("Glied {} von {}: {} {} – {}").format(
             self._ablauf_nr + 1, len(self.glieder), "+" if g.richtung > 0 else "−", _z(abs(g.nenn)), g.name)))
 
+    def schluss_text(self) -> str:
+        """Beschriftung des Schlussmasses im 3D: Nennmass, Worst Case und statistisches Ergebnis."""
+        e = self.e
+        return tr("Schlussmaß {}  WC {} … {}  RSS ±{}").format(_z(e.nenn), _z(e.wc_min), _z(e.wc_max), _z(e.rss))
+
+    def _bild_senden(self):
+        """Kettenbild an die 3D-Ansicht (nur wenn eingeschaltet und die Kette nicht gerade abgelaufen wird)."""
+        if self.ablauf.isChecked():
+            return
+        if self.bild3d.isChecked() and self.glieder and getattr(self, "e", None) is not None:
+            self.bild_zeigen.emit((list(self.glieder), self.schluss_text(), self._ist if self.im_planspiel else None))
+        else:
+            self.bild_zeigen.emit(None)
+
     # --- Datei ---
 
     def als_datei(self):
         from ..kern import kette_datei
         glieder, cp = (self._ist, self._ist_cp) if self.im_planspiel else (self.glieder, self.cp.value())
         return kette_datei.KettenDatei(glieder, cp, self.anforderung_werte(), self.temperaturen(),
-                                       dict(self.werkstoffe), self.modell_pfad, szenarien=dict(self.szenarien))
+                                       dict(self.werkstoffe), self.modell_pfad, szenarien=dict(self.szenarien),
+                                       freigabe=self.freigabe)
 
     def lade_datei(self, k):
         """Kettendatei uebernehmen (Glieder, Cp, Anforderung, Temperaturen, Werkstoffe)."""
@@ -709,6 +1117,7 @@ class ToleranzketteFenster(QtWidgets.QDialog):
         self.glieder = list(k.glieder)
         self.szenarien = dict(k.szenarien)
         self._szenarien_liste()
+        self.setze_freigabe(k.freigabe)
         self._fuelle()
 
     def speichere_kette(self, pfad: str = "") -> str | None:
@@ -731,6 +1140,7 @@ class ToleranzketteFenster(QtWidgets.QDialog):
         self.glieder = []
         self.szenarien = {}
         self._szenarien_liste()
+        self.setze_freigabe({})
         self._fuelle()
 
     def ergaenze(self, glieder: list):
@@ -791,6 +1201,7 @@ class ToleranzketteFenster(QtWidgets.QDialog):
             self.cp.blockSignals(False)
         self._ist = None
         self.e_ist = None
+        self.kosten_hinweis = ""
         self.plan_leiste.hide()
         self._fuelle()
 
@@ -876,10 +1287,29 @@ class ToleranzketteFenster(QtWidgets.QDialog):
     def _ist_glied(self, z: int):
         return self._ist[z] if self.im_planspiel and z < len(self._ist) else None
 
+    def neues_glied(self, name: str = "", nenn: float = 10.0, oben: float = 0.1, unten: float = -0.1,
+                    richtung: int = 1):
+        """Glied von Hand anhaengen (eigene Angabe); die neue Zeile wird gewaehlt und der Name bearbeitet."""
+        self.glieder.append(tk.Glied(name or tr("Glied {}").format(len(self.glieder) + 1), nenn, nenn + oben,
+                                     nenn + unten, richtung, quelle="eigen"))
+        self._fuelle()
+        z = len(self.glieder) - 1
+        self.tabelle.selectRow(z)
+        if self.isVisible():
+            self.tabelle.editItem(self.tabelle.item(z, 0))
+        return self.glieder[-1]
+
     def _wert_geaendert(self, it):
-        """Planspiel: Nennmass, Grenzen oder Toleranz in der Tabelle geaendert (Toleranz: symmetrisch zur Mitte)."""
+        """Name, Nennmass, Grenzen oder Toleranz in der Tabelle geaendert (Toleranz: symmetrisch zur Mitte); im
+        Planspiel alle Glieder, sonst nur von Hand angelegte."""
         z, s = it.row(), it.column()
-        if not self.im_planspiel or z >= len(self.glieder) or s not in (SP_NENN, SP_HOCH, SP_MIN, SP_TOL):
+        if z >= len(self.glieder) or s not in (0, SP_NENN, SP_HOCH, SP_MIN, SP_TOL):
+            return
+        if not self.im_planspiel and self.glieder[z].quelle not in ("eigen", "ohne"):
+            return
+        if s == 0:  # Name (ohne die angehaengten Marken)
+            self.glieder[z].name = it.text().split("  [")[0].strip() or self.glieder[z].name
+            QtCore.QTimer.singleShot(0, self._fuelle)
             return
         try:
             wert = float(it.text().replace(",", ".").replace("±", ""))
@@ -923,14 +1353,16 @@ class ToleranzketteFenster(QtWidgets.QDialog):
     def _fuelle(self):
         t = self.tabelle
         t.blockSignals(True)
-        t.setEditTriggers(QtWidgets.QAbstractItemView.EditTrigger.DoubleClicked if self.im_planspiel
-                          else QtWidgets.QAbstractItemView.EditTrigger.NoEditTriggers)
+        t.setEditTriggers(QtWidgets.QAbstractItemView.EditTrigger.DoubleClicked |
+                          QtWidgets.QAbstractItemView.EditTrigger.EditKeyPressed)  # welche Zelle: aenderbar unten
         t.setRowCount(len(self.glieder))
         for z, g in enumerate(self.glieder):
             ist = self._ist_glied(z)
             vorher = None if ist is None else self._texte(ist)
             for s, w in enumerate(self._texte(g)):
-                aenderbar = s in (SP_HOCH, SP_MIN, SP_TOL) or (s == SP_NENN and g.quelle != "lage")
+                von_hand = g.quelle in ("eigen", "ohne")  # von Hand angelegt: immer bearbeitbar, auch der Name
+                aenderbar = (self.im_planspiel or von_hand) and (
+                    s in (SP_HOCH, SP_MIN, SP_TOL) or (s == SP_NENN and g.quelle != "lage") or (s == 0 and von_hand))
                 self._zelle(z, s, w, None if vorher is None else vorher[s], aenderbar)
             t.item(z, SP_RICHTUNG).setTextAlignment(QtCore.Qt.AlignmentFlag.AlignCenter)
             if vorher is None or vorher[SP_RICHTUNG] == self._texte(g)[SP_RICHTUNG]:
@@ -945,8 +1377,34 @@ class ToleranzketteFenster(QtWidgets.QDialog):
                 t.item(z, 0).setToolTip(tr("Bauteil: {}").format(g.teil))
             self._widgets(z, g, ist)
             self._zelle(z, SP_ANTEIL, "", None, False)
+            self._zelle(z, SP_STREUUNG, "", None, False)
+            self._fertigung(z, g, ist)
+            for s, name in enumerate(tk.SPALTEN + ("Streuung",)):  # Erklaerung je Zelle (eigene Hinweise gehen vor)
+                it = t.item(z, s)
+                if it is not None and not it.toolTip():
+                    it.setToolTip(tr(SPALTEN_HILFE[name]))
         t.blockSignals(False)
         self._rechne()
+
+    def _fertigung(self, z: int, g, ist):
+        """Auswahl des Fertigungsverfahrens mit dem IT-Grad der jetzigen Toleranz (nicht bei Lagetoleranzen)."""
+        from ..kern import fertigung as fe
+        if g.quelle == "lage":
+            self._zelle(z, SP_FERTIGUNG, "–", None, False)
+            return
+        w = QtWidgets.QComboBox()
+        for schluessel, v in fe.VERFAHREN.items():
+            text = tr(v.name) if not v.kosten else f"{tr(v.name)} (IT{v.it_fein}–{v.it_grob})"
+            w.addItem(text, schluessel)
+        w.setCurrentIndex(max(0, w.findData(g.verfahren or fe.STANDARD)))
+        grad = fe.it_grad(g.toleranz, g.nenn) if g.nenn else None
+        w.setToolTip(tr(SPALTEN_HILFE["Fertigung"]) + ("\n" + tr("Jetzige Toleranz: IT{}").format(grad) if grad else ""))
+        if ist is not None and (ist.verfahren or fe.STANDARD) != (g.verfahren or fe.STANDARD):
+            schrift = w.font()
+            schrift.setBold(True)
+            w.setFont(schrift)
+        w.currentIndexChanged.connect(lambda _i, g=g, w=w: self._setze(g, "verfahren", w.currentData()))
+        self.tabelle.setCellWidget(z, SP_FERTIGUNG, w)
 
     def _widgets(self, z: int, g, ist):
         """Verteilung, Cp bzw. Trapezform und Versatz als Eingabefelder; im Planspiel geaenderte fett."""
@@ -1042,6 +1500,10 @@ class ToleranzketteFenster(QtWidgets.QDialog):
                 k.blockSignals(False)
         self._rechne()
 
+    def _grenze_gezogen(self, nr: int, wert: float):
+        """Anforderungsgrenze im Histogramm gezogen: untere (0) oder obere (1) Grenze uebernehmen."""
+        (self.unten if nr == 0 else self.oben).setValue(wert)
+
     def anforderung_werte(self):
         return (self.unten.value(), self.oben.value()) if self.anforderung.isChecked() else None
 
@@ -1059,8 +1521,14 @@ class ToleranzketteFenster(QtWidgets.QDialog):
             it = self.tabelle.item(z, SP_ANTEIL)
             if it is not None:
                 it.setData(QtCore.Qt.ItemDataRole.UserRole, anteil)
+        for z, g in enumerate(self.glieder):
+            it = self.tabelle.item(z, SP_STREUUNG)
+            if it is not None:
+                it.setData(QtCore.Qt.ItemDataRole.UserRole, streuung(g, self.cp.value()))
         self._zeige_ergebnis()
-        self.histogramm.zeige(self.e if self.glieder else None, self.e_ist, anforderung)
+        self._zeige_histogramm()
+        self._zeige_ampel()
+        self._bild_senden()
         for k in (self.export, self.pdf):
             k.setEnabled(bool(self.glieder))
         self.plan_knopf.setEnabled(bool(self.glieder) and not self.im_planspiel)
@@ -1128,15 +1596,23 @@ class ToleranzketteFenster(QtWidgets.QDialog):
         t.setColumnCount(len(koepfe))
         t.setHorizontalHeaderLabels(koepfe)
         t.setRowCount(len(zeilen))
+        hilfe = [VERFAHREN_HILFE[a] for a, _ in self.ERGEBNIS_ZEILEN] + [VERFAHREN_HILFE["temp"]] * len(self.e_temp)
+        if self.e.cp is not None:
+            hilfe += [VERFAHREN_HILFE["cpk"], VERFAHREN_HILFE["aus"]]
         for z, (zellen, fett) in enumerate(zeilen):
             for s, w in enumerate(zellen):
                 it = QtWidgets.QTableWidgetItem(w)
+                if z < len(hilfe):
+                    it.setToolTip(tr(hilfe[z]) + ("\n\n" + tr("Klick: im Histogramm zeigen") if z < 3 else ""))
                 if fett:
                     schrift = it.font()
                     schrift.setBold(True)
                     it.setFont(schrift)
                 t.setItem(z, s, it)
         t.resizeColumnsToContents()
+        t.setFixedWidth(sum(t.columnWidth(s) for s in range(t.columnCount())) + 2 * t.frameWidth())
+        self.ampel.setMaximumWidth(max(t.width(), 320))
+        self._ampel_hoehe()
         t.setFixedHeight(t.horizontalHeader().sizeHint().height() + sum(t.rowHeight(z) for z in range(t.rowCount()))
                          + 2 * t.frameWidth())
         e = self.e
@@ -1154,7 +1630,10 @@ class ToleranzketteFenster(QtWidgets.QDialog):
             text += "<br>" + html.escape(tr("Ohne Werkstoff (keine Ausdehnung): {}").format(", ".join(sorted(ohne))))
         if self.e_ist is not None and self.e_ist.statistisch != e.statistisch:
             text += " &nbsp; · &nbsp; " + html.escape(tr("Ist: {}").format(tk.anwendbar_text(self.e_ist)))
+        if self.im_planspiel and self.kosten_hinweis:
+            text += "<br>" + html.escape(self.kosten_hinweis)
         self.ergebnis.setText(text)
+        QtCore.QTimer.singleShot(0, self._unten_hoehe)
 
     def speichere(self, pfad: str = "") -> str | None:
         if not pfad:

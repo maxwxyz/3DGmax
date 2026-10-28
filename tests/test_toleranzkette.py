@@ -337,3 +337,70 @@ def test_zusammenbau_321():
     assert len(out) == 3 and not b.verletzt() and len(b.freiheitsgrade(1)) == 0
     assert np.allclose(b.lage(1)[:3, 3], [100, 100, 100], atol=1e-6)  # Ecke des Klotzes auf der Ecke des Winkels
     assert "Ebenen" in b.verbinde_321(1, teil[:2] + teil[:1], gegen)  # zwei gleiche Richtungen
+
+
+def test_kettenbild_im_getriebe():
+    """Ein Klick zeigt die ganze Kette: Pfeile Spitze an Fuss auf eigenen Spuren, Farbe je Art, Schlussmass blau,
+    im Planspiel geaenderte Glieder zusaetzlich grau mit dem Ist-Wert."""
+    import copy
+    from programm.kern import kette_datei
+    from programm.kern.laden import lade_modell
+    from tests.conftest import pfad
+    k = kette_datei.lade(pfad("getriebe.3dgkette"))
+    m = lade_modell(pfad("getriebe.stp"))
+    linien = tk.kettenbild(k.glieder, m, "Spalt")
+    texte = [li for li in linien if li[2]]
+    assert len(texte) == len(k.glieder) + 1  # je Glied ein beschrifteter Pfeil, dazu das Schlussmass
+    schluss = [li for li in linien if li[2] == "Spalt"][0]
+    assert schluss[3] == tk.FARBEN["schluss"]
+    summe = sum(g.richtung * g.faktor * g.nenn for g in k.glieder)
+    assert abs(math.dist(schluss[0], schluss[1]) - abs(summe)) < 1e-6
+    for g, li in zip(k.glieder, texte):  # Farbe nach Art, Text mit Abmass
+        assert li[3] == tk.FARBEN[tk.glied_art(g)] and g.name in li[2]  # Name nennt das Mass schon
+    plan = copy.deepcopy(k.glieder)
+    plan[0].hoechst += 0.05
+    grau = [li for li in tk.kettenbild(plan, m, ist=k.glieder) if li[3] == tk.FARBEN["ist"] and li[2]]
+    assert len(grau) == 1 and grau[0][2].startswith("Ist")
+    assert tk.abmass_text(tk.Glied("a", 10, 10.2, 9.9)) == "+0.2/−0.1"
+    assert tk.abmass_text(tk.Glied("a", 10, 10.1, 9.9)) == "±0.1"
+
+
+def test_bewertung_ampel_und_freigabe_in_datei(tmp_path):
+    """Ampel nach dem anwendbaren Verfahren; manuelle Freigabe wird in der Kettendatei gespeichert."""
+    from programm.kern import kette_datei
+    glieder = [tk.Glied(f"g{i}", 10, 10.05, 9.95, 1 if i else -1) for i in range(6)]
+    e = tk.berechne(glieder, anforderung=(39.0, 41.0))
+    assert e.statistisch
+    stufe, _ = tk.bewertung(e, (39.0, 41.0), (e.mitte - e.rss, e.mitte + e.rss))
+    assert stufe == "gruen"
+    e2 = tk.berechne(glieder, anforderung=(39.9, 40.1))
+    assert tk.bewertung(e2, (39.9, 40.1), (e2.mitte - e2.rss, e2.mitte + e2.rss))[0] == "rot"
+    assert tk.bewertung(e, None, (0, 1)) == ("", "")
+    k = kette_datei.KettenDatei(glieder, freigabe={"geprueft": True, "name": "A", "datum": "2026-10-28",
+                                                   "kommentar": "im Versuch nachgewiesen"})
+    neu = kette_datei.lade(kette_datei.speichere(str(tmp_path / "k"), k))
+    assert neu.freigabe["geprueft"] and neu.freigabe["kommentar"] == "im Versuch nachgewiesen"
+
+
+def test_kostenoptimale_verteilung():
+    """Billige grobe Verfahren bekommen weite, teure feine Verfahren enge Toleranzen; Ziel wird gehalten."""
+    from programm.kern import fertigung as fe
+    assert fe.it_grad(0.025, 40) == 7 and fe.it_grad(0.0001, 40) is None
+    fein, grob = fe.grenzen("schleifen", 40)
+    assert abs(fein - 0.011) < 1e-9 and abs(grob - 0.025) < 1e-9  # IT5 / IT7 bei 40 mm
+    assert fe.kosten("drehen", 40, 0.1) < fe.kosten("drehen", 40, 0.04)
+    glieder = [tk.Glied("Guss", 100, 100.5, 99.5, 1, verfahren="druckguss"),
+               tk.Glied("Welle", 40, 40.05, 39.95, -1, verfahren="drehen"),
+               tk.Glied("Buchse", 20, 20.05, 19.95, -1, verfahren="drehen"),
+               tk.Glied("Ring", 10, 10.05, 9.95, -1, verfahren="schleifen"),
+               tk.Glied("Lager", 18, 18.0, 17.88, -1, fest=True)]
+    v = tk.verteile_kostenoptimal(glieder, ziel=0.6, statistisch=False)
+    assert v.erreichbar and v.glieder[4].toleranz == glieder[4].toleranz  # festes Glied bleibt
+    assert sum(g.toleranz * abs(g.faktor) for g in v.glieder) <= 0.6 + 1e-6
+    for g in v.glieder[:4]:
+        lo, hi = fe.grenzen(g.verfahren, g.nenn)
+        assert lo - 1e-9 <= g.toleranz <= hi + 1e-9 and abs(g.mitte - glieder[v.glieder.index(g)].mitte) < 1e-9
+    s = tk.verteile_kostenoptimal(glieder, ziel=0.6, statistisch=True)
+    assert s.kosten_nachher <= v.kosten_nachher + 1e-9  # statistisch erlaubt weitere Toleranzen
+    unmoeglich = tk.verteile_kostenoptimal(glieder, ziel=0.05, statistisch=False)
+    assert not unmoeglich.erreichbar and unmoeglich.hinweise

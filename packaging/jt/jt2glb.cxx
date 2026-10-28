@@ -4,7 +4,7 @@
 // Struktur (Partition, Gruppe, Teil, Instanz) wird zur XCAF-Baugruppe mit Namen und Lagen, die Dreiecke der
 // hoechsten Detailstufe zu Flaechen mit Triangulation, die Diffusfarbe des Materials zur Flaechenfarbe. Externe
 // Partitionen (Monolith-Dateien mit Verweisen) laedt TKJT selbst. Kein B-Rep, keine PMI (Stufe 1).
-// TKJT (Open Cascade, GPL v2+): https://github.com/mmaenz/TKJT – deshalb nur in der Build-Variante mit JT.
+// TKJT (Open Cascade, GPL v2+), Fork mit JT 10: https://github.com/wwmayer/TKJT – nur in der Build-Variante mit JT.
 
 #include <JtAttribute_GeometricTransform.hxx>
 #include <JtAttribute_Material.hxx>
@@ -148,11 +148,10 @@ struct Wandler
         if (aPart->Children().Count() == 0 && aPart->FileName().Length() > 0)
           aPart->Load();  // externe Partition (eigene Datei)
       const JtData_Object::VectorOfObjects& aKinder = aGruppe->Children();
-      // Detailstufen: nur die erste (feinste) Stufe
-      const Standard_Size aAnzahl = Handle(JtNode_RangeLOD)::DownCast (aGruppe).IsNull()
-                                      ? aKinder.Count() : std::min<Standard_Size> (1, aKinder.Count());
+      // Detailstufen: nur die feinste lesbare Stufe (ist sie nicht dekodierbar, die naechstgroebere)
+      const bool aStufen = !Handle(JtNode_RangeLOD)::DownCast (aGruppe).IsNull();
       TDF_Label aBaugruppe;
-      for (Standard_Size i = 0; i < aAnzahl; ++i)
+      for (Standard_Size i = 0; i < aKinder.Count(); ++i)
       {
         Eintrag aKind = Knoten (aKinder[i], aGilt);
         if (aKind.Label.IsNull())
@@ -164,6 +163,8 @@ struct Wandler
         }
         TDF_Label aKomp = Formen->AddComponent (aBaugruppe, aKind.Label, aKind.Lage);
         Benenne (aKomp, aKind.Name);
+        if (aStufen)
+          break;
       }
       if (aBaugruppe.IsNull())
         return Eintrag();

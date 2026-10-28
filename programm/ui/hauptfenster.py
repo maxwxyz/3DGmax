@@ -52,9 +52,12 @@ class Startseite(QtWidgets.QWidget):
         text.setAlignment(QtCore.Qt.AlignmentFlag.AlignCenter)
         lay.addWidget(text)
         knopf = QtWidgets.QPushButton(tr("Modell öffnen …"))
+        knopf.setToolTip(tr("STEP, QIF, JT, 3D-PDF, IGES oder Netz öffnen (auch per Ziehen ins Fenster)"))
         knopf.setObjectName("primaer")
         knopf.clicked.connect(lambda: self.oeffnen.emit(""))
         vergleich = QtWidgets.QPushButton(tr("Zwei Stände vergleichen …"))
+        vergleich.setToolTip(tr("Alten und neuen Stand eines Modells wählen: Geometrie, PMI und Baugruppe werden "
+                                "verglichen"))
         vergleich.clicked.connect(self.vergleichen.emit)
         self.beispiele = QtWidgets.QPushButton(tr("Beispiele"))
         self.beispiele.setToolTip(tr("Jede Funktion an freien Testdaten ausprobieren"))
@@ -128,6 +131,8 @@ def kameras_abgleichen():
 class Hauptfenster(QtWidgets.QMainWindow):
     def __init__(self):
         super().__init__()
+        from ..i18n import qt_uebersetzung
+        qt_uebersetzung(QtWidgets.QApplication.instance())  # Qt-Knoepfe deutsch, auch ohne app.main (Skripte, Tests)
         FENSTER.append(self)
         self.setWindowTitle(self._titel())
         self.setAcceptDrops(True)
@@ -506,6 +511,12 @@ class Hauptfenster(QtWidgets.QMainWindow):
           tipp=tr("Bild mit den Kommentar-Markierungen und Liste der Kommentare"))
         A("pmi_anlegen", tr("PMI anlegen …"), lambda: self.pmi_anlegen(),
           tipp=tr("Tolerierungsberater: passende Maße und Toleranzen für die gewählten Flächen vorschlagen und anlegen"))
+        A("funktion", tr("Funktion → Tolerierung …"), lambda: self.zeige_funktion(),
+          tipp=tr("Funktionen der Flächen festlegen (Auflage, Zentrierung, Führung …): Bezugssystem und ISO-GPS-"
+                  "Tolerierung vorschlagen"))
+        A("kette2d", tr("2D-Toleranzkette …"), lambda: self.zeige_kette2d(),
+          tipp=tr("Kette als Vektorzug in der Ebene (Längen und Winkel) von Hand aufbauen, linear und nichtlinear "
+                  "rechnen und in die Toleranzkette übernehmen"))
         A("toleranzkette", tr("Toleranzkette …"), lambda: self.zeige_toleranzkette(),
           tipp=tr("Maßkette aus gewählten Maßen: Worst Case, statistisch (RSS) und Monte Carlo"))
         A("analyse", tr("Analyse …"), self.zeige_analyse_leiste,
@@ -751,6 +762,8 @@ class Hauptfenster(QtWidgets.QMainWindow):
         m.addAction(a["explosion"])
         m.addAction(a["analyse"])
         m.addAction(a["toleranzkette"])
+        m.addAction(a["kette2d"])
+        m.addAction(a["funktion"])
         m.addAction(a["pmi_anlegen"])
         m.addAction(a["kommentar"])
         mn = m.addMenu(tr("Norm"))
@@ -1750,7 +1763,8 @@ class Hauptfenster(QtWidgets.QMainWindow):
                                   for p in self.erg.pmi if p.quelle != "eigen" and p.bearbeitet and p.original],
                                  self._kette_daten(),
                                  self.baugruppe.als_dict() if self.baugruppe.verbindungen or self.baugruppe.lagen
-                                 else None, self._kollision_daten())
+                                 else None, self._kollision_daten(),
+                                 getattr(getattr(self, "_funktion", None), "rollen", None))
         self.statusBar().showMessage(tr("Projekt gespeichert: {}").format(ziel), 6000)
         return ziel
 
@@ -1762,7 +1776,7 @@ class Hauptfenster(QtWidgets.QMainWindow):
 
     def _kette_daten(self):
         k = getattr(self, "_kette", None)
-        return None if k is None or not k.glieder else (k.cp.value(), list(k.glieder))
+        return None if k is None or not k.glieder else (k.cp.value(), list(k.glieder), k.freigabe)
 
     def oeffne_projekt(self, pfad: str, warten: bool = False):
         from ..kern import projekt
@@ -1804,6 +1818,11 @@ class Hauptfenster(QtWidgets.QMainWindow):
             k.leeren()
             k.cp.setValue(d["kette"]["cp"])
             k.ergaenze(d["kette"]["glieder"])
+            k.setze_freigabe(d["kette"].get("freigabe") or {})
+        if d and d.get("funktion") and self.erg is not None:
+            w = self.zeige_funktion(nur_anlegen=True)
+            w.rollen = dict(d["funktion"])
+            w._fuelle()
         if d and d.get("kommentare"):
             self.kommentare.setze(d["kommentare"])
             self.dock_kommentare.show()
@@ -2749,6 +2768,55 @@ class Hauptfenster(QtWidgets.QMainWindow):
         self.ansicht.entferne_grafik(ids)
         self.pmi.zeige(self.erg.pmi, self.erg.ansichten)
 
+    def zeige_kette2d(self, nur_anlegen: bool = False):
+        """Fenster 2D-Toleranzkette (Vektorzug); Uebernahme ersetzt die Glieder im Fenster Toleranzkette."""
+        from .kette2d_ui import Kette2DFenster
+        f = getattr(self, "_kette2d", None)
+        if f is None:
+            f = Kette2DFenster(self)
+            f.uebernehmen.connect(self._kette2d_uebernehmen)
+            self._kette2d = f
+        if not nur_anlegen:
+            f.show()
+            f.raise_()
+        return f
+
+    def _kette2d_uebernehmen(self, glieder: list):
+        k = self.zeige_toleranzkette()
+        k.beende_planspiel(False)
+        k.setze_glieder(glieder)
+        self.statusBar().showMessage(tr("2D-Kette als {} Glieder übernommen (linearisiert)").format(len(glieder)), 6000)
+
+    def zeige_funktion(self, nur_anlegen: bool = False):
+        """Fenster Funktion -> Tolerierung (kern.funktion) fuer das geladene Modell."""
+        from .funktion_ui import FunktionFenster
+        f = getattr(self, "_funktion", None)
+        if f is None:
+            f = FunktionFenster(self)
+            f.auswahl = lambda: sorted({i for x in self.ansicht.auswahl3d
+                                        for i in [self.erg.modell.flaechen_index(x)] if i is not None}) \
+                if self.erg is not None else []
+            f.flaechen_zeigen.connect(self.ansicht.hebe_flaechen)
+            f.anlegen.connect(self._funktion_anlegen)
+            self._funktion = f
+        f.setze_modell(self.erg.modell if self.erg is not None else None)
+        if not nur_anlegen:
+            f.show()
+            f.raise_()
+        return f
+
+    def _funktion_anlegen(self, vorschlaege: list, fragen: bool = True) -> list:
+        """Vorschlaege aus Funktion -> Tolerierung im Dialog PMI anlegen pruefen und als eigene PMI uebernehmen."""
+        from .pmi_anlegen_ui import PmiAnlegenDialog
+        if not vorschlaege or self.erg is None:
+            return []
+        if fragen:
+            d = PmiAnlegenDialog(vorschlaege, self)
+            if d.exec() != QtWidgets.QDialog.DialogCode.Accepted:
+                return []
+            return self.fuege_pmi_hinzu(d.gewaehlte())
+        return self.fuege_pmi_hinzu([v.pmi for v in vorschlaege])
+
     def fuege_pmi_hinzu(self, neue: list) -> list:
         """Eigene PMI ins Modell: Nummer, Kennung, Norm, erzeugte Darstellung, Liste aktualisieren."""
         from ..kern import pmi_erzeugen
@@ -2786,6 +2854,7 @@ class Hauptfenster(QtWidgets.QMainWindow):
             f.flaechen_zeigen.connect(self.ansicht.hebe_flaechen)
             f.schluss_aus_auswahl.connect(self._kette_schluss)
             f.strecke_zeigen.connect(self._kette_strecke)
+            f.bild_zeigen.connect(self._kette_bild)
             f.oeffnen.connect(lambda: self.oeffne_kette())
             f.teil_von = self._teil_von_flaechen
             self._kette = f
@@ -2864,6 +2933,18 @@ class Hauptfenster(QtWidgets.QMainWindow):
         plus = g.richtung > 0
         text = f"{'+' if plus else '−'}{abs(g.nenn):g}  {g.name}"
         self.ansicht.zeige_hilfslinien([(*strecke, text, (0.18, 0.62, 0.28) if plus else (0.75, 0.22, 0.17))])
+
+    def _kette_bild(self, daten):
+        """Ganze Kette als Pfeildiagramm im Modell (kern.toleranzkette.kettenbild); None blendet es aus."""
+        from ..kern import toleranzkette as tk
+        neu = not getattr(self, "_kettenbild_an", False)
+        self._kettenbild_an = daten is not None
+        if daten is None:
+            self.ansicht.zeige_hilfslinien([])
+            return
+        glieder, text, ist = daten
+        self.ansicht.zeige_hilfslinien(tk.kettenbild(glieder, self.erg.modell if self.erg else None, text, ist,
+                                                     self.ansicht.oben_richtung()), einpassen=neu)
 
     def _kette_schluss(self):
         """Reihenfolge und Vorzeichen der Glieder aus den zwei gewaehlten Flaechen des Schlussmasses."""

@@ -1,0 +1,262 @@
+diff --git a/src/JtDecode/JtDecode_Int32CDP.cxx b/src/JtDecode/JtDecode_Int32CDP.cxx
+index 68366f7..104c58d 100755
+--- a/src/JtDecode/JtDecode_Int32CDP.cxx
++++ b/src/JtDecode/JtDecode_Int32CDP.cxx
+@@ -23,6 +23,7 @@
+ #include <JtDecode_Int32CDP_Bitlength.hxx>
+ #include <JtDecode_Int32CDP_Bitlength2.hxx>
+ #include <JtDecode_Int32CDP_BitrateV10.hxx>
++#include <JtDecode_Int32CDP_MoveToFront.hxx>
+ #include <JtDecode_Int32CDP_Huffman.hxx>
+ #include <JtDecode_Int32CDP_Arithmetic.hxx>
+ #include <JtDecode_Int32CDP_Chopper.hxx>
+@@ -253,7 +254,7 @@ JtDecode_Int32CDP::EncodedDataHandle JtDecode_Int32CDP::loadCDP2 (JtData_Reader&
+ //                       [Chop Bits > 0]:  I32 Value Bias + U8 Value Span Bits
+ //                                         + Int32CDP MSB + Int32CDP LSB
+ //                       [Chop Bits == 0]: recursive (another Int32CDP follows)
+-//       5 = Move-to-Front → not yet implemented
++//       5 = Move-to-Front → Int32CDP Window Values + Int32CDP Window Offsets
+ // =======================================================================
+ JtDecode_Int32CDP::EncodedDataHandle JtDecode_Int32CDP::loadCDP_V10 (JtData_Reader& theReader)
+ {
+@@ -300,6 +301,15 @@ JtDecode_Int32CDP::EncodedDataHandle JtDecode_Int32CDP::loadCDP_V10 (JtData_Read
+       new JtDecode_Int32CDP_Chopper (aMSBData, aLSBData, aChopBits, aValueSpanBits, aValueBias));
+   }
+ 
++  // ---- CODEC 5: Move-to-Front, two nested CDPs (Window Values, Window Offsets) ----
++  if (aCodec == 5)
++  {
++    JtDecode_Int32CDP aValues, aOffsets;
++    if (!aValues.LoadV10 (theReader) || !aOffsets.LoadV10 (theReader))
++      return EncodedDataHandle();
++    return EncodedDataHandle (new JtDecode_Int32CDP_MoveToFront (aValues, aOffsets, aValueCount));
++  }
++
+   // ---- CODEC 0, 1, 3: read I32 CodeText Length + VecU32 CodeText ----
+   Jt_I32 aCodeTextLength;
+   if (!theReader.ReadI32 (aCodeTextLength))
+diff --git a/src/JtDecode/JtDecode_Int32CDP_MoveToFront.cxx b/src/JtDecode/JtDecode_Int32CDP_MoveToFront.cxx
+new file mode 100644
+index 0000000..6704f34
+--- /dev/null
++++ b/src/JtDecode/JtDecode_Int32CDP_MoveToFront.cxx
+@@ -0,0 +1,53 @@
++// JT format reading and visualization tools
++// Copyright (C) 2014-2015 OPEN CASCADE SAS
++// 
++// This program is free software; you can redistribute it and/or modify
++// it under the terms of the GNU General Public License as published by
++// the Free Software Foundation, version 2 of the License, or any later
++// version.
++// 
++// This program is distributed in the hope that it will be useful,
++// but WITHOUT ANY WARRANTY; without even the implied warranty of
++// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
++// GNU General Public License for more details.
++// 
++// Copy of the GNU General Public License is in LICENSE.txt and  
++// on <http://www.gnu.org/licenses/>.
++
++#include <JtDecode_Int32CDP_MoveToFront.hxx>
++#include <algorithm>
++
++JtDecode_Int32CDP_MoveToFront::Decoded::Mover JtDecode_Int32CDP_MoveToFront::Decode()
++{
++  // Offset -1: next new value from the values stream, otherwise the position in the window
++  // of the most recently seen values; the value used moves to the front of the window.
++  static const int32_t aWindowSize = 16;
++  Decoded aValues (decodePackage (myValues));
++  Decoded aOffsets (decodePackage (myOffsets));
++  Decoded aResults (aOffsets.Count());
++  int32_t aWindow[aWindowSize];
++  int32_t aFill = 0, aNext = 0;
++  for (int32_t i = 0; i < aOffsets.Count(); i++)
++  {
++    const int32_t anOffset = aOffsets[i];
++    int32_t aValue;
++    if (anOffset < 0)
++    {
++      if (aNext >= aValues.Count())
++        return Decoded().Move();
++      aValue = aValues[aNext++];
++      aFill = std::min (aFill + 1, aWindowSize);
++      std::copy_backward (aWindow, aWindow + aFill - 1, aWindow + aFill);
++    }
++    else
++    {
++      if (anOffset >= aFill)
++        return Decoded().Move();
++      aValue = aWindow[anOffset];
++      std::copy_backward (aWindow, aWindow + anOffset, aWindow + anOffset + 1);
++    }
++    aWindow[0] = aValue;
++    aResults[i] = aValue;
++  }
++  return aResults.Move();
++}
+diff --git a/src/JtDecode/JtDecode_Int32CDP_MoveToFront.hxx b/src/JtDecode/JtDecode_Int32CDP_MoveToFront.hxx
+new file mode 100644
+index 0000000..ae0f426
+--- /dev/null
++++ b/src/JtDecode/JtDecode_Int32CDP_MoveToFront.hxx
+@@ -0,0 +1,43 @@
++// JT format reading and visualization tools
++// Copyright (C) 2014-2015 OPEN CASCADE SAS
++// 
++// This program is free software; you can redistribute it and/or modify
++// it under the terms of the GNU General Public License as published by
++// the Free Software Foundation, version 2 of the License, or any later
++// version.
++// 
++// This program is distributed in the hope that it will be useful,
++// but WITHOUT ANY WARRANTY; without even the implied warranty of
++// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
++// GNU General Public License for more details.
++// 
++// Copy of the GNU General Public License is in LICENSE.txt and  
++// on <http://www.gnu.org/licenses/>.
++
++#ifndef _JtDecode_Int32CDP_MoveToFront_HeaderFile
++#define _JtDecode_Int32CDP_MoveToFront_HeaderFile
++
++#include <JtDecode_Int32CDP.hxx>
++
++//! Move-to-Front pseudo-codec decoder (JT 10+): the data stream is split into
++//! "values" (each newly seen value) and "offsets" (position in a window of the
++//! most recently seen values, or an escape where a new value is taken).
++class JtDecode_Int32CDP_MoveToFront : public JtDecode_Int32CDP::EncodedData
++{
++public:
++  JtDecode_Int32CDP_MoveToFront (JtDecode_Int32CDP theValues,
++                                 JtDecode_Int32CDP theOffsets,
++                                 int32_t theCount)
++    : myValues (theValues), myOffsets (theOffsets), myCount (theCount) {}
++
++  Standard_EXPORT int32_t GetOutValCount() const Standard_OVERRIDE { return myCount; }
++
++  Standard_EXPORT Decoded::Mover Decode() Standard_OVERRIDE;
++
++private:
++  JtDecode_Int32CDP myValues;
++  JtDecode_Int32CDP myOffsets;
++  int32_t myCount;
++};
++
++#endif
+diff --git a/src/JtDecode/JtDecode_MeshCoderDriver.cxx b/src/JtDecode/JtDecode_MeshCoderDriver.cxx
+index aa42087..cb8a5e2 100755
+--- a/src/JtDecode/JtDecode_MeshCoderDriver.cxx
++++ b/src/JtDecode/JtDecode_MeshCoderDriver.cxx
+@@ -587,11 +587,14 @@ public:
+   // ========== Housekeeping Interface ==========
+ 
+   JtDecode_MeshCodec (JtDecode_MeshCoderDriver *pTMC = NULL)
+-    :_iFaceAttrCtr (0)
++    :_iFaceAttrCtr (0), _bFailed (false)
+   {
+     _pTMC = pTMC;
+   }
+ 
++  //! True if the symbol streams were inconsistent (decoding stopped early).
++  bool failed() const { return _bFailed; }
++
+ protected:
+ 
+   virtual ~JtDecode_MeshCodec()
+@@ -671,6 +674,9 @@ protected:
+ 
+   // Used by decoder to assign running attr indices
+   int32_t _iFaceAttrCtr;
++
++  // Set when the symbol streams run out before the mesh is complete
++  bool _bFailed;
+ };
+ 
+ #define IncModN( val, n ) { val = (val + 1) & ((val == n - 1) - 1); }
+@@ -689,10 +695,11 @@ void JtDecode_MeshCodec::run()
+   //Standard_ASSERT_RETURN (_pDstVFM != NULL, "Error", );
+   _pDstVFM->clear();
+   clear();
++  _bFailed = false;
+ 
+   // Co/dec connected mesh components one at a time
+   bool bFoundComponent = true;
+-  while (bFoundComponent)
++  while (bFoundComponent && !_bFailed)
+   {
+     runComponent (bFoundComponent);
+   }
+@@ -719,7 +726,7 @@ void JtDecode_MeshCodec::runComponent (bool &obFoundComponent)
+   if (!obFoundComponent)
+     return;
+ 
+-  while ((iFace = nextActiveFace()) != -1)
++  while (!_bFailed && (iFace = nextActiveFace()) != -1)
+   {
+     completeV (iFace);
+     removeActiveFace (iFace);
+@@ -759,6 +766,8 @@ void JtDecode_MeshCodec::completeV (int32_t iFace)
+     // Create and return a vertex iVtx, attaching it to iFace at vertex
+     // slot jVtxSlot.
+     int32_t iVtx = activateV (iFace, jVtxSlot);
++    if (iVtx < 0)
++      return;
+ 
+     // Assert FV consistency
+     Standard_ASSERT_RETURN (
+@@ -812,6 +821,11 @@ int32_t JtDecode_MeshCodec::activateF (int32_t iVtx, int32_t iVSlot)
+ int32_t JtDecode_MeshCodec::activateV (int32_t iFace, int32_t iVSlot)
+ {
+   int32_t iVtx = ioVtx (iFace, iVSlot); // I/O valence; create a vtx
++  if (iVtx < 0)
++  {
++    _bFailed = true; // valence symbols exhausted: inconsistent streams
++    return -1;
++  }
+   _pDstVFM->setVtxFace (iVtx, 0, iFace);
+   addVtxToFace (iVtx, 0, iFace, iVSlot);
+   return iVtx;
+@@ -1310,6 +1324,8 @@ void JtDecode_MeshCoderDriver::Decode (IndicesVec* theVertexIndices, IndicesVec*
+ 
+   // Run the decoder
+   _pMeshDecoder->run();
++  if (_pMeshDecoder->failed())
++    return; // no output indices for an inconsistent mesh
+ 
+   // Assert that ALL symbols have been consumed
+   for (Standard_Integer i = 0; i < 8; ++i)
+diff --git a/src/JtDecode/JtDecode_ProbContext.cxx b/src/JtDecode/JtDecode_ProbContext.cxx
+index 4d36c11..ec9216e 100755
+--- a/src/JtDecode/JtDecode_ProbContext.cxx
++++ b/src/JtDecode/JtDecode_ProbContext.cxx
+@@ -136,7 +136,8 @@ Standard_Boolean JtDecode_ProbContextI32::ReadV10 (JtDecode_BitReader::Raw& theR
+ 
+     unsigned isEscape   = theReader.ReadU32Or0 (1);
+     e.occCount          = theReader.ReadU32Or0 (aOccBits);
+-    e.associatedValue   = theReader.ReadI32Or0 (aValBits) + aMinValue;
++    // stored with Min Value subtracted, hence never negative: read unsigned
++    e.associatedValue   = static_cast<int32_t> (theReader.ReadU32Or0 (aValBits)) + aMinValue;
+     // Synthesise fields used by the existing arithmetic decoder:
+     e.symbol            = isEscape ? -2 : static_cast<int32_t> (i);
+     e.nextContext       = 0;
+diff --git a/src/JtDecode/JtDecode_VertexData.cxx b/src/JtDecode/JtDecode_VertexData.cxx
+index 40f6638..ae01286 100755
+--- a/src/JtDecode/JtDecode_VertexData.cxx
++++ b/src/JtDecode/JtDecode_VertexData.cxx
+@@ -63,13 +63,14 @@ JtDecode_VertexData::Handle JtDecode_VertexData::LoadCompressedCoords (JtData_Re
+     aData = new JtDecode_VertexData_Quantized (aQuantizerData, aNbComponents, JtDecode_Unpack_Lag1);
+   else
+   {
+-    // bits=0: raw binary floats, NbComponents CDPs, no Lag1 predictor.
++    // bits=0: raw binary floats, NbComponents CDPs; the float bit patterns pass the
++    // Lag1 predictor like integers (spec: "VecU32{Int32CDP, Lag1}: Binary Vertex Coords").
+     // We reuse JtDecode_VertexData_Quantized with a dummy quantizer (bits=0 path).
+     JtDecode_VertexData_Quantized::PointQuantizerData aDummyData;
+     aDummyData.X.bits = aDummyData.Y.bits = aDummyData.Z.bits = 0;
+     aDummyData.X.min  = aDummyData.Y.min  = aDummyData.Z.min  = 0.0f;
+     aDummyData.X.max  = aDummyData.Y.max  = aDummyData.Z.max  = 0.0f;
+-    aData = new JtDecode_VertexData_Quantized (aDummyData, aNbComponents, JtDecode_Unpack_Null);
++    aData = new JtDecode_VertexData_Quantized (aDummyData, aNbComponents, JtDecode_Unpack_Lag1);
+   }
+ 
+   // Load encoded data

@@ -73,6 +73,7 @@ class Glied:
     messwerte: tuple[float, ...] = field(default_factory=tuple)  # Stichprobe fuer die Verteilung "messwerte"
     gruppe: str = ""  # Korrelationsgruppe (leer: unabhaengig)
     rho: float = 0.0  # Korrelation mit den anderen Gliedern der Gruppe (0 ... 1)
+    verfahren: str = ""  # Fertigungsverfahren (kern.fertigung.VERFAHREN) fuer die kostenoptimale Verteilung
 
     @property
     def gemessen(self) -> bool:
@@ -173,6 +174,34 @@ def anwendbar_text(e: Ergebnis) -> str:
             e.n_eff, MINDEST_BEITRAGSLEISTER)
     return tr("nur {:.1f} wirksame Beitragsleister (< {}) – arithmetisches Ergebnis (Worst Case) gilt").format(
         e.n_eff, MINDEST_BEITRAGSLEISTER)
+
+
+CPK_ZIEL = 1.33  # ueblicher Mindestwert der Prozessfaehigkeit fuer "eingehalten"
+GRENZE_RISIKO = 0.0027  # Anteil ausserhalb, bis zu dem "knapp" gilt (+-3 sigma)
+
+
+def bewertung(e: Ergebnis, anforderung: tuple[float, float] | None, bereich: tuple[float, float]) -> tuple[str, str]:
+    """Ampel fuer die Anforderung an das Schlussmass: ("gruen" | "gelb" | "rot" | "", Begruendung).
+    bereich: Ergebnis des anwendbaren Verfahrens (Worst Case oder statistisch). Gruen: es liegt in der Anforderung
+    (statistisch zusaetzlich Cpk >= 1,33). Gelb (knapp): in der Anforderung, aber Cpk < 1,33 - oder ausserhalb, aber
+    hoechstens 0,27 % der Monte-Carlo-Werte liegen ausserhalb. Rot: sonst. "" ohne Anforderung."""
+    if not anforderung:
+        return "", ""
+    u, o = anforderung
+    lo, hi = (round(float(v), 4) + 0.0 for v in bereich)  # ohne "-0.0000" im Text
+    drin = u - 1e-12 <= lo and hi <= o + 1e-12
+    ausser = e.mc_ausserhalb if e.mc_ausserhalb is not None else 1.0
+    cpk = e.cpk if e.cpk is not None else 0.0
+    if drin and (not e.statistisch or cpk >= CPK_ZIEL):
+        return "gruen", tr("Anforderung eingehalten ({} {:.4f} … {:.4f} mm in {:.4f} … {:.4f} mm)").format(
+            tr("statistisch") if e.statistisch else tr("Worst Case"), lo, hi, u, o)
+    if drin:
+        return "gelb", tr("knapp: innerhalb der Anforderung, aber Cpk {:.2f} < {:.2f}").format(cpk, CPK_ZIEL)
+    if ausser <= GRENZE_RISIKO:
+        return "gelb", tr("knapp: {} {:.4f} … {:.4f} mm verlässt die Anforderung, Monte Carlo {:.0f} ppm "
+                          "außerhalb").format(tr("statistisch") if e.statistisch else tr("Worst Case"), lo, hi,
+                                              ausser * 1e6)
+    return "rot", tr("nicht eingehalten: {:.0f} ppm außerhalb (Monte Carlo), Cpk {:.2f}").format(ausser * 1e6, cpk)
 
 
 def glied_von_pmi(p, richtung: int = 1) -> Glied | None:
@@ -276,6 +305,79 @@ def verteile_toleranzen(glieder: list[Glied], ziel: float, art: str = "varianz",
             for g in frei:
                 setze(g, g.toleranz * rest / jetzt)
     return neu
+
+
+@dataclass
+class Kostenvorschlag:
+    glieder: list  # Kopien mit den neuen Toleranzen (Mitte jedes Glieds bleibt)
+    kosten_vorher: float
+    kosten_nachher: float
+    erreichbar: bool  # Ziel mit den Verfahren erreichbar (sonst: so eng wie die Verfahren erlauben)
+    hinweise: list = field(default_factory=list)
+
+
+def verteile_kostenoptimal(glieder: list[Glied], ziel: float, statistisch: bool = True,
+                           cp: float = 1.0) -> Kostenvorschlag:
+    """Toleranzen der verstellbaren Glieder so, dass das Schlussmass die Zielbreite haelt und die Summe der
+    Fertigungskosten (kern.fertigung, Kehrwertmodell je Verfahren) minimal ist. Grenzen je Glied: feinster und
+    grober IT-Grad seines Verfahrens beim Nennmass. statistisch: Ziel als +-3 sigma (Faktor und Verteilung je Glied),
+    sonst Worst Case. Feste Glieder, Lagetoleranzen, Stellglieder, Messwerte und Zukaufteile bleiben."""
+    import copy
+    from scipy.optimize import minimize
+    from . import fertigung as fe
+    neu = [copy.copy(g) for g in glieder]
+    k = [abs(g.richtung * g.faktor) for g in neu]
+    frei = [i for i, g in enumerate(neu) if not g.fest and g.quelle != "lage" and not g.stellglied
+            and not g.gemessen and (g.verfahren or fe.STANDARD) != "zukauf" and abs(g.nenn) > 0]
+    verf = lambda g: g.verfahren or fe.STANDARD  # noqa: E731
+    vorher = sum(fe.kosten(verf(g), g.nenn, g.toleranz) for g in neu)
+    if not frei or ziel <= 0:
+        return Kostenvorschlag(neu, vorher, vorher, False, [tr("Keine verstellbaren Glieder")])
+    kappa = []  # sigma = T / kappa je Verteilung (linear in T)
+    for i in frei:
+        einheit = copy.copy(neu[i])
+        m = einheit.mitte
+        einheit.hoechst, einheit.mindest = m + 0.5, m - 0.5
+        kappa.append(1.0 / einheit.sigma(cp))
+    fest_wc = sum(k[i] * neu[i].toleranz for i in range(len(neu)) if i not in frei)
+    fest_var = sum((k[i] * neu[i].sigma(cp)) ** 2 for i in range(len(neu)) if i not in frei)
+    lo = np.array([fe.grenzen(verf(neu[i]), neu[i].nenn)[0] for i in frei])
+    hi = np.array([fe.grenzen(verf(neu[i]), neu[i].nenn)[1] for i in frei])
+    hi = np.maximum(hi, lo * 1.0001)
+    kf = np.array([k[i] for i in frei])
+    ka = np.array(kappa)
+
+    def breite(t):  # Breite des Schlussmasses (statistisch 6 sigma, sonst Summe)
+        if statistisch:
+            return 6 * math.sqrt(fest_var + float(np.sum((kf * t / ka) ** 2)))
+        return fest_wc + float(np.sum(kf * t))
+
+    def kosten(t):
+        return sum(fe.kosten(verf(neu[i]), neu[i].nenn, float(x)) for i, x in zip(frei, t))
+
+    hinweise = []
+    erreichbar = breite(lo) <= ziel + 1e-12
+    if not erreichbar:
+        t = lo
+        hinweise.append(tr("Zielbreite mit diesen Verfahren nicht erreichbar – feinste Toleranzen gesetzt "
+                           "(Schlussmaß {:.4f} mm statt {:.4f} mm); feineres Verfahren oder Stellglied nötig")
+                        .format(breite(lo), ziel))
+    elif breite(hi) <= ziel:
+        t = hi  # schon die groben Toleranzen halten das Ziel
+    else:
+        x0 = np.clip(lo * 2.0, lo, hi)
+        erg = minimize(lambda x: kosten(x), x0, method="SLSQP", bounds=list(zip(lo, hi)),
+                       constraints=[{"type": "ineq", "fun": lambda x: ziel - breite(x)}],
+                       options={"maxiter": 300, "ftol": 1e-10})
+        t = np.clip(erg.x, lo, hi)
+        if breite(t) > ziel * (1 + 1e-6):  # Optimierer am Rand: auf das Ziel zurueckskalieren
+            t = lo + (t - lo) * max(0.0, (ziel - breite(lo)) / max(breite(t) - breite(lo), 1e-15))
+    for i, x in zip(frei, t):
+        g = neu[i]
+        m = g.mitte
+        g.hoechst, g.mindest = m + float(x) / 2, m - float(x) / 2
+    nachher = sum(fe.kosten(verf(g), g.nenn, g.toleranz) for g in neu)
+    return Kostenvorschlag(neu, vorher, nachher, erreichbar, hinweise)
 
 
 def ist_winkel(p) -> bool:
@@ -690,3 +792,124 @@ def glied_strecke(g: Glied, modell) -> tuple[tuple, tuple] | None:
     start = np.array([c.X(), c.Y(), c.Z()]) + n * (orte[0] - float(np.array([c.X(), c.Y(), c.Z()]) @ n))
     ende = start + n * (orte[1] - orte[0])
     return tuple(float(x) for x in start), tuple(float(x) for x in ende)
+
+
+# Farben des Kettenbilds (RGB 0..1): Masse + / −, Lagetoleranzen, Laengenbereiche, Schlussmass, Ist-Stand im Planspiel
+FARBEN = {"plus": (0.18, 0.62, 0.28), "minus": (0.75, 0.22, 0.17), "lage": (0.55, 0.27, 0.75),
+          "bereich": (0.90, 0.55, 0.10), "schluss": (0.13, 0.42, 0.85), "ist": (0.55, 0.55, 0.55)}
+
+
+def abmass_text(g: Glied) -> str:
+    """Abmasse eines Glieds: '±0.1' bei symmetrischer Toleranz, sonst '+0.2/−0.1'."""
+    o, u = g.hoechst - g.nenn, g.mindest - g.nenn
+    if abs(o + u) < 1e-12:
+        return f"±{abs(o):g}"
+    return f"{o:+g}/{u:+g}".replace("-", "−")
+
+
+def glied_art(g: Glied) -> str:
+    """Farbschluessel des Glieds im Kettenbild."""
+    if g.quelle == "lage":
+        return "lage"
+    if g.quelle == "bereich" or g.stellglied:
+        return "bereich"
+    return "plus" if g.richtung > 0 else "minus"
+
+
+def _glied_text(g: Glied) -> str:
+    """Vorzeichen, Nennmass und Abmasse, dazu der Name - ohne Wiederholung, wenn der Name das Mass schon nennt."""
+    vz = "" if g.quelle == "lage" else ("+" if g.richtung > 0 else "−")
+    wert = f"{abs(g.nenn):g}"
+    if g.name and (wert in g.name or wert.replace(".", ",") in g.name):
+        return f"{vz} {g.name}".strip()
+    return f"{vz}{wert if vz else ''} {abmass_text(g)}  {g.name}".strip()
+
+
+def _huelle(modell) -> np.ndarray | None:
+    """Ecken des umschliessenden Quaders des Modells (8 x 3) oder None."""
+    form = getattr(modell, "form", None)
+    if form is None:
+        return None
+    from OCC.Core.Bnd import Bnd_Box
+    from OCC.Core.BRepBndLib import brepbndlib
+    b = Bnd_Box()
+    brepbndlib.Add(form, b)
+    if b.IsVoid():
+        return None
+    x0, y0, z0, x1, y1, z1 = b.Get()
+    return np.array([(x, y, z) for x in (x0, x1) for y in (y0, y1) for z in (z0, z1)])
+
+
+def kettenbild(glieder: list[Glied], modell=None, schluss_text: str = "", ist: list[Glied] | None = None,
+               quer=None) -> list:
+    """Kette als Pfeildiagramm im Modell: je Glied ein Pfeil auf eigener Spur neben dem Modell, Spitze an Fuss entlang
+    der Kettenrichtung, an der Lage seiner Flaechen (sonst im Anschluss an das vorige Glied); Lagetoleranzen als
+    Klammer ueber ihre Zonenbreite, das Schlussmass als blauer Pfeil vom Anfang bis zum Ende der Kette; der Text steht
+    am Anfang der jeweils ersten Linie (dort ueberdecken sich die Beschriftungen der Spuren nicht). ist: Glieder
+    vor dem Planspiel - geaenderte Glieder zusaetzlich grau mit dem Ist-Wert. quer: Richtung, in der die Spuren
+    nebeneinander liegen (z. B. "oben" der Kamera; die Spuren beginnen ausserhalb des Modells). Rueckgabe: Linien
+    [(Start, Ende, Text, RGB, Breite)] fuer die 3D-Ansicht."""
+    if not glieder:
+        return []
+    strecken = [glied_strecke(g, modell) if modell is not None else None for g in glieder]
+    erste = next((s for s in strecken if s is not None and np.linalg.norm(np.subtract(s[1], s[0])) > 1e-9), None)
+    if erste is not None:
+        a, b = np.array(erste[0]), np.array(erste[1])
+        n = (b - a) / np.linalg.norm(b - a)  # Kettenrichtung; die Pfeile zeigen je Glied seine Wirkrichtung
+        basis = a
+    else:
+        n, basis = np.array([1.0, 0.0, 0.0]), np.zeros(3)
+    q = np.zeros(3) if quer is None else np.asarray(quer, float) - n * float(np.asarray(quer, float) @ n)
+    if np.linalg.norm(q) < 1e-6:
+        q = np.cross(n, [0.0, 0.0, 1.0])
+    if np.linalg.norm(q) < 1e-6:
+        q = np.cross(n, [0.0, 1.0, 0.0])
+    q = q / np.linalg.norm(q)
+    laenge = sum(abs(g.nenn) for g in glieder) or 1.0
+    huelle = _huelle(modell)
+    groesse = float(np.ptp(huelle, axis=0).max()) if huelle is not None else laenge
+    spur, h = 0.09 * max(laenge, groesse), 0.025 * max(laenge, groesse)  # Spurabstand, Pfeilspitze
+    k0 = 1.0 + (max(0.0, float(((huelle - basis) @ q).max())) / spur if huelle is not None else 0.0)
+
+    def punkt(x: float, k: float):
+        return tuple(float(v) for v in basis + n * x + q * (k0 + k) * spur)
+
+    def pfeil(x0, x1, k, text, rgb, breite=3.0):
+        linien = [(punkt(x0, k), punkt(x1, k), text, rgb, breite)]
+        if abs(x1 - x0) > 1e-9:
+            s = 1.0 if x1 > x0 else -1.0
+            spitze = np.array(punkt(x1, k))
+            for seite in (1, -1):
+                fuss = spitze - n * s * min(h, abs(x1 - x0) / 2) + q * seite * 0.4 * h
+                linien.append((tuple(spitze), tuple(float(v) for v in fuss), "", rgb, breite))
+        return linien
+
+    def klammer(x, t0, t1, k, text, rgb):
+        linien = [(punkt(x + t0, k), punkt(x + t1, k), text, rgb, 4.0)]
+        for t in (t0, t1):
+            linien.append((punkt(x + t, k - 0.2), punkt(x + t, k + 0.2), "", rgb, 2.0))
+        return linien
+
+    linien, x, anfang = [], 0.0, None
+    for k, (g, s) in enumerate(zip(glieder, strecken), start=1):
+        if s is not None:  # Lage aus der Geometrie, Pfeil in Wirkrichtung des Glieds
+            lo, hi = sorted(float((np.array(p) - basis) @ n) for p in s)
+            x0, x1 = (lo, hi) if g.richtung > 0 else (hi, lo)
+        else:
+            x0, x1 = x, x + g.richtung * g.faktor * g.nenn
+        anfang = x0 if anfang is None else anfang
+        rgb = FARBEN[glied_art(g)]
+        if g.quelle == "lage" or abs(x1 - x0) < 1e-9:
+            gross = max(g.toleranz, 0.02 * laenge)  # sichtbar auch bei kleiner Zone
+            linien += klammer(x1, -gross / 2, gross / 2, k, _glied_text(g), rgb)
+        else:
+            linien += pfeil(x0, x1, k, _glied_text(g), rgb)
+        alt = ist[k - 1] if ist is not None and k - 1 < len(ist) else None
+        if alt is not None and (alt.nenn, alt.hoechst, alt.mindest, alt.richtung) != \
+                (g.nenn, g.hoechst, g.mindest, g.richtung):
+            linien += pfeil(x0, x0 + alt.richtung * alt.faktor * alt.nenn if s is None else x1, k + 0.35,
+                            tr("Ist: {}").format(_glied_text(alt)), FARBEN["ist"], 2.0)
+        x = x1
+    linien += pfeil(anfang or 0.0, x, 0, schluss_text or tr("Schlussmaß {:g}").format(x - (anfang or 0.0)),
+                    FARBEN["schluss"], 4.0)
+    return linien

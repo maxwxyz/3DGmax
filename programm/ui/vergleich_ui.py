@@ -51,6 +51,8 @@ class VergleichDialog(QtWidgets.QDialog):
         self.knoepfe = QtWidgets.QDialogButtonBox(QtWidgets.QDialogButtonBox.StandardButton.Ok |
                                                   QtWidgets.QDialogButtonBox.StandardButton.Cancel)
         self.knoepfe.button(QtWidgets.QDialogButtonBox.StandardButton.Ok).setText(tr("Vergleichen"))
+        self.knoepfe.button(QtWidgets.QDialogButtonBox.StandardButton.Ok).setToolTip(
+            tr("Beide Stände laden und Geometrie, PMI und Baugruppe vergleichen"))
         self.knoepfe.accepted.connect(self.accept)
         self.knoepfe.rejected.connect(self.reject)
         form.addRow(self.knoepfe)
@@ -63,7 +65,9 @@ class VergleichDialog(QtWidgets.QDialog):
         lay = QtWidgets.QHBoxLayout(w)
         lay.setContentsMargins(0, 0, 0, 0)
         feld = QtWidgets.QLineEdit(pfad)
+        feld.setToolTip(tr("Pfad der Datei (eintippen oder „Wählen …“)"))
         knopf = QtWidgets.QPushButton(tr("Wählen …"))
+        knopf.setToolTip(tr("Datei auswählen"))
         knopf.clicked.connect(lambda: self._waehle(feld))
         lay.addWidget(feld, 1)
         lay.addWidget(knopf)
@@ -193,11 +197,14 @@ class AenderungenPanel(QtWidgets.QWidget):
         lay.addWidget(self.legende)
         oben = QtWidgets.QHBoxLayout()
         self.filter = QtWidgets.QComboBox()
+        self.filter.setToolTip(tr("Änderungsliste filtern: alle, nur offene (noch nicht geprüfte) oder nach Art"))
         for text, wert in ((tr("Alle Änderungen"), None), (tr("Offen"), "offen"), (tr("Geometrie"), "geometrie"),
                            (tr("Baugruppe"), "baugruppe"),
                            (tr("PMI"), "pmi")):
             self.filter.addItem(text, wert)
         self.start = QtWidgets.QPushButton(tr("Prüfen starten"))
+        self.start.setToolTip(tr("Änderungen nacheinander durchgehen: jede wird im Modell gezeigt und bekommt einen "
+                                 "Prüfstatus"))
         self.start.setObjectName("primaer")
         oben.addWidget(self.filter, 1)
         oben.addWidget(self.start)
@@ -248,13 +255,17 @@ class AenderungenPanel(QtWidgets.QWidget):
         lay.addWidget(self.detail)
         self.kommentar = QtWidgets.QLineEdit()
         self.kommentar.setPlaceholderText(tr("Kommentar zur gewählten Änderung"))
+        self.kommentar.setToolTip(tr("Bemerkung zur gewählten Änderung, erscheint im Prüfbericht"))
         lay.addWidget(self.kommentar)
         reihe = QtWidgets.QHBoxLayout()
         self.zurueck = QtWidgets.QPushButton("◀")
         self.zurueck.setToolTip(tr("Vorherige Änderung"))
         self.geprueft = QtWidgets.QPushButton(tr("Geprüft"))
+        self.geprueft.setToolTip(tr("Gewählte Änderung als geprüft (in Ordnung) markieren und zur nächsten"))
         self.abgelehnt = QtWidgets.QPushButton(tr("Abgelehnt"))
+        self.abgelehnt.setToolTip(tr("Gewählte Änderung als abgelehnt (nicht in Ordnung) markieren und zur nächsten"))
         self.offen = QtWidgets.QPushButton(tr("Offen"))
+        self.offen.setToolTip(tr("Prüfstatus der gewählten Änderung zurücksetzen"))
         self.vor = QtWidgets.QPushButton("▶")
         self.vor.setToolTip(tr("Nächste Änderung"))
         for k in (self.zurueck, self.geprueft, self.abgelehnt, self.offen, self.vor):
@@ -262,7 +273,10 @@ class AenderungenPanel(QtWidgets.QWidget):
         lay.addLayout(reihe)
         unten = QtWidgets.QHBoxLayout()
         self.ende_knopf = QtWidgets.QPushButton(tr("Vergleich beenden"))
+        self.ende_knopf.setToolTip(tr("Vergleich schließen, zurück zur normalen Ansicht des neuen Stands"))
         self.abschluss = QtWidgets.QPushButton(tr("Prüfung abschließen …"))
+        self.abschluss.setToolTip(tr("Prüfung mit Ergebnis und Namen abschließen und den Prüfbericht (PDF, mit "
+                                     "Prüfsumme) erzeugen"))
         unten.addWidget(self.ende_knopf)
         unten.addStretch(1)
         unten.addWidget(self.abschluss)
@@ -491,6 +505,8 @@ class AusrichtPanel(QtWidgets.QDialog):
         self.stand.setWordWrap(True)
         lay.addWidget(self.stand)
         self.fang = QtWidgets.QCheckBox(tr("Fangen an Endpunkt, Mitte, Kreismitte"))
+        self.fang.setToolTip(tr("Punkte rasten an Kantenenden, Kantenmitten und Kreismitten ein (sonst der "
+                                "angeklickte Punkt)"))
         self.fang.setChecked(True)
         lay.addWidget(self.fang)
         self.tabelle = QtWidgets.QTableWidget(0, 4)

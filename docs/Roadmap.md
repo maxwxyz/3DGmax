@@ -78,6 +78,18 @@
 | Stack-up: folded normal and Rayleigh distributions (form/runout/position) | ✅ |
 | Stack-up: more distributions (beta, DIN histogram) | 💡 |
 | Stack-up: link shown as a line in 3D while walking the chain | ✅ |
+| Stack-up: whole chain in 3D with one click (arrows tip to tail on lanes, dimension and tolerance labels, location tolerances violet, ranges orange, closing dimension blue, what-if overlay in grey) | ✅ |
+| Stack-up window: splitter, histogram beside the result table, interactive histogram (share at the mouse, draggable requirement limits) | ✅ |
+| Stack-up: histogram per method (applicable ✓ by default, row click, overlay), traffic light for the requirement (window and PDF) | ✅ |
+| Stack-up: manual approval "OK / checked" with name, date, comment (chain file, PDF) | ✅ |
+| Stack-up: tooltips per method and column, distribution sparkline per link ("Spread") | ✅ |
+| Tooltips for every non-obvious control, checked by a test (`werkzeuge/tooltips.py`) | ✅ |
+| Stack-up: approval and traffic light also in the project file and for 2D/3D chains / assembly measures | ⬜ |
+| Stack-up: cost-optimal tolerance allocation with process capability table (PLAN §8.33) | ✅ |
+| Function roles per face → datum system and ISO GPS tolerance proposal → STEP PMI (PLAN §8.33) | ✅ |
+| Stack-up: build chains by hand without a model ("＋ Glied", editable cells) | ✅ |
+| 2D vector-loop chains by hand with guided fields, sketch, linear (DLM) and non-linear Monte Carlo, handover to the 1D window (PLAN §8.33) | ✅ |
+| 2D chains: save in file/project, pick segments from the model, sliding contacts | ⬜ |
 | Stack-up: wiggle of the closing faces by the worst-case extremes | ⬜ |
 | Stack-up: median planes as chain ends, chains across assembly parts | ⬜ |
 | Assembly: connections plane/plane and coaxial with snapping, satisfied check, open DOF per part, DOF wiggle, in the project | ✅ |
@@ -192,8 +204,8 @@
 | QIF: measurement results read, assigned to the characteristics and assessed | ✅ |
 | QIF: write measurement plan / characteristics (QIF Plans) | ⬜ |
 | IGES, STL, OBJ, glTF/GLB, 3MF, PLY (meshes: view, measure, analyze, compare against CAD) | ✅ |
-| JT 8/9 via TKJT converter jt2glb (mesh, structure, names, colours), build variant DG_MIT_JT=1; JT 10 detected and reported | 🟡 (step 7; end-to-end test needs a JT 9 file) |
-| JT 10, PMI from JT, JT B-rep (XT) | ⬜ |
+| JT 8–10 via TKJT converter jt2glb (mesh, structure, names, colours), build variant DG_MIT_JT=1; JT 10 via fork wwmayer/TKJT + own fixes (Move-to-Front, probability table, binary coordinates) | ✅ (NIST JT 10.5 end-to-end) |
+| PMI from JT, JT B-rep (XT) | ⬜ |
 | 3D PDF / PRC stage 1–3: structure, schema, tessellation as colored mesh, markups as graphical PMI, saved views with camera (own reader, PLAN §8.15; NIST STC PDFs downloaded in tests) | ✅ |
 | 3D PDF / PRC: model edges from the tessellation wire indices shown in the edge layer | ✅ |
 | 3D PDF / PRC: highly compressed tessellation, exact B-rep, semantic PMI from markup user data; U3D | ⬜ |

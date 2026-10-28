@@ -410,8 +410,10 @@ class AnsichtBasis(QtWidgets.QWidget):
     def zeige_messungen(self, messungen: list):
         self.messungen = list(messungen)
 
-    def zeige_hilfslinien(self, linien: list):
-        """Hilfslinien [(Start, Ende, Text, Farbe RGB)], z. B. das Glied beim Ablaufen einer Toleranzkette; [] aus."""
+    def zeige_hilfslinien(self, linien: list, einpassen: bool = False):
+        """Hilfslinien [(Start, Ende, Text, Farbe RGB[, Breite])], z. B. das Glied beim Ablaufen einer Toleranzkette
+        oder das Kettenbild; leerer Text: ohne Beschriftung (Pfeilspitzen); [] aus. einpassen: Ausschnitt auf die
+        sichtbaren Teile samt Linien."""
         self.hilfslinien = list(linien)
 
     def fang_toleranz(self) -> float:
@@ -679,8 +681,9 @@ class OcctAnsicht(AnsichtBasis):
     def _starte(self):
         if self._bereit:
             return
-        if OcctAnsicht._gestartet:  # weitere Ansicht im Prozess: Shader greifen im zweiten OpenGL-Kontext nicht
-            self.d.SetFfpEnable(True)  # (schwarzer Hintergrund, kein Licht, Wuerfel ohne Schrift) - feste Pipeline
+        # Feste Pipeline fuer alle Ansichten: in einer weiteren Ansicht im Prozess greifen die Shader im zweiten
+        # OpenGL-Kontext nicht (schwarzer Hintergrund, kein Licht); alle gleich, damit sie gleich aussehen
+        self.d.SetFfpEnable(True)
         OcctAnsicht._gestartet += 1
         self.d.Create(window_handle=int(self.viewer.winId()), parent=self.viewer, display_glinfo=False)
         self.d.SetModeShaded()
@@ -2331,8 +2334,8 @@ class OcctAnsicht(AnsichtBasis):
             ctx.Deactivate(a)
         self._neu_zeichnen()
 
-    def zeige_hilfslinien(self, linien):
-        super().zeige_hilfslinien(linien)
+    def zeige_hilfslinien(self, linien, einpassen: bool = False):
+        super().zeige_hilfslinien(linien, einpassen)
         if not self._bereit:
             return
         from OCC.Core.AIS import AIS_Shape, AIS_TextLabel
@@ -2344,16 +2347,19 @@ class OcctAnsicht(AnsichtBasis):
         for ais in getattr(self, "_hilfs_ais", []):
             ctx.Remove(ais, False)
         self._hilfs_ais = []
-        for start, ende, text, rgb in self.hilfslinien:
+        mitte_frei = len(self.hilfslinien) > 1  # Kettenbild: Text am Linienanfang, einzelnes Glied in der Mitte
+        for start, ende, text, rgb, *breite in self.hilfslinien:
             a, b = gp_Pnt(*start), gp_Pnt(*ende)
             if a.Distance(b) > 1e-9:
                 linie = AIS_Shape(BRepBuilderAPI_MakeEdge(a, b).Edge())
                 linie.SetColor(_farbe(rgb))
-                linie.SetWidth(3.0)
+                linie.SetWidth(breite[0] if breite else 3.0)
                 self._hilfs_ais.append(linie)
+            if not text:
+                continue
             lab = AIS_TextLabel()
             lab.SetFont(SCHRIFT)
-            lab.SetPosition(gp_Pnt((a.X() + b.X()) / 2, (a.Y() + b.Y()) / 2, (a.Z() + b.Z()) / 2))
+            lab.SetPosition(a if mitte_frei else gp_Pnt((a.X() + b.X()) / 2, (a.Y() + b.Y()) / 2, (a.Z() + b.Z()) / 2))
             lab.SetText(TCollection_ExtendedString(text, True))
             lab.SetColor(_farbe(rgb))
             lab.SetHeight(20)
@@ -2362,6 +2368,13 @@ class OcctAnsicht(AnsichtBasis):
             a.SetZLayer(Graphic3d_ZLayerId_Topmost)
             ctx.Display(a, False)
             ctx.Deactivate(a)
+        if einpassen and self.hilfslinien:
+            box = self._sichtbare_box()
+            for start, ende, *_ in self.hilfslinien:
+                box.Update(*start)
+                box.Update(*ende)
+            self.d.View.FitAll(box, 0.08, False)
+            self.d.View.ZFitAll()
         self._neu_zeichnen()
 
     def eventFilter(self, obj, ev):

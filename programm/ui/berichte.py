@@ -352,6 +352,9 @@ def messungen_pdf(fenster, pfad: str, bild: bool = True) -> str:
 KETTE_GEWICHT = {"Glied": 2.4, "Quelle": 1.3, "Verteilung": 1.6}
 
 
+KETTE_AMPEL = {"gruen": "grün (eingehalten)", "gelb": "gelb (knapp)", "rot": "rot (nicht eingehalten)"}
+
+
 def kette_pdf(fenster, pfad: str, bild: bool = True) -> str:
     """Toleranzkette: Bild mit den Flaechen der Kette, Ergebnistabelle (anwendbares Verfahren fett, im Planspiel
     neben dem Ist), Begruendung, Histogramm, Glieder mit Beitragsanteil."""
@@ -381,7 +384,18 @@ def kette_pdf(fenster, pfad: str, bild: bool = True) -> str:
         bericht.absatz(tr("Anforderung {:.4f} … {:.4f} mm: Cp {:.2f}, Cpk {:.2f}, außerhalb {:.0f} ppm (Normalverteilung), "
                           "{:.0f} ppm (Monte Carlo)").format(u, o, e.cp, e.cpk, e.ausserhalb * 1e6,
                                                             e.mc_ausserhalb * 1e6), 9.5)
+    stufe, text = k.bewertung()
+    if stufe:
+        bericht.absatz(tr("Bewertung: {} – {}").format(tr(KETTE_AMPEL[stufe]), text), 10)
+    f = k.freigabe
+    if f:
+        bericht.absatz((tr("Manuell freigegeben (i. O. / geprüft)") if f.get("geprueft") else
+                        tr("Nicht freigegeben")) + ": " + " · ".join(
+            x for x in (f.get("name", ""), f.get("datum", ""), f.get("kommentar", "")) if x), 10)
+    if k.im_planspiel and k.kosten_hinweis:
+        bericht.absatz(k.kosten_hinweis, 9.5)
     bericht.bild(k.histogramm.grab().toImage(), 0.16)
+    bericht.absatz(tr("Histogramm: {}").format(tr(k.histogramm.NAMEN[k.histogramm.art])), 8.5)
     gewicht = [KETTE_GEWICHT.get(s, 1.0) for s in tk.SPALTEN]
     spalten = [(tr(s), w / sum(gewicht)) for s, w in zip(tk.SPALTEN, gewicht)]
     tabelle, geaendert = [], set()

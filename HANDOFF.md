@@ -56,16 +56,38 @@ Done in this local session (commit):
 - Generated PMI stage 3 (dimension lines, leader arrows) and PMI texts as glyph faces in model space (on the Mac GPU
   AIS_TextLabel draws in screen pixels) – `ed32ec1`; first display much faster (scene built once, previews after the
   view is ready; FTC-10 19 s → 1.5 s) – `f2633bb`. Full suite green after these.
+- **JT 10 (§8.32):** build switched to the fork wwmayer/TKJT (JT 10 reading, base of FreeCAD's JT 10 import) plus own
+  fixes `packaging/jt/tkjt_jt10.patch` (Move-to-Front codec, unsigned probability values, Lag1 for binary
+  coordinates, mesh decoder without crash + coarser LOD fallback in jt2glb), checked against the public prostep JT
+  format description; NIST MTC JT 10.5 loads end-to-end (46 276 triangles, correct on screen). Build needs
+  `liblzma-devel` (pixi dev). App bundle with DG_MIT_JT=1 not rebuilt yet (liblzma should be collected as a
+  dependency of jt2glb – check at the next local build).
+- **Stack-up (§8.33):** "Kette im 3D" (whole chain as arrows with dimension/tolerance labels, colours per kind,
+  what-if overlay), chain window with splitter, histogram beside the result table, interactive histogram (share at the
+  mouse, draggable requirement limits); checked on screen. Plan for the next stages in PLAN §8.33 (purpose of
+  functional chains, 1D gaps, 2D/3D research, function → ISO GPS guide, cost-optimal tolerances).
+- **Stack-up results:** histogram follows the applicable method (✓; row click switches, overlay of all), traffic
+  light for the requirement (window + PDF), manual approval with name/date/comment (`.3dgkette` + PDF); results pane
+  gets the height it needs (no overlap); Qt's own buttons German in every window (translator also loaded by the main
+  window, so scripts/tests show "Schließen" too). Checked on screen.
+- **User decisions 2026-10-28:** all proposals accepted – chain plan order as in §8.33, traffic light thresholds
+  (Cpk 1.33, 0.27 %), version 0.2, Alt+1…6, directions from the closing dimension; one rendering pipeline for all
+  views (done: fixed-function for every view); UI stage 2 still only after the user's review of the UI/UX plan.
+- **§8.33 stage 1 done:** cost-optimal allocation with process table (`kern/fertigung.py`), column "Fertigung".
+  §8.33 stages 2/3 done: `kern/funktion.py` + window "Funktion → Tolerierung" (roles → datum system 3-2-1 →
+  GPS proposal with fits → own PMI → STEP). Stage 4 done: 2D vector loop window (`kern/kette2d.py`, `ui/kette2d_ui.py`). Next: stage 5 3D chain (by hand with guided
+  fields as the user asked, plus from the assembly connections).
+- **Tooltips:** rule from the user – every non-obvious control gets a tooltip. `werkzeuge/tooltips.py` lists controls
+  without one (main window, docks, all dialogs constructible with the main window as parent);
+  `tests/test_gui.py::test_tooltips_vollstaendig` keeps it at zero. Stack-up: tooltips per method/column, spread
+  sparkline per link.
 - Not done for lack of a verifiable source or test data (kept open in the roadmap): ISO 286 b/t–zc/>500 mm (isofits
   has none of them), surface texture/weld symbols (no sample file), large-assembly LOD (no large model; 3.7 MB STEP
   loads in 2.4 s).
 
 **Deferred questions for the user** (do not block on them):
 - UI/UX stage 2 (workspaces) changes the layout a lot – implement only after you have read `docs/UI_UX_Plan.md`?
-- JT: the only free JT file (NIST MTC) is JT 10.5, which TKJT cannot read (no free JT 10 spec). Could you export a
-  JT 9 (e.g. CATIA → JT, or NX "JT 9.5") of a NIST model for an end-to-end test of `jt2glb` (units, structure,
-  colours)? Until then the converter is verified to build/run and to reject JT 10; loading is tested with a stand-in.
-- Version bump: many unreleased entries – release as 0.2 when you approve (`packaging/release.py minor --git`).
+- JT: JT 10.5 (NIST) now works; a JT 8/9 file and a JT with colours/PMI from CATIA/NX would still be good tests.
 - Comparison modes: shortcuts Alt+1…6 chosen because 1–7 are the standard views – OK?
 - Stack-up "Kraftrichtung": implemented as "directions from the closing dimension" (two faces) instead of a load
   direction, because a load direction alone does not give unambiguous signs – OK?

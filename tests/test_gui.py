@@ -1,9 +1,11 @@
 """Oberflaeche ohne Bildschirm (offscreen): Laden, Auswahl, Filter, Ansichten, Hilfe, Uebersetzung."""
 
 import os
+import tempfile
 import sys
 
 import pytest
+from PySide6 import QtCore, QtWidgets
 
 from programm.ui import ansicht3d
 from programm.ui.hilfe import MARKE, anleitung_html, menue_befehle
@@ -1086,11 +1088,15 @@ def test_toleranzkette_lage_pdf_projekt(fenster, tmp_path):
     assert [g.pmi_nummer for g in lage] == [34, 36] and abs(lage[0].toleranz - 1.0) < 1e-9
     k.cp.setValue(1.33)
     assert os.path.getsize(f.exportiere_kette_pdf(str(tmp_path / "kette.pdf"))) > 1000
+    k.geprueft.setChecked(True)
+    k.pruef_kommentar.setText("abgestimmt")
     projekt = f.speichere_projekt(str(tmp_path / "k.3dgmax"))
     k.leeren()
+    assert not k.geprueft.isChecked()
     f.oeffne_projekt(projekt, warten=True)
     k = f._kette
     assert len(k.glieder) == 5 and abs(k.cp.value() - 1.33) < 1e-9 and k.glieder[0].flaechen == (181, 187)
+    assert k.geprueft.isChecked() and k.freigabe["kommentar"] == "abgestimmt"  # Freigabe auch im Projekt
     k.leeren()
 
 
@@ -1368,6 +1374,53 @@ def test_toleranzkette_getriebe_beispiel(fenster, tmp_path):
     k._ablauf_schritt()
     assert k.tabelle.currentRow() == 1
     k.ablauf.setChecked(False)
+    # ein Klick: ganze Kette als Pfeile im 3D (Bereich orange, Schlussmass blau), im Planspiel Ist grau
+    k.bild3d.setChecked(True)
+    linien = f.ansicht.hilfslinien
+    assert sum(1 for li in linien if li[2]) == 8 and any(li[3] == tk.FARBEN["bereich"] for li in linien)
+    assert any(li[2].startswith("Schlussmaß") and li[3] == tk.FARBEN["schluss"] for li in linien)
+    k.starte_planspiel()
+    k._setze(k.glieder[1], "hoechst", k.glieder[1].hoechst + 0.1)
+    assert any(li[3] == tk.FARBEN["ist"] for li in f.ansicht.hilfslinien)
+    k.beende_planspiel(False)
+    k.bild3d.setChecked(False)
+    assert f.ansicht.hilfslinien == []
+    # Histogramm rechts neben der Ergebnistabelle; Anforderungsgrenze ziehen, Anteil an der Mausposition
+    k.anforderung.setChecked(True)
+    k.histogramm.grenze_gezogen.emit(1, 0.8)
+    assert k.oben.value() == 0.8 and k.anforderung_werte()[1] == 0.8
+    assert k.teiler.count() == 2
+    # Histogramm folgt der Ergebnistabelle: anwendbares Verfahren (hier Worst Case), Zeile waehlt, "alle" ueberlagert
+    assert k.histogramm.art == ("rss" if k.e.statistisch else "wc") and k.histogramm.anteil_unter(0.4) is None
+    k._verfahren_gewaehlt(2, 0)
+    assert k.histogramm.art == "mc" and 0.0 < k.histogramm.anteil_unter(k.e.nenn) < 1.0
+    k._verfahren_gewaehlt(2, 0)
+    assert k.histogramm.art == ("rss" if k.e.statistisch else "wc")
+    k.alle_ueberlagern.setChecked(True)
+    assert k.histogramm.art == "alle"
+    # Erklaerungen: Verfahren in der Ergebnistabelle, Spalten der Gliedertabelle; Streuungsbild je Glied
+    from PySide6 import QtCore
+    from programm.ui.toleranzkette_ui import SP_STREUUNG
+    assert "Worst Case" in k.ergebnisse.item(0, 0).toolTip() and "RSS" in k.ergebnisse.item(1, 0).toolTip()
+    assert k.tabelle.horizontalHeaderItem(SP_STREUUNG).toolTip() and k.tabelle.item(0, 5).toolTip()
+    hoehen, lo, hi, mindest, hoechst = k.tabelle.item(0, SP_STREUUNG).data(QtCore.Qt.ItemDataRole.UserRole)
+    assert max(hoehen) == 1.0 and lo < mindest < hoechst < hi
+    # Fertigungsverfahren je Glied und kostenoptimale Verteilung im Planspiel
+    from programm.ui.toleranzkette_ui import SP_FERTIGUNG
+    feld = k.tabelle.cellWidget(1, SP_FERTIGUNG)
+    feld.setCurrentIndex(feld.findData("druckguss"))
+    assert k.glieder[1].verfahren == "druckguss"
+    assert k.verteile(1.0, "kosten", False) and k.im_planspiel and "Fertigungskosten" in k.ergebnis.text()
+    k.beende_planspiel(False)
+    # Ampel und manuelle Freigabe (Datei und Bericht)
+    assert k.bewertung()[0] in ("gruen", "gelb", "rot") and "●" in k.ampel.text()
+    k.geprueft.setChecked(True)
+    k.pruef_kommentar.setText("Funktion im Versuch nachgewiesen")
+    assert k.freigabe["geprueft"] and k.freigabe["datum"] and k.als_datei().freigabe["kommentar"]
+    ziel = f.exportiere_kette_pdf(str(tmp_path / "kette.pdf"))
+    from pypdf import PdfReader
+    text = "".join(s.extract_text() for s in PdfReader(ziel).pages)
+    assert "Manuell freigegeben" in text and "Bewertung" in text
 
 
 def test_zonen_je_instanz_und_zusammenbaulage(fenster):
@@ -1617,3 +1670,83 @@ def test_qt_eigene_texte_deutsch(fenster):
         for u in i18n._QT_UEBERSETZER:
             app.removeTranslator(u)
         i18n._QT_UEBERSETZER.clear()
+
+
+def test_tooltips_vollstaendig(fenster):
+    """Jedes nicht selbsterklaerende Bedienelement hat einen Tooltip (werkzeuge/tooltips.py)."""
+    sys.path.insert(0, os.path.join(WURZEL, "werkzeuge"))
+    import tooltips
+    funde = {name: tooltips.ohne_tooltip(w) for name, w in [("Hauptfenster", fenster)] + list(tooltips.dialoge(fenster))}
+    assert not {n: f for n, f in funde.items() if f}
+
+
+def test_funktion_zur_tolerierung(fenster):
+    """Rollen im Fenster vergeben: Bezugssystem vorschlagen und die Tolerierung als eigene PMI uebernehmen."""
+    from programm.kern import funktion as fu
+    f = fenster
+    f.lade(pfad("nist_ftc_10_asme1_ap242-e2.stp"), warten=True)
+    w = f.zeige_funktion()
+    m = f.erg.modell
+    geo = {i: g for i in range(len(m.flaechen)) if (g := fu._geometrie(m.flaechen[i])) is not None}
+    auflage = max((i for i in geo if geo[i]["art"] == "ebene"), key=lambda i: geo[i]["inhalt"])
+    n = geo[auflage]["richtung"]
+    bohrung = max((i for i in geo if geo[i]["art"] == "zylinder" and geo[i]["bohrung"]
+                   and fu._parallel(geo[i]["richtung"], n)), key=lambda i: geo[i]["groesse"])
+    f.ansicht.setze_auswahl([m.flaechen[auflage]])
+    assert w.setze_rolle(w.auswahl(), "auflage") == 1
+    w.setze_rolle([bohrung], "zentrierung")
+    s = w.zeige_bezuege()
+    assert [b.buchstabe for b in s.bezuege][:2] == ["A", "B"] and "<b>A</b>" in w.bezug_text.text()
+    vorher = len(f.erg.pmi)
+    neue = f._funktion_anlegen(w.vorschlaege(), fragen=False)
+    assert neue and len(f.erg.pmi) == vorher + len(neue)
+    assert any(p.typ == "Size_Diameter" and p.passung == "H7" for p in neue)
+    projekt = f.speichere_projekt(os.path.join(tempfile.mkdtemp(), "f.3dgmax"))
+    w.rollen = {}
+    f.oeffne_projekt(projekt, warten=True)
+    assert f._funktion.rollen == {auflage: "auflage", bohrung: "zentrierung"}  # Rollen im Projekt
+
+
+def test_toleranzkette_von_hand_ohne_modell(fenster):
+    """Ohne Modell: Glieder mit ＋ anlegen, Werte in die Zellen tippen, mit － entfernen; das Ergebnis rechnet."""
+    from programm.ui.toleranzkette_ui import SP_HOCH, SP_MIN, SP_NENN
+    f = fenster
+    assert f.erg is None
+    k = f.zeige_toleranzkette()
+    k.leeren()
+    k.neu_glied.click()
+    k.neu_glied.click()
+    k.neues_glied("Deckel", 5.0, 0.05, -0.05, -1)
+    assert len(k.glieder) == 3 and k.glieder[0].quelle == "eigen"
+    k.tabelle.item(0, 0).setText("Gehäuse")
+    k.tabelle.item(0, SP_NENN).setText("50")
+    k.tabelle.item(0, SP_HOCH).setText("50,2")
+    k.tabelle.item(1, SP_MIN).setText("9.8")
+    QtWidgets.QApplication.processEvents()
+    g = k.glieder[0]
+    assert g.name == "Gehäuse" and (g.nenn, g.hoechst, g.mindest) == (50.0, 50.2, 49.9)
+    assert k.glieder[1].mindest == 9.8 and abs(k.e.nenn - (50 + 10 - 5)) < 1e-9
+    assert k.tabelle.item(0, 0).flags() & QtCore.Qt.ItemFlag.ItemIsEditable
+    k.tabelle.selectRow(1)
+    k.weg.click()
+    assert [x.name for x in k.glieder] == ["Gehäuse", "Deckel"] and abs(k.e.nenn - 45.0) < 1e-9
+    k.bild3d.setChecked(True)  # Kettenbild auch ohne Modell (schematisch)
+    assert any(li[2].startswith("Schlussmaß") for li in f.ansicht.hilfslinien)
+    k.bild3d.setChecked(False)
+
+
+def test_kette2d_fenster(fenster):
+    """2D-Kette von Hand: Vorlage, Segment anhaengen, Wert per Drehfeld, Schlussgroesse waehlen, uebernehmen."""
+    f = fenster
+    w = f.zeige_kette2d()
+    w.lade_vorlage("winkel")
+    assert len(w.kette.segmente) == 2 and "50.0000 mm" in w.ergebnis.text()
+    w.tabelle.cellWidget(1, 1).setValue(30.0)  # zweiter Schenkel 30 -> Abstand Wurzel(1800)
+    assert abs(w.ergebnisse()["nenn"] - 1800 ** 0.5) < 1e-9
+    w.schluss.setCurrentIndex(w.schluss.findData("x"))
+    assert abs(w.ergebnisse()["nenn"] + 30) < 1e-9
+    w.neues_segment()
+    assert w.tabelle.rowCount() == 3
+    w.in_kette.click()
+    k = f._kette
+    assert len(k.glieder) >= 3 and any(g.faktor != 1.0 for g in k.glieder) and k.glieder[-1].toleranz == 0

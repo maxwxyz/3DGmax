@@ -105,7 +105,7 @@ tests/  packaging/  werkzeuge/  docs/
 | **4 Compare** | alignment, face status, PMI diff, change list, review walk-through, report | modified NIST variants: all changes found, no false alarms | ✅ (extensions see §8.1) |
 | **5 Output** | PDF per saved view, comparison report with images, PMI change table PDF/CSV, project container, folder comparison, views as drawings (HLR) | report understandable for a supplier | ⬜ next |
 | **6 Formats** | QIF, IGES/STL/OBJ/glTF/3MF, 3D PDF | one test file per format | 🟡 (QIF incl. graphics/views, meshes, IGES, 3D PDF/PRC, STEPZ done; STEP-XML open) |
-| **7 JT via TKJT** | build TKJT for OCCT 8, Python binding, load JT; build with/without TKJT (open source only on GitHub) | JT file like its STEP counterpart | 🟡 converter built, JT 8/9 path; no free JT 8/9 test file, NIST JT is 10.5 |
+| **7 JT via TKJT** | build TKJT for OCCT 8, Python binding, load JT; build with/without TKJT (open source only on GitHub) | JT file like its STEP counterpart | ✅ JT 8–10 via TKJT fork wwmayer/TKJT + own JT 10 fixes; NIST JT 10.5 end-to-end |
 | later | multiple section planes, clipping box, section views from the model | section looks like in CAD | 🟡 (clipping box, up to three planes, contour export done; hatched section views open) |
 
 Throughout: tests (core, offscreen UI, stress test, on-screen test), `--selbsttest`, changelog DE/EN via
@@ -345,7 +345,138 @@ Throughout: tests (core, offscreen UI, stress test, on-screen test), `--selbstte
   reported clearly. No free JT 8/9 test file found (JT2Go samples are under the Siemens licence) → the converter is
   verified to build and to reject JT 10; the loading path is tested with a stand-in converter. Needs: a JT 9 export
   (e.g. from CATIA/NX) for an end-to-end test, unit check (mm vs m) against the STEP of the same model.
-- Open: PMI from JT (TKJT has a PMI manager element), JT B-rep (XT, needs Parasolid), JT 10.
+- **JT 10 (2026-10-28):** switched to the fork github.com/wwmayer/TKJT (commit 687cc51, JT 10 read support merged
+  2026-05-22, base of FreeCAD's JT 10 import, already ported to OCCT 7.8+; only MMgt_TShared is replaced by sed).
+  JT 10 segments use LZMA → `liblzma-devel` in the dev environment. With the NIST MTC assembly (JT 10.5) the fork
+  still failed on every tri-strip LOD; own fixes in `packaging/jt/tkjt_jt10.patch`, checked against the public JT
+  format description of prostep ivip (JTIAP V3, PSI 14):
+  1. Move-to-Front pseudo-codec (CDP codec 5) was missing: two nested CDPs (window values, window offsets); offset
+     -1 takes the next new value, otherwise the value at that window position moves to the front (window 16).
+  2. Probability context: the Associated Value is stored with Min Value subtracted and was read as signed bit field
+     (e.g. 11 became -5) → read unsigned.
+  3. Binary vertex coordinates (quantization bits 0) pass the Lag1 predictor (spec: VecU32{Int32CDP, Lag1}); the fork
+     skipped it → NaN/1e38 coordinates in all lossless LODs.
+  4. Mesh decoder: when the valence symbols run out (one shape of the NIST file) decoding stops instead of crashing;
+     jt2glb then takes the next coarser LOD.
+  Result: all LODs give finite coordinates and unit normals; jt2glb writes 46 276 triangles in 0.2 s; the app shows
+  the assembly correctly (checked on screen). Units: coordinates in mm (cover 152.4 = 6 in).
+- Open: PMI from JT (TKJT has a PMI manager element), JT B-rep (XT, needs Parasolid), the one shape whose finest LOD
+  has inconsistent mesh symbols (coarser LOD used).
+
+### 8.33 Functional dimension chains: view, purpose, 2D/3D, from function to ISO GPS (requested 2026-10-28)
+Requests: show the chain with one click as arrows with dimensions and tolerances in the 3D view (geometric tolerances
+and ranges in other colours, what-if as overlay); clean up the chain window (scrolling, histogram beside the result
+table, interactive histogram); explain what a functional dimension chain (FMK) is for; list what 1D still lacks;
+research, plan and build 2D/3D chains; a guide from a part's function to ISO GPS tolerancing with the cheapest
+tolerances that still secure the function, and a "logic" in which faces and functions are defined the way designers
+lay out parts.
+
+**Done 2026-10-28:** "Kette im 3D" (`toleranzkette.kettenbild`): every link an arrow on its own lane outside the
+model's bounding box, lanes stacked along the camera's up direction, tip to tail along the chain direction at the
+positions of its faces (links without faces continue from the previous tip); dimensions green (+) / red (−), location
+tolerances violet brackets over the zone width, length ranges orange, closing dimension blue with WC and RSS; labels
+at the start of each arrow (midpoint labels of the lanes overlapped on screen); in the what-if, changed links also
+in grey with the current value (overlay; side by side is left out – the overlay shows both at the same place).
+Chain window: splitter between links and results, result table only as wide as its columns, histogram to its right;
+histogram interactive (value and share below/above at the mouse, red requirement limits draggable → requirement
+fields).
+
+**Done 2026-10-28 (second request):** the histogram showed always Monte Carlo; now it shows the method marked ✓
+(applicable: statistical with ≥ 4 effective contributors, otherwise worst case) – worst case as a band (no
+distribution, every value possible), statistical as normal curve (mean, half width = 3σ of the chosen RSS variant),
+Monte Carlo as histogram; a click on a result row switches, "overlay all" draws the three on one density scale;
+the share at the mouse follows the shown method (none for worst case). Traffic light `toleranzkette.bewertung`:
+green = applicable result inside the requirement (statistical also Cpk ≥ 1.33), yellow = inside but Cpk < 1.33, or
+outside but ≤ 0.27 % of the Monte Carlo values outside, red otherwise; in the window and the PDF. Manual approval
+("Kette i. O. / geprüft", name, date, comment) independent of the result, stored in `.3dgkette` and printed in the
+PDF. Open: approval in the project file, traffic light for assembly measures and later 2D/3D chains (same function).
+
+**Done 2026-10-28 – stage 1 (cost-optimal allocation):** `kern/fertigung.py` – processes with the finest economic
+and the coarse IT grade and a relative cost factor (guide values from the usual process → IT grade charts, editable
+per link: turning IT7–11, milling IT8–11, drilling IT10–13, reaming IT6–9, grinding IT5–7, honing/lapping IT4–6,
+broaching IT6–8, die casting IT11–14, sand casting and forging IT14–16, sheet punching/bending IT10–13, laser
+cutting IT12–14, injection moulding IT9–13, additive metal IT11–14, purchased part fixed); reciprocal cost model
+cost = factor · T_coarse / T within [T_fine, T_coarse] (IT values from `iso286.it` at the nominal size).
+`toleranzkette.verteile_kostenoptimal`: minimum total cost subject to the closing width (worst case: Σ k·T;
+statistical: 6·sqrt(fixed variance + Σ (k·T/κ)²) with κ = T/σ of each link's distribution), bounds per link from its
+process, SLSQP (scipy); fixed links, location tolerances, adjusting members, measured links and purchased parts stay;
+infeasible targets set the finest tolerances and say so. Chain window: column "Fertigung" (process per link, tooltip
+with the IT grade of the current tolerance), allocation option "Kostenoptimal nach Fertigungsverfahren", result
+with cost before → after in the what-if and the PDF. Checked: die casting is driven to its finest grade under worst
+case and relaxed statistically, turned parts widen, the ground ring gets its coarse limit.
+
+**Done 2026-10-28 – stages 2 and 3 (function → datum system → ISO GPS proposal):** `kern/funktion.py`, window
+Model › "Funktion → Tolerierung …". Roles per face: seat, centring (H7/h6), guide (H7/f7), press fit (H7/p6),
+anti-rotation pin (H7/m6), sealing face, stop, free surface (preferred fits of the ISO hole-basis system). Datum
+system 3-2-1: primary = largest planar seat (3 DOF), secondary = centring axis perpendicular to it (2 DOF) or a side
+seat/stop perpendicular (2 DOF), tertiary = anti-rotation pin parallel to A / stop perpendicular to A and B (1 DOF);
+without a planar seat the longest centring is the primary axis (4 DOF) and a stop along the axis the secondary;
+open DOF are reported. Tolerances: datum features with a single preceding datum get an orientation tolerance
+(perpendicularity), with two a position (pin with Ⓜ); other seats parallelism to A, other features position or
+surface profile to A|B|C, seats and sealing faces flatness, sealing faces a roughness note, guides cylindricity,
+cylinders the fit of their role (hole → H, shaft → the shaft letter); values = IT grade per role at the feature
+size (starting values; the chain and the cost optimisation set the final ones). Proposals go through the existing
+"PMI anlegen" dialog into own PMI and can be written to STEP AP242 (§8.28). Roles are stored in the project.
+Checked on a generated plate (A seat, B bore Ø20 H7 ⟂ A, C pin Ø6 H7 position Ⓜ A|B) and on NIST FTC-10.
+
+**Done 2026-10-28 – manual chains:** "＋ Glied" appends an own link (also without a model), name/nominal/limits
+editable by double-click for own links (PMI links stay protected outside the what-if), "－ Entfernen" removes.
+**Requested 2026-10-28 for stages 4/5:** 2D and 3D chains and their tolerances must also be buildable by hand,
+guided with selection fields (link type, reference, tolerance type from lists instead of free text), good UI.
+
+**Done 2026-10-28 – stage 4 (2D chain, by hand, guided):** `kern/kette2d.py` + window Model › "2D-Toleranzkette …".
+Vector loop in a plane: segments with length and angle to the previous segment (first: to X), each with upper/lower
+deviation and distribution (spin boxes and lists, templates "right angle 3-4-5" and "lever"); closing quantity from
+a list: distance end–start, X or Y component of the closing vector, direction of the last segment. Direct
+linearisation: sensitivities by central differences → 1D links with factor |dS/dp| and sign, plus a zero-tolerance
+link for the linearisation remainder (S(nominal) − Σ dS/dp·p) so the 1D window reproduces the nominal; "In
+Toleranzkette übernehmen" hands them over (requirement, traffic light, histogram, cost optimisation, report all
+apply). Non-linear Monte Carlo (all lengths/angles sampled, loop evaluated exactly) shown beside the linear WC/RSS;
+checked on the 3-4-5 triangle (sensitivities 0.6/0.8/−24·π/180, linear σ within 5 % of the non-linear one). Live
+sketch of the loop with the closing vector. Open: storing 2D chains in a file/project, picking segments from the
+model, kinematic adjustments (contact points that slide), stage 5 3D.
+
+**What a functional dimension chain is for** (answer for the user, background for the guide):
+- Analysis: does the function (gap, overlap, preload, alignment) hold for the given part tolerances – worst case or
+  with a defined risk (ppm)?
+- Synthesis: which tolerances can be widened or must be tightened – contribution shares and sensitivities show the
+  few links that matter; allocation distributes a target width; statistics allow wider part tolerances than worst
+  case at a known risk. So yes: it is the tool to define and to reduce (or relax) single-part tolerances.
+- Dimensioning: the chain shows which dimensions must be specified directly on each part (functional dimensions
+  instead of accumulated chain dimensions) and which features become datums.
+
+**1D – still missing:** cost-optimal allocation (cost-tolerance model per process, minimum cost subject to WC/RSS
+≤ requirement); process capability table (achievable IT grade / Cp per process) to propose values; wiggle of the
+closing faces; median planes as chain ends; chains across assembly parts directly from the assembly connections;
+Ⓜ bonus treated statistically; form tolerances of contact faces as links; DIN histogram and beta distributions.
+
+**2D/3D – research (literature, not verified by experiment):** vector loops with the direct linearization method
+(Chase/Gao/Magleby, basis of CETOL): closed loops of vectors through the contacts, kinematic adjustments (contact
+points slide), sensitivities from the Jacobian, then RSS/MC; small displacement torsors (Bourdet/Clément) and the
+Jacobian-torsor model (Desrochers) for 3D zones; T-maps (Davidson/Shah) and deviation domains (Giordano) as exact
+zone representations; point-based Monte Carlo with locators (3DCS). 3DGmax already has most building blocks: zones as
+geometry (§8.5), assembly connections with rows in the small-motion space and the assembly-variation Monte Carlo
+(§8.20 stage 4, linear, measures gap/flush).
+Plan: (1) 2D vector loop in a section plane: links = vectors between features picked in a section (length and angle
+from the geometry, tolerances from PMI), closing quantity length or angle, sensitivities by finite differences of the
+loop closure, WC/RSS/MC – reuses the 1D window with an extra "sensitivity" column (already present as factor);
+(2) 3D: each toleranced feature gets a torsor bounded by its zone (location/orientation/form, datum shift), the
+connections propagate it (existing rows), a measure is a function of the part motions → linear sensitivities, MC with
+the existing sampler; contributors per tolerance instead of per connection; (3) wiggle at the worst-case combination.
+
+**From function to ISO GPS – guide and "function logic" (plan):**
+1. Function roles per face (picked in 3D): contact/seat, centring/fit, guide, seal, stop, thread, free surface; the
+   mating partner comes from the assembly connections.
+2. Datum system proposal from the roles (ISO 5459): primary = largest planar seat (3 DOF), secondary = centring
+   (2 DOF), tertiary = anti-rotation (1 DOF) – i.e. the 3-2-1 of the assembly.
+3. Tolerance type per role (ISO 1101/5458/286): seat – flatness or profile; centring – size with fit (ISO 286 fit
+   table by function: clearance/transition/press) plus position/coaxiality to the datums; guide – parallelism/
+   straightness; seal – flatness plus surface texture; free surfaces – general tolerance ISO 22081/2768.
+4. Values: from the functional requirement through the chains (1D/2D/3D) with cost-optimal allocation and the process
+   capability table; plausibility check (§8.22) at the end.
+5. Output as semantic PMI written to STEP AP242 (§8.28) – closes the loop to drawings and comparison.
+Order: cost-optimal allocation + process table (1D) → function roles and datum proposal → tolerance proposal and
+STEP output → 2D vector loop → 3D torsor chain.
 
 ### 8.31 Comparison view modes (requested 2026-10-28; as in ZGmax)
 Today the comparison shows the new state with status colours and the removed faces of the old one, and the structure

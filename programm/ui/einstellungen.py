@@ -25,6 +25,7 @@ class EinstellungenDialog(QtWidgets.QDialog):
         self.ein = ein
         form = QtWidgets.QFormLayout(self)
         self.steuerung = QtWidgets.QComboBox()
+        self.steuerung.setToolTip(tr("Maus- und Tastenbelegung zum Drehen, Verschieben und Zoomen"))
         for schluessel, (name, _) in STEUERUNG_TEXT.items():
             self.steuerung.addItem(tr(name), schluessel)
         self.steuerung_hilfe = QtWidgets.QLabel()
@@ -34,6 +35,7 @@ class EinstellungenDialog(QtWidgets.QDialog):
         form.addRow(tr("Kamerasteuerung"), self.steuerung)
         form.addRow("", self.steuerung_hilfe)
         self.thema = QtWidgets.QComboBox()
+        self.thema.setToolTip(tr("Helles oder dunkles Farbschema, oder wie das Betriebssystem"))
         for schluessel, name in (("auto", "Wie System"), ("hell", "Hell"), ("dunkel", "Dunkel")):
             self.thema.addItem(tr(name), schluessel)
         form.addRow(tr("Farbschema"), self.thema)

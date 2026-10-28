@@ -23,6 +23,7 @@ pypdf = "*"
 [feature.dev.dependencies]
 pyinstaller = "6.*"
 pytest-timeout = "*"
+liblzma-devel = "*"  # Header fuer den JT-Konverter (JT 10 komprimiert mit LZMA, packaging/jt/bauen.sh)
 
 [feature.dev.pypi-dependencies]
 pytest = "*"

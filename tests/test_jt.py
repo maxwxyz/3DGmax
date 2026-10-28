@@ -21,8 +21,6 @@ def test_version_und_meldungen(tmp_path, monkeypatch):
     (tmp_path / "kein.jt").write_bytes(b"irgendwas")
     with pytest.raises(laden.LadeFehler, match="Keine JT|No JT"):
         laden.lade_modell(str(tmp_path / "kein.jt"))
-    with pytest.raises(laden.LadeFehler, match="JT 10.5"):
-        laden.lade_modell(_jt(tmp_path, "10.5"))
     monkeypatch.setenv("DG_JT2GLB", "")
     monkeypatch.setattr(laden, "jt_wandler", lambda: None)
     with pytest.raises(laden.LadeFehler, match="TKJT"):
@@ -41,11 +39,13 @@ def test_ladeweg_mit_ersatz_konverter(tmp_path, monkeypatch):
     assert m.pfad == jt and len(m.flaechen) > 0 and laden.ist_netz(m)
 
 
-def test_nist_jt10_wird_erkannt():
-    """Freie NIST-Datei (lokal, daten/jt): JT 10.5 – TKJT liest sie nicht, die Meldung sagt das."""
+def test_nist_jt10_wird_geladen():
+    """Freie NIST-Datei (lokal, daten/jt): JT 10.5 ueber den TKJT-Fork mit JT-10-Lesen (packaging/jt/bauen.sh)."""
     p = os.path.join(WURZEL, "daten", "jt", "NIST mtc crada assembly.jt")
     if not os.path.isfile(p):
         pytest.skip("NIST-JT nicht vorhanden (lokal unter daten/jt)")
     assert laden.jt_version(p) == (10, 5)
-    with pytest.raises(laden.LadeFehler, match="JT 10.5"):
-        laden.lade_modell(p)
+    if laden.jt_wandler() is None:
+        pytest.skip("JT-Konverter nicht gebaut (packaging/jt/bauen.sh)")
+    m = laden.lade_modell(p)
+    assert m.pfad == p and laden.ist_netz(m) and len(m.flaechen) >= 8

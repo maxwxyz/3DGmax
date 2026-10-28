@@ -80,6 +80,20 @@ def tr_texte() -> set[str]:
     out |= set(pmi_anlegen_ui.PmiAnlegenDialog.SPALTEN)
     from programm.kern import toleranzkette as kt
     out |= set(kt.SPALTEN) | set(kt.QUELLE.values()) | set(kt.VERTEILUNG.values())
+    from programm.ui import toleranzkette_ui as ktu
+    out |= set(ktu.Histogramm.NAMEN.values()) | set(berichte.KETTE_AMPEL.values())
+    from programm.kern import kette2d as k2d
+    from programm.ui import kette2d_ui as k2u
+    out |= set(k2d.SCHLUSS.values()) | {n for n, _ in k2u.SPALTEN} | {h for _, h in k2u.SPALTEN}
+    out |= {n for n, _ in k2u.VORLAGEN.values()}
+    from programm.kern import funktion as fu
+    from programm.ui import funktion_ui as fui
+    out |= set(fu.GRUENDE) | set(fui.ROLLEN_HILFE.values())
+    from programm.kern import fertigung as fe
+    out |= {v.name for v in fe.VERFAHREN.values()} | {"Fertigung"}
+    from programm.ui import messwerkzeug as mw
+    out |= set(mw.ART_TIPP.values())
+    out |= set(ktu.SPALTEN_HILFE.values()) | set(ktu.VERFAHREN_HILFE.values()) | {"Streuung"}
     from programm.kern import kommentare as kk
     out |= set(kk.ART.values()) | set(kk.STATUS.values()) | set(kk.SPALTEN)
     from programm.kern import stueckliste as ks

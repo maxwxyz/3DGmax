@@ -54,6 +54,8 @@ def qt_uebersetzung(app) -> bool:
     oder aus der Qt-Installation. False, wenn Englisch eingestellt ist oder die Datei fehlt."""
     if SPRACHE != "de":
         return False
+    if _QT_UEBERSETZER:  # schon geladen (App-Start oder Hauptfenster)
+        return True
     from PySide6.QtCore import QLibraryInfo, QTranslator
     for ordner in (os.path.join(HIER, "translations"), QLibraryInfo.path(QLibraryInfo.LibraryPath.TranslationsPath)):
         u = QTranslator(app)

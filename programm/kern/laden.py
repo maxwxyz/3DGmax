@@ -178,7 +178,7 @@ def jt_wandler() -> str | None:
 
 
 def _lade_jt(pfad: str) -> "StepModell":
-    """JT 8/9 ueber TKJT (externer Konverter nach GLB, dann wie glTF); JT 10 kann TKJT nicht."""
+    """JT 8 bis 10 ueber TKJT (externer Konverter nach GLB, dann wie glTF)."""
     import os
     import shutil
     import subprocess
@@ -187,9 +187,6 @@ def _lade_jt(pfad: str) -> "StepModell":
     version = jt_version(pfad)
     if version is None:
         raise LadeFehler(tr("Keine JT-Datei: {}").format(os.path.basename(pfad)))
-    if version[0] >= 10:
-        raise LadeFehler(tr("JT {}.{} wird nicht unterstützt: der freie JT-Leser (TKJT) kann JT 8 und 9 – bitte als "
-                            "JT 9 oder STEP exportieren").format(*version))
     wandler = jt_wandler()
     if wandler is None:
         raise LadeFehler(tr("JT braucht die Programmvariante mit dem JT-Leser TKJT (packaging/jt/bauen.sh)"))

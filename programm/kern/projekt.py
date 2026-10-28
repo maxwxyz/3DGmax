@@ -3,7 +3,7 @@
 projekt.json:
   format, programm, typ ("modell" | "vergleich"), modelle {"modell"} bzw. {"alt", "neu"} (Dateinamen im ZIP),
   vergleich {toleranz, suchweite, aenderungen [{nr, titel, pruefstatus, kommentar}]}, messungen [...],
-  kette {cp, glieder [...]} (Toleranzkette, optional), zusammenbau {verbindungen, lagen} (optional)
+  kette {cp, glieder [...], freigabe {geprueft, name, datum, kommentar}} (Toleranzkette, optional), zusammenbau {verbindungen, lagen} (optional)
 Beim Oeffnen werden die Modelle in einen temporaeren Ordner entpackt; der Vergleich wird neu gerechnet
 (deterministisch) und Pruefstatus/Kommentare werden ueber Nummer und Titel wieder zugeordnet.
 """
@@ -39,7 +39,8 @@ def _eindeutig(namen: list[str]) -> list[str]:
 def speichere(pfad: str, modell_pfad: str | None = None, vergleich=None, messungen: list | None = None,
               version: str = "", ansichten: list | None = None, kommentare: list | None = None,
               eigene_pmi: list | None = None, pmi_aenderungen: list | None = None, kette: tuple | None = None,
-              zusammenbau: dict | None = None, kollision: dict | None = None) -> str:
+              zusammenbau: dict | None = None, kollision: dict | None = None,
+              funktion: dict | None = None) -> str:
     """Modell oder Vergleich mit Pruefstand und Messungen als .3dgmax speichern."""
     if not pfad.lower().endswith(ENDUNG):
         pfad += ENDUNG
@@ -49,12 +50,16 @@ def speichere(pfad: str, modell_pfad: str | None = None, vergleich=None, messung
              "kommentare": [asdict(k) for k in (kommentare or [])],
              "eigene_pmi": [_pmi_json(p) for p in (eigene_pmi or [])],
              "pmi_aenderungen": list(pmi_aenderungen or [])}
-    if kette is not None and kette[1]:  # (Cp der Kette, Glieder) der Toleranzkette
+    if kette is not None and kette[1]:  # (Cp der Kette, Glieder[, Freigabe]) der Toleranzkette
         daten["kette"] = {"cp": kette[0], "glieder": [asdict(g) for g in kette[1]]}
+        if len(kette) > 2 and kette[2]:
+            daten["kette"]["freigabe"] = dict(kette[2])
     if zusammenbau:  # Verbindungen und Teillagen (kern.verbindung.Baugruppe.als_dict)
         daten["zusammenbau"] = zusammenbau
     if kollision:  # Einstellungen der Kollisionspruefung und Status/Kommentare der Befunde
         daten["kollision"] = kollision
+    if funktion:  # Funktionsrollen je Flaechenindex (kern.funktion)
+        daten["funktion"] = {str(i): rolle for i, rolle in funktion.items()}
     if vergleich is not None:
         quellen = [vergleich.alt.pfad, vergleich.neu.pfad]
         alt, neu = _eindeutig([os.path.basename(q) for q in quellen])
@@ -92,6 +97,8 @@ def lade(pfad: str, ziel: str | None = None) -> dict:
     from .kommentare import von_dict
     daten["kommentare"] = [von_dict(k) for k in daten.get("kommentare", [])]
     daten["eigene_pmi"] = [_pmi_von(p) for p in daten.get("eigene_pmi", [])]
+    if daten.get("funktion"):
+        daten["funktion"] = {int(i): rolle for i, rolle in daten["funktion"].items()}
     if daten.get("kette"):
         from .toleranzkette import Glied
         daten["kette"]["glieder"] = [Glied(**{**g, "flaechen": tuple(g.get("flaechen", ())),

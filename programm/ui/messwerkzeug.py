@@ -9,6 +9,11 @@ from ..kern import messen
 
 ART_TEXT = {"abstand": "Abstand", "winkel": "Winkel", "radius": "Radius / Ø", "wandstaerke": "Wandstärke",
             "koordinaten": "Koordinaten"}
+ART_TIPP = {"abstand": "Kürzester Abstand zwischen zwei Elementen (Punkt, Kante, Fläche) mit X/Y/Z-Anteilen",
+            "winkel": "Winkel zwischen zwei Ebenen, Achsen oder Geraden",
+            "radius": "Radius und Durchmesser eines Kreises, Bogens oder einer runden Fläche",
+            "wandstaerke": "Materialdicke an der angeklickten Stelle (senkrecht zur Fläche bis zur Gegenseite)",
+            "koordinaten": "Koordinaten eines Punkts im Modell"}
 HINWEIS = {
     "abstand": ("Erstes Element wählen (Punkt, Kante, Fläche)", "Zweites Element wählen"),
     "winkel": ("Erste Ebene, Achse oder Gerade wählen", "Zweite Ebene, Achse oder Gerade wählen"),
@@ -44,6 +49,7 @@ class MessPanel(QtWidgets.QWidget):
         for i, art in enumerate(messen.ARTEN):
             k = QtWidgets.QToolButton()
             k.setText(tr(ART_TEXT[art]))
+            k.setToolTip(tr(ART_TIPP[art]))
             k.setCheckable(True)
             k.setToolButtonStyle(QtCore.Qt.ToolButtonStyle.ToolButtonTextOnly)
             k.setSizePolicy(QtWidgets.QSizePolicy.Policy.Expanding, QtWidgets.QSizePolicy.Policy.Fixed)
@@ -52,6 +58,8 @@ class MessPanel(QtWidgets.QWidget):
             self.knoepfe[art] = k
         lay.addLayout(reihe)
         self.fang = QtWidgets.QCheckBox(tr("Fangen an Endpunkt, Mitte, Kreismitte"))
+        self.fang.setToolTip(tr("Punkte rasten an Kantenenden, Kantenmitten und Kreismitten ein (sonst der "
+                                "angeklickte Punkt)"))
         self.fang.setChecked(True)
         lay.addWidget(self.fang)
         self.hinweis = QtWidgets.QLabel(tr("Messart wählen, dann im Modell klicken"))
@@ -67,9 +75,13 @@ class MessPanel(QtWidgets.QWidget):
         lay.addWidget(self.tabelle, 1)
         unten = QtWidgets.QHBoxLayout()
         self.loeschen = QtWidgets.QPushButton(tr("Löschen"))
+        self.loeschen.setToolTip(tr("Gewählte Messung aus der Liste und dem Modell entfernen"))
         self.alle_loeschen = QtWidgets.QPushButton(tr("Alle löschen"))
+        self.alle_loeschen.setToolTip(tr("Alle Messungen entfernen"))
         self.csv = QtWidgets.QPushButton(tr("CSV speichern …"))
+        self.csv.setToolTip(tr("Alle Messungen als Tabelle (CSV) speichern, z. B. für Excel"))
         self.kopieren = QtWidgets.QPushButton(tr("Kopieren"))
+        self.kopieren.setToolTip(tr("Gewählte Messung als Text in die Zwischenablage"))
         for k in (self.loeschen, self.alle_loeschen, self.kopieren, self.csv):
             unten.addWidget(k)
         lay.addLayout(unten)

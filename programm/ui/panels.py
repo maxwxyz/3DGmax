@@ -23,6 +23,7 @@ class BaumPanel(QtWidgets.QWidget):
         lay.setContentsMargins(6, 6, 6, 6)
         self.suche = QtWidgets.QLineEdit()
         self.suche.setPlaceholderText(tr("Teil suchen"))
+        self.suche.setToolTip(tr("Struktur nach Teilnamen filtern; Treffer werden aufgeklappt"))
         self.suche.setClearButtonEnabled(True)
         self.suche.textChanged.connect(self._filtern)
         lay.addWidget(self.suche)
@@ -206,6 +207,7 @@ class PmiPanel(QtWidgets.QWidget):
         lay.setContentsMargins(6, 6, 6, 6)
         oben = QtWidgets.QHBoxLayout()
         self.art = QtWidgets.QComboBox()
+        self.art.setToolTip(tr("Liste auf eine PMI-Art beschränken"))
         for text, art in ((tr("Alle Arten"), None), (tr("Maße"), MASS), (tr("Toleranzen"), TOLERANZ),
                           (tr("Bezüge"), BEZUG), (tr("Hinweise"), HINWEIS)):
             self.art.addItem(text, art)
@@ -581,6 +583,7 @@ class AnsichtenPanel(QtWidgets.QWidget):
         lay.setContentsMargins(6, 6, 6, 6)
         self.suche = QtWidgets.QLineEdit()
         self.suche.setPlaceholderText(tr("Ansicht suchen"))
+        self.suche.setToolTip(tr("Gespeicherte Ansichten nach Namen filtern"))
         self.suche.setClearButtonEnabled(True)
         self.suche.textChanged.connect(self._filtern)
         lay.addWidget(self.suche)

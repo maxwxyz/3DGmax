@@ -80,6 +80,8 @@ class KollisionPanel(QtWidgets.QWidget):
         lay.setContentsMargins(6, 6, 6, 6)
         form = QtWidgets.QFormLayout()
         self.umfang = QtWidgets.QComboBox()
+        self.umfang.setToolTip(tr("Welche Paare geprüft werden: alle Teile untereinander, die gewählten untereinander "
+                                  "oder die gewählten gegen den Rest"))
         for schluessel, text in UMFANG:
             self.umfang.addItem(tr(text), schluessel)
         self.kontakt = _mm(0.0, 0.01, False)
@@ -89,6 +91,8 @@ class KollisionPanel(QtWidgets.QWidget):
         self.hoechst = _mm(0.0, 0.0, True)
         self.hoechst.setToolTip(tr("Paare mit größerem Abstand melden – nur „gegen den Rest“"))
         self.kontakte = QtWidgets.QCheckBox(tr("Kontakte melden"))
+        self.kontakte.setToolTip(tr("Auch Berührungen (Abstand bis zur Kontaktgrenze) als Befund melden, nicht nur "
+                                    "Durchdringungen"))
         self.kontakte.setChecked(True)
         self.grenzlagen = QtWidgets.QCheckBox(tr("Auch in den Grenzlagen der Toleranzen"))
         self.grenzlagen.setToolTip(tr("Zusammenbau: jedes verbundene Teil zusätzlich an den Grenzen seines Spielraums "
@@ -122,6 +126,7 @@ class KollisionPanel(QtWidgets.QWidget):
         self.bereich.toggled.connect(self._aktiv)
         lay.addLayout(form)
         self.start = QtWidgets.QPushButton(tr("Prüfen"))
+        self.start.setToolTip(tr("Kollisionsprüfung mit den Einstellungen oben starten"))
         self.start.clicked.connect(lambda: self.starten.emit(self.werte()))
         lay.addWidget(self.start)
         self.umfang.currentIndexChanged.connect(self._aktiv)
@@ -140,11 +145,14 @@ class KollisionPanel(QtWidgets.QWidget):
         lay.addWidget(self.tabelle, 1)
         reihe = QtWidgets.QHBoxLayout()
         self.csv = QtWidgets.QPushButton(tr("CSV speichern …"))
+        self.csv.setToolTip(tr("Befunde als Tabelle (CSV) speichern"))
         self.csv.clicked.connect(lambda: self.speichere_csv())
         self.aus = QtWidgets.QPushButton(tr("Befunde ausblenden"))
+        self.aus.setToolTip(tr("Markierte Durchdringungen und Abstände im Modell ausblenden"))
         self.aus.clicked.connect(self.beenden.emit)
         reihe.addWidget(self.csv)
         self.pdf_knopf = QtWidgets.QPushButton(tr("PDF-Bericht …"))
+        self.pdf_knopf.setToolTip(tr("Bericht mit Bild je Befund als PDF"))
         self.pdf_knopf.clicked.connect(self.pdf.emit)
         self.pdf_knopf.setEnabled(False)
         reihe.addWidget(self.pdf_knopf)

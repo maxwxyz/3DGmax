@@ -71,6 +71,7 @@ class BaugruppePanel(QtWidgets.QWidget):
         self.versatz.setToolTip(tr("Abstand zwischen zwei Ebenen (0: Berührung)"))
         reihe.addWidget(self.versatz)
         self.knopf = QtWidgets.QPushButton(tr("Verbinden"))
+        self.knopf.setToolTip(tr("Gewählte Flächen der beiden Teile verbinden: das zweite Teil rastet am ersten ein"))
         self.knopf.clicked.connect(lambda: self.verbinden.emit(self.versatz.value()))
         reihe.addWidget(self.knopf, 1)
         self.knopf_321 = QtWidgets.QPushButton(tr("3-2-1"))
@@ -87,6 +88,7 @@ class BaugruppePanel(QtWidgets.QWidget):
         lay.addWidget(self.verbindungen, 1)
         reihe = QtWidgets.QHBoxLayout()
         self.weg = QtWidgets.QPushButton(tr("Verbindung entfernen"))
+        self.weg.setToolTip(tr("Gewählte Verbindung löschen; das Teil bleibt an seiner Stelle"))
         self.weg.clicked.connect(self._entfernen)
         self.umkehr_knopf = QtWidgets.QPushButton(tr("Umkehren"))
         self.umkehr_knopf.setToolTip(tr("Bewegtes Teil an der gewählten Verbindung um 180° drehen: Zylinder Ende gegen "
@@ -122,6 +124,8 @@ class BaugruppePanel(QtWidgets.QWidget):
             lambda an: self.wiggle_an.setText(tr("⏸ Anhalten") if an else tr("▶ Wiggle")))  # Zustand sichtbar
         self.wiggle_an.toggled.connect(self._teil_gewaehlt)
         self.wiggle_art = QtWidgets.QComboBox()
+        self.wiggle_art.setToolTip(tr("Wie bewegt wird: freie Freiheitsgrade oder innerhalb der Toleranzen bis zu den "
+                                      "Grenzlagen"))
         for schluessel, text in self.WIGGLE_ART:
             self.wiggle_art.addItem(tr(text), schluessel)
         self.wiggle_art.currentIndexChanged.connect(self._teil_gewaehlt)
@@ -131,10 +135,12 @@ class BaugruppePanel(QtWidgets.QWidget):
         self.faktor.setPrefix("× ")
         self.faktor.setToolTip(tr("Überhöhung der Bewegung innerhalb der Toleranzen (1 = wahre Größe)"))
         self.weg_mm = QtWidgets.QDoubleSpinBox()
+        self.weg_mm.setToolTip(tr("Wiggle der freien Freiheitsgrade: Weg je Verschiebung"))
         self.weg_mm.setRange(0.1, 1000.0)
         self.weg_mm.setValue(5.0)
         self.weg_mm.setSuffix(" mm")
         self.winkel = QtWidgets.QDoubleSpinBox()
+        self.winkel.setToolTip(tr("Wiggle der freien Freiheitsgrade: Winkel je Drehung"))
         self.winkel.setRange(1.0, 180.0)
         self.winkel.setValue(15.0)
         self.winkel.setSuffix(" °")
@@ -168,10 +174,14 @@ class BaugruppePanel(QtWidgets.QWidget):
         lay.addWidget(hinweis)
         reihe = QtWidgets.QHBoxLayout()
         self.mass_knopf = QtWidgets.QPushButton(tr("Messgröße aus Auswahl"))
+        self.mass_knopf.setToolTip(tr("Messgröße (Spalt, Bündigkeit, Abstand) aus den gewählten Flächen zweier Teile "
+                                      "anlegen"))
         self.mass_knopf.clicked.connect(self.mass_anlegen.emit)
         self.mass_weg = QtWidgets.QPushButton(tr("Entfernen"))
+        self.mass_weg.setToolTip(tr("Gewählte Messgröße entfernen"))
         self.mass_weg.clicked.connect(self._mass_entfernen)
         self.mass_pdf_knopf = QtWidgets.QPushButton(tr("Als PDF …"))
+        self.mass_pdf_knopf.setToolTip(tr("Bericht der Messgrößen mit Histogramm und Beitragsleistern als PDF"))
         self.mass_pdf_knopf.clicked.connect(self.mass_pdf.emit)
         reihe.addWidget(self.mass_knopf, 1)
         reihe.addWidget(self.mass_weg)
