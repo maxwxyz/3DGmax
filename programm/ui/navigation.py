@@ -22,6 +22,19 @@ LINKS, MITTE, RECHTS = 1, 4, 2  # wie Qt.MouseButton
 UMSCHALT = 0x02000000  # Qt.ShiftModifier
 MODI = ("catia", "klassisch")
 SCHWELLE = 4  # Pixel bis eine Bewegung als Ziehen gilt
+# Drehen wie CATIA mit "Rounded Arcball" (FreeCAD): innen Trackball, im Randband reines Rollen um die Blickachse,
+# dazwischen stufenloser Uebergang - je Mausbewegung nach der aktuellen Lage, nicht einmal je Geste
+ROLL_INNEN, ROLL_AUSSEN = 0.80, 0.98  # Anteil des Kreisradius (halbe kleinere Fensterseite)
+
+
+def roll_anteil(x: float, y: float, breite: float, hoehe: float) -> float:
+    """0 = Trackball, 1 = reines Rollen; dazwischen weich (smoothstep) nach dem Abstand von der Bildmitte, bezogen
+    auf den Kreis mit der halben kleineren Fensterseite (immer ein Kreis, wie CATIA; ausserhalb wird gerollt)."""
+    if breite <= 0 or hoehe <= 0:
+        return 0.0
+    r = ((x - breite / 2) ** 2 + (y - hoehe / 2) ** 2) ** 0.5 / (min(breite, hoehe) / 2)
+    t = min(1.0, max(0.0, (r - ROLL_INNEN) / (ROLL_AUSSEN - ROLL_INNEN)))
+    return t * t * (3 - 2 * t)
 
 
 class Navigation:

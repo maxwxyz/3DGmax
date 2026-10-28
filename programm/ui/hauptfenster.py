@@ -272,6 +272,11 @@ class Hauptfenster(QtWidgets.QMainWindow):
         self.abbrechen.hide()
         self.abbrechen.clicked.connect(self.lade_abbrechen)
         self._aufgaben = []  # laufende Hintergrundrechnungen (Analyse, Farbkarte, Material, Scan)
+        self.vergleich_stand = QtWidgets.QLabel("")  # im Vergleich: welche zwei Staende geladen sind
+        self.vergleich_stand.setObjectName("leise")
+        self.vergleich_stand.setToolTip(tr("Im Vergleich geladene Stände: alt → neu"))
+        self.vergleich_stand.hide()
+        self.statusBar().addPermanentWidget(self.vergleich_stand)
         self.statusBar().addPermanentWidget(self.fortschritt)
         self.statusBar().addPermanentWidget(self.abbrechen)
         # Schnellmessung rechts: Kennwerte der Auswahl, Rechtsklick waehlt die Angaben
@@ -446,6 +451,37 @@ class Hauptfenster(QtWidgets.QMainWindow):
         if ausfuehren:
             m.exec(leiste.mapToGlobal(pos))
         return m
+
+    WERKZEUG_LEISTEN = ("kette", "kette2d", "kette3d", "funktion")  # Fenster, die als Leiste unten liegen
+
+    def _als_leiste(self, f, titel: str, name: str):
+        """Werkzeugfenster (QDialog) als Seitenleiste unten, mit den anderen Werkzeugleisten in Reitern (Regel: was zum
+        Modell gehoert und neben der 3D-Ansicht benutzt wird, ist eine Leiste). Schliessen/Esc schliesst die Leiste,
+        Wiederoeffnen zeigt den Inhalt wieder."""
+        f.setWindowFlags(QtCore.Qt.WindowType.Widget)
+        d = self._dock(titel, f, QtCore.Qt.DockWidgetArea.BottomDockWidgetArea)
+        setattr(self, "dock_" + name, d)
+        gruppe = next((x for n in self.WERKZEUG_LEISTEN if n != name and (x := getattr(self, "dock_" + n, None))
+                       is not None and not x.isFloating()), None)
+        if gruppe is not None:
+            self.tabifyDockWidget(gruppe, d)
+        f.rejected.connect(d.close)
+        d.visibilityChanged.connect(lambda sichtbar: sichtbar and f.isHidden() and f.show())
+        if hasattr(f, "wiggle"):  # Toleranzkette: mit der Leiste endet auch der Wiggle der Schlussflaechen
+            d.toggleViewAction().toggled.connect(lambda an: an or f.wiggle.setChecked(False))
+        self.menue_fenster.insertAction(self.menue_fenster.actions()[-2], d.toggleViewAction())
+        d.hide()
+        return d
+
+    def _leiste_zeigen(self, f, name: str):
+        d = getattr(self, "dock_" + name)
+        f.show()
+        erstes_mal = not d.isVisible() and not getattr(d, "_groesse_gesetzt", False)
+        d.show()
+        d.raise_()
+        if erstes_mal and not d.isFloating():  # Tabellen und Histogramm brauchen Hoehe: knapp die Haelfte
+            self.resizeDocks([d], [int(self.height() * 0.45)], QtCore.Qt.Orientation.Vertical)
+            d._groesse_gesetzt = True
 
     def setze_arbeitsbereich(self, schluessel: str):
         """Seitenleisten des Arbeitsbereichs zeigen, die anderen ausblenden; Leisten, die nur in einem Zustand Sinn
@@ -1957,6 +1993,9 @@ class Hauptfenster(QtWidgets.QMainWindow):
         self.aenderungen.zeige(v, self.thema)
         self.spalten_anpassen()
         self.dock_aenderungen.toggleViewAction().setEnabled(True)
+        self.vergleich_stand.setText(tr("Vergleich: {} → {}").format(os.path.basename(v.alt.pfad),
+                                                                     os.path.basename(v.neu.pfad)))
+        self.vergleich_stand.show()
         self.dock_aenderungen.show()
         self.dock_aenderungen.raise_()
         for n in self.VERGLEICH_AKTIONEN:
@@ -2313,6 +2352,7 @@ class Hauptfenster(QtWidgets.QMainWindow):
         self.aenderungen.zeige(None)
         self.dock_aenderungen.hide()
         self.dock_aenderungen.toggleViewAction().setEnabled(False)
+        self.vergleich_stand.hide()
         for n in self.VERGLEICH_AKTIONEN:
             self.aktionen[n].setEnabled(False)
         if neu_zeigen and self.erg is not None:
@@ -2891,9 +2931,9 @@ class Hauptfenster(QtWidgets.QMainWindow):
             f = Kette2DFenster(self)
             f.uebernehmen.connect(self._kette2d_uebernehmen)
             self._kette2d = f
+            self._als_leiste(f, tr("2D-Toleranzkette"), "kette2d")
         if not nur_anlegen:
-            f.show()
-            f.raise_()
+            self._leiste_zeigen(f, "kette2d")
         return f
 
     def zeige_kette3d(self, nur_anlegen: bool = False):
@@ -2905,9 +2945,9 @@ class Hauptfenster(QtWidgets.QMainWindow):
             f.uebernehmen.connect(self._kette2d_uebernehmen)
             f.zeigen.connect(lambda linien: self.ansicht.zeige_hilfslinien(linien or [], einpassen=bool(linien)))
             self._kette3d = f
+            self._als_leiste(f, tr("3D-Toleranzkette"), "kette3d")
         if not nur_anlegen:
-            f.show()
-            f.raise_()
+            self._leiste_zeigen(f, "kette3d")
         return f
 
     def _kette2d_uebernehmen(self, glieder: list):
@@ -2928,10 +2968,10 @@ class Hauptfenster(QtWidgets.QMainWindow):
             f.flaechen_zeigen.connect(self.ansicht.hebe_flaechen)
             f.anlegen.connect(self._funktion_anlegen)
             self._funktion = f
+            self._als_leiste(f, tr("Funktion → Tolerierung"), "funktion")
         f.setze_modell(self.erg.modell if self.erg is not None else None)
         if not nur_anlegen:
-            f.show()
-            f.raise_()
+            self._leiste_zeigen(f, "funktion")
         return f
 
     def _funktion_anlegen(self, vorschlaege: list, fragen: bool = True) -> list:
@@ -2985,16 +3025,16 @@ class Hauptfenster(QtWidgets.QMainWindow):
             f.strecke_zeigen.connect(self._kette_strecke)
             f.bild_zeigen.connect(self._kette_bild)
             f.schluss_wiggle.connect(self.schluss_wiggle)
-            f.finished.connect(lambda _r: f.wiggle.setChecked(False))  # Fenster zu: Wiggle aus
+            f.finished.connect(lambda _r: f.wiggle.setChecked(False))  # Leiste zu: Wiggle aus
             f.oeffnen.connect(lambda: self.oeffne_kette())
             f.teil_von = self._teil_von_flaechen
             self._kette = f
+            self._als_leiste(f, tr("Toleranzkette"), "kette")
         if self.erg is not None and f.modell_pfad != self.erg.pfad:
             f.modell_pfad = self.erg.pfad
             self._werkstoffe_vorbelegen(f)
         if not nur_anlegen:
-            f.show()
-            f.raise_()
+            self._leiste_zeigen(f, "kette")
         return f
 
     def _teil_von_flaechen(self, flaechen) -> str:

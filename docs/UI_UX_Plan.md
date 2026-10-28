@@ -106,6 +106,25 @@ display only; tolerance zones move to "Tolerieren").
   File › Export); panels that need a state (changes, scan check) only with that state; a tool of another workspace
   moves the bar without hiding its panel; a saved window arrangement wins over the workspace at start-up.
 
+- Done 2026-10-28 (step 2.2): the chain, 2D/3D chain and function windows are panels (bottom dock area, tabbed,
+  workspace Tolerancing) – `Hauptfenster._als_leiste`; "Schließen"/Esc closes the panel, reopening shows its content;
+  the chain panel switches its splitter to side by side when it is much wider than tall.
+
+- Done 2026-10-28 (step 2.3): rotation blends roll and trackball per mouse move (`navigation.roll_anteil`, circle
+  with half the smaller window side, blend 80–98 %, smoothstep); no hint circle (user: not shown, always a circle,
+  a bit larger). View cube: unlit grey sides (lit they washed out to white in the fixed pipeline), rebuilt when the
+  device pixel ratio changes (screen change on macOS shifted image and hit area).
+- Done 2026-10-28 (step 2.4): earlier selected faces 0.78 × the highlight colour, the last one full; comparison
+  state ("Vergleich: alt → neu") permanently in the status bar.
+
+- **Top bars (user, 2026-10-28, next):** one row – workspace selector left in the toolbar, overflow » instead of a
+  second row; section and explosion (with their sliders) move into a small row at the top of the structure panel;
+  structure, PMI and saved views are never hidden by a workspace switch (only tool panels change); during a
+  comparison both structures (new/old) are always shown, labelled.
+- **Several models in one assembly (user question, later):** today one window holds one model and the assembly
+  works within one STEP file; planned "Modell hinzufügen" (insert another file as parts of the current assembly,
+  shown in the structure, connectable like the others).
+
 **Stage 2 additions (user feedback 2026-10-28, approved for implementation):**
 - **Panel or dialog – one rule:** everything that belongs to the loaded model and is used next to the 3D view is a
   panel (tab in a side area): structure, PMI, views, measure, compare/check, assembly, clashes, tolerance chain, 2D/3D

@@ -1810,5 +1810,7 @@
 "Messen, Analysen (Entformung, Krümmung, Wandstärke), Kommentare": "Measure, analyses (draft, curvature, wall thickness), comments",
 "PMI und Toleranzzonen, PMI anlegen, Toleranzkette, Funktion → Tolerierung": "PMI and tolerance zones, create PMI, tolerance chain, function → tolerancing",
 "Teile verbinden, Wiggle, Baugruppenvariation, Kollisionen": "Connect parts, wiggle, assembly variation, clashes",
-"Arbeitsbereich: zeigt die Seitenleisten für diese Aufgabe": "Workspace: shows the side panels for this task"
+"Arbeitsbereich: zeigt die Seitenleisten für diese Aufgabe": "Workspace: shows the side panels for this task",
+"Im Vergleich geladene Stände: alt → neu": "States loaded in the comparison: old → new",
+"Vergleich: {} → {}": "Comparison: {} → {}"
 }

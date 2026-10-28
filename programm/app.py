@@ -93,6 +93,8 @@ def startbild(app):
     from .i18n import tr
     from .version import VERSION
     try:
+        if "_PYI_SPLASH_IPC" not in os.environ:  # kein Starterbild (macOS, nicht gebaut): pyi_splash meldet sonst laut
+            raise ImportError
         import pyi_splash
         if pyi_splash.is_alive():
             s = _StarterBild(pyi_splash)
@@ -112,6 +114,8 @@ def startbild(app):
 def starter_bild_zu():
     """Startbild des PyInstaller-Starters (Windows/Linux, erscheint vor Python) schliessen."""
     try:
+        if "_PYI_SPLASH_IPC" not in os.environ:
+            return
         import pyi_splash
         pyi_splash.close()
     except Exception:  # noqa: BLE001 - nicht gebaut (ImportError) oder Starter ohne Bildschirm (KeyError)

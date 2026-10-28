@@ -81,3 +81,15 @@ def test_liegen_gebliebener_zustand_stoert_nicht():
         _ziehe(n, MITTE)  # ... und das Loslassen kommt nie an
         n.druecken(LINKS, LINKS, 0, 300, 300)
         assert n.start == (300, 300) and n.loslassen(LINKS, 0, 300, 300) == [("klick", 300, 300)]
+
+
+def test_roll_anteil_weich():
+    """Mitte Trackball, aussen rollen, dazwischen stetig und monoton (kein Sprung); der Bereich ist ein Kreis mit der
+    halben kleineren Fensterseite (in jeder Richtung derselbe Abstand)."""
+    from programm.ui.navigation import ROLL_AUSSEN, ROLL_INNEN, roll_anteil
+    w, h = 1200, 800
+    assert roll_anteil(600, 400, w, h) == 0.0 and roll_anteil(0, 0, w, h) == 1.0
+    assert roll_anteil(600 + ROLL_INNEN * 400, 400, w, h) == 0.0 == roll_anteil(600, 400 - ROLL_INNEN * 400, w, h)
+    assert roll_anteil(600 + ROLL_AUSSEN * 400, 400, w, h) == 1.0 == roll_anteil(600, 400 + ROLL_AUSSEN * 400, w, h)
+    werte = [roll_anteil(600 + k * 4, 400, w, h) for k in range(101)]
+    assert all(b >= a for a, b in zip(werte, werte[1:])) and max(b - a for a, b in zip(werte, werte[1:])) < 0.1

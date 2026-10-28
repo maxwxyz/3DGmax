@@ -33,7 +33,11 @@
    "Vergleich: Der Reiter Änderungen lässt sich ohne Vergleich nicht mehr leer öffnen; ohne Vergleich zeigt er einen Hinweis mit „Zwei Stände vergleichen …“ statt eines wirkungslosen „Prüfen starten“.",
    "Toleranzkette: Wiggle der Schlussflächen – die Endfläche der Kette pendelt im Modell zwischen Worst-Case-Minimum und -Maximum (überhöht, Faktor in der Beschriftung), grün in der Anforderung, rot außerhalb, mit dem jeweiligen Wert.",
    "Toleranzkette aus 3D-Auswahl: Mittelebene als Kettenanfang oder -ende (z. B. Mitte einer Nut, halbe Breite mit Faktor 0,5) und Ketten über mehrere Teile – an einer Fügestelle mit Verbindung im Zusammenbau entsteht ein Glied mit deren Spielraum.",
-   "Arbeitsbereiche: Leiste oben mit Ansehen, Vergleichen & Prüfen, Messen & Analysieren, Tolerieren und Zusammenbau – jeder Bereich zeigt seine Seitenleisten; ein Werkzeug aus einem anderen Bereich nimmt die Leiste mit; der Bereich wird gemerkt."
+   "Arbeitsbereiche: Leiste oben mit Ansehen, Vergleichen & Prüfen, Messen & Analysieren, Tolerieren und Zusammenbau – jeder Bereich zeigt seine Seitenleisten; ein Werkzeug aus einem anderen Bereich nimmt die Leiste mit; der Bereich wird gemerkt.",
+   "Toleranzkette, 2D-/3D-Kette und Funktion → Tolerierung sind Leisten unter der 3D-Ansicht statt eigener Fenster (Bereich Tolerieren, in Reitern); breit und niedrig stehen Glieder und Ergebnis nebeneinander.",
+   "Navigation (CATIA): Rollen nur noch im äußeren Bereich eines größeren Kreises (halbe kleinere Fensterseite); beim Hineinfahren mit gedrückter Taste geht das Rollen stufenlos in das Drehen über (wie „Rounded Arcball“).",
+   "Navigationswürfel: klarer Look (graue Seiten, helle Kanten statt überstrahlt weiß); unter macOS stimmen Bild und Trefferbereich auch nach einem Bildschirmwechsel (Retina ↔ extern).",
+   "Mehrfachauswahl: früher gewählte Flächen etwas dunkler als die zuletzt gewählte; im Vergleich zeigt die Statuszeile die beiden geladenen Stände."
   ],
   "en": [
    "3D tolerance chain: enter positions with translation and rotation (each component with deviations) by hand in a guided editor, choose function point and closing quantity, show the chain in the model, compute linearly and non-linearly and adopt it into the tolerance chain.",
@@ -68,7 +72,11 @@
    "Comparison: the Changes tab can no longer be opened empty without a comparison; without one it shows a hint with “Compare two states …” instead of an ineffective “Start review”.",
    "Tolerance chain: wiggle of the closing faces – the end face of the chain swings in the model between worst-case minimum and maximum (exaggerated, factor in the label), green within the requirement, red outside, with the current value.",
    "Tolerance chain from 3D selection: median plane as chain start or end (e.g. centre of a slot, half the width with factor 0.5) and chains across several parts – a joint with an assembly connection becomes a link with its clearance.",
-   "Workspaces: bar at the top with View, Compare & check, Measure & analyse, Tolerancing and Assembly – each shows its side panels; a tool from another workspace takes the bar along; the workspace is remembered."
+   "Workspaces: bar at the top with View, Compare & check, Measure & analyse, Tolerancing and Assembly – each shows its side panels; a tool from another workspace takes the bar along; the workspace is remembered.",
+   "Tolerance chain, 2D/3D chain and function → tolerancing are panels below the 3D view instead of separate windows (Tolerancing workspace, tabbed); when wide and low, links and result sit side by side.",
+   "Navigation (CATIA): rolling only in the outer band of a larger circle (half the smaller window side); moving inwards with the button held blends rolling smoothly into orbiting (like “rounded arcball”).",
+   "View cube: clearer look (grey sides, light edges instead of washed-out white); on macOS image and hit area match also after a screen change (Retina ↔ external).",
+   "Multi-selection: earlier selected faces slightly darker than the last one; during a comparison the status bar shows both loaded states."
   ]
  },
  "releases": [

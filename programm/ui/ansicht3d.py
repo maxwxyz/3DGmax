@@ -23,9 +23,10 @@ from .navigation import Navigation
 
 STANDARDANSICHTEN = ("vorne", "hinten", "oben", "unten", "links", "rechts", "iso")
 # Ansichtswuerfel je Farbschema: Seitenfarbe, Material (Umgebung/Streuung), Innenseite, Schrift
-WUERFEL_HELL = {"seite": (0.82, 0.84, 0.88), "umgebung": (0.72, 0.72, 0.72), "streu": (0.22, 0.22, 0.22),
-                "innen": (0.62, 0.65, 0.70), "text": (0.0, 0.0, 0.0)}
-WUERFEL_DUNKEL = {"seite": (0.40, 0.43, 0.48), "umgebung": (0.72, 0.72, 0.72), "streu": (0.22, 0.22, 0.22),
+# Seiten unbeleuchtet in diesen Farben (beleuchtet waren sie uebersteuert weiss und der Wuerfel wirkte flach)
+WUERFEL_HELL = {"seite": (0.80, 0.83, 0.88), "umgebung": (0.45, 0.45, 0.45), "streu": (0.50, 0.50, 0.50),
+                "innen": (0.62, 0.65, 0.70), "text": (0.08, 0.10, 0.14)}
+WUERFEL_DUNKEL = {"seite": (0.42, 0.45, 0.50), "umgebung": (0.45, 0.45, 0.45), "streu": (0.50, 0.50, 0.50),
                   "innen": (0.25, 0.27, 0.31), "text": (1.0, 1.0, 1.0)}
 def gp_trsf(m):
     """gp_Trsf aus einer 4x4-Matrix (Drehung und Verschiebung)."""
@@ -150,11 +151,13 @@ class AnsichtBasis(QtWidgets.QWidget):
         """Fokus wirkt nur, wenn etwas gewaehlt ist (sonst waere alles durchscheinend)."""
         return self.fokus and bool(self.hervor or self.fokus_teile)
 
-    def hebe_flaechen(self, flaechen: set[int], teile: dict | None = None):
+    def hebe_flaechen(self, flaechen: set[int], teile: dict | None = None, zuletzt=None):
         """Flaechen hervorheben; teile: Flaechenindex -> Teil-Instanzen, auf die sich die Hervorhebung beschraenkt
-        (gleiche Teile teilen sich die Flaechenindizes - sonst leuchten alle Schrauben, wenn eine gewaehlt ist)."""
+        (gleiche Teile teilen sich die Flaechenindizes - sonst leuchten alle Schrauben, wenn eine gewaehlt ist);
+        zuletzt: (Flaechenindex, Teil) der zuletzt gewaehlten Flaeche - die frueher gewaehlten etwas dunkler."""
         self.hervor = set(flaechen)
         self.hervor_teile = {i: set(t) for i, t in (teile or {}).items()}
+        self.hervor_zuletzt = zuletzt if len(self.hervor) > 1 else None
 
     def zeige_pmi(self, ids: set[int] | None):
         self.pmi_ids_sichtbar = None if ids is None else set(ids)
@@ -795,6 +798,7 @@ class OcctAnsicht(AnsichtBasis):
         w.SetInnerColor(_farbe(f["innen"]))
         w.SetTextColor(_farbe(f["text"]))
         w.SetBoxTransparency(0.0)
+        _unbeleuchtet(w)  # Seiten in ihrem Grau (beleuchtet wurden sie in der festen Pipeline weiss), Kanten hell
         # Hervorhebung beim Ueberfahren ruhig blau statt OCCT-Tuerkis (die Farbe steckt im Schattierungsaspekt
         # der eigenen Hover-Darstellung des Wuerfels); Orange bleibt der Auswahl
         hover = w.DynamicHilightAttributes()
@@ -809,9 +813,22 @@ class OcctAnsicht(AnsichtBasis):
             self._faerbe_wuerfel()
             ctx.Display(w, False)
 
+    def _wuerfel_pruefen(self):
+        """macOS: der Wuerfel ist in Geraetepixeln gebaut; wechselt das Fenster den Bildschirm (Retina <-> extern),
+        neu bauen - sonst liegen Bild und Trefferbereich auseinander (Hervorhebung links/unter dem Wuerfel)."""
+        if sys.platform != "darwin" or getattr(self, "_wuerfel", None) is None or not self._bereit:
+            return
+        k = max(1.0, self.viewer.devicePixelRatioF())
+        if abs(k - getattr(self, "_wuerfel_k", 1.0)) > 1e-3:
+            self.d.Context.Remove(self._wuerfel, False)
+            self._baue_wuerfel()
+            self._zeige_wuerfel()
+            self._neu_zeichnen()
+
     def _wuerfel_unter_maus(self, x, y, zeichnen=False):
         """Teil des Ansichtswuerfels unter der Maus (Owner) oder None."""
         from OCC.Core.AIS import AIS_ViewCubeOwner
+        self._wuerfel_pruefen()
         w = getattr(self, "_wuerfel", None)
         ctx = self.d.Context
         if w is None:
@@ -1413,9 +1430,19 @@ class OcctAnsicht(AnsichtBasis):
         teile = getattr(self, "hervor_teile", {}).get(idx)
         return not teile or any(self._teile.get(t) is ais for t in teile)
 
-    def hebe_flaechen(self, flaechen, teile=None):
+    def _hervor_farbe(self, idx: int, ais):
+        """Hervorhebung; bei Mehrfachauswahl die frueher gewaehlten Flaechen etwas dunkler als die letzte."""
+        farbe = (self.thema or {}).get("hervor", (1, 0.45, 0))
+        zuletzt = getattr(self, "hervor_zuletzt", None)
+        if zuletzt is not None:
+            letzte = idx == zuletzt[0] and (zuletzt[1] is None or self._teile.get(zuletzt[1]) is ais)
+            if not letzte:
+                farbe = tuple(c * 0.78 for c in farbe)  # gleicher Ton, nur etwas dunkler
+        return _farbe(farbe)
+
+    def hebe_flaechen(self, flaechen, teile=None, zuletzt=None):
         alt = self.hervor
-        super().hebe_flaechen(flaechen, teile)
+        super().hebe_flaechen(flaechen, teile, zuletzt)
         if not self._bereit or self.szene is None:
             return
         t = self.thema or {}
@@ -1424,7 +1451,7 @@ class OcctAnsicht(AnsichtBasis):
         for idx in alt | self.hervor:
             for ais, f in self._flaechen_ais.get(idx, []):
                 if self._hervorgehoben(idx, ais):
-                    ais.SetCustomColor(f, _farbe(t.get("hervor", (1, 0.45, 0))))
+                    ais.SetCustomColor(f, self._hervor_farbe(idx, ais))
                 else:
                     ais.SetCustomColor(f, _farbe(self._grundfarbe(idx, f) or grund))
                 geaendert.add(ais)
@@ -2110,24 +2137,22 @@ class OcctAnsicht(AnsichtBasis):
         self._kamera_bewegt()
         self.d.View.Redraw()
 
-    ROLL_KREIS = 0.45  # Rollen, wenn die Drehgeste ausserhalb dieses Kreises beginnt (Anteil der kleineren Seite)
+    def _drehe_gemischt(self, dx, dy):
+        """Drehgeste wie CATIA mit "Rounded Arcball": je nach Lage der Maus Trackball, Rollen um die Blickachse oder
+        ein Gemisch (navigation.roll_anteil) - beim Hineinfahren geht das Rollen stufenlos in den Trackball ueber."""
+        from .navigation import roll_anteil
+        jetzt = getattr(self, "_maus_jetzt", None) or getattr(self, "_geste_start", None)
+        w, h = self.d.View.Window().Size()
+        s = roll_anteil(jetzt[0], jetzt[1], w, h) if jetzt is not None else 0.0
+        self._rollen = s >= 1.0
+        if s < 1.0:
+            self._drehe(dx * (1 - s), dy * (1 - s))
+        if s > 0.0:
+            self._rolle(dx, dy, s)
 
-    def _rollen_aktiv(self) -> bool:
-        """Wie CATIA: beginnt die Drehgeste ausserhalb des Kreises um die Bildmitte, rollt die Ansicht um die
-        Blickachse (einmal je Geste entschieden)."""
-        if getattr(self, "_rollen", None) is None:
-            start = getattr(self, "_geste_start", None)
-            w, h = self.d.View.Window().Size()
-            if start is None or w <= 0 or h <= 0:
-                self._rollen = False
-            else:
-                r = math.hypot(start[0] - w / 2, start[1] - h / 2)
-                self._rollen = r > self.ROLL_KREIS * min(w, h)
-        return self._rollen
-
-    def _rolle(self, dx, dy):
+    def _rolle(self, dx, dy, anteil: float = 1.0):
         """Drehung um die Blickachse durch den Drehpunkt um den Winkel, den die Maus um dessen Lage im Bild
-        ueberstreicht (ohne gesetzten Drehpunkt die Bildmitte, wie CATIA)."""
+        ueberstreicht (ohne gesetzten Drehpunkt die Bildmitte, wie CATIA); anteil < 1 im Uebergangsband."""
         from OCC.Core.gp import gp_Ax1, gp_Dir, gp_Trsf
         jetzt = getattr(self, "_maus_jetzt", None)
         if jetzt is None:
@@ -2141,7 +2166,7 @@ class OcctAnsicht(AnsichtBasis):
         blick = cam.Direction()
         t = gp_Trsf()
         # die Kamera dreht gegen das Bild: mit -winkel folgt das Bild der Maus
-        t.SetRotation(gp_Ax1(self._mitte_cache, gp_Dir(blick.X(), blick.Y(), blick.Z())), -winkel)
+        t.SetRotation(gp_Ax1(self._mitte_cache, gp_Dir(blick.X(), blick.Y(), blick.Z())), -winkel * anteil)
         cam.Transform(t)
         self._kamera_bewegt()
         self.d.View.Redraw()
@@ -2606,6 +2631,8 @@ class OcctAnsicht(AnsichtBasis):
             return self._rad(ev)
         if typ == E.NativeGesture:
             return self._geste(ev)
+        if typ in (E.Resize, E.ScreenChangeInternal, E.DevicePixelRatioChange):
+            self._wuerfel_pruefen()
         if typ == E.Resize:
             # Seitenleiste ziehen: MustBeResized ist teuer (Puffer neu anlegen). Hoechstens alle 250 ms sofort,
             # sonst gesammelt nach dem Ziehen. True: das resizeEvent von pythonocc ruft es sonst je Pixel auf.
@@ -2628,10 +2655,8 @@ class OcctAnsicht(AnsichtBasis):
         art, *werte = befehl
         if art in ("drehen", "schieben") and getattr(self, "_drehpunkt_ais", None) is None:
             self._zeige_drehpunkt(an=True)  # Kreuz zeigt, um welchen Punkt gedreht wird
-        if art == "drehen" and self._rollen_aktiv():
-            self._rolle(*werte)
-        elif art == "drehen":
-            self._drehe(*werte)
+        if art == "drehen":
+            self._drehe_gemischt(*werte)
         elif art == "schieben":
             self._verschiebe(*werte)
         elif art == "zoomen":
@@ -2778,8 +2803,9 @@ class OcctAnsicht(AnsichtBasis):
         for i, t in paare:
             if i is not None and t is not None:
                 teile.setdefault(i, set()).add(t)
+        letzte = next(((i, t) for i, t in reversed(paare) if i is not None), None)
         self.hebe_flaechen({i for i, _ in paare if i is not None},
-                           teile if all(t is not None for i, t in paare if i is not None) else None)
+                           teile if all(t is not None for i, t in paare if i is not None) else None, letzte)
         if kanten:
             bb, comp = BRep_Builder(), TopoDS_Compound()
             bb.MakeCompound(comp)

@@ -16,7 +16,7 @@ BEREICHE = (
     ("messen", "Messen & Analysieren", "Messen, Analysen (Entformung, Krümmung, Wandstärke), Kommentare",
      ("baum", "messen", "analyse", "kommentare")),
     ("tolerieren", "Tolerieren", "PMI und Toleranzzonen, PMI anlegen, Toleranzkette, Funktion → Tolerierung",
-     ("baum", "pmi")),
+     ("baum", "pmi", "kette", "kette2d", "kette3d", "funktion")),
     ("zusammenbau", "Zusammenbau", "Teile verbinden, Wiggle, Baugruppenvariation, Kollisionen",
      ("baum", "zusammenbau", "kollision")),
 )

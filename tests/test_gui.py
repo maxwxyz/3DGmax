@@ -1906,6 +1906,7 @@ def test_startbild_bleibt_beim_starterbild(monkeypatch):
     texte, zu = [], []
     fake = types.SimpleNamespace(is_alive=lambda: True, update_text=texte.append, close=lambda: zu.append(1))
     monkeypatch.setitem(sys.modules, "pyi_splash", fake)
+    monkeypatch.setenv("_PYI_SPLASH_IPC", "1")  # setzt der Starter, wenn er ein Bild zeigt
     s = app_modul.startbild(QtWidgets.QApplication.instance())
     assert not isinstance(s, QtWidgets.QSplashScreen) and texte and not zu
     s.showMessage("x", 0, None)
@@ -1921,14 +1922,17 @@ def test_toleranzkette_fenster_verkleinerbar(fenster):
     k = f.zeige_toleranzkette()
     app = QtWidgets.QApplication.instance()
     assert k.minimumSizeHint().width() < 800
-    k.resize(700, 500)
+    d = f.dock_kette  # als Leiste: herausgeloest und so schmal wie ein kleines Fenster
+    d.setFloating(True)
+    d.resize(520, 900)
     for _ in range(10):
         app.processEvents()
-    assert k.width() == 700 and k.ergebnisse.horizontalScrollBar().maximum() > 0
-    k.resize(1500, 800)
+    assert k.width() < 700 and k.ergebnisse.horizontalScrollBar().maximum() > 0  # darunter rollt die Leiste
+    d.resize(1500, 1100)
     for _ in range(10):
         app.processEvents()
     assert k.ergebnisse.horizontalScrollBar().maximum() == 0  # genug Platz: ganze Tabelle ohne Leiste
+    d.setFloating(False)
 
 
 def test_aenderungen_reiter_nur_im_vergleich(fenster):
@@ -1939,10 +1943,12 @@ def test_aenderungen_reiter_nur_im_vergleich(fenster):
     assert not menue.isEnabled() and f.aenderungen.neu_knopf.isVisibleTo(f.aenderungen)
     assert f.oeffne_beispiel("vergleich_pmi", warten=True)
     assert menue.isEnabled() and not f.aenderungen.neu_knopf.isVisibleTo(f.aenderungen)
+    assert f.vergleich_stand.isVisibleTo(f) and "→" in f.vergleich_stand.text()  # beide Staende sichtbar
     assert f.aenderungen.start.isEnabled()
     f.aenderungen.ende_knopf.click()
     assert f.vergleich is None and not f.dock_aenderungen.isVisible() and not menue.isEnabled()
     assert "Kein Vergleich" in f.aenderungen.kopf.text() and not f.aenderungen.start.isEnabled()
+    assert not f.vergleich_stand.isVisibleTo(f)
     gestartet = []
     f.starte_vergleich = lambda *a, **k: gestartet.append(1)
     f.aenderungen.neu_knopf.click()
@@ -2019,3 +2025,30 @@ def test_arbeitsbereiche(fenster):
     assert f.bereiche.schluessel() == "zusammenbau" and "zusammenbau" in sicht()
     f.bereiche.zeige("ansehen")
     app.processEvents()
+
+
+def test_werkzeuge_als_leisten(fenster):
+    """Toleranzkette, 2D/3D-Kette und Funktion sind Leisten unter der 3D-Ansicht (in Reitern, Bereich Tolerieren);
+    Schliessen schliesst die Leiste, Wiederoeffnen zeigt den Inhalt wieder."""
+    f = fenster
+    app = QtWidgets.QApplication.instance()
+    k = f.zeige_toleranzkette()
+    app.processEvents()
+    assert f.dockWidgetArea(f.dock_kette) == QtCore.Qt.DockWidgetArea.BottomDockWidgetArea
+    assert f.dock_kette.isVisible() and k.isVisible() and f.bereiche.schluessel() == "tolerieren"
+    fu = f.zeige_funktion()
+    app.processEvents()
+    assert f.dock_funktion.isVisible() and f.dock_kette in f.tabifiedDockWidgets(f.dock_funktion)
+    k.reject()  # Knopf "Schliessen"
+    app.processEvents()
+    assert not f.dock_kette.isVisibleTo(f)
+    f.zeige_toleranzkette()
+    app.processEvents()
+    assert f.dock_kette.isVisible() and k.isVisible()
+    f.dock_kette.toggleViewAction().trigger()  # Menue Fenster: aus
+    f.dock_kette.toggleViewAction().trigger()  # und wieder an: Inhalt sichtbar
+    app.processEvents()
+    assert k.isVisible()
+    fu.reject()
+    k.reject()
+    f.bereiche.zeige("ansehen")

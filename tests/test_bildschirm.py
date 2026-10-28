@@ -74,6 +74,21 @@ def pruefe_alles():
     maus(T.MouseButtonRelease, (w[0] + 60, w[1]))
     d = cam.Direction()
     ergebnis["wuerfel_ziehen"] = (d.X(), d.Y(), d.Z()) != d0
+    # Mehrfachauswahl: die frueher gewaehlte Flaeche etwas dunkler als die zuletzt gewaehlte
+    m = f.erg.modell
+    a.setze_auswahl([m.flaechen[0], m.flaechen[1]])
+    ais0, _ = a._flaechen_ais[0][0]
+    ais1, _ = a._flaechen_ais[1][0]
+    frueh, letzt = a._hervor_farbe(0, ais0), a._hervor_farbe(1, ais1)
+    ergebnis["auswahl_reihenfolge"] = frueh.Red() < letzt.Red() and frueh.Red() > 0.6 * letzt.Red()
+    a.setze_auswahl([m.flaechen[1]])
+    ergebnis["einzeln_volle_farbe"] = abs(a._hervor_farbe(1, ais1).Red() - letzt.Red()) < 1e-9
+    a.setze_auswahl([])
+    # Bildschirmwechsel (Retina <-> extern): der Wuerfel wird mit dem neuen Faktor neu gebaut
+    if sys.platform == "darwin":
+        a._wuerfel_k = 3.0
+        a._wuerfel_unter_maus(*w)
+        ergebnis["wuerfel_neu_gebaut"] = abs(a._wuerfel_k - max(1.0, a.viewer.devicePixelRatioF())) < 1e-6
     # Kameraverlauf: vorne -> oben, zurueck -> vorne, vor -> oben; Perspektive umschaltbar
     a.standard("vorne"); a._kamera_merken()
     a.standard("oben"); a._kamera_merken()
@@ -387,21 +402,32 @@ def los():
         p1 = gp_Pnt(q.X() - 40 * s.X(), q.Y() - 40 * s.Y(), q.Z() - 40 * s.Z())
         p2 = gp_Pnt(q.X() + 40 * s.X(), q.Y() + 40 * s.Y(), q.Z() + 40 * s.Z())
         cx, cy = a.d.View.Convert(q.X(), q.Y(), q.Z())
-        r = 0.48 * min(w, h)
-        start = (cx + r, cy)
-        ende = (cx + r * math.cos(0.4), cy + r * math.sin(0.4))  # Maus im Uhrzeigersinn (Bild-y nach unten)
+        def ziehe(rn):  # Maus auf dem Kreis rn (Anteil der halben kleineren Seite), Rueckgabe: ueberstrichener Winkel
+            r = rn * min(w, h) / 2
+            pkt = lambda t: (w / 2 + r * math.cos(t), h / 2 + r * math.sin(t))  # noqa: E731
+            maus(QtCore.QEvent.Type.MouseButtonPress, pkt(0.0), B.LeftButton)
+            for k in range(1, 21):
+                maus(QtCore.QEvent.Type.MouseMove, pkt(0.4 * k / 20), B.LeftButton)
+            maus(QtCore.QEvent.Type.MouseButtonRelease, pkt(0.4), B.LeftButton)
+            (x0, y0), (x1, y1) = pkt(0.0), pkt(0.4)
+            return math.atan2(y1 - cy, x1 - cx) - math.atan2(y0 - cy, x0 - cx)
+        # im Randband: reines Rollen, das Bild folgt der Maus, die Blickrichtung bleibt
         blick = cam.Direction()
         vorher = bildwinkel(a, p1, p2)
-        maus(QtCore.QEvent.Type.MouseButtonPress, start, B.LeftButton)
-        for k in range(1, 21):
-            t = 0.4 * k / 20
-            maus(QtCore.QEvent.Type.MouseMove, (cx + r * math.cos(t), cy + r * math.sin(t)), B.LeftButton)
-        maus(QtCore.QEvent.Type.MouseButtonRelease, ende, B.LeftButton)
+        soll = ziehe(0.99)
         erg["rollen"] = bool(getattr(a, "_rollen", False))
         erg["blick_gleich"] = abs(blick.Dot(a.d.View.Camera().Direction()) - 1) < 1e-6
         d = (bildwinkel(a, p1, p2) - vorher + math.pi) % (2 * math.pi) - math.pi
-        erg["folgt_der_maus"] = abs(d - 0.4) < 0.06
-        erg["text"] = f"{d:.3f}"
+        erg["folgt_der_maus"] = abs(d - soll) < 0.06
+        # im Uebergang: teils Rollen, teils Trackball (kein Sprung zwischen beiden)
+        a.standard("iso")
+        blick = a.d.View.Camera().Direction()
+        vorher = bildwinkel(a, p1, p2)
+        soll2 = ziehe(0.89)
+        d2 = (bildwinkel(a, p1, p2) - vorher + math.pi) % (2 * math.pi) - math.pi
+        erg["uebergang_teilweise"] = 0.15 * abs(soll2) < abs(d2) < 0.85 * abs(soll2)
+        erg["uebergang_dreht"] = abs(blick.Dot(a.d.View.Camera().Direction()) - 1) > 1e-6
+        erg["text"] = f"{d:.3f} von {soll:.3f}, Uebergang {d2:.3f} von {soll2:.3f}"
     except Exception as e:
         erg["fehler"] = False
         erg["text"] = repr(e)
@@ -413,7 +439,8 @@ app.exec()
 
 
 def test_rollen_ausserhalb_des_kreises():
-    """Wie CATIA: Drehgeste ausserhalb des Kreises um die Bildmitte rollt um die Blickachse, das Bild folgt der Maus."""
+    """Wie CATIA mit "Rounded Arcball": im Randband rollt die Drehgeste um die Blickachse (das Bild folgt der Maus),
+    im Uebergang mischt sie Rollen und Trackball."""
     env = dict(os.environ)
     env.pop("QT_QPA_PLATFORM", None)
     r = subprocess.run([sys.executable, "-c", ROLLEN, WURZEL], capture_output=True, text=True, env=env, timeout=120)

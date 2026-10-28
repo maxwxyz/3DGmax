@@ -737,6 +737,13 @@ class ToleranzketteFenster(QtWidgets.QDialog):
 
     def resizeEvent(self, ev):  # noqa: N802 - Qt
         super().resizeEvent(ev)
+        # breit und niedrig (Leiste unter der 3D-Ansicht): Glieder links, Ergebnis rechts; sonst untereinander
+        quer = self.width() > 1.6 * self.height()
+        richtung = QtCore.Qt.Orientation.Horizontal if quer else QtCore.Qt.Orientation.Vertical
+        if self.teiler.orientation() != richtung:
+            self.teiler.setOrientation(richtung)
+            self._unten.setMinimumHeight(0)
+            QtCore.QTimer.singleShot(0, self._unten_hoehe)
         QtCore.QTimer.singleShot(0, self._ampel_hoehe)  # nach dem Layout: neue Breite der Ampelzeile
 
     def _unten_hoehe(self):
@@ -744,6 +751,8 @@ class ToleranzketteFenster(QtWidgets.QDialog):
         self._unten.layout().activate()
         noetig = self._unten.layout().minimumSize().height()
         self._unten.setMinimumHeight(noetig)
+        if self.teiler.orientation() == QtCore.Qt.Orientation.Horizontal:
+            return  # nebeneinander: die Hoehe gibt die Leiste vor
         oben, unten = self.teiler.sizes()
         if unten < noetig:  # Teiler nach oben schieben, die Glieder behalten den Rest
             self.teiler.setSizes([max(oben + unten - noetig, 80), noetig])
