@@ -16,6 +16,10 @@ OCCT_RES = next((p for p in (os.path.join(PREFIX, "share", "opencascade", "resou
 datas = [(os.path.join(SRC, f), ".") for f in ("Anleitung.html", "Manual.html", "i18n_en.json", "CHANGELOG.json",
                                                "icon.png", "icon.ico", "icon.icns")]
 datas += [(os.path.join(ROOT, "LICENSE"), ".")]   # GPL-3.0-or-later, liegt der App bei
+from PySide6.QtCore import QLibraryInfo  # noqa: E402
+_QM = os.path.join(QLibraryInfo.path(QLibraryInfo.LibraryPath.TranslationsPath), "qtbase_de.qm")
+if os.path.isfile(_QM):  # Qt-eigene Texte (Standardknoepfe, Dateidialoge) auf Deutsch
+    datas += [(_QM, "translations")]
 datas += [(os.path.join(SRC, "doc_img"), "doc_img")]   # Bilder der Anleitung (packaging/doc_screenshots.py)
 datas += [(os.path.join(SRC, "beispiele"), os.path.join("programm", "beispiele"))]   # fuer --selbsttest
 from programm.kern import beispiele  # noqa: E402 - Dateien fuer Datei > Beispiele (liegen in tests/daten)

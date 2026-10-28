@@ -1597,3 +1597,23 @@ def test_scan_von_hand_ausrichten(fenster):
     assert f._scan["ausrichtung"].methode == "punkte"
     assert np.allclose(f._scan["matrix"], d["matrix"], atol=0.05)  # gleiche Lage wie die Bestpassung
     p.close()
+
+
+def test_qt_eigene_texte_deutsch(fenster):
+    """Standardknoepfe der Qt-Dialoge auf Deutsch, wenn die Oberflaeche Deutsch ist."""
+    from PySide6 import QtWidgets
+    from programm import i18n
+    app = QtWidgets.QApplication.instance()
+    alt = i18n.SPRACHE
+    try:
+        i18n.SPRACHE = "de"
+        assert i18n.qt_uebersetzung(app)
+        kasten = QtWidgets.QDialogButtonBox(QtWidgets.QDialogButtonBox.StandardButton.Close)
+        assert kasten.buttons()[0].text().replace("&", "") == "Schließen"
+        i18n.SPRACHE = "en"
+        assert not i18n.qt_uebersetzung(app)
+    finally:
+        i18n.SPRACHE = alt
+        for u in i18n._QT_UEBERSETZER:
+            app.removeTranslator(u)
+        i18n._QT_UEBERSETZER.clear()

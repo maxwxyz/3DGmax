@@ -46,6 +46,24 @@ SPRACHE = _erkenne()
 _EN: dict | None = None
 
 
+_QT_UEBERSETZER = []  # Referenz halten, sonst raeumt Python den QTranslator weg
+
+
+def qt_uebersetzung(app) -> bool:
+    """Qt-eigene Texte (Knoepfe "Schließen", "Abbrechen", Dateidialoge) auf Deutsch: qtbase_de.qm aus der App (gebaut)
+    oder aus der Qt-Installation. False, wenn Englisch eingestellt ist oder die Datei fehlt."""
+    if SPRACHE != "de":
+        return False
+    from PySide6.QtCore import QLibraryInfo, QTranslator
+    for ordner in (os.path.join(HIER, "translations"), QLibraryInfo.path(QLibraryInfo.LibraryPath.TranslationsPath)):
+        u = QTranslator(app)
+        if u.load("qtbase_de", ordner):
+            app.installTranslator(u)
+            _QT_UEBERSETZER.append(u)
+            return True
+    return False
+
+
 def uebersetzungen() -> dict:
     global _EN
     if _EN is None:

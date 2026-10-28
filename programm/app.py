@@ -155,6 +155,8 @@ def main(argv=None) -> int:
     QtCore.QCoreApplication.setApplicationName("3DGmax")
     groesse_einstellen()
     app = QtWidgets.QApplication.instance() or QtWidgets.QApplication(sys.argv[:1])
+    from .i18n import qt_uebersetzung
+    qt_uebersetzung(app)
     oeffner = datei_oeffner(app)
     zeiten["Qt"] = time.perf_counter()
     from PySide6 import QtGui
