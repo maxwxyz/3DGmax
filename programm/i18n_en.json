@@ -1820,5 +1820,6 @@
 "▶ Ablaufen": "▶ Walk",
 "Modell öffnen; Pfeil: auch zwei Stände vergleichen": "Open a model; arrow: also compare two states",
 "Bezug von Hand festlegen (A, B, C); auto: aus den Funktionsrollen vorschlagen – sobald ein Bezug von Hand gesetzt ist, gilt nur die Zuordnung von Hand": "Set the datum by hand (A, B, C); auto: proposed from the function roles – once a datum is set by hand, only the manual assignment applies",
-"Von Hand als Bezug festgelegt": "Set as datum by hand"
+"Von Hand als Bezug festgelegt": "Set as datum by hand",
+"NIST FTC-10: Auflage, Zentrierung, Verdrehsicherung und Anschlag sind zugeordnet – Bezüge A|B|C vorgeschlagen; Rollen, Bezüge, Passungen und Toleranzen in der Tabelle ändern, dann „Tolerierung vorschlagen …“": "NIST FTC-10: seat, centring, anti-rotation and stop are assigned – datums A|B|C proposed; change roles, datums, fits and tolerances in the table, then “Propose tolerancing …”"
 }

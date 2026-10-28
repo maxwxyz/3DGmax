@@ -29,6 +29,10 @@ BEISPIELE = (
     Beispiel("pruefen", "PMI prüfen und Plausibilität",
              "NIST FTC-10: Befunde zu Bezügen, Vollständigkeit und Widersprüchen – Doppelklick wählt PMI bzw. Flächen",
              (FTC10,)),
+    Beispiel("funktion", "Funktion → Tolerierung",
+             "NIST FTC-10: Auflage, Zentrierung, Verdrehsicherung und Anschlag sind zugeordnet – Bezüge A|B|C "
+             "vorgeschlagen; Rollen, Bezüge, Passungen und Toleranzen in der Tabelle ändern, dann „Tolerierung "
+             "vorschlagen …“", (FTC10,)),
     Beispiel("zonen", "Toleranzzonen mit Allgemeintoleranzen",
              "NIST FTC-10: alle Toleranzzonen (gelb), Bonus bei Ⓜ/Ⓛ (magenta), Allgemeintoleranzen ISO 2768-mK "
              "(violett)", (FTC10,)),

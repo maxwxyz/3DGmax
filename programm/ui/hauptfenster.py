@@ -1298,10 +1298,33 @@ class Hauptfenster(QtWidgets.QMainWindow):
             "kollision": [lambda: self._beispiel_kollision(warten)],
             "zusammenbau": [self._beispiel_zusammenbau],
             "variation": [self._beispiel_variation],
+            "funktion": [self._beispiel_funktion],
         }[name]
         self._nach_laden = zeigen(*schritte)
         self.lade(pfade[0], warten)
         return True
+
+    def _beispiel_funktion(self):
+        """FTC-10: groesste ebene Flaeche als Auflage, groesste Bohrung senkrecht dazu als Zentrierung, eine weitere
+        Bohrung als Verdrehsicherung, eine Seitenflaeche als Anschlag; Bezuege vorschlagen."""
+        from ..kern import funktion as fu
+        m = self.erg.modell
+        geo = {i: g for i in range(len(m.flaechen)) if (g := fu._geometrie(m.flaechen[i])) is not None}
+        ebenen = sorted((i for i in geo if geo[i]["art"] == "ebene"), key=lambda i: -geo[i]["inhalt"])
+        auflage = ebenen[0]
+        n = geo[auflage]["richtung"]
+        bohrungen = sorted((i for i in geo if geo[i]["art"] == "zylinder" and geo[i]["bohrung"]
+                            and fu._parallel(geo[i]["richtung"], n)), key=lambda i: -geo[i]["groesse"])
+        seite = next((i for i in ebenen if fu._senkrecht(geo[i]["richtung"], n)), None)
+        w = self.zeige_funktion()
+        w.setze_rolle([auflage], "auflage")
+        if bohrungen:
+            w.setze_rolle([bohrungen[0]], "zentrierung")
+        if len(bohrungen) > 1:
+            w.setze_rolle([bohrungen[-1]], "verdrehsicherung")
+        if seite is not None:
+            w.setze_rolle([seite], "anschlag")
+        w.zeige_bezuege()
 
     def _beispiel_zonen(self):
         from ..kern.toleranzzone import Allgemein

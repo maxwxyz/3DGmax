@@ -190,6 +190,9 @@ class FunktionFenster(QtWidgets.QDialog):
         t = self.tabelle
         t.blockSignals(True)
         t.setRowCount(len(self.rollen))
+        # Vorschlag ohne Vorgaben: welcher Buchstabe ergaebe sich (Anzeige "auto (A)")
+        vorschlag = {b.flaeche: b.buchstabe for b in fu.bezugssystem(self.modell, self.rollen, self.gruppen).bezuege} \
+            if self.modell is not None and self.rollen else {}
         for z, (i, rolle) in enumerate(sorted(self.rollen.items())):
             g = fu._geo(self.modell, i, self.gruppen) if self.modell is not None else None
             art = "" if g is None else (tr("Ebene") if g["art"] == "ebene" else
@@ -213,7 +216,7 @@ class FunktionFenster(QtWidgets.QDialog):
             t.setItem(z, self.SP_FUNKTION, QtWidgets.QTableWidgetItem(""))
             t.setCellWidget(z, self.SP_FUNKTION, box)
             bezug = QtWidgets.QComboBox()  # Bezug von Hand: auto = aus den Rollen vorgeschlagen
-            bezug.addItem(tr("auto"), "")
+            bezug.addItem(tr("auto") + (f" ({vorschlag[i]})" if i in vorschlag and not self.bezuege_hand else ""), "")
             for b in "ABC":
                 bezug.addItem(b, b)
             bezug.setCurrentIndex(max(0, bezug.findData(self.bezuege_hand.get(i, ""))))
@@ -246,6 +249,10 @@ class FunktionFenster(QtWidgets.QDialog):
                 t.setItem(z, s, it)
         t.blockSignals(False)
         t.resizeColumnsToContents()
+        for s in (self.SP_FUNKTION, self.SP_BEZUG):  # Auswahllisten: so breit wie ihr Inhalt (sonst abgeschnitten)
+            breite = max([t.cellWidget(z, s).sizeHint().width() for z in range(t.rowCount()) if t.cellWidget(z, s)] +
+                         [t.columnWidth(s)])
+            t.setColumnWidth(s, breite + 34)  # Pfeilfeld der Liste im Thema breiter als im Groessenhinweis
         for k in (self.bezuege_knopf, self.tol_knopf):
             k.setEnabled(bool(self.rollen))
         self.tauschen.setEnabled(bool(self.rollen))

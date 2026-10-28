@@ -976,6 +976,11 @@ def _beispiele(f, namen):
             assert f._kette.glieder and abs(f._kette.cp.value() - 1.33) < 1e-9
         elif b.name == "kollision":
             assert f.ansicht.kollision is not None and f.ansicht.kollision[1] is not None
+        elif b.name == "funktion":
+            w = f._funktion
+            assert len(w.rollen) >= 3 and [x.buchstabe for x in w.bezugssystem().bezuege][:2] == ["A", "B"]
+            assert f.dock_funktion.isVisible() and "<b>A</b>" in w.bezug_text.text()
+            w.reject()
         elif b.name == "zusammenbau":
             assert len(f.baugruppe.verbindungen) == 2 and f.zusammenbau.wiggle_an.isChecked()
             f.zusammenbau_zuruecksetzen()
@@ -993,8 +998,9 @@ def test_beispiele_modell(fenster):
     from programm.kern import beispiele
     assert {b.name for b in beispiele.BEISPIELE} == {"pmi", "pruefen", "zonen", "schnittansicht", "kette", "scan",
                                                       "vergleich_pmi", "vergleich_geo", "baugruppe", "kollision",
-                                                      "zusammenbau", "variation", "kette_getriebe"}
-    _beispiele(fenster, ("pmi", "pruefen", "zonen", "schnittansicht", "kette", "kollision", "zusammenbau"))
+                                                      "zusammenbau", "variation", "kette_getriebe", "funktion"}
+    _beispiele(fenster, ("pmi", "pruefen", "zonen", "schnittansicht", "kette", "kollision", "zusammenbau",
+                         "funktion"))
 
 
 def test_baugruppenvariation_im_fenster(fenster, tmp_path):
