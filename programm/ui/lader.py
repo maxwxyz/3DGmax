@@ -48,6 +48,9 @@ def lade_alles(pfad: str, fortschritt=lambda text: None) -> Ergebnis:
     else:
         grafik = {}
     pmi = ergaenze_hinweise(pmi, grafik)
+    if modell.datei:
+        from ..kern.praesentation import in_teillage
+        in_teillage(grafik, pmi, modell)  # Baugruppe: Grafik eines Teils an die Lage seiner Instanz
     ansichten = lies_ansichten(modell, pmi)
     from ..kern import pmi_erzeugen
     # Darstellung fuer PMI ohne Grafik in der Datei (Schreibebene aus der Ansicht, die sie zeigt)

@@ -49,6 +49,7 @@ class Grafik:
     erzeugt: bool = False  # von 3DGmax aus der Semantik erzeugt (nicht aus der Datei)
     pmi_ids: set[int] = field(default_factory=set)
     markup: tuple | None = None  # PRC: (Markup-Art, Unterart) fuer nur grafische PMI
+    kontext: int | None = None  # Darstellungskontext des DRAUGHTING_MODEL (Koordinatensystem des Teils)
 
     def leer(self) -> bool:
         return not (self.linien or self.dreiecke or self.platzhalter)
@@ -249,10 +250,73 @@ def lies_grafik(datei: P21Datei, skala: float = 1.0) -> dict[int, Grafik]:
         args = d.args(next(iter(d.parts)))
         if isinstance(args[2], Ref) and isinstance(args[4], Ref) and args[4].id in out:
             out[args[4].id].pmi_ids.add(_semantik_von(datei, args[2].id))
+            out[args[4].id].kontext = out[args[4].id].kontext or _kontext(datei, args[3])
     mit_grafik = set().union(*(g.pmi_ids for g in out.values() if g.fertig)) if out else set()
     for g in out.values():
         g.doppelt = not g.fertig and bool(g.pmi_ids) and g.pmi_ids <= mit_grafik
     return out
+
+
+def _kontext(datei: P21Datei, ref) -> int | None:
+    """Darstellungskontext einer Darstellung (REPRESENTATION.context_of_items)."""
+    e = datei.get(ref) if isinstance(ref, Ref) else None
+    if e is None:
+        return None
+    args = e.args("REPRESENTATION") if "REPRESENTATION" in e.parts else e.args(next(iter(e.parts)))
+    return args[2].id if len(args) > 2 and isinstance(args[2], Ref) else None
+
+
+def darstellung_der_flaeche(datei: P21Datei, flaeche_step: int) -> int | None:
+    """Formdarstellung (REPRESENTATION), in der eine Flaeche liegt: aufwaerts ueber die Verweise."""
+    offen, gesehen = [flaeche_step], set()
+    verweise = datei.referrers()
+    while offen:
+        x = offen.pop(0)
+        for r in verweise.get(x, []):
+            if r in gesehen:
+                continue
+            gesehen.add(r)
+            e = datei.entities[r]
+            if e.is_a("SHAPE_REPRESENTATION") or e.is_a("ADVANCED_BREP_SHAPE_REPRESENTATION") or \
+                    e.is_a("MANIFOLD_SURFACE_SHAPE_REPRESENTATION"):
+                return r
+            if not (e.is_a("STYLED_ITEM") or e.is_a("GEOMETRIC_ITEM_SPECIFIC_USAGE")):
+                offen.append(r)
+    return None
+
+
+def in_teillage(grafik: dict[int, Grafik], pmi: list, modell) -> None:
+    """Baugruppe: Grafik im Koordinatensystem eines Teils an die Lage der Instanz setzen, deren Flaechen die
+    verknuepfte PMI nennt - nur wenn das DRAUGHTING_MODEL den Kontext dieses Teils hat (sonst ist die Grafik schon
+    in Baugruppenkoordinaten). Bei mehreren Instanzen: die der PMI."""
+    datei = getattr(modell, "datei", None)
+    step_von = {i: eid for eid, i in getattr(modell, "step_zu_flaeche", {}).items()}
+    je_id = {p.step_id: p for p in pmi if p.flaechen}
+    for g in grafik.values():
+        p = next((je_id[i] for i in sorted(g.pmi_ids) if i in je_id), None)
+        if datei is None or g.erzeugt or g.kontext is None or p is None:
+            continue
+        idx = min(p.flaechen)
+        if idx >= len(modell.flaechen) or idx not in step_von:
+            continue
+        lage = modell.flaechen[idx].Location()
+        if lage.IsIdentity() or _kontext(datei, Ref(darstellung_der_flaeche(datei, step_von[idx]) or 0)) != g.kontext:
+            continue
+        _bewege(g, lage.Transformation())
+
+
+def _bewege(g: Grafik, t) -> None:
+    m = np.array([[t.Value(r, c) for c in range(1, 5)] for r in range(1, 4)])
+    d, v = m[:, :3], m[:, 3]
+    punkte = lambda p: np.asarray(p, float) @ d.T + v  # noqa: E731
+    g.linien = [punkte(l) for l in g.linien]
+    g.hinweislinien = [punkte(l) for l in g.hinweislinien]
+    g.dreiecke = [(punkte(p), i) for p, i in g.dreiecke]
+    for ph in g.platzhalter:
+        ph.ursprung, ph.x, ph.y = punkte(ph.ursprung), ph.x @ d.T, ph.y @ d.T
+    if g.ebene is not None:
+        o, x, y, z = g.ebene
+        g.ebene = (punkte(o), x @ d.T, y @ d.T, z @ d.T)
 
 
 def _ketten(linien: list[np.ndarray], eps: float = 1e-9) -> list[np.ndarray]:

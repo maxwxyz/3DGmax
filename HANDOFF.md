@@ -4,6 +4,13 @@
 All work on `main`, pushed; no other branches. Version 0.2 released (tag v0.2). Full suite last green on
 the Mac (200 tests incl. the new ones, ~11 min); `pixi run test-schnell` skips the six `langsam` tests.
 
+Side session 2026-10-28 (branch `claude/pmi-darstellung-8f2b0b`, not merged – the main session merges after its UI
+work): plan item 6 done – own PMI written to STEP carry their presentation (PLAN §8.28 stage 3,
+`kern/pmi_darstellung.py`; reader places part presentation at the instance in assemblies, `praesentation.in_teillage`
+called from `ui/lader.py`). `step_schreiben.schreibe(..., grafik=self.erg.grafik)` from the main window would write
+exactly the graphic shown in the view (today it regenerates it; layout can differ when other generated PMI exist).
+Open: check the file in CATIA (user); own PMI are not added to saved views. Test: `tests/test_step_schreiben.py`.
+
 Done in this local session (commit):
 - Test strategy (§8.29): `langsam` marker, `test-schnell`, `test-betroffen -- --schnell` – `b5980b6`.
 - macOS Finder double-click / "Open With" loads the file (QFileOpenEvent), all formats registered – `d623a92`.
@@ -275,7 +282,8 @@ graphics only, 8.19 QIF graphics, 8.20 3D tolerance analysis,
 
 ## Next (in this order)
 0. Evening order 2026-10-28: plan items 3 and 4 (see "Current state"), UI stage 2 (`docs/UI_UX_Plan.md`, incl.
-   side-panel resizing analysis), then items 5–8 (live snapping + STEP kinematics, presentation for written PMI,
+   side-panel resizing analysis), then items 5–8 (live snapping + STEP kinematics, presentation for written PMI
+   – done on branch `claude/pmi-darstellung-8f2b0b`,
    overlap check for generated PMI, DXF dimension entities).
 1. Visual check on the Mac (see "Visual check on the real screen still open" and: wireframe contrast edges, view cube,
    start screen, side-panel dragging, tab ✕ and right-click menu on tabs, File › Examples, stack-up window and PDF,

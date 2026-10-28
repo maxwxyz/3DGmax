@@ -45,7 +45,8 @@
    "Toleranzkette: ein gewähltes Glied wird im Kettenbild hervorgehoben bzw. ohne Kettenbild als einzelner Pfeil gezeigt; weniger Knöpfe (Hinzufügen und Kette als Menüs), die Knöpfe bleiben beim Rollen stehen; der Wiggle der Schlussfläche zeigt dicke farbige Kanten, auch von der Seite sichtbar.",
    "Leiste oben: „Öffnen ▾“ ganz links (Pfeil: Vergleichen), Messen nicht mehr oben, sondern als Schalter in der Leiste Messen – schließt man die Leiste, endet das Messen; Knöpfe in den Seitenleisten sind als Knöpfe erkennbar.",
    "Erzeugte PMI liegen nicht mehr übereinander: die Platzierung prüft auch Rahmen anderer Schreibebenen (im Gesamtbild und im Raum).",
-   "Funktion → Tolerierung: Bezüge lassen sich in der Tabelle von Hand festlegen (A, B, C statt Vorschlag); das Bezugssystem und die Toleranzvorschläge folgen der Zuordnung."
+   "Funktion → Tolerierung: Bezüge lassen sich in der Tabelle von Hand festlegen (A, B, C statt Vorschlag); das Bezugssystem und die Toleranzvorschläge folgen der Zuordnung.",
+   "STEP mit eigenen PMI speichern schreibt jetzt auch deren Darstellung (Rahmen, Maßtext, Hinweislinie, Pfeile, Texte als Glyphen) als AP242-Präsentation im Teil, verknüpft mit der Semantik – CAD-Systeme zeigen die PMI damit an; in Baugruppen erscheint die Darstellung eines Teils an der Lage seiner Instanz."
   ],
   "en": [
    "3D tolerance chain: enter positions with translation and rotation (each component with deviations) by hand in a guided editor, choose function point and closing quantity, show the chain in the model, compute linearly and non-linearly and adopt it into the tolerance chain.",
@@ -92,7 +93,8 @@
    "Tolerance chain: a selected link is highlighted in the chain picture or, without it, shown as a single arrow; fewer buttons (Add and Chain as menus), the buttons stay when scrolling; the closing-face wiggle shows thick coloured edges, visible also from the side.",
    "Top bar: “Open ▾” on the far left (arrow: compare), measuring no longer at the top but as a switch in the Measure panel – closing the panel ends measuring; buttons in side panels are recognisable as buttons.",
    "Generated PMI no longer lie on top of each other: placement also checks frames in other writing planes (overall view and in space).",
-   "Function → tolerancing: datums can be set by hand in the table (A, B, C instead of the proposal); the datum system and the tolerance proposals follow the assignment."
+   "Function → tolerancing: datums can be set by hand in the table (A, B, C instead of the proposal); the datum system and the tolerance proposals follow the assignment.",
+   "Saving STEP with own PMI now also writes their presentation (frame, dimension text, leader, arrows, texts as glyphs) as AP242 presentation in the part, linked to the semantics – CAD systems can display the PMI; in assemblies the presentation of a part appears at the position of its instance."
   ]
  },
  "releases": [

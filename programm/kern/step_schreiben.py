@@ -21,6 +21,9 @@ bzw. DIMENSIONAL_LOCATION mit SHAPE_DIMENSION_REPRESENTATION ('nominal value') u
 (TOLERANCE_VALUE oder LIMITS_AND_FITS); Bezuege als DATUM_FEATURE, DATUM und SHAPE_ASPECT_RELATIONSHIP. Nur
 Einzelteile und Baugruppen (Produktform, Darstellung und Einheiten je Teil aus den Flaechen der PMI; alle Flaechen
 einer PMI in einem Teil); Lagemasse ohne genau zwei Flaechen werden gemeldet.
+
+Stufe 3: zu jeder geschriebenen eigenen PMI ihre Darstellung (Rahmen, Linien, Pfeile, Texte als Glyphen) als
+tessellierte AP242-Praesentation, verknuepft mit der Semantik (kern.pmi_darstellung).
 """
 
 from __future__ import annotations
@@ -43,6 +46,7 @@ class Bericht:
     uebersprungen: list[tuple[int, str, str]] = field(default_factory=list)  # (Nummer, Feld, Grund)
     grafik_veraltet: list[int] = field(default_factory=list)  # PMI mit Darstellung der alten Werte
     neu: list[int] = field(default_factory=list)  # eigene PMI, als neue Entitaeten angehaengt
+    dargestellt: list[int] = field(default_factory=list)  # eigene PMI mit geschriebener Darstellung (Callout)
 
 
 def _messwert(datei, ref) -> int | None:
@@ -145,6 +149,7 @@ class _Anhang:
         self.zeilen: list[str] = []
         self.flaeche_zu_step = {i: eid for eid, i in getattr(modell, "step_zu_flaeche", {}).items()}
         self.pds = self.darst = self.kontext = self.einheit_laenge = self.einheit_winkel = None
+        self.semantik = None  # Entitaet der zuletzt geschriebenen PMI (Ziel der Darstellung)
         self.bezuege = {(e.args("DATUM")[2].id if isinstance(e.args("DATUM")[2], Ref) else None, e.args("DATUM")[4]):
                         e.id for e in datei.of_type("DATUM")}
         self._sdr = {e.args("SHAPE_DEFINITION_REPRESENTATION")[1].id: e.args("SHAPE_DEFINITION_REPRESENTATION")[0].id
@@ -193,22 +198,9 @@ class _Anhang:
         return laenge, winkel
 
     def darstellung(self, flaeche_step: int) -> int | None:
-        """Formdarstellung (REPRESENTATION), in der die Flaeche liegt: aufwaerts ueber die Verweise."""
-        offen, gesehen = [flaeche_step], set()
-        verweise = self.datei.referrers()
-        while offen:
-            x = offen.pop(0)
-            for r in verweise.get(x, []):
-                if r in gesehen:
-                    continue
-                gesehen.add(r)
-                e = self.datei.entities[r]
-                if e.is_a("SHAPE_REPRESENTATION") or e.is_a("ADVANCED_BREP_SHAPE_REPRESENTATION") or \
-                        e.is_a("MANIFOLD_SURFACE_SHAPE_REPRESENTATION"):
-                    return r
-                if not (e.is_a("STYLED_ITEM") or e.is_a("GEOMETRIC_ITEM_SPECIFIC_USAGE")):
-                    offen.append(r)
-        return None
+        """Formdarstellung (REPRESENTATION), in der die Flaeche liegt."""
+        from .praesentation import darstellung_der_flaeche
+        return darstellung_der_flaeche(self.datei, flaeche_step)
 
     def waehle(self, flaechen) -> str | None:
         """Teil-Kontext der Flaechen setzen; Fehlertext, wenn sie nicht in einem Teil mit Einheiten liegen."""
@@ -269,6 +261,7 @@ def _schreibe_bezug(a: _Anhang, p) -> str | None:
     d = a.neu(f"DATUM('',$,#{a.pds},.F.,'{p.name}')")
     a.neu(f"SHAPE_ASPECT_RELATIONSHIP('',$,#{df},#{d})")
     a.bezuege[(a.pds, p.name)] = d
+    a.semantik = df  # wie in den NIST-Dateien: Darstellung am Bezugsmerkmal
     return None
 
 
@@ -305,6 +298,7 @@ def _schreibe_toleranz(a: _Anhang, p) -> str | None:
     if "Diameter" in p.modifikatoren:
         form = a.neu("TOLERANCE_ZONE_FORM('cylindrical or circular')")
         a.neu(f"TOLERANCE_ZONE('',$,#{a.pds},.F.,(#{tol}),#{form})")
+    a.semantik = tol
     return None
 
 
@@ -356,14 +350,35 @@ def _schreibe_mass(a: _Anhang, p) -> str | None:
         if m:  # wie in den NIST-Dateien: Klasse vollstaendig im ersten Feld
             lf = a.neu(f"LIMITS_AND_FITS('{p.passung}','{'hole' if m.group(1)[0].isupper() else 'shaft'}','','')")
             a.neu(f"PLUS_MINUS_TOLERANCE(#{lf},#{dim})")
+    a.semantik = dim
     return None
 
 
-def _haenge_an(text: str, datei, modell, pmi, bericht: Bericht) -> str:
+def _grafiken(eigene, modell, grafik) -> dict:
+    """PMI-Id -> Grafik der eigenen PMI: die der Ansicht (grafik), sonst neu erzeugt wie in der Ansicht."""
+    out = {}
+    for g in (grafik or {}).values():
+        for i in g.pmi_ids:
+            out.setdefault(i, g)
+    offen = [p for p in eigene if p.step_id not in out]
+    if offen and getattr(modell, "form", None) is not None:
+        from .pmi_erzeugen import ergaenze
+        try:
+            for g in ergaenze(offen, {}, modell).values():
+                for i in g.pmi_ids:
+                    out.setdefault(i, g)
+        except Exception:  # noqa: BLE001 - ohne Grafik bleibt die Semantik geschrieben
+            pass
+    return out
+
+
+def _haenge_an(text: str, datei, modell, pmi, bericht: Bericht, grafik=None, schrift=None) -> str:
+    from .pmi_darstellung import Praesentation
     eigene = [p for p in pmi if p.quelle == "eigen" and p.art in ("mass", "toleranz", "bezug")]
     if not eigene:
         return text
     a = _Anhang(datei, modell)
+    darst, grafiken = Praesentation(a, modell, schrift), _grafiken(eigene, modell, grafik)
     # Bezuege zuerst: Toleranzen verweisen auf sie
     for p in sorted(eigene, key=lambda p: p.art != "bezug"):
         vorher = (len(a.zeilen), a.naechste)
@@ -373,8 +388,11 @@ def _haenge_an(text: str, datei, modell, pmi, bericht: Bericht) -> str:
             del a.zeilen[vorher[0]:]  # halb geschriebene Entitaeten verwerfen
             a.naechste = vorher[1]
             bericht.uebersprungen.append((p.nummer, "neu", grund))
-        else:
-            bericht.neu.append(p.nummer)
+            continue
+        bericht.neu.append(p.nummer)
+        if darst.callout(grafiken.get(p.step_id), a.semantik, p.flaechen):
+            bericht.dargestellt.append(p.nummer)
+    darst.abschliessen()
     if not a.zeilen:
         return text
     ende = text.rfind("ENDSEC;", 0, text.find("END-ISO-10303-21"))
@@ -463,8 +481,10 @@ def _argumente(inhalt: str) -> list[str]:
     return out
 
 
-def schreibe(quelle: str, ziel: str, pmi: list, modell=None) -> Bericht:
-    """Kopie von 'quelle' mit den bearbeiteten Werten der PMI nach 'ziel'; mit modell auch die eigenen PMI."""
+def schreibe(quelle: str, ziel: str, pmi: list, modell=None, grafik: dict | None = None,
+             schrift: str | None = None) -> Bericht:
+    """Kopie von 'quelle' mit den bearbeiteten Werten der PMI nach 'ziel'; mit modell auch die eigenen PMI samt
+    Darstellung (grafik: Grafiken der Ansicht, damit die Datei zeigt, was man sieht; sonst neu erzeugt)."""
     with open(quelle, "rb") as f:
         roh = f.read()
     try:
@@ -509,7 +529,7 @@ def schreibe(quelle: str, ziel: str, pmi: list, modell=None) -> Bericht:
         if any(n == p.nummer for n, _ in bericht.geschrieben) and p.grafisch:
             bericht.grafik_veraltet.append(p.nummer)
     if modell is not None:
-        text = _haenge_an(text, datei, modell, pmi, bericht)
+        text = _haenge_an(text, datei, modell, pmi, bericht, grafik, schrift)
     with open(ziel, "w", encoding=kodierung, newline="") as f:
         f.write(text)
     return bericht
