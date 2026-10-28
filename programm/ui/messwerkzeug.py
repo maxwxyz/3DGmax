@@ -36,6 +36,7 @@ class MessPanel(QtWidgets.QWidget):
 
     messungen_geaendert = QtCore.Signal(list)
     modus_geaendert = QtCore.Signal(object)  # Art oder None
+    elemente_zeigen = QtCore.Signal(list)  # gewaehlte bzw. zuletzt gemessene Elemente als Auswahl zeigen
 
     def __init__(self, parent=None):
         super().__init__(parent)
@@ -125,6 +126,7 @@ class MessPanel(QtWidgets.QWidget):
         p = gp_Pnt(*punkt)
         fangart, p = messen.fange(form, p, self.toleranz()) if self.fang.isChecked() else ("", p)
         self.auswahl.append((form, p, fangart))
+        self.elemente_zeigen.emit([f for f, _p, _a in self.auswahl])  # wie eine Auswahl hervorheben
         if len(self.auswahl) < messen.ELEMENTE_NOETIG[self.modus]:
             self._zeige_hinweis()
             return

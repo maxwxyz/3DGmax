@@ -158,10 +158,25 @@ class AnsichtBasis(QtWidgets.QWidget):
     def hebe_flaechen(self, flaechen: set[int], teile: dict | None = None, zuletzt=None):
         """Flaechen hervorheben; teile: Flaechenindex -> Teil-Instanzen, auf die sich die Hervorhebung beschraenkt
         (gleiche Teile teilen sich die Flaechenindizes - sonst leuchten alle Schrauben, wenn eine gewaehlt ist);
-        zuletzt: (Flaechenindex, Teil) der zuletzt gewaehlten Flaeche - die frueher gewaehlten etwas dunkler."""
+        zuletzt: (Flaechenindex, Teil) der zuletzt gewaehlten Flaeche - die frueher gewaehlten etwas dunkler.
+        Ohne teile und zuletzt (z. B. PMI-Liste nach einem Klick) gelten die der 3D-Auswahl fuer ihre Flaechen."""
+        if teile is None and zuletzt is None:
+            teile, zuletzt = self._auswahl_bezug(flaechen)
         self.hervor = set(flaechen)
         self.hervor_teile = {i: set(t) for i, t in (teile or {}).items()}
         self.hervor_zuletzt = zuletzt if len(self.hervor) > 1 else None
+
+    def _auswahl_bezug(self, flaechen) -> tuple[dict | None, tuple | None]:
+        """Instanzen je Flaeche und zuletzt gewaehlte Flaeche aus der 3D-Auswahl (nur deren Flaechen in flaechen)."""
+        if self.szene is None:
+            return None, None
+        paare = [(i, t) for f, t in zip(self.auswahl3d, self.auswahl_teile)
+                 if (i := self.szene.modell.flaechen_index(f)) is not None and i in flaechen]
+        teile: dict = {}
+        for i, t in paare:
+            teile.setdefault(i, set()).add(t)
+        teile = {i: t for i, t in teile.items() if None not in t}  # Instanz unbekannt: alle Instanzen
+        return teile or None, (paare[-1] if paare else None)
 
     def zeige_pmi(self, ids: set[int] | None):
         self.pmi_ids_sichtbar = None if ids is None else set(ids)

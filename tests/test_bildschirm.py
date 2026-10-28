@@ -83,6 +83,12 @@ def pruefe_alles():
     ergebnis["auswahl_reihenfolge"] = frueh.Red() < letzt.Red() and frueh.Red() > 0.6 * letzt.Red()
     a.setze_auswahl([m.flaechen[1]])
     ergebnis["einzeln_volle_farbe"] = abs(a._hervor_farbe(1, ais1).Red() - letzt.Red()) < 1e-9
+    # wie nach einem Klick: Instanz bekannt, danach hebt das Hauptfenster (PMI der Flaechen) noch einmal hervor
+    teil = next(iter(a._teile), None)
+    a.setze_auswahl([m.flaechen[0], m.flaechen[1]], [teil, teil])
+    f._flaeche_gewaehlt(1)
+    frueh, letzt = a._hervor_farbe(0, ais0), a._hervor_farbe(1, ais1)
+    ergebnis["reihenfolge_nach_klick"] = frueh.Red() < letzt.Red()
     a.setze_auswahl([])
     # Maus links/unter dem Wuerfel: weder Treffer noch Hervorhebung (Retina: dort liegt seine unumgerechnete Pick-Lage)
     ctx = a.d.Context

@@ -2504,6 +2504,17 @@ def test_funktion_vorschau_im_3d(fenster):
     assert not any(g.pmi_ids & ids for g in f.erg.grafik.values())
 
 
+def test_messen_zeigt_elemente_als_auswahl(fenster_ctc01):
+    """Messen: die angeklickten Elemente erscheinen wie eine Auswahl, auch nach der fertigen Messung."""
+    f = fenster_ctc01
+    m = f.erg.modell
+    f.messen.setze_modus("abstand")
+    f.messen.element(m.flaechen[0], (0.0, 0.0, 0.0))
+    assert [x for x in f.ansicht.auswahl3d] == [m.flaechen[0]]
+    f.messen.element(m.flaechen[1], (0.0, 0.0, 0.0))
+    assert len(f.ansicht.auswahl3d) == 2 and f.messen.messungen
+
+
 def test_einheitliches_panel_layout(fenster):
     """Panels einheitlich: leere Tabellen sagen, was zu tun ist; je Panel ein hervorgehobener Hauptknopf."""
     from programm.ui.toleranzkette_ui import ToleranzketteFenster

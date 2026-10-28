@@ -1078,6 +1078,7 @@ class Hauptfenster(QtWidgets.QMainWindow):
         self.baum.baum.itemSelectionChanged.connect(lambda: self.inspektor_zeigen("baum"))
         self.ansicht.auswahl_geaendert.connect(lambda formen: self.inspektor_zeigen("3d" if formen else None))
         self.ansicht.element_gewaehlt.connect(self.messen.element)
+        self.messen.elemente_zeigen.connect(lambda formen: self.ansicht.setze_auswahl(formen))
         self.ansicht.kontextmenue.connect(self._kontextmenue_3d)
         self.messen.messungen_geaendert.connect(self.ansicht.zeige_messungen)
         self.messen.modus_geaendert.connect(self._messmodus)
