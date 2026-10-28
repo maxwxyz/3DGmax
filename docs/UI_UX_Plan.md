@@ -189,6 +189,13 @@ guided flows for scan check and assembly variation, unified panel layout everywh
 - Unified panels: every result table shows a sentence what to do while it is empty (`tabellen.leer_hinweis`), each
   tool panel has one highlighted primary button (Verbinden, Messgröße aus Auswahl, Prüfen, Berechnen, guided step).
 - Acceptance: first-use success ≥ 80 % for laypeople on "check a scan" and "measure a gap" with the example data.
+- Readable tables (user report 2026-10-28, stack-up windows): `tabellen.spalten_anpassen` sizes every column from
+  header, text (capped at ~48 characters, the rest elided with the full text in the tooltip) and the cell widgets'
+  size hint – `ResizeToContents` alone measures only item text, so combo boxes and spin boxes were squashed. Rows as
+  high as the tallest cell widget, text on one line, numbers and number fields right-aligned, per-pixel horizontal
+  scrolling, columns dragged by hand kept. Used in the 1D chain (links, results, scenarios, materials), the 2D segment
+  table and the 3D component editor; test `test_gui.py::test_kettentabellen_lesbar`. Checked on screen at 90/100/150 %
+  and as a wide, low bottom panel. Other panels can adopt the helper the same way.
 
 ## 6. Usability test protocol (local)
 - Participants: 2 CATIA designers, 1 3DCS user, 1 metrology staff, 2 students; 30 min each, think aloud.

@@ -11,7 +11,7 @@ from PySide6 import QtCore, QtGui, QtWidgets
 from ..i18n import tr
 from ..kern import toleranzkette as tk
 from .fluss import FlussLayout
-from .tabellen import AENDERBAR_FARBE, leer_hinweis  # getoent: Zellen, die man aendern kann
+from .tabellen import AENDERBAR_FARBE, inhalt_breite, leer_hinweis, spalten_anpassen  # getoent: Zellen, die man aendern kann
 
 
 def _z(x: float, vorzeichen: str = "") -> str:
@@ -375,6 +375,8 @@ class WerkstoffDialog(QtWidgets.QDialog):
                 feld.valueChanged.connect(lambda v, teil=teil, k=schluessel: fenster.setze_teiltemperatur(
                     teil, k, None if v <= -273.95 else v))
                 self.tabelle.setCellWidget(z, s, feld)
+        spalten_anpassen(self.tabelle)
+        self.resize(max(560, inhalt_breite(self.tabelle) + 40), 300)
         lay.addWidget(self.tabelle, 1)
         knoepfe = QtWidgets.QDialogButtonBox(QtWidgets.QDialogButtonBox.StandardButton.Close)
         knoepfe.rejected.connect(self.reject)
@@ -489,9 +491,7 @@ class ToleranzketteFenster(QtWidgets.QDialog):
         self.tabelle.itemChanged.connect(self._wert_geaendert)
         self.tabelle.setItemDelegateForColumn(SP_ANTEIL, AnteilBalken(self.tabelle))
         self.tabelle.setItemDelegateForColumn(SP_STREUUNG, StreuungsBild(self.tabelle))
-        kopf = self.tabelle.horizontalHeader()
-        kopf.setSectionResizeMode(QtWidgets.QHeaderView.ResizeMode.ResizeToContents)
-        kopf.setSectionResizeMode(0, QtWidgets.QHeaderView.ResizeMode.Stretch)  # lange Namen ohne Querlauf
+        spalten_anpassen(self.tabelle)  # nach Kopf, Text und Feldern; schmales Fenster: Querlaufleiste
         self.tabelle.setContextMenuPolicy(QtCore.Qt.ContextMenuPolicy.CustomContextMenu)
         self.tabelle.customContextMenuRequested.connect(self._kontextmenue)
         # Glieder oben, Ergebnis unten; der Teiler laesst sich ziehen
@@ -1384,12 +1384,12 @@ class ToleranzketteFenster(QtWidgets.QDialog):
         for z, zellen in enumerate(zeilen):
             for s, w in enumerate(zellen):
                 t.setItem(z, s, QtWidgets.QTableWidgetItem(w))
-        t.resizeColumnsToContents()
+        spalten_anpassen(t)
         lay.addWidget(t)
         knopf = QtWidgets.QDialogButtonBox(QtWidgets.QDialogButtonBox.StandardButton.Close)
         knopf.rejected.connect(d.reject)
         lay.addWidget(knopf)
-        d.resize(760, 120 + 30 * len(zeilen))
+        d.resize(max(560, inhalt_breite(t) + 40), 120 + t.rowHeight(0) * len(zeilen))
         d.show()
         return d
 
@@ -1499,6 +1499,7 @@ class ToleranzketteFenster(QtWidgets.QDialog):
                     it.setToolTip(tr(SPALTEN_HILFE[name]))
                 elif it is not None and it.toolTip() == tr("Klicken zum Ändern"):
                     it.setToolTip(tr(SPALTEN_HILFE[name]) + "\n" + tr("Klicken zum Ändern"))
+        spalten_anpassen(t)
         t.blockSignals(False)
         self._rechne()
 
@@ -1725,8 +1726,8 @@ class ToleranzketteFenster(QtWidgets.QDialog):
                     schrift.setBold(True)
                     it.setFont(schrift)
                 t.setItem(z, s, it)
-        t.resizeColumnsToContents()
-        inhalt = sum(t.columnWidth(s) for s in range(t.columnCount())) + 2 * t.frameWidth()
+        spalten_anpassen(t, hoechst=10_000)  # Verfahren ganz lesbar; schmales Fenster: Querlaufleiste
+        inhalt = inhalt_breite(t)
         t.setMaximumWidth(inhalt)
         t.setMinimumWidth(min(inhalt, 160))
         self.ampel.setMaximumWidth(max(inhalt, 320))

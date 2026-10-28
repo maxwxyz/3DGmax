@@ -10,6 +10,7 @@ from PySide6 import QtCore, QtWidgets
 from ..i18n import tr
 from ..kern import kette3d as k3
 from ..kern import toleranzkette as tk
+from .tabellen import zahlen_rechts, zeilen_hoehe
 
 VORLAGEN = {
     "turm": ("Sockel mit Arm (Kippung wirkt als Hebel)",
@@ -83,8 +84,7 @@ class Kette3DFenster(QtWidgets.QDialog):
             self.editor.horizontalHeaderItem(i).setToolTip(tr(hilfe))
         self.editor.horizontalHeader().setSectionResizeMode(QtWidgets.QHeaderView.ResizeMode.Stretch)
         self.editor.verticalHeader().setSectionResizeMode(QtWidgets.QHeaderView.ResizeMode.Fixed)
-        self.editor.setFixedHeight(self.editor.horizontalHeader().sizeHint().height()
-                                   + 6 * self.editor.verticalHeader().defaultSectionSize() + 4)
+        self._editor_hoehe()
         rechts.addWidget(self.editor)
         vert = QtWidgets.QHBoxLayout()
         vert.addWidget(QtWidgets.QLabel(tr("Verteilung des Glieds")))
@@ -262,9 +262,17 @@ class Kette3DFenster(QtWidgets.QDialog):
                 f.setToolTip(tr(k3.KOMPONENTEN_TEXT[c]) + " – " + tr(SPALTEN_EDITOR[s][1]))
                 f.valueChanged.connect(lambda v, g=g, c=c, feld=feld: (setattr(g.werte[c], feld, v), self._rechne()))
                 e.setCellWidget(r, s, f)
+        zahlen_rechts(e)
+        self._editor_hoehe()
         self.verteilung.blockSignals(True)
         self.verteilung.setCurrentIndex(max(0, self.verteilung.findData(g.verteilung)))
         self.verteilung.blockSignals(False)
+
+    def _editor_hoehe(self):
+        """Editor genau so hoch wie seine sechs Zeilen; Zeilen so hoch wie die Zahlenfelder."""
+        e = self.editor
+        e.setFixedHeight(e.horizontalHeader().sizeHint().height() + len(k3.KOMPONENTEN) * zeilen_hoehe(e)
+                         + 2 * e.frameWidth())
 
     def _fuelle(self):
         self.liste.blockSignals(True)
