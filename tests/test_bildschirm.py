@@ -84,6 +84,18 @@ def pruefe_alles():
     a.setze_auswahl([m.flaechen[1]])
     ergebnis["einzeln_volle_farbe"] = abs(a._hervor_farbe(1, ais1).Red() - letzt.Red()) < 1e-9
     a.setze_auswahl([])
+    # Maus links/unter dem Wuerfel: weder Treffer noch Hervorhebung (Retina: dort liegt seine unumgerechnete Pick-Lage)
+    ctx = a.d.Context
+    k = getattr(a, "_wuerfel_k", 1.0)
+    breite = int(round(a.viewer.width() * a._occt_faktor()[0]))
+    wx, wy = w[0] * a._occt_faktor()[0], w[1] * a._occt_faktor()[1]
+    pick = (breite - k * (breite - wx), k * wy)  # dort traf ein ungewandeltes MoveTo den Wuerfel
+    daneben = [(pick[0] + dx, pick[1] + dy) for dx in (-20, 0, 20) for dy in (-20, 0, 20)] + \
+        [(w[0] - 150 + dx, w[1] + 150 + dy) for dx in (-40, 0, 40) for dy in (-40, 0, 40)]
+    ergebnis["wuerfel_nicht_daneben"] = not any(
+        a._wuerfel_unter_maus(x, y, zeichnen=True) is not None or
+        (ctx.HasDetected() and ctx.DetectedInteractive() == a._wuerfel) for x, y in daneben
+        if abs(x - wx) > 70 or abs(y - wy) > 70)
     # Bildschirmwechsel (Retina <-> extern): der Wuerfel wird mit dem neuen Faktor neu gebaut
     if sys.platform == "darwin":
         a._wuerfel_k = 3.0

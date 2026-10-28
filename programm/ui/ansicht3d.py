@@ -854,6 +854,8 @@ class OcctAnsicht(AnsichtBasis):
         if not treffer:
             if k != 1.0:
                 ctx.MoveTo(int(x), int(y), self.d.View, zeichnen)  # sonst normal am echten Ort
+                if ctx.HasDetected() and ctx.DetectedInteractive() == w:
+                    ctx.ClearDetected(zeichnen)  # dort liegt nur die unumgerechnete Pick-Lage des Wuerfels
             return None
         besitzer = AIS_ViewCubeOwner.DownCast(ctx.DetectedOwner())
         return besitzer if besitzer is not None else None
@@ -2791,7 +2793,8 @@ class OcctAnsicht(AnsichtBasis):
                 self.meldung.emit(tr("{} {} bei ({:.2f}, {:.2f}, {:.2f})").format(tr(sk.name), sk.wert_text(w), *p))
                 return
         ctx.MoveTo(x, y, self.d.View, False)
-        if not ctx.HasDetected():
+        # Wuerfel hier nur an seiner unumgerechneten Pick-Lage (echte Wuerfel-Klicks behandelt _wuerfel_maus): leer
+        if not ctx.HasDetected() or ctx.DetectedInteractive() == getattr(self, "_wuerfel", None):
             if not QtWidgets.QApplication.keyboardModifiers():
                 self.setze_auswahl([])
             self.flaeche_gewaehlt.emit(-1)
