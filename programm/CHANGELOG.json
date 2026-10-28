@@ -29,7 +29,10 @@
    "Zusammenbau: Eine in der Tabelle gewählte Messgröße wird im 3D gezeigt – ihre zwei Flächen gewählt (nur am betroffenen Teil, nicht an allen gleichen Teilen) und eine Messlinie mit Nennwert und Worst Case.",
    "Schnitt: Die Umrandung der Bauteile in der Schnittebene wird als Kante gezeichnet (Schnitt, Schnitt gespeicherter Ansichten, Schnittbox), schnell auch bei großen Teilen.",
    "Das Hauptfenster passt wieder auf kleinere bzw. skalierte Bildschirme (Mindestbreite 805 statt 1624 Pixel): Seitenleisten rollen bei Platzmangel, statt Teile wie den Wiggle-Knopf abzuschneiden.",
-   "Zusammenbau: Der 3D-Griff und der Wiggle des Beispiels verschwinden beim Laden einer anderen Datei; Wiggle-Knopf nur mit Symbol (Abspielen/Anhalten)."
+   "Zusammenbau: Der 3D-Griff und der Wiggle des Beispiels verschwinden beim Laden einer anderen Datei; Wiggle-Knopf nur mit Symbol (Abspielen/Anhalten).",
+   "Vergleich: Der Reiter Änderungen lässt sich ohne Vergleich nicht mehr leer öffnen; ohne Vergleich zeigt er einen Hinweis mit „Zwei Stände vergleichen …“ statt eines wirkungslosen „Prüfen starten“.",
+   "Toleranzkette: Wiggle der Schlussflächen – die Endfläche der Kette pendelt im Modell zwischen Worst-Case-Minimum und -Maximum (überhöht, Faktor in der Beschriftung), grün in der Anforderung, rot außerhalb, mit dem jeweiligen Wert.",
+   "Toleranzkette aus 3D-Auswahl: Mittelebene als Kettenanfang oder -ende (z. B. Mitte einer Nut, halbe Breite mit Faktor 0,5) und Ketten über mehrere Teile – an einer Fügestelle mit Verbindung im Zusammenbau entsteht ein Glied mit deren Spielraum."
   ],
   "en": [
    "3D tolerance chain: enter positions with translation and rotation (each component with deviations) by hand in a guided editor, choose function point and closing quantity, show the chain in the model, compute linearly and non-linearly and adopt it into the tolerance chain.",
@@ -60,7 +63,10 @@
    "Assembly: a measure selected in the table is shown in 3D – its two faces selected (only on the part concerned, not on all identical parts) and a measuring line with nominal value and worst case.",
    "Section: the outline of the parts in the section plane is drawn as edges (section, section of saved views, section box), fast also for large parts.",
    "The main window fits smaller or scaled screens again (minimum width 805 instead of 1624 pixels): side panels scroll when space is short instead of cutting off parts such as the wiggle button.",
-   "Assembly: the 3D handle and the wiggle of the example disappear when another file is loaded; wiggle button with icon only (play/pause)."
+   "Assembly: the 3D handle and the wiggle of the example disappear when another file is loaded; wiggle button with icon only (play/pause).",
+   "Comparison: the Changes tab can no longer be opened empty without a comparison; without one it shows a hint with “Compare two states …” instead of an ineffective “Start review”.",
+   "Tolerance chain: wiggle of the closing faces – the end face of the chain swings in the model between worst-case minimum and maximum (exaggerated, factor in the label), green within the requirement, red outside, with the current value.",
+   "Tolerance chain from 3D selection: median plane as chain start or end (e.g. centre of a slot, half the width with factor 0.5) and chains across several parts – a joint with an assembly connection becomes a link with its clearance."
   ]
  },
  "releases": [

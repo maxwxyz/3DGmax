@@ -1786,5 +1786,18 @@
 "auto": "auto",
 "Toleranz (mm)": "Tolerance (mm)",
 "Wiggle anhalten": "Stop wiggle",
-"Wiggle: gewähltes Teil in seinen offenen Freiheitsgraden hin und her bewegen": "Wiggle: move the selected part back and forth in its open degrees of freedom"
+"Wiggle: gewähltes Teil in seinen offenen Freiheitsgraden hin und her bewegen": "Wiggle: move the selected part back and forth in its open degrees of freedom",
+"Alten und neuen Stand wählen; danach stehen hier die Änderungen zum Prüfen": "Choose the old and new state; the changes to review then appear here",
+"Kein Vergleich aktiv – erst zwei Stände vergleichen, dann die Änderungen hier prüfen.": "No comparison active – compare two states first, then review the changes here.",
+"Wiggle der Schlussflächen anhalten": "Stop the wiggle of the closing faces",
+"Wiggle der Schlussflächen: die Endfläche der Kette pendelt zwischen Worst-Case-Minimum und -Maximum (überhöht), grün in der Anforderung, rot außerhalb": "Wiggle of the closing faces: the end face of the chain swings between worst-case minimum and maximum (exaggerated), green within the requirement, red outside",
+"Wiggle braucht eine Kette aus Modellflächen in Kettenreihenfolge („Aus 3D-Auswahl“ oder „Richtungen aus Schlussmaß“)": "The wiggle needs a chain of model faces in chain order (“From 3D selection” or “Directions from closing dimension”)",
+"  (Bewegung ×{:.0f})": "  (motion ×{:.0f})",
+"Anfang: Mittelebene": "Start: median plane",
+"Ende: Mittelebene": "End: median plane",
+"Die ersten zwei gewählten Flächen (z. B. Flanken einer Nut) bilden eine Mittelebene als Kettenanfang: halbe Breite mit Faktor 0,5": "The first two selected faces (e.g. flanks of a slot) form a median plane as chain start: half the width with factor 0.5",
+"Die letzten zwei gewählten Flächen bilden eine Mittelebene als Kettenende: halbe Breite mit Faktor 0,5": "The last two selected faces form a median plane as chain end: half the width with factor 0.5",
+"Fügestelle {} (Spiel ±{:g})": "Joint {} (clearance ±{:g})",
+"½ × {}: {} (Mittelebene)": "½ × {}: {} (median plane)",
+"½ × Breite {:.4g} (Mittelebene)": "½ × width {:.4g} (median plane)"
 }

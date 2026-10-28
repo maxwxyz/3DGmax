@@ -1929,3 +1929,71 @@ def test_toleranzkette_fenster_verkleinerbar(fenster):
     for _ in range(10):
         app.processEvents()
     assert k.ergebnisse.horizontalScrollBar().maximum() == 0  # genug Platz: ganze Tabelle ohne Leiste
+
+
+def test_aenderungen_reiter_nur_im_vergleich(fenster):
+    """Vergleich beenden schliesst den Reiter Aenderungen; ohne Vergleich laesst er sich nicht leer oeffnen und zeigt
+    statt eines toten "Pruefen starten" einen Hinweis mit Knopf zum Vergleichen."""
+    f = fenster
+    menue = f.dock_aenderungen.toggleViewAction()
+    assert not menue.isEnabled() and f.aenderungen.neu_knopf.isVisibleTo(f.aenderungen)
+    assert f.oeffne_beispiel("vergleich_pmi", warten=True)
+    assert menue.isEnabled() and not f.aenderungen.neu_knopf.isVisibleTo(f.aenderungen)
+    assert f.aenderungen.start.isEnabled()
+    f.aenderungen.ende_knopf.click()
+    assert f.vergleich is None and not f.dock_aenderungen.isVisible() and not menue.isEnabled()
+    assert "Kein Vergleich" in f.aenderungen.kopf.text() and not f.aenderungen.start.isEnabled()
+    gestartet = []
+    f.starte_vergleich = lambda *a, **k: gestartet.append(1)
+    f.aenderungen.neu_knopf.click()
+    assert gestartet == [1]
+
+
+def test_wiggle_der_schlussflaechen(fenster):
+    """Getriebe-Kette: die Endflaeche pendelt zwischen den Worst-Case-Grenzen (Wert in der Beschriftung, gruen in
+    der Anforderung, rot ausserhalb); Kette ohne Flaechen in Kettenreihenfolge: kein Wiggle, Hinweis."""
+    from programm.kern import schluss_wiggle as sw
+    f = fenster
+    assert f.oeffne_beispiel("kette_getriebe", warten=True)
+    k = f._kette
+    k.wiggle.click()
+    assert k.wiggle.isChecked() and f.ansicht.schlussflaeche is not None
+    werte, farben = set(), set()
+    for _ in range(sw.SCHRITTE):
+        f._schluss_wiggle_schritt()
+        _form, farbe, text, _ort = f.ansicht.schlussflaeche
+        werte.add(text.split(" mm")[0])
+        farben.add(farbe)
+    assert len(werte) > 10 and f"{k.e.wc_max:.4f}" in werte
+    assert len(farben) == 2  # an der unteren Grenze (0 mm) ausserhalb der Anforderung 0,05 … 1,1
+    k.wiggle.click()
+    assert f.ansicht.schlussflaeche is None
+    assert f.oeffne_beispiel("kette", warten=True)
+    f._kette.wiggle.click()
+    assert not f._kette.wiggle.isChecked() and f.ansicht.schlussflaeche is None
+
+
+def test_kette_ueber_fuegestelle_und_mittelebene(fenster):
+    """Kette ueber zwei Teile: am Teilewechsel mit Verbindung entsteht ein Glied mit deren Spielraum (Deckel auf
+    Grundplatte, ±0,05); "Ende: Mittelebene" macht aus den letzten zwei Flaechen eine Mittelebene (Faktor 0,5)."""
+    from programm.kern.verbindung import flaeche_im_teil
+    f = fenster
+    assert f.oeffne_beispiel("variation", warten=True)
+    knoten = {k.nummer: k for k in f.erg.baum.blaetter()}
+    nr = {k.name: k.nummer for k in knoten.values()}
+    deckel, platte = nr["Deckel"], nr["Grundplatte"]
+    fl = lambda t, i: flaeche_im_teil(knoten[t].form, i, f.erg.modell)  # noqa: E731
+    k = f.zeige_toleranzkette()
+    k.leeren()
+    k.lage.setChecked(False)
+    f.ansicht.setze_auswahl([fl(platte, 2), fl(deckel, 14), fl(deckel, 15)], [platte, deckel, deckel])
+    assert f._kette_aus_auswahl() == 2
+    fuge = [g for g in k.glieder if "Deckel" in g.name and "Grundplatte" in g.name]
+    assert len(fuge) == 1 and abs(fuge[0].toleranz - 0.1) < 1e-9 and fuge[0].nenn == 0
+    k.leeren()
+    k.mitte_ende.setChecked(True)
+    f.ansicht.setze_auswahl([fl(platte, 2), fl(deckel, 14), fl(deckel, 15)], [platte, deckel, deckel])
+    f._kette_aus_auswahl()
+    assert [g.faktor for g in k.glieder] == [1.0, 0.5]  # Fuegestelle, halbe Deckeldicke zur Mittelebene
+    k.mitte_ende.setChecked(False)
+    f.ansicht.setze_auswahl([])

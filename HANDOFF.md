@@ -122,8 +122,10 @@ Done in this local session (commit):
     of 15 s with the exact section), view cube/left click after a lost mouse release (stale gesture state reset),
     docks in scroll areas (window min width 1624 → 805 px), 3D handle cleared on loading another file, wiggle
     button icon-only. Not reproducible here: the thin blue stripe while loading on Windows (asked for a screenshot).
-  - Next: item 3 (wiggle of the closing faces at the worst-case extremes), item 4 (median planes as chain ends,
-    chains across parts), then UI stage 2 (incl. resizing analysis, roll ring hint), then items 5–8.
+  - Committed `c12604d`. Then: changes tab only with an active comparison (hint + "Zwei Stände vergleichen …"),
+    item 3 done (`kern/schluss_wiggle.py`, play/pause in the chain window), item 4 done (median plane ends, joint
+    links across parts from assembly connections).
+  - Next: UI stage 2 (`docs/UI_UX_Plan.md` incl. all additions of 2026-10-28), then items 5–8.
   - Added to the plan (user, 2026-10-28): live 3D preview of the function → tolerancing proposal (PLAN §8.33,
     Roadmap ⬜); fits well with UI stage 2 (the function window becomes a panel).
   - Fixed: deleting own PMI left their callouts in 3D (view and `erg` share the graphics dict; the view is now

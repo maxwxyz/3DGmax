@@ -596,10 +596,33 @@ def _index(modell, e) -> int | None:
     return modell.flaechen_index(e) if e.ShapeType() == TopAbs_FACE else None
 
 
+def _halbe_breite(pmi, lagen, allgemein: str, fa, a: float, fb, b: float, am_anfang: bool) -> Glied:
+    """Glied von einer Seitenflaeche zur Mittelebene zweier Flaechen: Breitenmass mit Faktor 0,5 (die Mitte wandert um
+    die halbe Breitentoleranz); Richtung: am Ende von der Seitenflaeche zur Mitte, am Anfang von der Mitte weg."""
+    from .toleranzzone import iso2768_laenge
+    breite = abs(b - a)
+    r = 1 if b > a else -1
+    ende = tuple(i for i in (fa, fb) if i is not None)
+    p = _passendes_mass(pmi, lagen, a, b) if None not in (fa, fb) else None
+    if p is not None:
+        h, m = p.grenzen()
+        h, m = (p.nennwert, p.nennwert) if h is None or m is None else (h, m)
+        return Glied(tr("½ × {}: {} (Mittelebene)").format(p.nummer, p.wert_text()), breite, breite + h - p.nennwert,
+                     breite + m - p.nennwert, r, p.nummer, flaechen=ende, faktor=0.5)
+    t = iso2768_laenge(allgemein, breite) if allgemein else 0.0
+    return Glied(tr("½ × Breite {:.4g} (Mittelebene)").format(breite), breite, breite + (t or 0.0),
+                 breite - (t or 0.0), r, quelle="allgemein" if t else "ohne", flaechen=ende, faktor=0.5)
+
+
 def kette_aus_flaechen(modell, flaechen: list, pmi, allgemein: str = "",
-                       lagetoleranzen: bool = True) -> tuple[list[Glied], tuple, list[str]]:
+                       lagetoleranzen: bool = True, mitte_anfang: bool = False, mitte_ende: bool = False,
+                       fuegestelle=None) -> tuple[list[Glied], tuple, list[str]]:
     """Glieder aus Flaechen in Kettenreihenfolge (siehe Modulbeschreibung); (Glieder, Richtung, Hinweise).
-    Eintraege: Flaechenindex oder Form (Flaeche oder Kante; Kanten bekommen keine PMI, nur Allgemeintoleranz)."""
+    Eintraege: Flaechenindex oder Form (Flaeche oder Kante; Kanten bekommen keine PMI, nur Allgemeintoleranz).
+    mitte_anfang/mitte_ende: die ersten bzw. letzten zwei Flaechen (z. B. Flanken einer Nut) bilden eine
+    Mittelebene als Kettenende - Mitte = Seitenflaeche + halbe Breite, als Glied mit Faktor 0,5 auf das Breitenmass.
+    fuegestelle(k): fuer den Uebergang von Flaeche k zu k+1 an einem Teilewechsel (Name, Spielraum) einer Verbindung
+    der Baugruppe oder None - der Uebergang wird ein Glied mit Nennmass 0 und diesem Spielraum."""
     from .toleranzzone import iso2768_laenge
     hinweise = []
     if len(flaechen) < 2:
@@ -614,7 +637,9 @@ def kette_aus_flaechen(modell, flaechen: list, pmi, allgemein: str = "",
     if None in orte:
         k = orte.index(None)
         return [], tuple(richtung), [tr("Element {} liegt nicht quer zur Kettenrichtung").format(k + 1)]
-    if orte[-1] < orte[0]:  # Schlussmass positiv: Richtung von der ersten zur letzten Flaeche
+    mitte = (orte[0] + orte[1]) / 2 if mitte_anfang and len(orte) > 2 else orte[0], \
+        (orte[-2] + orte[-1]) / 2 if mitte_ende and len(orte) > 2 else orte[-1]
+    if mitte[1] < mitte[0]:  # Schlussmass positiv: Richtung vom ersten zum letzten Kettenende
         richtung, orte = -richtung, [-o for o in orte]
     # Lagen aller ebenen/zylindrischen Flaechen quer zur Richtung fuer die PMI-Zuordnung (Muster, geteilte Flaechen)
     lagen = {}
@@ -623,8 +648,19 @@ def kette_aus_flaechen(modell, flaechen: list, pmi, allgemein: str = "",
         if o is not None:
             lagen[i] = o
     glieder = []
-    for (fa, a), (fb, b) in zip(zip(flaechen, orte), zip(flaechen[1:], orte[1:])):
+    anfang_mitte, ende_mitte = mitte_anfang and len(orte) > 2, mitte_ende and len(orte) > 2
+    for k, ((fa, a), (fb, b)) in enumerate(zip(zip(flaechen, orte), zip(flaechen[1:], orte[1:]))):
         nenn = abs(b - a)
+        if (anfang_mitte and k == 0) or (ende_mitte and k == len(orte) - 2):
+            glieder.append(_halbe_breite(pmi, lagen, allgemein, fa, a, fb, b, am_anfang=k == 0))
+            continue
+        fuge = fuegestelle(k) if fuegestelle is not None else None
+        if fuge is not None:
+            name, spiel = fuge
+            glieder.append(Glied(tr("Fügestelle {} (Spiel ±{:g})").format(name, spiel), nenn, nenn + spiel,
+                                 nenn - spiel, 1 if b >= a else -1, quelle="eigen",
+                                 flaechen=tuple(i for i in (fa, fb) if i is not None)))
+            continue
         if nenn < 1e-6:
             continue  # gleiche Lage: kein Glied
         r = 1 if b > a else -1
@@ -645,6 +681,8 @@ def kette_aus_flaechen(modell, flaechen: list, pmi, allgemein: str = "",
             hinweise.append(tr("Glied {:.4g} mm ohne Toleranz (keine PMI, keine Allgemeintoleranz)").format(nenn))
     if lagetoleranzen and glieder:
         for f, vorzeichen in ((flaechen[0], -1), (flaechen[-1], 1)):
+            if (vorzeichen < 0 and anfang_mitte) or (vorzeichen > 0 and ende_mitte):
+                continue  # Mittelebene: Lage ueber das Breitenmass, Symmetrie gehoert zum Element
             if f is None or f not in lagen:
                 continue  # Kante: keine PMI
             g, h = lage_glieder(modell, pmi, f, richtung, vorzeichen, lagen)

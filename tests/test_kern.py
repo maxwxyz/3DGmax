@@ -623,6 +623,19 @@ def test_toleranzkette_aus_flaechen():
     ohne, _, h = tk.kette_aus_flaechen(erg.modell, [181, 187, 183], erg.pmi, lagetoleranzen=False)
     assert ohne[-1].quelle == "ohne" and h
     assert tk.kette_aus_flaechen(erg.modell, [181], erg.pmi)[0] == []
+    # Mittelebene der Nut 183/185 als Kettenende: Mitte = Seitenflaeche + halbe Breite (Faktor 0,5 auf Mass 5)
+    m, _, _ = tk.kette_aus_flaechen(erg.modell, [181, 187, 183, 185], erg.pmi, "m", mitte_ende=True)
+    breite = abs(tk.lage(erg.modell.flaechen[185], r) - tk.lage(erg.modell.flaechen[183], r))
+    halb = [x for x in m if x.faktor == 0.5]
+    assert len(halb) == 1 and halb[0].pmi_nummer == 5 and abs(halb[0].nenn - breite) < 1e-9
+    assert not [x for x in m if x.quelle == "lage" and x.pmi_nummer == 36]  # Symmetrie gehoert zur Mitte
+    e = tk.berechne([x for x in m if x.quelle != "lage"])
+    assert abs(e.nenn - (10.0 + breite / 2)) < 1e-9 or abs(e.nenn - (10.0 - breite / 2)) < 1e-9
+    assert abs(e.wc_max - e.wc_min - 1.0) < 1e-9  # 0,4 + 0,4 + halbe Breitentoleranz 0,2
+    # ueber eine Fuegestelle (Teilewechsel mit Verbindung): eigenes Glied mit dem Spielraum
+    f, _, _ = tk.kette_aus_flaechen(erg.modell, [181, 187, 183, 185], erg.pmi, "m", lagetoleranzen=False,
+                                    fuegestelle=lambda k: ("A/B", 0.05) if k == 1 else None)
+    assert [x.quelle for x in f] == ["pmi", "eigen", "pmi"] and abs(f[1].toleranz - 0.1) < 1e-9
 
 
 def test_tolerierungsberater_regeln(ctc01):

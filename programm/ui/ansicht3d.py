@@ -91,6 +91,7 @@ class AnsichtBasis(QtWidgets.QWidget):
         self.schnitt_ebenen: list[tuple] = []  # festgehaltene Ebenen (Punkt, Richtung der behaltenen Seite)
         self.schnitt_kette = False  # mehrere Ebenen schneiden nur den gemeinsamen Bereich weg
         self.ansicht_schnitt: list[list[tuple]] = []  # Schnitt der gespeicherten Ansicht (kern.ansichten)
+        self.schlussflaeche = None  # Wiggle der Schlussflaechen: (Form, Farbe, Text, Ort)
         self.letzte_ansicht = "iso"
         self.thema: dict = {}
         self.navigation = "catia"
@@ -414,6 +415,10 @@ class AnsichtBasis(QtWidgets.QWidget):
 
     def zeige_messungen(self, messungen: list):
         self.messungen = list(messungen)
+
+    def zeige_schlussflaeche(self, form, farbe=None, text: str = "", ort=None):
+        """Bewegte Schlussflaeche einer Toleranzkette (Wiggle) mit Wert am Ort; form None blendet aus."""
+        self.schlussflaeche = None if form is None else (form, farbe, text, ort)
 
     def zeige_hilfslinien(self, linien: list, einpassen: bool = False):
         """Hilfslinien [(Start, Ende, Text, Farbe RGB[, Breite])], z. B. das Glied beim Ablaufen einer Toleranzkette
@@ -2347,6 +2352,40 @@ class OcctAnsicht(AnsichtBasis):
             self._schnittkanten_ais = a
         self._neu_zeichnen()
         return anzahl
+
+    def zeige_schlussflaeche(self, form, farbe=None, text: str = "", ort=None):
+        super().zeige_schlussflaeche(form, farbe, text, ort)
+        if not self._bereit:
+            return
+        from OCC.Core.AIS import AIS_Shape, AIS_TextLabel
+        from OCC.Core.Graphic3d import Graphic3d_ZLayerId_Topmost
+        from OCC.Core.TCollection import TCollection_ExtendedString
+        from OCC.Core.gp import gp_Pnt
+        ctx = self.d.Context
+        for a in getattr(self, "_schluss_ais", []):
+            ctx.Remove(a, False)
+        self._schluss_ais = []
+        if form is not None:
+            flaeche = AIS_Shape(form)
+            _unbeleuchtet(flaeche)  # genau die Farbe der Bewertung
+            flaeche.SetColor(_farbe(farbe or (0.13, 0.42, 0.85)))
+            flaeche.SetZLayer(Graphic3d_ZLayerId_Topmost)  # sichtbar auch, wenn sie ins Material wandert
+            ctx.Display(flaeche, 1, -1, False)
+            ctx.SetTransparency(flaeche, 0.25, False)
+            self._schluss_ais.append(flaeche)
+            if text and ort is not None:
+                lab = AIS_TextLabel()
+                lab.SetFont(SCHRIFT)
+                lab.SetText(TCollection_ExtendedString(text, True))
+                lab.SetPosition(gp_Pnt(*map(float, ort)))
+                lab.SetColor(_farbe(farbe or (0.13, 0.42, 0.85)))
+                lab.SetHeight(18)
+                lab.SetZLayer(Graphic3d_ZLayerId_Topmost)
+                ctx.Display(lab, False)
+                self._schluss_ais.append(lab)
+            for a in self._schluss_ais:
+                ctx.Deactivate(a)
+        self._neu_zeichnen()
 
     def bild(self, pfad):
         if not self._bereit:

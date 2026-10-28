@@ -455,6 +455,22 @@ feature sums the area and spans all faces (`_geo`); stored in the project (old r
 Found on the way: position/perpendicularity envelopes were full cylinders around the axis even for a half shell –
 now offset copies of the actual faces (`_eine_achse`).
 
+**Done 2026-10-28 (plan item 3): wiggle of the closing faces.** `kern/schluss_wiggle.py`: closing faces = first face
+of the first and last face of the last link with faces (direction from the first link, oriented so the closing size
+grows away from the start face); frames as a sine between worst-case minimum and maximum, magnified so the range is
+about 1/20 of the model size; per frame value and assessment against the requirement. Display: copy of the end face
+(unlit, Topmost so it stays visible inside material) with the value; play/pause icon in the chain window. Chains built
+from PMI without faces in chain order report that the wiggle needs model faces (no guessing).
+
+**Done 2026-10-28 (plan item 4): median planes and chains across parts.** `kette_aus_flaechen(mitte_anfang,
+mitte_ende, fuegestelle)`: the first/last two selected faces form a median plane as chain end – link "½ × width" with
+factor 0.5 on the width dimension (PMI between the two faces, else ISO 2768), position tolerances of that end are
+not added (symmetry belongs to the feature); checked on FTC-10 slot 183/185: worst case 0.4 + 0.4 + 0.2 = 1.0. At a
+change of part where the assembly has a connection between exactly these two faces, the transition becomes a link
+"Fügestelle A / B" with nominal 0 and the connection's clearance (positions still from the file, i.e. the assembled
+STEP position). Open: chains from the snapped assembly positions (moved parts) and connections between features
+other than the selected faces.
+
 **Planned after UI stage 2 (requested 2026-10-28): materials in hand-built chains (1D, 2D, 3D).** Today a chain
 built by hand (no model, or links typed in) has no material, so thermal expansion cannot use it. Clever default: a
 chain-wide material (combo with the material library of `kern/werkstoffe`, default steel) plus an optional material

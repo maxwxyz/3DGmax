@@ -338,6 +338,7 @@ class Hauptfenster(QtWidgets.QMainWindow):
         if zustand:
             self.restoreState(zustand)
         self.dock_aenderungen.hide()  # nur im Vergleich
+        self.dock_aenderungen.toggleViewAction().setEnabled(False)  # Menue: ohne Vergleich nicht leer oeffnen
 
     def _fenster_merken(self):
         for merken in self._spalten_merken:
@@ -922,6 +923,7 @@ class Hauptfenster(QtWidgets.QMainWindow):
         self.aenderungen.gewaehlt.connect(self._aenderung_gewaehlt)
         self.aenderungen.abschliessen.connect(self.schliesse_pruefung_ab)
         self.aenderungen.beenden.connect(self.beende_vergleich)
+        self.aenderungen.vergleich_starten.connect(lambda: self.starte_vergleich())
         self.aenderungen.karte.connect(self.zeige_farbkarte)
         self.aenderungen.material.connect(self.zeige_material)
         self.analyse.berechnen.connect(self.starte_analyse)
@@ -1899,6 +1901,7 @@ class Hauptfenster(QtWidgets.QMainWindow):
         self.modus_leiste.show()
         self.aenderungen.zeige(v, self.thema)
         self.spalten_anpassen()
+        self.dock_aenderungen.toggleViewAction().setEnabled(True)
         self.dock_aenderungen.show()
         self.dock_aenderungen.raise_()
         for n in self.VERGLEICH_AKTIONEN:
@@ -2254,6 +2257,7 @@ class Hauptfenster(QtWidgets.QMainWindow):
         self.ansicht.zeige_vergleich(None)
         self.aenderungen.zeige(None)
         self.dock_aenderungen.hide()
+        self.dock_aenderungen.toggleViewAction().setEnabled(False)
         for n in self.VERGLEICH_AKTIONEN:
             self.aktionen[n].setEnabled(False)
         if neu_zeigen and self.erg is not None:
@@ -2925,6 +2929,8 @@ class Hauptfenster(QtWidgets.QMainWindow):
             f.schluss_aus_auswahl.connect(self._kette_schluss)
             f.strecke_zeigen.connect(self._kette_strecke)
             f.bild_zeigen.connect(self._kette_bild)
+            f.schluss_wiggle.connect(self.schluss_wiggle)
+            f.finished.connect(lambda _r: f.wiggle.setChecked(False))  # Fenster zu: Wiggle aus
             f.oeffnen.connect(lambda: self.oeffne_kette())
             f.teil_von = self._teil_von_flaechen
             self._kette = f
@@ -2999,6 +3005,61 @@ class Hauptfenster(QtWidgets.QMainWindow):
         linien = tk.glied_pfeil(g, self.erg.modell) if g is not None and self.erg is not None else []
         self.ansicht.zeige_hilfslinien(linien)
 
+    def schluss_wiggle(self, an: bool) -> bool:
+        """Wiggle der Schlussflaechen (kern.schluss_wiggle): Endflaeche zwischen den Worst-Case-Grenzen, ueberhoeht,
+        gruen in der Anforderung, rot ausserhalb; False, wenn die Kette keine Schlussflaechen im Modell hat."""
+        from ..kern import schluss_wiggle as sw
+        uhr = getattr(self, "_schluss_uhr", None)
+        if uhr is None:
+            uhr = self._schluss_uhr = QtCore.QTimer(self)
+            uhr.setInterval(60)
+            uhr.timeout.connect(self._schluss_wiggle_schritt)
+        k = getattr(self, "_kette", None)
+        s = sw.schlussflaechen(k.glieder, self.erg.modell) if an and k is not None and self.erg is not None else None
+        if s is None or getattr(k, "e", None) is None:
+            uhr.stop()
+            self.ansicht.zeige_schlussflaeche(None)
+            if an:
+                self.statusBar().showMessage(tr("Wiggle braucht eine Kette aus Modellflächen in Kettenreihenfolge "
+                                                "(„Aus 3D-Auswahl“ oder „Richtungen aus Schlussmaß“)"), 8000)
+                k.wiggle.setChecked(False)
+            return False
+        self._schluss = [s, 0]
+        uhr.start()
+        self._schluss_wiggle_schritt()
+        return True
+
+    def _schluss_wiggle_schritt(self):
+        """Naechstes Bild aus dem aktuellen Ergebnis (Werte im Fenster duerfen sich waehrenddessen aendern)."""
+        import numpy as np
+        from OCC.Core.Bnd import Bnd_Box
+        from OCC.Core.BRepBndLib import brepbndlib
+        from OCC.Core.BRepBuilderAPI import BRepBuilderAPI_Transform
+        from OCC.Core.BRepGProp import brepgprop
+        from OCC.Core.GProp import GProp_GProps
+        from OCC.Core.gp import gp_Trsf, gp_Vec
+        from ..kern import schluss_wiggle as sw
+        k, (s, nr) = self._kette, self._schluss
+        if self.erg is None or k.e is None:
+            return self.schluss_wiggle(False)
+        b = Bnd_Box()
+        brepbndlib.Add(self.erg.modell.form, b)
+        x0, y0, z0, x1, y1, z1 = b.Get()
+        faktor = sw.faktor(k.e, max(x1 - x0, y1 - y0, z1 - z0))
+        bilder = sw.bilder(s, k.e, k.anforderung_werte(), faktor)
+        bild = bilder[nr % len(bilder)]
+        self._schluss[1] = nr + 1
+        t = gp_Trsf()
+        t.SetTranslation(gp_Vec(*map(float, bild.versatz)))
+        form = BRepBuilderAPI_Transform(self.erg.modell.flaechen[s.ende], t, True).Shape()
+        pr = GProp_GProps()
+        brepgprop.SurfaceProperties(form, pr)
+        c = pr.CentreOfMass()
+        farbe = {"gruen": (0.18, 0.62, 0.28), "rot": (0.85, 0.20, 0.15)}.get(bild.stufe, (0.13, 0.42, 0.85))
+        text = f"{round(bild.wert, 4) + 0.0:.4f} mm" + (tr("  (Bewegung ×{:.0f})").format(faktor) if faktor > 1.5 else "")
+        self.ansicht.zeige_schlussflaeche(form, farbe, text, np.array([c.X(), c.Y(), c.Z()]))
+        return True
+
     def _kette_bild(self, daten):
         """Ganze Kette als Pfeildiagramm im Modell (kern.toleranzkette.kettenbild); None blendet es aus."""
         from ..kern import toleranzkette as tk
@@ -3027,6 +3088,19 @@ class Hauptfenster(QtWidgets.QMainWindow):
                                      tr("Richtungen aus dem Schlussmaß gesetzt – „Kette ablaufen“ zeigt sie"), 10000)
         return hinweise
 
+    def _fuegestelle(self, flaechen: list, teile: list, k: int):
+        """Teilewechsel zwischen der k-ten und (k+1)-ten Kettenflaeche: (Name, Spielraum) der Verbindung der Baugruppe
+        zwischen diesen Flaechen, sonst None (Kontakt angenommen, Lage aus der Datei)."""
+        ta, tb = teile[k], teile[k + 1]
+        if ta is None or tb is None or ta == tb:
+            return None
+        fa, fb = flaechen[k], flaechen[k + 1]
+        for v in self.baugruppe.verbindungen:
+            if {(v.teil, v.flaeche), (v.gegen_teil, v.gegen_flaeche)} == {(ta, fa), (tb, fb)}:
+                namen = self._teil_namen()
+                return f"{namen.get(ta, ta)} / {namen.get(tb, tb)}", float(v.toleranz)
+        return None
+
     def _kette_aus_auswahl(self) -> int:
         """Glieder aus den im Modell gewaehlten Flaechen (Klickreihenfolge); Allgemeintoleranz aus Wahl oder Datei."""
         from ..kern import toleranzkette as tk, toleranzzone
@@ -3034,13 +3108,15 @@ class Hauptfenster(QtWidgets.QMainWindow):
             return 0
         from OCC.Core.TopAbs import TopAbs_FACE
         # Flaechen als Index (PMI-Zuordnung), Kanten als Form
-        flaechen = [self.erg.modell.flaechen_index(f) if f.ShapeType() == TopAbs_FACE else f
-                    for f in self.ansicht.auswahl3d]
-        flaechen = [f for f in flaechen if f is not None]
+        paare = [(self.erg.modell.flaechen_index(f) if f.ShapeType() == TopAbs_FACE else f, t)
+                 for f, t in zip(self.ansicht.auswahl3d, self.ansicht.auswahl_teile)]
+        paare = [(f, t) for f, t in paare if f is not None]
+        flaechen, teile = [f for f, _ in paare], [t for _, t in paare]
         allgemein = self._allgemein or toleranzzone.allgemein_aus_hinweisen(self.erg.pmi)
-        glieder, richtung, hinweise = tk.kette_aus_flaechen(self.erg.modell, flaechen, self.erg.pmi,
-                                                             allgemein.laenge if allgemein else "",
-                                                             self._kette.lage.isChecked())
+        k = self._kette
+        glieder, richtung, hinweise = tk.kette_aus_flaechen(
+            self.erg.modell, flaechen, self.erg.pmi, allgemein.laenge if allgemein else "", k.lage.isChecked(),
+            k.mitte_anfang.isChecked(), k.mitte_ende.isChecked(), lambda i: self._fuegestelle(flaechen, teile, i))
         self._kette.ergaenze(glieder)
         if glieder:
             text = tr("{} Glieder entlang ({:.3g}, {:.3g}, {:.3g})").format(len(glieder), *richtung)

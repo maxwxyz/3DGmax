@@ -182,6 +182,7 @@ class AenderungenPanel(QtWidgets.QWidget):
     beenden = QtCore.Signal()
     karte = QtCore.Signal(bool, float)  # Farbkarte an/aus, Skalenende (0 = automatisch)
     material = QtCore.Signal(bool)  # Materialvergleich an/aus
+    vergleich_starten = QtCore.Signal()  # ohne Vergleich: zwei Staende waehlen
 
     def __init__(self, parent=None):
         super().__init__(parent)
@@ -191,6 +192,11 @@ class AenderungenPanel(QtWidgets.QWidget):
         self.kopf = QtWidgets.QLabel("")
         self.kopf.setWordWrap(True)
         lay.addWidget(self.kopf)
+        self.neu_knopf = QtWidgets.QPushButton(tr("Zwei Stände vergleichen …"))  # nur ohne Vergleich sichtbar
+        self.neu_knopf.setToolTip(tr("Alten und neuen Stand wählen; danach stehen hier die Änderungen zum Prüfen"))
+        self.neu_knopf.setObjectName("primaer")
+        self.neu_knopf.clicked.connect(self.vergleich_starten.emit)
+        lay.addWidget(self.neu_knopf)
         self.legende = QtWidgets.QLabel("")
         self.legende.setObjectName("leise")
         self.legende.setTextFormat(QtCore.Qt.TextFormat.RichText)
@@ -294,7 +300,7 @@ class AenderungenPanel(QtWidgets.QWidget):
         self.ende_knopf.clicked.connect(self.beenden.emit)
         for taste, slot in (("G", lambda: self.setze_status("geprueft")), ("A", lambda: self.setze_status("abgelehnt"))):
             QtGui.QShortcut(QtGui.QKeySequence(taste), self.tabelle, activated=slot)
-        self._knoepfe()
+        self.zeige(None)  # Ausgangszustand: Hinweis und Knopf "Zwei Staende vergleichen"
 
     # --- Anzeige ---
 
@@ -306,9 +312,11 @@ class AenderungenPanel(QtWidgets.QWidget):
             box.blockSignals(False)
         t = self.tabelle
         t.blockSignals(True)
+        self.neu_knopf.setVisible(vergleich is None)
         if vergleich is None:
             t.setRowCount(0)
-            self.kopf.setText("")
+            self.kopf.setText(tr("Kein Vergleich aktiv – erst zwei Stände vergleichen, dann die Änderungen hier "
+                                 "prüfen."))
             self.legende.setText("")
         else:
             liste = vergleich.aenderungen

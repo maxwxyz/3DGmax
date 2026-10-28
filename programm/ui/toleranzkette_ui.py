@@ -444,6 +444,7 @@ class ToleranzketteFenster(QtWidgets.QDialog):
     oeffnen = QtCore.Signal()  # Kettendatei oeffnen (Hauptfenster laedt ggf. das Modell)
     strecke_zeigen = QtCore.Signal(object)  # Glied beim Ablaufen (Glied) oder None
     bild_zeigen = QtCore.Signal(object)  # ganze Kette im 3D: (Glieder, Text des Schlussmasses, Ist-Glieder) oder None
+    schluss_wiggle = QtCore.Signal(bool)  # Schlussflaechen zwischen den Worst-Case-Grenzen pendeln lassen
 
     ERGEBNIS_ZEILEN = (("wc", "Arithmetisch (Worst Case)"), ("rss", "Statistisch (RSS, ±3σ)"),
                        ("mc", "Monte Carlo (99,73 %)"))
@@ -604,8 +605,13 @@ class ToleranzketteFenster(QtWidgets.QDialog):
                                   "Lagetoleranzen violett, Längenbereiche orange, Schlussmaß blau; im Planspiel "
                                   "geänderte Glieder zusätzlich grau mit dem Ist-Wert"))
         self.bild3d.toggled.connect(lambda _an: self._bild_senden())
+        self.wiggle = QtWidgets.QPushButton()  # nur Symbol: Abspielen / Anhalten
+        self.wiggle.setCheckable(True)
+        self._wiggle_symbol(False)
+        self.wiggle.toggled.connect(self._wiggle_symbol)
+        self.wiggle.toggled.connect(self.schluss_wiggle.emit)
         for k in (self.neu_glied, self.plus, self.minus, self.auswahl, self.bereich, self.drehen, self.weg, self.schluss, self.ablauf,
-                  self.bild3d):
+                  self.bild3d, self.wiggle):
             reihe.addWidget(k)
         self.drehen.clicked.connect(self._drehen)
         self.weg.clicked.connect(self._entfernen)
@@ -614,6 +620,14 @@ class ToleranzketteFenster(QtWidgets.QDialog):
         self.lage.setToolTip(tr("Position, Symmetrie, Koaxialität und Profil mit Bezug an der ersten und letzten Fläche "
                                 "als eigene Glieder (Zwischenflächen heben sich auf)"))
         reihe.addWidget(self.lage)
+        self.mitte_anfang = QtWidgets.QCheckBox(tr("Anfang: Mittelebene"))
+        self.mitte_anfang.setToolTip(tr("Die ersten zwei gewählten Flächen (z. B. Flanken einer Nut) bilden eine "
+                                        "Mittelebene als Kettenanfang: halbe Breite mit Faktor 0,5"))
+        self.mitte_ende = QtWidgets.QCheckBox(tr("Ende: Mittelebene"))
+        self.mitte_ende.setToolTip(tr("Die letzten zwei gewählten Flächen bilden eine Mittelebene als Kettenende: "
+                                      "halbe Breite mit Faktor 0,5"))
+        reihe.addWidget(self.mitte_anfang)
+        reihe.addWidget(self.mitte_ende)
         cp_text = QtWidgets.QLabel(tr("Prozessfähigkeit Cp"))
         self.cp = QtWidgets.QDoubleSpinBox()
         self.cp.setToolTip(tr("Prozessfähigkeit der Kette: normalverteilte Glieder streuen mit σ = T / (6 · Cp); 1,33 "
@@ -1108,6 +1122,14 @@ class ToleranzketteFenster(QtWidgets.QDialog):
         self.strecke_zeigen.emit(g)
         self.ergebnis.setText(html.escape(tr("Glied {} von {}: {} {} – {}").format(
             self._ablauf_nr + 1, len(self.glieder), "+" if g.richtung > 0 else "−", _z(abs(g.nenn)), g.name)))
+
+    def _wiggle_symbol(self, an: bool):
+        """Abspielen- bzw. Anhalten-Symbol ohne Text; der Tooltip sagt, was ein Klick tut."""
+        bild = QtWidgets.QStyle.StandardPixmap.SP_MediaPause if an else QtWidgets.QStyle.StandardPixmap.SP_MediaPlay
+        self.wiggle.setIcon(self.style().standardIcon(bild))
+        self.wiggle.setToolTip(tr("Wiggle der Schlussflächen anhalten") if an else
+                               tr("Wiggle der Schlussflächen: die Endfläche der Kette pendelt zwischen Worst-Case-"
+                                  "Minimum und -Maximum (überhöht), grün in der Anforderung, rot außerhalb"))
 
     def schluss_text(self) -> str:
         """Beschriftung des Schlussmasses im 3D: Nennmass, Worst Case und statistisches Ergebnis."""

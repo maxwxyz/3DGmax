@@ -121,6 +121,8 @@
 | Assembly variation: temperature (materials from STEP), traffic light per measure, measures at a clicked point (point to plane/axis), in the PDF | ✅ |
 | Assembly variation: datum shift (MMC/LMC bonus in connections) | ⬜ |
 | 3D chain from an assembly measure (one link per part on the connection path, clearance limits per component) | ✅ |
+| Wiggle of the closing faces at the worst-case limits (exaggerated, coloured against the requirement) | ✅ |
+| Chain from faces: median planes as chain ends, chains across parts with joint links from assembly connections | ✅ |
 | Bill of characteristics with balloon numbers (table column, 3D balloons, CSV, PDF) | ✅ |
 | Datum reference frame display for a selected tolerance | ✅ |
 | Section: contour edges of the parts in the section plane (interactive, saved views, box), from the display mesh | ✅ |
