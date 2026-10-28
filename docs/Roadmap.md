@@ -144,12 +144,12 @@
 | Scan check: manual alignment by point pairs | ✅ |
 | Scan check: per-section evaluation of roundness and circular runout | ✅ |
 | Scan check: datums as contacting features (ISO 5459, constrained minimax) | ✅ |
-| Scan check: line profile per section, E57 | ⬜ |
+| Scan check: line profile per section | ⬜ |
 | Plausibility check of the specification stage 1: hierarchy, size vs. form, completeness, datum system, contradicting dimensions, values, nominal vs. geometry (PLAN §8.22) | ✅ |
 | Plausibility check stage 2: closed dimension chains | ✅ |
 | Plausibility check: basic dimensions (with tolerance, location toleranced twice), patterns of different size, datum target counts | ✅ |
 | Point clouds without triangles (PLY points, XYZ/ASC/CSV/PTS) | ✅ |
-| Point clouds E57 | ⬜ |
+| Point clouds E57 (own reader, tested with libE57Format test data) | ✅ |
 | Linked side-by-side view of old and new state (synchronized cameras) | ✅ |
 | Clash/contact/clearance analysis of assemblies or selections (PLAN §8.21 stages 1–3) | ✅ |
 | Band analysis (min/max distance), intersection volumes, result list with status/comment, CSV | ✅ |

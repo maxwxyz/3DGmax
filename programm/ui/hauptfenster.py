@@ -3123,7 +3123,7 @@ class Hauptfenster(QtWidgets.QMainWindow):
         if not pfad:
             pfad, _ = QtWidgets.QFileDialog.getOpenFileName(
                 self, tr("Scan wählen"), os.path.dirname(self.erg.pfad),
-                tr("Netze und Punktwolken") + " (*.stl *.ply *.obj *.3mf *.glb *.gltf *.xyz *.asc *.txt *.csv *.pts);;"
+                tr("Netze und Punktwolken") + " (*.stl *.ply *.obj *.3mf *.glb *.gltf *.xyz *.asc *.txt *.csv *.pts *.e57);;"
                 + tr("Alle Dateien") + " (*)")
         if not pfad:
             return

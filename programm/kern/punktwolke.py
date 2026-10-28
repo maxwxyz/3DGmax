@@ -1,4 +1,5 @@
-"""Punktwolken ohne Dreiecke lesen (Scanner-Export): XYZ/ASC/TXT/CSV/PTS und PLY nur mit Punkten (ohne Qt).
+"""Punktwolken ohne Dreiecke lesen (Scanner-Export): XYZ/ASC/TXT/CSV/PTS, PLY nur mit Punkten und E57 (kern.e57)
+(ohne Qt).
 
 Text: je Zeile mindestens drei Zahlen (x y z, weitere Spalten wie Farbe oder Intensitaet werden ignoriert),
 Trenner Leerzeichen, Tab, Komma oder Semikolon; Kopf- und Kommentarzeilen werden uebersprungen (PTS: erste Zeile
@@ -12,7 +13,7 @@ import re
 
 import numpy as np
 
-ENDUNGEN = (".xyz", ".asc", ".txt", ".csv", ".pts")
+ENDUNGEN = (".xyz", ".asc", ".txt", ".csv", ".pts", ".e57")
 _ZAHL = re.compile(r"[-+]?(?:\d+[.,]?\d*|[.,]\d+)(?:[eE][-+]?\d+)?")
 
 
@@ -33,6 +34,9 @@ def lies_punkte(pfad: str, hoechstens: int = 2_000_000) -> np.ndarray:
     if pfad.lower().endswith(".ply"):
         from .laden import lies_ply
         p, _ = lies_ply(pfad)
+    elif pfad.lower().endswith(".e57"):
+        from . import e57
+        p = e57.lies(pfad)
     else:
         p = _lies_text(pfad)
     p = np.asarray(p, float)
