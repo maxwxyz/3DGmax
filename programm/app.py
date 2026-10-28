@@ -226,7 +226,6 @@ def main(argv=None) -> int:
         return app.exec()
     if dateien:
         fenster.lade(os.path.abspath(dateien[0]))
-    QtCore.QTimer.singleShot(300, fenster.erster_start)
     return app.exec()
 
 

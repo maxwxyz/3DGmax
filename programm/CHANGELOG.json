@@ -49,7 +49,8 @@
    "Beispiel „Funktion → Tolerierung“ (Datei › Beispiele): FTC-10 mit zugeordneten Rollen und vorgeschlagenen Bezügen; die Spalte Bezug zeigt den Vorschlag je Element („auto (A)“).",
    "Scanprüfung wie ein Vergleich: Modusleiste Vergleich / Soll / Ist / Blinken über der 3D-Ansicht und ein Prüfrundgang in der Ergebnisliste (Prüfen starten, geprüft/abgelehnt mit G/A, Kommentar je Ergebnis) – auch im Prüfbericht und in der CSV.",
    "Neue Beispiele: Messen, Analyse (Entformung), Merkmalsliste mit Ballonnummern, 2D-Toleranzkette (Hebel, ohne Modell) und 3D-Kette aus einer Baugruppen-Messgröße.",
-   "Scanprüfung nebeneinander: links Soll (CAD), rechts Ist (Scan mit Farbkarte), Kameras gekoppelt."
+   "Scanprüfung nebeneinander: links Soll (CAD), rechts Ist (Scan mit Farbkarte), Kameras gekoppelt.",
+   "Hilfe: „Was ist neu“ und der Einführungs-Assistent beim ersten Start entfallen; die Änderungen stehen weiter in den Versionshinweisen, F1 öffnet die Anleitung."
   ],
   "en": [
    "3D tolerance chain: enter positions with translation and rotation (each component with deviations) by hand in a guided editor, choose function point and closing quantity, show the chain in the model, compute linearly and non-linearly and adopt it into the tolerance chain.",
@@ -100,7 +101,8 @@
    "Example “Function → tolerancing” (File › Examples): FTC-10 with assigned roles and proposed datums; the datum column shows the proposal per feature (“auto (A)”).",
    "Scan check like a comparison: mode bar Comparison / Target / Actual / Blink above the 3D view and a review walk in the result list (start review, checked/rejected with G/A, comment per result) – also in the inspection report and the CSV.",
    "New examples: measuring, analysis (draft), characteristics list with balloon numbers, 2D tolerance chain (lever, no model) and 3D chain from an assembly measure.",
-   "Scan check side by side: target (CAD) left, actual (scan with colour map) right, cameras coupled."
+   "Scan check side by side: target (CAD) left, actual (scan with colour map) right, cameras coupled.",
+   "Help: \"What's new\" and the introduction wizard on first start are gone; changes remain in the release notes, F1 opens the manual."
   ]
  },
  "releases": [

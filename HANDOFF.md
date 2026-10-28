@@ -134,6 +134,10 @@ Done in this local session (commit):
     plus per-link override (PLAN §8.33, Roadmap ⬜).
   - Added to UI stage 2 (user, 2026-10-28): CATIA roll band further out, continuous blend into the trackball
     (rounded arcball) while dragging – `docs/UI_UX_Plan.md`.
+- Help › "Was ist neu" and the first-start introduction wizard removed (user request 2026-10-28): actions `neu`,
+  `einfuehrung`, `Hauptfenster.erster_start` (only showed those two), `hilfe.Einfuehrung`/`SCHRITTE`/`zeige_neu`,
+  `version.aenderungen_html`, their translations; settings keys `einfuehrung_gesehen`/`version_gesehen` no longer
+  read. CHANGELOG files and the release script stay. Branch `claude/ohne-einfuehrung-6b55f6`.
 
 **Deferred questions for the user** (do not block on them):
 - UI/UX stage 2 (workspaces) changes the layout a lot – implement only after you have read `docs/UI_UX_Plan.md`?

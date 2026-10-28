@@ -8,8 +8,6 @@ def _ohne_dialoge(monkeypatch):
     monkeypatch.setattr(QtWidgets.QFileDialog, "getSaveFileName", lambda *a, **k: ("", ""))
     monkeypatch.setattr(QtWidgets.QMessageBox, "information", lambda *a, **k: None)
     monkeypatch.setattr(QtWidgets.QMessageBox, "warning", lambda *a, **k: None)
-    from programm.ui import hilfe
-    monkeypatch.setattr(hilfe.Einfuehrung, "exec", lambda self: 0)
 
 
 def _alle(fenster):
@@ -46,12 +44,3 @@ def test_alle_aktionen_mit_modell(fenster_ctc01, monkeypatch):
     f.aktionen["schliessen"].trigger()
     assert f.erg is None
     assert not f.aktionen["alles"].isEnabled()
-
-
-def test_erster_start_zeigt_einfuehrung(fenster, monkeypatch):
-    _ohne_dialoge(monkeypatch)
-    gezeigt = []
-    monkeypatch.setattr(fenster, "zeige_einfuehrung", lambda: gezeigt.append(1))
-    fenster.erster_start()
-    fenster.erster_start()
-    assert gezeigt == [1]

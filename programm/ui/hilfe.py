@@ -1,4 +1,4 @@
-"""Hilfe: Anleitung (F1) mit automatischer Menuereferenz, Einfuehrung, Was ist neu, Ueber."""
+"""Hilfe: Anleitung (F1) mit automatischer Menuereferenz, Ueber."""
 
 from __future__ import annotations
 
@@ -10,7 +10,7 @@ from PySide6 import QtCore, QtGui, QtWidgets
 
 from .. import i18n
 from ..i18n import tr
-from ..version import VERSION, aenderungen_html
+from ..version import VERSION
 
 MARKE = "<!--MENUEBEFEHLE-->"
 AUTOR = "Max Wilfinger"
@@ -122,64 +122,6 @@ class HilfeFenster(QtWidgets.QDialog):
         return cls._offen
 
 
-SCHRITTE = (
-    ("1 · Modell öffnen",
-     "Öffnen Sie eine STEP-Datei (AP242 mit PMI) über „Datei › Öffnen“ oder ziehen Sie sie ins Fenster. "
-     "Links sehen Sie die Struktur, rechts die PMI-Liste."),
-    ("2 · Bewegen",
-     "Wie in CATIA: Mitteltaste ziehen verschiebt, Mitteltaste halten und links oder rechts zusätzlich halten "
-     "dreht, Mitteltaste halten und links/rechts einmal klicken, dann ziehen zoomt. Mausrad zoomt ebenfalls. "
-     "Trackpad: zwei Finger verschieben, aufziehen zoomt, mit Wahltaste/Alt drehen. "
-     "F passt alles ein, Tasten 1–7 wählen Standardansichten. Andere Steuerung: Datei › Einstellungen."),
-    ("3 · PMI prüfen",
-     "Klick auf eine PMI in der Liste hebt die zugehörigen Flächen orange hervor. Klick auf eine Fläche zeigt "
-     "ihre PMI. „Gespeicherte Ansichten“ zeigen die Ansichten aus dem Modell mit ihren PMI. F1 öffnet die Anleitung."),
-)
-
-
-class Einfuehrung(QtWidgets.QDialog):
-    def __init__(self, parent=None):
-        super().__init__(parent)
-        self.setWindowTitle(tr("Einführung"))
-        self.setMinimumWidth(520)
-        lay = QtWidgets.QVBoxLayout(self)
-        self.titel = QtWidgets.QLabel()
-        self.titel.setObjectName("titel")
-        self.text = QtWidgets.QLabel()
-        self.text.setWordWrap(True)
-        self.text.setMinimumHeight(110)
-        lay.addWidget(self.titel)
-        lay.addWidget(self.text, 1)
-        knoepfe = QtWidgets.QHBoxLayout()
-        self.zurueck = QtWidgets.QPushButton(tr("Zurück"))
-        self.zurueck.setToolTip(tr("Vorheriger Schritt der Einführung"))
-        self.weiter = QtWidgets.QPushButton(tr("Weiter"))
-        self.weiter.setToolTip(tr("Nächster Schritt der Einführung"))
-        self.weiter.setObjectName("primaer")
-        self.zurueck.clicked.connect(lambda: self._gehe(self.seite - 1))
-        self.weiter.clicked.connect(self._weiter)
-        knoepfe.addStretch(1)
-        knoepfe.addWidget(self.zurueck)
-        knoepfe.addWidget(self.weiter)
-        lay.addLayout(knoepfe)
-        self.seite = 0
-        self._gehe(0)
-
-    def _gehe(self, i):
-        self.seite = max(0, min(i, len(SCHRITTE) - 1))
-        t, x = SCHRITTE[self.seite]
-        self.titel.setText(tr(t))
-        self.text.setText(tr(x))
-        self.zurueck.setEnabled(self.seite > 0)
-        self.weiter.setText(tr("Fertig") if self.seite == len(SCHRITTE) - 1 else tr("Weiter"))
-
-    def _weiter(self):
-        if self.seite == len(SCHRITTE) - 1:
-            self.accept()
-        else:
-            self._gehe(self.seite + 1)
-
-
 def _html_fenster(parent, titel, inhalt):
     d = QtWidgets.QDialog(parent)
     d.setWindowTitle(titel)
@@ -194,10 +136,6 @@ def _html_fenster(parent, titel, inhalt):
     lay.addWidget(ok, 0, QtCore.Qt.AlignmentFlag.AlignRight)
     d.show()
     return d
-
-
-def zeige_neu(parent):
-    return _html_fenster(parent, tr("Was ist neu"), aenderungen_html(i18n.SPRACHE))
 
 
 def ueber_html() -> str:

@@ -235,7 +235,7 @@
 | Feature | Status |
 |---|---|
 | Manual DE/EN with generated screenshots (packaging/doc_screenshots.py), opened in the browser | ✅ |
-| German/English UI, F1 manual with generated menu reference, introduction, what's new | ✅ |
+| German/English UI, F1 manual with generated menu reference (introduction wizard and in-app "what's new" removed) | ✅ |
 | Portable apps Windows/macOS/Linux, GitHub workflow with/without tests, self-test | ✅ (all three verified by the user) |
 | Start screen before the main window (PyInstaller splash on Windows/Linux, Qt splash) | ✅ |
 | Release script: bump version, keep changelog DE/EN | ✅ |

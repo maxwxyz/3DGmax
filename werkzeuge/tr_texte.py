@@ -27,7 +27,7 @@ def tr_texte() -> set[str]:
                     out.add(k.args[0].value)
     # Texte, die ueber Tabellen laufen (tr(variable))
     from programm.kern.pmi import BEZUG, HINWEIS, MASS, TOLERANZ  # noqa: F401
-    from programm.ui import einstellungen, hilfe, messwerkzeug, panels, vergleich_ui
+    from programm.ui import einstellungen, messwerkzeug, panels, vergleich_ui
     from programm.ui import berichte, ordnervergleich_ui
     out |= set(ordnervergleich_ui.STATUS_TEXT.values())
     from programm.ui import vergleich_ui as vu
@@ -114,8 +114,6 @@ def tr_texte() -> set[str]:
     out |= set(baugruppe_mass.ART_TEXT.values())
     from programm.ui import messergebnisse_ui
     out |= set(messergebnisse_ui.SPALTEN)
-    for t, x in hilfe.SCHRITTE:
-        out |= {t, x}
     return out
 
 

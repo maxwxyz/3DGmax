@@ -791,8 +791,6 @@ class Hauptfenster(QtWidgets.QMainWindow):
             sg.addAction(a)
         A("anleitung", tr("Anleitung"), self.zeige_anleitung, QtGui.QKeySequence.StandardKey.HelpContents,
           modell=False)
-        A("einfuehrung", tr("Einführung"), self.zeige_einfuehrung, modell=False)
-        A("neu", tr("Was ist neu"), self.zeige_neu, modell=False)
         A("ueber", tr("Über 3DGmax"), self.zeige_ueber, modell=False)
         A("befehlssuche", tr("Befehl suchen …"), self.zeige_befehlssuche, "Ctrl+K", modell=False,
           tipp=tr("Alle Befehle nach Namen durchsuchen und ausführen"))
@@ -924,7 +922,7 @@ class Hauptfenster(QtWidgets.QMainWindow):
         self.menue_fenster.addSeparator()
         self.menue_fenster.addAction(a["kameras_koppeln"])
         m = mb.addMenu(tr("&Hilfe"))
-        for n in ("befehlssuche", "anleitung", "einfuehrung", "neu", "ueber"):
+        for n in ("befehlssuche", "anleitung", "ueber"):
             m.addAction(a[n])
         self._fuelle_zuletzt()
 
@@ -4356,27 +4354,9 @@ class Hauptfenster(QtWidgets.QMainWindow):
         from .hilfe import zeige_anleitung
         zeige_anleitung(self)
 
-    def zeige_einfuehrung(self):
-        from .hilfe import Einfuehrung
-        Einfuehrung(self).exec()
-
-    def zeige_neu(self):
-        from .hilfe import zeige_neu
-        zeige_neu(self)
-
     def zeige_ueber(self):
         from .hilfe import zeige_ueber
         zeige_ueber(self)
-
-    def erster_start(self):
-        """Einfuehrung beim ersten Start und 'Was ist neu' nach einem Update."""
-        if not self.ein.value("einfuehrung_gesehen", False, type=bool):
-            self.ein.setValue("einfuehrung_gesehen", True)
-            self.ein.setValue("version_gesehen", VERSION)
-            self.zeige_einfuehrung()
-        elif self.ein.value("version_gesehen", "") != VERSION:
-            self.ein.setValue("version_gesehen", VERSION)
-            self.zeige_neu()
 
     def neues_fenster(self, pfad: str | None = None):
         """Weiteres Hauptfenster; pfad "" fragt nach einer Datei, None oeffnet leer."""
