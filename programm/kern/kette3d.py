@@ -39,6 +39,7 @@ class Glied3D:
     name: str
     werte: dict = field(default_factory=lambda: {k: Komponente() for k in KOMPONENTEN})
     verteilung: str = "normal"
+    werkstoff: str = ""  # eigener Werkstoff (leer: der der Kette)
 
 
 @dataclass
@@ -49,6 +50,27 @@ class Kette3D:
     schluss: str = "z"
     ziel: tuple = (0.0, 0.0, 0.0)  # Zielpunkt (abstand) bzw. Zielrichtung (winkel) in der Basis
     basis: list | None = None  # Lage der Basis im Modell (4x4), z. B. aus einer Baugruppen-Messgroesse; None: Welt
+    werkstoff: str = ""  # Vorgabe fuer alle Glieder ohne eigenen Werkstoff
+    temperaturen: tuple | None = None  # zwei Grenztemperaturen (°C) fuer die Waermeausdehnung, None: ohne
+
+
+def werkstoff(k: Kette3D, g: Glied3D) -> str:
+    """Werkstoff eines Glieds: eigener, sonst der der Kette."""
+    return g.werkstoff or k.werkstoff
+
+
+def bei_temperatur(k: Kette3D, temperatur: float) -> Kette3D:
+    """Kette bei einer Temperatur: jede Verschiebung waechst um alpha * L * (T - 20 °C) mit dem Werkstoff ihres
+    Glieds; Drehungen bleiben (Abmasse wandern mit dem Nennwert)."""
+    import copy
+    from .werkstoffe import alpha_fuer, laengenaenderung
+    out = copy.deepcopy(k)
+    for g, o in zip(k.glieder, out.glieder):
+        a = alpha_fuer(werkstoff(k, g))
+        if a:
+            for c in ("x", "y", "z"):
+                o.werte[c].nenn = g.werte[c].nenn + laengenaenderung(a, g.werte[c].nenn, temperatur)
+    return out
 
 
 def _drehung(rx: float, ry: float, rz: float) -> np.ndarray:
@@ -115,11 +137,12 @@ def als_glieder(k: Kette3D) -> list[Glied]:
             continue  # untolerierte Komponenten stecken im Linearisierungsrest
         linear += d * w.nenn
         einheit = "°" if c.startswith("r") else ""
+        laenge = not c.startswith("r")
         glieder.append(Glied(f"{g.name} – {tr(KOMPONENTEN_TEXT[c])} {w.nenn:g}{einheit}", w.nenn, w.nenn + w.oben,
                              w.nenn + w.unten, 1 if d > 0 else -1, verteilung=g.verteilung, quelle="eigen",
-                             faktor=abs(d)))
+                             faktor=abs(d), werkstoff=werkstoff(k, g) if laenge else "", waerme=laenge))
     rest = schlussgroesse(k) - linear
-    glieder.append(Glied(tr("Linearisierung (Nennlage)"), rest, rest, rest, 1, quelle="eigen"))
+    glieder.append(Glied(tr("Linearisierung (Nennlage)"), rest, rest, rest, 1, quelle="eigen", waerme=False))
     return glieder
 
 
@@ -141,19 +164,21 @@ def monte_carlo(k: Kette3D, proben: int = 20_000, cp: float = 1.0, zufall: int =
 def als_dict(k: Kette3D) -> dict:
     from dataclasses import asdict
     return {"glieder": [asdict(g) for g in k.glieder], "punkt": list(k.punkt), "richtung": list(k.richtung),
-            "schluss": k.schluss, "ziel": list(k.ziel), "basis": k.basis}
+            "schluss": k.schluss, "ziel": list(k.ziel), "basis": k.basis, "werkstoff": k.werkstoff,
+            "temperaturen": list(k.temperaturen) if k.temperaturen else None}
 
 
 def von_dict(d: dict) -> Kette3D:
-    glieder = [Glied3D(g["name"], {c: Komponente(**g["werte"][c]) for c in KOMPONENTEN}, g.get("verteilung", "normal"))
-               for g in d.get("glieder", [])]
+    glieder = [Glied3D(g["name"], {c: Komponente(**g["werte"][c]) for c in KOMPONENTEN}, g.get("verteilung", "normal"),
+                       g.get("werkstoff", "")) for g in d.get("glieder", [])]
     return Kette3D(glieder, tuple(d.get("punkt", (0, 0, 0))), tuple(d.get("richtung", (0, 0, 1))),
-                   d.get("schluss", "z"), tuple(d.get("ziel", (0, 0, 0))), d.get("basis"))
+                   d.get("schluss", "z"), tuple(d.get("ziel", (0, 0, 0))), d.get("basis"), d.get("werkstoff", ""),
+                   tuple(d["temperaturen"]) if d.get("temperaturen") else None)
 
 
-def glied(name: str, **komponenten) -> Glied3D:
+def glied(name: str, werkstoff: str = "", **komponenten) -> Glied3D:
     """Glied aus Angaben wie x=(10, 0.1, -0.1), rz=(90, 0.2, -0.2) oder rz=90 (ohne Toleranz)."""
-    g = Glied3D(name)
+    g = Glied3D(name, werkstoff=werkstoff)
     for c, v in komponenten.items():
         g.werte[c] = Komponente(*v) if isinstance(v, tuple) else Komponente(float(v))
     return g

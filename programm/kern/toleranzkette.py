@@ -74,6 +74,8 @@ class Glied:
     gruppe: str = ""  # Korrelationsgruppe (leer: unabhaengig)
     rho: float = 0.0  # Korrelation mit den anderen Gliedern der Gruppe (0 ... 1)
     verfahren: str = ""  # Fertigungsverfahren (kern.fertigung.VERFAHREN) fuer die kostenoptimale Verteilung
+    werkstoff: str = ""  # eigener Werkstoff des Glieds (vor dem seines Bauteils und der Vorgabe der Kette)
+    waerme: bool = True  # Laenge, die mit der Temperatur waechst (nicht: Winkel, Linearisierungsrest)
 
     @property
     def gemessen(self) -> bool:
@@ -222,19 +224,30 @@ def bereich_glied(name: str, mindest: float, hoechst: float, richtung: int = 1, 
     return Glied(name, (lo + hi) / 2, hi, lo, richtung, verteilung="gleich", quelle="bereich", stellglied=stellglied)
 
 
+KETTE = ""  # Schluessel der Vorgabe fuer die ganze Kette in den Werkstoffen je Bauteil
+
+
+def alpha_glied(g: Glied, alpha: dict) -> float | None:
+    """Ausdehnungskoeffizient eines Glieds: eigener Werkstoff, sonst der seines Bauteils, sonst die Vorgabe der
+    Kette (alpha[KETTE]); None ohne Werkstoff."""
+    from .werkstoffe import alpha_fuer
+    return (alpha_fuer(g.werkstoff) if g.werkstoff else None) or alpha.get(g.teil) or alpha.get(KETTE)
+
+
 def thermisch(glieder: list[Glied], alpha: dict, temperatur: float, je_teil: dict | None = None) -> list[Glied]:
-    """Glieder bei einer Temperatur: jede Laenge waechst um alpha * L * (T - 20 °C) (alpha je Bauteil in 1e-6/K;
-    je_teil: eigene Temperatur einzelner Bauteile in diesem Fall, z. B. kuehleres Gehaeuse; Glieder ohne Bauteil oder
-    ohne Werkstoff und Lagetoleranzen ohne Laenge bleiben)."""
+    """Glieder bei einer Temperatur: jede Laenge waechst um alpha * L * (T - 20 °C) (alpha je Bauteil in 1e-6/K,
+    unter KETTE die Vorgabe der Kette, der eigene Werkstoff eines Glieds geht vor; je_teil: eigene Temperatur
+    einzelner Bauteile in diesem Fall, z. B. kuehleres Gehaeuse; Glieder ohne Werkstoff, Winkel und Lagetoleranzen
+    ohne Laenge bleiben)."""
     import copy
     from .werkstoffe import laengenaenderung
     out = []
     for g in glieder:
         x = copy.copy(g)
-        a = alpha.get(g.teil)
-        if a and g.quelle != "lage":
+        a = alpha_glied(g, alpha)
+        if a and g.quelle != "lage" and g.waerme:
             t = (je_teil or {}).get(g.teil)
-            d = laengenaenderung(a, abs(g.nenn), temperatur if t is None else t)
+            d = laengenaenderung(a, g.nenn, temperatur if t is None else t)  # mit Vorzeichen: Koordinaten skalieren
             x.nenn, x.hoechst, x.mindest = g.nenn + d, g.hoechst + d, g.mindest + d
         out.append(x)
     return out

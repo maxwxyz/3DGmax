@@ -11,6 +11,7 @@ from ..i18n import tr
 from ..kern import kette3d as k3
 from ..kern import toleranzkette as tk
 from .tabellen import zahlen_rechts, zeilen_hoehe
+from .werkstoff_wahl import WaermeZeile, werkstoff_feld, werkstoff_wert
 
 VORLAGEN = {
     "turm": ("Sockel mit Arm (Kippung wirkt als Hebel)",
@@ -96,6 +97,14 @@ class Kette3DFenster(QtWidgets.QDialog):
         self.verteilung.currentIndexChanged.connect(self._verteilung_geaendert)
         vert.addWidget(self.verteilung, 1)
         rechts.addLayout(vert)
+        stoff = QtWidgets.QHBoxLayout()
+        stoff.addWidget(QtWidgets.QLabel(tr("Werkstoff des Glieds")))
+        self.werkstoff = werkstoff_feld("", tr("wie Kette"), tr("Eigener Werkstoff dieses Glieds für die "
+                                                                "Wärmeausdehnung der Verschiebungen; „wie Kette“: der "
+                                                                "Werkstoff der Kette"))
+        self.werkstoff.currentTextChanged.connect(self._werkstoff_geaendert)
+        stoff.addWidget(self.werkstoff, 1)
+        rechts.addLayout(stoff)
         rechts.addStretch(1)
         mitte.addLayout(rechts, 3)
         lay.addLayout(mitte, 1)
@@ -115,6 +124,9 @@ class Kette3DFenster(QtWidgets.QDialog):
             form.addWidget(QtWidgets.QLabel(text), z // 2, (z % 2) * 2)
             form.addWidget(w, z // 2, (z % 2) * 2 + 1)
         lay.addLayout(form)
+        self.waerme = WaermeZeile()
+        self.waerme.geaendert.connect(self._waerme_geaendert)
+        lay.addWidget(self.waerme)
         self.ergebnis = QtWidgets.QLabel("")
         self.ergebnis.setWordWrap(True)
         self.ergebnis.setTextFormat(QtCore.Qt.TextFormat.RichText)
@@ -230,6 +242,16 @@ class Kette3DFenster(QtWidgets.QDialog):
             self.kette.glieder[z].verteilung = self.verteilung.currentData()
             self._rechne()
 
+    def _werkstoff_geaendert(self, *_):
+        z = self.liste.currentRow()
+        if 0 <= z < len(self.kette.glieder):
+            self.kette.glieder[z].werkstoff = werkstoff_wert(self.werkstoff)
+            self._rechne()
+
+    def _waerme_geaendert(self):
+        self.kette.werkstoff, self.kette.temperaturen = self.waerme.wert(), self.waerme.temperaturen()
+        self._rechne()
+
     def _schluss_geaendert(self, *_):
         self.kette.schluss = self.schluss.currentData()
         self._rechne()
@@ -267,6 +289,9 @@ class Kette3DFenster(QtWidgets.QDialog):
         self.verteilung.blockSignals(True)
         self.verteilung.setCurrentIndex(max(0, self.verteilung.findData(g.verteilung)))
         self.verteilung.blockSignals(False)
+        self.werkstoff.blockSignals(True)
+        self.werkstoff.setCurrentText(g.werkstoff or self.werkstoff.itemText(0))
+        self.werkstoff.blockSignals(False)
 
     def _editor_hoehe(self):
         """Editor genau so hoch wie seine sechs Zeilen; Zeilen so hoch wie die Zahlenfelder."""
@@ -290,19 +315,24 @@ class Kette3DFenster(QtWidgets.QDialog):
         self.schluss.blockSignals(False)
         for w, attr in ((self.punkt, "punkt"), (self.richtung, "richtung"), (self.ziel, "ziel")):
             self._setze_vektor(w, getattr(self.kette, attr))
+        self.waerme.setze(self.kette.werkstoff, self.kette.temperaturen)
         self._rechne()
 
     # --- Ergebnis und Anzeige ---
 
-    def ergebnisse(self) -> dict:
-        if not self.kette.glieder:
+    def ergebnisse(self, kette: k3.Kette3D | None = None) -> dict:
+        """Wie die 2D-Kette; mit Grenztemperaturen dazu "temperaturen": [(T, Ergebnis bei T)]."""
+        k = kette or self.kette
+        if not k.glieder:
             return {}
-        e = tk.berechne(k3.als_glieder(self.kette), proben=20_000)
-        mc = k3.monte_carlo(self.kette, 3000)
-        return {"nenn": k3.schlussgroesse(self.kette), "wc": (e.wc_min, e.wc_max),
-                "rss": (e.mitte - e.rss, e.mitte + e.rss),
-                "mc": tuple(float(x) for x in np.quantile(mc, [0.00135, 0.99865])),
-                "empfindlichkeit": k3.empfindlichkeiten(self.kette)}
+        e = tk.berechne(k3.als_glieder(k), proben=20_000)
+        mc = k3.monte_carlo(k, 3000)
+        out = {"nenn": k3.schlussgroesse(k), "wc": (e.wc_min, e.wc_max), "rss": (e.mitte - e.rss, e.mitte + e.rss),
+               "mc": tuple(float(x) for x in np.quantile(mc, [0.00135, 0.99865])),
+               "empfindlichkeit": k3.empfindlichkeiten(k)}
+        if kette is None and k.temperaturen:
+            out["temperaturen"] = [(t, self.ergebnisse(k3.bei_temperatur(k, t))) for t in k.temperaturen]
+        return out
 
     def _rechne(self):
         self.in_kette.setEnabled(bool(self.kette.glieder))
@@ -327,7 +357,10 @@ class Kette3DFenster(QtWidgets.QDialog):
         self.ergebnis.setText(
             f"<b>{tr('Schlussgröße')}</b> {r['nenn']:.4f}{einheit} &nbsp;·&nbsp; "
             f"{tr('Worst Case')} {z(*r['wc'])} &nbsp;·&nbsp; RSS {z(*r['rss'])} &nbsp;·&nbsp; "
-            f"{tr('Monte Carlo nichtlinear')} {z(*r['mc'])}<br>{tr('Größte Empfindlichkeiten')}: {teile}" + warnung)
+            f"{tr('Monte Carlo nichtlinear')} {z(*r['mc'])}<br>{tr('Größte Empfindlichkeiten')}: {teile}" + "".join(
+                f"<br><b>{tr('Bei {} °C').format(f'{t:g}')}</b> {w['nenn']:.4f}{einheit} &nbsp;·&nbsp; "
+                f"{tr('Worst Case')} {z(*w['wc'])} &nbsp;·&nbsp; {tr('Monte Carlo nichtlinear')} {z(*w['mc'])}"
+                for t, w in r.get("temperaturen", [])) + warnung)
 
     def linien(self) -> list:
         """Linienzug der Glied-Ursprunge, Achsenkreuz je Lage (X rot, Y gruen, Z blau), Funktionspunkt."""

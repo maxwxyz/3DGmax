@@ -35,12 +35,33 @@ class Segment:
     winkel_oben: float = 0.0
     winkel_unten: float = 0.0
     verteilung: str = "normal"  # Schluessel aus toleranzkette.VERTEILUNG (fuer beide Groessen)
+    werkstoff: str = ""  # eigener Werkstoff (leer: der der Kette)
 
 
 @dataclass
 class Kette2D:
     segmente: list[Segment] = field(default_factory=list)
     schluss: str = "abstand"
+    werkstoff: str = ""  # Vorgabe fuer alle Segmente ohne eigenen Werkstoff
+    temperaturen: tuple | None = None  # zwei Grenztemperaturen (°C) fuer die Waermeausdehnung, None: ohne
+
+
+def werkstoff(k: Kette2D, s: Segment) -> str:
+    """Werkstoff eines Segments: eigener, sonst der der Kette."""
+    return s.werkstoff or k.werkstoff
+
+
+def bei_temperatur(k: Kette2D, temperatur: float) -> Kette2D:
+    """Kette bei einer Temperatur: jede Laenge waechst um alpha * L * (T - 20 °C) mit dem Werkstoff ihres Segments;
+    Winkel bleiben (Abmasse wandern mit dem Nennwert)."""
+    import copy
+    from .werkstoffe import alpha_fuer, laengenaenderung
+    out = copy.deepcopy(k)
+    for s, o in zip(k.segmente, out.segmente):
+        a = alpha_fuer(werkstoff(k, s))
+        if a:
+            o.laenge = s.laenge + laengenaenderung(a, abs(s.laenge), temperatur)
+    return out
 
 
 def _parameter(k: Kette2D) -> list[tuple[int, str]]:
@@ -95,9 +116,10 @@ def als_glieder(k: Kette2D) -> list[Glied]:
         einheit = "°" if g == "winkel" else ""
         name = f"{s.name} – {tr('Winkel') if g == 'winkel' else tr('Länge')} {nenn:g}{einheit}"
         glieder.append(Glied(name, nenn, nenn + oben, nenn + unten, 1 if d > 0 else -1, verteilung=s.verteilung,
-                             quelle="eigen", faktor=abs(d)))
+                             quelle="eigen", faktor=abs(d), werkstoff=werkstoff(k, s) if g == "laenge" else "",
+                             waerme=g == "laenge"))
     rest = schlussgroesse(k) - linear
-    glieder.append(Glied(tr("Linearisierung (Nennlage)"), rest, rest, rest, 1, quelle="eigen"))
+    glieder.append(Glied(tr("Linearisierung (Nennlage)"), rest, rest, rest, 1, quelle="eigen", waerme=False))
     return glieder
 
 
@@ -124,10 +146,12 @@ def monte_carlo(k: Kette2D, proben: int = 50_000, cp: float = 1.0, zufall: int =
 
 def als_dict(k: Kette2D) -> dict:
     from dataclasses import asdict
-    return {"schluss": k.schluss, "segmente": [asdict(s) for s in k.segmente]}
+    return {"schluss": k.schluss, "segmente": [asdict(s) for s in k.segmente], "werkstoff": k.werkstoff,
+            "temperaturen": list(k.temperaturen) if k.temperaturen else None}
 
 
 def von_dict(d: dict) -> Kette2D:
     felder = set(Segment.__dataclass_fields__)
     return Kette2D([Segment(**{a: b for a, b in s.items() if a in felder}) for s in d.get("segmente", [])],
-                   d.get("schluss", "abstand"))
+                   d.get("schluss", "abstand"), d.get("werkstoff", ""),
+                   tuple(d["temperaturen"]) if d.get("temperaturen") else None)

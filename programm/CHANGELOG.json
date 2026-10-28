@@ -58,6 +58,7 @@
    "Inspektor: zur Auswahl (Fläche/Kante, Teil oder PMI) die Eigenschaften und passenden Befehle an einer Stelle.",
    "Geführte Abläufe für Einsteiger (Hilfe › Geführt bzw. Startseite): „Scan prüfen“ und „Spalt messen“ Schritt für Schritt – jeder Schritt mit Erklärung und Knopf, erledigte Schritte werden automatisch abgehakt.",
    "Einheitliche Panels: leere Tabellen sagen, was zu tun ist; je Panel ist der Hauptknopf hervorgehoben.",
+   "Werkstoffe in Ketten von Hand: ein Werkstoff für die ganze Kette, je Glied überschreibbar (1D: Werkstoffe …, 2D/3D: Spalte bzw. Feld je Glied); 2D- und 3D-Ketten rechnen die Wärmeausdehnung bei zwei Grenztemperaturen (Längen und Verschiebungen wachsen, Winkel bleiben) und geben Werkstoffe und Temperaturen an die 1D-Kette weiter.",
    "Toleranzkette (1D, 2D, 3D) besser lesbar: Spalten so breit wie Überschrift, Text und Auswahl- bzw. Zahlenfelder (nichts mehr abgeschnitten oder gequetscht), Gliednamen einzeilig, Zahlen rechtsbündig, gekürzte Texte ganz im Tooltip; von Hand gezogene Spaltenbreiten bleiben."
   ],
   "en": [
@@ -118,6 +119,7 @@
    "Inspector: properties and matching commands for the selection (face/edge, part or PMI) in one place.",
    "Guided flows for beginners (Help › Guided or the start page): “Check a scan” and “Measure a gap” step by step – each step with an explanation and a button, finished steps are ticked automatically.",
    "Unified panels: empty tables say what to do; each panel highlights its main button.",
+   "Materials in hand-built chains: one material for the whole chain, overridable per link (1D: Materials …, 2D/3D: column or field per link); 2D and 3D chains compute thermal expansion at two limit temperatures (lengths and translations grow, angles stay) and pass materials and temperatures on to the 1D chain.",
    "Tolerance stack-up (1D, 2D, 3D) easier to read: columns as wide as header, text and the drop-down or number fields (nothing cut off or squashed any more), link names on one line, numbers right-aligned, shortened texts in full in the tooltip; column widths dragged by hand are kept."
   ]
  },

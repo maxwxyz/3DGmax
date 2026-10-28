@@ -12,6 +12,7 @@ from ..i18n import tr
 from ..kern import kette2d as k2
 from ..kern import toleranzkette as tk
 from .tabellen import spalten_anpassen
+from .werkstoff_wahl import WaermeZeile, werkstoff_feld, werkstoff_wert
 
 SPALTEN = (("Name", "Bezeichnung des Segments (z. B. Bauteil oder Maß)"),
            ("Länge", "Nennlänge des Segments in mm"),
@@ -21,7 +22,9 @@ SPALTEN = (("Name", "Bezeichnung des Segments (z. B. Bauteil oder Maß)"),
                       "Uhrzeigersinn"),
            ("oben °", "Oberes Abmaß des Winkels in Grad"),
            ("unten °", "Unteres Abmaß des Winkels in Grad"),
-           ("Verteilung", "Streuung von Länge und Winkel in der Fertigung"))
+           ("Verteilung", "Streuung von Länge und Winkel in der Fertigung"),
+           ("Werkstoff", "Eigener Werkstoff des Segments für die Wärmeausdehnung; „wie Kette“: der Werkstoff der Kette"))
+SP_VERTEILUNG, SP_WERKSTOFF = len(SPALTEN) - 2, len(SPALTEN) - 1
 VORLAGEN = {"winkel": ("Rechter Winkel (3-4-5)", [k2.Segment("Schenkel 1", 30, 0.1, -0.1),
                                                    k2.Segment("Schenkel 2", 40, 0.1, -0.1, 90, 0.5, -0.5)]),
             "hebel": ("Hebel mit Lagerabstand", [k2.Segment("Gestell", 80, 0.05, -0.05),
@@ -127,6 +130,9 @@ class Kette2DFenster(QtWidgets.QDialog):
         self.skizze = Skizze()
         mitte.addWidget(self.skizze, 2)
         lay.addLayout(mitte, 1)
+        self.waerme = WaermeZeile()
+        self.waerme.geaendert.connect(self._waerme_geaendert)
+        lay.addWidget(self.waerme)
         self.ergebnis = QtWidgets.QLabel("")
         self.ergebnis.setWordWrap(True)
         self.ergebnis.setTextFormat(QtCore.Qt.TextFormat.RichText)
@@ -197,6 +203,10 @@ class Kette2DFenster(QtWidgets.QDialog):
             del self.kette.segmente[z]
         self._fuelle()
 
+    def _waerme_geaendert(self):
+        self.kette.werkstoff, self.kette.temperaturen = self.waerme.wert(), self.waerme.temperaturen()
+        self._rechne()
+
     def _schluss_geaendert(self, *_):
         self.kette.schluss = self.schluss.currentData()
         self._rechne()
@@ -241,9 +251,14 @@ class Kette2DFenster(QtWidgets.QDialog):
             art.setToolTip(tr(hilfe["Verteilung"]))
             art.currentIndexChanged.connect(lambda _i, s=s, art=art: (setattr(s, "verteilung", art.currentData()),
                                                                       self._rechne()))
-            t.setCellWidget(z, len(SPALTEN) - 1, art)
+            t.setCellWidget(z, SP_VERTEILUNG, art)
+            stoff = werkstoff_feld(s.werkstoff, tr("wie Kette"), tr(hilfe["Werkstoff"]))
+            stoff.currentTextChanged.connect(lambda _t, s=s, f=stoff: (setattr(s, "werkstoff", werkstoff_wert(f)),
+                                                                       self._rechne()))
+            t.setCellWidget(z, SP_WERKSTOFF, stoff)
         spalten_anpassen(t)
         t.blockSignals(False)
+        self.waerme.setze(self.kette.werkstoff, self.kette.temperaturen)
         self.schluss.blockSignals(True)
         self.schluss.setCurrentIndex(max(0, self.schluss.findData(self.kette.schluss)))
         self.schluss.blockSignals(False)
@@ -251,16 +266,20 @@ class Kette2DFenster(QtWidgets.QDialog):
 
     # --- Ergebnis ---
 
-    def ergebnisse(self) -> dict:
-        """Nennwert, linear (Worst Case, RSS) und nichtlinear (Monte Carlo 99,73 %) der Schlussgroesse."""
-        if not self.kette.segmente:
+    def ergebnisse(self, kette: k2.Kette2D | None = None) -> dict:
+        """Nennwert, linear (Worst Case, RSS) und nichtlinear (Monte Carlo 99,73 %) der Schlussgroesse; mit
+        Grenztemperaturen dazu "temperaturen": [(T, Ergebnis bei T)]."""
+        k = kette or self.kette
+        if not k.segmente:
             return {}
-        e = tk.berechne(k2.als_glieder(self.kette), proben=20_000)
-        mc = k2.monte_carlo(self.kette, 20_000)
-        return {"nenn": k2.schlussgroesse(self.kette), "wc": (e.wc_min, e.wc_max),
-                "rss": (e.mitte - e.rss, e.mitte + e.rss),
-                "mc": tuple(float(x) for x in np.quantile(mc, [0.00135, 0.99865])),
-                "empfindlichkeit": k2.empfindlichkeiten(self.kette), "statistisch": e.statistisch}
+        e = tk.berechne(k2.als_glieder(k), proben=20_000)
+        mc = k2.monte_carlo(k, 20_000)
+        out = {"nenn": k2.schlussgroesse(k), "wc": (e.wc_min, e.wc_max), "rss": (e.mitte - e.rss, e.mitte + e.rss),
+               "mc": tuple(float(x) for x in np.quantile(mc, [0.00135, 0.99865])),
+               "empfindlichkeit": k2.empfindlichkeiten(k), "statistisch": e.statistisch}
+        if kette is None and k.temperaturen:
+            out["temperaturen"] = [(t, self.ergebnisse(k2.bei_temperatur(k, t))) for t in k.temperaturen]
+        return out
 
     def _rechne(self):
         self.skizze.kette = self.kette
@@ -279,4 +298,7 @@ class Kette2DFenster(QtWidgets.QDialog):
             f"<b>{tr('Schlussgröße')}</b> {r['nenn']:.4f}{einheit} &nbsp;·&nbsp; "
             f"{tr('Worst Case')} {z(*r['wc'])} &nbsp;·&nbsp; RSS {z(*r['rss'])} &nbsp;·&nbsp; "
             f"{tr('Monte Carlo nichtlinear')} {z(*r['mc'])}<br>"
-            f"{tr('Größte Empfindlichkeiten')}: {teile}")
+            f"{tr('Größte Empfindlichkeiten')}: {teile}" + "".join(
+                f"<br><b>{tr('Bei {} °C').format(f'{t:g}')}</b> {w['nenn']:.4f}{einheit} &nbsp;·&nbsp; "
+                f"{tr('Worst Case')} {z(*w['wc'])} &nbsp;·&nbsp; {tr('Monte Carlo nichtlinear')} {z(*w['mc'])}"
+                for t, w in r.get("temperaturen", [])))

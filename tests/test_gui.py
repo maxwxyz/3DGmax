@@ -1471,7 +1471,7 @@ def test_toleranzkette_getriebe_beispiel(fenster, tmp_path):
     texte = [k.ergebnisse.item(z, 0).text() for z in range(k.ergebnisse.rowCount())]
     assert any("100 °C" in t for t in texte) and k.e_temp[1][1].nenn < k.e.nenn
     d = WerkstoffDialog(k, k)
-    assert d.tabelle.rowCount() == 5
+    assert d.tabelle.rowCount() == 6 and d.glieder.rowCount() == 6  # Vorgabe der Kette + fuenf Bauteile
     k.setze_teiltemperatur("Welle", "t2", 60.0)
     assert k.e_temp[1][1].nenn < tk.berechne(tk.thermisch(k.glieder, k._alpha(), 100.0)).nenn
     assert any("Bauteiltemperaturen" in k.ergebnisse.item(z, 0).text() for z in range(k.ergebnisse.rowCount()))
@@ -1936,6 +1936,40 @@ def test_kette3d_fenster(fenster):
     w.schluss.setCurrentIndex(w.schluss.findData("z"))  # Hoehe: Kippung des Sockels wirkt mit Hebel 120
     w.in_kette.click()
     assert any(g.faktor != 1.0 for g in f._kette.glieder)
+
+
+def test_werkstoffe_in_ketten_von_hand(fenster):
+    """2D-Kette mit Werkstoff der Kette und eigenem je Segment, Ergebnis bei zwei Temperaturen, Uebernahme mit
+    Werkstoffen und Temperaturen; 1D-Dialog: Vorgabe der Kette und Werkstoff je Glied."""
+    from programm.kern import kette2d as k2
+    from programm.ui.toleranzkette_ui import WerkstoffDialog
+    f = fenster
+    w = f.zeige_kette2d()
+    w.lade_vorlage("hebel")
+    w.waerme.werkstoff.setCurrentText("Stahl")
+    w.waerme.waerme.setChecked(True)
+    w.tabelle.cellWidget(1, w.tabelle.columnCount() - 1).setCurrentText("Aluminium")
+    assert w.kette.werkstoff == "Stahl" and w.kette.segmente[1].werkstoff == "Aluminium"
+    r = w.ergebnisse()
+    assert [t for t, _ in r["temperaturen"]] == [-20.0, 80.0] and "80 °C" in w.ergebnis.text()
+    assert abs(r["temperaturen"][1][1]["nenn"] - k2.schlussgroesse(k2.bei_temperatur(w.kette, 80.0))) < 1e-12
+    w.in_kette.click()
+    k = f._kette
+    assert k.waerme.isChecked() and k.t2.value() == 80.0
+    assert {g.werkstoff for g in k.glieder if g.waerme} == {"Stahl", "Aluminium"}
+    d = WerkstoffDialog(k, k)
+    assert d.tabelle.item(0, 0).text() in ("Ganze Kette (Vorgabe)", "Whole chain (default)")
+    d.tabelle.cellWidget(0, 1).setCurrentText("Stahl")
+    assert k.werkstoffe[""]["alpha"] == 11.5
+    erstes = next(z for z, g in enumerate(k.glieder) if g.waerme)
+    d.glieder.cellWidget(erstes, 1).setCurrentText("Titan")
+    assert k.glieder[erstes].werkstoff == "Titan" and k.e_temp
+    d.close()
+    w3 = f.zeige_kette3d()
+    w3.lade_vorlage("turm")
+    w3.liste.setCurrentRow(1)
+    w3.werkstoff.setCurrentText("Aluminium")
+    assert w3.kette.glieder[1].werkstoff == "Aluminium"
 
 
 def test_raumketten_datei_und_projekt(fenster, tmp_path):
