@@ -11,6 +11,9 @@ zuordnen (Netzsuche, Abstand exakt auf der B-Rep-Flaeche, Vorzeichen + = ausserh
 - Laengenmasse zwischen Ebenen (oder Ebene und Achse): Flaechen nach Lage entlang der Normalen in zwei Seiten
   geteilt, je Seite Ausgleichsebene (bzw. Ausgleichsachse); Istmass = Abstand der Seiten entlang der Normalen.
 - Winkelmasse: Flaechen nach Normalenrichtung in zwei Gruppen, Winkel zwischen den Normalen der Ausgleichsebenen.
+- Rundheit und Rundlauf an Zylindern je Querschnitt (QUERSCHNITTE Scheiben entlang der Achse): Rundheit als
+  Spannweite um den Ausgleichskreis des Schnitts, Rundlauf als Spannweite der Abstaende im Schnitt (Achse wie
+  ausgerichtet); der schlechteste Schnitt zaehlt.
 Die Bewertung ist eine Naeherung fuer die Sichtpruefung (keine normgerechte Auswertung nach Messstrategie).
 """
 
@@ -27,6 +30,8 @@ OK, NOK, GRENZ, OFFEN = "ok", "nok", "grenz", "offen"
 UNSICHERHEIT = 0.005  # mm: naeher an der Grenze gilt "am Grenzwert" (Messunsicherheit des Scans)
 FORM = {"Flatness", "Straightness", "CircularityOrRoundness", "Cylindricity"}
 RICHTUNG = {"Parallelism", "Perpendicularity", "Angularity"}
+QUERSCHNITTE = 10  # Scheiben je Element fuer Rundheit und Rundlauf
+JE_QUERSCHNITT = {"CircularityOrRoundness", "CircularRunout"}
 
 
 @dataclass
@@ -178,6 +183,50 @@ def _flaechen_auswertung(p, z: Zuordnung, suchweite) -> Ergebnis:
                     int(sel.sum()))
 
 
+def _querschnitt_auswertung(p, z: Zuordnung, modell, flaechen, suchweite) -> Ergebnis | None:
+    """Rundheit/Rundlauf je Querschnitt an Zylinderelementen; None, wenn es keine Achse gibt (dann flaechig)."""
+    elemente = _elemente(modell, flaechen)
+    if not elemente:
+        return None
+    t = float(p.wert)
+    schlechtester, anzahl, n_punkte = None, 0, 0
+    for start, richtung, _r, _erste, idx in elemente:
+        sel = _auswahl(z, idx, suchweite)
+        if sel.sum() < 12:
+            continue
+        pts, d = z.punkte[sel], z.abstand[sel]
+        lage = (pts - start) @ richtung
+        kanten = np.linspace(lage.min(), lage.max(), QUERSCHNITTE + 1)
+        innen = _ist_innen_element(modell, idx, start, richtung)
+        for k in range(QUERSCHNITTE):
+            im = (lage >= kanten[k]) & (lage <= kanten[k + 1])
+            if im.sum() < 6:
+                continue
+            dd = d[im]
+            if p.typ == "CircularityOrRoundness":  # Ausgleichskreis des Schnitts: Mitte und Radius frei
+                versatz, dr = _ausgleich_zylinder(pts[im], dd, start, richtung, innen)
+                q = pts[im] - start
+                radial = q - np.outer(q @ richtung, richtung)
+                radial /= np.maximum(np.linalg.norm(radial, axis=1), 1e-12)[:, None]
+                dd = dd - (-1.0 if innen else 1.0) * (radial @ versatz + dr)
+            spanne = float(dd.max() - dd.min())
+            anzahl += 1
+            n_punkte += int(im.sum())
+            if schlechtester is None or spanne > schlechtester[0]:
+                schlechtester = (spanne, float((kanten[k] + kanten[k + 1]) / 2))
+    if schlechtester is None:
+        return Ergebnis(p, OFFEN, text=tr("zu wenige Scanpunkte"))
+    ist, lage = schlechtester
+    return Ergebnis(p, _status(ist - t), ist, t, tr("je Querschnitt: schlechtester bei {:.1f} mm entlang der Achse, "
+                                                     "Spannweite {:.4g} (zulässig {:.4g}, {} Schnitte)").format(
+        lage, ist, t, anzahl), n_punkte)
+
+
+def _ist_innen_element(modell, idx, start, richtung) -> bool:
+    i = min(idx)
+    return tz._ist_innen(modell.flaechen[i], start, richtung) if i < len(modell.flaechen) else False
+
+
 def _ausgleich_ebene(p: np.ndarray):
     """Schwerpunkt und Normale der Ausgleichsebene (kleinster Singulaerwert)."""
     c = p.mean(axis=0)
@@ -300,6 +349,8 @@ def bewerte(pmi: list, modell, z: Zuordnung, suchweite: float | None = None) -> 
             durchmesser = "Diameter" in p.modifikatoren or p.zone == "Diameter"
             if durchmesser and (p.typ in tz.ACHSZONE or p.typ in tz.ACHSE_MIT_DURCHMESSER) and tz._achsen(flaechen):
                 out.append(_achsen_auswertung(p, z, modell, flaechen, pmi, weite))
+            elif p.typ in JE_QUERSCHNITT and (e := _querschnitt_auswertung(p, z, modell, flaechen, weite)):
+                out.append(e)
             elif p.typ in tz.FLAECHENZONE or p.typ in tz.ACHSZONE:
                 out.append(_flaechen_auswertung(p, z, weite))
     return out

@@ -768,3 +768,39 @@ def test_baum_mit_teilestatus(fenster):
     assert any(tip in ("entfernt", "removed") for _, tip in eintraege)
     f.beende_vergleich()
     assert not any(t.startswith("●") for t, _ in texte(f.baum.baum.topLevelItem(0)))
+
+
+def test_scan_rundheit_und_rundlauf_je_querschnitt():
+    """Kegelig gemessener Zapfen (Radius aendert sich 0,05 mm ueber die Laenge, je Schnitt rund): Rundheit 0,02 ist
+    je Querschnitt erfuellt (flaechig waere die Spannweite 0,05); eine Unrundheit 0,03 in einem Schnitt nicht."""
+    from types import SimpleNamespace
+    import numpy as np
+    from OCC.Core.BRepPrimAPI import BRepPrimAPI_MakeCylinder
+    from OCC.Core.TopAbs import TopAbs_FACE
+    from OCC.Core.TopExp import TopExp_Explorer
+    from programm.kern import scanpruefung as sp, toleranzzone as tz
+    from programm.kern.pmi import TOLERANZ, Pmi
+    ex = TopExp_Explorer(BRepPrimAPI_MakeCylinder(10.0, 30.0).Shape(), TopAbs_FACE)
+    flaechen = []
+    while ex.More():
+        flaechen.append(ex.Current())
+        ex.Next()
+    mantel = next(i for i, f in enumerate(flaechen) if tz._achsen([f]))
+    modell = SimpleNamespace(flaechen=flaechen, flaechen_index=lambda f: next(
+        (i for i, g in enumerate(flaechen) if g.IsSame(f)), None))
+    rng = np.random.default_rng(2)
+    w, h = rng.uniform(0, 2 * np.pi, 6000), rng.uniform(0.5, 29.5, 6000)
+    d = 0.05 * h / 30  # kegelig, je Schnitt rund
+    punkte = np.column_stack([(10 + d) * np.cos(w), (10 + d) * np.sin(w), h])
+    z = sp.Zuordnung(punkte, d, np.full(len(d), mantel))
+    rund = Pmi(TOLERANZ, "CircularityOrRoundness", wert=0.02, flaechen={mantel})
+    e = sp.bewerte([rund], modell, z)[0]
+    assert e.status == sp.OK and e.ist < 0.01 and "Querschnitt" in e.text
+    eben = Pmi(TOLERANZ, "Cylindricity", wert=0.02, flaechen={mantel})
+    assert sp.bewerte([eben], modell, z)[0].status == sp.NOK  # Zylinderform sieht die Kegeligkeit
+    unrund = d + np.where(h > 25, 0.015 * np.cos(2 * w), 0.0)  # Oval im letzten Schnitt: Spannweite 0,03
+    z2 = sp.Zuordnung(punkte, unrund, z.flaeche)
+    e = sp.bewerte([rund], modell, z2)[0]
+    assert e.status == sp.NOK and e.ist > 0.025 and "2" in e.text
+    lauf = Pmi(TOLERANZ, "CircularRunout", wert=0.02, flaechen={mantel})
+    assert sp.bewerte([lauf], modell, z)[0].status == sp.OK  # je Schnitt konstanter Abstand

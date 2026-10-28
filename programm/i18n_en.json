@@ -1438,5 +1438,6 @@
 "3-2-1: sechs Ebenen paarweise wählen – je eine am bewegten Teil, dann die Gegenfläche (primär, sekundär, tertiär)": "3-2-1: pick six planes in pairs – one on the moved part, then the counter face (primary, secondary, tertiary)",
 "Achse zu Ebene": "Axis to plane",
 "Genau zwei Flächen (Ebenen oder Zylinder) an verschiedenen Teilen wählen": "Select exactly two faces (planes or cylinders) on different parts",
-"Messgrößen gehen zwischen zwei parallelen Ebenen (Spalt, Bündigkeit), einer Achse und einer dazu parallelen Ebene oder zwei parallelen Achsen": "Measures work between two parallel planes (gap, flush), an axis and a plane parallel to it, or two parallel axes"
+"Messgrößen gehen zwischen zwei parallelen Ebenen (Spalt, Bündigkeit), einer Achse und einer dazu parallelen Ebene oder zwei parallelen Achsen": "Measures work between two parallel planes (gap, flush), an axis and a plane parallel to it, or two parallel axes",
+"je Querschnitt: schlechtester bei {:.1f} mm entlang der Achse, Spannweite {:.4g} (zulässig {:.4g}, {} Schnitte)": "per cross-section: worst at {:.1f} mm along the axis, range {:.4g} (allowed {:.4g}, {} sections)"
 }
