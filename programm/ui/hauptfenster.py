@@ -2081,10 +2081,23 @@ class Hauptfenster(QtWidgets.QMainWindow):
         self.modus_leiste.hide()
         self.modus_leiste.modus.connect(self.setze_vergleichsmodus)
         self.modus_leiste.hervorheben.connect(lambda _an: self._vergleich_anzeigen())
+        from .vergleich_ui import SCAN_MODI
+        # Scanpruefung als Vergleich Soll (CAD) <-> Ist (Scan): dieselbe Leiste mit eigenen Modi
+        self.scan_leiste = VergleichsmodusLeiste(modi=SCAN_MODI, hervor=False, staende=("Soll", "Ist"))
+        self.scan_leiste.hide()
+        self.scan_leiste.modus.connect(self.setze_scanmodus)
+        self._scan_blink = QtCore.QTimer(self)
+        self._scan_blink.setInterval(600)
+        self._scan_blink.timeout.connect(self._scan_blinken)
+        self.scan_leiste.takt.connect(self._scan_blink.setInterval)
+        self.scan_leiste.pause.connect(lambda an: self._scan_blink.stop() if an else
+                                       (self._scanmodus == "blinken" and self._scan_blink.start()))
+        self._scanmodus = "vergleich"
         self.teiler = QtWidgets.QSplitter(QtCore.Qt.Orientation.Horizontal)
         self.teiler.setChildrenCollapsible(False)
         self.teiler.addWidget(self.ansicht)
         lay.addWidget(self.modus_leiste)
+        lay.addWidget(self.scan_leiste)
         lay.addWidget(self.teiler, 1)
         self.ansicht_alt = None  # entsteht beim ersten Bedarf
         self._alt_szene_fuer = None  # Vergleich, dessen alter Stand in ansicht_alt steht
@@ -3540,7 +3553,8 @@ class Hauptfenster(QtWidgets.QMainWindow):
         self.scan.aus.setChecked(False)
         self.scan.aus.setText(tr("Scan ausblenden"))
         self.scan.aus.blockSignals(False)
-        self.ansicht.zeige_abweichung(karte, 0.02, grenze, ueberlagert=True)
+        self.scan_leiste.show()
+        self.setze_scanmodus("vergleich")
         kopf = self._scan_kopf(d)
         self.scan.setze_bezugssysteme(sp.bezugssysteme(self.erg.pmi), d.get("bezug"))
         self.scan.zeige(d["ergebnisse"], kopf)
@@ -4074,15 +4088,42 @@ class Hauptfenster(QtWidgets.QMainWindow):
         self.kollision.zeige([], "")
 
     def scan_aus(self, aus: bool = True):
-        """Scan (Punktwolke mit Farbkarte) aus- oder wieder einblenden; Reiter und Ergebnisse bleiben (der Reiter
-        schliesst nur ueber sein ×)."""
+        """Scan aus- oder wieder einblenden (Knopf der Scan-Leiste): Modus Soll bzw. Vergleich; Reiter und
+        Ergebnisse bleiben (der Reiter schliesst nur ueber sein ×)."""
         if getattr(self, "_scan", None) is None:
             return
+        self.setze_scanmodus("soll" if aus else "vergleich")
+
+    def setze_scanmodus(self, modus: str):
+        """Scanpruefung wie ein Vergleich: Vergleich (Scan mit Farbkarte, CAD durchscheinend), Soll (nur CAD), Ist (nur
+        Scan) oder Blinken (wechselt Soll/Ist)."""
+        if getattr(self, "_scan", None) is None:
+            return
+        self._scanmodus = modus
+        self.scan_leiste.setze(modus)
+        self.scan.aus.blockSignals(True)  # Knopf "Scan ausblenden" folgt dem Modus
+        self.scan.aus.setChecked(modus == "soll")
+        self.scan.aus.setText(tr("Scan einblenden") if modus == "soll" else tr("Scan ausblenden"))
+        self.scan.aus.blockSignals(False)
+        if modus == "blinken" and not self.scan_leiste.pause_knopf.isChecked():
+            self._scan_blink.start()
+        else:
+            self._scan_blink.stop()
+        self._scan_zeigen("soll" if modus == "blinken" else modus)
+        self.scan_leiste.zeige_stand(True if modus == "blinken" else None)
+
+    def _scan_zeigen(self, art: str):
         karte = getattr(self, "_scan_karte", None)
-        if aus or karte is None:
+        if art == "soll" or karte is None:
             self.ansicht.zeige_abweichung(None)
         else:
-            self.ansicht.zeige_abweichung(karte[0], 0.02, karte[1], ueberlagert=True)
+            self.ansicht.zeige_abweichung(karte[0], 0.02, karte[1], ueberlagert=art == "vergleich")
+        self._scan_zeigt = art
+
+    def _scan_blinken(self):
+        soll = getattr(self, "_scan_zeigt", "soll") != "soll"
+        self._scan_zeigen("soll" if soll else "ist")
+        self.scan_leiste.zeige_stand(soll)
 
     def scan_verwerfen(self):
         """Scan ganz entfernen (Ergebnisse, Anzeige) und den Reiter schliessen."""
@@ -4090,6 +4131,8 @@ class Hauptfenster(QtWidgets.QMainWindow):
             return
         self._scan = None
         self._scan_karte = None
+        self._scan_blink.stop()
+        self.scan_leiste.hide()
         self.ansicht.zeige_abweichung(None)
         self.scan.zeige([], "")
         self.dock_scan.hide()

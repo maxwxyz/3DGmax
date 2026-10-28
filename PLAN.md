@@ -471,6 +471,14 @@ change of part where the assembly has a connection between exactly these two fac
 STEP position). Open: chains from the snapped assembly positions (moved parts) and connections between features
 other than the selected faces.
 
+**Planned (user question 2026-10-28): "make semantic / repair" for PMI.** Graphic → semantic: PMI that exist only
+as graphics are already read and, where the graphics carry text (real strings, QIF texts, PRC markup type), type and
+values are derived (`pmi_ableiten`, marked "abgeleitet – bitte prüfen"); a repair action takes a checked derived PMI
+over as a real semantic own PMI (type, value, tolerance, datums, faces from the callout association or picked by hand)
+that is written as AP242. Stroke-font texts (CATIA/NX draw text as polylines) carry no string – recognising the line
+glyphs is a research item (fixed fonts). JT PMI are not read yet (the converter transfers geometry only).
+Semantic → graphic: plan item 6 (presentation for written PMI, parallel session `pmi-darstellung`).
+
 **Planned after UI stage 2 (requested 2026-10-28): materials in hand-built chains (1D, 2D, 3D).** Today a chain
 built by hand (no model, or links typed in) has no material, so thermal expansion cannot use it. Clever default: a
 chain-wide material (combo with the material library of `kern/werkstoffe`, default steel) plus an optional material

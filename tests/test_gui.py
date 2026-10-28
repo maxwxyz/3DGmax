@@ -921,8 +921,35 @@ def test_scanpruefung_im_fenster(fenster_ctc01):
     assert f.scan.aus.text() == "Scan einblenden"
     f.scan.aus.setChecked(False)
     assert f.ansicht.abweichung is not None
+    # Pruefrundgang wie im Vergleich: Status je Ergebnis, Kommentar, Zaehler; bleibt beim Neu-Auswerten
+    f.scan.pruefen_starten()
+    erste = f.scan.gewaehlte_zeile()
+    assert erste == 0
+    f.scan.setze_status("geprueft")
+    assert f.scan.gewaehlte_zeile() == 1  # weiter zum naechsten offenen
+    f.scan.setze_status("abgelehnt", weiter=False)
+    f.scan.tabelle.item(1, f.scan.SP_KOMMENTAR).setText("Ebenheit nachmessen")
+    assert f.scan.pruef_zaehler() == {"geprueft": 1, "abgelehnt": 1, "offen": len(f.scan.ergebnisse) - 2}
+    nr = f.scan.ergebnisse[1].pmi.nummer
+    assert f.scan.pruefung[nr] == ["abgelehnt", "Ebenheit nachmessen"] and "Ebenheit nachmessen" in f.scan.als_csv()
+    f.scan.zeige(list(f.scan.ergebnisse), f.scan.kopf.text())  # neu auswerten
+    assert f.scan.tabelle.item(1, f.scan.SP_KOMMENTAR).text() == "Ebenheit nachmessen"
+    # Scanpruefung wie ein Vergleich: Modusleiste Vergleich / Soll / Ist / Blinken
+    assert f.scan_leiste.isVisibleTo(f) and f.scan_leiste.knoepfe["vergleich"].isChecked()
+    f.scan_leiste.knoepfe["ist"].click()
+    assert f.ansicht.abweichung is not None and not f.ansicht.abweichung_ueberlagert
+    f.scan_leiste.knoepfe["soll"].click()
+    assert f.ansicht.abweichung is None and f.scan.aus.isChecked()  # Knopf "Scan ausblenden" folgt
+    f.scan_leiste.knoepfe["blinken"].click()
+    zeigt = []
+    for _ in range(3):
+        f._scan_blinken()
+        zeigt.append(f.ansicht.abweichung is not None)
+    assert zeigt in ([True, False, True], [False, True, False])  # wechselt Soll und Ist
+    f.scan_leiste.knoepfe["vergleich"].click()
+    assert not f._scan_blink.isActive() and f.ansicht.abweichung_ueberlagert
     f.scan_verwerfen()
-    assert f.ansicht.abweichung is None and not f.dock_scan.isVisible()
+    assert f.ansicht.abweichung is None and not f.dock_scan.isVisible() and not f.scan_leiste.isVisibleTo(f)
 
 
 def test_reiter_schliessen_und_abbrechen(fenster_ctc01):

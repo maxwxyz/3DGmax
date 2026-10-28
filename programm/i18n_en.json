@@ -1821,5 +1821,17 @@
 "Modell öffnen; Pfeil: auch zwei Stände vergleichen": "Open a model; arrow: also compare two states",
 "Bezug von Hand festlegen (A, B, C); auto: aus den Funktionsrollen vorschlagen – sobald ein Bezug von Hand gesetzt ist, gilt nur die Zuordnung von Hand": "Set the datum by hand (A, B, C); auto: proposed from the function roles – once a datum is set by hand, only the manual assignment applies",
 "Von Hand als Bezug festgelegt": "Set as datum by hand",
-"NIST FTC-10: Auflage, Zentrierung, Verdrehsicherung und Anschlag sind zugeordnet – Bezüge A|B|C vorgeschlagen; Rollen, Bezüge, Passungen und Toleranzen in der Tabelle ändern, dann „Tolerierung vorschlagen …“": "NIST FTC-10: seat, centring, anti-rotation and stop are assigned – datums A|B|C proposed; change roles, datums, fits and tolerances in the table, then “Propose tolerancing …”"
+"NIST FTC-10: Auflage, Zentrierung, Verdrehsicherung und Anschlag sind zugeordnet – Bezüge A|B|C vorgeschlagen; Rollen, Bezüge, Passungen und Toleranzen in der Tabelle ändern, dann „Tolerierung vorschlagen …“": "NIST FTC-10: seat, centring, anti-rotation and stop are assigned – datums A|B|C proposed; change roles, datums, fits and tolerances in the table, then “Propose tolerancing …”",
+"Scan mit Abweichungs-Farbkarte, darüber das CAD-Modell durchscheinend": "Scan with deviation colour map, the CAD model translucent on top",
+"Nur das CAD-Modell": "Only the CAD model",
+"Nur der Scan mit Farbkarte": "Only the scan with colour map",
+"Wechselt zwischen Soll und Ist; Leertaste wechselt von Hand": "Alternates between target and actual; space switches by hand",
+"Prüfung": "Review",
+"Ergebnisse nacheinander durchgehen: jedes wird im Modell gezeigt und bekommt einen Prüfstatus (Tasten G und A)": "Go through the results one by one: each is shown in the model and gets a review status (keys G and A)",
+"Vorheriges Ergebnis": "Previous result",
+"Nächstes Ergebnis": "Next result",
+"Gewähltes Ergebnis als geprüft (in Ordnung) markieren und zum nächsten": "Mark the selected result as checked (OK) and go to the next",
+"Gewähltes Ergebnis als abgelehnt (nicht in Ordnung) markieren und zum nächsten": "Mark the selected result as rejected (not OK) and go to the next",
+"Prüfstatus des gewählten Ergebnisses zurücksetzen": "Reset the review status of the selected result",
+"Prüfrundgang: {} geprüft, {} abgelehnt, {} offen": "Review: {} checked, {} rejected, {} open"
 }

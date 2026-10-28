@@ -131,6 +131,8 @@ display only; tolerance zones move to "Tolerieren").
   chain, function → tolerancing (today several of these are separate windows). Dialogs only for short, finishing
   inputs: open, export, settings, materials, allocation, approval. A panel never closes through a work action
   (e.g. "Scan ausblenden" closed the scan tab) – actions hide or show content, only the × closes the tab.
+- Done 2026-10-28: scan check with the comparison mode bar (Vergleich/Soll/Ist/Blinken; side by side for scans
+  still open) and the same review walk (status, comment, G/A keys, counter, report and CSV).
 - **Compare and check in one workspace:** a scan check is a comparison "target (CAD) ↔ actual (scan)": the same mode
   bar (overlay, side by side with coupled cameras, blink, target only, actual only), the PMI results (ok / not ok /
   at the limit) in the place of the change list with the same review walk (checked / rejected, comment) and the same
