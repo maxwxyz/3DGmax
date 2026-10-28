@@ -1,0 +1,215 @@
+# Changelog
+
+## 0.2 (2026-10-28)
+- First viewer version: load STEP AP242, assembly tree, CAD-style navigation, standard views.
+- PMI list with filter and search; clicking a PMI highlights its faces, clicking a face shows its PMI.
+- Saved views from the model with the PMI visible in each view.
+- Graphical PMI from the file; placeholder texts are generated from the semantics.
+- Section plane, display modes (shaded, with edges, wireframe), light and dark theme.
+- Introduction on first start, manual (F1) in German and English.
+- Portable apps for Windows, macOS and Linux (GitHub “Apps bauen” workflow, optionally without tests); start options --selbsttest and --bild.
+- CATIA-style camera control by default; classic control selectable under File › Settings.
+- Logo and app icon; version in the window title; author in the “About 3DGmax” window.
+- Measure: distance, angle, radius/Ø, wall thickness, coordinates with snapping; list, copy, CSV.
+- Saved views take camera position and window from the file; annotations no longer mirrored.
+- “Fit all” fits the parts (without far-reaching annotations).
+- Notes and datum targets (e.g. A1) as separate entries in the PMI list.
+- Setting the pivot and the view centre (middle button) work reliably.
+- PMI annotations by default in a well readable color for light and dark; can be switched off (then file color).
+- License: GNU GPL v3 or later (GPL-3.0-or-later), shown in the “About 3DGmax” window.
+- Comparison of two revisions: automatic alignment (best fit), geometry comparison (equal, changed, new, removed) and semantic PMI comparison with old → new.
+- Change list with review walk-through (start review, checked/rejected, comment) and review report with checksum.
+- Zoom to selection (Z) for PMI, measurements and changes.
+- PMI list: columns name and views (searchable); right-click: select datums, tolerances using a datum, zoom, align, show in view, copy.
+- Browse saved views (◀ ▶, Page Up/Down) and search them; status bar shows “n of N PMI”.
+- Select faces and edges in the model (Ctrl/Shift for several); right-click menu in the 3D window; align normal to selection (N).
+- Section at the selected face/edge and from the view direction; slider only while a section is active.
+- Custom colors for PMI annotations and the background (settings).
+- Export PMI (CSV, with face IDs and views), export changes (CSV) and check PMI: unused/missing datums, PMI without face or view, duplicates, orientation tolerance without datum.
+- PDF export: one page per saved view (view name, model, image, PMI), comparison report with one image per change, table of PMI changes.
+- Exports (CSV, PDF, review report) and change texts follow the selected language.
+- Project file .3dgmax: model or comparison with review status, comments and measurements in one file.
+- Folder comparison: all models of two folders pairwise with overview (equal, changed, only old, only new).
+- PMI list: name comes after kind and before value; the comparison also reports changed PMI names.
+- Measuring in a comparison uses the displayed (aligned) position; section from view direction follows the camera live.
+- Flip view (U): look from the opposite side.
+- Manual alignment in a comparison: pick points, planar faces and axes pairwise on the new and old revision (e.g. three faces), uniqueness is checked; then compare again, review status is kept.
+- Graphical PMI optionally only for the selected PMI (Shift+G); thicker annotation lines.
+- Reorder columns of the PMI, measurement and change tables by drag and drop; the order is remembered.
+- Align normal also straightens the camera: edges horizontal/vertical, annotations readable (writing plane from the file).
+- Wireframe: hidden edges can be clicked through; shaded no longer shows faint edges.
+- PMI table: show/hide columns by right-clicking the header; new columns characteristic (e.g. surface profile, diameter), nominal, deviations, upper/lower limit, size tolerance, tolerance class, tolerance value, tolerance zone, material condition, modifiers.
+- Saved views: ◀ ▶ and ←/→ step through all views in order; clicking a view again restores its camera.
+- View cube with axes at the top right of the 3D view (chamfered edges/corners, labels): click aligns the camera, drag rotates; replaces the view buttons in the toolbar.
+- View cube reworked: light, matte, slightly rounded, colored axes (X red, Y green, Z blue), sans-serif labels, hover highlight, sharp on Retina.
+- UI tidied up: compact table rows without grid, slim scroll bars, consistent combo boxes, menus and tooltips.
+- Trackpad: two-finger pan and two-finger + Alt rotate no longer mirrored.
+- Comparison: deviation color map (signed distance new to old, green within tolerance, red excess, blue missing material) with legend, automatic or custom scale and value on click.
+- Quick measure at the bottom right of the status bar: length, ⌀/R, arc angle, area, distance, plane distance, angle, axis distance, coordinates and PMI summary for the selection; right-click chooses the items.
+- Model properties (Ctrl+I): volume, surface area, mass with adjustable density, center of gravity, overall size, file header and products – for selected parts or the whole model.
+- Window size, side panel layout and the order, visibility and width of table columns are remembered on exit.
+- Look: anti-aliasing, sans-serif labels for measurements and generated PMI texts, view cube smaller, closed and semi-transparent (opaque on hover).
+- Camera: view back/forward (Alt+←/→) over all camera moves, perspective on/off (P, remembered).
+- Hide selection (H) for parts of selected faces and edges, show all parts (Shift+H); tree check boxes follow. Search field in the structure tree.
+- The 3D view shows only the PMI the list shows by type or search.
+- Datum reference frame: for a selected tolerance the datum features are shown in color (primary red, secondary green, tertiary blue) with labels.
+- Column widths by dragging the divider, double-click or header menu fits to content; widths are remembered.
+- Standard detection ASME Y14.5 / ISO GPS from the file (without a hint: ISO GPS), changeable under Model › Standard; terms, check rule (concentricity/symmetry in ASME 2018) and envelope note per standard.
+- Bill of characteristics with balloon numbers: balloon column in the PMI table, balloons in the model (B), export as CSV and PDF with columns for measured values.
+- Pivot: middle-button click sets a fixed pivot that stays while zooming and panning; a small cross shows it while orbiting and panning.
+- Datum labels white on a colored box; shown columns fit their content; About dialog with copyright only, on macOS in the application menu.
+- Exploded view (X) with slider for assemblies; PMI and measuring pause meanwhile.
+- Parts list (Model › Parts list): equal parts combined with quantity, volume, mass and assembly; CSV export, double-click isolates the part.
+- Analyses as color map (Model › Analysis): draft angle to a pull direction with minimum angle, curvature radius, wall thickness; legend and value on click.
+- ISO 286 tolerance classes (e.g. H7, g6, JS9; up to 500 mm): deviations and upper/lower limits are computed and shown in the PMI table, quick measure, bill of characteristics and exports.
+- More formats: IGES (B-rep) and STL, OBJ, glTF/GLB and 3MF (meshes, lengths in mm); meshes can be viewed, measured (points, area, volume), analyzed and compared with CAD (deviation color map, e.g. scan vs. CAD).
+- Fix: parts in sub-assemblies get the placement of their parent assembly (previously at the origin).
+- Read QIF 3.0: exact B-rep (planes, cylinders, cones, spheres, tori, NURBS) and semantic PMI (dimensions, geometric tolerances, datums, datum reference frames) linked to faces; standard from the file.
+- Targeted PMI search: datum:A, value:0.5, type:position, kind:tolerance, view:…, name:…, no:…, balloon:… (German keys too), combinable with free text.
+- Own views: “＋ Remember” stores camera, visible PMI and measurements; rename, delete, saved in the project and included in the views PDF.
+- Measurement report as PDF (File › Export): image with the measurements and table with values, elements and points.
+- Drawings (HLR) as PDF, SVG or DXF: standard views by the projection method of the standard (ISO first angle / ASME third angle) plus iso, current view or one page per saved view from its camera; hidden edges dashed, graphical PMI of the view optional (default on), title block.
+- Thumbnails for saved views (edge drawing with PMI, generated in the background).
+- Graphical PMI from semantics: PMI without presentation in the file (e.g. QIF) get a generated annotation with leader in its own color; PMI texts in a font with GD&T symbols.
+- QIF: faces with wrongly oriented loops are corrected (no more gaps in holes).
+- Comparison: material + / − – added volume green, removed red (exact via Boolean operations) with volume and number of regions.
+- Comparison detects moved elements (same shape, same offset) as “geometry moved” with dX/dY/dZ instead of new + removed; their PMI as “PMI moved”.
+- Assembly comparison: parts new, removed, moved (with offset), changed (volume) and renamed; own filter “Assembly” in the change list.
+- Automatic alignment keeps the same placement once half of the surface already coincides (assemblies with changes are no longer skewed).
+- Graphical PMI comparison: for semantically equal PMI a moved or reshaped annotation is reported as “PMI presentation changed”.
+- Section box around the selection: only the region around selected faces stays visible (capped sections).
+- Comments (K): comment, question or change proposal on faces or PMI, markers K1, K2 … in the model, list with status open/done, saved in the project, export CSV and PDF.
+- Tolerance zones: the zone of a selected tolerance is shown as envelope geometry (offset faces ±t/2, cylinder for ⌀ zones), narrow zones exaggerated with notice.
+- Tolerance stack-up (Model › Tolerance stack-up): selected dimensions with direction form a chain, closing dimension by worst case, statistical (RSS) and Monte Carlo; ISO 286 classes included; CSV export.
+- Create PMI with tolerancing advisor (Model › Create PMI, 3D context menu): suggestions per selection (hole H7 + position Ⓜ, flatness/datum, distance/width + parallelism, perpendicularity, angle, sphere), editable values; own PMI with generated presentation, saved in the project.
+- Edit PMI (context menu): nominal, deviations, fit, tolerance value, material condition; changes marked with ✎, file values kept, saved in the project; own PMI can be deleted.
+- Smooth camera transitions for standard views and cube clicks (can be switched off under View).
+- ISO 14405 size modifiers (LP, GG, GX, ACS …) and Ⓔ in the dimension text.
+- Color map and mesh comparison consider every instance of an assembly (e.g. scan vs. CAD assembly).
+- Read PLY meshes (ASCII and binary, e.g. from 3D scanners).
+- Comparison: graphical-only notes are matched by their text, changed text is reported.
+- Parts list with part number from the STEP product data (where present).
+- PMI check with geometry and standard rules: axis position without ⌀ zone, Ⓜ/Ⓛ on flatness of a surface or on a planar datum, run-out without axis, fit without Ⓔ under ISO 8015.
+- Exploded view by assembly levels: sub-assemblies open first as a unit, then their parts.
+- Open 3D PDF and PRC: model as a colored mesh, graphical PMI (markups) and saved views with camera; drawings and view thumbnails also for mesh models (STL, OBJ, PRC) with hidden edges.
+- Open STEPZ (zipped or gzip-compressed STEP: .stpz, .stepz, .stp.gz) with all PMI, views and colors.
+- Generated PMI display (stage 2): feature control frames with compartments, datum triangle with datum box and dimension text lie in an annotation plane (from the saved view or the matching model plane), placed outside the model without overlaps; also in drawings and reports. View › “Show generated PMI display” hides them.
+- Portable app: start errors are shown and logged (Windows: %LOCALAPPDATA%\3DGmax\start_fehler.log), hint when started directly from the ZIP archive.
+- Comparison detects rotated and mirrored elements (same shape, different placement) with angle and axis or mirror plane; parts used several times are compared per instance, even when only one instance changes.
+- QIF: graphical PMI from the file (feature control frames, texts with symbols, leaders with arrows, witness lines, notes) and saved views with camera and visible PMI.
+- Multiple section planes: keep up to three planes, optionally cut away only the common region (e.g. quarter section); export the section contour of all planes as SVG, DXF or PDF.
+- Side panels resize reliably and smoothly: wider drag handle, the 3D view redraws once after the drag steps, column widths are saved after dragging.
+- View cube easier to read: opaque (no mirrored back side), larger black labels, hover highlight in calm blue instead of cyan.
+- PMI texts in the 3D view at the right size (QIF texts were too small); generated PMI never lie over the model in the picture, texts fit into the frame compartments.
+- Fixed: “Show graphical PMI” (G) and “Show generated PMI display” raised an error in the 3D view.
+- Graphical-only PMI are evaluated in the table: kind (dimension, tolerance, datum) and, where the file has text, values, deviations, zone, Ⓜ and datums; marked with ≈ and “derived from the graphics – please check”.
+- 3D PDF/PRC: model edges are read from the file and shown (mesh models looked flat without edges).
+- Comparison: parts used several times are colored per instance; a moved or removed instance no longer colors the others.
+- Tolerance zones extended: per hole/pin (also patterns) the zone, with Ⓜ/Ⓛ also the bonus zone, plus the space the surface itself may occupy (size + location); projected zone Ⓟ outside the feature; unequal zone (UZ/Ⓤ); envelopes at maximum and minimum size. Zones for the selected PMI, the PMI on selected faces or all at once; general tolerances ISO 2768 / ISO 22081 selectable. The part becomes translucent meanwhile.
+- Tolerance zones also in the context menus (3D window and PMI list, there for several PMI); zone of the derived median plane for slots/tabs (symmetry, position, orientation on features of size), spherical zone for S⌀; the status bar states what the zone does not show (orientation zone floating, form zone free, per cross-section, per unit length). Zone colors distinct from the datum colors.
+- View › Highlight selection (Shift+T, also in the context menu): everything except the selected faces, PMI and parts becomes translucent.
+- New manual in German and English with pictures from the program (quick start, all functions, questions, menu reference); F1 opens it in the browser.
+- Tools › Check scan against tolerances: load a mesh (e.g. a 3D scan), align automatically (best fit refined on the exact faces), show deviations as a colour map over the translucent CAD model and evaluate every PMI (OK, not OK, at the limit): form tolerances as range, profile and location within the zone, axes and diameters via best-fit cylinders with bonus for Ⓜ/Ⓛ; result list with CSV.
+- Alignment: nearly symmetric parts no longer end up in a rotated or mirrored position by mistake.
+- Tolerance zones on planes have the real face boundary (with holes) instead of a rectangle.
+- Saved views: thumbnails small by default; right-click: large or none.
+- PDF of views: the PMI table takes the columns visible in the PMI list and their order.
+- New test data: variants with different PMI, minimally changed geometry and both, plus two generated scans (with noise and offset; with chamfer, dent and waviness).
+- Faster start-up: scipy is loaded only when needed (window set-up about 0.5 s faster); start option --startzeit measures the start-up phases.
+- Tolerance zones in the datum system: coaxiality and runout around the datum axis, datum shift for Ⓜ/Ⓛ on a datum as an additional envelope, form and orientation zones with the higher-level zone on the same face; contradiction when the lower-level tolerance is not smaller.
+- Model › Check PMI extended by a plausibility check: contradictions (form/orientation/location, form vs. size under the envelope requirement, two dimensions with different values), incomplete specifications (untoleranced faces, Ⓜ without size), datum system (parallel secondary datum, open degrees of freedom, datum without own tolerance), implausible values and nominals that do not match the model geometry; with category, double-click selects PMI or faces.
+- Side panels resize smoothly (the 3D view resizes its buffers in batches instead of on every pixel).
+- Progress bar with “Cancel” at the bottom of the status bar also for analysis, colour map, material comparison and scan check, with percentage where the computation reports it.
+- Tabbed side panels (PMI, Measure, Changes …) can be closed with the X on the tab.
+- Show general tolerances: own toggle to turn them on and off (classes are remembered, otherwise taken from the note in the file); with “Show tolerance zone” also only at selected faces without their own specification.
+- Wireframe with edges in a contrast colour (setting, on by default); calmer view cube with more legible labels, dark in the dark colour scheme.
+- Tolerance stack-up: process capability Cp adjustable, angular dimensions are not added to the length chain, the chain is cleared when another model is loaded, long names no longer push a column out of the window.
+- Right-click in the PMI list first selects the row under the pointer (also two-finger click on a trackpad), so the context menu acts on that PMI.
+- Section views: saved views with clipping planes from STEP AP242 (also unions and intersections of several planes) cut the model open when chosen; new test file ctc01_schnittansicht.stp.
+- Start screen: the app immediately shows a window with icon and progress text (Windows and Linux even before Python is loaded, macOS after Qt is loaded) until the main window is ready.
+- File › Examples: eleven demonstrations with free test data (PMI and views, check PMI, tolerance zones with general tolerances, section view, PMI and geometry comparison, scan against tolerances, tolerance stack-up, assembly with wiggle, clashes, assembly comparison).
+- Tolerance stack-up from the 3D selection: select faces in chain order, direction and sign from the geometry, values from the PMI (also patterns) or the general tolerance ISO 2768; distribution (normal/uniform) and Cp per link, contribution share per link, selected link highlighted in the model.
+- Tools › Clashes and distances: intersections (with volume), contacts and distances outside a band (minimum/maximum distance) between all parts, selected parts or selected against the rest; selecting a finding shows the two parts opaque, the intersection in red and the minimum distance as a line; review status, comment, CSV.
+- Tolerance stack-up: location tolerances (position, symmetry, coaxiality, profile with datum, also UZ) of the end faces as links of their own, PDF report with picture and contribution shares, chain stored in the project.
+- Tools › Assembly and degrees of freedom: snap parts by pairs of faces (plane on plane with offset, coaxial), per instance; shows whether each connection is satisfied, the open degrees of freedom per part and a wiggle in every open degree of freedom; clash check with the assembled positions; stored in the project.
+- Assembly with tolerances: clearance per connection from geometry and PMI (planar: location/profile tolerances and tilt; coaxial: radial clearance from diameters, general tolerance and position), editable; worst-case position scatter per part (linear model, all connections at once); wiggle within the tolerances, 1:1 or exaggerated.
+- Side panel tabs: plainer ✕ (matching the colour scheme, also in the title bars); right-click on the tabs shows hidden panels in this group.
+- Scan check stage 2: point clouds without triangles (XYZ/ASC/TXT/CSV/PTS, PLY with points only), alignment to the datum system (3-2-1) selectable and re-evaluable, evaluation of linear and angular dimensions, inspection report as PDF with one picture page per deviation; exact distances only on PMI faces (faster).
+- Tolerance zones also for linear dimensions between planes and for angular dimensions.
+- Tolerance stack-up complete (1D): bonus with Ⓜ/Ⓛ and datum shift as links, zero tolerance Ⓜ/Ⓛ, edges as chain ends, mean offset per link (Cpk), requirement on the closing dimension with Cp, Cpk and share outside.
+- macOS: double-clicking a file in Finder (or “Open With”, dropping on the app icon) now loads it; Finder offers 3DGmax for all readable formats.
+- Assembly variation: gap and flush between parts as worst case and Monte Carlo over all connections, requirement with share outside and Cpk, contributor ranking, PDF; new connections pin in slot, sphere on plane and ball joint; example under File › Examples.
+- Multiple selection in the model (Ctrl/⌘-click): all selected faces stay highlighted, not only the last one clicked; the PMI list selects the PMI of all selected faces.
+- Command search with Ctrl/⌘+K: find and run every command by name (German and English), menu path and shortcut.
+- Start page with tasks: open a model, compare two states, examples; list of readable formats. Duplicate CSV exports removed from the Model menu, “Isolate part of the selected face” named clearly.
+- “All tolerance zones” and general tolerances only consider visible parts and follow hiding and showing.
+- Stack-up: triangular and trapezoidal distributions besides normal and uniform, by production type; arithmetic always shown, the applicable method in bold (statistical from four effective contributors); what-if with comparison to the actual chain; double-click on the direction reverses it; result table, share bars and histogram; PDF with all of it.
+- Comparison: change table with columns characteristic, old, new, Δ and tendency (tolerance tighter/looser); geometry with largest deviation or displacement, assembly with volume; also in the comparison report (PDF) and the CSV.
+- Comparison modes as in ZGmax above the 3D view: Comparison, Old, New, Overlay, Side by side (two 3D views with coupled cameras) and Blink (speed, pause, Space); “Highlight changes” colours changed faces and PMI; the structure tree shows the old state in Old mode; a selected change is highlighted in both states.
+- Stack-up: thermal expansion at two limit temperatures (materials from the STEP file, otherwise a library, α per part editable, optional own temperature per part); length ranges (spring, shim) and adjusting member with its required range; directions and order from the closing dimension; “Walk chain” shows the links one after another; chain saved and opened as a file (.3dgkette), also via File › Open; gearbox shaft example.
+- STEP files with non-ASCII names in UTF-8 (as written by OCCT and other tools) are read correctly.
+- Open JT 8 to 10 (mesh with structure, names and colours) in the program variant with the JT reader TKJT (packaging/jt/bauen.sh).
+- Assembly: the wiggle button shows its state (▶ Wiggle / ⏸ Pause).
+- Tolerance zones appear at every instance of a part used several times and follow the position from the assembly (snapping, connections).
+- Assembly: reverse a connection (turn the part by 180°, cylinder end for end) and swap parts (the other part moves).
+- Adjustable interface size (View › Size of the interface: 90 to 150 %, after a restart).
+- Comparison: the structure tree shows the status of every part (● green new, orange changed, red removed in Old mode; assemblies with changes below marked •).
+- Parts list with the material from the STEP file; the mass uses the material density where the material is known.
+- Stack-up: sensitivity (factor) per link, statistical methods RSS, RSS × Bender factor and mean-shift model; allocate tolerances (equal variance or proportional, statistical or arithmetic, fixed links stay) as a what-if.
+- Assembly: move or rotate the selected part only in its open degrees of freedom (one field per DOF in mm or degrees); the connections stay satisfied.
+- ISO 286: tolerance classes j5–j7, J6–J8 and a/A; fits as a pair (e.g. H7/g6) with clearance or interference and type (clearance, transition, interference fit) in the PMI tooltip.
+- Check PMI: closed dimension chains (toleranced distances between parallel planes that close a loop) are reported.
+- Exploded view optionally only along X, Y or Z (besides radial).
+- Stack-up: “Walk chain” shows the current link as a line between its faces in the model (+ green, − red, with value).
+- Clashes: penetration depth and intersection curves per clash, PDF report, statuses and comments in the project (re-checked and matched when opening).
+- Several windows: File › New window (Ctrl/⌘+N) and “Open in new window”; Window › Couple the cameras of the windows shows two models with the same rotation and zoom.
+- Clash check optionally also at the tolerance limit positions from the assembly: reported is what only collides or comes too close there.
+- Scan check: alignment “By hand …” from point pairs scan ↔ model (e.g. with little overlap), then fine alignment and optionally 3-2-1 on the datum reference frame.
+- Plausibility check: basic dimensions with a tolerance, location toleranced twice (toleranced location dimension and position/profile to the same datum), pattern dimension on features of different size, too few datum targets for the datum's position in the reference frame, and datum targets whose datum is never used.
+- Clashes: option “Range of motion of open DOF” – each assembly part is moved along its open degrees of freedom up to the first collision (narrowed by bisection); the free range per degree of freedom and the collision at the limit are reported.
+- Stack-up: distribution “From measured values” per link – paste values or load a CSV (column selectable, decimal comma); the sample mean and standard deviation give offset, σ and Cpk; allocation leaves measured links unchanged.
+- Stack-up: several what-if scenarios – save them by name, load them again and compare them with the actual chain (applicable method, range, width, Cpk, ppm); they are stored in the chain file. While in a what-if, saving always stores the actual chain.
+- Stack-up: correlated links (right-click › Correlation …) – links of a group vary together with ρ; statistical result, shares and effective contributors with covariances, Monte Carlo via rank correlation.
+- Stack-up: folded normal (form, runout) and Rayleigh (position) distributions – skewed from the lower limit, 99.73 % within the tolerance, mean below the tolerance centre.
+- Comparison: geometry changes on parts used several times are listed per affected instance (with the part name; selecting zooms to the instance and marks it in the tree); a change at all instances says so in the description.
+- Comparison “Side by side”: both structure trees one below the other (new state on top, old below, each with part status); check boxes, isolate and transparency in the lower tree act on the old-state view.
+- Clashes also with mesh parts (STL, OBJ, glTF, 3MF, PLY, PRC meshes) and mixed pairs: distance from triangles, interference by ray test, volume and depth from a grid; the values are marked “≈” as approximations.
+- Drawing: section views (File › Export) – per section plane the rest behind the plane as an edge view, the cut face hatched per ISO 128 (45°, holes left free); section A–A, B–B, C–C as PDF, SVG or DXF (layer SCHRAFFUR).
+- Drawing: sheet format A4 to A0 landscape (File › Export › Sheet format) – frame per ISO 5457, title block with title, scale and format, largest fitting standard scale per ISO 5455; PDF page in sheet size.
+- Tools › Recognise gears: cylindrical gears (external and internal, spur and helical, also meshes) from the geometry – number of teeth, da, df, b, helix angle and hand, base circle by involute fit, from it mn, αn (standard module), reference diameter, profile shift and span measurement Wk; table with the origin of each value, export CSV/JSON.
+- Gears: gear pairs (external pair, pinion in ring gear) with measured and backlash-free centre distance, working pressure angle, transverse and overlap contact ratio and normal backlash from the centre distance; hint for equal hands or a contact ratio below 1.
+- Plausibility check: gear data in notes (z, m, αn, β, x) is compared with the gear recognised from the geometry.
+- File › Save STEP with edited PMI: edited nominal sizes, deviations, limits and tolerance values are written losslessly into a copy of the STEP file (only the affected numbers change); a report lists changes that cannot be written and PMI whose graphical presentation still shows the old values.
+- Save STEP with edited PMI: own PMI too (datums, form, orientation and location tolerances with datum system, Ⓜ/Ⓛ and ⌀ zone, size, distance and angular dimensions with deviations or fit class) are appended as semantic AP242 PMI; OCCT's reader finds them as well. Not yet: assemblies.
+- Tools › Read measurement results (QIF): actual values from QIF 3.0 results files are assigned to the characteristics (designator = balloon number, otherwise name), assessed against the limits (profile at points ±t/2, the worst value governs) and shown next to the status in the file; the characteristics list (CSV/PDF) takes over the measured value and OK.
+- Tolerance zones: roundness and circular runout on cylinders as ring zones in three cross-sections (the zone applies per cross-section); total runout still as two coaxial cylinders.
+- Assembly: 3-2-1 template – six planes picked in pairs (primary, secondary, tertiary) locate the part in one step with three plane-on-plane connections, also from a skewed start position.
+- Assembly variation: the PDF report shows the Monte Carlo histogram with worst-case limits and requirement per measure.
+- Assembly variation: measures on axes too – axis to a parallel plane and distance of two parallel axes (e.g. hole spacing across two parts), with worst case, Monte Carlo and contributors.
+- Scan check: roundness and circular runout on cylinders are evaluated per cross-section (roundness with its own fitted circle per section), the worst section counts – a taper is not out-of-roundness.
+- Scan check: option “Contact (ISO 5459)” – when aligning to the datum system, the datums are formed as contacting features outside the material (largest distance minimal, per stage in the remaining degrees of freedom) instead of least squares.
+- Scan check: point clouds in E57 format (own reader: cartesian and spherical, float, integer and scaled integer, several scans with pose, invalid points dropped).
+- Recognise gears: involute spline shafts and hubs (30°, short tooth height per ISO 4156 / DIN 5480) are recognised as spline connections.
+- Save STEP with edited PMI: own PMI in assemblies too – product shape, representation and units per part from the PMI's faces, datums per part.
+- Save STEP with edited PMI: edited fit classes (existing fit entity) and material conditions Ⓜ/Ⓛ are written too; fits of own PMI as in the NIST files.
+- Assembly: 3D handle on the selected part – only the arrows and rings of the open degrees of freedom (e.g. just the rotation ring of a screw); dragging moves the part, the connections stay satisfied.
+- Fixed: the second 3D view (comparison “Side by side”/“Old”, further windows) showed a black background, no lighting and an unlabelled cube – further views now render with the fixed-function pipeline.
+- Qt's own texts (standard buttons such as Close, Cancel, file dialogs) appear in German when the interface is German; the app ships the translation.
+- Generated PMI display: distance and thickness dimensions with dimension line, extension lines and arrows outside the model; leader lines end with an arrow on the face.
+- Fixed: PMI texts in the annotation plane were drawn in screen pixels on the GPU (invisibly small for generated PMI, otherwise not matching the frames) – they are now shown as glyphs in model space and scale with the zoom.
+- Faster: when a model with saved views was opened first, the 3D scene was built twice and slowed down by the view previews – e.g. NIST FTC-10 now shows after 1.5 s instead of 19 s.
+- Tolerance chain in 3D with one click: links as arrows with dimension and tolerance (dimensions green/red, location tolerances violet, length ranges orange, closing dimension blue), in the what-if the current state in grey on top.
+- Tolerance chain window: splitter between links and results, histogram beside the result table; the histogram shows the share at the mouse position and the requirement limits can be dragged.
+- Tolerance chain: the histogram shows the applicable method (✓) – worst case as a band, statistical as a curve, Monte Carlo as a histogram; clicking a row of the result table switches, all can be overlaid. Traffic light (green/yellow/red) whether the requirement is met, also in the PDF report.
+- Approve a tolerance chain manually ("Chain OK / checked") with name, date and comment – stored in the chain file and shown in the PDF report.
+- Qt's own buttons (e.g. "Close") now in German in all windows.
+- Tolerance chain: tooltips explain every method (worst case, RSS, Monte Carlo …) and every column; new column "Spread" shows each link's distribution with smallest and largest size.
+- Tooltips for all buttons, input fields and lists of the app that are not self-explanatory.
+- Tolerance chain: manufacturing process per link and cost-optimal tolerance allocation (cheap processes wide, expensive ones tight tolerances, per process between finest and coarse IT grade); relative cost before → after.
+- All 3D views look the same (same rendering also for further windows and the side-by-side comparison); tolerance chain approval also in the project file.
+- Function → tolerancing: assign a function to faces (seat, centring, guide, press fit, anti-rotation, sealing face, stop); from this a 3-2-1 datum system (ISO 5459) and ISO GPS tolerancing with fits as own PMI, savable as STEP.
+- Build a tolerance chain by hand, also without a model: "＋ Link" adds a link, enter name and values by double-click, "－ Remove" deletes.
+- 2D tolerance chain: enter a vector loop with lengths and angles by hand (selection fields, templates, sketch), compute the closing quantity linearly and non-linearly and adopt it into the tolerance chain.
+
+## 0.1 (2026-10-26)
+- Feasibility: read STEP AP242 with semantic PMI (no user interface).

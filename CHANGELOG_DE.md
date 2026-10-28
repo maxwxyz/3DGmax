@@ -1,0 +1,215 @@
+# Änderungshistorie
+
+## 0.2 (2026-10-28)
+- Erste Version des Viewers: STEP AP242 laden, Baugruppenbaum, Navigation wie in CAD-Programmen, Standardansichten.
+- PMI-Liste mit Filter und Suche; PMI anklicken hebt die zugehörigen Flächen hervor, Fläche anklicken zeigt ihre PMI.
+- Gespeicherte Ansichten aus dem Modell mit den jeweils sichtbaren PMI.
+- Grafische PMI aus der Datei; Platzhalter-Texte werden aus der Semantik erzeugt.
+- Schnittebene, Darstellungsarten (schattiert, mit Kanten, Drahtmodell), helles und dunkles Farbschema.
+- Einführung beim ersten Start, Anleitung (F1) auf Deutsch und Englisch.
+- Portable Apps für Windows, macOS und Linux (GitHub „Apps bauen“, wahlweise ohne Tests); Startoptionen --selbsttest und --bild.
+- Kamerasteuerung wie in CATIA als Standard; klassische Steuerung unter Datei › Einstellungen wählbar.
+- Logo und App-Symbol; Version im Fenstertitel; Autor im Fenster „Über 3DGmax“.
+- Messen: Abstand, Winkel, Radius/Ø, Wandstärke, Koordinaten mit Fang; Liste, Kopieren, CSV.
+- Gespeicherte Ansichten übernehmen Kameraort und Ausschnitt aus der Datei; Beschriftungen nicht mehr gespiegelt.
+- „Ganzes Modell zeigen“ passt auf die Teile ein (ohne weit abstehende Beschriftungen).
+- Hinweise (Notizen) und Bezugsstellen (z. B. A1) als eigene Einträge in der PMI-Liste.
+- Drehpunkt setzen und Bildmitte (Mitteltaste) funktionieren zuverlässig.
+- PMI-Beschriftungen standardmäßig in gut lesbarer Farbe für hell und dunkel; abschaltbar (dann Farbe aus der Datei).
+- Lizenz: GNU GPL v3 oder später (GPL-3.0-or-later), angezeigt im Fenster „Über 3DGmax“.
+- Vergleich zweier Stände: automatisches Ausrichten (Bestpassung), Geometrievergleich (gleich, geändert, neu, entfernt) und semantischer PMI-Vergleich mit Alt → Neu.
+- Änderungsliste mit Prüfrundgang (Prüfen starten, Geprüft/Abgelehnt, Kommentar) und Prüfprotokoll mit Prüfsumme.
+- Auf Auswahl zoomen (Z) für PMI, Messungen und Änderungen.
+- PMI-Liste: Spalten Name und Ansichten (durchsuchbar), Rechtsklick: Bezüge wählen, Toleranzen mit Bezug, zoomen, ausrichten, in Ansicht zeigen, kopieren.
+- Gespeicherte Ansichten durchklicken (◀ ▶, Bild auf/ab) und suchen; Statuszeile zeigt „n von N PMI“.
+- Flächen und Kanten im Modell wählen (Strg/Umschalt für mehrere); Rechtsklick-Menü im 3D-Fenster; Normal auf Auswahl ausrichten (N).
+- Schnitt an gewählter Fläche/Kante und aus Blickrichtung; Regler nur bei aktivem Schnitt.
+- Eigene Farben für PMI-Beschriftungen und den Hintergrund (Einstellungen).
+- PMI exportieren (CSV, mit Flächen-IDs und Ansichten), Änderungen exportieren (CSV) und PMI prüfen: unbenutzte/fehlende Bezüge, PMI ohne Fläche oder Ansicht, Doppelte, Lagetoleranz ohne Bezug.
+- PDF-Export: eine Seite je gespeicherter Ansicht (Ansichtsname, Modell, Bild, PMI), Vergleichsbericht mit Bild je Änderung, Tabelle der PMI-Änderungen.
+- Exporte (CSV, PDF, Prüfprotokoll) und Änderungstexte folgen der eingestellten Sprache.
+- Projektdatei .3dgmax: Modell bzw. Vergleich mit Prüfstand, Kommentaren und Messungen als eine Datei.
+- Ordnervergleich: alle Modelle zweier Ordner paarweise mit Übersicht (gleich, geändert, nur alt, nur neu).
+- PMI-Liste: Name steht nach der Art und vor dem Wert; der Vergleich meldet auch geänderte PMI-Namen.
+- Messen im Vergleich an der angezeigten (ausgerichteten) Lage; Schnitt aus Blickrichtung folgt live der Kamera.
+- Ansicht umdrehen (U): Blick von der Gegenseite.
+- Manuell ausrichten im Vergleich: Punkte, ebene Flächen und Achsen am neuen und alten Stand paarweise wählen (z. B. drei Flächen), Eindeutigkeit wird geprüft; dann neu vergleichen, Prüfstand bleibt erhalten.
+- Grafische PMI wahlweise nur für die gewählten PMI (Umschalt+G); kräftigere Beschriftungslinien.
+- Spalten der PMI-, Mess- und Änderungstabelle per Drag-and-drop umordnen; die Anordnung wird gemerkt.
+- Normal ausrichten richtet die Kamera gerade aus: Kanten waagrecht/senkrecht, Beschriftungen lesbar (Schreibebene aus der Datei).
+- Drahtmodell: verdeckte Kanten lassen sich durchklicken; Schattiert zeigt keine blassen Kanten mehr.
+- PMI-Tabelle: Spalten per Rechtsklick auf den Kopf ein-/ausblenden; neue Spalten Merkmal (z. B. Flächenform, Durchmesser), Nennmaß, Abmaße, Höchst-/Mindestmaß, Maßtoleranz, Toleranzklasse, Toleranzwert, Toleranzzone, Materialbedingung, Modifikatoren.
+- Gespeicherte Ansichten: ◀ ▶ und ←/→ gehen alle Ansichten der Reihe nach durch; erneuter Klick stellt die Kamera wieder her.
+- Ansichtswürfel mit Achsenkreuz oben rechts in der 3D-Ansicht (abgeschrägte Kanten/Ecken, Beschriftung): Klick richtet die Kamera aus, Ziehen dreht; ersetzt die Ansichtsknöpfe in der Werkzeugleiste.
+- Ansichtswürfel überarbeitet: hell, matt, leicht gerundet, Achsen farbig (X rot, Y grün, Z blau), serifenlose Beschriftung, Hover-Hervorhebung, schärfer auf Retina.
+- Oberfläche aufgeräumt: kompakte Tabellenzeilen ohne Gitter, schmale Scrollbalken, einheitliche Auswahlfelder, Menüs und Tooltips.
+- Trackpad: Schieben mit zwei Fingern und Drehen mit zwei Fingern + Alt nicht mehr gespiegelt.
+- Vergleich: Abweichungs-Farbkarte (Abstand neu zu alt mit Vorzeichen, grün innerhalb der Toleranz, rot Aufmaß, blau Untermaß) mit Legende, automatischer oder eigener Skala und Wert per Klick.
+- Schnellmessung unten rechts in der Statusleiste: Länge, ⌀/R, Bogenwinkel, Flächeninhalt, Abstand, Ebenenabstand, Winkel, Achsabstand, Koordinaten und PMI-Kurzinfo zur Auswahl; Rechtsklick wählt die Angaben.
+- Modelleigenschaften (Strg+I): Volumen, Oberfläche, Masse mit einstellbarer Dichte, Schwerpunkt, Gesamtgröße, Dateikopf und Produkte – für gewählte Teile oder das ganze Modell.
+- Fenstergröße, Anordnung der Seitenleisten sowie Reihenfolge, Sichtbarkeit und Breite der Tabellenspalten werden beim Beenden gemerkt.
+- Optik: Kantenglättung, serifenlose Beschriftung von Messungen und erzeugten PMI-Texten, Ansichtswürfel kleiner, geschlossen und halbdurchsichtig (deckend beim Überfahren).
+- Kamera: Ansicht zurück/vor (Alt+←/→) über alle Kamerabewegungen, Perspektive ein/aus (P, wird gemerkt).
+- Auswahl ausblenden (H) für Teile gewählter Flächen und Kanten, Alle Teile zeigen (Umschalt+H); Haken im Strukturbaum folgen. Suchfeld im Strukturbaum.
+- 3D-Ansicht zeigt nur die PMI, die die Liste nach Art oder Suche zeigt.
+- Bezugssystem: bei einer gewählten Toleranz werden die Bezugselemente farbig (primär rot, sekundär grün, tertiär blau) und beschriftet gezeigt.
+- Spaltenbreiten per Ziehen der Trennlinie, Doppelklick oder Kopf-Kontextmenü passt an den Inhalt an; Breiten werden gemerkt.
+- Normerkennung ASME Y14.5 / ISO GPS aus der Datei (ohne Hinweis: ISO GPS), änderbar unter Modell › Norm; Begriffe, Prüfregel (Konzentrizität/Symmetrie in ASME 2018) und Hinweis zur Hüllbedingung je Norm.
+- Merkmalsliste mit Ballonnummern: Spalte Ballon in der PMI-Tabelle, Ballone im Modell (B), Export als CSV und PDF mit Spalten für Messwerte.
+- Drehpunkt: Klick mit der Mitteltaste setzt einen festen Drehpunkt, der beim Zoomen und Verschieben bleibt; beim Drehen und Verschieben zeigt ein kleines Kreuz den Punkt.
+- Bezugssystem-Beschriftung weiß auf farbigem Feld; eingeblendete Spalten passen sich dem Inhalt an; Über-Dialog nur mit Copyright, auf macOS im Programmmenü.
+- Explosionsansicht (X) mit Regler für Baugruppen; PMI und Messen ruhen solange.
+- Stückliste (Modell › Stückliste): gleiche Teile zusammengefasst mit Anzahl, Volumen und Masse, Baugruppe; Export CSV, Doppelklick isoliert das Teil.
+- Analysen als Farbkarte (Modell › Analyse): Entformungsschräge zu einer Ausformrichtung mit Mindestwinkel, Krümmungsradius, Wandstärke; Legende und Wert per Klick.
+- Toleranzklassen nach ISO 286 (z. B. H7, g6, JS9; bis 500 mm): Abmaße, Höchst- und Mindestmaß werden berechnet und in PMI-Tabelle, Schnellmessung, Merkmalsliste und Export gezeigt.
+- Weitere Formate: IGES (B-Rep) sowie STL, OBJ, glTF/GLB und 3MF (Netze, Längen in mm); Netze lassen sich ansehen, messen (Punkte, Fläche, Volumen), analysieren und gegen CAD vergleichen (Abweichungs-Farbkarte, z. B. Scan gegen CAD).
+- Korrektur: Teile in Unterbaugruppen erhalten die Lage der übergeordneten Baugruppe (vorher am Ursprung).
+- QIF 3.0 lesen: exakte B-Rep (Ebenen, Zylinder, Kegel, Kugeln, Tori, NURBS) und semantische PMI (Maße, Form- und Lagetoleranzen, Bezüge, Bezugssysteme) mit Flächenverknüpfung; Norm aus der Datei.
+- Gezielte PMI-Suche: bezug:A, wert:0.5, typ:position, art:toleranz, ansicht:…, name:…, nr:…, ballon:… (auch englische Schlüssel), kombinierbar mit freiem Text.
+- Eigene Ansichten: „＋ Merken“ speichert Kamera, sichtbare PMI und Messungen; umbenennen, löschen, im Projekt gespeichert und im Ansichten-PDF enthalten.
+- Messprotokoll als PDF (Datei › Exportieren): Bild mit den Messungen und Tabelle mit Werten, Elementen und Punkten.
+- Zeichnungen (HLR) als PDF, SVG oder DXF: Normansichten nach Projektionsmethode der Norm (ISO 1 / ASME 3) plus Iso, aktuelle Ansicht oder je gespeicherter Ansicht eine Seite aus deren Kamera; verdeckte Kanten gestrichelt, grafische PMI der Ansicht wahlweise (Standard an), Schriftfeld.
+- Vorschaubilder der gespeicherten Ansichten (Kantenzeichnung mit PMI, im Hintergrund erzeugt).
+- Grafische PMI aus der Semantik: PMI ohne Darstellung in der Datei (z. B. QIF) erhalten eine erzeugte Beschriftung mit Hinweislinie in eigener Farbe; PMI-Texte in einer Schrift mit GD&T-Zeichen.
+- QIF: Flächen mit falsch orientierten Schleifen werden korrigiert (keine Löcher mehr in Bohrungen).
+- Vergleich: Material + / − – hinzugekommenes Volumen grün, entferntes rot (exakt über Boolesche Operationen) mit Volumen und Anzahl der Bereiche.
+- Vergleich erkennt verschobene Elemente (gleiche Form, gleicher Versatz) als „Geometrie verschoben“ mit dX/dY/dZ statt neu + entfernt; zugehörige PMI als „PMI verschoben“.
+- Baugruppenvergleich: Teile neu, entfernt, verschoben (mit Versatz), geändert (Volumen) und umbenannt; eigener Filter „Baugruppe“ in der Änderungsliste.
+- Automatische Ausrichtung bleibt bei gleicher Lage, sobald die Hälfte der Oberfläche schon exakt aufliegt (Baugruppen mit Änderungen werden nicht mehr verzogen).
+- Grafischer PMI-Vergleich: bei semantisch gleicher PMI wird eine verschobene oder in der Form geänderte Beschriftung als „PMI-Darstellung geändert“ gemeldet.
+- Schnittbox um die Auswahl: nur der Bereich um gewählte Flächen bleibt sichtbar (Schnittflächen farbig).
+- Kommentare (K): Kommentar, Frage oder Änderungsvorschlag an Flächen oder PMI, Markierung K1, K2 … im Modell, Liste mit Status offen/erledigt, im Projekt gespeichert, Export CSV und PDF.
+- Toleranzzonen: für eine gewählte Toleranz wird die Zone als Hüllgeometrie gezeigt (Versatzflächen ±t/2, Zylinder bei ⌀-Zone), schmale Zonen mit Angabe überhöht.
+- Toleranzkette (Modell › Toleranzkette): gewählte Maße mit Richtung zu einer Maßkette, Schlussmaß nach Worst Case, statistisch (RSS) und Monte Carlo; ISO-286-Klassen werden berücksichtigt; Export CSV.
+- PMI anlegen mit Tolerierungsberater (Modell › PMI anlegen, 3D-Kontextmenü): Vorschläge je Auswahl (Bohrung H7 + Position Ⓜ, Ebenheit/Bezug, Abstand/Breite + Parallelität, Rechtwinkligkeit, Winkel, Kugel), Werte anpassbar; eigene PMI mit erzeugter Darstellung, im Projekt gespeichert.
+- PMI bearbeiten (Kontextmenü): Nennmaß, Abmaße, Passung, Toleranzwert, Materialbedingung; Änderungen mit ✎ markiert, Dateiwerte gemerkt, im Projekt gespeichert; eigene PMI löschbar.
+- Weiche Kamerafahrten bei Standardansichten und Würfelklicks (abschaltbar unter Ansicht).
+- ISO-14405-Größenmodifikatoren (LP, GG, GX, ACS …) und Ⓔ im Maßtext.
+- Farbkarte und Netzvergleich berücksichtigen jedes Exemplar einer Baugruppe (z. B. Scan gegen CAD-Baugruppe).
+- PLY-Netze (ASCII und binär, z. B. aus 3D-Scannern) lesen.
+- Vergleich: rein grafische Hinweise werden über ihren Text zugeordnet, geänderter Text wird gemeldet.
+- Stückliste mit Sachnummer aus den STEP-Produktdaten (wo vorhanden).
+- PMI-Prüfung mit Geometrie- und Normregeln: Position einer Achse ohne ⌀-Zone, Ⓜ/Ⓛ bei Ebenheit einer Fläche oder am ebenen Bezug, Lauf ohne Drehachse, Passmaß ohne Ⓔ nach ISO 8015.
+- Explosionsansicht nach Baugruppenebenen: Unterbaugruppen öffnen sich zuerst als Einheit, danach ihre Teile.
+- 3D-PDF und PRC öffnen: Modell als Flächennetz mit Farben, grafische PMI (Markups) und gespeicherte Ansichten mit Kamera; Zeichnungen und Ansichtsbilder auch für Netzmodelle (STL, OBJ, PRC) mit verdeckten Kanten.
+- STEPZ öffnen (gezipptes oder gzip-komprimiertes STEP: .stpz, .stepz, .stp.gz) mit allen PMI, Ansichten und Farben.
+- Erzeugte PMI-Darstellung (Stufe 2): Toleranzrahmen mit Feldern, Bezugsdreieck mit Bezugskasten und Maßtext liegen in einer Schreibebene (aus der gespeicherten Ansicht oder der passenden Modellebene), ohne Überdeckung außerhalb des Modells; auch in Zeichnungen und Berichten. Ansicht › „Erzeugte PMI-Darstellung zeigen“ blendet sie aus.
+- Portable App: Startfehler werden angezeigt und protokolliert (Windows: %LOCALAPPDATA%\3DGmax\start_fehler.log), Hinweis beim Start direkt aus dem ZIP-Archiv.
+- Vergleich erkennt gedrehte und gespiegelte Elemente (gleiche Form, andere Lage) mit Winkel und Achse bzw. Spiegelebene; mehrfach verbaute Teile werden je Instanz verglichen, auch wenn sich nur eine Instanz ändert.
+- QIF: grafische PMI aus der Datei (Toleranzrahmen, Texte mit Symbolen, Hinweislinien mit Pfeilen, Maßhilfslinien, Notizen) und gespeicherte Ansichten mit Kamera und sichtbaren PMI.
+- Mehrere Schnittebenen: bis zu drei Ebenen festhalten, wahlweise nur den gemeinsamen Bereich wegschneiden (z. B. Viertelschnitt); Schnittkontur aller Ebenen als SVG, DXF oder PDF exportieren.
+- Seitenleisten lassen sich zuverlässig und flüssig breiter ziehen: breitere Griffkante, die 3D-Ansicht zeichnet beim Ziehen gesammelt neu, Spaltenbreiten werden erst nach dem Ziehen gespeichert.
+- Ansichtswürfel besser lesbar: deckend (keine gespiegelte Rückseite mehr), größere schwarze Beschriftung, Hervorhebung beim Überfahren in ruhigem Blau statt Türkis.
+- PMI-Texte in der 3D-Ansicht in richtiger Größe (QIF-Texte waren zu klein); erzeugte PMI liegen im Bild nie über dem Modell, Texte passen in die Rahmenfelder.
+- Behoben: „Grafische PMI zeigen“ (G) und „Erzeugte PMI-Darstellung zeigen“ lösten in der 3D-Ansicht einen Fehler aus.
+- Nur grafische PMI werden in der Tabelle ausgewertet: Art (Maß, Toleranz, Bezug) und, wo die Datei Text enthält, Werte, Abmaße, Toleranzzone, Ⓜ und Bezüge; gekennzeichnet mit ≈ und „aus der Grafik abgeleitet – bitte prüfen“.
+- 3D-PDF/PRC: Modellkanten werden aus der Datei gelesen und angezeigt (Netzmodelle wirkten bisher ohne Kanten flach).
+- Vergleich: mehrfach verbaute Teile werden je Instanz eingefärbt; eine verschobene oder entfernte Instanz färbt die übrigen nicht mehr mit.
+- Toleranzzonen erweitert: je Bohrung/Zapfen (auch Lochmuster) die Zone, bei Ⓜ/Ⓛ zusätzlich die Bonuszone, dazu der Raum, in dem die Fläche selbst liegen darf (Maß + Lage); projizierte Zone Ⓟ außerhalb des Elements; unsymmetrische Zone (UZ/Ⓤ); Hüllen bei Höchst- und Mindestmaß. Zonen für gewählte PMI, die PMI an gewählten Flächen oder alle auf einmal; Allgemeintoleranzen ISO 2768 / ISO 22081 wählbar. Das Bauteil wird dabei durchscheinend.
+- Toleranzzonen auch im Kontextmenü (3D-Fenster und PMI-Liste, dort für mehrere PMI); Zone der abgeleiteten Mittelebene bei Nuten/Stegen (Symmetrie, Position, Richtung an Größenmaßelementen), Kugelzone bei S⌀; die Statuszeile nennt, was die Zone nicht zeigt (Richtungszone frei verschiebbar, Formzone frei, je Querschnitt, je Teillänge). Zonenfarben eindeutig gegenüber den Bezugsfarben.
+- Ansicht › Auswahl hervorheben (Umschalt+T, auch im Kontextmenü): alles außer den gewählten Flächen, PMI und Teilen wird durchscheinend.
+- Neue Anleitung auf Deutsch und Englisch mit Bildern aus dem Programm (Schnellstart, alle Funktionen, Fragen, Menüreferenz); F1 öffnet sie im Browser.
+- Werkzeuge › Scan gegen Toleranzen prüfen: Netz (z. B. 3D-Scan) laden, automatisch ausrichten (Bestpassung mit Feinausrichtung auf die exakten Flächen), Abweichungen als Farbkarte über dem durchscheinenden CAD-Modell und je PMI bewertet (i. O., n. i. O., am Grenzwert): Formtoleranzen als Spannweite, Profil und Lage in der Zone, Achsen und Durchmesser über Ausgleichszylinder mit Bonus bei Ⓜ/Ⓛ; Ergebnisliste mit CSV.
+- Ausrichtung: bei fast symmetrischen Teilen wird nicht mehr versehentlich eine gedrehte oder gespiegelte Lage gewählt.
+- Toleranzzonen an Ebenen haben die echte Berandung der Fläche (mit Löchern) statt eines Rechtecks.
+- Gespeicherte Ansichten: Vorschaubilder standardmäßig klein; Rechtsklick: groß oder ohne.
+- PDF der Ansichten: die PMI-Tabelle übernimmt die in der PMI-Liste sichtbaren Spalten und ihre Reihenfolge.
+- Neue Testdaten: Varianten mit anderen PMI, minimal geänderter Geometrie und beidem, sowie zwei erzeugte Scans (mit Rauschen und Versatz; mit Fase, Delle und Welligkeit).
+- Schnellerer Start: scipy wird erst bei Bedarf geladen (Fensteraufbau etwa 0,5 s schneller); Startoption --startzeit misst die Startphasen.
+- Toleranzzonen im Bezugssystem: Koaxialität und Lauf um die Bezugsachse, Bezugsverschiebung bei Ⓜ/Ⓛ am Bezug als zusätzliche Hülle, Form- und Richtungszonen mit der übergeordneten Zone an derselben Fläche; Widerspruch, wenn die untergeordnete Toleranz nicht kleiner ist.
+- Modell › PMI prüfen erweitert um eine Plausibilitätsprüfung: Widersprüche (Form/Richtung/Lage, Form gegen Maß unter Hüllbedingung, zwei Maße mit verschiedenen Werten), unvollständige Angaben (nicht tolerierte Flächen, Ⓜ ohne Maß), Bezugssystem (paralleler Sekundärbezug, offene Freiheitsgrade, Bezug ohne eigene Toleranz), unplausible Werte und Nennmaße, die nicht zur Modellgeometrie passen; mit Kategorie, Doppelklick wählt PMI bzw. Flächen.
+- Seitenleisten lassen sich flüssig in der Größe ziehen (die 3D-Ansicht passt ihre Puffer gebündelt an statt bei jedem Pixel).
+- Laufbalken mit „Abbrechen“ unten in der Statuszeile auch für Analyse, Farbkarte, Materialvergleich und Scanprüfung, mit Prozentanzeige, wo die Rechnung sie meldet.
+- Gestapelte Seitenleisten (PMI, Messen, Änderungen …) lassen sich mit dem X am Reiter schließen.
+- Allgemeintoleranzen zeigen: eigener Schalter zum Ein- und Ausschalten (Klassen bleiben gemerkt, sonst aus dem Hinweis der Datei); mit „Toleranzzone zeigen“ auch nur an gewählten Flächen ohne eigene Angabe.
+- Drahtmodell mit Kanten in Kontrastfarbe (Einstellung, standardmäßig an); Ansichtswürfel gedämpfter, Beschriftung besser lesbar, im dunklen Farbschema dunkel.
+- Toleranzkette: Prozessfähigkeit Cp einstellbar, Winkelmaße werden nicht in die Längenkette übernommen, beim Laden eines anderen Modells wird die Kette geleert, lange Namen schieben keine Spalte mehr aus dem Fenster.
+- Rechtsklick in der PMI-Liste wählt zuerst die Zeile unter dem Mauszeiger (auch Zwei-Finger-Klick am Trackpad), damit das Kontextmenü auf diese PMI wirkt.
+- Schnittansichten: gespeicherte Ansichten mit Schnittebenen aus STEP AP242 (auch Vereinigung und Schnittmenge mehrerer Ebenen) schneiden das Modell beim Wählen auf; neue Testdatei ctc01_schnittansicht.stp.
+- Startbild: Die App zeigt sofort beim Start ein Fenster mit Symbol und Fortschrittstext (Windows und Linux schon vor dem Laden von Python, macOS nach dem Laden von Qt), bis das Hauptfenster steht.
+- Datei › Beispiele: elf Vorführungen mit freien Testdaten (PMI und Ansichten, PMI prüfen, Toleranzzonen mit Allgemeintoleranzen, Schnittansicht, PMI- und Geometrievergleich, Scan gegen Toleranzen, Toleranzkette, Zusammenbau mit Wiggle, Kollisionen, Baugruppenvergleich).
+- Toleranzkette aus der 3D-Auswahl: Flächen in Kettenreihenfolge wählen, Richtung und Vorzeichen aus der Geometrie, Werte aus den PMI (auch Muster) oder der Allgemeintoleranz ISO 2768; Verteilung (normal/gleichverteilt) und Cp je Glied, Beitragsanteil je Glied, gewähltes Glied im Modell hervorgehoben.
+- Werkzeuge › Kollisionen und Abstände: Durchdringungen (mit Volumen), Kontakte und Abstände außerhalb eines Bands (Mindest-/Höchstabstand) zwischen allen, gewählten oder gewählten gegen die übrigen Teile; Befund wählen zeigt die zwei Teile deckend, die Durchdringung rot und den kleinsten Abstand als Linie; Prüfstatus, Kommentar, CSV.
+- Toleranzkette: Lagetoleranzen (Position, Symmetrie, Koaxialität, Profil mit Bezug, auch UZ) der Endflächen als eigene Glieder, PDF-Bericht mit Bild und Beitragsanteilen, Kette wird im Projekt gespeichert.
+- Werkzeuge › Zusammenbau und Freiheitsgrade: Teile über Flächenpaare fangen (Ebene auf Ebene mit Versatz, koaxial), je Instanz; Anzeige, ob jede Verbindung erfüllt ist, offene Freiheitsgrade je Teil und Wiggle in jedem offenen Freiheitsgrad; Kollisionsprüfung mit den zusammengebauten Lagen; im Projekt gespeichert.
+- Zusammenbau mit Toleranzen: Spielraum je Verbindung aus Geometrie und PMI (eben: Lage-/Profiltoleranzen und Kippen; koaxial: radiales Spiel aus Durchmessern, Allgemeintoleranz und Position), änderbar; Lagestreuung je Teil im Worst Case (lineares Modell, alle Verbindungen zugleich); Wiggle innerhalb der Toleranzen, 1:1 oder überhöht.
+- Reiter der Seitenleisten: schlichteres ✕ (passend zum Farbschema, auch in den Titelleisten); Rechtsklick auf die Reiter blendet ausgeblendete Leisten in dieser Gruppe ein.
+- Scanprüfung Stufe 2: Punktwolken ohne Dreiecke (XYZ/ASC/TXT/CSV/PTS, PLY nur mit Punkten), Ausrichtung am Bezugssystem (3-2-1) wählbar und neu auswertbar, Auswertung von Längen- und Winkelmaßen, Prüfbericht als PDF mit einer Bildseite je Abweichung; exakte Abstände nur an PMI-Flächen (schneller).
+- Toleranzzonen auch für Längenmaße zwischen Ebenen und für Winkelmaße.
+- Toleranzkette fertig (1D): Bonus bei Ⓜ/Ⓛ und Bezugsverschiebung als Glieder, Nulltoleranz Ⓜ/Ⓛ, Kanten als Kettenenden, Mittenversatz je Glied (Cpk), Anforderung an das Schlussmaß mit Cp, Cpk und Anteil außerhalb.
+- macOS: Doppelklick auf eine Datei im Finder (oder „Öffnen mit“, Ablegen auf das App-Symbol) lädt sie jetzt; der Finder bietet 3DGmax für alle lesbaren Formate an.
+- Baugruppenvariation: Spalt und Bündigkeit zwischen Teilen als Worst Case und Monte Carlo über alle Verbindungen, Soll mit Anteil außerhalb und Cpk, Rangfolge der Beitragenden, PDF; neue Verbindungen Bolzen im Langloch, Kugel auf Ebene und Kugelgelenk; Beispiel unter Datei › Beispiele.
+- Mehrfachauswahl im Modell (Strg/⌘-Klick): alle gewählten Flächen bleiben hervorgehoben, nicht nur die zuletzt geklickte; die PMI-Liste wählt die PMI aller gewählten Flächen.
+- Befehlssuche mit Strg/⌘+K: alle Befehle nach Namen (deutsch und englisch), Menüpfad und Tastenkürzel finden und ausführen.
+- Startseite mit Aufgaben: Modell öffnen, zwei Stände vergleichen, Beispiele; Liste der lesbaren Formate. Doppelte CSV-Exporte im Menü Modell entfernt, „Teil der gewählten Fläche isolieren“ eindeutig benannt.
+- „Alle Toleranzzonen“ und Allgemeintoleranzen berücksichtigen nur sichtbare Teile und folgen dem Aus- und Einblenden.
+- Toleranzkette: Verteilungen Dreieck und Trapez neben normal und gleich, je nach Fertigungsart; arithmetisch immer mit ausgegeben, das anwendbare Verfahren fett (statistisch ab vier wirksamen Beitragsleistern); Planspiel mit Vergleich zum Ist; Doppelklick auf die Richtung kehrt um; Ergebnistabelle, Anteilsbalken und Histogramm; PDF mit allem.
+- Vergleich: Änderungstabelle mit Spalten Merkmal, Alt, Neu, Δ und Tendenz (Toleranz enger/weiter); Geometrie mit größter Abweichung bzw. Verschiebung, Baugruppe mit Volumen; auch im Vergleichsbericht (PDF) und im CSV.
+- Vergleichsmodi wie in ZGmax über der 3D-Ansicht: Vergleich, Alt, Neu, Überlagern, Nebeneinander (zwei 3D-Ansichten mit gekoppelter Kamera) und Blinken (Takt, Pause, Leertaste); „Änderungen hervorheben“ färbt geänderte Flächen und PMI; der Strukturbaum zeigt im Modus Alt den alten Stand; eine gewählte Änderung wird in beiden Ständen hervorgehoben.
+- Toleranzkette: Wärmeausdehnung bei zwei Grenztemperaturen (Werkstoffe aus der STEP-Datei, sonst Bibliothek, α je Bauteil änderbar, optional eigene Temperatur je Bauteil); Längenbereiche (Feder, Passscheibe) und Stellglied mit nötigem Bereich; Richtungen und Reihenfolge aus dem Schlussmaß; „Kette ablaufen“ zeigt die Glieder nacheinander; Kette als Datei (.3dgkette) speichern und öffnen, auch über Datei › Öffnen; Beispiel Getriebewelle.
+- STEP-Dateien mit Umlauten in UTF-8 (wie sie OCCT und andere Programme schreiben) werden richtig gelesen.
+- JT 8 bis 10 öffnen (Netz mit Struktur, Namen und Farben) in der Programmvariante mit dem JT-Leser TKJT (packaging/jt/bauen.sh).
+- Zusammenbau: der Wiggle-Knopf zeigt seinen Zustand (▶ Wiggle / ⏸ Anhalten).
+- Toleranzzonen erscheinen an jeder Instanz eines mehrfach verbauten Teils und folgen der Lage aus dem Zusammenbau (Fangen, Verbindungen).
+- Zusammenbau: Verbindung umkehren (Teil um 180° drehen, Zylinder Ende gegen Ende) und Teile tauschen (das andere Teil bewegt sich).
+- Größe der Oberfläche einstellbar (Ansicht › Größe der Oberfläche: 90 bis 150 %, nach einem Neustart).
+- Vergleich: der Strukturbaum zeigt den Status jedes Teils (● grün neu, orange geändert, rot entfernt im Modus Alt; Baugruppen mit Änderungen darunter mit •).
+- Stückliste mit Werkstoff aus der STEP-Datei; die Masse nimmt bei bekanntem Werkstoff dessen Dichte.
+- Toleranzkette: Empfindlichkeit (Faktor) je Glied, statistische Verfahren RSS, RSS × Bender-Faktor und Mittenverschiebungs-Modell; Toleranzen verteilen (gleiche Varianz oder proportional, statistisch oder arithmetisch, feste Glieder bleiben) als Planspiel.
+- Zusammenbau: gewähltes Teil nur in seinen offenen Freiheitsgraden verschieben oder drehen (je Freiheitsgrad ein Feld in mm bzw. Grad); die Verbindungen bleiben erfüllt.
+- ISO 286: Toleranzklassen j5–j7, J6–J8 und a/A; Passungen als Paar (z. B. H7/g6) mit Spiel bzw. Übermaß und Art (Spiel-, Übergangs-, Übermaßpassung) im Tooltip der PMI.
+- PMI prüfen: geschlossene Maßketten (tolerierte Abstandsmaße zwischen parallelen Ebenen, die sich zu einem Kreis schließen) werden gemeldet.
+- Explosionsansicht wahlweise nur entlang X, Y oder Z (neben radial).
+- Toleranzkette: „Kette ablaufen“ zeigt das aktuelle Glied als Linie zwischen seinen Flächen im Modell (+ grün, − rot, mit Wert).
+- Kollisionen: Eindringtiefe und Schnittkurven je Kollision, PDF-Bericht, Status und Kommentare im Projekt (beim Öffnen wird neu geprüft und zugeordnet).
+- Mehrere Fenster: Datei › Neues Fenster (Strg/⌘+N) und „In neuem Fenster öffnen“; Fenster › Kameras der Fenster koppeln zeigt zwei Modelle gleich gedreht und gezoomt.
+- Kollisionsprüfung optional auch in den Grenzlagen der Toleranzen aus dem Zusammenbau: gemeldet wird, was erst dort kollidiert oder zu nah kommt.
+- Scanprüfung: Ausrichtung „Von Hand …“ über Punktpaare Scan ↔ Modell (z. B. bei wenig Überdeckung), danach Feinausrichtung und auf Wunsch 3-2-1 am Bezugssystem.
+- Plausibilitätsprüfung: theoretisch exakte Maße mit Toleranz, doppelt tolerierte Lage (toleriertes Lagemaß und Position/Profil zum selben Bezug), Mustermaß an Elementen verschiedener Größe, zu wenige Bezugsstellen für die Stelle im Bezugssystem und Bezugsstellen ohne verwendeten Bezug.
+- Kollisionen: Option „Bewegungsbereich offener Freiheitsgrade“ – jedes Teil des Zusammenbaus wird entlang seiner offenen Freiheitsgrade bis zur ersten Kollision bewegt (eingegrenzt durch Halbieren); gemeldet werden der freie Bereich je Freiheitsgrad und die Kollision an der Grenze.
+- Toleranzkette: Verteilung „Aus Messwerten“ je Glied – Werte einfügen oder als CSV laden (Spalte wählbar, Dezimalkomma); Mittelwert und Standardabweichung der Stichprobe ergeben Versatz, σ und Cpk; beim Verteilen bleiben gemessene Glieder unverändert.
+- Toleranzkette: mehrere Planspiel-Szenarien – unter einem Namen merken, wieder laden und mit dem Ist vergleichen (anwendbares Verfahren, Bereich, Breite, Cpk, ppm); sie werden mit der Kettendatei gespeichert. Gespeichert wird im Planspiel immer das Ist.
+- Toleranzkette: korrelierte Glieder (Rechtsklick › Korrelation …) – Glieder einer Gruppe streuen gemeinsam mit ρ; statistisches Ergebnis, Anteile und wirksame Beitragsleister mit Kovarianzen, Monte Carlo über Rangkorrelation.
+- Toleranzkette: Betragsverteilung 1. Art (Form, Lauf) und 2. Art (Rayleigh, Position) – schief ab dem Mindestmaß, 99,73 % innerhalb der Toleranz, Mittelwert unter der Toleranzmitte.
+- Vergleich: Geometrieänderungen an mehrfach verbauten Teilen stehen je betroffener Instanz in der Änderungsliste (mit Teilname, Auswahl zoomt auf die Instanz und markiert sie im Baum); betrifft eine Änderung alle Instanzen, steht das in der Beschreibung.
+- Vergleich „Nebeneinander“: beide Strukturbäume untereinander (neuer Stand oben, alter unten, jeweils mit Teilestatus); Haken, Isolieren und Transparenz im unteren Baum wirken auf die Ansicht des alten Stands.
+- Kollisionen auch mit Netzteilen (STL, OBJ, glTF, 3MF, PLY, PRC-Netze) und gemischten Paaren: Abstand über Dreiecke, Durchdringung per Strahltest, Volumen und Tiefe über ein Raster; die Werte sind mit „≈“ als Näherung markiert.
+- Zeichnung: Schnittansichten (Datei › Exportieren) – je Schnittebene der Rest hinter der Ebene als Kantenansicht, die Schnittfläche nach ISO 128 schraffiert (45°, Löcher frei); Schnitt A–A, B–B, C–C als PDF, SVG oder DXF (Layer SCHRAFFUR).
+- Zeichnung: Blattformat A4 bis A0 quer (Datei › Exportieren › Blattformat) – Rahmen nach ISO 5457, Schriftfeld mit Titel, Maßstab und Format, größter passender Normmaßstab nach ISO 5455; PDF-Seite in Blattgröße.
+- Werkzeuge › Verzahnung erkennen: Stirnräder (außen und innen, gerade und schräg, auch als Netz) aus der Geometrie – Zähnezahl, da, df, b, Schrägungswinkel und Steigungsrichtung, Grundkreis per Evolventen-Fit, daraus mn, αn (Normmodul), Teilkreis, Profilverschiebung und Zahnweite Wk; Tabelle mit Herkunft je Wert, Export CSV/JSON.
+- Verzahnung: Radpaare (Außenpaar, Ritzel im Hohlrad) mit gemessenem und spielfreiem Achsabstand, Betriebseingriffswinkel, Profil- und Sprungüberdeckung und Normalflankenspiel aus dem Achsabstand; Hinweis bei gleicher Steigungsrichtung oder Überdeckung unter 1.
+- Plausibilitätsprüfung: Verzahnungsangaben in Hinweisen (z, m, αn, β, x) werden mit der aus der Geometrie erkannten Verzahnung verglichen.
+- Datei › STEP mit geänderten PMI speichern: bearbeitete Nennmaße, Abmaße, Grenzmaße und Toleranzwerte werden verlustfrei in eine Kopie der STEP-Datei geschrieben (nur die betroffenen Zahlen ändern sich); ein Bericht nennt nicht schreibbare Änderungen und PMI, deren grafische Darstellung noch die alten Werte zeigt.
+- STEP mit geänderten PMI speichern: auch eigene PMI (Bezüge, Form-, Richtungs- und Lagetoleranzen mit Bezugssystem, Ⓜ/Ⓛ und ⌀-Zone, Größen-, Abstands- und Winkelmaße mit Abmaßen oder Toleranzklasse) werden als semantische AP242-PMI angehängt; auch der OCCT-Leser findet sie. Noch nicht: Baugruppen.
+- Werkzeuge › Messergebnisse (QIF) einlesen: Istwerte aus QIF-3.0-Ergebnisdateien werden den Merkmalen zugeordnet (Kennung = Ballonnummer, sonst Name), gegen die Grenzen bewertet (Profil an Punkten ±t/2, maßgebend der schlechteste Wert) und neben dem Status der Datei gezeigt; die Merkmalsliste (CSV/PDF) übernimmt Messwert und i. O.
+- Toleranzzonen: Rundheit und Rundlauf an Zylindern als Ringzonen in drei Querschnitten (die Zone gilt je Querschnitt), Gesamtlauf weiter als zwei koaxiale Zylinder.
+- Zusammenbau: 3-2-1-Vorlage – sechs Ebenen paarweise gewählt (primär, sekundär, tertiär) bestimmen das Teil in einem Schritt mit drei Verbindungen Ebene auf Ebene, auch aus schiefer Ausgangslage.
+- Baugruppenvariation: der PDF-Bericht zeigt je Messgröße das Monte-Carlo-Histogramm mit Worst-Case-Grenzen und Soll.
+- Baugruppenvariation: Messgrößen auch an Achsen – Achse zu einer parallelen Ebene und Abstand zweier paralleler Achsen (z. B. Bohrungsabstand über zwei Teile), mit Worst Case, Monte Carlo und Beitragenden.
+- Scanprüfung: Rundheit und Rundlauf an Zylindern werden je Querschnitt ausgewertet (Rundheit mit eigenem Ausgleichskreis je Schnitt), der schlechteste Schnitt zählt – eine Kegeligkeit ist keine Unrundheit.
+- Scanprüfung: Option „Anlage (ISO 5459)“ – bei Ausrichtung am Bezugssystem werden die Bezüge als anliegende Flächen außen am Material gebildet (größter Abstand minimal, je Stufe in den verbliebenen Freiheitsgraden) statt per Gauß-Ausgleich.
+- Scanprüfung: Punktwolken im E57-Format (eigener Leser: kartesisch und sphärisch, Gleitkomma, Ganzzahl und skalierte Ganzzahl, mehrere Scans mit Pose, ungültige Punkte entfallen).
+- Verzahnung erkennen: Zahnwellen und -naben mit Evolventenflanken (30°, flache Zahnhöhe nach ISO 4156 / DIN 5480) werden als Wellenverbindung erkannt.
+- STEP mit geänderten PMI speichern: eigene PMI auch in Baugruppen – Produktform, Darstellung und Einheiten je Teil aus den Flächen der PMI, Bezüge je Teil.
+- STEP mit geänderten PMI speichern: auch geänderte Toleranzklassen (vorhandene Passungsangabe) und Materialbedingungen Ⓜ/Ⓛ werden geschrieben; Passungen eigener PMI wie in den NIST-Dateien.
+- Zusammenbau: 3D-Griff am gewählten Teil – nur Pfeile und Ringe der offenen Freiheitsgrade (z. B. nur der Drehring einer Schraube); Ziehen bewegt das Teil, die Verbindungen bleiben erfüllt.
+- Behoben: Die zweite 3D-Ansicht (Vergleich „Nebeneinander“/„Alt“, weitere Fenster) zeigte schwarzen Hintergrund, kein Licht und einen unbeschrifteten Würfel – weitere Ansichten rendern jetzt mit der festen Grafik-Pipeline.
+- Qt-eigene Texte (Standardknöpfe wie „Schließen“, „Abbrechen“, Dateidialoge) erscheinen bei deutscher Oberfläche auf Deutsch; die App bringt die Übersetzung mit.
+- Erzeugte PMI-Darstellung: Abstands- und Dickenmaße mit Maßlinie, Maßhilfslinien und Pfeilen außerhalb des Modells; Hinweislinien enden mit Pfeil auf der Fläche.
+- Behoben: PMI-Texte in der Schreibebene wurden auf der Grafikkarte in Bildschirmpunkten gezeichnet (bei erzeugter PMI unsichtbar klein, sonst nicht passend zu den Rahmen) – sie werden jetzt als Schriftzeichen im Modellraum dargestellt und skalieren mit dem Zoom.
+- Schneller: Beim ersten Öffnen eines Modells mit gespeicherten Ansichten wurde die 3D-Szene doppelt aufgebaut und durch die Vorschaubilder ausgebremst – z. B. NIST FTC-10 jetzt 1,5 s statt 19 s bis zur Anzeige.
+- Toleranzkette mit einem Klick im 3D: Glieder als Pfeile mit Maß und Toleranz (Maße grün/rot, Lagetoleranzen violett, Längenbereiche orange, Schlussmaß blau), im Planspiel das Ist grau darüber.
+- Toleranzkettenfenster: Teiler zwischen Gliedern und Ergebnis, Histogramm rechts neben der Ergebnistabelle; Histogramm zeigt den Anteil an der Mausposition, die Anforderungsgrenzen lassen sich ziehen.
+- Toleranzkette: Histogramm zeigt das anwendbare Verfahren (✓) – Worst Case als Band, statistisch als Kurve, Monte Carlo als Histogramm; Zeile der Ergebnistabelle anklicken wechselt, alle lassen sich überlagern. Ampel (grün/gelb/rot), ob die Anforderung eingehalten ist, auch im PDF-Bericht.
+- Toleranzkette manuell freigeben („Kette i. O. / geprüft“) mit Name, Datum und Kommentar – in der Kettendatei und im PDF-Bericht.
+- Qt-eigene Knöpfe (z. B. „Schließen“) jetzt in allen Fenstern deutsch.
+- Toleranzkette: Tooltips erklären jedes Verfahren (Worst Case, RSS, Monte Carlo …) und jede Spalte; neue Spalte „Streuung“ zeigt je Glied seine Verteilung mit Mindest- und Höchstmaß.
+- Tooltips für alle nicht selbsterklärenden Knöpfe, Eingabefelder und Auswahllisten der App.
+- Toleranzkette: Fertigungsverfahren je Glied und kostenoptimale Toleranzverteilung (billige Verfahren weite, teure enge Toleranzen, je Verfahren zwischen feinstem und grobem IT-Grad); relative Kosten vorher → nachher.
+- Alle 3D-Ansichten sehen gleich aus (gleiche Darstellung auch für weitere Fenster und den Vergleich nebeneinander); Freigabe der Toleranzkette auch in der Projektdatei.
+- Funktion → Tolerierung: Flächen eine Funktion zuordnen (Auflage, Zentrierung, Führung, Presssitz, Verdrehsicherung, Dichtfläche, Anschlag); daraus Bezugssystem nach 3-2-1 (ISO 5459) und ISO-GPS-Tolerierung mit Passungen als eigene PMI, speicherbar als STEP.
+- Toleranzkette von Hand aufbauen, auch ohne Modell: „＋ Glied“ legt ein Glied an, Name und Werte per Doppelklick eintragen, „－ Entfernen“ löscht.
+- 2D-Toleranzkette: Vektorzug mit Längen und Winkeln von Hand eingeben (Auswahlfelder, Vorlagen, Skizze), Schlussgröße linear und nichtlinear rechnen und in die Toleranzkette übernehmen.
+
+## 0.1 (2026-10-26)
+- Machbarkeit: STEP AP242 mit semantischer PMI lesen (ohne Oberfläche).
