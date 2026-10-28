@@ -12,6 +12,7 @@ from ..i18n import tr
 from ..kern import toleranzkette as tk
 from .fluss import FlussLayout
 from .tabellen import AENDERBAR_FARBE, leer_hinweis  # getoent: Zellen, die man aendern kann
+from .werkstoff_wahl import werkstoff_feld, werkstoff_wert
 
 
 def _z(x: float, vorzeichen: str = "") -> str:
@@ -325,60 +326,92 @@ class Histogramm(QtWidgets.QWidget):
 
 
 class WerkstoffDialog(QtWidgets.QDialog):
-    """Werkstoff und Ausdehnungskoeffizient je Bauteil der Kette (aus der Datei vorbelegt, sonst Bibliothek)."""
+    """Werkstoffe der Kette: Vorgabe fuer die ganze Kette, je Bauteil (aus der Datei vorbelegt, sonst Bibliothek) und
+    ein eigener Werkstoff je Glied, der vor beiden gilt."""
 
     def __init__(self, fenster, parent=None):
         super().__init__(parent)
-        from ..kern import werkstoffe as ws
         self.setWindowTitle(tr("Werkstoffe der Kette"))
-        self.resize(560, 300)
+        self.resize(640, 480)
         self.fenster = fenster
         lay = QtWidgets.QVBoxLayout(self)
-        hinweis = QtWidgets.QLabel(tr("Werkstoff je Bauteil (aus der Datei, wenn angegeben); α in 10⁻⁶/K wird aus der "
-                                      "Bibliothek gesetzt und lässt sich ändern."))
+        hinweis = QtWidgets.QLabel(tr("Die erste Zeile gilt für alle Glieder ohne Bauteil oder ohne Werkstoff, darunter "
+                                      "je Bauteil (aus der Datei, wenn angegeben). α in 10⁻⁶/K wird aus der Bibliothek "
+                                      "gesetzt und lässt sich ändern. Ein eigener Werkstoff je Glied (unten) geht vor."))
         hinweis.setWordWrap(True)
         hinweis.setObjectName("leise")
         lay.addWidget(hinweis)
-        teile = fenster.teile()
+        teile = [tk.KETTE] + fenster.teile()
         self.tabelle = QtWidgets.QTableWidget(len(teile), 5)
         self.tabelle.setHorizontalHeaderLabels([tr("Bauteil"), tr("Werkstoff"), tr("α (10⁻⁶/K)"),
                                                 tr("Temperatur 1"), tr("Temperatur 2")])
         self.tabelle.verticalHeader().setVisible(False)
         self.tabelle.horizontalHeader().setStretchLastSection(True)
         for z, teil in enumerate(teile):
-            w = fenster.werkstoffe.get(teil, {})
-            self.tabelle.setItem(z, 0, QtWidgets.QTableWidgetItem(teil))
-            name = QtWidgets.QComboBox()
-            name.setEditable(True)
-            name.addItems(([w["name"]] if w.get("name") and w["name"] not in ws.BIBLIOTHEK else []) +
-                          list(ws.BIBLIOTHEK))
-            name.setCurrentText(w.get("name", ""))
-            alpha = QtWidgets.QDoubleSpinBox()
-            alpha.setRange(0.0, 500.0)
-            alpha.setDecimals(1)
-            alpha.setSpecialValueText(tr("unbekannt"))
-            alpha.setValue(w.get("alpha") or 0.0)
-            name.currentTextChanged.connect(lambda t, a=alpha: a.setValue(ws.alpha_fuer(t) or a.value()))
-            name.currentTextChanged.connect(lambda t, teil=teil, a=alpha: fenster.setze_werkstoff(teil, t, a.value()))
-            alpha.valueChanged.connect(lambda v, teil=teil, n=name: fenster.setze_werkstoff(teil, n.currentText(), v))
-            self.tabelle.setCellWidget(z, 1, name)
-            self.tabelle.setCellWidget(z, 2, alpha)
-            for s, schluessel in ((3, "t1"), (4, "t2")):  # eigene Temperatur des Bauteils, sonst die der Kette
-                feld = QtWidgets.QDoubleSpinBox()
-                feld.setRange(-274.0, 1000.0)
-                feld.setDecimals(1)
-                feld.setSuffix(" °C")
-                feld.setSpecialValueText(tr("wie Kette"))
-                feld.setValue(w[schluessel] if w.get(schluessel) is not None else -274.0)
-                feld.setToolTip(tr("Eigene Temperatur dieses Bauteils im Grenzfall (z. B. kühleres Gehäuse); "
-                                   "ganz links: Temperatur der Kette"))
-                feld.valueChanged.connect(lambda v, teil=teil, k=schluessel: fenster.setze_teiltemperatur(
-                    teil, k, None if v <= -273.95 else v))
-                self.tabelle.setCellWidget(z, s, feld)
+            self._teil_zeile(z, teil)
         lay.addWidget(self.tabelle, 1)
+        lay.addWidget(QtWidgets.QLabel(tr("Eigener Werkstoff je Glied")))
+        self.glieder = QtWidgets.QTableWidget(len(fenster.glieder), 2)
+        self.glieder.setHorizontalHeaderLabels([tr("Glied"), tr("Werkstoff")])
+        self.glieder.verticalHeader().setVisible(False)
+        self.glieder.horizontalHeader().setStretchLastSection(True)
+        self.glieder.horizontalHeader().setSectionResizeMode(0, QtWidgets.QHeaderView.ResizeMode.Stretch)
+        for z, g in enumerate(fenster.glieder):
+            name = QtWidgets.QTableWidgetItem(g.name)
+            name.setFlags(name.flags() & ~QtCore.Qt.ItemFlag.ItemIsEditable)
+            self.glieder.setItem(z, 0, name)
+            feld = werkstoff_feld(g.werkstoff, tr("wie Bauteil / Kette"),
+                                  tr("Eigener Werkstoff dieses Glieds; „wie Bauteil / Kette“: der Werkstoff seines "
+                                     "Bauteils, sonst der der Kette") if g.waerme else
+                                  tr("Winkel und Linearisierungsrest dehnen sich nicht"))
+            feld.setEnabled(g.waerme and g.quelle != "lage")
+            feld.currentTextChanged.connect(lambda _t, g=g, f=feld: fenster.setze_glied_werkstoff(g, werkstoff_wert(f)))
+            self.glieder.setCellWidget(z, 1, feld)
+        leer_hinweis(self.glieder, tr("Noch keine Glieder"))
+        lay.addWidget(self.glieder, 1)
         knoepfe = QtWidgets.QDialogButtonBox(QtWidgets.QDialogButtonBox.StandardButton.Close)
         knoepfe.rejected.connect(self.reject)
         lay.addWidget(knoepfe)
+
+    def _teil_zeile(self, z: int, teil: str):
+        from ..kern import werkstoffe as ws
+        fenster = self.fenster
+        w = fenster.werkstoffe.get(teil, {})
+        kette = teil == tk.KETTE
+        name_it = QtWidgets.QTableWidgetItem(tr("Ganze Kette (Vorgabe)") if kette else teil)
+        name_it.setFlags(name_it.flags() & ~QtCore.Qt.ItemFlag.ItemIsEditable)
+        self.tabelle.setItem(z, 0, name_it)
+        name = QtWidgets.QComboBox()
+        name.setEditable(True)
+        name.addItems(([w["name"]] if w.get("name") and w["name"] not in ws.BIBLIOTHEK else []) + list(ws.BIBLIOTHEK))
+        name.setCurrentText(w.get("name", ""))
+        name.setToolTip(tr("Werkstoff aller Glieder ohne Bauteil oder ohne Werkstoff") if kette else
+                        tr("Werkstoff dieses Bauteils"))
+        alpha = QtWidgets.QDoubleSpinBox()
+        alpha.setRange(0.0, 500.0)
+        alpha.setDecimals(1)
+        alpha.setSpecialValueText(tr("unbekannt"))
+        alpha.setValue(w.get("alpha") or 0.0)
+        alpha.setToolTip(tr("Ausdehnungskoeffizient in 10⁻⁶/K"))
+        name.currentTextChanged.connect(lambda t, a=alpha: a.setValue(ws.alpha_fuer(t) or a.value()))
+        name.currentTextChanged.connect(lambda t, a=alpha: fenster.setze_werkstoff(teil, t, a.value()))
+        alpha.valueChanged.connect(lambda v, n=name: fenster.setze_werkstoff(teil, n.currentText(), v))
+        self.tabelle.setCellWidget(z, 1, name)
+        self.tabelle.setCellWidget(z, 2, alpha)
+        if kette:
+            return  # die Kette hat die Temperaturen des Fensters
+        for s, schluessel in ((3, "t1"), (4, "t2")):  # eigene Temperatur des Bauteils, sonst die der Kette
+            feld = QtWidgets.QDoubleSpinBox()
+            feld.setRange(-274.0, 1000.0)
+            feld.setDecimals(1)
+            feld.setSuffix(" °C")
+            feld.setSpecialValueText(tr("wie Kette"))
+            feld.setValue(w[schluessel] if w.get(schluessel) is not None else -274.0)
+            feld.setToolTip(tr("Eigene Temperatur dieses Bauteils im Grenzfall (z. B. kühleres Gehäuse); "
+                               "ganz links: Temperatur der Kette"))
+            feld.valueChanged.connect(lambda v, k=schluessel: fenster.setze_teiltemperatur(
+                teil, k, None if v <= -273.95 else v))
+            self.tabelle.setCellWidget(z, s, feld)
 
 
 class MesswerteDialog(QtWidgets.QDialog):
@@ -880,7 +913,8 @@ class ToleranzketteFenster(QtWidgets.QDialog):
         reihe = QtWidgets.QHBoxLayout()
         self.waerme = QtWidgets.QCheckBox(tr("Wärmeausdehnung bei"))
         self.waerme.setToolTip(tr("Schlussmaß zusätzlich bei zwei Grenztemperaturen: ΔL = α · L · (T − 20 °C) je "
-                                  "Glied mit dem Werkstoff seines Bauteils"))
+                                  "Glied mit seinem Werkstoff (eigener, sonst der seines Bauteils, sonst der der "
+                                  "Kette)"))
         self.t1, self.t2 = QtWidgets.QDoubleSpinBox(), QtWidgets.QDoubleSpinBox()
         self.t1.setToolTip(tr("Grenztemperaturen (z. B. Kaltstart und Betrieb); Bezug ist 20 °C nach ISO 1"))
         self.t2.setToolTip(self.t1.toolTip())
@@ -893,7 +927,8 @@ class ToleranzketteFenster(QtWidgets.QDialog):
             k.valueChanged.connect(self._rechne)
         self.waerme.toggled.connect(lambda an: (self.t1.setEnabled(an), self.t2.setEnabled(an), self._rechne()))
         self.werkstoff_knopf = QtWidgets.QPushButton(tr("Werkstoffe …"))
-        self.werkstoff_knopf.setToolTip(tr("Werkstoff und Ausdehnungskoeffizient je Bauteil, auch eigene Temperaturen"))
+        self.werkstoff_knopf.setToolTip(tr("Werkstoff der ganzen Kette, je Bauteil (auch eigene Temperaturen) und je "
+                                           "Glied"))
         self.werkstoff_knopf.clicked.connect(lambda: WerkstoffDialog(self, self).open())
         reihe.addWidget(self.waerme)
         reihe.addWidget(self.t1)
@@ -975,7 +1010,13 @@ class ToleranzketteFenster(QtWidgets.QDialog):
         return d
 
     def teile(self) -> list[str]:
-        return sorted({g.teil for g in self.glieder if g.teil} | set(self.werkstoffe))
+        """Bauteile der Kette (ohne die Vorgabe der ganzen Kette)."""
+        return sorted(({g.teil for g in self.glieder if g.teil} | set(self.werkstoffe)) - {tk.KETTE})
+
+    def setze_glied_werkstoff(self, g, name: str):
+        """Eigener Werkstoff eines Glieds (leer: der seines Bauteils bzw. der Kette)."""
+        g.werkstoff = name
+        self._rechne()
 
     def setze_werkstoff(self, teil: str, name: str, alpha: float | None):
         self.werkstoffe.setdefault(teil, {}).update({"name": name, "alpha": alpha or None})

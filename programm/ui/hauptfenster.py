@@ -3241,7 +3241,7 @@ class Hauptfenster(QtWidgets.QMainWindow):
         f = getattr(self, "_kette2d", None)
         if f is None:
             f = Kette2DFenster(self)
-            f.uebernehmen.connect(self._kette2d_uebernehmen)
+            f.uebernehmen.connect(lambda gl, f=f: self._kette2d_uebernehmen(gl, f.kette.temperaturen))
             self._kette2d = f
             self._als_leiste(f, tr("2D-Toleranzkette"), "kette2d")
         if not nur_anlegen:
@@ -3254,7 +3254,7 @@ class Hauptfenster(QtWidgets.QMainWindow):
         f = getattr(self, "_kette3d", None)
         if f is None:
             f = Kette3DFenster(self)
-            f.uebernehmen.connect(self._kette2d_uebernehmen)
+            f.uebernehmen.connect(lambda gl, f=f: self._kette2d_uebernehmen(gl, f.kette.temperaturen))
             f.zeigen.connect(lambda linien: self.ansicht.zeige_hilfslinien(linien or [], einpassen=bool(linien)))
             self._kette3d = f
             self._als_leiste(f, tr("3D-Toleranzkette"), "kette3d")
@@ -3262,10 +3262,16 @@ class Hauptfenster(QtWidgets.QMainWindow):
             self._leiste_zeigen(f, "kette3d")
         return f
 
-    def _kette2d_uebernehmen(self, glieder: list):
+    def _kette2d_uebernehmen(self, glieder: list, temperaturen: tuple | None = None):
+        """Linearisierte 2D/3D-Kette ins 1D-Fenster; die Werkstoffe stecken in den Gliedern, die Grenztemperaturen
+        der Kette werden mit uebernommen."""
         k = self.zeige_toleranzkette()
         k.beende_planspiel(False)
         k.setze_glieder(glieder)
+        if temperaturen:
+            k.t1.setValue(temperaturen[0])
+            k.t2.setValue(temperaturen[1])
+            k.waerme.setChecked(True)
         self.statusBar().showMessage(tr("Kette als {} Glieder übernommen (linearisiert)").format(len(glieder)), 6000)
 
     def zeige_funktion(self, nur_anlegen: bool = False):

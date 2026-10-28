@@ -487,6 +487,13 @@ chain material, shown greyed like the "auto" start values). Links taken from a m
 a link's material can still be changed. Stored in `.3dgkette`/`.3dgkette2d`/`.3dgkette3d` and the project; the
 thermal case (two limit temperatures, per-part temperatures) then works for hand-built 2D/3D chains as for 1D
 (lengths × α × ΔT on the length components; angles unchanged).
+Done 2026-10-28: `Glied.werkstoff` (own material, before the part's and the chain default `werkstoffe[KETTE]`) and
+`Glied.waerme` (angles and the linearisation remainder do not expand), `toleranzkette.alpha_glied`; the 1D dialog
+"Werkstoffe …" has the row "Ganze Kette (Vorgabe)" and a table "Eigener Werkstoff je Glied". 2D/3D: material per
+segment/link and per chain (`Segment.werkstoff`, `Glied3D.werkstoff`, `Kette2D/Kette3D.werkstoff`), two limit
+temperatures in the window (`bei_temperatur`: lengths/translations scaled with sign, angles/rotations unchanged), the
+linearised hand-over carries the material per link and the temperatures, so the 1D window gives the same shift.
+Not done: per-part temperatures in 2D/3D (no parts there); materials shown greyed when inherited.
 
 **Planned (requested 2026-10-28): preview of the proposal in 3D.** Before "PMI anlegen", show the proposed
 tolerancing in the model. **Datum proposal first:** the proposed datum system (3-2-1) right after the roles are set –

@@ -89,6 +89,34 @@ def test_werkstoffe_stichworte_und_step():
     assert abs(ws.laengenaenderung(23.0, 100.0, 120.0) - 0.23) < 1e-12
 
 
+def test_werkstoff_der_kette_und_je_glied():
+    """Ketten von Hand: Vorgabe der ganzen Kette, Bauteil, eigener Werkstoff je Glied (in dieser Rangfolge); 2D/3D
+    dehnen Laengen bzw. Verschiebungen, nicht Winkel; die linearisierte Uebernahme rechnet gleich."""
+    from programm.kern import kette2d as k2, kette3d as k3
+    from programm.kern.werkstoffe import laengenaenderung
+    gl = [tk.Glied("a", 100, 100.1, 99.9), tk.Glied("b", 40, 40.1, 39.9, -1, teil="Deckel"),
+          tk.Glied("c", 10, 10.1, 9.9, werkstoff="Aluminium"), tk.Glied("w", 5, 5.1, 4.9, waerme=False)]
+    warm = tk.thermisch(gl, {tk.KETTE: 11.5, "Deckel": 16.0}, 70.0)
+    assert [round(w.nenn - g.nenn, 6) for g, w in zip(gl, warm)] == \
+        [round(laengenaenderung(a, g.nenn, 70.0), 6) for g, a in zip(gl, (11.5, 16.0, 23.0, 0.0))]
+    k = k2.Kette2D([k2.Segment("Gestell", 80, 0.05, -0.05), k2.Segment("Hebel", 50, 0.1, -0.1, 120, 0.25, -0.25,
+                                                                       werkstoff="Aluminium")], "x", "Stahl")
+    k70 = k2.bei_temperatur(k, 70.0)
+    assert k70.segmente[1].winkel == 120 and abs(k70.segmente[0].laenge - 80 - laengenaenderung(11.5, 80, 70)) < 1e-12
+    linear = tk.berechne(tk.thermisch(k2.als_glieder(k), {}, 70.0)).nenn - tk.berechne(k2.als_glieder(k)).nenn
+    assert abs(linear - (k2.schlussgroesse(k70) - k2.schlussgroesse(k))) < 1e-9
+    assert k2.von_dict(k2.als_dict(k)).werkstoff == "Stahl"
+    k3k = k3.Kette3D([k3.glied("Sockel", z=(20, 0.05, -0.05)), k3.glied("Arm", "Aluminium", x=(-100, 0.1, -0.1),
+                                                                      rz=(90, 0.1, -0.1))], schluss="x",
+                     werkstoff="Stahl", temperaturen=(-20.0, 70.0))
+    k3w = k3.bei_temperatur(k3k, 70.0)
+    assert k3w.glieder[1].werte["rz"].nenn == 90 and abs(k3.schlussgroesse(k3w) + 100 + 0.115) < 1e-9
+    linear = tk.berechne(tk.thermisch(k3.als_glieder(k3k), {}, 70.0)).nenn - tk.berechne(k3.als_glieder(k3k)).nenn
+    assert abs(linear - (k3.schlussgroesse(k3w) - k3.schlussgroesse(k3k))) < 1e-9
+    zurueck = k3.von_dict(k3.als_dict(k3k))
+    assert zurueck.glieder[1].werkstoff == "Aluminium" and zurueck.temperaturen == (-20.0, 70.0)
+
+
 def test_getriebe_kette_temperatur_stellglied_datei(tmp_path):
     import copy
     from programm.kern import kette_datei
