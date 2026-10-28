@@ -529,6 +529,30 @@ class PlatzhalterAnsicht(AnsichtBasis):
 _PMI_SCHRIFT = []
 
 
+def text_flaechen(text: str, ursprung, x, y, hoehe: float):
+    """Text als gefuellte Glyphen im Modellraum (skaliert mit dem Zoom, anders als AIS_TextLabel, das auf der
+    echten GPU in Bildschirmpunkten zeichnet); None, wenn die Schrift fehlt."""
+    import numpy as np
+    from OCC.Core.Addons import Font_FA_Regular, text_to_brep
+    from OCC.Core.gp import gp_Ax3, gp_Dir, gp_Pnt, gp_Trsf
+    from OCC.Core.TopLoc import TopLoc_Location
+    try:
+        form = text_to_brep(text, pmi_schrift(), Font_FA_Regular, float(hoehe), True)
+    except Exception:  # noqa: BLE001 - Schrift nicht ladbar: Textfeld wie bisher
+        return None
+    if form is None or form.IsNull():
+        return None
+    x = np.asarray(x, float) / (np.linalg.norm(x) or 1.0)
+    y = np.asarray(y, float) / (np.linalg.norm(y) or 1.0)
+    z = np.cross(x, y)
+    if np.linalg.norm(z) < 1e-9:
+        return None
+    t = gp_Trsf()
+    t.SetTransformation(gp_Ax3(gp_Pnt(*map(float, ursprung)), gp_Dir(*map(float, z)), gp_Dir(*map(float, x))))
+    t.Invert()
+    return form.Moved(TopLoc_Location(t))
+
+
 def pmi_schrift() -> str:
     """Schrift fuer PMI-Texte: die verfuegbare Schrift mit den meisten GD&T-Zeichen (⌀ ⌖ ⌓ ⏥ ⟂ ...)."""
     if not _PMI_SCHRIFT:
@@ -1261,6 +1285,13 @@ class OcctAnsicht(AnsichtBasis):
                 lab.SetColor(_farbe((1.0, 1.0, 1.0)))
                 lab.SetHeight(14)
                 liste.append(lab)
+                continue
+            glyphen = text_flaechen(text, ph.ursprung, ph.x, ph.y, max(ph.hoehe, 0.1))
+            if glyphen is not None:  # Text in der Ebene als Geometrie: waechst und schrumpft mit dem Modell
+                schrift = AIS_Shape(glyphen)
+                schrift.SetColor(farbe)
+                schrift.SetDisplayMode(1)
+                liste.append(schrift)
                 continue
             z = ph.x[1] * ph.y[2] - ph.x[2] * ph.y[1], ph.x[2] * ph.y[0] - ph.x[0] * ph.y[2], \
                 ph.x[0] * ph.y[1] - ph.x[1] * ph.y[0]

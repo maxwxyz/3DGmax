@@ -491,8 +491,10 @@ print annotations. Today 3DGmax writes generated texts only into the placeholder
   is not mirrored); frames with compartments (symbol, value with ⌀/Ⓜ/Ⓟ, datums), datum triangle + box, dimension
   text with a reference line; one text placeholder per compartment (`Platzhalter.text`); greedy placement outside
   the model box without overlapping other frames (3D boxes); menu switch "Show generated PMI display".
-  Open (stage 3): dimension lines with arrows/extension lines, overlap check in the projected view, text glyphs as
-  vectors for DXF.
+  Stage 3 done 2026-10-28: distance/thickness dimensions as dimension line with extension lines and arrows outside
+  the model, leaders end with an arrow at the nearest point of the face. On a real GPU AIS_TextLabel draws in screen
+  pixels (Xvfb/Mesa did not show it): texts in an annotation plane are now glyph faces in model space
+  (`Addons.text_to_brep`, `ansicht3d.text_flaechen`). Open: overlap check in the projected view, glyphs into DXF.
 
 ### 8.17 More open formats (requested)
 - STEPZ (`.stpz`, `.stepz`, `.stp.gz`): ZIP or gzip around a Part 21 file – unpack to a temporary file, load as STEP

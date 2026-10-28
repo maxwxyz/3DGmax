@@ -7,6 +7,9 @@ Stufe 2 (PLAN §8.16):
   Masstext mit Bezugslinie; Hinweislinie vom Element zum Rahmen. Texte stehen als Platzhalter je Feld in der Ebene.
 - Anordnung ohne Ueberdeckung: Rahmen ausserhalb des Modellquaders, gierig nach aussen verschoben, bis sich kein
   Rechteck mit einem schon platzierten ueberschneidet.
+Stufe 3: Abstands- und Dickenmasse zwischen zwei parallelen Ebenen als Masslinie mit Masshilfslinien und Pfeilen
+ausserhalb des Modells (Schreibebene enthaelt die Massrichtung, Text ueber der Masslinie in Leserichtung); Hinweislinien
+enden mit Pfeil am naechsten Punkt der Flaeche statt am Flaechenschwerpunkt (bei Bohrungen sonst auf der Achse).
 Alles ist als 'erzeugt' markiert (eigene Farbe), damit es nie mit der Darstellung des Autors verwechselt wird.
 """
 
@@ -153,6 +156,92 @@ def _bezugsdreieck(g: Grafik, anker, richtung, quer, h):
     return c
 
 
+def _pfeil(g: Grafik, spitze, richtung, h):
+    """Gefuellter Pfeil: Spitze am Punkt, zeigt in 'richtung' (Laenge h)."""
+    r = np.asarray(richtung, float)
+    r = r / (np.linalg.norm(r) or 1.0)
+    quer = np.cross(r, g.ebene[3]) if g.ebene is not None else np.cross(r, [0.0, 0.0, 1.0])
+    quer = quer / (np.linalg.norm(quer) or 1.0)
+    fuss = spitze - r * h
+    g.dreiecke.append((np.array([spitze, fuss + quer * 0.3 * h, fuss - quer * 0.3 * h]), np.array([[0, 1, 2]])))
+
+
+def _naechster_punkt(flaechen, ziel) -> np.ndarray | None:
+    """Punkt der Flaechen, der dem Ziel am naechsten liegt (Ende der Hinweislinie)."""
+    from OCC.Core.BRep import BRep_Builder
+    from OCC.Core.BRepBuilderAPI import BRepBuilderAPI_MakeVertex
+    from OCC.Core.BRepExtrema import BRepExtrema_DistShapeShape
+    from OCC.Core.TopoDS import TopoDS_Compound
+    from OCC.Core.gp import gp_Pnt
+    c = TopoDS_Compound()
+    b = BRep_Builder()
+    b.MakeCompound(c)
+    for f in flaechen:
+        b.Add(c, f)
+    d = BRepExtrema_DistShapeShape(BRepBuilderAPI_MakeVertex(gp_Pnt(*map(float, ziel))).Vertex(), c)
+    if not d.IsDone() or d.NbSolution() == 0:
+        return None
+    q = d.PointOnShape2(1)
+    return np.array([q.X(), q.Y(), q.Z()])
+
+
+def _ebenen_paar(flaechen):
+    """((Punkt, Normale), (Punkt, Normale)) zweier paralleler Ebenen oder None."""
+    from .plausibilitaet import _ebene
+    if len(flaechen) != 2:
+        return None
+    e = [_ebene(f) for f in flaechen]
+    if None in e or abs(abs(float(e[0][1] @ e[1][1])) - 1) > 1e-6:
+        return None
+    a, b = (_schwerpunkt([f]) for f in flaechen)
+    return (a, e[0][1]), (b, e[1][1])
+
+
+def _masslinie(p, flaechen, quader, mitte, belegt, h, nr) -> Grafik | None:
+    """Abstandsmass zwischen zwei parallelen Ebenen: Masshilfslinien, Masslinie mit Pfeilen, Text darueber."""
+    paar = _ebenen_paar(flaechen)
+    if paar is None:
+        return None
+    (c1, u), (c2, _) = paar
+    u = u / np.linalg.norm(u)
+    kandidaten = [a * (1.0 if a @ BETRACHTER >= 0 else -1.0) for a in ACHSEN if abs(a @ u) < 1e-3]
+    if not kandidaten:
+        return None  # Massrichtung schraeg zu allen Modellebenen: Hinweislinie wie bisher
+    n = max(kandidaten, key=lambda a: abs(a @ BETRACHTER))
+    c2 = c2 - n * float((c2 - c1) @ n)  # in die Schreibebene durch c1
+    d = float((c2 - c1) @ u)
+    y = np.cross(n, u)
+    if float((c1 + c2) / 2 @ y - mitte @ y) < 0:
+        y = -y  # nach aussen
+    rand = float(max((q - c1) @ y for q in quader))
+    _, y_ref, _ = modell_ebene(n)
+    u_text = u if float(np.cross(n, u) @ y_ref) >= 0 else -u  # Text von links nach rechts lesbar
+    text = p.wert_text()
+    breite = ZEICHENBREITE * h * len(text) + h
+    for k in range(40):  # Abstand nach aussen, bis keine schon platzierte Grafik ueberdeckt wird
+        hoehe = rand + (2.5 + 2.0 * k) * h
+        a, b = c1 + y * hoehe, c1 + u * d + y * hoehe
+        mitte_linie = (a + b) / 2
+        ecken = np.array([a, b, mitte_linie - u_text * breite / 2 + y * 1.6 * h,
+                          mitte_linie + u_text * breite / 2 + y * 1.6 * h])
+        m = np.column_stack([u, y])
+        if all(not _ueberlappt(ecken @ m, e @ m, 0.4 * h) for e in belegt):
+            break
+    g = Grafik(-nr, name=p.name or p.typ, fertig=True, pmi_ids={p.step_id}, erzeugt=True,
+               ebene=(c1.copy(), u_text, np.cross(n, u_text), n))
+    for fuss, ende in ((c1, a), (c2, b)):
+        g.linien.append(np.array([fuss + y * 0.5 * h, ende + y * 0.8 * h]))  # Masshilfslinie
+    g.linien.append(np.array([a, b]))  # Masslinie
+    richtung = (b - a) / (np.linalg.norm(b - a) or 1.0)
+    _pfeil(g, a, -richtung, h)
+    _pfeil(g, b, richtung, h)
+    yt = np.cross(n, u_text)
+    ort = mitte_linie - u_text * (breite / 2 - 0.5 * h) + yt * 0.3 * h
+    g.platzhalter.append(Platzhalter(ort, u_text.copy(), yt, breite - h, h, text=text))
+    belegt.append(ecken)
+    return g
+
+
 def ergaenze(pmi: list, grafik: dict, modell, ansichten: list | None = None) -> dict:
     """Neue Grafiken (negative Callout-IDs) fuer PMI mit Flaechen, aber ohne vorhandene Darstellung."""
     from OCC.Core.Bnd import Bnd_Box
@@ -176,6 +265,11 @@ def ergaenze(pmi: list, grafik: dict, modell, ansichten: list | None = None) -> 
         anker = _schwerpunkt(flaechen)
         if anker is None:
             continue
+        if p.art == MASS and p.typ in ("Location_LinearDistance", "Size_Thickness"):
+            g = _masslinie(p, flaechen, quader, mitte, belegt, h, i)
+            if g is not None:
+                neu[-i] = g
+                continue
         ansicht = next((a for a in (ansichten or []) if p.step_id in a.pmi_ids and not a.eigen), None)
         x, y, n = ansicht_ebene(ansicht) if ansicht is not None else modell_ebene(_richtung_element(flaechen))
         raus = anker - mitte
@@ -195,7 +289,14 @@ def ergaenze(pmi: list, grafik: dict, modell, ansichten: list | None = None) -> 
         rahmen.grafik(g, ursprung, x, y)
         # Hinweislinie zum naechsten Punkt auf der Rahmenkante (Mitte links/rechts bzw. unten)
         andock = min((e[0] + e[3]) / 2, (e[1] + e[2]) / 2, (e[0] + e[1]) / 2, key=lambda q: np.linalg.norm(q - ziel))
-        g.linien.insert(0, np.array([anker if p.art != BEZUG else ziel, andock]))
+        if p.art == BEZUG:
+            g.linien.insert(0, np.array([ziel, andock]))
+        else:  # Hinweislinie mit Pfeil am naechsten Punkt der Flaeche
+            spitze = _naechster_punkt(flaechen, andock)
+            spitze = anker if spitze is None else spitze
+            g.linien.insert(0, np.array([spitze, andock]))
+            if np.linalg.norm(andock - spitze) > h:
+                _pfeil(g, spitze, spitze - andock, 0.8 * h)
         neu[-i] = g
     return neu
 

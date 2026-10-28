@@ -194,7 +194,9 @@
    "STEP mit geänderten PMI speichern: auch geänderte Toleranzklassen (vorhandene Passungsangabe) und Materialbedingungen Ⓜ/Ⓛ werden geschrieben; Passungen eigener PMI wie in den NIST-Dateien.",
    "Zusammenbau: 3D-Griff am gewählten Teil – nur Pfeile und Ringe der offenen Freiheitsgrade (z. B. nur der Drehring einer Schraube); Ziehen bewegt das Teil, die Verbindungen bleiben erfüllt.",
    "Behoben: Die zweite 3D-Ansicht (Vergleich „Nebeneinander“/„Alt“, weitere Fenster) zeigte schwarzen Hintergrund, kein Licht und einen unbeschrifteten Würfel – weitere Ansichten rendern jetzt mit der festen Grafik-Pipeline.",
-   "Qt-eigene Texte (Standardknöpfe wie „Schließen“, „Abbrechen“, Dateidialoge) erscheinen bei deutscher Oberfläche auf Deutsch; die App bringt die Übersetzung mit."
+   "Qt-eigene Texte (Standardknöpfe wie „Schließen“, „Abbrechen“, Dateidialoge) erscheinen bei deutscher Oberfläche auf Deutsch; die App bringt die Übersetzung mit.",
+   "Erzeugte PMI-Darstellung: Abstands- und Dickenmaße mit Maßlinie, Maßhilfslinien und Pfeilen außerhalb des Modells; Hinweislinien enden mit Pfeil auf der Fläche.",
+   "Behoben: PMI-Texte in der Schreibebene wurden auf der Grafikkarte in Bildschirmpunkten gezeichnet (bei erzeugter PMI unsichtbar klein, sonst nicht passend zu den Rahmen) – sie werden jetzt als Schriftzeichen im Modellraum dargestellt und skalieren mit dem Zoom."
   ],
   "en": [
    "First viewer version: load STEP AP242, assembly tree, CAD-style navigation, standard views.",
@@ -390,7 +392,9 @@
    "Save STEP with edited PMI: edited fit classes (existing fit entity) and material conditions Ⓜ/Ⓛ are written too; fits of own PMI as in the NIST files.",
    "Assembly: 3D handle on the selected part – only the arrows and rings of the open degrees of freedom (e.g. just the rotation ring of a screw); dragging moves the part, the connections stay satisfied.",
    "Fixed: the second 3D view (comparison “Side by side”/“Old”, further windows) showed a black background, no lighting and an unlabelled cube – further views now render with the fixed-function pipeline.",
-   "Qt's own texts (standard buttons such as Close, Cancel, file dialogs) appear in German when the interface is German; the app ships the translation."
+   "Qt's own texts (standard buttons such as Close, Cancel, file dialogs) appear in German when the interface is German; the app ships the translation.",
+   "Generated PMI display: distance and thickness dimensions with dimension line, extension lines and arrows outside the model; leader lines end with an arrow on the face.",
+   "Fixed: PMI texts in the annotation plane were drawn in screen pixels on the GPU (invisibly small for generated PMI, otherwise not matching the frames) – they are now shown as glyphs in model space and scale with the zoom."
   ]
  },
  "releases": [

@@ -914,3 +914,37 @@ def test_toleranzkette_bonus_kante_cpk():
     e2 = tk.berechne(glieder, anforderung=(9.0, 11.0))
     assert abs(e2.mitte - 10.1) < 1e-9 and e2.cpk < e.cpk and abs(glieder[0].cpk() - 0.5) < 1e-9
     assert "Cpk" in tk.als_csv(glieder, e2)
+
+
+def test_erzeugte_masslinie():
+    """Dickenmass eines Quaders: zwei Masshilfslinien, Masslinie mit zwei Pfeilen ausserhalb des Modells, Text darueber;
+    Durchmesser: Hinweislinie endet mit Pfeil auf dem Mantel, nicht auf der Achse."""
+    from types import SimpleNamespace
+    import numpy as np
+    from OCC.Core.BRepAlgoAPI import BRepAlgoAPI_Cut
+    from OCC.Core.BRepPrimAPI import BRepPrimAPI_MakeBox, BRepPrimAPI_MakeCylinder
+    from OCC.Core.TopAbs import TopAbs_FACE
+    from OCC.Core.TopExp import TopExp_Explorer
+    from OCC.Core.gp import gp_Ax2, gp_Dir, gp_Pnt
+    from programm.kern import pmi_erzeugen, toleranzzone as tz, verbindung as vb
+    from programm.kern.pmi import MASS, Pmi
+    form = BRepAlgoAPI_Cut(BRepPrimAPI_MakeBox(60, 40, 10).Shape(),
+                           BRepPrimAPI_MakeCylinder(gp_Ax2(gp_Pnt(30, 20, -1), gp_Dir(0, 0, 1)), 5, 12).Shape()).Shape()
+    flaechen, ex = [], TopExp_Explorer(form, TopAbs_FACE)
+    while ex.More():
+        flaechen.append(ex.Current())
+        ex.Next()
+    xw = [i for i, f in enumerate(flaechen) if (m := vb.merkmal(f)) and m[0] == "ebene" and abs(m[2][0]) > 0.99]
+    loch = next(i for i, f in enumerate(flaechen) if tz._achsen([f]))
+    modell = SimpleNamespace(form=form, flaechen=flaechen)
+    breite = Pmi(MASS, "Size_Thickness", nennwert=60, oben=0.1, unten=-0.1, flaechen=set(xw), step_id=1)
+    durch = Pmi(MASS, "Size_Diameter", nennwert=10, oben=0.1, unten=0, flaechen={loch}, step_id=2)
+    neu = pmi_erzeugen.ergaenze([breite, durch], {}, modell)
+    g = neu[-1]
+    assert len(g.linien) == 3 and len(g.dreiecke) == 2 and "60" in g.platzhalter[0].text
+    masslinie = g.linien[2]
+    assert abs(np.linalg.norm(masslinie[1] - masslinie[0]) - 60) < 1e-6  # zwischen den Ebenen
+    assert masslinie[:, 1].min() > 40 or masslinie[:, 2].min() > 10 or masslinie[:, 1].max() < 0  # ausserhalb
+    hinweis = neu[-2].linien[0]
+    r = np.linalg.norm(hinweis[0][:2] - [30, 20])
+    assert abs(r - 5) < 1e-6 and neu[-2].dreiecke  # Pfeil auf dem Bohrungsmantel

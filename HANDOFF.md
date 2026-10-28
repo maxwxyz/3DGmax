@@ -139,7 +139,8 @@ public-domain NIST STEP files.
 planes and the view cube, and `DG_BILDSCHIRM=1 pytest tests/test_bildschirm.py` ran under Xvfb.
 
 **Still to check on the real screen (Mac):**
-- Font and glyph appearance of AIS_TextLabel texts (Mesa uses other fonts), MSAA and line widths on a real GPU.
+- (Checked 2026-10-28 on the Mac: AIS_TextLabel in an annotation plane draws in screen pixels → now glyph faces in
+  model space.)
 - Capping with chained section planes on thin parts.
 - Contrast of the 1 px model edges on PRC files with grey face colors.
 - Tolerance zones stage 2: colors/transparency of zone, bonus, surface space and general tolerances; "all zones" on
