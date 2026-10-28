@@ -156,3 +156,41 @@ def test_messgroessen_an_achsen():
     e1 = a.berechne(zur_seite, *b.mass_formen[zur_seite.nummer])
     e2 = a.berechne(gedreht, *b.mass_formen[gedreht.nummer])
     assert abs(abs(e1.nenn) - abs(e2.nenn)) < 1e-9 and abs((e1.wc_max - e1.wc_min) - (e2.wc_max - e2.wc_min)) < 1e-9
+
+
+def test_manipulator_rahmen_und_werte():
+    """Rahmen des 3D-Manipulators je Verbindungsart und Rueckrechnung einer Manipulator-Bewegung auf die Freiheitsgrade."""
+    from OCC.Core.BRepPrimAPI import BRepPrimAPI_MakeBox, BRepPrimAPI_MakeCylinder, BRepPrimAPI_MakeSphere
+    from OCC.Core.gp import gp_Ax2, gp_Dir, gp_Pnt
+    platte = _oben(BRepPrimAPI_MakeBox(100.0, 100.0, 10.0).Shape())
+    unten = next(f for f in _flaechen(BRepPrimAPI_MakeBox(gp_Pnt(10, 10, 20), 5, 5, 5).Shape())
+                 if (m := vb.merkmal(f)) and m[0] == "ebene" and m[2][2] < -0.99)
+    b = vb.Baugruppe()
+    b.verbinde(2, unten, 0, 1, platte, 0)  # Klotz auf Platte: zwei Verschiebungen, eine Drehung
+    r = vb.manipulator_rahmen(b.freiheitsgrade(2), np.array([12.5, 12.5, 12.5]))
+    assert np.allclose(np.abs(r["achsen"][2]), [0, 0, 1]) and r["verschieben"] == [True, True, False]
+    assert r["drehen"] == [False, False, True]
+    # Rueckrechnung: Verschiebung in der Ebene und Drehung um die Normale durch den Manipulatorpunkt
+    basis = b.freiheitsgrade(2)
+    m = np.eye(4)
+    m[:3, 3] = [3.0, -2.0, 0.0]
+    werte = vb.werte_aus_bewegung(m, basis, r["punkt"])
+    start = b.lage(2).copy()
+    b.bewege_frei(2, werte, start, basis)
+    assert np.allclose(b.lage(2)[:3, 3] - start[:3, 3], [3, -2, 0], atol=1e-9) and not b.verletzt()
+    # Zapfen in Bohrung: Drehung und Verschiebung entlang der Achse
+    bohrung = next(f for f in _flaechen(BRepPrimAPI_MakeCylinder(gp_Ax2(gp_Pnt(50, 50, 0), gp_Dir(0, 0, 1)), 4, 10)
+                                        .Shape()) if vb.merkmal(f)[0] == "achse")
+    zapfen = next(f for f in _flaechen(BRepPrimAPI_MakeCylinder(gp_Ax2(gp_Pnt(0, 0, 30), gp_Dir(0, 0, 1)), 4, 20)
+                                       .Shape()) if vb.merkmal(f)[0] == "achse")
+    b.verbinde(3, zapfen, 0, 1, bohrung, 0)
+    r = vb.manipulator_rahmen(b.freiheitsgrade(3), np.zeros(3))
+    assert np.allclose(r["punkt"][:2], [50, 50]) and r["verschieben"] == [False, False, True]
+    assert r["drehen"] == [False, False, True]
+    # Kugelgelenk: drei Drehungen um die Mitte
+    k1 = _flaechen(BRepPrimAPI_MakeSphere(gp_Pnt(0, 0, 80), 3.0).Shape())[0]
+    k2 = _flaechen(BRepPrimAPI_MakeSphere(gp_Pnt(20, 20, 80), 3.0).Shape())[0]
+    b.verbinde(4, k1, 0, 1, k2, 0)
+    r = vb.manipulator_rahmen(b.freiheitsgrade(4), np.zeros(3))
+    assert np.allclose(r["punkt"], [20, 20, 80]) and r["drehen"] == [True] * 3 and r["verschieben"] == [False] * 3
+    assert vb.manipulator_rahmen(np.zeros((0, 6)), np.zeros(3)) is None

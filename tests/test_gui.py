@@ -1472,6 +1472,31 @@ def test_zusammenbau_teil_frei_bewegen(fenster):
     assert np.allclose(f.baugruppe.lage(schraube), vorher)
 
 
+def test_zusammenbau_3d_griff(fenster):
+    """Teil im Zusammenbau gewaehlt: 3D-Griff mit nur der offenen Drehung; Ziehen dreht das Teil um seine Achse."""
+    import numpy as np
+    from programm.kern import verbindung as vb
+    f = fenster
+    assert f.oeffne_beispiel("zusammenbau", warten=True)
+    z = f.zusammenbau
+    z.wiggle_an.setChecked(False)
+    f.dock_zusammenbau.show()
+    schraube = next(n for n in z._teil_nummern if not f.baugruppe.fest(n))
+    z.teile.selectRow(z._teil_nummern.index(schraube))
+    r = f.ansicht.manipulator
+    assert r is not None and sum(r["drehen"]) == 1 and not any(r["verschieben"])
+    achse = r["achsen"][int(np.argmax(r["drehen"]))]
+    vorher = f.baugruppe.lage(schraube).copy()
+    m = vb.bewegung(np.r_[achse, -np.cross(achse, r["punkt"])], 30.0)  # 30 Grad um die Griffachse
+    f.ansicht.manipulator_bewegt.emit(m)
+    assert not f.baugruppe.verletzt() and not np.allclose(f.baugruppe.lage(schraube), vorher)
+    f.ansicht.manipulator_fertig.emit()
+    assert np.allclose(f._frei[2], f.baugruppe.lage(schraube))
+    z.teile.clearSelection()
+    f._frei_anzeigen()
+    assert f.ansicht.manipulator is None
+
+
 def test_kollision_tiefe_kurven_pdf_projekt(fenster, tmp_path):
     f = fenster
     f.lade(pfad("baugruppe.stp"), warten=True)

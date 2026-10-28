@@ -233,6 +233,68 @@ def bewegung(z: np.ndarray, betrag: float, um: np.ndarray | None = None) -> np.n
     return m
 
 
+def manipulator_rahmen(basis: np.ndarray, mitte: np.ndarray) -> dict | None:
+    """Rahmen eines 3D-Manipulators fuer die offenen Freiheitsgrade: Ursprung (Drehpunkt, sonst mitte), Achsen
+    x, y, z (z = Drehachse bzw. Normale der Schiebeebene) und je Achse, ob Verschieben bzw. Drehen erlaubt ist (nur
+    Bewegungen im Raum der Freiheitsgrade). None ohne Freiheitsgrade."""
+    if basis is None or not len(basis):
+        return None
+    arten = [_gerade_ausrichten(z[:3], z[3:]) for z in basis]
+    drehungen = [(a, p) for art, a, p in arten if art == "drehung"]
+    schuebe = [a for art, a, _p in arten if art == "verschiebung"]
+    mitte = np.asarray(mitte, float)
+    if len(drehungen) >= 2:  # gemeinsamer Punkt der Drehachsen (Kugelgelenk: Mitte)
+        a_sum = sum(np.eye(3) - np.outer(a, a) for a, _ in drehungen)
+        b_sum = sum((np.eye(3) - np.outer(a, a)) @ p for a, p in drehungen)
+        punkt = np.linalg.lstsq(a_sum, b_sum, rcond=None)[0]
+    elif drehungen:  # auf der Achse, der Teilmitte am naechsten
+        a, p = drehungen[0]
+        punkt = p + a * float((mitte - p) @ a)
+    else:
+        punkt = mitte
+    if drehungen:
+        z = drehungen[0][0]
+    elif len(schuebe) == 1:
+        z = schuebe[0]
+    elif len(schuebe) == 2:
+        z = np.cross(schuebe[0], schuebe[1])
+    else:
+        z = np.array([0.0, 0.0, 1.0])
+    z = z / np.linalg.norm(z)
+    x = next((d - z * (d @ z) for d in schuebe if np.linalg.norm(d - z * (d @ z)) > 1e-6), None)
+    x = _senkrechte(z)[0] if x is None else x
+    x = x / np.linalg.norm(x)
+    y = np.cross(z, x)
+    achsen = (x, y, z)
+
+    def im_raum(v, raum):
+        if not raum:
+            return False
+        q, _ = np.linalg.qr(np.array(raum).T)
+        return float(np.linalg.norm(v - q @ (q.T @ v))) < 1e-6
+
+    dreh_hier = [a for a, p in drehungen if np.linalg.norm(np.cross(p - punkt, a)) < 1e-6]
+    return {"punkt": punkt, "achsen": achsen, "verschieben": [im_raum(a, schuebe) for a in achsen],
+            "drehen": [im_raum(a, dreh_hier) for a in achsen]}
+
+
+def werte_aus_bewegung(m: np.ndarray, basis: np.ndarray, punkt: np.ndarray) -> list[float]:
+    """Werte je Freiheitsgrad (mm bzw. Grad) aus einer Bewegung (4x4, Welt) des Manipulators am Punkt: Drehung als
+    Drehvektor, Verschiebung ohne den Anteil der Drehung um den Punkt."""
+    r, t = np.asarray(m[:3, :3], float), np.asarray(m[:3, 3], float)
+    w = np.arccos(np.clip((np.trace(r) - 1) / 2, -1.0, 1.0))
+    if w < 1e-12:
+        dreh = np.zeros(3)
+    else:
+        dreh = w / (2 * np.sin(w)) * np.array([r[2, 1] - r[1, 2], r[0, 2] - r[2, 0], r[1, 0] - r[0, 1]])
+    rest = t - (punkt - r @ punkt)  # Drehung um den Manipulatorpunkt herausrechnen
+    out = []
+    for z in basis:
+        art, a, _p = _gerade_ausrichten(z[:3], z[3:])
+        out.append(float(np.degrees(dreh @ a)) if art == "drehung" else float(rest @ a))
+    return out
+
+
 def _bereich_entlang(flaeche, lage, punkt, richtung) -> tuple[float, float]:
     """Ausdehnung einer Flaeche entlang einer Richtung (Ecken des Huellquaders, Weltlage)."""
     import itertools

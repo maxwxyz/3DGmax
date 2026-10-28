@@ -70,6 +70,8 @@ class AnsichtBasis(QtWidgets.QWidget):
     kontextmenue = QtCore.Signal(object)  # globale Bildschirmposition (QPoint)
     meldung = QtCore.Signal(str)
     sichtbarkeit_geaendert = QtCore.Signal()  # Teile aus- oder eingeblendet, isoliert
+    manipulator_bewegt = QtCore.Signal(object)  # 4x4 (Welt) seit Beginn des Ziehens am 3D-Griff
+    manipulator_fertig = QtCore.Signal()
 
     def __init__(self, parent=None):
         super().__init__(parent)
@@ -108,6 +110,7 @@ class AnsichtBasis(QtWidgets.QWidget):
         self.ballone: list = []
         self.explosion = 0.0
         self.teil_lagen: dict = {}  # Knotennummer -> 4x4 (numpy) aus dem Zusammenbau (kern.verbindung)
+        self.manipulator: dict | None = None  # Rahmen des 3D-Griffs (kern.verbindung.manipulator_rahmen)
         self.auswahl_teile: list = []  # Knotennummer je Eintrag in auswahl3d (None: unbekannt)
         self.material = None
         self.kollision = None  # (Knotennummern der zwei Teile, Durchdringung oder None, Punkte) eines Befunds
@@ -455,6 +458,10 @@ class AnsichtBasis(QtWidgets.QWidget):
     def setze_teil_lagen(self, lagen: dict):
         """Lagen der Teile aus dem Zusammenbau (4x4 je Knotennummer, Welt); {} = wie in der Datei."""
         self.teil_lagen = dict(lagen)
+
+    def zeige_manipulator(self, rahmen: dict | None):
+        """3D-Griff (Pfeile, Ringe) fuer die offenen Freiheitsgrade (verbindung.manipulator_rahmen); None: aus."""
+        self.manipulator = rahmen
 
     def schnitt_aus_auswahl(self) -> bool:
         """Schnittebene durch die gewaehlte Flaeche/Kante; False ohne passende Auswahl."""
@@ -905,6 +912,13 @@ class OcctAnsicht(AnsichtBasis):
             self._baue_szene()
 
     def _baue_szene(self):
+        """Szene neu aufbauen; der 3D-Griff (von RemoveAll entfernt) kommt danach wieder dazu."""
+        self._baue_szene_inhalt()
+        self._manip_ais = None
+        if self.manipulator is not None:
+            self.zeige_manipulator(self.manipulator)
+
+    def _baue_szene_inhalt(self):
         from OCC.Core.AIS import AIS_ColoredShape, AIS_Shape
         from OCC.Core.Graphic3d import Graphic3d_MaterialAspect, Graphic3d_NameOfMaterial_Plastified
         from OCC.Core.TopAbs import TopAbs_FACE
@@ -1480,6 +1494,73 @@ class OcctAnsicht(AnsichtBasis):
         if self._bereit and self.szene is not None:
             self._lagen_anwenden()
             self._neu_zeichnen()
+
+    def zeige_manipulator(self, rahmen):
+        """AIS_Manipulator am Rahmen; nur die erlaubten Verschiebe- und Dreh-Teile, gleich gross am Bildschirm.
+        Das Ziehen meldet manipulator_bewegt (das Hauptfenster bewegt das Teil in seinen Freiheitsgraden)."""
+        super().zeige_manipulator(rahmen)
+        if not self._bereit:
+            return
+        ctx = self.d.Context
+        alt = getattr(self, "_manip_ais", None)
+        if alt is not None:
+            if alt.IsAttached():
+                alt.Detach()
+            ctx.Remove(alt, False)
+            self._manip_ais = None
+        if rahmen is not None:
+            from OCC.Core.AIS import (AIS_Manipulator, AIS_MM_Rotation, AIS_MM_Scaling, AIS_MM_Translation,
+                                      AIS_MM_TranslationPlane)
+            from OCC.Core.gp import gp_Ax2, gp_Dir, gp_Pnt
+            m = AIS_Manipulator()
+            x, _y, z = rahmen["achsen"]
+            ziel = self._teile.get(rahmen.get("teil"))
+            if ziel is not None:  # Ziehen braucht ein angehaengtes Objekt (OCCT); Lage setzt das Hauptfenster
+                m.Attach(ziel)
+            m.SetPosition(gp_Ax2(gp_Pnt(*map(float, rahmen["punkt"])), gp_Dir(*map(float, z)), gp_Dir(*map(float, x))))
+            for i in range(3):
+                m.SetPart(i, AIS_MM_Translation, bool(rahmen["verschieben"][i]))
+                m.SetPart(i, AIS_MM_Rotation, bool(rahmen["drehen"][i]))
+                m.SetPart(i, AIS_MM_Scaling, False)
+                m.SetPart(i, AIS_MM_TranslationPlane, False)
+            m.SetModeActivationOnDetection(True)
+            m.SetZoomPersistence(True)
+            m.SetSize(110.0)
+            if ziel is None:
+                ctx.Display(m, False)
+            else:
+                ctx.Redisplay(m, False)
+            ctx.Deactivate(m)  # Modus 0 liefert hier keine Treffer: Verschieben (1) und Drehen (2) einzeln
+            for modus in (int(AIS_MM_Translation), int(AIS_MM_Rotation)):
+                ctx.Activate(m, modus, False)
+            self._manip_ais = m
+        self._manip_zieht = False
+        self._neu_zeichnen()
+
+    def _manipulator_maus(self, typ, ev, x, y) -> bool:
+        """Ziehen am 3D-Griff: True, wenn das Ereignis dem Griff gehoert."""
+        m = getattr(self, "_manip_ais", None)
+        if m is None:
+            return False
+        E = QtCore.QEvent.Type
+        if typ == E.MouseButtonPress and ev.button() == QtCore.Qt.MouseButton.LeftButton:
+            self.d.Context.MoveTo(x, y, self.d.View, False)
+            if m.HasActiveMode():
+                m.StartTransform(x, y, self.d.View)
+                self._manip_zieht = True
+                return True
+        elif typ == E.MouseMove and getattr(self, "_manip_zieht", False):
+            import numpy as np
+            t = m.Transform(x, y, self.d.View)
+            self.manipulator_bewegt.emit(np.array([[t.Value(i, j) for j in (1, 2, 3, 4)] for i in (1, 2, 3)] +
+                                                  [[0.0, 0.0, 0.0, 1.0]]))
+            return True
+        elif typ == E.MouseButtonRelease and getattr(self, "_manip_zieht", False):
+            m.StopTransform(True)
+            self._manip_zieht = False
+            self.manipulator_fertig.emit()
+            return True
+        return False
 
     def _lagen_anwenden(self):
         """Lage je Teil: Explosion, Vergleichsausrichtung und Zusammenbau (Teillage) hintereinander."""
@@ -2261,6 +2342,8 @@ class OcctAnsicht(AnsichtBasis):
                 self._kamera_setzen(self._fahrt[1])
             if self._wuerfel_maus(typ, ev, x, y):
                 return True
+            if self._manipulator_maus(typ, ev, x, y):
+                return True
             knopf, knoepfe = int(ev.button().value), int(ev.buttons().value)
             umschalt = int(ev.modifiers().value)
             if typ == E.MouseButtonPress:
@@ -2378,6 +2461,8 @@ class OcctAnsicht(AnsichtBasis):
             self.flaeche_gewaehlt.emit(-1)
             return
         obj = ctx.DetectedInteractive()
+        if getattr(self, "_manip_ais", None) is not None and obj == self._manip_ais:
+            return  # Klick auf den 3D-Griff ohne aktiven Teil: keine Auswahl
         cid = next((c for a, c in self._ais_callout.items() if a == obj), None)
         if cid is not None:
             self.pmi_gewaehlt.emit(set(self.szene.grafik[cid].pmi_ids))

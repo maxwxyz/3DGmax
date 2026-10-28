@@ -90,7 +90,7 @@
 | UI scaling option (90–150 %, as in ZGmax) | ✅ |
 | UI/UX stage 2: workspaces; stage 3: inspector and guided flows | ⬜ |
 | Assembly: move the selected part only along its open DOF (numeric fields per DOF) | ✅ |
-| Assembly: 3D dragger (gizmo with arrows and rings) for the same moves | ⬜ |
+| Assembly: 3D dragger (gizmo with arrows and rings) for the same moves | ✅ |
 | Assembly: 3-2-1 template (six planes, one step) | ✅ |
 | Assembly: dragging with live snapping, STEP kinematics | ⬜ |
 | Tolerance stack-up 3D (geometric tolerances, chain from the model, sensitivity) – PLAN §8.20 | ⬜ |

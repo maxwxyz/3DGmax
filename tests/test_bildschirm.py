@@ -189,3 +189,69 @@ def test_navigation_und_klick():
     assert zeile, r.stdout[-2000:] + r.stderr[-2000:]
     erg = eval(zeile.split(" ", 1)[1])  # noqa: S307 - eigene Ausgabe
     assert all(v for k, v in erg.items() if k != "text"), [k for k, v in erg.items() if not v and k != "text"]
+
+
+GRIFF = r'''
+import os, sys, tempfile
+sys.path.insert(0, sys.argv[1])
+os.environ["DG_EINSTELLUNGEN"] = os.path.join(tempfile.mkdtemp(), "e.ini")
+from PySide6 import QtCore, QtGui, QtWidgets
+app = QtWidgets.QApplication([])
+from programm.ui.hauptfenster import Hauptfenster
+import numpy as np
+f = Hauptfenster(); f.resize(1200, 800); f.show()
+B = QtCore.Qt.MouseButton
+def maus(typ, pos):
+    v = f.ansicht.viewer
+    knoepfe = B.LeftButton if typ != QtCore.QEvent.Type.MouseButtonRelease else B.NoButton
+    ev = QtGui.QMouseEvent(typ, QtCore.QPointF(*pos), v.mapToGlobal(QtCore.QPointF(*pos)), B.LeftButton, knoepfe,
+                           QtCore.Qt.KeyboardModifier.NoModifier)
+    QtWidgets.QApplication.sendEvent(v, ev)
+def los():
+    erg = {}
+    try:
+        f.oeffne_beispiel("zusammenbau", warten=True)
+        z = f.zusammenbau; z.wiggle_an.setChecked(False); f.dock_zusammenbau.show()
+        schraube = next(n for n in z._teil_nummern if not f.baugruppe.fest(n))
+        z.teile.selectRow(z._teil_nummern.index(schraube))
+        for _ in range(20):
+            QtWidgets.QApplication.processEvents()
+        erg["griff"] = getattr(f.ansicht, "_manip_ais", None) is not None
+        p = f.ansicht.manipulator["punkt"]
+        x, y = f.ansicht.d.View.Convert(float(p[0]), float(p[1]), float(p[2]))
+        vorher = f.baugruppe.lage(schraube).copy()
+        gezogen = False
+        for dx in range(-130, 131, 3):
+            for dy in range(-130, 131, 3):
+                maus(QtCore.QEvent.Type.MouseButtonPress, (x + dx, y + dy))
+                if f.ansicht._manip_zieht:
+                    for k in range(1, 6):
+                        maus(QtCore.QEvent.Type.MouseMove, (x + dx + 8 * k, y + dy + 5 * k))
+                    maus(QtCore.QEvent.Type.MouseButtonRelease, (x + dx + 40, y + dy + 25))
+                    gezogen = True
+                    break
+                maus(QtCore.QEvent.Type.MouseButtonRelease, (x + dx, y + dy))
+            if gezogen:
+                break
+        erg["gezogen"] = gezogen
+        erg["bewegt"] = not np.allclose(vorher, f.baugruppe.lage(schraube))
+        erg["erfuellt"] = not f.baugruppe.verletzt()
+    except Exception as e:
+        erg["fehler"] = False
+        erg["text"] = repr(e)
+    print("ERGEBNIS", erg, flush=True)
+    app.quit()
+QtCore.QTimer.singleShot(1500, los)
+app.exec()
+'''
+
+
+def test_3d_griff_ziehen():
+    """Zusammenbau: am Drehring des 3D-Griffs ziehen dreht die Schraube in ihrem offenen Freiheitsgrad."""
+    env = dict(os.environ)
+    env.pop("QT_QPA_PLATFORM", None)
+    r = subprocess.run([sys.executable, "-c", GRIFF, WURZEL], capture_output=True, text=True, env=env, timeout=300)
+    zeile = next((z for z in r.stdout.splitlines() if z.startswith("ERGEBNIS")), "")
+    assert zeile, r.stdout[-2000:] + r.stderr[-2000:]
+    erg = eval(zeile.split(" ", 1)[1])  # noqa: S307 - eigene Ausgabe
+    assert all(v for k, v in erg.items() if k != "text"), erg

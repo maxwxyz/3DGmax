@@ -214,6 +214,9 @@ class Hauptfenster(QtWidgets.QMainWindow):
         self.zusammenbau.umkehren.connect(lambda n: self._verbindung_aendern(self.baugruppe.umkehren, n))
         self.zusammenbau.teile.itemSelectionChanged.connect(self._frei_anzeigen)
         self.zusammenbau.frei_bewegen.connect(self._frei_bewegen)
+        self.ansicht.manipulator_bewegt.connect(self._manipulator_bewegt)
+        self.ansicht.manipulator_fertig.connect(self._manipulator_fertig)
+        self.dock_zusammenbau.visibilityChanged.connect(lambda _an: self._manipulator_zeigen())
         self.zusammenbau.frei_zurueck.connect(lambda: self._frei_bewegen([]))
         self.zusammenbau.tauschen.connect(lambda n: self._verbindung_aendern(self.baugruppe.tauschen, n))
         self.zusammenbau.mass_anlegen.connect(self.messgroesse_auswahl)
@@ -3373,11 +3376,42 @@ class Hauptfenster(QtWidgets.QMainWindow):
         if teil is None or self.baugruppe.fest(teil):
             self._frei = None
             self.zusammenbau.zeige_freiheitsgrade([], [])
+            self._manipulator_zeigen()
             return
         basis = self.baugruppe.freiheitsgrade(teil)
         self._frei = (teil, basis, np.array(self.baugruppe.lage(teil)))
         self.zusammenbau.zeige_freiheitsgrade(vb.beschreibe(basis),
                                               [vb._gerade_ausrichten(z[:3], z[3:])[0] == "drehung" for z in basis])
+        self._manipulator_zeigen()
+
+    def _manipulator_zeigen(self):
+        """3D-Griff am gewaehlten Teil des Zusammenbaus (nur offene Freiheitsgrade), sonst aus."""
+        from ..kern import verbindung as vb
+        frei = getattr(self, "_frei", None)
+        an = frei is not None and len(frei[1]) and self.dock_zusammenbau.isVisible()
+        rahmen = vb.manipulator_rahmen(frei[1], self._teil_ecken(frei[0])[1]) if an else None
+        if rahmen is not None:
+            rahmen["teil"] = frei[0]
+        self._manip_rahmen = rahmen
+        self.ansicht.zeige_manipulator(rahmen)
+
+    def _manipulator_bewegt(self, m):
+        """Ziehen am 3D-Griff: Bewegung auf die offenen Freiheitsgrade zurueckgerechnet, ab der Lage beim Waehlen."""
+        from ..kern import verbindung as vb
+        frei, rahmen = getattr(self, "_frei", None), getattr(self, "_manip_rahmen", None)
+        if frei is None or rahmen is None:
+            return
+        teil, basis, start = frei
+        self.baugruppe.bewege_frei(teil, vb.werte_aus_bewegung(m, basis, rahmen["punkt"]), start, basis)
+        self.ansicht.setze_teil_lagen(self.baugruppe.lagen)
+
+    def _manipulator_fertig(self):
+        """Nach dem Ziehen: neue Ausgangslage, Griff an die neue Stelle."""
+        import numpy as np
+        frei = getattr(self, "_frei", None)
+        if frei is not None:
+            self._frei = (frei[0], frei[1], np.array(self.baugruppe.lage(frei[0])))
+        self._manipulator_zeigen()
 
     def _frei_bewegen(self, werte: list):
         frei = getattr(self, "_frei", None)
