@@ -102,6 +102,7 @@ class Pmi:
     norm: str = "iso"  # iso | asme (Begriffe, Regeln; siehe kern.norm)
     bearbeitet: bool = False  # Werte in 3DGmax geaendert
     original: dict | None = None  # Werte laut Datei vor der Bearbeitung
+    callout: int = 0  # eigene PMI aus einer nur grafischen (Reparieren): deren Callout (#ID) in der Datei
 
     # --- Darstellung ---
 

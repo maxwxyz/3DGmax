@@ -54,6 +54,7 @@
 | Surface texture (roughness), weld symbols | ⬜ |
 | Make graphical PMI searchable (OCR on rendered annotations) | 💡 |
 | Graphical-only PMI evaluated in the table (kind from PRC markup type/name, values/deviations/zone/Ⓜ/datums from text), marked as derived | ✅ |
+| Make graphical-only PMI semantic (repair): kind from the callout name, faces from leader/arrow tips, checked in a dialog; STEP gets the semantics linked to the existing callout – PLAN §8.18 | ✅ |
 | Graphical PMI with stroked text (PRC, STEP tessellated): values via OCR | 💡 |
 | Semantic-only PMI: optional generated display in the view (see generated PMI stage 2) | ✅ |
 | Show tolerance zones as envelope surfaces (offsets ±t/2, ⌀ zone cylinder, exaggeration) | ✅ |

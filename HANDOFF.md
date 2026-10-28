@@ -10,6 +10,9 @@ work): plan item 6 done – own PMI written to STEP carry their presentation (PL
 called from `ui/lader.py`). `step_schreiben.schreibe(..., grafik=self.erg.grafik)` from the main window would write
 exactly the graphic shown in the view (today it regenerates it; layout can differ when other generated PMI exist).
 Open: check the file in CATIA (user); own PMI are not added to saved views. Test: `tests/test_step_schreiben.py`.
+Then (user request): "Make semantic …" for graphical-only PMI (§8.18 repair) on the same branch – touches
+`ui/hauptfenster.py` minimally (`_pmi_befehl` "semantisch", `fuege_pmi_hinzu` replaces the note and keeps the file
+graphic) and `ui/panels.py` (context menu entry); tests `test_nur_grafische_pmi_reparieren`, `test_semantisch_machen`.
 
 Done in this local session (commit):
 - Test strategy (§8.29): `langsam` marker, `test-schnell`, `test-betroffen -- --schnell` – `b5980b6`.

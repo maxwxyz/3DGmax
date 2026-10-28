@@ -47,6 +47,7 @@ class Bericht:
     grafik_veraltet: list[int] = field(default_factory=list)  # PMI mit Darstellung der alten Werte
     neu: list[int] = field(default_factory=list)  # eigene PMI, als neue Entitaeten angehaengt
     dargestellt: list[int] = field(default_factory=list)  # eigene PMI mit geschriebener Darstellung (Callout)
+    repariert: list[int] = field(default_factory=list)  # nur grafische PMI, jetzt mit Semantik am vorhandenen Callout
 
 
 def _messwert(datei, ref) -> int | None:
@@ -360,7 +361,7 @@ def _grafiken(eigene, modell, grafik) -> dict:
     for g in (grafik or {}).values():
         for i in g.pmi_ids:
             out.setdefault(i, g)
-    offen = [p for p in eigene if p.step_id not in out]
+    offen = [p for p in eigene if p.step_id not in out and not p.callout]
     if offen and getattr(modell, "form", None) is not None:
         from .pmi_erzeugen import ergaenze
         try:
@@ -390,7 +391,9 @@ def _haenge_an(text: str, datei, modell, pmi, bericht: Bericht, grafik=None, sch
             bericht.uebersprungen.append((p.nummer, "neu", grund))
             continue
         bericht.neu.append(p.nummer)
-        if darst.callout(grafiken.get(p.step_id), a.semantik, p.flaechen):
+        if p.callout and darst.verknuepfe(p.callout, a.semantik):
+            bericht.repariert.append(p.nummer)
+        elif not p.callout and darst.callout(grafiken.get(p.step_id), a.semantik, p.flaechen):
             bericht.dargestellt.append(p.nummer)
     darst.abschliessen()
     if not a.zeilen:

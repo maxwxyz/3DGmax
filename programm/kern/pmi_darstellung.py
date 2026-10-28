@@ -141,6 +141,7 @@ class Praesentation:
         self.a, self.modell, self.schrift = anhang, modell, schrift
         self.modelle: dict[int, list[int]] = {}  # Darstellungskontext -> Callouts und Ebenen
         self.dmia: list[tuple[int, int, int]] = []  # (Kontext, Semantik, Callout)
+        self.dmia_fest: list[tuple[int, int, int]] = []  # (vorhandenes DRAUGHTING_MODEL, Semantik, Callout)
         self._stil = None
 
     def stil(self) -> int:
@@ -190,6 +191,22 @@ class Praesentation:
         self.dmia.append((a.kontext, semantik, callout))
         return True
 
+    def verknuepfe(self, callout: int, semantik: int) -> bool:
+        """Vorhandenen Callout der Datei mit der Semantik verknuepfen (nur grafische PMI reparieren); Modell aus
+        der Datei, sonst ein neues im gewaehlten Teil."""
+        d = self.a.datei.entities.get(callout)
+        if d is None or not d.is_a("DRAUGHTING_CALLOUT"):
+            return False
+        modell = _modell_von(self.a.datei, callout)
+        if modell is not None:
+            self.dmia_fest.append((modell, semantik, callout))
+        elif self.a.kontext is not None:
+            self.modelle.setdefault(self.a.kontext, []).append(callout)
+            self.dmia.append((self.a.kontext, semantik, callout))
+        else:
+            return False
+        return True
+
     def _ebene(self, g, lage, callout: int, pts) -> int:
         """ANNOTATION_PLANE: Schreibebene der Grafik (ohne Ebene: XY durch den ersten Punkt, pts im Teil)."""
         a = self.a
@@ -214,3 +231,15 @@ class Praesentation:
             modell_id[kontext] = a.neu(f"DRAUGHTING_MODEL('',({','.join(f'#{i}' for i in items)}),#{kontext})")
         for kontext, semantik, callout in self.dmia:
             a.neu(f"DRAUGHTING_MODEL_ITEM_ASSOCIATION('{DMIA_NAME}','',#{semantik},#{modell_id[kontext]},#{callout})")
+        for modell, semantik, callout in self.dmia_fest:
+            a.neu(f"DRAUGHTING_MODEL_ITEM_ASSOCIATION('{DMIA_NAME}','',#{semantik},#{modell},#{callout})")
+
+
+def _modell_von(datei, callout: int) -> int | None:
+    """DRAUGHTING_MODEL der Datei, das den Callout enthaelt (direkt oder ueber seine ANNOTATION_PLANE)."""
+    huellen = {callout} | {r for r in datei.referrers().get(callout, []) if datei.entities[r].is_a("ANNOTATION_PLANE")}
+    for h in huellen:
+        for r in datei.referrers().get(h, []):
+            if datei.entities[r].is_a("DRAUGHTING_MODEL"):
+                return r
+    return None

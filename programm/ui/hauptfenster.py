@@ -3038,9 +3038,11 @@ class Hauptfenster(QtWidgets.QMainWindow):
         norm = self.erg.pmi[0].norm if self.erg.pmi else "iso"
         for i, p in enumerate(neue, 1):
             p.nummer, p.step_id, p.quelle, p.norm = start + i, kleinste - i, "eigen", norm
-            p.semantisch, p.grafisch = True, False
+            p.semantisch, p.grafisch = True, bool(p.callout)  # semantisch gemachte Grafik der Datei behaelt sie
             if not p.name:
                 p.name = f"{tr(p.merkmal())}.{p.nummer}" if p.art != "bezug" else p.name
+        ersetzt = {p.callout for p in neue if p.callout}  # der nur grafische Eintrag weicht der eigenen PMI
+        self.erg.pmi = [q for q in self.erg.pmi if q.quelle == "eigen" or q.step_id not in ersetzt]
         self.erg.pmi.extend(neue)
         grafik = pmi_erzeugen.ergaenze(neue, self.erg.grafik, self.erg.modell, self.erg.ansichten)
         frei = min(list(self.erg.grafik) + [0]) - 1
@@ -3349,6 +3351,9 @@ class Hauptfenster(QtWidgets.QMainWindow):
                 self.bearbeite_pmi(wert, d.werte())
         elif art == "loeschen":
             self.loesche_eigene_pmi(wert)
+        elif art == "semantisch":
+            from .semantik_ui import semantisch_machen
+            semantisch_machen(self, wert)
 
     def _grafik_umschalten(self):
         an = self.aktionen["grafik"].isChecked()

@@ -2141,3 +2141,32 @@ def test_messen_in_der_leiste(fenster_ctc01):
     f.dock_messen.toggleViewAction().trigger()  # Leiste schliessen
     app.processEvents()
     assert not f.aktionen["messen"].isChecked() and not f.ansicht.messmodus
+
+
+def test_semantisch_machen(fenster, tmp_path):
+    """Kontextbefehl "Semantisch machen": Dialog mit Vorschlag, OK ersetzt den Hinweis durch eine eigene PMI an der
+    Grafik der Datei; STEP speichern verknuepft, Projekt laedt ohne doppelten Eintrag."""
+    from programm.ui.lader import lade_alles
+    from tests.test_step_schreiben import nur_grafisch_ctc01
+    f = fenster
+    f.lade(nur_grafisch_ctc01(tmp_path / "g.stp"), warten=True)
+    p = next(p for p in f.erg.pmi if p.name == "Flatness.1")
+    f._pmi_befehl("semantisch", p)
+    d = f._semantik_dialog
+    assert d.isVisible() and d.art.currentData() == "toleranz" and d.typ.currentData() == "Flatness"
+    assert d.flaechen and d.fehler()  # Toleranzwert fehlt
+    d.felder["wert"].setText("0,1")
+    assert not d.fehler()
+    d._pruefen()
+    neu = next(q for q in f.erg.pmi if q.quelle == "eigen")
+    assert p not in f.erg.pmi and neu.callout == 611 and neu.wert == 0.1 and neu.grafisch
+    assert not any(g.erzeugt and neu.step_id in g.pmi_ids for g in f.erg.grafik.values())
+    ziel = f.speichere_step_pmi(str(tmp_path / "r.stp"), melden=False)
+    assert f._step_bericht.repariert == [neu.nummer]
+    e = lade_alles(ziel)
+    assert any(q.typ == "Flatness" and q.flaechen == neu.flaechen and q.wert == 0.1 and q.step_id in e.grafik[611].pmi_ids
+               for q in e.pmi)
+    projekt = f.speichere_projekt(str(tmp_path / "p.3dgmax"))
+    f.oeffne_projekt(projekt, warten=True)
+    assert not any(q.name == "Flatness.1" and q.quelle != "eigen" for q in f.erg.pmi)
+    assert [q.callout for q in f.erg.pmi if q.quelle == "eigen"] == [611]

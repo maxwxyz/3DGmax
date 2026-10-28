@@ -246,6 +246,9 @@ def ergaenze(pmi: list, grafik: dict, modell, ansichten: list | None = None) -> 
     """Neue Grafiken (negative Callout-IDs) fuer PMI mit Flaechen, aber ohne vorhandene Darstellung."""
     from OCC.Core.Bnd import Bnd_Box
     from OCC.Core.BRepBndLib import brepbndlib
+    for p in pmi:  # semantisch gemachte Grafik der Datei: deren Callout ist die Darstellung
+        if getattr(p, "callout", 0) in grafik:
+            grafik[p.callout].pmi_ids.add(p.step_id)
     dargestellt = {i for g in grafik.values() for i in g.pmi_ids}
     offen = [p for p in pmi if p.step_id and p.step_id not in dargestellt and p.flaechen and p.art != HINWEIS]
     if not offen:

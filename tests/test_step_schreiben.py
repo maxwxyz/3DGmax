@@ -255,3 +255,42 @@ def test_eigene_pmi_mit_darstellung(tmp_path):
     assert sw.schreibe(pfad("baugruppe.stp"), ziel, eigene, g.modell).dargestellt == [1, 2, 3]
     _pruefe_darstellung(g, eigene, ziel, max(g.modell.datei.entities))
     assert _occt_darstellungen(ziel) == (["Size_Diameter"], ["H"])
+
+
+def nur_grafisch_ctc01(ziel) -> str:
+    """CTC-01 mit Ebenheit 'Flatness.1' nur als Grafik: Toleranz (#57) und ihre Verknuepfungen (#137, #138) fehlen."""
+    import re
+    text = open(pfad("nist_ctc_01_asme1_ap242-e1.stp"), encoding="utf-8").read()
+    text = re.sub(r"^#(57|137|138)=.*;\n", "", text, flags=re.M)
+    with open(ziel, "w", encoding="utf-8", newline="") as f:
+        f.write(text)
+    return str(ziel)
+
+
+def test_nur_grafische_pmi_reparieren(tmp_path):
+    """Nur grafische PMI semantisch machen: Art aus dem Callout-Namen, Flaechen aus der Hinweislinie (gleich der
+    entfernten Semantik); geschrieben wird nur die Semantik, verknuepft mit dem vorhandenen Callout."""
+    from programm.kern import pmi_erzeugen, pmi_reparieren as rep, step_schreiben as sw
+    from programm.ui.lader import lade_alles
+    quelle = nur_grafisch_ctc01(tmp_path / "grafisch.stp")
+    a = lade_alles(quelle)
+    p = next(p for p in a.pmi if p.name == "Flatness.1")
+    assert not p.semantisch and rep.reparierbar(p, a.grafik) and p.step_id == 611
+    assert rep.aus_name("Position surfacic profile.3") == ("toleranz", "ProfileOfSurface")
+    assert rep.aus_name("Simple Datum.2") == ("bezug", "Datum") and rep.aus_name("Text.1") is None
+    v = rep.vorschlag(p, a.grafik[611], a.modell)
+    assert (v.art, v.typ, v.callout) == ("toleranz", "Flatness", 611)
+    assert v.flaechen == {a.modell.step_zu_flaeche[861]}  # Flaeche der entfernten Semantik (GISU #245)
+    v.wert, v.quelle, v.nummer, v.step_id = 0.1, "eigen", 99, -1
+    assert pmi_erzeugen.ergaenze([v], a.grafik, a.modell) == {} and -1 in a.grafik[611].pmi_ids
+    ziel = str(tmp_path / "repariert.stp")
+    b = sw.schreibe(quelle, ziel, a.pmi + [v], a.modell)
+    assert b.neu == b.repariert == [99] and not b.dargestellt
+    text = open(ziel, encoding="utf-8").read()
+    assert text.count("DRAUGHTING_CALLOUT(") == open(quelle, encoding="utf-8").read().count("DRAUGHTING_CALLOUT(")
+    e = lade_alles(ziel)
+    assert not any(q.name == "Flatness.1" and not q.semantisch for q in e.pmi)
+    neu = next(q for q in e.pmi if q.typ == "Flatness" and q.step_id > max(a.modell.datei.entities))
+    assert neu.flaechen == v.flaechen and neu.wert == 0.1 and neu.step_id in e.grafik[611].pmi_ids
+    # OCCT: vorher eine reine Darstellung (DimensionPresentation), jetzt an der Toleranz (in pythonocc nicht lesbar)
+    assert "Flatness.1" in _occt_darstellungen(quelle)[0] and "Flatness.1" not in _occt_darstellungen(ziel)[0]
