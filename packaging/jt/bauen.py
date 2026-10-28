@@ -65,6 +65,14 @@ def _bibliothek(muster: str) -> str:
     return treffer[0]
 
 
+def _msvc_linker() -> str:
+    """link.exe neben cl.exe - im PATH steht sonst oft das GNU-link aus Git oder der pixi-Umgebung."""
+    cl = shutil.which("cl")
+    if not cl:
+        raise SystemExit("cl nicht gefunden (MSVC-Entwicklerumgebung noetig)")
+    return os.path.join(os.path.dirname(cl), "link.exe")
+
+
 def uebersetzen(datei: str, obj: str):
     if WINDOWS:
         cmd = ["cl", "/nologo", "/std:c++17", "/O2", "/EHsc", "/MD", "/w", "/DNO_JT_MULTITHREADING", "/D_USE_MATH_DEFINES",
@@ -98,7 +106,10 @@ def main():
         if rc:
             raise SystemExit(text)
         libs = [_bibliothek(n + ".lib") for n in OCCT_LIBS] + [_bibliothek("zlib*.lib"), _bibliothek("*lzma*.lib")]
-        r = subprocess.run(["link", "/nologo", "/OUT:" + ziel, hauptobj, *objekte, *libs], capture_output=True, text=True)
+        antwort = os.path.join(BAU, "link.rsp")  # Antwortdatei: Kommandozeile sonst zu lang
+        with open(antwort, "w", encoding="utf-8") as f:
+            f.write("\n".join(f'"{x}"' for x in [hauptobj, *objekte, *libs]))
+        r = subprocess.run([_msvc_linker(), "/nologo", "/OUT:" + ziel, "@" + antwort], capture_output=True, text=True)
         if r.returncode:
             raise SystemExit((r.stdout + r.stderr)[-4000:])
     else:
