@@ -2453,6 +2453,9 @@ def test_einheitliches_panel_layout(fenster):
         t.viewport().repaint()  # Hinweis zeichnen ohne Fehler
     for k in (f.zusammenbau.knopf, f.zusammenbau.mass_knopf, f.kollision.start, f.analyse.start):
         assert k.objectName() == "primaer"
+    z = f.zusammenbau.mass_pdf_knopf  # Export unten im Reiter Messgroessen
+    assert z.parentWidget().layout().indexOf(z) < 0 and z.parentWidget().layout().itemAt(
+        z.parentWidget().layout().count() - 1).layout().indexOf(z) >= 0
     for p in (f.messen, f.analyse, f.kommentare, f.kollision, f.scan, f.aenderungen):  # oben der Zweck
         erstes = p.layout().itemAt(0).widget()
         assert erstes is not None and erstes.property("zweck") and erstes.text(), p

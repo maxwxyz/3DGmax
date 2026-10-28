@@ -216,7 +216,7 @@ class BaugruppePanel(QtWidgets.QWidget):
         self.am_punkt.setToolTip(tr("Statt in der Flächenmitte am angeklickten Punkt der gemessenen Fläche messen "
                                     "(beliebige Fläche zur Ebene oder Achse der Bezugsfläche), z. B. den Spalt an "
                                     "einer Ecke"))
-        reihe.addWidget(self.mass_knopf, 1)
+        reihe.addWidget(self.mass_knopf)
         reihe.addWidget(self.am_punkt)
         self.mass_kette_knopf = QtWidgets.QPushButton(tr("Als 3D-Kette"))
         self.mass_kette_knopf.setToolTip(tr("Gewählte Messgröße als 3D-Toleranzkette öffnen: je Teil auf dem "
@@ -224,9 +224,7 @@ class BaugruppePanel(QtWidgets.QWidget):
                                             "Übernehmen in die Toleranzkette"))
         self.mass_kette_knopf.clicked.connect(lambda: (nr := self.gewaehlte_messgroesse()) and
                                               self.mass_kette.emit(nr))
-        reihe.addWidget(self.mass_weg)
-        reihe.addWidget(self.mass_kette_knopf)
-        reihe.addWidget(self.mass_pdf_knopf)
+        reihe.addStretch(1)
         lay.addLayout(reihe)
         waerme = QtWidgets.QHBoxLayout()
         self.waerme = QtWidgets.QCheckBox(tr("Wärmeausdehnung bei"))
@@ -271,6 +269,12 @@ class BaugruppePanel(QtWidgets.QWidget):
         self.mass_hinweis = QtWidgets.QLabel("")
         self.mass_hinweis.setWordWrap(True)
         lay.addWidget(self.mass_hinweis)
+        unten = QtWidgets.QHBoxLayout()  # Nebenbefehle und Export unten (einheitlicher Panel-Aufbau)
+        for w in (self.mass_weg, self.mass_kette_knopf):
+            unten.addWidget(w)
+        unten.addStretch(1)
+        unten.addWidget(self.mass_pdf_knopf)
+        lay.addLayout(unten)
 
     def zeige_masse(self, baugruppe: vb.Baugruppe, namen: dict[int, str], ergebnisse: dict):
         """ergebnisse: Nummer der Messgroesse -> baugruppe_mass.Ergebnis."""

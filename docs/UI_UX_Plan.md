@@ -190,9 +190,9 @@ guided flows for scan check and assembly variation, unified panel layout everywh
   tool panel has one highlighted primary button (Verbinden, Messgröße aus Auswahl, Prüfen, Berechnen, guided step).
   Order checked for every tool panel: purpose sentence on top (`panel_aufbau.zweck_zeile`; added to Messen, Analyse,
   Kommentare, Kollision, Scanprüfung, Änderungen – Zusammenbau tabs, Funktion, 2D/3D chain, guided flows already had
-  one), inputs, primary button, result table, secondary commands and export at the bottom. Open: in the assembly tab
-  "Messgrößen" the PDF export still sits in the top row (left alone while the datum-shift work changes that panel);
-  the chain windows get their table layout from the readability work. Acceptance test with users (≥ 80 %) not run.
+  one), inputs, primary button, result table, secondary commands and export at the bottom (assembly tab
+  "Messgrößen": remove / as 3D chain / PDF moved to a bottom row). The chain windows get their table layout and the
+  whole UI one control height from the readability/consistency work. Acceptance test with users (≥ 80 %) not run.
 - Acceptance: first-use success ≥ 80 % for laypeople on "check a scan" and "measure a gap" with the example data.
 
 ## 6. Usability test protocol (local)
