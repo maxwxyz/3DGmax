@@ -814,8 +814,13 @@ Alternatives: QIF export (own XML writer, also the exchange format for CMM softw
   replacing only the numbers of their measure entities in the original text (tolerance magnitude, 'nominal value' /
   'upper limit' / 'lower limit', TOLERANCE_VALUE bounds; file units), the rest of the file stays byte-identical;
   report for fit class, material condition, values without counterpart, shared measure entities; hint that the
-  polyline presentation still shows the old values. Open (stage 2): new/own PMI as appended P21 entities (CAx-IF
-  practice), fit class and modifiers, optionally regenerated presentation.
+  polyline presentation still shows the old values.
+- Done 2026-10-28 (stage 2): own PMI appended before the end of DATA like the NIST files (SHAPE_ASPECT + GISU per
+  face, simple or complex tolerance entities with sorted parts, DATUM_SYSTEM/DATUM_REFERENCE_COMPARTMENT, modifiers,
+  TOLERANCE_ZONE for ⌀, DIMENSIONAL_SIZE/LOCATION with SHAPE_DIMENSION_REPRESENTATION and PLUS_MINUS_TOLERANCE,
+  DATUM_FEATURE + DATUM + SHAPE_ASPECT_RELATIONSHIP); read back by our reader and by OCCT XCAF (CTC-01: +1 dim,
+  +2 tol, +1 datum). Single parts only. Open: angular dimensions, assemblies (PDS per part, NAUO context),
+  presentation for written PMI, fit class/modifier edits of existing PMI.
 
 ### 8.29 Test strategy: run only the affected tests (requested 2026-10-27)
 The full suite takes ~25–28 min (180 tests, many load NIST models, compare, check scans or open the window). Rule

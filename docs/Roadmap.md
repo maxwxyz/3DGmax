@@ -101,7 +101,8 @@
 | Create PMI with tolerancing advisor (stage 1: rules per selection, own PMI in project) | ✅ |
 | Edit existing PMI (values, fit, material condition; saved in the project) | ✅ |
 | Write edited PMI values back into a copy of the STEP file (lossless, own P21 editing) – PLAN §8.28 stage 1 | ✅ |
-| Write new/own PMI to STEP AP242 (dimensions, datums, geometric tolerances as new P21 entities), advisor stage 2 | ⬜ |
+| Write own PMI to STEP AP242 as new P21 entities (datums, geometric tolerances, size/distance dimensions; single parts) | ✅ |
+| Write PMI: angular dimensions, assemblies, presentation (graphics) for written PMI; advisor stage 2 | ⬜ |
 
 ## Measuring
 | Feature | Status |

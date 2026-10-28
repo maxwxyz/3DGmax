@@ -1396,8 +1396,6 @@
 "Verzahnung: Hinweis {} = {:g}, Geometrie {:.4g}": "Gear: note {} = {:g}, geometry {:.4g}",
 "Bitte unter neuem Namen speichern – die Originaldatei bleibt unverändert.": "Please save under a new name – the original file stays unchanged.",
 "Die grafische Darstellung von PMI {} zeigt noch die alten Werte.": "The graphical presentation of PMI {} still shows the old values.",
-"Keine bearbeiteten PMI aus der Datei": "No edited PMI from the file",
-"Kopie der STEP-Datei, in der nur die bearbeiteten PMI-Werte ersetzt sind – alles andere bleibt unverändert": "Copy of the STEP file in which only the edited PMI values are replaced – everything else stays unchanged",
 "Nicht geschrieben: PMI {} {} – {}": "Not written: PMI {} {} – {}",
 "Nur für STEP-Dateien": "STEP files only",
 "STEP gespeichert": "STEP saved",
@@ -1408,5 +1406,15 @@
 "Zahl nicht gefunden": "number not found",
 "keine Entsprechung in der Datei": "no counterpart in the file",
 "nicht schreibbar": "not writable",
-"{} Werte geschrieben.": "{} values written."
+"{} Werte geschrieben.": "{} values written.",
+"(eigene PMI)": "(own PMI)",
+"Bezug {} fehlt in der Datei": "datum {} is missing in the file",
+"Bezug {} gibt es in der Datei schon": "datum {} already exists in the file",
+"Flächen ohne Entsprechung in der Datei": "faces without counterpart in the file",
+"Keine bearbeiteten oder eigenen PMI": "No edited or own PMI",
+"Kopie der STEP-Datei: bearbeitete PMI-Werte ersetzt, eigene PMI als semantische AP242-PMI angehängt – alles andere bleibt unverändert": "Copy of the STEP file: edited PMI values replaced, own PMI appended as semantic AP242 PMI – everything else stays unchanged",
+"Maßart nicht schreibbar": "dimension type not writable",
+"Toleranzart nicht schreibbar": "tolerance type not writable",
+"nur für Einzelteile mit Einheiten": "only for single parts with units",
+"{} eigene PMI neu angelegt: {}": "{} own PMI created: {}"
 }

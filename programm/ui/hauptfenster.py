@@ -487,8 +487,8 @@ class Hauptfenster(QtWidgets.QMainWindow):
           tipp=tr("Zähnezahl, Modul, Eingriffswinkel, Schrägung, Profilverschiebung und Zahnweite der gewählten Teile "
                   "(ohne Auswahl: aller sichtbaren) aus der Geometrie – Export CSV/JSON"))
         A("step_pmi_speichern", tr("STEP mit geänderten PMI speichern …"), lambda: self.speichere_step_pmi(),
-          tipp=tr("Kopie der STEP-Datei, in der nur die bearbeiteten PMI-Werte ersetzt sind – alles andere bleibt "
-                  "unverändert"))
+          tipp=tr("Kopie der STEP-Datei: bearbeitete PMI-Werte ersetzt, eigene PMI als semantische AP242-PMI angehängt "
+                  "– alles andere bleibt unverändert"))
         A("stueckliste", tr("Stückliste …"), self.zeige_stueckliste,
           tipp=tr("Teile mit Anzahl, Volumen und Masse – Export als CSV"))
         A("kommentar", tr("Kommentar …"), lambda: self.neuer_kommentar(), "K",
@@ -2667,8 +2667,8 @@ class Hauptfenster(QtWidgets.QMainWindow):
         if self.erg is None or not self.erg.pfad.lower().endswith((".stp", ".step")):
             self.statusBar().showMessage(tr("Nur für STEP-Dateien"), 5000)
             return None
-        if not any(p.bearbeitet and p.original and p.quelle != "eigen" for p in self.erg.pmi):
-            self.statusBar().showMessage(tr("Keine bearbeiteten PMI aus der Datei"), 5000)
+        if not any((p.bearbeitet and p.original and p.quelle != "eigen") or p.quelle == "eigen" for p in self.erg.pmi):
+            self.statusBar().showMessage(tr("Keine bearbeiteten oder eigenen PMI"), 5000)
             return None
         basis, endung = os.path.splitext(self.erg.pfad)
         pfad = pfad or self._speicherpfad(tr("STEP speichern"), basis + "_geaendert" + endung, "STEP (*.stp *.step)")
@@ -2678,10 +2678,12 @@ class Hauptfenster(QtWidgets.QMainWindow):
             QtWidgets.QMessageBox.warning(self, tr("STEP speichern"), tr("Bitte unter neuem Namen speichern – die "
                                                                          "Originaldatei bleibt unverändert."))
             return None
-        b = step_schreiben.schreibe(self.erg.pfad, pfad, self.erg.pmi)
-        felder = {"nennwert": tr("Nennmaß"), "oben": tr("Oberes Abmaß"), "unten": tr("Unteres Abmaß"),
+        b = step_schreiben.schreibe(self.erg.pfad, pfad, self.erg.pmi, self.erg.modell)
+        felder = {"neu": tr("(eigene PMI)"), "nennwert": tr("Nennmaß"), "oben": tr("Oberes Abmaß"), "unten": tr("Unteres Abmaß"),
                   "wert": tr("Toleranzwert"), "passung": tr("Toleranzklasse"), "material": tr("Materialbedingung")}
         zeilen = [tr("{} Werte geschrieben.").format(len(b.geschrieben))]
+        if b.neu:
+            zeilen.append(tr("{} eigene PMI neu angelegt: {}").format(len(b.neu), ", ".join(map(str, b.neu))))
         zeilen += [tr("Nicht geschrieben: PMI {} {} – {}").format(n, felder.get(f, f), grund)
                    for n, f, grund in b.uebersprungen]
         if b.grafik_veraltet:

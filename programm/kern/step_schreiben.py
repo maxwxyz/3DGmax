@@ -10,6 +10,14 @@ die Zahl der Mess-Entitaet, die ein bearbeiteter Wert in der Datei hat:
 in der Einheit der Datei. Nicht geschrieben (im Bericht): Passung, Materialbedingung, Werte ohne Entsprechung in der
 Datei (z. B. ein neu angegebenes Abmass), Mess-Entitaeten, die mehrere PMI teilen, und eigene PMI.
 Die grafische Darstellung (Polylinien) zeigt weiter die alten Werte - der Bericht nennt die betroffenen PMI.
+
+Stufe 2 (anhaengen): eigene PMI als neue Entitaeten vor dem Ende des DATA-Abschnitts, nach der CAx-IF-Praxis wie in
+den NIST-Dateien: SHAPE_ASPECT mit GEOMETRIC_ITEM_SPECIFIC_USAGE je Flaeche; Toleranz einfach (FLATNESS_TOLERANCE(..))
+oder komplex mit GEOMETRIC_TOLERANCE_WITH_DATUM_REFERENCE (DATUM_SYSTEM, DATUM_REFERENCE_COMPARTMENT) und
+GEOMETRIC_TOLERANCE_WITH_MODIFIERS (Materialbedingung), Durchmesserzone als TOLERANCE_ZONE; Masse als DIMENSIONAL_SIZE
+bzw. DIMENSIONAL_LOCATION mit SHAPE_DIMENSION_REPRESENTATION ('nominal value') und PLUS_MINUS_TOLERANCE
+(TOLERANCE_VALUE oder LIMITS_AND_FITS); Bezuege als DATUM_FEATURE, DATUM und SHAPE_ASPECT_RELATIONSHIP. Nur
+Einzelteile (eine PRODUCT_DEFINITION_SHAPE mit Geometrie); Winkelmasse und Masse ohne zwei Flaechen werden gemeldet.
 """
 
 from __future__ import annotations
@@ -30,6 +38,7 @@ class Bericht:
     geschrieben: list[tuple[int, str]] = field(default_factory=list)  # (PMI-Nummer, Feld)
     uebersprungen: list[tuple[int, str, str]] = field(default_factory=list)  # (Nummer, Feld, Grund)
     grafik_veraltet: list[int] = field(default_factory=list)  # PMI mit Darstellung der alten Werte
+    neu: list[int] = field(default_factory=list)  # eigene PMI, als neue Entitaeten angehaengt
 
 
 def _messwert(datei, ref) -> int | None:
@@ -122,8 +131,190 @@ def _ersetze_zahl(text: str, eid: int, wert: float) -> str:
     return text[:a] + neu + text[b:]
 
 
-def schreibe(quelle: str, ziel: str, pmi: list) -> Bericht:
-    """Kopie von 'quelle' mit den bearbeiteten Werten der PMI nach 'ziel'."""
+class _Anhang:
+    """Neue Entitaeten mit fortlaufenden Ids ab der hoechsten Id der Datei."""
+
+    def __init__(self, datei: p21.P21Datei, modell):
+        self.datei, self.modell = datei, modell
+        self.naechste = max(datei.entities) + 1
+        self.zeilen: list[str] = []
+        self.flaeche_zu_step = {i: eid for eid, i in getattr(modell, "step_zu_flaeche", {}).items()}
+        self.pds = self._pds()
+        self.einheit_laenge, self.einheit_winkel, self.kontext = self._einheiten()
+        self.bezuege = {e.args("DATUM")[4]: e.id for e in datei.of_type("DATUM")}
+
+    def neu(self, text: str) -> int:
+        eid = self.naechste
+        self.naechste += 1
+        self.zeilen.append(f"#{eid}={text};")
+        return eid
+
+    def _pds(self) -> int | None:
+        """PRODUCT_DEFINITION_SHAPE des Teils (genau eine mit Formdarstellung), sonst None."""
+        kandidaten = {e.args("SHAPE_DEFINITION_REPRESENTATION")[0].id
+                      for e in self.datei.of_type("SHAPE_DEFINITION_REPRESENTATION")
+                      if isinstance(e.args("SHAPE_DEFINITION_REPRESENTATION")[0], Ref)}
+        kandidaten = {k for k in kandidaten if self.datei.entities[k].is_a("PRODUCT_DEFINITION_SHAPE")}
+        return next(iter(kandidaten)) if len(kandidaten) == 1 else None
+
+    def _einheiten(self):
+        laenge = winkel = kontext = None
+        for e in self.datei.entities.values():
+            if e.is_a("GLOBAL_UNIT_ASSIGNED_CONTEXT") and e.is_a("GEOMETRIC_REPRESENTATION_CONTEXT"):
+                kontext = kontext or e.id
+                for u in e.args("GLOBAL_UNIT_ASSIGNED_CONTEXT")[0] or []:
+                    ue = self.datei.get(u)
+                    if ue is not None and ue.is_a("LENGTH_UNIT"):
+                        laenge = laenge or u.id
+                    elif ue is not None and ue.is_a("PLANE_ANGLE_UNIT"):
+                        winkel = winkel or u.id
+        return laenge, winkel, kontext
+
+    def darstellung(self, flaeche_step: int) -> int | None:
+        """Formdarstellung (REPRESENTATION), in der die Flaeche liegt: aufwaerts ueber die Verweise."""
+        offen, gesehen = [flaeche_step], set()
+        verweise = self.datei.referrers()
+        while offen:
+            x = offen.pop(0)
+            for r in verweise.get(x, []):
+                if r in gesehen:
+                    continue
+                gesehen.add(r)
+                e = self.datei.entities[r]
+                if e.is_a("SHAPE_REPRESENTATION") or e.is_a("ADVANCED_BREP_SHAPE_REPRESENTATION") or \
+                        e.is_a("MANIFOLD_SURFACE_SHAPE_REPRESENTATION"):
+                    return r
+                if not (e.is_a("STYLED_ITEM") or e.is_a("GEOMETRIC_ITEM_SPECIFIC_USAGE")):
+                    offen.append(r)
+        return None
+
+    def aspekt(self, flaechen, art: str = "SHAPE_ASPECT") -> int | None:
+        stepf = [self.flaeche_zu_step.get(i) for i in sorted(flaechen)]
+        if not stepf or None in stepf:
+            return None
+        darst = self.darstellung(stepf[0])
+        if darst is None:
+            return None
+        sa = self.neu(f"{art}('','',#{self.pds},.T.)" if art == "SHAPE_ASPECT" else f"{art}('',$,#{self.pds},.T.)")
+        for f in stepf:
+            self.neu(f"GEOMETRIC_ITEM_SPECIFIC_USAGE('','',#{sa},#{darst},#{f})")
+        return sa
+
+    def mass(self, wert: float, winkel: bool = False, art: str = "LENGTH_MEASURE") -> int:
+        einheit = self.einheit_winkel if winkel else self.einheit_laenge
+        return self.neu(f"{'PLANE_ANGLE' if winkel else 'LENGTH'}_MEASURE_WITH_UNIT("
+                        f"{'PLANE_ANGLE_MEASURE' if winkel else art}({_real(wert)}),#{einheit})")
+
+
+GROESSE_NAME = {"Size_Diameter": "diameter", "Size_Radius": "radius", "Size_Thickness": "thickness",
+                "Size_SphericalDiameter": "spherical diameter", "Size_SphericalRadius": "spherical radius"}
+
+
+def _schreibe_bezug(a: _Anhang, p) -> str | None:
+    if p.name in a.bezuege:
+        return tr("Bezug {} gibt es in der Datei schon").format(p.name)
+    df = a.aspekt(p.flaechen, "DATUM_FEATURE")
+    if df is None:
+        return tr("Flächen ohne Entsprechung in der Datei")
+    d = a.neu(f"DATUM('',$,#{a.pds},.F.,'{p.name}')")
+    a.neu(f"SHAPE_ASPECT_RELATIONSHIP('',$,#{df},#{d})")
+    a.bezuege[p.name] = d
+    return None
+
+
+def _schreibe_toleranz(a: _Anhang, p) -> str | None:
+    from .pmi_step import TOL_ARTEN
+    entitaet = {v: k for k, v in TOL_ARTEN.items()}.get(p.typ)
+    if entitaet is None or p.wert is None:
+        return tr("Toleranzart nicht schreibbar")
+    fehlend = [b.name for b in p.bezuege if b.name not in a.bezuege]
+    if fehlend:
+        return tr("Bezug {} fehlt in der Datei").format(", ".join(fehlend))
+    sa = a.aspekt(p.flaechen)
+    if sa is None:
+        return tr("Flächen ohne Entsprechung in der Datei")
+    betrag = a.mass(p.wert)
+    teile = {entitaet: "()"}
+    if p.bezuege:
+        abteile = [a.neu(f"DATUM_REFERENCE_COMPARTMENT('',$,#{a.pds},.F.,#{a.bezuege[b.name]},$)")
+                   for b in sorted(p.bezuege, key=lambda b: b.stelle)]
+        system = a.neu(f"DATUM_SYSTEM('',$,#{a.pds},.F.,({','.join(f'#{x}' for x in abteile)}))")
+        teile["GEOMETRIC_TOLERANCE_WITH_DATUM_REFERENCE"] = f"((#{system}))"
+    mods = {"M": "MAXIMUM_MATERIAL_REQUIREMENT", "L": "LEAST_MATERIAL_REQUIREMENT"}.get(p.material)
+    if mods:
+        teile["GEOMETRIC_TOLERANCE_WITH_MODIFIERS"] = f"((.{mods}.))"
+    name = p.name or p.typ
+    if len(teile) == 1:
+        tol = a.neu(f"{entitaet}('{name}','',#{betrag},#{sa})")
+    else:
+        teile["GEOMETRIC_TOLERANCE"] = f"('{name}','',#{betrag},#{sa})"
+        tol = a.neu("( " + " ".join(f"{k}{teile[k]}" for k in sorted(teile)) + " )")
+    if "Diameter" in p.modifikatoren:
+        form = a.neu("TOLERANCE_ZONE_FORM('cylindrical or circular')")
+        a.neu(f"TOLERANCE_ZONE('',$,#{a.pds},.F.,(#{tol}),#{form})")
+    return None
+
+
+def _schreibe_mass(a: _Anhang, p) -> str | None:
+    if p.nennwert is None:
+        return tr("Maß ohne Wert")
+    if p.typ in GROESSE_NAME:
+        sa = a.aspekt(p.flaechen)
+        if sa is None:
+            return tr("Flächen ohne Entsprechung in der Datei")
+        dim = a.neu(f"DIMENSIONAL_SIZE(#{sa},'{GROESSE_NAME[p.typ]}')")
+    elif p.typ == "Location_LinearDistance" and len(p.flaechen) == 2:
+        f1, f2 = sorted(p.flaechen)
+        s1, s2 = a.aspekt({f1}), a.aspekt({f2})
+        if s1 is None or s2 is None:
+            return tr("Flächen ohne Entsprechung in der Datei")
+        dim = a.neu(f"DIMENSIONAL_LOCATION('linear distance','',#{s1},#{s2})")
+    else:
+        return tr("Maßart nicht schreibbar")
+    wert = a.neu(f"( LENGTH_MEASURE_WITH_UNIT() MEASURE_REPRESENTATION_ITEM() MEASURE_WITH_UNIT("
+                 f"LENGTH_MEASURE({_real(abs(p.nennwert))}),#{a.einheit_laenge}) REPRESENTATION_ITEM('nominal value') )")
+    darst = a.neu(f"SHAPE_DIMENSION_REPRESENTATION('',(#{wert}),#{a.kontext})")
+    a.neu(f"DIMENSIONAL_CHARACTERISTIC_REPRESENTATION(#{dim},#{darst})")
+    if p.oben is not None and p.unten is not None and not p.grenzmass:
+        tv = a.neu(f"TOLERANCE_VALUE(#{a.mass(p.unten)},#{a.mass(p.oben)})")
+        a.neu(f"PLUS_MINUS_TOLERANCE(#{tv},#{dim})")
+    elif p.passung:
+        import re as _re
+        m = _re.match(r"([A-Za-z]+)(\d+)$", p.passung)
+        if m:
+            lf = a.neu(f"LIMITS_AND_FITS('{m.group(1)}','','{m.group(2)}','')")
+            a.neu(f"PLUS_MINUS_TOLERANCE(#{lf},#{dim})")
+    return None
+
+
+def _haenge_an(text: str, datei, modell, pmi, bericht: Bericht) -> str:
+    eigene = [p for p in pmi if p.quelle == "eigen" and p.art in ("mass", "toleranz", "bezug")]
+    if not eigene:
+        return text
+    a = _Anhang(datei, modell)
+    if a.pds is None or a.einheit_laenge is None or a.kontext is None:
+        for p in eigene:
+            bericht.uebersprungen.append((p.nummer, "neu", tr("nur für Einzelteile mit Einheiten")))
+        return text
+    # Bezuege zuerst: Toleranzen verweisen auf sie
+    for p in sorted(eigene, key=lambda p: p.art != "bezug"):
+        vorher = (len(a.zeilen), a.naechste)
+        schreiber = {"bezug": _schreibe_bezug, "toleranz": _schreibe_toleranz, "mass": _schreibe_mass}[p.art]
+        grund = schreiber(a, p)
+        if grund:
+            del a.zeilen[vorher[0]:]  # halb geschriebene Entitaeten verwerfen
+            a.naechste = vorher[1]
+            bericht.uebersprungen.append((p.nummer, "neu", grund))
+        else:
+            bericht.neu.append(p.nummer)
+    if not a.zeilen:
+        return text
+    ende = text.rfind("ENDSEC;", 0, text.find("END-ISO-10303-21"))
+    return text[:ende] + "\n".join(a.zeilen) + "\n" + text[ende:]
+
+
+def schreibe(quelle: str, ziel: str, pmi: list, modell=None) -> Bericht:
+    """Kopie von 'quelle' mit den bearbeiteten Werten der PMI nach 'ziel'; mit modell auch die eigenen PMI."""
     with open(quelle, "rb") as f:
         roh = f.read()
     try:
@@ -159,6 +350,8 @@ def schreibe(quelle: str, ziel: str, pmi: list) -> Bericht:
             bericht.geschrieben.append((p.nummer, feld))
         if any(n == p.nummer for n, _ in bericht.geschrieben) and p.grafisch:
             bericht.grafik_veraltet.append(p.nummer)
+    if modell is not None:
+        text = _haenge_an(text, datei, modell, pmi, bericht)
     with open(ziel, "w", encoding=kodierung, newline="") as f:
         f.write(text)
     return bericht

@@ -179,7 +179,8 @@
    "Werkzeuge › Verzahnung erkennen: Stirnräder (außen und innen, gerade und schräg, auch als Netz) aus der Geometrie – Zähnezahl, da, df, b, Schrägungswinkel und Steigungsrichtung, Grundkreis per Evolventen-Fit, daraus mn, αn (Normmodul), Teilkreis, Profilverschiebung und Zahnweite Wk; Tabelle mit Herkunft je Wert, Export CSV/JSON.",
    "Verzahnung: Radpaare (Außenpaar, Ritzel im Hohlrad) mit gemessenem und spielfreiem Achsabstand, Betriebseingriffswinkel, Profil- und Sprungüberdeckung und Normalflankenspiel aus dem Achsabstand; Hinweis bei gleicher Steigungsrichtung oder Überdeckung unter 1.",
    "Plausibilitätsprüfung: Verzahnungsangaben in Hinweisen (z, m, αn, β, x) werden mit der aus der Geometrie erkannten Verzahnung verglichen.",
-   "Datei › STEP mit geänderten PMI speichern: bearbeitete Nennmaße, Abmaße, Grenzmaße und Toleranzwerte werden verlustfrei in eine Kopie der STEP-Datei geschrieben (nur die betroffenen Zahlen ändern sich); ein Bericht nennt nicht schreibbare Änderungen und PMI, deren grafische Darstellung noch die alten Werte zeigt."
+   "Datei › STEP mit geänderten PMI speichern: bearbeitete Nennmaße, Abmaße, Grenzmaße und Toleranzwerte werden verlustfrei in eine Kopie der STEP-Datei geschrieben (nur die betroffenen Zahlen ändern sich); ein Bericht nennt nicht schreibbare Änderungen und PMI, deren grafische Darstellung noch die alten Werte zeigt.",
+   "STEP mit geänderten PMI speichern: auch eigene PMI (Bezüge, Form-, Richtungs- und Lagetoleranzen mit Bezugssystem, Ⓜ/Ⓛ und ⌀-Zone, Größen- und Abstandsmaße mit Abmaßen oder Toleranzklasse) werden als semantische AP242-PMI angehängt; auch der OCCT-Leser findet sie. Noch nicht: Winkelmaße, Baugruppen."
   ],
   "en": [
    "First viewer version: load STEP AP242, assembly tree, CAD-style navigation, standard views.",
@@ -360,7 +361,8 @@
    "Tools › Recognise gears: cylindrical gears (external and internal, spur and helical, also meshes) from the geometry – number of teeth, da, df, b, helix angle and hand, base circle by involute fit, from it mn, αn (standard module), reference diameter, profile shift and span measurement Wk; table with the origin of each value, export CSV/JSON.",
    "Gears: gear pairs (external pair, pinion in ring gear) with measured and backlash-free centre distance, working pressure angle, transverse and overlap contact ratio and normal backlash from the centre distance; hint for equal hands or a contact ratio below 1.",
    "Plausibility check: gear data in notes (z, m, αn, β, x) is compared with the gear recognised from the geometry.",
-   "File › Save STEP with edited PMI: edited nominal sizes, deviations, limits and tolerance values are written losslessly into a copy of the STEP file (only the affected numbers change); a report lists changes that cannot be written and PMI whose graphical presentation still shows the old values."
+   "File › Save STEP with edited PMI: edited nominal sizes, deviations, limits and tolerance values are written losslessly into a copy of the STEP file (only the affected numbers change); a report lists changes that cannot be written and PMI whose graphical presentation still shows the old values.",
+   "Save STEP with edited PMI: own PMI too (datums, form, orientation and location tolerances with datum system, Ⓜ/Ⓛ and ⌀ zone, size and distance dimensions with deviations or fit class) are appended as semantic AP242 PMI; OCCT's reader finds them as well. Not yet: angular dimensions, assemblies."
   ]
  },
  "releases": [

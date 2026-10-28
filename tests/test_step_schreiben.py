@@ -46,3 +46,60 @@ def test_real_und_ohne_entsprechung(tmp_path):
     _aendere(m, oben=0.1)
     b = sw.schreibe(quelle, str(tmp_path / "x.stp"), a.pmi)
     assert not b.geschrieben and b.uebersprungen[0][:2] == (m.nummer, "oben")
+
+
+def test_eigene_pmi_anhaengen(tmp_path):
+    """Eigene PMI (Bezug, Ebenheit, Durchmesser, Position mit Bezug, Ⓜ und ⌀-Zone) als neue Entitaeten; unser Leser und
+    der OCCT-Leser finden sie; Winkelmass und Baugruppe werden gemeldet."""
+    from OCC.Core.STEPCAFControl import STEPCAFControl_Reader
+    from OCC.Core.TDF import TDF_LabelSequence
+    from OCC.Core.TDocStd import TDocStd_Document
+    from OCC.Core.XCAFDoc import XCAFDoc_DocumentTool
+    from programm.kern import step_schreiben as sw, toleranzzone as tz
+    from programm.kern.pmi import BezugsRef, Pmi
+    from programm.ui.lader import lade_alles
+    quelle = pfad("nist_ctc_01_asme1_ap242-e1.stp")
+    a = lade_alles(quelle)
+    eben = next(i for i, f in enumerate(a.modell.flaechen) if not tz._achsen([f]))
+    loch = next(i for i, f in enumerate(a.modell.flaechen) if tz._achsen([f]))
+    d = 2 * tz._achsen([a.modell.flaechen[loch]])[0][3]
+    neue = [Pmi("bezug", "Datum", "Q", flaechen={eben}), Pmi("toleranz", "Flatness", "", wert=0.02, flaechen={eben}),
+            Pmi("mass", "Size_Diameter", "", nennwert=d, oben=0.1, unten=0.0, flaechen={loch}),
+            Pmi("toleranz", "Position", "", wert=0.1, material="M", modifikatoren=["Diameter"],
+                bezuege=[BezugsRef("Q", 1)], flaechen={loch}),
+            Pmi("mass", "Size_Angular", "", nennwert=30, flaechen={eben}),
+            Pmi("toleranz", "Parallelism", "", wert=0.1, bezuege=[BezugsRef("Z", 1)], flaechen={eben})]
+    for i, p in enumerate(neue):
+        p.quelle, p.nummer, p.step_id = "eigen", 900 + i, -1000 - i
+    ziel = str(tmp_path / "eigen.stp")
+    b = sw.schreibe(quelle, ziel, a.pmi + neue, a.modell)
+    assert b.neu == [900, 901, 902, 903] and sorted(n for n, _, _ in b.uebersprungen) == [904, 905]
+    grenze = max(a.modell.datei.entities)
+    neu = {(p.art, p.typ): p for p in lade_alles(ziel).pmi if p.step_id > grenze}
+    assert set(neu) == {("bezug", "Datum"), ("toleranz", "Flatness"), ("mass", "Size_Diameter"),
+                        ("toleranz", "Position")}
+    pos = neu[("toleranz", "Position")]
+    assert pos.flaechen == {loch} and pos.material == "M" and "Diameter" in pos.modifikatoren
+    assert [x.name for x in pos.bezuege] == ["Q"] and neu[("bezug", "Datum")].flaechen == {eben}
+    assert abs(neu[("mass", "Size_Diameter")].nennwert - d) < 1e-9 and neu[("mass", "Size_Diameter")].oben == 0.1
+
+    def xcaf(datei):
+        doc = TDocStd_Document("MDTV-XCAF")
+        r = STEPCAFControl_Reader()
+        r.SetGDTMode(True)
+        r.ReadFile(datei)
+        r.Transfer(doc)
+        dt = XCAFDoc_DocumentTool.DimTolTool(doc.Main())
+        out = []
+        for hole in (dt.GetDimensionLabels, dt.GetGeomToleranceLabels, dt.GetDatumLabels):
+            s = TDF_LabelSequence()
+            hole(s)
+            out.append(s.Length())
+        return out
+    assert [n - v for n, v in zip(xcaf(ziel), xcaf(quelle))] == [1, 2, 1]
+    # Baugruppe (mehrere Teile): gemeldet, Datei unveraendert gelesen
+    g = lade_alles(pfad("getriebe.stp"))
+    p = Pmi("toleranz", "Flatness", "", wert=0.02, flaechen={0})
+    p.quelle, p.nummer = "eigen", 1
+    b = sw.schreibe(pfad("getriebe.stp"), str(tmp_path / "g.stp"), [p], g.modell)
+    assert not b.neu and b.uebersprungen[0][0] == 1
