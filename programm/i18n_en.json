@@ -1058,7 +1058,6 @@
 "Deckel auf Grundplatte, zwei Schrauben mit Spiel: Kopfüberstand und Bündigkeit der Köpfe als Worst Case und Monte Carlo, Beitragende je Verbindung": "Cover on base plate, two screws with clearance: head protrusion and flushness of the heads as worst case and Monte Carlo, contributors per connection",
 "Die Messgröße hängt von offenen Freiheitsgraden ab: diese bleiben in Nennlage – erst die Teile vollständig verbinden.": "The measure depends on open degrees of freedom: they stay at nominal – connect the parts completely first.",
 "Erst eine Fläche am Teil wählen, das sich bewegen soll, dann mit Strg/⌘ die Gegenfläche am anderen Teil: zwei Ebenen liegen aufeinander, zwei Zylinder sind koaxial, Zylinder auf Ebene ist ein Bolzen im Langloch, Kugel auf Ebene ein Punktkontakt, zwei Kugeln ein Kugelgelenk. Die Freiheitsgrade zeigen, was noch offen ist.": "First pick a face on the part that should move, then with Ctrl/⌘ the mating face on the other part: two planes lie on each other, two cylinders become coaxial, cylinder on plane is a pin in a slot, sphere on plane a point contact, two spheres a ball joint. The degrees of freedom show what is still open.",
-"Genau zwei ebene Flächen an verschiedenen Teilen wählen": "Pick exactly two planar faces on different parts",
 "Hängt von offenen Freiheitsgraden ab (in Nennlage gerechnet).": "Depends on open degrees of freedom (computed at nominal).",
 "Kugel auf Ebene (Punkt)": "Sphere on plane (point)",
 "Kugel in Kugel": "Sphere in sphere",
@@ -1066,7 +1065,6 @@
 "Messgröße": "Measure",
 "Messgröße aus Auswahl": "Measure from selection",
 "Messgrößen": "Measures",
-"Messgrößen gehen zwischen zwei parallelen Ebenen (Spalt oder Bündigkeit)": "Measures work between two parallel planes (gap or flush)",
 "Mittelwert {:.4f} mm, σ {:.4f} mm": "Mean {:.4f} mm, σ {:.4f} mm",
 "Modell: {} · {} Verbindungen · {} Messgrößen": "Model: {} · {} connections · {} measures",
 "Monte Carlo (99,73 %)": "Monte Carlo (99.73 %)",
@@ -1437,5 +1435,8 @@
 "3-2-1: alle sechs Flächen müssen Ebenen sein": "3-2-1: all six faces must be planes",
 "3-2-1: die drei Ebenen müssen in drei Richtungen zeigen": "3-2-1: the three planes must face three directions",
 "3-2-1: je drei Ebenen am Teil und am Gegenstück wählen": "3-2-1: pick three planes each on the part and on the counterpart",
-"3-2-1: sechs Ebenen paarweise wählen – je eine am bewegten Teil, dann die Gegenfläche (primär, sekundär, tertiär)": "3-2-1: pick six planes in pairs – one on the moved part, then the counter face (primary, secondary, tertiary)"
+"3-2-1: sechs Ebenen paarweise wählen – je eine am bewegten Teil, dann die Gegenfläche (primär, sekundär, tertiär)": "3-2-1: pick six planes in pairs – one on the moved part, then the counter face (primary, secondary, tertiary)",
+"Achse zu Ebene": "Axis to plane",
+"Genau zwei Flächen (Ebenen oder Zylinder) an verschiedenen Teilen wählen": "Select exactly two faces (planes or cylinders) on different parts",
+"Messgrößen gehen zwischen zwei parallelen Ebenen (Spalt, Bündigkeit), einer Achse und einer dazu parallelen Ebene oder zwei parallelen Achsen": "Measures work between two parallel planes (gap, flush), an axis and a plane parallel to it, or two parallel axes"
 }

@@ -5,6 +5,8 @@ Lineares Modell: jedes Teil i hat eine kleine Bewegung x_i = (w, v) um den Urspr
 Verbindung begrenzt die Relativbewegung x_teil - x_gegen in ihren gesperrten Richtungen (Baugruppe.zeilen).
 Eine Messgroesse ist der Abstand eines Punkts p der Flaeche A (Flaechenschwerpunkt) zur Ebene der Flaeche B entlang
 deren Normalen n; ihre Aenderung ist c . (x_A - x_B) mit c = (p x n, n) - die Ebene von B bewegt sich starr mit B.
+An Achsen (Bohrung, Zapfen): Achse zu Ebene misst den Achspunkt in der Mitte der Zylinderflaeche (Achse parallel zur
+Ebene), Achsabstand zweier paralleler Achsen den Abstand entlang ihrer Verbindungssenkrechten u (linearisiert).
 - Worst Case: Extremwerte per linearem Programm ueber alle Verbindungen zugleich; Bewegungen nur im Zeilenraum der
   Verbindungen (freie Freiheitsgrade bleiben in Nennlage, die Messgroesse heisst dann "unbestimmt").
 - Monte Carlo: je Verbindung werden die Spielraeume gezogen (normalverteilt, Spielraum = 3 sigma, abgeschnitten;
@@ -23,8 +25,8 @@ import numpy as np
 
 from ..i18n import tr
 
-SPALT, BUENDIG = "spalt", "buendig"
-ART_TEXT = {SPALT: "Spalt", BUENDIG: "Bündigkeit"}
+SPALT, BUENDIG, ACHSE_EBENE, ACHSABSTAND = "spalt", "buendig", "achse_ebene", "achsabstand"
+ART_TEXT = {SPALT: "Spalt", BUENDIG: "Bündigkeit", ACHSE_EBENE: "Achse zu Ebene", ACHSABSTAND: "Achsabstand"}
 
 
 @dataclass
@@ -82,9 +84,30 @@ def ebene(flaeche, lage: np.ndarray | None = None):
     return p, m[2]
 
 
+def achse(flaeche, lage: np.ndarray | None = None):
+    """(Punkt in der Mitte der Flaeche auf der Achse, Richtung) einer Zylinder-/Kegelflaeche in Weltlage oder None."""
+    from . import toleranzzone as tz
+    a = tz._achse([flaeche])
+    if a is None:
+        return None
+    start, d, laenge, _r, _f = a
+    p = start + d * laenge / 2
+    if lage is not None:
+        p, d = lage[:3, :3] @ p + lage[:3, 3], lage[:3, :3] @ d
+    return p, d / np.linalg.norm(d)
+
+
 def art_fuer(fa, fb) -> str | None:
-    """Spalt bei gegenueberliegenden, Buendigkeit bei gleichgerichteten parallelen Ebenen, sonst None."""
+    """Spalt bei gegenueberliegenden, Buendigkeit bei gleichgerichteten parallelen Ebenen, Achse zu Ebene (Achse
+    parallel zur Ebene) und Achsabstand (parallele Achsen), sonst None."""
     a, b = ebene(fa), ebene(fb)
+    xa, xb = (achse(fa) if a is None else None), (achse(fb) if b is None else None)
+    if xa is not None and xb is not None:
+        return ACHSABSTAND if abs(abs(float(xa[1] @ xb[1])) - 1) < 1e-3 and \
+            np.linalg.norm(np.cross(xa[0] - xb[0], xb[1])) > 1e-6 else None
+    if (xa is not None and b is not None) or (a is not None and xb is not None):
+        d, n = (xa[1], b[1]) if xa is not None else (xb[1], a[1])
+        return ACHSE_EBENE if abs(float(d @ n)) < 1e-3 else None
     if a is None or b is None:
         return None
     cos = float(a[1] @ b[1])
@@ -130,13 +153,31 @@ class Analyse:
         return out
 
     def vektor(self, m: Messgroesse, fa, fb) -> tuple[float, np.ndarray]:
-        """Nennwert und Empfindlichkeit c (Gesamtvektor) der Messgroesse."""
-        pa, _ = ebene(fa, self.bg.lage(m.teil_a))
-        q, n = ebene(fb, self.bg.lage(m.teil_b))
-        nenn = float(n @ (pa - q))
+        """Nennwert und Empfindlichkeit c (Gesamtvektor) der Messgroesse: Abstand des Punkts p (Teil tp) zur Ebene
+        bzw. Achse (Teil tq) entlang n; beide Teile wirken am Messpunkt p."""
+        la, lb = self.bg.lage(m.teil_a), self.bg.lage(m.teil_b)
+        if m.art == ACHSABSTAND:
+            pa, _ = achse(fa, la)
+            qb, d = achse(fb, lb)
+            quer = (pa - qb) - d * float((pa - qb) @ d)
+            n = quer / np.linalg.norm(quer)
+            p, q, tp, tq = pa, qb, m.teil_a, m.teil_b
+        elif m.art == ACHSE_EBENE and ebene(fa) is None:  # A Achse, B Ebene
+            p, _ = achse(fa, la)
+            q, n = ebene(fb, lb)
+            tp, tq = m.teil_a, m.teil_b
+        elif m.art == ACHSE_EBENE:  # A Ebene, B Achse: Abstand der Achse von B zur Ebene von A
+            p, _ = achse(fb, lb)
+            q, n = ebene(fa, la)
+            tp, tq = m.teil_b, m.teil_a
+        else:
+            p, _ = ebene(fa, la)
+            q, n = ebene(fb, lb)
+            tp, tq = m.teil_a, m.teil_b
+        nenn = float(n @ (p - q))
         c = np.zeros(self.n)
-        e = _empfindlichkeit(pa, n)
-        for teil, vz in ((m.teil_a, 1.0), (m.teil_b, -1.0)):
+        e = _empfindlichkeit(p, n)
+        for teil, vz in ((tp, 1.0), (tq, -1.0)):
             if teil in self._spalte:
                 c[self._spalte[teil]:self._spalte[teil] + 6] += vz * e
         return nenn, c

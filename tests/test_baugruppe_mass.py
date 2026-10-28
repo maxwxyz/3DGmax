@@ -134,3 +134,25 @@ def test_bewegen_nur_in_offenen_freiheitsgraden():
     assert not np.allclose(b.lage(teil), start)
     b.bewege_frei(teil, [0.0], start, basis)
     assert np.allclose(b.lage(teil), start)
+
+
+def test_messgroessen_an_achsen():
+    """Achsabstand der zwei Schraubenschaefte und Abstand einer Schaftachse zu einer Seitenflaeche der Grundplatte:
+    Nennwerte aus der Geometrie, Streuung aus dem radialen Spiel der Bohrungen."""
+    b, f = _baugruppe()
+    abstand = b.neue_messgroesse(4, f(4, 19), 19, 5, f(5, 19), 19)
+    assert abstand.art == bm.ACHSABSTAND
+    pa, _ = bm.achse(f(4, 19), b.lage(4))
+    pb, d = bm.achse(f(5, 19), b.lage(5))
+    soll = np.linalg.norm((pa - pb) - d * ((pa - pb) @ d))
+    seite = next(i for i in range(40) if (e := bm.ebene(f(2, i))) is not None and abs(e[1][2]) < 1e-6)
+    zur_seite = b.neue_messgroesse(4, f(4, 19), 19, 2, f(2, seite), seite)
+    assert zur_seite.art == bm.ACHSE_EBENE
+    gedreht = b.neue_messgroesse(2, f(2, seite), seite, 4, f(4, 19), 19)  # Ebene zuerst: gleiche Groesse
+    a = bm.Analyse(b)
+    e = a.berechne(abstand, *b.mass_formen[abstand.nummer])
+    assert abs(e.nenn - soll) < 1e-9 and e.wc_max - e.wc_min > 0 and not e.unbestimmt
+    assert {x.verbindung for x in e.beitraege if x.bereich > 0} >= {3, 5}  # beide Schaefte im Spiel
+    e1 = a.berechne(zur_seite, *b.mass_formen[zur_seite.nummer])
+    e2 = a.berechne(gedreht, *b.mass_formen[gedreht.nummer])
+    assert abs(abs(e1.nenn) - abs(e2.nenn)) < 1e-9 and abs((e1.wc_max - e1.wc_min) - (e2.wc_max - e2.wc_min)) < 1e-9

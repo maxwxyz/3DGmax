@@ -3265,7 +3265,7 @@ class Hauptfenster(QtWidgets.QMainWindow):
         paare = [(f, t) for f, t in zip(self.ansicht.auswahl3d, self.ansicht.auswahl_teile)
                  if t is not None and self.erg.modell.flaechen_index(f) is not None]
         if len(paare) != 2:
-            self.statusBar().showMessage(tr("Genau zwei ebene Flächen an verschiedenen Teilen wählen"), 6000)
+            self.statusBar().showMessage(tr("Genau zwei Flächen (Ebenen oder Zylinder) an verschiedenen Teilen wählen"), 6000)
             return None
         (fa, ta), (fb, tb) = paare
         m = self.erg.modell

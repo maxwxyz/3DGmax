@@ -184,7 +184,8 @@
    "Werkzeuge › Messergebnisse (QIF) einlesen: Istwerte aus QIF-3.0-Ergebnisdateien werden den Merkmalen zugeordnet (Kennung = Ballonnummer, sonst Name), gegen die Grenzen bewertet (Profil an Punkten ±t/2, maßgebend der schlechteste Wert) und neben dem Status der Datei gezeigt; die Merkmalsliste (CSV/PDF) übernimmt Messwert und i. O.",
    "Toleranzzonen: Rundheit und Rundlauf an Zylindern als Ringzonen in drei Querschnitten (die Zone gilt je Querschnitt), Gesamtlauf weiter als zwei koaxiale Zylinder.",
    "Zusammenbau: 3-2-1-Vorlage – sechs Ebenen paarweise gewählt (primär, sekundär, tertiär) bestimmen das Teil in einem Schritt mit drei Verbindungen Ebene auf Ebene, auch aus schiefer Ausgangslage.",
-   "Baugruppenvariation: der PDF-Bericht zeigt je Messgröße das Monte-Carlo-Histogramm mit Worst-Case-Grenzen und Soll."
+   "Baugruppenvariation: der PDF-Bericht zeigt je Messgröße das Monte-Carlo-Histogramm mit Worst-Case-Grenzen und Soll.",
+   "Baugruppenvariation: Messgrößen auch an Achsen – Achse zu einer parallelen Ebene und Abstand zweier paralleler Achsen (z. B. Bohrungsabstand über zwei Teile), mit Worst Case, Monte Carlo und Beitragenden."
   ],
   "en": [
    "First viewer version: load STEP AP242, assembly tree, CAD-style navigation, standard views.",
@@ -370,7 +371,8 @@
    "Tools › Read measurement results (QIF): actual values from QIF 3.0 results files are assigned to the characteristics (designator = balloon number, otherwise name), assessed against the limits (profile at points ±t/2, the worst value governs) and shown next to the status in the file; the characteristics list (CSV/PDF) takes over the measured value and OK.",
    "Tolerance zones: roundness and circular runout on cylinders as ring zones in three cross-sections (the zone applies per cross-section); total runout still as two coaxial cylinders.",
    "Assembly: 3-2-1 template – six planes picked in pairs (primary, secondary, tertiary) locate the part in one step with three plane-on-plane connections, also from a skewed start position.",
-   "Assembly variation: the PDF report shows the Monte Carlo histogram with worst-case limits and requirement per measure."
+   "Assembly variation: the PDF report shows the Monte Carlo histogram with worst-case limits and requirement per measure.",
+   "Assembly variation: measures on axes too – axis to a parallel plane and distance of two parallel axes (e.g. hole spacing across two parts), with worst case, Monte Carlo and contributors."
   ]
  },
  "releases": [

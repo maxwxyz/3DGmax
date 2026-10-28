@@ -98,7 +98,8 @@
 | Wiggle within tolerances (assembly connections, extreme positions, 1:1 or exaggerated); worst-case position scatter per part | ✅ |
 | Assembly variation: measures between parts (gap/flush), worst case and Monte Carlo over all connections, requirement with Cpk/share outside, contributor ranking, PDF, example | ✅ |
 | Assembly variation: histogram per measure in the report | ✅ |
-| Assembly variation: temperature, datum shift, measures on axes/points | ⬜ |
+| Assembly variation: measures on axes (axis to plane, axis distance) | ✅ |
+| Assembly variation: temperature, datum shift, measures on points | ⬜ |
 | Bill of characteristics with balloon numbers (table column, 3D balloons, CSV, PDF) | ✅ |
 | Datum reference frame display for a selected tolerance | ✅ |
 | Create PMI with tolerancing advisor (stage 1: rules per selection, own PMI in project) | ✅ |

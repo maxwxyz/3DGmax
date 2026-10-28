@@ -561,13 +561,14 @@ class Baugruppe:
         return None
 
     def neue_messgroesse(self, teil_a: int, fa, ia: int, teil_b: int, fb, ib: int):
-        """Spalt oder Buendigkeit zwischen zwei parallelen Ebenen verschiedener Teile; Fehlertext sonst."""
+        """Spalt, Buendigkeit, Achse zu Ebene oder Achsabstand zwischen Flaechen verschiedener Teile; Fehlertext sonst."""
         from . import baugruppe_mass as bm
         if teil_a == teil_b:
             return tr("Die zwei Flächen müssen zu verschiedenen Teilen gehören")
         art = bm.art_fuer(fa, fb)
         if art is None:
-            return tr("Messgrößen gehen zwischen zwei parallelen Ebenen (Spalt oder Bündigkeit)")
+            return tr("Messgrößen gehen zwischen zwei parallelen Ebenen (Spalt, Bündigkeit), einer Achse und einer "
+                      "dazu parallelen Ebene oder zwei parallelen Achsen")
         m = bm.Messgroesse(max((x.nummer for x in self.masse), default=0) + 1, teil_a, ia, teil_b, ib, art)
         self.masse.append(m)
         self.mass_formen[m.nummer] = (fa, fb)
