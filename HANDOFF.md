@@ -46,6 +46,13 @@ Done in this local session (commit):
   cross-section – `dea17e8`; datums as contact per ISO 5459 – `2abb796`.
 - E57 point clouds (own reader; libE57Format test data CC0 / Test Data License in `tests/daten/e57/`) – `2aef5db`;
   involute splines – `5f0b63f`; own PMI written in assemblies – `ecd7304`.
+- Full suite green (266 passed) – after `ecd7304`. Then: fit class / Ⓜ/Ⓛ edits written to STEP – `74bd8de`;
+  3D handle (AIS_Manipulator, only open DOF; on-screen test `tests/test_bildschirm.py::test_3d_griff_ziehen`) –
+  `72a5647`; second OCCT view rendered black → fixed-function pipeline for further views – `af9b6f1`; Qt's own texts
+  in German (qtbase_de.qm bundled) – `afec0af`.
+- Screen was available this time: on-screen checks done for the 3D handle, side-by-side views (fixed), stack-up window
+  with what-if bar and scenarios (looks fine). Local macOS build after `afec0af` OK (qtbase_de.qm bundled,
+  `--selbsttest` OK).
 - Not done for lack of a verifiable source or test data (kept open in the roadmap): ISO 286 b/t–zc/>500 mm (isofits
   has none of them), surface texture/weld symbols (no sample file), large-assembly LOD (no large model; 3.7 MB STEP
   loads in 2.4 s).
