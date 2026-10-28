@@ -1441,5 +1441,7 @@
 "Messgrößen gehen zwischen zwei parallelen Ebenen (Spalt, Bündigkeit), einer Achse und einer dazu parallelen Ebene oder zwei parallelen Achsen": "Measures work between two parallel planes (gap, flush), an axis and a plane parallel to it, or two parallel axes",
 "je Querschnitt: schlechtester bei {:.1f} mm entlang der Achse, Spannweite {:.4g} (zulässig {:.4g}, {} Schnitte)": "per cross-section: worst at {:.1f} mm along the axis, range {:.4g} (allowed {:.4g}, {} sections)",
 "Anlage (ISO 5459)": "Contact (ISO 5459)",
-"Bezüge als anliegende Flächen außen am Material (größter Abstand minimal) statt Gauß-Ausgleich; empfindlich für Ausreißer im Scan": "Datums as contacting features outside the material (largest distance minimal) instead of least squares; sensitive to outliers in the scan"
+"Bezüge als anliegende Flächen außen am Material (größter Abstand minimal) statt Gauß-Ausgleich; empfindlich für Ausreißer im Scan": "Datums as contacting features outside the material (largest distance minimal) instead of least squares; sensitive to outliers in the scan",
+"Zahnnabe (ISO 4156 / DIN 5480)": "Spline hub (ISO 4156 / DIN 5480)",
+"Zahnwelle (ISO 4156 / DIN 5480)": "Spline shaft (ISO 4156 / DIN 5480)"
 }

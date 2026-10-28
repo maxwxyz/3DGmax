@@ -33,6 +33,7 @@ MIN_AMPLITUDE = 0.02  # verzahnt: Amplitude der Zahnharmonischen mindestens 2 % 
 MIN_PERIODISCH = 0.9  # verzahnt: Anteil der Schwankung von r(theta) in Vielfachen der Zahnharmonischen
 MIN_ZAEHNE = 5
 ZAHNHOEHE = (1.5, 3.0)  # Zahnhoehe in Vielfachen von mn (Bezugsprofil ISO 53: 2,25)
+ZAHNHOEHE_WELLE = (0.8, 1.6)  # Zahnwelle (Evolvente 30 Grad, ISO 4156 / DIN 5480): flacher
 MAX_FIT = 0.03  # Evolventen-Fit: mittlere Abweichung hoechstens 3 % der Zahnhoehe, sonst keine Evolventenverzahnung
 
 
@@ -48,6 +49,7 @@ class Verzahnung:
     b: float
     beta: float = 0.0  # Grad
     hand: str = ""  # rechts | links | "" (gerade)
+    welle: bool = False  # Zahnwellenverbindung (30 Grad, flache Zahnhoehe; ISO 4156 / DIN 5480)
     db: float = 0.0
     mn: float = 0.0
     alpha_n: float = 0.0
@@ -62,7 +64,10 @@ class Verzahnung:
         """(Groesse, Wert, Herkunft) fuer Tabelle und Export."""
         g = lambda w, n=4: f"{w:.{n}f}".rstrip("0").rstrip(".")  # noqa: E731
         hand = {"rechts": tr("rechtssteigend"), "links": tr("linkssteigend")}.get(self.hand, tr("gerade"))
-        return [(tr("Art"), tr("Innenverzahnung") if self.innen else tr("Außenverzahnung"), tr("Schnittkontur")),
+        art = tr("Innenverzahnung") if self.innen else tr("Außenverzahnung")
+        if self.welle:
+            art = tr("Zahnnabe (ISO 4156 / DIN 5480)") if self.innen else tr("Zahnwelle (ISO 4156 / DIN 5480)")
+        return [(tr("Art"), art, tr("Schnittkontur")),
                 (tr("Zähnezahl z"), str(self.z), tr("Harmonische von r(θ)")),
                 (tr("Kopfkreis da"), g(self.da, 3), tr("gemessen")),
                 (tr("Fußkreis df"), g(self.df, 3), tr("gemessen")),
@@ -77,7 +82,8 @@ class Verzahnung:
 
     def als_dict(self) -> dict:
         return {"teil": self.teil, "innen": self.innen, "z": self.z, "da": self.da, "df": self.df, "b": self.b,
-                "beta": self.beta, "hand": self.hand, "db": self.db, "mn": self.mn, "alpha_n": self.alpha_n,
+                "beta": self.beta, "hand": self.hand, "welle": self.welle,
+                "db": self.db, "mn": self.mn, "alpha_n": self.alpha_n,
                 "d": self.d, "x": self.x, "k": self.k, "wk": self.wk, "fit_fehler": self.fit_fehler,
                 "achse": {"punkt": [float(v) for v in self.punkt], "richtung": [float(v) for v in self.richtung]},
                 "hinweise": list(self.hinweise)}
@@ -380,7 +386,8 @@ def erkenne(form, teil: str = "") -> Verzahnung | None:
             _ableiten(v, rb, q, r)
     if not rb or fit > MAX_FIT * h:
         return None  # periodisch, aber keine Evolventenflanken (Sechskant, Keilwelle mit geraden Flanken ...)
-    if not ZAHNHOEHE[0] <= h / v.mn <= ZAHNHOEHE[1] or abs(v.x) > 1.5:
+    v.welle = v.alpha_n == 30.0 and ZAHNHOEHE_WELLE[0] <= h / v.mn <= ZAHNHOEHE_WELLE[1]
+    if not v.welle and (not ZAHNHOEHE[0] <= h / v.mn <= ZAHNHOEHE[1] or abs(v.x) > 1.5):
         return None  # Zahnhoehe passt nicht zum Modul (z. B. Vielkant, Rändel)
     if fit > 0.01 * h:
         v.hinweise.append(tr("Flanken weichen von der Evolvente ab ({:.3f} mm)").format(fit))

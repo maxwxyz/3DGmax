@@ -188,7 +188,8 @@
    "Baugruppenvariation: Messgrößen auch an Achsen – Achse zu einer parallelen Ebene und Abstand zweier paralleler Achsen (z. B. Bohrungsabstand über zwei Teile), mit Worst Case, Monte Carlo und Beitragenden.",
    "Scanprüfung: Rundheit und Rundlauf an Zylindern werden je Querschnitt ausgewertet (Rundheit mit eigenem Ausgleichskreis je Schnitt), der schlechteste Schnitt zählt – eine Kegeligkeit ist keine Unrundheit.",
    "Scanprüfung: Option „Anlage (ISO 5459)“ – bei Ausrichtung am Bezugssystem werden die Bezüge als anliegende Flächen außen am Material gebildet (größter Abstand minimal, je Stufe in den verbliebenen Freiheitsgraden) statt per Gauß-Ausgleich.",
-   "Scanprüfung: Punktwolken im E57-Format (eigener Leser: kartesisch und sphärisch, Gleitkomma, Ganzzahl und skalierte Ganzzahl, mehrere Scans mit Pose, ungültige Punkte entfallen)."
+   "Scanprüfung: Punktwolken im E57-Format (eigener Leser: kartesisch und sphärisch, Gleitkomma, Ganzzahl und skalierte Ganzzahl, mehrere Scans mit Pose, ungültige Punkte entfallen).",
+   "Verzahnung erkennen: Zahnwellen und -naben mit Evolventenflanken (30°, flache Zahnhöhe nach ISO 4156 / DIN 5480) werden als Wellenverbindung erkannt."
   ],
   "en": [
    "First viewer version: load STEP AP242, assembly tree, CAD-style navigation, standard views.",
@@ -378,7 +379,8 @@
    "Assembly variation: measures on axes too – axis to a parallel plane and distance of two parallel axes (e.g. hole spacing across two parts), with worst case, Monte Carlo and contributors.",
    "Scan check: roundness and circular runout on cylinders are evaluated per cross-section (roundness with its own fitted circle per section), the worst section counts – a taper is not out-of-roundness.",
    "Scan check: option “Contact (ISO 5459)” – when aligning to the datum system, the datums are formed as contacting features outside the material (largest distance minimal, per stage in the remaining degrees of freedom) instead of least squares.",
-   "Scan check: point clouds in E57 format (own reader: cartesian and spherical, float, integer and scaled integer, several scans with pose, invalid points dropped)."
+   "Scan check: point clouds in E57 format (own reader: cartesian and spherical, float, integer and scaled integer, several scans with pose, invalid points dropped).",
+   "Recognise gears: involute spline shafts and hubs (30°, short tooth height per ISO 4156 / DIN 5480) are recognised as spline connections."
   ]
  },
  "releases": [

@@ -109,3 +109,14 @@ def test_verzahnung_gegen_hinweis():
     befunde = pl.verzahnung([falsch], modell)
     assert len(befunde) == 2 and befunde[0].stufe == "Fehler" and "24" in befunde[0].text
     assert pl.verzahnung([Pmi("hinweis", nur_grafik_text="DEBURR", nummer=3)], modell) == []
+
+
+@pytest.mark.parametrize("innen", [False, True])
+def test_zahnwelle_30_grad(innen):
+    """Zahnwelle/-nabe mit 30 Grad und flacher Zahnhoehe (Kopf 0,5 m, Fuss 0,6 m) wird als Wellenverbindung erkannt."""
+    import zahnrad
+    from programm.kern import verzahnung as vz
+    v = vz.erkenne(zahnrad.zahnrad(24, 1.25, 15.0, 30.0, innen=innen, kopf=0.5, fuss=0.6), "Welle")
+    assert v is not None and v.welle and v.z == 24 and v.alpha_n == 30.0 and abs(v.mn - 1.25) < 2e-3
+    assert "4156" in v.zeilen()[0][1]
+    assert vz.erkenne(zahnrad.zahnrad(24, 1.25, 15.0, 20.0, kopf=0.5, fuss=0.6)) is None  # 20 Grad und flach: nicht

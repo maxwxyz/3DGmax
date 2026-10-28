@@ -22,18 +22,19 @@ def _inv(a: float) -> float:
 
 
 def stirnschnitt(z: int, mn: float, alpha_n: float = 20.0, beta: float = 0.0, x: float = 0.0, innen: bool = False,
-                 flanke: int = 12) -> np.ndarray:
-    """Punkte (N x 2) des Stirnschnitts; innen: Kontur der Bohrung eines Hohlrads (Zaehne nach innen)."""
+                 flanke: int = 12, kopf: float = 1.0, fuss: float = 1.25) -> np.ndarray:
+    """Punkte (N x 2) des Stirnschnitts; innen: Kontur der Bohrung eines Hohlrads (Zaehne nach innen); kopf, fuss:
+    Kopf- und Fusshoehe in Vielfachen von mn (Bezugsprofil ISO 53: 1 / 1,25; Zahnwelle ISO 4156 etwa 0,5 / 0,6)."""
     b = math.radians(beta)
     at = math.atan(math.tan(math.radians(alpha_n)) / math.cos(b))
     mt = mn / math.cos(b)
     d = z * mt
     rb = d / 2 * math.cos(at)
     if innen:  # Luecke des Hohlrads wie der Zahn eines Aussenrads: Kopf und Fuss vertauscht
-        ra, rf = d / 2 + mn * (1.25 + x), d / 2 - mn * (1.0 - x)
+        ra, rf = d / 2 + mn * (fuss + x), d / 2 - mn * (kopf - x)
         s = mt * (math.pi / 2 + 2 * x * math.tan(at))  # Lueckenweite am Teilkreis
     else:
-        ra, rf = d / 2 + mn * (1.0 + x), d / 2 - mn * (1.25 - x)
+        ra, rf = d / 2 + mn * (kopf + x), d / 2 - mn * (fuss - x)
         s = mt * (math.pi / 2 + 2 * x * math.tan(at))  # Zahndicke am Teilkreis
     eta = s / d  # halber Winkel am Teilkreis
 
@@ -74,14 +75,14 @@ def _draht(p: np.ndarray, z0: float, drehung: float = 0.0):
 
 
 def zahnrad(z: int, mn: float, b: float, alpha_n: float = 20.0, beta: float = 0.0, x: float = 0.0,
-            innen: bool = False, schnitte: int = 9):
+            innen: bool = False, schnitte: int = 9, kopf: float = 1.0, fuss: float = 1.25):
     """Zahnrad als Volumen, Achse Z ab z = 0, Breite b."""
     from OCC.Core.BRepAlgoAPI import BRepAlgoAPI_Cut
     from OCC.Core.BRepBuilderAPI import BRepBuilderAPI_MakeFace
     from OCC.Core.BRepOffsetAPI import BRepOffsetAPI_ThruSections
     from OCC.Core.BRepPrimAPI import BRepPrimAPI_MakeCylinder, BRepPrimAPI_MakePrism
     from OCC.Core.gp import gp_Ax2, gp_Dir, gp_Pnt, gp_Vec
-    p = stirnschnitt(z, mn, alpha_n, beta, x, innen)
+    p = stirnschnitt(z, mn, alpha_n, beta, x, innen, kopf=kopf, fuss=fuss)
     if abs(beta) < 1e-9:
         verzahnung = BRepPrimAPI_MakePrism(BRepBuilderAPI_MakeFace(_draht(p, 0.0)).Face(), gp_Vec(0, 0, b)).Shape()
     else:
