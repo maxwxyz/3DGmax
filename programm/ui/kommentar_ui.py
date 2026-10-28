@@ -6,7 +6,7 @@ from PySide6 import QtCore, QtWidgets
 
 from ..i18n import tr
 from ..kern import kommentare as km
-from .tabellen import aenderbar_machen
+from .tabellen import aenderbar_machen, leer_hinweis
 
 
 class KommentarDialog(QtWidgets.QDialog):
@@ -54,6 +54,7 @@ class KommentarPanel(QtWidgets.QWidget):
         oben.addWidget(self.nur_offen)
         lay.addLayout(oben)
         self.tabelle = QtWidgets.QTableWidget(0, 4)
+        leer_hinweis(self.tabelle, tr("Noch keine Kommentare – Element im Modell wählen und „＋ Kommentar“"))
         self.tabelle.setHorizontalHeaderLabels([tr("Nr"), tr("Art"), tr("Status"), tr("Text")])
         self.tabelle.verticalHeader().setVisible(False)
         self.tabelle.setSelectionBehavior(QtWidgets.QAbstractItemView.SelectionBehavior.SelectRows)

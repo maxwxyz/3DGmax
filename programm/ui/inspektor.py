@@ -31,7 +31,7 @@ class InspektorPanel(QtWidgets.QWidget):
         self.tabelle.setSelectionMode(QtWidgets.QAbstractItemView.SelectionMode.NoSelection)
         self.tabelle.horizontalHeader().setStretchLastSection(True)
         self.tabelle.setShowGrid(False)
-        lay.addWidget(self.tabelle, 1)
+        lay.addWidget(self.tabelle, 3)
         titel = QtWidgets.QLabel(tr("Aktionen"))
         titel.setObjectName("leise")
         self._aktionen_titel = titel
@@ -39,6 +39,7 @@ class InspektorPanel(QtWidgets.QWidget):
         self._aktionen = QtWidgets.QWidget()
         self._fluss = FlussLayout(self._aktionen)
         lay.addWidget(self._aktionen)
+        lay.addStretch(1)  # ohne Auswahl: Hinweis oben, nicht mittig
         self.knoepfe: list[QtWidgets.QToolButton] = []
         self.zeige("", [], [])
 

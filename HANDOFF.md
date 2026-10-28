@@ -134,6 +134,20 @@ Done in this local session (commit):
     plus per-link override (PLAN §8.33, Roadmap ⬜).
   - Added to UI stage 2 (user, 2026-10-28): CATIA roll band further out, continuous blend into the trackball
     (rounded arcball) while dragging – `docs/UI_UX_Plan.md`.
+  - UI stage 2 done (`a76d128`, `c17c7b9`, `27bd1e2`): workspaces with panel sets, tool windows as bottom panels,
+    one toolbar row (File dropdown left, measure toggle in the measure panel, section/explosion in the structure
+    panel), CATIA roll circle with smooth blend, view cube rebuild per screen, selection order (earlier ×0.78),
+    editable cells tinted, wheel never changes unfocused fields (`ui/radsperre.py`), smooth panel resizing (fast
+    polygonal HLR previews, p90 1088 → 13 ms), comparison always with both trees. Then `eefae08` (example
+    function → tolerancing, manual datums), `64e2430` (scan check as a comparison: target/actual modes, side by side,
+    review walk with status/comment in CSV/PDF).
+  - UI stage 3 done: inspector panel (`ui/inspektor.py`), guided flows "Scan prüfen"/"Spalt messen"
+    (`ui/fuehrung.py`, Help › Guided and start page), unified panels (empty-table hints `tabellen.leer_hinweis`, one
+    primary button per panel). Tests `test_inspektor`, `test_gefuehrte_ablaeufe`, `test_einheitliches_panel_layout`.
+  - Parallel sessions (own worktree branches, merge only after the user says so): item 6 presentation for written
+    PMI + "make semantic"; "Modell hinzufügen" then item 5 (live snapping, STEP kinematics); removal of "Was ist neu"
+    and the first-start introduction (touches the Help-menu loop in `hauptfenster.py`, which now also lists
+    `gefuehrt_scan`/`gefuehrt_spalt`).
 
 **Deferred questions for the user** (do not block on them):
 - UI/UX stage 2 (workspaces) changes the layout a lot – implement only after you have read `docs/UI_UX_Plan.md`?
@@ -274,9 +288,10 @@ graphics only, 8.19 QIF graphics, 8.20 3D tolerance analysis,
 8.21 clash/band/intersection analysis, 8.22 plausibility check, 8.23 scan against PMI tolerances).
 
 ## Next (in this order)
-0. Evening order 2026-10-28: plan items 3 and 4 (see "Current state"), UI stage 2 (`docs/UI_UX_Plan.md`, incl.
-   side-panel resizing analysis), then items 5–8 (live snapping + STEP kinematics, presentation for written PMI,
-   overlap check for generated PMI, DXF dimension entities).
+0. Evening order 2026-10-28: items 1–4 and UI stages 2–3 done; overlap check for generated PMI (item 7) done.
+   Open: merge the parallel session branches (items 5, 6, "Modell hinzufügen", no intro) after the user's OK, then
+   item 8 (DXF dimension entities), then the collected items: materials in hand-built chains, 3D preview of
+   function → tolerancing (datums first, zones optional), datum shift in the assembly variation.
 1. Visual check on the Mac (see "Visual check on the real screen still open" and: wireframe contrast edges, view cube,
    start screen, side-panel dragging, tab ✕ and right-click menu on tabs, File › Examples, stack-up window and PDF,
    clash dock, assembly dock, scan check with point cloud and 3-2-1 alignment, zones for linear/angular dimensions).

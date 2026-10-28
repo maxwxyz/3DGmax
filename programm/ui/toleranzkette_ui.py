@@ -11,7 +11,7 @@ from PySide6 import QtCore, QtGui, QtWidgets
 from ..i18n import tr
 from ..kern import toleranzkette as tk
 from .fluss import FlussLayout
-from .tabellen import AENDERBAR_FARBE  # Zellen, die man aendern kann (von Hand, im Planspiel)
+from .tabellen import AENDERBAR_FARBE, leer_hinweis  # getoent: Zellen, die man aendern kann
 
 
 def _z(x: float, vorzeichen: str = "") -> str:
@@ -476,6 +476,8 @@ class ToleranzketteFenster(QtWidgets.QDialog):
         self._szenarien_liste()
         lay.addWidget(self.plan_leiste)
         self.tabelle = QtWidgets.QTableWidget(0, len(tk.SPALTEN) + 2)
+        leer_hinweis(self.tabelle, tr("Noch keine Glieder – „＋ Hinzufügen“: aus der PMI-Liste, aus der 3D-Auswahl "
+                                      "oder leer zum Eintragen"))
         self.tabelle.setHorizontalHeaderLabels([tr(s) for s in tk.SPALTEN] + [tr("Streuung"), tr("Fertigung")])
         for i, name in enumerate(tk.SPALTEN + ("Streuung", "Fertigung")):
             self.tabelle.horizontalHeaderItem(i).setToolTip(tr(SPALTEN_HILFE[name]))

@@ -6,6 +6,7 @@ from PySide6 import QtCore, QtGui, QtWidgets
 
 from ..i18n import tr
 from ..kern.pmi import BEZUG, HINWEIS, MASS, MATERIAL, TOLERANZ
+from .tabellen import leer_hinweis
 
 ART_TEXT = {MASS: "Maß", TOLERANZ: "Toleranz", BEZUG: "Bezug", HINWEIS: "Hinweis"}
 
@@ -223,6 +224,8 @@ class PmiPanel(QtWidgets.QWidget):
         self.hinweis.setObjectName("leise")
         lay.addWidget(self.hinweis)
         self.tabelle = QtWidgets.QTableWidget(0, len(self.SPALTEN))
+        leer_hinweis(self.tabelle, tr("Keine PMI – ein Modell mit PMI öffnen oder PMI anlegen (Flächen wählen, "
+                                      "Rechtsklick › PMI anlegen …); bei einem Filter: Suche leeren"))
         self.tabelle.setHorizontalHeaderLabels([tr(s) for s in self.SPALTEN])
         for i, name in enumerate(self.SPALTEN):
             self.tabelle.horizontalHeaderItem(i).setData(QtCore.Qt.ItemDataRole.UserRole, name)

@@ -28,3 +28,32 @@ def aenderbar_machen(tabelle: QtWidgets.QAbstractItemView):
     ItemIsEditable abgeschaltet haben)."""
     tabelle.setItemDelegate(AenderbarDelegate(tabelle))
     tabelle.setEditTriggers(EIN_KLICK)
+
+
+class _LeerHinweis(QtCore.QObject):
+    """Zeichnet in eine leere Tabelle einen Satz, was zu tun ist (UI-Plan: leere Zustaende sagen den naechsten
+    Schritt)."""
+
+    def __init__(self, tabelle: QtWidgets.QAbstractItemView, text: str):
+        super().__init__(tabelle)
+        self.tabelle, self.text = tabelle, text
+        tabelle.viewport().installEventFilter(self)
+
+    def eventFilter(self, obj, ev):  # noqa: N802 - Qt
+        if ev.type() == QtCore.QEvent.Type.Paint and self.tabelle.model() is not None and \
+                self.tabelle.model().rowCount() == 0 and self.text:
+            maler = QtGui.QPainter(obj)
+            farbe = self.tabelle.palette().color(QtGui.QPalette.ColorRole.PlaceholderText)
+            maler.setPen(farbe)
+            r = obj.rect().adjusted(12, 12, -12, -12)
+            maler.drawText(r, int(QtCore.Qt.AlignmentFlag.AlignHCenter | QtCore.Qt.AlignmentFlag.AlignTop |
+                                  QtCore.Qt.TextFlag.TextWordWrap), self.text)
+            maler.end()
+        return False
+
+
+def leer_hinweis(tabelle: QtWidgets.QAbstractItemView, text: str) -> _LeerHinweis:
+    """Hinweis in der leeren Tabelle (verschwindet mit der ersten Zeile)."""
+    h = _LeerHinweis(tabelle, text)
+    tabelle._leer_hinweis = h
+    return h

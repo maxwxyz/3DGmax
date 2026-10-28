@@ -8,7 +8,7 @@ from PySide6 import QtCore, QtGui, QtWidgets
 from ..i18n import tr
 from ..kern import baugruppe_mass as bm
 from ..kern import verbindung as vb
-from .tabellen import aenderbar_machen
+from .tabellen import aenderbar_machen, leer_hinweis
 
 
 def _tabelle(spalten) -> QtWidgets.QTableWidget:
@@ -77,6 +77,7 @@ class BaugruppePanel(QtWidgets.QWidget):
         self.versatz.setToolTip(tr("Abstand zwischen zwei Ebenen (0: Berührung)"))
         reihe.addWidget(self.versatz)
         self.knopf = QtWidgets.QPushButton(tr("Verbinden"))
+        self.knopf.setObjectName("primaer")
         self.knopf.setToolTip(tr("Gewählte Flächen der beiden Teile verbinden: das zweite Teil rastet am ersten ein"))
         self.knopf.clicked.connect(lambda: self.verbinden.emit(self.versatz.value()))
         reihe.addWidget(self.knopf, 1)
@@ -87,6 +88,8 @@ class BaugruppePanel(QtWidgets.QWidget):
         reihe.addWidget(self.knopf_321)
         lay.addLayout(reihe)
         self.verbindungen = _tabelle(self.VERBINDUNG_SPALTEN)
+        leer_hinweis(self.verbindungen, tr("Noch keine Verbindung – eine Fläche am Teil wählen, das sich bewegen soll, "
+                                           "mit Strg/⌘ die Gegenfläche, dann „Verbinden“"))
         aenderbar_machen(self.verbindungen)  # Spielraum: getoent, ein Klick
         self.verbindungen.setToolTip(tr("Spielraum per Doppelklick ändern: eben, Langloch und Punkt ± entlang der "
                                         "Normalen, koaxial und Kugel radiales Spiel (mm)"))
@@ -187,6 +190,7 @@ class BaugruppePanel(QtWidgets.QWidget):
         lay.addWidget(hinweis)
         reihe = QtWidgets.QHBoxLayout()
         self.mass_knopf = QtWidgets.QPushButton(tr("Messgröße aus Auswahl"))
+        self.mass_knopf.setObjectName("primaer")
         self.mass_knopf.setToolTip(tr("Messgröße (Spalt, Bündigkeit, Abstand) aus den gewählten Flächen zweier Teile "
                                       "anlegen"))
         self.mass_knopf.clicked.connect(self.mass_anlegen.emit)
@@ -235,6 +239,8 @@ class BaugruppePanel(QtWidgets.QWidget):
         self.alpha: dict[int, float] = {}  # Teil (Knotennummer) -> 1e-6/K
         self.teil_namen: dict[int, str] = {}
         self.masse = _tabelle(self.MASS_SPALTEN)
+        leer_hinweis(self.masse, tr("Noch keine Messgröße – zwei Flächen an verschiedenen Teilen wählen, dann "
+                                    "„Messgröße aus Auswahl“"))
         aenderbar_machen(self.masse)  # Soll: getoent, ein Klick
         self.masse.itemChanged.connect(self._soll_geaendert)
         self.masse.itemSelectionChanged.connect(self._zeige_beitraege)

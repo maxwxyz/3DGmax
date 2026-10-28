@@ -68,9 +68,13 @@ class Startseite(QtWidgets.QWidget):
         self.beispiele.setToolTip(tr("Jede Funktion an freien Testdaten ausprobieren"))
         self.beispiele_menue = QtWidgets.QMenu(self.beispiele)
         self.beispiele.setMenu(self.beispiele_menue)
+        self.gefuehrt = QtWidgets.QPushButton(tr("Geführt"))  # Schritt fuer Schritt fuer Einsteiger
+        self.gefuehrt.setToolTip(tr("Eine Aufgabe Schritt für Schritt: Scan prüfen oder Spalt messen"))
+        self.gefuehrt_menue = QtWidgets.QMenu(self.gefuehrt)
+        self.gefuehrt.setMenu(self.gefuehrt_menue)
         zeile = QtWidgets.QHBoxLayout()
         zeile.addStretch(1)
-        for k in (knopf, vergleich, self.beispiele):
+        for k in (knopf, vergleich, self.beispiele, self.gefuehrt):
             zeile.addWidget(k)
         zeile.addStretch(1)
         lay.addSpacing(12)
@@ -203,6 +207,12 @@ class Hauptfenster(QtWidgets.QMainWindow):
         self.dock_baum.setObjectName("dock_Struktur")  # eindeutig fuer den gemerkten Fensterzustand
         self.dock_ansichten = self._dock(tr("Gespeicherte Ansichten"), self.ansichten,
                                          QtCore.Qt.DockWidgetArea.LeftDockWidgetArea)
+        self._berichte_gespeichert: set[str] = set()  # gespeicherte Berichte (gefuehrte Ablaeufe pruefen sie)
+        self._ausrichtung_bestaetigt = False
+        from .fuehrung import FuehrungPanel
+        self.fuehrung = FuehrungPanel()  # gefuehrte Ablaeufe (Hilfe › Gefuehrt)
+        self.dock_fuehrung = self._dock(tr("Geführt"), self.fuehrung, QtCore.Qt.DockWidgetArea.RightDockWidgetArea)
+        self.dock_fuehrung.hide()
         from .inspektor import InspektorPanel
         self.inspektor = InspektorPanel()  # Eigenschaften und Befehle der aktuellen Auswahl
         self.dock_inspektor = self._dock(tr("Inspektor"), self.inspektor, QtCore.Qt.DockWidgetArea.LeftDockWidgetArea)
@@ -796,6 +806,10 @@ class Hauptfenster(QtWidgets.QMainWindow):
         A("ueber", tr("Über 3DGmax"), self.zeige_ueber, modell=False)
         A("befehlssuche", tr("Befehl suchen …"), self.zeige_befehlssuche, "Ctrl+K", modell=False,
           tipp=tr("Alle Befehle nach Namen durchsuchen und ausführen"))
+        A("gefuehrt_scan", tr("Geführt: Scan prüfen"), lambda: self.starte_fuehrung("scan"), modell=False,
+          tipp=tr("Schritt für Schritt: Modell, Scan, Ausrichtung, Ergebnisse prüfen, Prüfbericht"))
+        A("gefuehrt_spalt", tr("Geführt: Spalt messen"), lambda: self.starte_fuehrung("spalt"), modell=False,
+          tipp=tr("Schritt für Schritt: Baugruppe, Teile verbinden, Spielräume, Messgröße, Soll, Ergebnis"))
 
     VERGLEICH_AKTIONEN = ("vergleich_beenden", "aenderungen_export", "pdf_vergleich", "pdf_pmi_aenderungen",
                           "manuell_ausrichten")
@@ -924,7 +938,7 @@ class Hauptfenster(QtWidgets.QMainWindow):
         self.menue_fenster.addSeparator()
         self.menue_fenster.addAction(a["kameras_koppeln"])
         m = mb.addMenu(tr("&Hilfe"))
-        for n in ("befehlssuche", "anleitung", "einfuehrung", "neu", "ueber"):
+        for n in ("befehlssuche", "gefuehrt_scan", "gefuehrt_spalt", "anleitung", "einfuehrung", "neu", "ueber"):
             m.addAction(a[n])
         self._fuelle_zuletzt()
 
@@ -1025,6 +1039,8 @@ class Hauptfenster(QtWidgets.QMainWindow):
     def _verbinde(self):
         self.start.oeffnen.connect(self.oeffnen)
         self.start.vergleichen.connect(lambda: self.starte_vergleich())
+        self.start.gefuehrt_menue.addAction(self.aktionen["gefuehrt_scan"])
+        self.start.gefuehrt_menue.addAction(self.aktionen["gefuehrt_spalt"])
         self._beispiel_menue(self.start.beispiele_menue)
         self.pmi.gewaehlt.connect(self._pmi_gewaehlt)
         self.pmi.gewaehlt.connect(lambda pmi: pmi and self.inspektor_zeigen("pmi"))
@@ -1448,6 +1464,79 @@ class Hauptfenster(QtWidgets.QMainWindow):
     def _schnell_aus(self) -> set[str]:
         wert = self.ein.value("schnellinfo_aus", []) or []
         return {wert} if isinstance(wert, str) else set(wert)  # QSettings liefert eine Einzelangabe als Text
+
+    def starte_fuehrung(self, art: str):
+        """Gefuehrter Ablauf "scan" (Scan pruefen) oder "spalt" (Spalt messen in der Baugruppenvariation)."""
+        from ..kern import beispiele
+        from .fuehrung import Schritt
+        scan = lambda: getattr(self, "_scan", None)  # noqa: E731
+        if art == "scan":
+            self._ausrichtung_bestaetigt = False
+            self._berichte_gespeichert.discard("scan")
+            schritte = [
+                Schritt("CAD-Modell öffnen", "Das Modell mit PMI öffnen, gegen das geprüft wird (STEP, QIF …). Zum "
+                        "Ausprobieren: das Beispielmodell mit passendem Scan.", lambda: self.erg is not None,
+                        "Beispiel öffnen", lambda: self.lade(beispiele.datei(beispiele.CTC01), warten=True)),
+                Schritt("Scan öffnen", "Den Scan als Netz (STL, PLY, OBJ) oder Punktwolke (E57) wählen; er wird "
+                        "ausgerichtet und je PMI bewertet.", lambda: scan() is not None,
+                        "Scan öffnen …", self._fuehrung_scan_oeffnen),
+                Schritt("Ausrichtung prüfen", "Im Modus Nebeneinander oder Vergleich ansehen, ob der Scan richtig "
+                        "liegt. Sonst in der Leiste Scanprüfung ein Bezugssystem wählen und neu auswerten oder von "
+                        "Hand ausrichten.", lambda: scan() is not None and self._ausrichtung_bestaetigt,
+                        "Ausrichtung passt", self._fuehrung_ausrichtung_ok),
+                Schritt("Ergebnisse prüfen", "Jedes Ergebnis ansehen (im Modell gezeigt) und als geprüft oder "
+                        "abgelehnt markieren – Tasten G und A, bei Bedarf einen Kommentar.",
+                        lambda: scan() is not None and self.scan.ergebnisse and self.scan.pruef_zaehler()["offen"] == 0,
+                        "Prüfen starten", lambda: (self.dock_scan.raise_(), self.scan.pruefen_starten())),
+                Schritt("Prüfbericht speichern", "Den Prüfbericht mit Farbkarte, Ergebnis und Prüfstatus je Merkmal "
+                        "als PDF speichern.", lambda: "scan" in self._berichte_gespeichert,
+                        "Prüfbericht (PDF) …", lambda: self.exportiere_scan_pdf())]
+            name = "Geführt: Scan prüfen"
+        else:
+            self._berichte_gespeichert.discard("messgroessen")
+            b = self.baugruppe
+            schritte = [
+                Schritt("Baugruppe öffnen", "Eine Baugruppe (STEP) öffnen. Zum Ausprobieren: die Testbaugruppe mit "
+                        "Deckel, Grundplatte und Schrauben.", lambda: self.erg is not None,
+                        "Beispiel öffnen", lambda: self.lade(beispiele.datei("baugruppe.stp"), warten=True)),
+                Schritt("Teile verbinden", "Eine Fläche am Teil wählen, das sich bewegen soll, dann mit Strg/⌘ die "
+                        "Gegenfläche am anderen Teil, und „Verbinden“ (Ebene auf Ebene, koaxial …).",
+                        lambda: len(b.verbindungen) >= 1, "Zusammenbau öffnen", self._fuehrung_zusammenbau),
+                Schritt("Spielräume prüfen", "In der Tabelle Verbindungen den Spielraum je Verbindung prüfen "
+                        "(aus den Toleranzen der Flächen oder von Hand eintragen).",
+                        lambda: any(v.toleranz > 0 for v in b.verbindungen), "Verbindungen zeigen",
+                        lambda: (self._fuehrung_zusammenbau(), self.zusammenbau.reiter.setCurrentIndex(0))),
+                Schritt("Messgröße anlegen", "Zwei Flächen an verschiedenen Teilen wählen (erst die gemessene, dann "
+                        "mit Strg/⌘ die Bezugsfläche) und „Messgröße aus Auswahl“: Spalt, Bündigkeit oder Abstand.",
+                        lambda: len(b.masse) >= 1, "Messgrößen zeigen",
+                        lambda: (self._fuehrung_zusammenbau(), self.zusammenbau.reiter.setCurrentIndex(1))),
+                Schritt("Soll eintragen", "In der Spalte Soll die Anforderung eintragen, z. B. 3,8 … 4,2 (ein Klick "
+                        "in die getönte Zelle).", lambda: any(m.soll_min is not None or m.soll_max is not None
+                                                             for m in b.masse), "Messgrößen zeigen",
+                        lambda: (self._fuehrung_zusammenbau(), self.zusammenbau.reiter.setCurrentIndex(1))),
+                Schritt("Ergebnis und Bericht", "Worst Case, Monte Carlo, Ampel und Beitragende ansehen und den "
+                        "Bericht als PDF speichern.", lambda: "messgroessen" in self._berichte_gespeichert,
+                        "Bericht (PDF) …", lambda: self.exportiere_messgroessen_pdf())]
+            name = "Geführt: Spalt messen"
+        self.fuehrung.setze(name, schritte)
+        self.dock_fuehrung.show()
+        self.dock_fuehrung.raise_()
+        return self.fuehrung
+
+    def _fuehrung_scan_oeffnen(self):
+        from ..kern import beispiele
+        # mit dem Beispielmodell gleich den Beispielscan vorschlagen, sonst Datei waehlen
+        if self.erg is not None and os.path.basename(self.erg.pfad) == beispiele.CTC01:
+            self.pruefe_scan(beispiele.datei("ctc01_scan_fehler.ply"))
+        else:
+            self.pruefe_scan("")
+
+    def _fuehrung_ausrichtung_ok(self):
+        self._ausrichtung_bestaetigt = True
+
+    def _fuehrung_zusammenbau(self):
+        self.bereiche.zeige("zusammenbau")
+        self.zeige_zusammenbau()
 
     def inspektor_zeigen(self, quelle: str | None = None):
         """Inspektor nach der zuletzt geaenderten Auswahl: 3D (Flaechen/Kanten), Struktur (Teile) oder PMI-Liste."""
@@ -3705,6 +3794,7 @@ class Hauptfenster(QtWidgets.QMainWindow):
         if not pfad:
             return None
         ziel = scan_pdf(self, pfad, bilder)
+        self._berichte_gespeichert.add("scan")  # fuer den gefuehrten Ablauf
         self.statusBar().showMessage(tr("PDF gespeichert: {}").format(ziel), 6000)
         return ziel
 
@@ -3874,6 +3964,7 @@ class Hauptfenster(QtWidgets.QMainWindow):
         if not pfad:
             return None
         ziel = messgroessen_pdf(self, pfad)
+        self._berichte_gespeichert.add("messgroessen")  # fuer den gefuehrten Ablauf
         self.statusBar().showMessage(tr("PDF gespeichert: {}").format(ziel), 6000)
         return ziel
 

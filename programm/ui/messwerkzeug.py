@@ -6,6 +6,7 @@ from PySide6 import QtCore, QtWidgets
 
 from ..i18n import tr
 from ..kern import messen
+from .tabellen import leer_hinweis
 
 ART_TEXT = {"abstand": "Abstand", "winkel": "Winkel", "radius": "Radius / Ø", "wandstaerke": "Wandstärke",
             "koordinaten": "Koordinaten"}
@@ -67,6 +68,7 @@ class MessPanel(QtWidgets.QWidget):
         self.hinweis.setWordWrap(True)
         lay.addWidget(self.hinweis)
         self.tabelle = QtWidgets.QTableWidget(0, 4)
+        leer_hinweis(self.tabelle, tr("Noch keine Messung – Messart wählen und Elemente im Modell anklicken"))
         self.tabelle.setHorizontalHeaderLabels([tr("Nr"), tr("Art"), tr("Wert"), tr("Elemente")])
         self.tabelle.verticalHeader().setVisible(False)
         self.tabelle.setSelectionBehavior(QtWidgets.QAbstractItemView.SelectionBehavior.SelectRows)
