@@ -1391,5 +1391,7 @@
 "Normalflankenspiel aus a": "Normal backlash from a",
 "Profilüberdeckung unter 1 – kein stetiger Eingriff": "Transverse contact ratio below 1 – no continuous meshing",
 "Profilüberdeckung εα": "Transverse contact ratio εα",
-"Sprungüberdeckung εβ": "Overlap ratio εβ"
+"Sprungüberdeckung εβ": "Overlap ratio εβ",
+"Hinweis nennt Verzahnungsdaten, im Modell ist keine Evolventenverzahnung erkennbar": "A note states gear data, but no involute gear is recognisable in the model",
+"Verzahnung: Hinweis {} = {:g}, Geometrie {:.4g}": "Gear: note {} = {:g}, geometry {:.4g}"
 }

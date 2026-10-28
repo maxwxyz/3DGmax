@@ -92,3 +92,20 @@ def test_radpaare():
     p = vz.paare([ritzel, hohl])
     assert len(p) == 1 and p[0].a.teil == "Hohlrad" and abs(p[0].abstand_soll - 18.0) < 0.03
     assert abs(p[0].spiel) < 0.02 and p[0].eps_alpha > 1.3
+
+
+def test_verzahnung_gegen_hinweis():
+    from types import SimpleNamespace
+    import zahnrad
+    from programm.kern import plausibilitaet as pl
+    from programm.kern.pmi import Pmi
+    assert pl.verzahnung_angaben("Zähnezahl z = 23; Normalmodul mn = 2,0; αn = 20°; β = 15°") == \
+        {"z": 23.0, "mn": 2.0, "alpha_n": 20.0, "beta": 15.0}
+    assert pl.verzahnung_angaben("Allgemeintoleranz ISO 2768-mK, 12 mm") == {}
+    modell = SimpleNamespace(form=zahnrad.zahnrad(23, 2.0, 20.0, beta=15.0, x=0.2), flaechen=[])
+    gut = Pmi("hinweis", nur_grafik_text="z = 23  mn = 2  alpha n = 20  beta = 15  x = +0.2", nummer=1)
+    assert pl.verzahnung([gut], modell) == []
+    falsch = Pmi("hinweis", nur_grafik_text="number of teeth: 24, module 2.5", nummer=2)
+    befunde = pl.verzahnung([falsch], modell)
+    assert len(befunde) == 2 and befunde[0].stufe == "Fehler" and "24" in befunde[0].text
+    assert pl.verzahnung([Pmi("hinweis", nur_grafik_text="DEBURR", nummer=3)], modell) == []

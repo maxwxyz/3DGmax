@@ -149,7 +149,8 @@
 | Clash: mesh parts (PRC/STL) and mixed pairs (approximate) | ✅ |
 | Gear analysis stage 1: cylindrical gears external/internal, spur/helical (z, da, df, b, β, db, mn, αn, x, Wk), CSV/JSON – PLAN §8.27 | ✅ |
 | Gear pairs: centre distance, working pressure angle, contact ratios, backlash from the centre distance | ✅ |
-| Gear analysis: splines (ISO 4156), bevel/worm gears, comparison with notes/PMI | ⬜ |
+| Gear data in notes checked against the geometry (plausibility) | ✅ |
+| Gear analysis: splines (ISO 4156), bevel/worm gears | ⬜ |
 | Wiggle in the open degrees of freedom (kinematic) | ✅ |
 | Clash check at the tolerance limit positions (assembly) | ✅ |
 | Clash check over joint ranges (open DOF): free range per DOF up to the first collision | ✅ |

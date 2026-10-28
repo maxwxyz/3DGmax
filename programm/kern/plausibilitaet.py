@@ -13,6 +13,7 @@ Ergaenzt kern.pmi_bericht.pruefe um Regeln, die mehrere PMI oder die Geometrie z
 - Geometrie: Nennmass passt nicht zum Modell (Durchmesser, Radius, Abstand paralleler Ebenen).
 - Theoretisch exakte Masse: mit Toleranz angegeben; Lage doppelt toleriert (toleriertes Lagemass und Position/Profil).
 - Muster: ein Groessenmass an Elementen verschiedener Groesse.
+- Verzahnung: Angaben in Hinweisen (z, m, alpha, beta, x) gegen die aus der Geometrie erkannte Verzahnung.
 - Bezugsstellen: zu wenige Stellen fuer die Stelle im Bezugssystem (Ebene primaer 3, sekundaer 2, tertiaer 1),
   Bezugsstellen ohne Bezug in einem Toleranzrahmen.
 """
@@ -357,8 +358,52 @@ def bezugsstellen(pmi, modell) -> list:
     return out
 
 
+VERZAHNUNG_MUSTER = {  # Hinweistext -> Groesse (deutsch und englisch, wie in Zeichnungstabellen)
+    "z": r"(?:\bz\b|Z[äa]e?hnezahl|number of teeth|teeth)\s*[=:]?\s*(\d{1,4})\b",
+    "mn": r"(?:\bm[n]?\b|Normalmodul|Modul|module)\s*[=:]?\s*(\d+(?:[.,]\d+)?)",
+    "alpha_n": r"(?:α[n]?|\balpha\b|Eingriffswinkel|pressure angle)\s*[=:]?\s*(\d+(?:[.,]\d+)?)",
+    "beta": r"(?:β|\bbeta\b|Schr[äa]e?gungswinkel|helix angle)\s*[=:]?\s*(\d+(?:[.,]\d+)?)",
+    "x": r"(?:\bx\b|Profilverschiebung(?:sfaktor)?|profile shift(?: coefficient)?)\s*[=:]?\s*([+-]?\d+(?:[.,]\d+)?)",
+}
+VERZAHNUNG_TOLERANZ = {"z": 0.0, "mn": 0.005, "alpha_n": 0.1, "beta": 0.1, "x": 0.03}  # mn relativ
+
+
+def verzahnung_angaben(texte: str) -> dict:
+    """Verzahnungsdaten aus Hinweistext; leer ohne Zaehnezahl oder Modul."""
+    import re
+    out = {}
+    for name, muster in VERZAHNUNG_MUSTER.items():
+        m = re.search(muster, texte, re.IGNORECASE if name != "z" else 0)
+        if m:
+            out[name] = float(m.group(1).replace(",", "."))
+    return out if ("z" in out or "mn" in out) else {}
+
+
+def verzahnung(pmi, modell) -> list:
+    """Hinweise mit Verzahnungsdaten gegen die Geometrie (nur wenn ein Hinweis sie nennt: die Erkennung kostet)."""
+    from . import verzahnung as vz
+    from .pmi_bericht import FEHLER, WARNUNG
+    hinweise = [p for p in pmi if p.art == "hinweis"]
+    angaben = verzahnung_angaben(" ".join(p.nur_grafik_text or p.name or "" for p in hinweise))
+    if not angaben or modell is None or getattr(modell, "form", None) is None:
+        return []
+    nummern = [p.nummer for p in hinweise]
+    v = vz.erkenne(modell.form)
+    if v is None:
+        return [_befund(WARNUNG, "geometrie", tr("Hinweis nennt Verzahnungsdaten, im Modell ist keine "
+                                                 "Evolventenverzahnung erkennbar"), nummern)]
+    out = []
+    for name, soll in angaben.items():
+        ist = getattr(v, name)
+        grenze = VERZAHNUNG_TOLERANZ[name] * (soll if name == "mn" else 1)
+        if abs(ist - soll) > grenze + 1e-9:
+            out.append(_befund(FEHLER if name == "z" else WARNUNG, "geometrie", tr(
+                "Verzahnung: Hinweis {} = {:g}, Geometrie {:.4g}").format(name, soll, ist), nummern))
+    return out
+
+
 REGELN = (hierarchie, mass_und_form, vollstaendigkeit, bezugssystem, ueberbestimmung, geschlossene_ketten, werte,
-          geometrie, theoretische_masse, muster, bezugsstellen)
+          geometrie, theoretische_masse, muster, bezugsstellen, verzahnung)
 KATEGORIE_TEXT = {"widerspruch": "Widerspruch", "unvollstaendig": "Unvollständig", "bezug": "Bezugssystem",
                   "wert": "Wert", "geometrie": "Geometrie", "muster": "Muster", "": "Angabe"}
 

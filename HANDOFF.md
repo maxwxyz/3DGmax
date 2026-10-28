@@ -36,6 +36,7 @@ Done in this local session (commit):
 - Comparison: change list per instance – `69e86d4`; both trees in "Side by side" – `8793c8f`.
 - Clashes with mesh parts and mixed pairs (approximate, marked ≈) – `d102cce`.
 - Drawing: hatched section views – `3b89458`; sheet formats A4–A0 with frame, title block, standard scale – `6e4850b`.
+- Gear recognition (§8.27) stage 1 – `0c1a2ec`; gear pairs – `fb273a5` (test generator `werkzeuge/zahnrad.py`).
 
 **Deferred questions for the user** (do not block on them):
 - UI/UX stage 2 (workspaces) changes the layout a lot – implement only after you have read `docs/UI_UX_Plan.md`?
