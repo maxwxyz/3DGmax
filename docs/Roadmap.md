@@ -62,7 +62,8 @@
 | Zone of the derived median plane (slots/tabs), spherical zone (S⌀), context menus | ✅ |
 | Tolerance zones in the datum system: coaxiality/runout around the datum axis, datum shift with Ⓜ/Ⓛ, form/orientation inside the higher-level zone | ✅ |
 | Tolerance zones for linear dimensions between planes and angular dimensions | ✅ |
-| Tolerance zones: line profile/roundness per section, ACS/ALS, CZ/SZ, tolerances on edges/points | ⬜ |
+| Tolerance zones: roundness and circular runout per cross-section (ring zones) | ✅ |
+| Tolerance zones: line profile per section, ACS/ALS, CZ/SZ, tolerances on edges/points | ⬜ |
 | Tolerance stack-up 1D (dimension chain from PMI, worst case, RSS, Monte Carlo, CSV) | ✅ |
 | Stack-up 1D: Cp adjustable, angular dimensions excluded | ✅ |
 | Stack-up: chain picked in 3D (planes, cylinder/cone axes) with direction from the geometry, PMI values (also patterns) and ISO 2768 for features without PMI; distribution and Cp per link; contribution share | ✅ |

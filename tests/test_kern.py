@@ -487,7 +487,9 @@ def test_toleranzzonen_bezugssystem(ftc10):
     assert np.linalg.norm(q - achse_b[1] * (q @ achse_b[1])) < 1e-6 and any("Bezugsachse B" in h for h in z.hinweise)
     lauf = Pmi(TOLERANZ, "CircularRunout", wert=0.05, bezuege=[BezugsRef("B", 1)], flaechen=set(bezug_b.flaechen))
     z = tz.zone(lauf, ftc10, alle_pmi=pmi)
-    assert z.art == "lauf" and len(z.formen) == 2 * len(bezug_b.flaechen)
+    assert z.art == "lauf" and len(z.formen) == len(tz.QUERSCHNITTE) * len(bezug_b.flaechen)  # Ringe je Schnitt
+    gesamt = Pmi(TOLERANZ, "TotalRunout", wert=0.05, bezuege=[BezugsRef("B", 1)], flaechen=set(bezug_b.flaechen))
+    assert len(tz.zone(gesamt, ftc10, alle_pmi=pmi).formen) == 2 * len(bezug_b.flaechen)
     # Hierarchie: Geradheit liegt in der Profilzone derselben Flaeche; groessere Formtoleranz = Widerspruch
     gerade = next(p for p in pmi if p.typ == "Straightness")
     z = tz.zone(gerade, ftc10, alle_pmi=pmi)
@@ -496,6 +498,30 @@ def test_toleranzzonen_bezugssystem(ftc10):
     zu_gross.wert = 5.0
     assert any("5" in h and ("Widerspruch" in h or "contradiction" in h.lower())
                for h in tz.zone(zu_gross, ftc10, alle_pmi=pmi).hinweise)
+
+
+def test_rundheit_je_querschnitt():
+    """Rundheit am Zylinder: drei Ringzonen mit der Flaeche pi((r+t/2)^2 - (r-t/2)^2) senkrecht zur Achse."""
+    import math
+    from types import SimpleNamespace
+    from OCC.Core.BRepGProp import brepgprop
+    from OCC.Core.BRepPrimAPI import BRepPrimAPI_MakeCylinder
+    from OCC.Core.GProp import GProp_GProps
+    from OCC.Core.TopAbs import TopAbs_FACE
+    from OCC.Core.TopExp import TopExp_Explorer
+    from programm.kern import toleranzzone as tz
+    from programm.kern.pmi import TOLERANZ, Pmi
+    ex = TopExp_Explorer(BRepPrimAPI_MakeCylinder(10.0, 30.0).Shape(), TopAbs_FACE)
+    flaechen = []
+    while ex.More():
+        flaechen.append(ex.Current())
+        ex.Next()
+    mantel = next(i for i, f in enumerate(flaechen) if tz._achsen([f]))
+    z = tz.zone(Pmi(TOLERANZ, "CircularityOrRoundness", wert=0.1, flaechen={mantel}), SimpleNamespace(flaechen=flaechen))
+    assert z.art == "querschnitt" and len(z.formen) == 3 and any("Querschnitt" in h for h in z.hinweise)
+    g = GProp_GProps()
+    brepgprop.SurfaceProperties(z.formen[1], g)
+    assert abs(g.Mass() - math.pi * (10.05 ** 2 - 9.95 ** 2)) < 1e-6 and abs(g.CentreOfMass().Z() - 15.0) < 1e-6
 
 
 def test_plausibilitaet(ctc01, ftc10):

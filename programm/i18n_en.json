@@ -1429,5 +1429,6 @@
 "Status (Datei)": "Status (file)",
 "n. i. O.": "not OK",
 "{} Merkmale gemessen: {} i. O., {} n. i. O.": "{} characteristics measured: {} OK, {} not OK",
-"{} Messungen ohne passendes Merkmal": "{} measurements without a matching characteristic"
+"{} Messungen ohne passendes Merkmal": "{} measurements without a matching characteristic",
+"Zone je Querschnitt (gezeigt in drei Schnitten)": "Zone per cross-section (shown in three sections)"
 }

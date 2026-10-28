@@ -175,6 +175,47 @@ def _zylinder(start, richtung, radius: float, laenge: float):
                                     float(radius), float(laenge)).Shape()
 
 
+QUERSCHNITTE = (0.1, 0.5, 0.9)  # Lage der Ringzonen entlang der Achse (Anteil der Laenge)
+
+
+def _ring(mitte, richtung, r_innen: float, r_aussen: float):
+    """Ebene Kreisringflaeche (Zone in einem Querschnitt)."""
+    from OCC.Core.BRepBuilderAPI import BRepBuilderAPI_MakeEdge, BRepBuilderAPI_MakeFace, BRepBuilderAPI_MakeWire
+    from OCC.Core.gp import gp_Ax2, gp_Circ, gp_Dir, gp_Pnt
+    if r_aussen <= 0:
+        return None
+    ax = gp_Ax2(gp_Pnt(*map(float, mitte)), gp_Dir(*map(float, richtung)))
+    aussen = BRepBuilderAPI_MakeWire(BRepBuilderAPI_MakeEdge(gp_Circ(ax, float(r_aussen))).Edge()).Wire()
+    f = BRepBuilderAPI_MakeFace(aussen)
+    if r_innen > 1e-9:
+        innen = BRepBuilderAPI_MakeWire(BRepBuilderAPI_MakeEdge(gp_Circ(ax, float(r_innen))).Edge()).Wire()
+        innen.Reverse()
+        f.Add(innen)
+    return f.Face() if f.IsDone() else None
+
+
+def _ringe(z: "Zone", start, richtung, laenge: float, r: float, halb: float, quelle=None):
+    """Ringzonen r +- halb in den Querschnitten QUERSCHNITTE entlang einer Achse."""
+    for anteil in QUERSCHNITTE:
+        z.dazu(_ring(start + richtung * laenge * anteil, richtung, r - halb, r + halb), quelle=quelle)
+
+
+def _querschnittzone(p, flaechen, t: float, faktor: float) -> "Zone | None":
+    """Rundheit an Zylindern: je Querschnitt zwei konzentrische Kreise im Abstand t (Mitte frei, hier auf der
+    Zylinderachse gezeigt)."""
+    from OCC.Core.BRepAdaptor import BRepAdaptor_Surface
+    from OCC.Core.GeomAbs import GeomAbs_Cylinder
+    z = Zone(breite=t, faktor=faktor, art="querschnitt")
+    for f in flaechen:
+        if BRepAdaptor_Surface(f, True).GetType() != GeomAbs_Cylinder:
+            return None  # Kegel, Kugel: Flaechenzone
+        start, d, laenge, r, _e = _achse([f])
+        _ringe(z, start, d, laenge, r, t / 2 * faktor)
+    if z.formen:
+        z.hinweise.append(tr("Zone je Querschnitt (gezeigt in drei Schnitten)"))
+    return z if z.formen else None
+
+
 def _im_material(modell, punkt) -> bool:
     from OCC.Core.BRepClass3d import BRepClass3d_SolidClassifier
     from OCC.Core.TopAbs import TopAbs_IN
@@ -464,6 +505,9 @@ def _laufzone(p, modell, flaechen, t: float, faktor: float, alle_pmi) -> Zone | 
             start, _d, laenge, r, _e = a
             fuss = b_start + b_d * ((start - b_start) @ b_d)
             richtung = b_d * (1.0 if _d @ b_d >= 0 else -1.0)
+            if p.typ == "CircularRunout":  # Rundlauf gilt je Querschnitt: Ringe um die Bezugsachse
+                _ringe(z, fuss, richtung, max(laenge, 1e-3), r, t / 2 * faktor)
+                continue
             for rr in (r - t / 2 * faktor, r + t / 2 * faktor):
                 z.dazu(_zylinder(fuss, richtung, rr, max(laenge, 1e-3)))
         else:
@@ -637,6 +681,8 @@ def _zone(p, modell, sichtbar_mindest: float = 0.0, alle_pmi=None, faktor: float
         z = _mittelebenenzone(p, flaechen, t, faktor)
     if z is None and p.typ in LAUF:
         z = _laufzone(p, modell, flaechen, t, faktor, alle_pmi)
+    if z is None and p.typ == "CircularityOrRoundness":
+        z = _querschnittzone(p, flaechen, t, faktor)
     if z is None and (p.typ in FLAECHENZONE or p.typ in ACHSZONE):
         z = _flaechenzone(p, flaechen, t, faktor)
     if z is not None:
