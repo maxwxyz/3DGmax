@@ -774,6 +774,15 @@ tools (the user names MASTA as an example of a tool that needs these inputs), an
   flank modifications) and which can be measured on nominal CAD data at all (modifications are often not modelled).
 - Test data: self-generated involute gears (spur and helical, external and internal, with profile shift) built with
   OCCT, so the true values are known and the files are licence-free.
+- Done 2026-10-28 (stage 1, `kern/verzahnung.py`, Tools › Recognise gears): axis from the principal inertia axis
+  (cylinder axis preferred), transverse sections from one fine mesh of the part (fast also for faceted models and
+  meshes), z from the dominant harmonic of r(θ) (≥ 90 % of the variation in its multiples, z ≥ 5), b by bisection
+  of the toothed sections, β and hand from the phase drift of the tooth harmonic along the axis, db from an involute
+  fit per flank side (points above the base circle only), mn/αn by the nearest ISO 54 module over the usual pressure
+  angles, x from the tooth thickness (internal: space width) at d, Wk per ISO 21771; rejected when the flanks are not
+  involute (fit > 3 % of the tooth height) or the tooth height is not 1.5–3 mn (hexagons, knurls). Test generator
+  `werkzeuge/zahnrad.py`; on five test gears mn within 0.1 %, x within 0.01, β within 0.003°.
+  Open (stage 2): gear pairs in assemblies, splines (ISO 4156), bevel/worm, comparison with notes/PMI (§8.22).
 
 ### 8.28 Writing STEP AP242 with semantic PMI (research 2026-10-27, by experiment)
 Findings (pythonocc-core 8.0.1.2 and OCP 8.0.1.1, both on OCCT 8.0.1; scripts were throw-away):

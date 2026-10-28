@@ -147,7 +147,8 @@
 | Band analysis (min/max distance), intersection volumes, result list with status/comment, CSV | ✅ |
 | Clash: intersection curves, penetration depth, PDF report, results in the project | ✅ |
 | Clash: mesh parts (PRC/STL) and mixed pairs (approximate) | ✅ |
-| Gear and spline analysis of existing files (z, mn, αn, β, b, x, Wk; pairs) as input for gear tools – PLAN §8.27 | ⬜ |
+| Gear analysis stage 1: cylindrical gears external/internal, spur/helical (z, da, df, b, β, db, mn, αn, x, Wk), CSV/JSON – PLAN §8.27 | ✅ |
+| Gear analysis stage 2: gear pairs (centre distance, contact ratio, backlash), splines, bevel/worm, PMI comparison | ⬜ |
 | Wiggle in the open degrees of freedom (kinematic) | ✅ |
 | Clash check at the tolerance limit positions (assembly) | ✅ |
 | Clash check over joint ranges (open DOF): free range per DOF up to the first collision | ✅ |

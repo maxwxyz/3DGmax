@@ -483,6 +483,9 @@ class Hauptfenster(QtWidgets.QMainWindow):
             gruppe.addAction(self.aktionen["norm_" + n])
         A("explosion", tr("Explosion"), self._explosion_umschalten, "X", pruefbar=True,
           tipp=tr("Explosionsansicht: Teile auseinanderziehen (Regler daneben); PMI und Messen ruhen solange"))
+        A("verzahnung", tr("Verzahnung erkennen …"), lambda: self.erkenne_verzahnung(),
+          tipp=tr("Zähnezahl, Modul, Eingriffswinkel, Schrägung, Profilverschiebung und Zahnweite der gewählten Teile "
+                  "(ohne Auswahl: aller sichtbaren) aus der Geometrie – Export CSV/JSON"))
         A("stueckliste", tr("Stückliste …"), self.zeige_stueckliste,
           tipp=tr("Teile mit Anzahl, Volumen und Masse – Export als CSV"))
         A("kommentar", tr("Kommentar …"), lambda: self.neuer_kommentar(), "K",
@@ -755,6 +758,7 @@ class Hauptfenster(QtWidgets.QMainWindow):
         m.addAction(a["zusammenbau"])
         m.addAction(a["kollision"])
         m.addAction(a["scan_pruefen"])
+        m.addAction(a["verzahnung"])
         self.menue_fenster = mb.addMenu(tr("&Fenster"))
         for d in (self.dock_baum, self.dock_ansichten, self.dock_pmi, self.dock_messen, self.dock_analyse,
                   self.dock_kommentare, self.dock_aenderungen, self.dock_scan, self.dock_kollision,
@@ -2541,6 +2545,39 @@ class Hauptfenster(QtWidgets.QMainWindow):
             f.show()
         self._stueckliste = f
         return f
+
+    def erkenne_verzahnung(self, warten: bool = False):
+        """Verzahnungsdaten der gewaehlten (sonst aller sichtbaren) Teile im Hintergrund erkennen."""
+        from OCC.Core.TopLoc import TopLoc_Location
+        from .ansicht3d import gp_trsf
+        from .verzahnung_ui import VerzahnungLader
+        if self.erg is None:
+            return None
+        gewaehlt = self.baum.gewaehlte_blaetter()
+        lagen = self.baugruppe.lagen
+        teile = [(k.name, k.form.Moved(TopLoc_Location(gp_trsf(lagen[k.nummer]))) if k.nummer in lagen else k.form)
+                 for k in self.erg.baum.blaetter() if not k.hilfsgeometrie and k.nummer not in self.ansicht.versteckt
+                 and (not gewaehlt or k.nummer in gewaehlt)]
+        if not teile:
+            return None
+        lader = VerzahnungLader(teile, self)
+        lader.stand.connect(self._prozent)
+        lader.fehler.connect(lambda t: QtWidgets.QMessageBox.warning(self, tr("Verzahnung"), t))
+        lader.fertig.connect(lambda liste, l=lader: l.abgebrochen or self._verzahnung_fertig(liste))
+        self._verzahnung_lader = lader
+        self._aufgabe(lader, tr("Verzahnung erkennen …"))
+        lader.start()
+        if warten:
+            lader.wait()
+            QtWidgets.QApplication.processEvents()
+        return lader
+
+    def _verzahnung_fertig(self, liste):
+        from .verzahnung_ui import VerzahnungFenster
+        self._danach()
+        self._verzahnung = VerzahnungFenster(liste, os.path.splitext(self.erg.pfad)[0], self)
+        self._verzahnung.show()
+        self.statusBar().showMessage(tr("{} Verzahnung(en) erkannt").format(len(liste)), 8000)
 
     # --- Analyse ---
 

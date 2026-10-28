@@ -62,7 +62,7 @@ compare two states in geometry and PMI, and document reviews.
 <a href="#display">Structure and display</a><a href="#section">Section</a><a href="#measure">Measuring</a>
 <a href="#zones">Tolerance zones</a><a href="#analysis">Analysis, tolerance stack-up, creating PMI</a>
 <a href="#comments">Comments</a><a href="#compare">Comparing two states</a><a href="#review">Reviewing changes</a>
-<a href="#assembly">Assembly</a><a href="#clash">Clashes and distances</a><a href="#scan">Meshes and scans</a><a href="#export">Export and drawings</a><a href="#project">Project</a>
+<a href="#assembly">Assembly</a><a href="#clash">Clashes and distances</a><a href="#gears">Gears</a><a href="#scan">Meshes and scans</a><a href="#export">Export and drawings</a><a href="#project">Project</a>
 <a href="#settings">Settings</a><a href="#menue">All menu commands</a><a href="#faq">Questions</a>
 </nav>
 
@@ -399,6 +399,16 @@ the part pairs.</li>
 </ul>
 <p>The computation runs in the background (progress bar with <b>Cancel</b> at the bottom). Tapped holes with screws at
 nominal size appear as clashes if the model does not cut out the thread – mark such findings as “accepted”.</p>
+
+<h2 id="gears">Recognise gears</h2>
+<p><b>Tools › Recognise gears</b> reads the gear data of the selected parts (without selection: all visible ones) from
+the geometry – cylindrical gears external and internal, spur and helical, also from meshes (STL …). Measured are the
+number of teeth, tip and root diameters, face width, helix angle with hand and the base circle (involute fit of the
+flanks in a transverse section); derived per ISO 21771 are the normal module and pressure angle (the pair with the
+nearest standard module per ISO 54; ambiguities are reported), the reference diameter, the profile shift (from the tooth
+thickness at the reference circle) and the span measurement Wk. The table states the origin of each value; <b>CSV</b>
+and <b>JSON</b> export the values for gear and system design tools. Parts without involute flanks (hexagons, knurls) are
+not reported.</p>
 
 <h2 id="scan">Meshes and scans</h2>
 <p>Meshes (STL, OBJ, PLY, glTF, 3MF) can be viewed and measured like CAD models and compared against a CAD model:

@@ -62,7 +62,7 @@ Maße messen, zwei Stände in Geometrie und PMI vergleichen und Prüfungen dokum
 <a href="#darstellung">Struktur und Darstellung</a><a href="#schnitt">Schnitt</a><a href="#messen">Messen</a>
 <a href="#zonen">Toleranzzonen</a><a href="#analyse">Analyse, Toleranzkette, PMI anlegen</a>
 <a href="#kommentare">Kommentare</a><a href="#vergleich">Zwei Stände vergleichen</a><a href="#pruefen">Änderungen prüfen</a>
-<a href="#zusammenbau">Zusammenbau</a><a href="#kollision">Kollisionen und Abstände</a><a href="#scan">Netze und Scans</a><a href="#export">Exportieren und Zeichnungen</a><a href="#projekt">Projekt</a>
+<a href="#zusammenbau">Zusammenbau</a><a href="#kollision">Kollisionen und Abstände</a><a href="#verzahnung">Verzahnung</a><a href="#scan">Netze und Scans</a><a href="#export">Exportieren und Zeichnungen</a><a href="#projekt">Projekt</a>
 <a href="#einstellungen">Einstellungen</a><a href="#menue">Alle Menübefehle</a><a href="#faq">Fragen</a>
 </nav>
 
@@ -402,6 +402,15 @@ den Teilepaaren wieder zu.</li>
 <p>Die Rechnung läuft im Hintergrund (Laufbalken mit <b>Abbrechen</b> unten). Gewindebohrungen mit Schrauben im
 Nennmaß erscheinen als Kollision, wenn das Modell das Gewinde nicht ausspart – solche Befunde als „akzeptiert“
 markieren.</p>
+
+<h2 id="verzahnung">Verzahnung erkennen</h2>
+<p><b>Werkzeuge › Verzahnung erkennen</b> liest die Verzahnungsdaten der gewählten Teile (ohne Auswahl: aller
+sichtbaren) aus der Geometrie – Stirnräder außen und innen, gerade und schräg, auch aus Netzen (STL …). Gemessen werden
+Zähnezahl, Kopf- und Fußkreis, Zahnbreite, Schrägungswinkel mit Steigungsrichtung und der Grundkreis (Evolventen-Fit der
+Flanken im Stirnschnitt); daraus abgeleitet nach ISO 21771 Normalmodul und Eingriffswinkel (das Paar mit dem nächsten
+Normmodul nach ISO 54, Mehrdeutigkeiten werden gemeldet), Teilkreis, Profilverschiebung (aus der Zahndicke am
+Teilkreis) und die Zahnweite Wk. Die Tabelle nennt die Herkunft jedes Werts; <b>CSV</b> und <b>JSON</b> geben die Werte
+für Verzahnungs- und Systemprogramme aus. Teile ohne Evolventenflanken (Sechskant, Rändel) werden nicht gemeldet.</p>
 
 <h2 id="scan">Netze und Scans</h2>
 <p>Netze (STL, OBJ, PLY, glTF, 3MF) lassen sich wie CAD-Modelle ansehen und messen und im Vergleich gegen ein CAD-Modell

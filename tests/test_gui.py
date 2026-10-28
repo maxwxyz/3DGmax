@@ -789,6 +789,23 @@ def test_zeichnung_auf_blatt():
     assert m == 0.1
 
 
+def test_verzahnung_im_fenster(fenster, tmp_path):
+    sys.path.insert(0, os.path.join(WURZEL, "werkzeuge"))
+    import json
+    import zahnrad
+    f = fenster
+    pfad_rad = zahnrad.speichere(zahnrad.zahnrad(19, 2.5, 12.0, x=0.1), str(tmp_path / "rad.stp"), "Rad z19")
+    f.lade(pfad_rad, warten=True)
+    f.erkenne_verzahnung(warten=True)
+    d = f._verzahnung
+    assert len(d.liste) == 1 and d.liste[0].z == 19 and abs(d.liste[0].mn - 2.5) < 0.005
+    assert d.tabelle.columnCount() == 2 and d.tabelle.item(1, 0).text() == "19"
+    j = json.load(open(d.speichere("json", str(tmp_path / "v.json")), encoding="utf-8"))
+    assert j["zahnraeder"][0]["hand"] == "" and abs(j["zahnraeder"][0]["x"] - 0.1) < 0.02
+    assert "19" in open(d.speichere("csv", str(tmp_path / "v.csv")), encoding="utf-8-sig").read()
+    d.close()
+
+
 def test_fokusmodus(fenster_ctc01):
     """Fokus: Bauteile durchscheinend, solange etwas gewaehlt ist; Auswahl (Flaechen, Teile) bleibt deckend."""
     f = fenster_ctc01
