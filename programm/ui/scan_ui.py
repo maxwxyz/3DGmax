@@ -8,7 +8,7 @@ from PySide6 import QtCore, QtGui, QtWidgets
 
 from ..i18n import tr
 from ..kern import scanpruefung as sp
-from .tabellen import aenderbar_machen
+from .tabellen import aenderbar_machen, spalten_anpassen
 from .vergleich_ui import PRUEF_TEXT
 from .panel_aufbau import zweck_zeile
 
@@ -224,7 +224,7 @@ class ScanPanel(QtWidgets.QWidget):
                     it.setFlags(it.flags() & ~QtCore.Qt.ItemFlag.ItemIsEditable)
                 self.tabelle.setItem(z, s, it)
         self.tabelle.blockSignals(False)
-        self.tabelle.resizeColumnsToContents()
+        spalten_anpassen(self.tabelle, strecken=True)
         self._knoepfe()
 
     # --- Pruefrundgang ---

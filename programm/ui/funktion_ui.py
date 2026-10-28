@@ -9,7 +9,7 @@ from PySide6 import QtCore, QtGui, QtWidgets
 
 from ..i18n import tr
 from ..kern import funktion as fu
-from .tabellen import leer_hinweis
+from .tabellen import leer_hinweis, spalten_anpassen
 
 ROLLEN_HILFE = {
     "auflage": "Fläche, mit der das Teil aufliegt oder anliegt – Kandidat für den Primärbezug",
@@ -270,11 +270,7 @@ class FunktionFenster(QtWidgets.QDialog):
                 it.setData(QtCore.Qt.ItemDataRole.UserRole, i)
                 t.setItem(z, s, it)
         t.blockSignals(False)
-        t.resizeColumnsToContents()
-        for s in (self.SP_FUNKTION, self.SP_BEZUG):  # Auswahllisten: so breit wie ihr Inhalt (sonst abgeschnitten)
-            breite = max([t.cellWidget(z, s).sizeHint().width() for z in range(t.rowCount()) if t.cellWidget(z, s)] +
-                         [t.columnWidth(s)])
-            t.setColumnWidth(s, breite + 34)  # Pfeilfeld der Liste im Thema breiter als im Groessenhinweis
+        spalten_anpassen(t, strecken=True)  # misst auch die Auswahllisten in den Zellen
         for k in (self.bezuege_knopf, self.tol_knopf):
             k.setEnabled(bool(self.rollen))
         self.tauschen.setEnabled(bool(self.rollen))

@@ -9,7 +9,7 @@ from ..i18n import tr
 from ..kern import baugruppe_mass as bm
 from ..kern import verbindung as vb
 from . import thema
-from .tabellen import aenderbar_machen, leer_hinweis
+from .tabellen import aenderbar_machen, leer_hinweis, spalten_anpassen
 
 
 def _tabelle(spalten) -> QtWidgets.QTableWidget:
@@ -93,12 +93,13 @@ class BaugruppePanel(QtWidgets.QWidget):
         self.knopf.setObjectName("primaer")
         self.knopf.setToolTip(tr("Gewählte Flächen der beiden Teile verbinden: das zweite Teil rastet am ersten ein"))
         self.knopf.clicked.connect(lambda: self.verbinden.emit(self.versatz.value()))
-        reihe.addWidget(self.knopf, 1)
+        reihe.addWidget(self.knopf)
         self.knopf_321 = QtWidgets.QPushButton(tr("3-2-1"))
         self.knopf_321.setToolTip(tr("3-2-1-Vorlage: sechs Ebenen paarweise wählen (Teil, Gegenstück) – primär, "
                                      "sekundär, tertiär; das Teil wird in einem Schritt bestimmt"))
         self.knopf_321.clicked.connect(lambda: self.verbinden_321.emit(self.versatz.value()))
         reihe.addWidget(self.knopf_321)
+        reihe.addStretch(1)  # Knoepfe so breit wie ihr Text, nicht ueber die ganze Leiste
         lay.addLayout(reihe)
         self.verbindungen = _tabelle(self.VERBINDUNG_SPALTEN)
         leer_hinweis(self.verbindungen, tr("Noch keine Verbindung – eine Fläche am Teil wählen, das sich bewegen soll, "
@@ -309,7 +310,7 @@ class BaugruppePanel(QtWidgets.QWidget):
                     it.setToolTip(grund)
                 t.setItem(z, s, it)
         t.blockSignals(False)
-        t.resizeColumnsToContents()
+        spalten_anpassen(t, strecken=True)
         if alt in self._mass_nummern:
             t.selectRow(self._mass_nummern.index(alt))
         elif self._mass_nummern:
@@ -357,7 +358,7 @@ class BaugruppePanel(QtWidgets.QWidget):
                      f"{b.anteil_var:.0%}")
             for s, w in enumerate(werte):
                 t.setItem(z, s, QtWidgets.QTableWidgetItem(w))
-        t.resizeColumnsToContents()
+        spalten_anpassen(t, strecken=True)
         if e is None:
             self.mass_hinweis.setText("")
         elif e.unbestimmt:
@@ -400,7 +401,7 @@ class BaugruppePanel(QtWidgets.QWidget):
                     it.setForeground(QtGui.QBrush(QtGui.QColor("#c0392b")))
                 t.setItem(z, s, it)
         t.blockSignals(False)
-        t.resizeColumnsToContents()
+        spalten_anpassen(t, strecken=True)
         teile = baugruppe.teile()
         self._teil_nummern = teile
         t = self.teile
@@ -418,7 +419,7 @@ class BaugruppePanel(QtWidgets.QWidget):
             for s, w in enumerate(werte):
                 t.setItem(z, s, QtWidgets.QTableWidgetItem(w))
         t.blockSignals(False)
-        t.resizeColumnsToContents()
+        spalten_anpassen(t, strecken=True)
         for k in (self.weg, self.zurueck, self.umkehr_knopf, self.tausch_knopf):
             k.setEnabled(bool(baugruppe.verbindungen))
         self.wiggle_an.setEnabled(bool(teile))

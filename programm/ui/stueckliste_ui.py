@@ -7,6 +7,7 @@ from PySide6 import QtCore, QtWidgets
 from ..i18n import tr
 from ..kern import eigenschaften as ek
 from ..kern import stueckliste as sl
+from .tabellen import spalten_anpassen
 
 
 class StuecklisteFenster(QtWidgets.QDialog):
@@ -41,8 +42,7 @@ class StuecklisteFenster(QtWidgets.QDialog):
                 if s in (0, 3, 4, 5, 6):
                     it.setTextAlignment(QtCore.Qt.AlignmentFlag.AlignRight | QtCore.Qt.AlignmentFlag.AlignVCenter)
                 self.tabelle.setItem(z, s, it)
-        self.tabelle.resizeColumnsToContents()
-        self.tabelle.horizontalHeader().setStretchLastSection(True)
+        spalten_anpassen(self.tabelle, strecken=True)
         self.tabelle.cellDoubleClicked.connect(lambda z, _s: self.isolieren.emit(set(self.liste[z].nummern)))
         lay.addWidget(self.tabelle, 1)
         knoepfe = QtWidgets.QDialogButtonBox(QtWidgets.QDialogButtonBox.StandardButton.Close)

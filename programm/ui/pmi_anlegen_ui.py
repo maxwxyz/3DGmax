@@ -6,6 +6,7 @@ from PySide6 import QtCore, QtWidgets
 
 from ..i18n import tr
 from ..kern.pmi import MASS
+from .tabellen import spalten_anpassen
 
 
 class PmiAnlegenDialog(QtWidgets.QDialog):
@@ -37,8 +38,7 @@ class PmiAnlegenDialog(QtWidgets.QDialog):
             tol = p.wert if p.art != MASS else (p.oben if p.oben is not None else "")
             self.tabelle.setItem(z, 3, QtWidgets.QTableWidgetItem("" if tol in ("", None) else f"{tol:g}"))
             self.tabelle.setItem(z, 4, QtWidgets.QTableWidgetItem(p.passung if p.art == MASS else ""))
-        self.tabelle.resizeColumnsToContents()
-        self.tabelle.horizontalHeader().setStretchLastSection(True)
+        spalten_anpassen(self.tabelle, strecken=True)
         lay.addWidget(self.tabelle, 1)
         knoepfe = QtWidgets.QDialogButtonBox(QtWidgets.QDialogButtonBox.StandardButton.Ok |
                                              QtWidgets.QDialogButtonBox.StandardButton.Cancel)

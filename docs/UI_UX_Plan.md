@@ -213,6 +213,34 @@ the user on screen the same day (local build of `d97e01c`):
   `test_gui.py::test_bedienelemente_gleich_hoch` (main window, all docks and dialogs). Chain windows: requirement and
   thermal rows wrap (flow layout) so the panel still shrinks; 3D editor keeps its 18 fields (new fields per selection
   lay over the old ones until Qt deleted them).
+- Polish after stage 3 (user report 2026-10-28): (a) "Verbinden" sized to its text (no stretch factor, stretch at
+  the row end). (b) Close X on tabs and panel titles: Qt ignores `width/height` of `QTabBar::close-button` in style
+  sheets (stays 20 px with a ~6 px glyph) and caps the dock title icon at 10 px (7 px on the Mac) while
+  `SH_DockWidget_ButtonsHaveFrame` is set – the proxy style now returns `thema.schliessen_groesse()` (font height
+  + 6, 22 px at 100 %) for `PM_TabCloseIndicatorWidth/Height`, turns the frame hint off and pads the 16 px icon
+  via `PM_DockWidgetTitleBarButtonMargin`; larger X glyph, hover background in the border colour. (c) Columns:
+  `tabellen.spalten_anpassen(t, neu=…, strecken=…)` is the one helper for every table – the main window used to
+  mark its tables "widths remembered" as soon as a saved header state existed, so after the first session nothing
+  was fitted any more. Now the saved state only restores order and visible columns; each loaded model or comparison
+  fits PMI/measure/changes columns (`neu=True` forgets dragged widths), refills keep widths dragged at the header
+  (only drags with the mouse over the header count, not dragging the panel). The measure table fits after new rows
+  (`tabellen.automatisch_anpassen`). Test `test_gui.py::test_knopf_breite_reiter_x_und_spalten_nach_inhalt`.
+- Second polish round (user report 2026-10-28, items 1 and 2 had regressed, now guarded by tests): (a) the chain panel
+  could not be made narrower – its bottom row was a QDialogButtonBox (≈ 620 px, never wraps) and tool docks were not
+  in a scroll area. Now a flow-layout row and every tool dock (`_als_leiste`) sits in a scroll area: the dock shrinks
+  to 180 px, below the content's minimum it scrolls sideways; at normal height only the tables scroll. Splitter parts
+  with wrapping rows get their minimum height for the current width (`fluss.hoehe_nach_breite`, QSplitter ignores
+  height-for-width, wrapped rows overlapped). Test `test_werkzeugleisten_schmal_ziehbar` (real minimum width of each
+  tool dock, docked and floating, with the gearbox example). (b) Mouse wheel (`ui/radsperre.py`): combo boxes never
+  change by wheel (as on macOS), fields in table cells never (they keep the focus after a choice, so scrolling the
+  table later changed them), other spin boxes only with focus; the wheel scrolls the table/panel instead. Test
+  `test_mausrad_zellfelder_nie_auch_nach_klick` (fails with the old filter). (c) Rule "buttons never span the panel
+  or window": no stretch factors or Expanding policy on buttons, rows end with a stretch, single buttons left-aligned
+  (Messen toggle, measure types, views, clash check, changes). `werkzeuge/knopfbreiten.py` opens every dock (floating,
+  1400 px wide) and every dialog, all tab pages, and lists buttons wider than size hint + 40 px; test
+  `test_knoepfe_nie_ueber_die_ganze_breite`. (d) Frozen first column (`tabellen.erste_spalte_fest`, Qt's frozen
+  column pattern: overlay QTableView with the same model and selection) in the 1D chain table and the 2D segment
+  table; clicks, double-clicks and context menu act as in the table. Test `test_kettentabelle_erste_spalte_fest`.
 
 ## 6. Usability test protocol (local)
 - Participants: 2 CATIA designers, 1 3DCS user, 1 metrology staff, 2 students; 30 min each, think aloud.

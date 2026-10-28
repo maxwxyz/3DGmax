@@ -2051,6 +2051,90 @@ def test_toleranzkette_fenster_verkleinerbar(fenster):
     d.setFloating(False)
 
 
+def test_werkzeugleisten_schmal_ziehbar(fenster):
+    """Regression: die Kettenleiste liess sich nach der Arbeit an Hoehen und Tabellen nicht mehr schmaler ziehen
+    (Knopfreihe als QDialogButtonBox, Mindestbreite des Inhalts). Geprueft wird die echte Mindestbreite der Leiste -
+    angedockt und herausgeloest, mit dem Getriebe-Beispiel - und dass sie sich wirklich schmal ziehen laesst; darunter
+    rollt der Inhalt quer. Gilt fuer alle Werkzeugleisten unten. Logische Pixel: gilt bei jeder Groesse der
+    Oberflaeche gleich."""
+    f = fenster
+    app = QtWidgets.QApplication.instance()
+    f.oeffne_beispiel("kette_getriebe", warten=True)
+    f.zeige_toleranzkette()
+    f.zeige_kette2d()
+    f.zeige_kette3d()
+    f.zeige_funktion()
+    for name in f.WERKZEUG_LEISTEN:
+        d = getattr(f, "dock_" + name, None)
+        if d is None:
+            continue
+        d.show()
+        for schwebend in (False, True):
+            d.setFloating(schwebend)
+            for _ in range(5):
+                app.processEvents()
+            assert max(d.minimumSizeHint().width(), d.minimumWidth()) <= 320, (name, schwebend)
+            if schwebend:
+                d.resize(360, 700)
+                for _ in range(5):
+                    app.processEvents()
+                assert d.width() <= 380, (name, d.width())
+        d.setFloating(False)
+    k = f._kette  # Knopfreihe unten bricht um
+    assert k.kette_oeffnen.parentWidget() is k and k.findChild(QtWidgets.QDialogButtonBox) is None
+    d = f.dock_kette  # schmal: umgebrochene Zeilen unten im Teiler bekommen ihre Hoehe (keine Ueberlappung)
+    d.setFloating(True)
+    d.resize(400, 800)
+    for _ in range(5):
+        app.processEvents()
+    unten = k._unten
+    assert unten.height() >= unten.layout().minimumHeightForWidth(unten.width())
+    d.setFloating(False)
+
+
+def test_kettentabelle_erste_spalte_fest(fenster):
+    """Beim Querrollen der Kettentabelle (und der 2D-Kette) bleibt die erste Spalte (Glied bzw. Name) stehen; sie
+    teilt Modell und Auswahl mit der Tabelle, rollt nach unten mit, Doppelklick wirkt wie in der Tabelle."""
+    from programm.ui.tabellen import erste_spalte_fest  # noqa: F401
+    f = fenster
+    app = QtWidgets.QApplication.instance()
+    f.oeffne_beispiel("kette_getriebe", warten=True)
+    k = f.zeige_toleranzkette()
+    d = f.dock_kette
+    d.setFloating(True)
+    d.resize(700, 900)
+    for _ in range(5):
+        app.processEvents()
+    t = k.tabelle
+    fest = t._feste_spalte
+    assert fest.isVisible() and fest.model() is t.model() and fest.selectionModel() is t.selectionModel()
+    assert fest.columnWidth(0) == t.columnWidth(0) and all(fest.isColumnHidden(s) for s in range(1, t.columnCount()))
+    x = fest.x()
+    t.horizontalScrollBar().setValue(t.horizontalScrollBar().maximum())
+    app.processEvents()
+    assert t.horizontalScrollBar().value() > 0 and fest.x() == x and fest.isVisible()
+    t.setMaximumHeight(3 * t.rowHeight(0))  # nach unten rollen: die feste Spalte rollt mit
+    app.processEvents()
+    t.verticalScrollBar().setValue(t.verticalScrollBar().maximum())
+    app.processEvents()
+    assert fest.verticalScrollBar().value() == t.verticalScrollBar().value() > 0
+    t.setMaximumHeight(16777215)
+    fest.selectRow(1)  # gemeinsame Auswahl
+    assert {i.row() for i in t.selectedIndexes()} == {1}
+    zellen = []
+    t.cellDoubleClicked.connect(lambda z, s: zellen.append((z, s)))
+    fest.doubleClicked.emit(t.model().index(2, 0))
+    assert zellen == [(2, 0)]
+    d.setFloating(False)
+    k2 = f.zeige_kette2d()
+    k2.lade_vorlage("hebel")
+    app.processEvents()
+    assert k2.tabelle._feste_spalte.isVisible()
+    k.leeren()  # leere Tabelle: keine feste Spalte ueber dem Hinweis
+    app.processEvents()
+    assert not fest.isVisible()
+
+
 def _spalten_lesbar(t):
     """Keine sichtbare Spalte schmaler als Kopf, Text (bis zur Hoechstbreite) oder Feld in der Zelle; Zeilen so hoch
     wie die Felder."""
@@ -2251,6 +2335,46 @@ def test_mausrad_aendert_keine_werte(fenster):
     rad(feld)
     assert feld.value() == vorher and feld.focusPolicy() == QtCore.Qt.FocusPolicy.StrongFocus
     k.reject()
+
+
+def test_mausrad_zellfelder_nie_auch_nach_klick(fenster):
+    """Auswahllisten in Tabellenzellen (Verteilung der Kette, 2D-Kette) aendern sich per Rad nie - auch nicht, nachdem
+    sie angeklickt wurden und den Fokus behalten; das Rad rollt stattdessen die Tabelle (Regression: Verteilung
+    verstellte sich beim Rollen durch die Tabelle)."""
+    from PySide6 import QtGui
+    f = fenster
+    app = QtWidgets.QApplication.instance()
+    f.oeffne_beispiel("kette_getriebe", warten=True)
+    k = f.zeige_toleranzkette()
+    k2 = f.zeige_kette2d()
+    k2.lade_vorlage("hebel")
+    app.processEvents()
+
+    def rad(w):
+        p = QtCore.QPointF(w.rect().center())
+        ev = QtGui.QWheelEvent(p, w.mapToGlobal(p), QtCore.QPoint(), QtCore.QPoint(0, -120),
+                               QtCore.Qt.MouseButton.NoButton, QtCore.Qt.KeyboardModifier.NoModifier,
+                               QtCore.Qt.ScrollPhase.NoScrollPhase, False)
+        QtWidgets.QApplication.sendEvent(w, ev)
+
+    for t in (k.tabelle, k2.tabelle):
+        listen = [w for z in range(t.rowCount()) for s in range(t.columnCount())
+                  if isinstance(w := t.cellWidget(z, s), QtWidgets.QComboBox) and w.count() > 1]
+        assert listen, t
+        w = listen[0]
+        w.setCurrentIndex(0)
+        t.setMaximumHeight(3 * t.rowHeight(0))  # rollbar
+        app.processEvents()
+        leiste = t.verticalScrollBar()
+        leiste.setValue(0)
+        for fokus in (False, True):  # ohne Fokus und angeklickt (Fokus bleibt nach der Wahl)
+            if fokus:
+                w.setFocus()
+                app.processEvents()
+            rad(w)
+            assert w.currentIndex() == 0, (t, fokus)
+        assert leiste.value() > 0  # die Tabelle rollt statt des Feldes
+        t.setMaximumHeight(16777215)
 
 
 def test_glied_waehlen_zeigt_es_im_3d(fenster):
@@ -2521,3 +2645,63 @@ def test_einheitliches_panel_layout(fenster):
     for p in (f.messen, f.analyse, f.kommentare, f.kollision, f.scan, f.aenderungen):  # oben der Zweck
         erstes = p.layout().itemAt(0).widget()
         assert erstes is not None and erstes.property("zweck") and erstes.text(), p
+
+
+def test_knopf_breite_reiter_x_und_spalten_nach_inhalt(fenster):
+    """Verbinden so breit wie sein Text; X zum Schliessen (Reiter, Leistentitel) etwa so gut treffbar wie der Reiter;
+    PMI-Spalten nach dem Laden am Inhalt und ziehbar, eine von Hand gezogene Breite bleibt beim erneuten Fuellen,
+    ein neues Modell passt wieder an."""
+    from PySide6 import QtGui, QtTest
+    from programm.ui import tabellen
+    f = fenster
+    f.dock_zusammenbau.show()
+    f.dock_zusammenbau.raise_()
+    QtWidgets.QApplication.processEvents()
+    k = f.zusammenbau.knopf
+    assert k.objectName() == "primaer" and k.width() <= k.sizeHint().width() + 8
+    f._tabs_schliessbar()
+    QtWidgets.QApplication.processEvents()
+    schrift = QtGui.QFontMetrics(f.font()).height()
+    seite = QtWidgets.QTabBar.ButtonPosition
+    leisten = [x for x in f.findChildren(QtWidgets.QTabBar) if x.tabsClosable() and x.count() and x.isVisible()]
+    assert leisten
+    for leiste in leisten:
+        x = leiste.tabButton(0, seite.RightSide) or leiste.tabButton(0, seite.LeftSide)
+        assert x.height() >= 0.6 * leiste.tabRect(0).height() and min(x.width(), x.height()) >= schrift, x.size()
+    titel_x = f.dock_zusammenbau.findChild(QtWidgets.QAbstractButton, "qt_dockwidget_closebutton")
+    assert titel_x.iconSize().width() >= 16 and titel_x.height() >= schrift
+    # PMI-Liste: nach dem Laden am Inhalt, alle Spalten ziehbar
+    f.lade(pfad("nist_ctc_01_asme1_ap242-e1.stp"), warten=True)
+    f.dock_pmi.raise_()
+    QtWidgets.QApplication.processEvents()
+    t, kopf = f.pmi.tabelle, f.pmi.tabelle.horizontalHeader()
+    _spalten_lesbar(t)
+    assert all(kopf.sectionResizeMode(s) == QtWidgets.QHeaderView.ResizeMode.Interactive
+               for s in range(t.columnCount()))
+    s = f.pmi.SPALTEN.index("Name")
+    passend = t.columnWidth(s)
+    # von Hand schmaler ziehen (Trennlinie am rechten Rand der Spalte)
+    rand = QtCore.QPoint(kopf.sectionViewportPosition(s) + kopf.sectionSize(s) - 1, kopf.height() // 2)
+    links = QtCore.Qt.MouseButton.LeftButton
+    QtTest.QTest.mouseMove(kopf.viewport(), rand)
+    kopf.setAttribute(QtCore.Qt.WidgetAttribute.WA_UnderMouse, True)
+    QtTest.QTest.mousePress(kopf.viewport(), links, pos=rand)
+    QtTest.QTest.mouseMove(kopf.viewport(), rand - QtCore.QPoint(40, 0))
+    QtTest.QTest.mouseRelease(kopf.viewport(), links, pos=rand - QtCore.QPoint(40, 0))
+    gezogen = t.columnWidth(s)
+    assert gezogen < passend
+    f.pmi.zeige(f.erg.pmi, f.erg.ansichten)  # erneut fuellen (gleiches Modell)
+    tabellen.spalten_anpassen(t, strecken=True)
+    assert t.columnWidth(s) == gezogen
+    f.lade(pfad("nist_ctc_01_asme1_ap242-e1.stp"), warten=True)  # neuer Inhalt: wieder am Inhalt
+    assert t.columnWidth(s) == passend
+
+
+def test_knoepfe_nie_ueber_die_ganze_breite(fenster):
+    """Regel: Knoepfe nutzen nie die ganze Leisten- oder Fensterbreite. Jede Leiste (herausgeloest) und jeder Dialog
+    breit aufgezogen, jede Reiterseite: kein sichtbarer Knopf breiter als sein Groessenvorschlag + 40 px
+    (werkzeuge/knopfbreiten.py; Werkzeugleisten und Reiter-Innereien ausgenommen)."""
+    sys.path.insert(0, os.path.join(WURZEL, "werkzeuge"))
+    import knopfbreiten
+    funde = {name: knopfbreiten.zu_breit(w) for name, w in knopfbreiten.fenster_breit(fenster)}
+    assert not {n: f for n, f in funde.items() if f}

@@ -8,6 +8,7 @@ from PySide6 import QtCore, QtWidgets
 
 from ..i18n import tr
 from ..kern import ordnervergleich as ov
+from .tabellen import spalten_anpassen
 
 STATUS_TEXT = {ov.GLEICH: "gleich", ov.GEAENDERT: "geändert", ov.NUR_ALT: "nur alt", ov.NUR_NEU: "nur neu",
                ov.FEHLER: "Fehler", "": "…"}
@@ -65,7 +66,6 @@ class OrdnerVergleich(QtWidgets.QDialog):
         self.tabelle.verticalHeader().setVisible(False)
         self.tabelle.setEditTriggers(QtWidgets.QAbstractItemView.EditTrigger.NoEditTriggers)
         self.tabelle.setSelectionBehavior(QtWidgets.QAbstractItemView.SelectionBehavior.SelectRows)
-        self.tabelle.horizontalHeader().setSectionResizeMode(0, QtWidgets.QHeaderView.ResizeMode.Stretch)
         self.tabelle.cellDoubleClicked.connect(self._doppelklick)
         lay.addWidget(self.tabelle, 1)
         hinweis = QtWidgets.QLabel(tr("Zuordnung über den Dateinamen; Revisionskennungen am Ende (z. B. _rev_b) "
@@ -103,6 +103,7 @@ class OrdnerVergleich(QtWidgets.QDialog):
         self.tabelle.setRowCount(len(self.liste))
         for z in range(len(self.liste)):
             self._zeige(z)
+        spalten_anpassen(self.tabelle, strecken=True, neu=True)  # neue Ordner: Breiten neu
         self.start.setEnabled(False)
         self.lader = OrdnerLader(self.liste, 0.01, 2.0, self)
         self.lader.paar_fertig.connect(self._zeige)
@@ -129,6 +130,7 @@ class OrdnerVergleich(QtWidgets.QDialog):
         z = {k: sum(p.status == k for p in self.liste) for k in STATUS_TEXT}
         self.stand.setText(tr("{} gleich, {} geändert, {} nur alt, {} nur neu, {} Fehler").format(
             z[ov.GLEICH], z[ov.GEAENDERT], z[ov.NUR_ALT], z[ov.NUR_NEU], z[ov.FEHLER]))
+        spalten_anpassen(self.tabelle, strecken=True)  # Ergebnisse sind da; gezogene Breiten bleiben
         self._pruefe()
 
     def _doppelklick(self, z, _s):

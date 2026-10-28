@@ -10,6 +10,7 @@ from PySide6 import QtCore, QtGui, QtWidgets
 from ..i18n import tr
 from ..kern import pruefung
 from .panel_aufbau import zweck_zeile
+from .tabellen import spalten_anpassen
 
 STATUS_TEXT = {"geaendert": "geändert", "neu": "neu", "entfernt": "entfernt", "entfallen": "entfallen",
                "geometrie": "Geometrie unter PMI geändert", "verschoben": "verschoben",
@@ -198,7 +199,7 @@ class AenderungenPanel(QtWidgets.QWidget):
         self.neu_knopf.setToolTip(tr("Alten und neuen Stand wählen; danach stehen hier die Änderungen zum Prüfen"))
         self.neu_knopf.setObjectName("primaer")
         self.neu_knopf.clicked.connect(self.vergleich_starten.emit)
-        lay.addWidget(self.neu_knopf)
+        lay.addWidget(self.neu_knopf, 0, QtCore.Qt.AlignmentFlag.AlignLeft)
         self.legende = QtWidgets.QLabel("")
         self.legende.setObjectName("leise")
         self.legende.setTextFormat(QtCore.Qt.TextFormat.RichText)
@@ -251,12 +252,7 @@ class AenderungenPanel(QtWidgets.QWidget):
         self.tabelle.setSelectionBehavior(QtWidgets.QAbstractItemView.SelectionBehavior.SelectRows)
         self.tabelle.setSelectionMode(QtWidgets.QAbstractItemView.SelectionMode.SingleSelection)
         self.tabelle.setEditTriggers(QtWidgets.QAbstractItemView.EditTrigger.NoEditTriggers)
-        kopf = self.tabelle.horizontalHeader()
-        kopf.setSectionResizeMode(2, QtWidgets.QHeaderView.ResizeMode.Stretch)
-        for i in range(len(koepfe)):
-            if i != 2:
-                kopf.setSectionResizeMode(i, QtWidgets.QHeaderView.ResizeMode.ResizeToContents)
-        self.tabelle.setWordWrap(False)
+        self.tabelle.setWordWrap(False)  # Breiten: spalten_anpassen im Hauptfenster je Vergleich, danach ziehbar
         lay.addWidget(self.tabelle, 1)
         self.detail = QtWidgets.QLabel("")
         self.detail.setWordWrap(True)
@@ -278,6 +274,7 @@ class AenderungenPanel(QtWidgets.QWidget):
         self.vor.setToolTip(tr("Nächste Änderung"))
         for k in (self.zurueck, self.geprueft, self.abgelehnt, self.offen, self.vor):
             reihe.addWidget(k)
+        reihe.addStretch(1)
         lay.addLayout(reihe)
         unten = QtWidgets.QHBoxLayout()
         self.ende_knopf = QtWidgets.QPushButton(tr("Vergleich beenden"))
@@ -523,7 +520,6 @@ class AusrichtPanel(QtWidgets.QDialog):
         self.tabelle.setHorizontalHeaderLabels([tr("Nr"), tr("Art"), tr("Neu"), tr("Alt")])
         self.tabelle.verticalHeader().setVisible(False)
         self.tabelle.setEditTriggers(QtWidgets.QAbstractItemView.EditTrigger.NoEditTriggers)
-        self.tabelle.horizontalHeader().setSectionResizeMode(QtWidgets.QHeaderView.ResizeMode.Stretch)
         lay.addWidget(self.tabelle, 1)
         reihe = QtWidgets.QHBoxLayout()
         self.weg = QtWidgets.QPushButton(tr("Letztes entfernen"))
@@ -575,6 +571,7 @@ class AusrichtPanel(QtWidgets.QDialog):
                      ", ".join(f"{x:.2f}" for x in oa))
             for s, w in enumerate(werte):
                 self.tabelle.setItem(z, s, QtWidgets.QTableWidgetItem(w))
+        spalten_anpassen(self.tabelle, strecken=True)
         self.ergebnis = None
         if self.paare:
             try:

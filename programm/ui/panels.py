@@ -6,7 +6,7 @@ from PySide6 import QtCore, QtGui, QtWidgets
 
 from ..i18n import tr
 from ..kern.pmi import BEZUG, HINWEIS, MASS, MATERIAL, TOLERANZ
-from .tabellen import leer_hinweis
+from .tabellen import leer_hinweis, spalten_anpassen
 
 ART_TEXT = {MASS: "Maß", TOLERANZ: "Toleranz", BEZUG: "Bezug", HINWEIS: "Hinweis"}
 
@@ -240,9 +240,7 @@ class PmiPanel(QtWidgets.QWidget):
             weg = QtGui.QShortcut(taste, self.tabelle, context=QtCore.Qt.ShortcutContext.WidgetShortcut)
             weg.activated.connect(self.loesche_eigene)
         kopf = self.tabelle.horizontalHeader()
-        for i, name in enumerate(self.SPALTEN):
-            kopf.setSectionResizeMode(i, QtWidgets.QHeaderView.ResizeMode.Stretch if name == "Wert"
-                                      else QtWidgets.QHeaderView.ResizeMode.ResizeToContents)
+        for i, name in enumerate(self.SPALTEN):  # Breiten: spalten_anpassen nach dem Laden, danach ziehbar
             kopf.setSectionHidden(i, name not in self.STANDARD)
         lay.addWidget(self.tabelle, 1)
         self.pmi: list = []
@@ -541,8 +539,7 @@ def spalten_menue(tabelle, pos, standard: set[str] | None = None, gespeichert=No
     if gewaehlt is None:
         return
     if gewaehlt is a_breite:
-        tabelle.resizeColumnsToContents()
-        tabelle.setProperty("breiten_gemerkt", True)
+        spalten_anpassen(tabelle, neu=True, strecken=True)
     elif gewaehlt is a_std:
         for i in range(tabelle.columnCount()):
             war_aus = kopf.isSectionHidden(i)
@@ -623,6 +620,7 @@ class AnsichtenPanel(QtWidgets.QWidget):
         reihe.addWidget(self.zurueck)
         reihe.addWidget(self.vor)
         reihe.addWidget(self.plus)
+        reihe.addStretch(1)
         lay.addLayout(reihe)
         self.liste.setContextMenuPolicy(QtCore.Qt.ContextMenuPolicy.CustomContextMenu)
         self.liste.customContextMenuRequested.connect(self._menue)

@@ -11,7 +11,7 @@ from PySide6 import QtCore, QtGui, QtWidgets
 from ..i18n import tr
 from ..kern import kette2d as k2
 from ..kern import toleranzkette as tk
-from .tabellen import spalten_anpassen
+from .tabellen import erste_spalte_fest, spalten_anpassen
 from .werkstoff_wahl import WaermeZeile, werkstoff_feld, werkstoff_wert
 
 SPALTEN = (("Name", "Bezeichnung des Segments (z. B. Bauteil oder Maß)"),
@@ -126,6 +126,7 @@ class Kette2DFenster(QtWidgets.QDialog):
         self.tabelle.verticalHeader().setVisible(False)
         self.tabelle.setSelectionBehavior(QtWidgets.QAbstractItemView.SelectionBehavior.SelectRows)
         self.tabelle.itemChanged.connect(self._name_geaendert)
+        erste_spalte_fest(self.tabelle)  # Name bleibt beim Querrollen stehen
         mitte.addWidget(self.tabelle, 5)
         self.skizze = Skizze()
         mitte.addWidget(self.skizze, 2)
