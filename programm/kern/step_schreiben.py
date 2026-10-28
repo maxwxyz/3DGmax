@@ -8,7 +8,9 @@ die Zahl der Mess-Entitaet, die ein bearbeiteter Wert in der Datei hat:
   DIMENSIONAL_CHARACTERISTIC_REPRESENTATION,
 - Abmasse: TOLERANCE_VALUE (unteres, oberes) der PLUS_MINUS_TOLERANCE,
 in der Einheit der Datei. Nicht geschrieben (im Bericht): Passung, Materialbedingung, Werte ohne Entsprechung in der
-Datei (z. B. ein neu angegebenes Abmass), Mess-Entitaeten, die mehrere PMI teilen, und eigene PMI.
+Datei (z. B. ein neu angegebenes Abmass), Mess-Entitaeten, die mehrere PMI teilen, und eigene PMI. Toleranzklasse
+(vorhandene LIMITS_AND_FITS) und Materialbedingung (GEOMETRIC_TOLERANCE_WITH_MODIFIERS, einfache Entitaet wird in
+die komplexe Form umgeschrieben) werden ersetzt.
 Die grafische Darstellung (Polylinien) zeigt weiter die alten Werte - der Bericht nennt die betroffenen PMI.
 
 Stufe 2 (anhaengen): eigene PMI als neue Entitaeten vor dem Ende des DATA-Abschnitts, nach der CAx-IF-Praxis wie in
@@ -31,6 +33,7 @@ from . import p21
 from .p21 import Ref
 
 ZAHLEN_FELDER = ("nennwert", "oben", "unten", "wert")
+MATERIAL_ENUM = {"M": "MAXIMUM_MATERIAL_REQUIREMENT", "L": "LEAST_MATERIAL_REQUIREMENT"}
 MASS_ART = r"(?:POSITIVE_)?(?:LENGTH|PLANE_ANGLE)_MEASURE|RATIO_MEASURE|PARAMETER_VALUE"
 
 
@@ -350,8 +353,8 @@ def _schreibe_mass(a: _Anhang, p) -> str | None:
     elif p.passung:
         import re as _re
         m = _re.match(r"([A-Za-z]+)(\d+)$", p.passung)
-        if m:
-            lf = a.neu(f"LIMITS_AND_FITS('{m.group(1)}','','{m.group(2)}','')")
+        if m:  # wie in den NIST-Dateien: Klasse vollstaendig im ersten Feld
+            lf = a.neu(f"LIMITS_AND_FITS('{p.passung}','{'hole' if m.group(1)[0].isupper() else 'shaft'}','','')")
             a.neu(f"PLUS_MINUS_TOLERANCE(#{lf},#{dim})")
     return None
 
@@ -378,6 +381,88 @@ def _haenge_an(text: str, datei, modell, pmi, bericht: Bericht) -> str:
     return text[:ende] + "\n".join(a.zeilen) + "\n" + text[ende:]
 
 
+def _passung_id(datei, p) -> int | None:
+    for rid in datei.referrers().get(p.step_id, []):
+        r = datei.entities[rid]
+        if r.is_a("PLUS_MINUS_TOLERANCE"):
+            b = r.args("PLUS_MINUS_TOLERANCE")[0]
+            if isinstance(b, Ref) and datei.entities.get(b.id) is not None and datei.entities[b.id].is_a("LIMITS_AND_FITS"):
+                return b.id
+    return None
+
+
+def _schreibe_passung(text: str, datei, p) -> str | None:
+    """Toleranzklasse in einer vorhandenen LIMITS_AND_FITS ersetzen; None, wenn die Datei keine hat."""
+    import re as _re
+    eid = _passung_id(datei, p)
+    m = _re.match(r"([A-Za-z]+)(\d+)$", p.passung or "")
+    if eid is None or m is None:
+        return None
+    a, b = _anweisung(text, eid)
+    art = "hole" if m.group(1)[0].isupper() else "shaft"
+    return text[:a] + f"#{eid}=LIMITS_AND_FITS('{p.passung}','{art}','','');" + text[b:]
+
+
+def _schreibe_material(text: str, datei, p) -> str | None:
+    """Materialbedingung einer Toleranz setzen: in GEOMETRIC_TOLERANCE_WITH_MODIFIERS ersetzen oder die einfache
+    Entitaet in die komplexe Form mit Modifikatoren umschreiben; None, wenn das nicht geht."""
+    import re as _re
+    e = datei.entities.get(p.step_id)
+    if e is None:
+        return None
+    a, b = _anweisung(text, p.step_id)
+    stueck = text[a:b]
+    neu_enum = MATERIAL_ENUM.get(p.material)
+    if e.is_a("GEOMETRIC_TOLERANCE_WITH_MODIFIERS"):
+        def ersetze(m):
+            enums = [x for x in _re.findall(r"\.([A-Z_]+)\.", m.group(2)) if x not in MATERIAL_ENUM.values()]
+            enums += [neu_enum] if neu_enum else []
+            return m.group(1) + "(" + ",".join(f".{x}." for x in enums) + ")"
+        neu = _re.sub(r"(GEOMETRIC_TOLERANCE_WITH_MODIFIERS\s*\(\s*)\(([^)]*)\)", ersetze, stueck, count=1)
+        return text[:a] + neu + text[b:]
+    if not neu_enum:
+        return text  # nichts zu entfernen
+    if len(e.parts) == 1:  # einfache Form: FOO_TOLERANCE('n','',#betrag,#aspekt[,(#system)])
+        typ = next(iter(e.parts))
+        m = _re.match(rf"#{p.step_id}\s*=\s*{typ}\s*\((.*)\)\s*;$", stueck, _re.S)
+        if m is None:
+            return None
+        teile = _argumente(m.group(1))
+        if len(teile) < 4:
+            return None
+        kompl = {"GEOMETRIC_TOLERANCE": "(" + ",".join(teile[:4]) + ")", typ: "()",
+                 "GEOMETRIC_TOLERANCE_WITH_MODIFIERS": f"((.{neu_enum}.))"}
+        if len(teile) > 4:
+            kompl["GEOMETRIC_TOLERANCE_WITH_DATUM_REFERENCE"] = "(" + teile[4] + ")"
+        return text[:a] + f"#{p.step_id}=( " + " ".join(f"{k}{kompl[k]}" for k in sorted(kompl)) + " );" + text[b:]
+    # komplex ohne Modifikatoren: Teil einfuegen (alphabetisch)
+    m = _re.match(rf"(#{p.step_id}\s*=\s*\()(.*)(\)\s*;)$", stueck, _re.S)
+    if m is None:
+        return None
+    teile = _re.findall(r"([A-Z_0-9]+)\s*(\((?:[^()']|'[^']*'|\((?:[^()']|'[^']*'|\([^()]*\))*\))*\))", m.group(2))
+    if not teile:
+        return None
+    teile.append(("GEOMETRIC_TOLERANCE_WITH_MODIFIERS", f"((.{neu_enum}.))"))
+    return text[:a] + m.group(1) + " " + " ".join(f"{k}{v}" for k, v in sorted(teile)) + " " + m.group(3) + text[b:]
+
+
+def _argumente(inhalt: str) -> list[str]:
+    """Argumente einer P21-Liste auf oberster Ebene (Klammern und Texte beachtet)."""
+    out, tiefe, start, in_str = [], 0, 0, False
+    for i, c in enumerate(inhalt):
+        if c == "'":
+            in_str = not in_str
+        elif not in_str and c == "(":
+            tiefe += 1
+        elif not in_str and c == ")":
+            tiefe -= 1
+        elif not in_str and c == "," and tiefe == 0:
+            out.append(inhalt[start:i].strip())
+            start = i + 1
+    out.append(inhalt[start:].strip())
+    return out
+
+
 def schreibe(quelle: str, ziel: str, pmi: list, modell=None) -> Bericht:
     """Kopie von 'quelle' mit den bearbeiteten Werten der PMI nach 'ziel'; mit modell auch die eigenen PMI."""
     with open(quelle, "rb") as f:
@@ -396,6 +481,14 @@ def schreibe(quelle: str, ziel: str, pmi: list, modell=None) -> Bericht:
         for feld, alt in p.original.items():
             neu = getattr(p, feld, None)
             if neu == alt:
+                continue
+            if feld in ("passung", "material"):
+                neu_text = (_schreibe_passung if feld == "passung" else _schreibe_material)(text, datei, p)
+                if neu_text is None:
+                    bericht.uebersprungen.append((p.nummer, feld, tr("nicht schreibbar")))
+                else:
+                    text = neu_text
+                    bericht.geschrieben.append((p.nummer, feld))
                 continue
             if feld not in ZAHLEN_FELDER:
                 bericht.uebersprungen.append((p.nummer, feld, tr("nicht schreibbar")))

@@ -820,7 +820,8 @@ Alternatives: QIF export (own XML writer, also the exchange format for CMM softw
   TOLERANCE_ZONE for ⌀, DIMENSIONAL_SIZE/LOCATION with SHAPE_DIMENSION_REPRESENTATION and PLUS_MINUS_TOLERANCE,
   DATUM_FEATURE + DATUM + SHAPE_ASPECT_RELATIONSHIP); read back by our reader and by OCCT XCAF (CTC-01: +1 dim,
   +2 tol, +1 datum); angular size/location added the same day. Assemblies done the same day (PDS, representation and units per
-  part from the faces). Open: PMI across parts (assembly-level), presentation for written PMI, fit class/modifier edits of existing PMI.
+  part from the faces). Open: PMI across parts (assembly-level), presentation for written PMI. Fit class and material condition edits of
+  existing PMI done (simple tolerance entities are rewritten in complex form with GEOMETRIC_TOLERANCE_WITH_MODIFIERS).
 
 ### 8.29 Test strategy: run only the affected tests (requested 2026-10-27)
 The full suite takes ~25–28 min (180 tests, many load NIST models, compare, check scans or open the window). Rule

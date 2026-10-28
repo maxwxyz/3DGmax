@@ -23,17 +23,18 @@ def test_werte_schreiben_nur_geaenderte(tmp_path):
     ziel = str(tmp_path / "neu.stp")
     b = sw.schreibe(quelle, ziel, a.pmi)
     assert sorted(b.geschrieben) == sorted([(m.nummer, "nennwert"), (m.nummer, "oben"), (m.nummer, "unten"),
-                                            (t.nummer, "wert")])
-    assert [(n, f) for n, f, _ in b.uebersprungen] == [(t.nummer, "material")]
+                                            (t.nummer, "wert"), (t.nummer, "material")])
+    assert (t.nummer, "material") in b.geschrieben and not b.uebersprungen
     neu = {p.step_id: p for p in lade_alles(ziel).pmi}
     assert abs(neu[m.step_id].nennwert - (nenn + 1)) < 1e-9 and neu[m.step_id].oben == 0.3
     assert neu[m.step_id].unten == -0.05 and abs(neu[t.step_id].wert - 2 * wert) < 1e-9
+    assert neu[t.step_id].material == t.material
     alt = {p.step_id: p.wert_text() for p in lade_alles(quelle).pmi}
     assert len(neu) == len(alt)
     assert all(neu[k].wert_text() == v for k, v in alt.items() if k not in (m.step_id, t.step_id))
     # ausser den Zahlen bleibt die Datei Zeichen fuer Zeichen gleich
     q, z = open(quelle, encoding="utf-8").read(), open(ziel, encoding="utf-8").read()
-    assert abs(len(q) - len(z)) < 40 and q.splitlines()[:20] == z.splitlines()[:20]
+    assert abs(len(q) - len(z)) < 120 and q.splitlines()[:20] == z.splitlines()[:20]
 
 
 def test_real_und_ohne_entsprechung(tmp_path):
@@ -125,3 +126,28 @@ def test_eigene_pmi_anhaengen(tmp_path):
     par = next(p for p in neu if p.typ == "Parallelism")
     assert [x.name for x in par.bezuege] == ["H"] and par.flaechen == {hulse[1]}
     assert next(p for p in neu if p.typ == "Flatness").flaechen == {rad[0]}
+
+
+def test_passung_und_materialbedingung(tmp_path):
+    """Toleranzklasse in LIMITS_AND_FITS; Materialbedingung setzen (einfache Entitaet wird komplex), aendern, entfernen."""
+    from programm.kern import step_schreiben as sw
+    from programm.ui.lader import lade_alles
+    quelle = pfad("nist_ftc_10_asme1_ap242-e2.stp")
+    a = lade_alles(quelle)
+    fit = next(p for p in a.pmi if p.art == "mass" and p.passung)
+    senk = next(p for p in a.pmi if p.typ == "Perpendicularity" and not p.material)
+    pos = next(p for p in a.pmi if p.typ == "Position" and p.material == "M")
+    _aendere(fit, passung="H7")
+    _aendere(senk, material="M")
+    _aendere(pos, material="L")
+    ziel = str(tmp_path / "f.stp")
+    b = sw.schreibe(quelle, ziel, a.pmi)
+    assert not b.uebersprungen and len(b.geschrieben) == 3
+    neu = {p.step_id: p for p in lade_alles(ziel).pmi}
+    assert neu[fit.step_id].passung == "H7"
+    assert neu[senk.step_id].material == "M" and [x.name for x in neu[senk.step_id].bezuege] == \
+        [x.name for x in senk.bezuege]
+    assert neu[pos.step_id].material == "L"
+    _aendere(pos, material="")
+    b = sw.schreibe(ziel, str(tmp_path / "g.stp"), [pos])
+    assert next(p for p in lade_alles(str(tmp_path / "g.stp")).pmi if p.step_id == pos.step_id).material == ""
