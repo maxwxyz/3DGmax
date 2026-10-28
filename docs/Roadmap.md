@@ -54,6 +54,7 @@
 | Surface texture (roughness), weld symbols | ⬜ |
 | Make graphical PMI searchable (OCR on rendered annotations) | 💡 |
 | Graphical-only PMI evaluated in the table (kind from PRC markup type/name, values/deviations/zone/Ⓜ/datums from text), marked as derived | ✅ |
+| Make graphical-only PMI semantic (repair): kind from the callout name, faces from leader/arrow tips, checked in a dialog; STEP gets the semantics linked to the existing callout – PLAN §8.18 | ✅ |
 | Graphical PMI with stroked text (PRC, STEP tessellated): values via OCR | 💡 |
 | Semantic-only PMI: optional generated display in the view (see generated PMI stage 2) | ✅ |
 | Show tolerance zones as envelope surfaces (offsets ±t/2, ⌀ zone cylinder, exaggeration) | ✅ |
@@ -137,7 +138,8 @@
 | Write edited PMI values back into a copy of the STEP file (lossless, own P21 editing) – PLAN §8.28 stage 1 | ✅ |
 | Write own PMI to STEP AP242 as new P21 entities (datums, geometric tolerances, size/distance dimensions; single parts) | ✅ |
 | Write own PMI in assemblies (context per part) | ✅ |
-| Write PMI: presentation (graphics) for written PMI; advisor stage 2 | ⬜ |
+| Write PMI: presentation (graphics) for written own PMI – tessellated AP242 callouts linked to the semantics, read back by our reader and OCCT – PLAN §8.28 stage 3 | ✅ |
+| Write PMI: advisor stage 2 | ⬜ |
 
 ## Measuring
 | Feature | Status |

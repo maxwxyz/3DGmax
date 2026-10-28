@@ -442,6 +442,7 @@ class PmiPanel(QtWidgets.QWidget):
             self.tabelle.selectRow(zeile.row())
         auswahl = self.gewaehlte()
         m = QtWidgets.QMenu(self)
+        m.setToolTipsVisible(True)
         a_zoom = m.addAction(tr("Auf Auswahl zoomen"))
         a_normal = m.addAction(tr("Normal auf Auswahl ausrichten"))
         a_zone = m.addAction(tr("Toleranzzone zeigen"))
@@ -461,6 +462,10 @@ class PmiPanel(QtWidgets.QWidget):
         m.addSeparator()
         a_bearb = m.addAction(tr("Bearbeiten …"))
         a_bearb.setEnabled(len(auswahl) == 1 and auswahl[0].art in (MASS, TOLERANZ))
+        a_sem = m.addAction(tr("Semantisch machen …"))
+        a_sem.setToolTip(tr("Nur grafische PMI prüfen und mit Art, Werten und Flächen als Semantik übernehmen"))
+        a_sem.setEnabled(len(auswahl) == 1 and not auswahl[0].semantisch and auswahl[0].quelle != "eigen"
+                         and auswahl[0].step_id > 0)
         a_weg = m.addAction(tr("Eigene PMI löschen"))
         a_weg.setEnabled(bool(auswahl) and all(p.quelle == "eigen" for p in auswahl))
         a_kopie = m.addAction(tr("Kopieren"))
@@ -485,6 +490,8 @@ class PmiPanel(QtWidgets.QWidget):
             self.befehl.emit("bearbeiten", auswahl[0])
         elif gewaehlt is a_weg:
             self.befehl.emit("loeschen", auswahl)
+        elif gewaehlt is a_sem:
+            self.befehl.emit("semantisch", auswahl[0])
         elif gewaehlt.data():
             self.befehl.emit("ansicht", gewaehlt.data())
 

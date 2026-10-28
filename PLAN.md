@@ -753,6 +753,17 @@ print annotations. Today 3DGmax writes generated texts only into the placeholder
   deviations, radius, angle; single datum letter) and PRC markup kind/name rules (NX stores datum symbols as GD&T);
   applied in `pmi_lesen.ergaenze_hinweise`; `quelle="abgeleitet"`, list shows "≈" and a tooltip. NIST STC PRC
   texts are strokes → kind only; QIF texts → full values. Open: OCR for stroked text.
+  **Done (2026-10-28): "Make semantic …" (repair)** – PMI list context command for a graphical-only PMI of the file
+  (`kern/pmi_reparieren.py`, dialog `ui/semantik_ui.py`, not modal so faces can be picked meanwhile): kind from the
+  derived fields or the callout name (CATIA/NX names such as "Flatness.1", "Linear Size.3", "Simple Datum.2",
+  "Position surfacic profile.1"), faces proposed where line ends or filled-triangle corners (arrow tips, datum
+  triangle) lie on a face (< 0.2 % of the model diagonal), values from text where readable. Accepting creates an own
+  PMI with `Pmi.callout` = the file's callout: it keeps that graphic (no generated one, the note entry is replaced,
+  also when a project is reopened), and saving STEP appends only the semantics plus a DMIA 'PMI representation to
+  presentation link' to the existing callout and its DRAUGHTING_MODEL (§8.28). Verified on CTC-01 with the semantics of
+  "Flatness.1" removed: the proposed face equals the removed one; after writing our reader shows semantic Flatness on
+  the original callout and OCCT no longer lists the callout as a presentation-only dimension. Open: OCR for stroked
+  values (user enters them), batch repair of many PMI.
 
 ### 8.19 QIF graphics and views (done 2026-10-27)
 - `kern/qif_grafik.py`: PMIDisplay → Grafik in the annotation plane (AnnotationView normal + direction, plane origin
@@ -1065,6 +1076,23 @@ Alternatives: QIF export (own XML writer, also the exchange format for CMM softw
   +2 tol, +1 datum); angular size/location added the same day. Assemblies done the same day (PDS, representation and units per
   part from the faces). Open: PMI across parts (assembly-level), presentation for written PMI. Fit class and material condition edits of
   existing PMI done (simple tolerance entities are rewritten in complex form with GEOMETRIC_TOLERANCE_WITH_MODIFIERS).
+- Done 2026-10-28 (stage 3, `kern/pmi_darstellung.py`): presentation of written own PMI. Research by experiment on the
+  NIST files: both CTC-01 and FTC-10 use DRAUGHTING_CALLOUT → TESSELLATED_ANNOTATION_OCCURRENCE (CURVE_STYLE with
+  colour) → TESSELLATED_GEOMETRIC_SET → TESSELLATED_CURVE_SET (lines and stroked text) and, in CTC-01,
+  COMPLEX_TRIANGULATED_SURFACE_SET (filled arrows); ANNOTATION_PLANE per callout; a DRAUGHTING_MODEL in the part's
+  representation context; DRAUGHTING_MODEL_ITEM_ASSOCIATION named 'PMI representation to presentation link'
+  (semantic entity, model, callout) – OCCT's STEPCAFControl_Reader only attaches a presentation through a DMIA with
+  exactly this name (checked: it reads the NIST presentations, curves as edges and triangle sets as faces). Written the
+  same way (CTC-01 style, no REPOSITIONED item, absolute part coordinates in the file's length unit): the graphic
+  3DGmax generates for the PMI (`pmi_erzeugen`, or the view's graphic when passed as `grafik`), texts as font glyphs
+  (outline as curve set and filled as triangles; placeholders alone would show no text elsewhere), one point list per
+  callout, one DRAUGHTING_MODEL per part; datums linked at the DATUM_FEATURE like the NIST files. Assemblies: the
+  presentation lies in the part's coordinate system (instance location removed); our reader now places presentation
+  of a part at its instance (`praesentation.in_teillage`, only when the draughting model has that part's context –
+  NIST files unchanged). Verified: round trip with our reader (semantic + file graphic, equal to the view's graphic,
+  leader tip on the face) and OCCT (presentation on the new dimension and datum; tolerances not checkable from
+  pythonocc), also in an assembly (OCCT keeps the presentation in part coordinates). Not verified: display in
+  CATIA/NX/Creo (no CAD system here). Own PMI are not added to saved views.
 
 ### 8.29 Test strategy: run only the affected tests (requested 2026-10-27)
 The full suite takes ~25–28 min (180 tests, many load NIST models, compare, check scans or open the window). Rule

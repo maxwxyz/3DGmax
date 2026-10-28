@@ -1842,5 +1842,22 @@
 "Ausschnitt auf die Flächen und die Darstellung der PMI": "Fit the view to the faces and the presentation of the PMI",
 "Wert, Toleranz und Passung der PMI ändern": "Change value, tolerance and fit of the PMI",
 "In die Toleranzkette (+)": "Into the tolerance chain (+)",
-"Gewählte Maße als Glieder an die Toleranzkette anhängen": "Append the selected dimensions as links to the tolerance chain"
+"Gewählte Maße als Glieder an die Toleranzkette anhängen": "Append the selected dimensions as links to the tolerance chain",
+"Auswahl übernehmen": "Use selection",
+"Bezugsbuchstabe, wie er in der Grafik steht": "Datum letter as shown in the graphic",
+"Bezugsbuchstaben in der Reihenfolge primär, sekundär, tertiär, z. B. A B C": "Datum letters in the order primary, secondary, tertiary, e.g. A B C",
+"Bitte Flächen wählen": "Please select faces",
+"Bitte das Nennmaß angeben": "Please enter the nominal size",
+"Bitte den Bezugsbuchstaben angeben": "Please enter the datum letter",
+"Bitte den Toleranzwert angeben": "Please enter the tolerance value",
+"Buchstabe": "Letter",
+"Die im Modell gewählten Flächen statt des Vorschlags verwenden": "Use the faces selected in the model instead of the proposal",
+"Durchmesserzone ⌀": "Diameter zone ⌀",
+"Grafik „{}“ ohne Semantik in der Datei. Art, Werte und Flächen sind aus der Grafik vorgeschlagen – bitte prüfen. Die Grafik der Datei bleibt; beim Speichern als STEP wird die Semantik angehängt und mit ihr verknüpft.": "Graphic “{}” has no semantics in the file. Kind, values and faces are proposed from the graphic – please check. The file's graphic stays; saving as STEP appends the semantics and links them to it.",
+"Nur grafische PMI prüfen und mit Art, Werten und Flächen als Semantik übernehmen": "Check a graphical-only PMI and adopt it as semantics with kind, values and faces",
+"Semantisch machen": "Make semantic",
+"Semantisch machen …": "Make semantic …",
+"Toleranzklasse nach ISO 286, z. B. H7 (statt der Abmaße)": "Tolerance class per ISO 286, e.g. H7 (instead of the deviations)",
+"keine – Flächen im Modell wählen und übernehmen": "none – select faces in the model and use them",
+"{} gewählt": "{} selected"
 }
