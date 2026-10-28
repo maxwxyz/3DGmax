@@ -1,6 +1,8 @@
 {
  "unreleased": {
   "de": [
+   "Zusammenbau: Teile im 3D mit der linken Maustaste ziehen (klassische Navigation: mit Alt) – nur in den offenen Freiheitsgraden; nahe einer passenden Ebene oder Achse rastet das Teil live ein (Flächen hervorgehoben), Loslassen legt die Verbindung an; der 3D-Griff rastet ebenso ein.",
+   "Modell hinzufügen (Datei-Menü und Zusammenbau): weitere Dateien beliebigen Formats als zusätzliche Teile ins geladene Modell aufnehmen – eigener Knoten im Strukturbaum, neben das Modell gelegt, auswählbar, ausblendbar, im Zusammenbau wie die übrigen Teile verbindbar, PMI und Ansichten der Datei bleiben erhalten; das Projekt speichert die Dateien mit.",
    "3D-Toleranzkette: Lagen mit Verschiebung und Drehung (je Komponente mit Abmaßen) von Hand im geführten Editor eingeben, Funktionspunkt und Schlussgröße wählen, Kette im Modell zeigen, linear und nichtlinear rechnen und in die Toleranzkette übernehmen.",
    "Toleranzzonen: Linienprofil je Schnitt, ACS je Querschnitt, gemeinsame Zone (CZ) bzw. getrennte Zonen (SZ), Toleranzen an Kanten und Punkten, an Gewinden (Konstruktionsgeometrie, mit projizierter Zone) und für das ganze Teil.",
    "2D- und 3D-Ketten speichern und öffnen, auch im Projekt; Scanprüfung wertet das Linienprofil je Schnitt aus (mit LE in Längsschnitten); CZ an versetzten Elementen mit Hinweis.",
@@ -55,6 +57,8 @@
    "PMI-Liste: „Semantisch machen …“ für nur grafische PMI (Reparieren) – Art aus dem Namen der Grafik, Flächen aus Hinweislinie und Pfeilspitzen vorgeschlagen, Werte prüfen bzw. ergänzen; die PMI behält die Grafik der Datei, beim Speichern als STEP wird nur die Semantik angehängt und mit ihr verknüpft."
   ],
   "en": [
+   "Assembly: drag parts in 3D with the left mouse button (classic navigation: with Alt) – only along the open degrees of freedom; close to a matching plane or axis the part snaps live (faces highlighted), releasing creates the connection; the 3D handle snaps the same way.",
+   "Add model (File menu and assembly panel): load further files of any format as additional parts into the current model – own node in the structure tree, placed next to the model, selectable, hideable, connectable in the assembly like the other parts, PMI and views of the file kept; the project stores the files too.",
    "3D tolerance chain: enter positions with translation and rotation (each component with deviations) by hand in a guided editor, choose function point and closing quantity, show the chain in the model, compute linearly and non-linearly and adopt it into the tolerance chain.",
    "Tolerance zones: line profile per section, ACS per cross-section, common zone (CZ) or separate zones (SZ), tolerances on edges and points, on threads (construction geometry, with projected zone) and for the whole part.",
    "Save and open 2D and 3D chains, also in the project; the scan check evaluates the line profile per section (with LE in longitudinal sections); CZ on offset features with a hint.",

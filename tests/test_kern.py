@@ -997,3 +997,90 @@ END-ISO-10303-21;
     modell = SimpleNamespace(datei=datei, step_zu_flaeche={1: 0}, form_von_step=lambda eid: None,
                              flaechen_index=lambda f: None)
     assert farben.flaechen_farben(modell) == {0: (0.2, 0.4, 0.6)}
+
+
+def test_modell_hinzufuegen_zusammenfuegen():
+    """Modell hinzufuegen: Flaechenindex mit Versatz, eindeutige Knotennummern, Lage neben dem Modell, PMI, Grafik
+    und Ansichten der zweiten Datei umgerechnet erhalten."""
+    import numpy as np
+    from OCC.Core.TopAbs import TopAbs_FACE
+    from OCC.Core.TopExp import TopExp_Explorer
+    from programm.kern import zusammenfuegen as zf
+    from programm.ui.lader import lade_alles
+    a = lade_alles(pfad("baugruppe.stp"))
+    b = lade_alles(pfad("nist_ctc_01_asme1_ap242-e1.stp"))
+    n_a, n_b, pmi_b = len(a.modell.flaechen), len(b.modell.flaechen), len(b.pmi)
+    alt_nummern = {k.nummer for k in a.baum.alle()}
+    flaeche_b = {p.step_id: set(p.flaechen) for p in b.pmi}
+    grafik_b = {k: g.linien[0].copy() for k, g in b.grafik.items() if k > 0 and g.linien}
+    e = zf.fuege_hinzu(a, b)
+    assert len(e.modell.flaechen) == n_a + n_b and e.modell.flaechen[:n_a] == a.modell.flaechen
+    assert e.baum.kinder[:-1] == a.baum.kinder and a.baum.kinder[-1].name != b.baum.name  # Original unveraendert
+    oben = e.baum.kinder[-1]
+    nummern = [k.nummer for k in e.baum.alle()]
+    assert oben.name == "nist_ctc_01_asme1_ap242-e1.stp" and len(nummern) == len(set(nummern))
+    assert oben.nummer > max(alt_nummern) and {k.nummer for k in a.baum.alle()} == alt_nummern
+    # Flaechen der neuen Teile: Index = Versatz + Index in der eigenen Datei, Lage enthaelt die Verschiebung
+    blatt = next(k for k in oben.blaetter() if not k.hilfsgeometrie)
+    f = TopExp_Explorer(blatt.form, TopAbs_FACE).Current()
+    i = e.modell.flaechen_index(f)
+    assert i is not None and i >= n_a and i - n_a == b.modell.flaechen_index(f)
+    # ohne Ueberlappung rechts daneben
+    box_a, box_b = zf._box(a.modell.form), zf._box(oben.form)
+    assert box_b[0][0] > box_a[1][0] and np.allclose(zf._box(e.modell.form)[1], np.maximum(box_a[1], box_b[1]))
+    v = np.array(e.zusaetze[0].versatz)
+    # PMI: alle erhalten, Flaechen und #IDs verschoben, Grafik mit verschoben, Ansichten verweisen auf neue IDs
+    neu = [p for p in e.pmi if p.step_id >= zf.ID_VERSATZ]
+    assert len(e.pmi) == len(a.pmi) + pmi_b and len(neu) == len([p for p in b.pmi if p.step_id])
+    p = next(p for p in neu if p.flaechen)
+    assert p.flaechen == {j + n_a for j in flaeche_b[p.step_id - zf.ID_VERSATZ]}
+    assert len({q.nummer for q in e.pmi}) == len(e.pmi)
+    k, linie = next(iter(grafik_b.items()))
+    assert np.allclose(e.grafik[k + zf.ID_VERSATZ].linien[0], linie + v)
+    assert all(i >= zf.ID_VERSATZ for a_ in e.ansichten for i in a_.pmi_ids)
+    assert e.ansichten and e.ansichten[0].name.startswith("nist_ctc_01")
+    assert zf.pmi_der_ersten_datei(e) == list(a.pmi)
+    assert zf.zusatz_von(e, blatt.nummer) is e.zusaetze[0] and zf.zusatz_von(e, 2) is None
+    # zweite Datei dazu: weitere IDs, weiter rechts
+    e2 = zf.fuege_hinzu(e, lade_alles(pfad("getriebe.stp")))
+    assert e2.zusaetze[1].id_versatz == 2 * zf.ID_VERSATZ and e2.zusaetze[1].erste_flaeche == n_a + n_b
+    assert zf._box(e2.baum.kinder[-1].form)[0][0] > box_b[1][0]
+
+
+def test_einrasten_beim_ziehen():
+    """Schraube ziehen: rastet koaxial in die Bohrung, danach (nur noch entlang/um die Achse) mit dem Kopf auf dem
+    Deckel ein; zuletzt bleibt nur die Drehung, Ziehen dreht um die Achse; vorhandene Paare werden nicht erneut
+    gefangen, ferne Flaechen nicht."""
+    import numpy as np
+    from programm.kern import einrasten as er
+    from programm.kern import verbindung as vb
+    from programm.ui.lader import lade_alles
+    erg = lade_alles(pfad("baugruppe.stp"))
+    kn = {k.nummer: k for k in erg.baum.blaetter() if not k.hilfsgeometrie}
+    andere = [(n, k.form) for n, k in kn.items() if n != 4]
+    b = vb.Baugruppe()
+    seite = ((0.0, -200.0, 0.0), (0.0, 1.0, 0.0))  # Blick entlang +Y: Ziehen in X/Z
+    z = er.Ziehen(b, 4, kn[4].form, erg.modell, andere, seite, 2.0)
+    assert len(z.schiebe) == 3 and z.dreh is None
+    z.bewege(((0.0, -200.0, 0.6), (0.0, 1.0, 0.0)))
+    assert z.kandidat.art == vb.KOAXIAL and (z.kandidat.gegen.teil, z.kandidat.gegen.index) == (2, 6)
+    v = z.loslassen()
+    assert v.art == vb.KOAXIAL and not b.verletzt()
+    # entlang der Achse nach oben: Kopf 0.2 mm unter dem Deckel -> eben, auf Beruehrung gefangen
+    z = er.Ziehen(b, 4, kn[4].form, erg.modell, andere, seite, 2.0)
+    assert len(z.schiebe) == 1 and abs(abs(z.schiebe[0][2]) - 1) < 1e-9
+    l = z.bewege(((5.0, -200.0, 1.4), (0.0, 1.0, 0.0)))  # X-Anteil faellt weg (nicht frei)
+    assert z.kandidat.art == vb.EBEN and (z.kandidat.gegen.teil, z.kandidat.gegen.index) == (3, 15)
+    assert np.allclose(l[:3, 3], [0, 0, 1])
+    assert z.loslassen().art == vb.EBEN and len(b.verbindungen) == 2 and not b.verletzt()
+    # nur noch die Drehung: Ziehen quer zur Achse dreht, Verbindungen bleiben erfuellt
+    z = er.Ziehen(b, 4, kn[4].form, erg.modell, andere, ((0.0, 0.0, 200.0), (0.0, 0.0, -1.0)), 2.0)
+    assert not len(z.schiebe) and z.dreh is not None
+    vorher = b.lage(4).copy()
+    l = z.bewege(((3.0, -3.0, 200.0), (0.0, 0.0, -1.0)))  # quer zum Hebel zur Achse (15, 15)
+    assert z.kandidat is None and not np.allclose(l, vorher) and z.loslassen() is None and not b.verletzt()
+    # weit weg: kein Kandidat
+    z = er.Ziehen(vb.Baugruppe(), 4, kn[4].form, erg.modell, andere, seite, 2.0)
+    l = z.bewege(((0.0, -200.0, 80.0), (0.0, 1.0, 0.0)))
+    assert z.kandidat is None and np.allclose(l[:3, 3], [0, 0, 80])
+    assert er.schieberichtungen(np.zeros((0, 6))).shape == (0, 3)

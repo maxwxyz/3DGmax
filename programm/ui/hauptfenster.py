@@ -254,6 +254,10 @@ class Hauptfenster(QtWidgets.QMainWindow):
         self.ansicht.manipulator_bewegt.connect(self._manipulator_bewegt)
         self.ansicht.manipulator_fertig.connect(self._manipulator_fertig)
         self.dock_zusammenbau.visibilityChanged.connect(lambda _an: self._manipulator_zeigen())
+        self.dock_zusammenbau.visibilityChanged.connect(lambda an: setattr(self.ansicht, "teil_ziehen_an", an))
+        self.ansicht.teil_ziehen_start.connect(self.teil_ziehen_start)
+        self.ansicht.teil_gezogen.connect(self.teil_gezogen)
+        self.ansicht.teil_ziehen_ende.connect(self.teil_ziehen_ende)
         self.zusammenbau.frei_zurueck.connect(lambda: self._frei_bewegen([]))
         self.zusammenbau.tauschen.connect(lambda n: self._verbindung_aendern(self.baugruppe.tauschen, n))
         self.zusammenbau.mass_anlegen.connect(self.messgroesse_auswahl)
@@ -262,6 +266,7 @@ class Hauptfenster(QtWidgets.QMainWindow):
         self.zusammenbau.soll.connect(self._soll)
         self.zusammenbau.mass_pdf.connect(lambda: self.exportiere_messgroessen_pdf())
         self.zusammenbau.mass_kette.connect(self.messgroesse_als_kette3d)
+        self.zusammenbau.hinzufuegen.connect(lambda: self.modell_hinzufuegen(""))
         self.scan.gewaehlt.connect(lambda p: self.pmi.waehle(lambda q: q is p))
         self.scan.beenden.connect(self.scan_aus)
         self.scan.neu_auswerten.connect(lambda b: self.pruefe_scan(self._scan["pfad"], bezug=b)
@@ -579,6 +584,9 @@ class Hauptfenster(QtWidgets.QMainWindow):
         A = self._aktion
         A("oeffnen", tr("Öffnen …"), lambda: self.oeffnen(""), QtGui.QKeySequence.StandardKey.Open,
           tipp=tr("STEP-Datei öffnen"), modell=False)
+        A("modell_hinzufuegen", tr("Modell hinzufügen …"), lambda: self.modell_hinzufuegen(""),
+          tipp=tr("Weitere Datei als zusätzliche Teile ins geladene Modell aufnehmen (z. B. für den Zusammenbau); "
+                  "sie liegt zunächst neben dem Modell"))
         A("neues_fenster", tr("Neues Fenster"), lambda: self.neues_fenster(), QtGui.QKeySequence.StandardKey.New,
           tipp=tr("Weiteres Fenster für ein anderes Modell (Einstellungen und zuletzt verwendet gemeinsam)"),
           modell=False)
@@ -803,6 +811,7 @@ class Hauptfenster(QtWidgets.QMainWindow):
         a = self.aktionen
         m = mb.addMenu(tr("&Datei"))
         m.addAction(a["oeffnen"])
+        m.addAction(a["modell_hinzufuegen"])
         m.addAction(a["neues_fenster"])
         m.addAction(a["in_neuem_fenster"])
         self.menue_zuletzt = m.addMenu(tr("Zuletzt verwendet"))
@@ -1117,8 +1126,9 @@ class Hauptfenster(QtWidgets.QMainWindow):
                 return
         self.lade(pfad)
 
-    def lade(self, pfad: str, warten: bool = False):
-        """Laedt im Hintergrund; warten=True blockiert bis fertig (Tests, Selbsttest)."""
+    def lade(self, pfad: str, warten: bool = False, zusaetze=()):
+        """Laedt im Hintergrund; warten=True blockiert bis fertig (Tests, Selbsttest); zusaetze: weitere Dateien
+        [(Pfad, Verschiebung)], die dazukommen (Projekt mit hinzugefuegten Modellen)."""
         if pfad.lower().endswith(".3dgmax"):
             return self.oeffne_projekt(pfad, warten)
         if pfad.lower().endswith(".3dgkette"):
@@ -1127,7 +1137,7 @@ class Hauptfenster(QtWidgets.QMainWindow):
         self.statusBar().showMessage(tr("Lade {} …").format(os.path.basename(pfad)))
         self.fortschritt.show()
         self.abbrechen.show()
-        self._lader = Lader(pfad, self)
+        self._lader = Lader(pfad, self, zusaetze)
         self._lader.stand.connect(lambda t: self.statusBar().showMessage(t))
         self._lader.fertig.connect(self._geladen)
         self._lader.fehler.connect(self._ladefehler)
@@ -2036,7 +2046,8 @@ class Hauptfenster(QtWidgets.QMainWindow):
                                  self.baugruppe.als_dict() if self.baugruppe.verbindungen or self.baugruppe.lagen
                                  else None, self._kollision_daten(),
                                  self._funktion.zustand() if getattr(self, "_funktion", None) is not None
-                                 and self._funktion.rollen else None, self._raumketten())
+                                 and self._funktion.rollen else None, self._raumketten(),
+                                 [(z.pfad, z.versatz) for z in getattr(self.erg, "zusaetze", [])])
         self.statusBar().showMessage(tr("Projekt gespeichert: {}").format(ziel), 6000)
         return ziel
 
@@ -2076,7 +2087,50 @@ class Hauptfenster(QtWidgets.QMainWindow):
             self.starte_vergleich({"alt": d["pfade"]["alt"], "neu": d["pfade"]["neu"], "toleranz": v["toleranz"],
                                    "suchweite": v["suchweite"]}, warten)
         else:
-            self.lade(d["pfade"]["modell"], warten)
+            self.lade(d["pfade"]["modell"], warten, d.get("zusatz_pfade", []))
+
+    # --- Modell hinzufuegen ---
+
+    def modell_hinzufuegen(self, pfad: str = "", warten: bool = False):
+        """Weitere Datei als zusaetzliche Teile ins geladene Modell aufnehmen (neben das Modell gelegt)."""
+        if self.erg is None:
+            return
+        if self.vergleich is not None:
+            self.statusBar().showMessage(tr("Modell hinzufügen geht nicht während eines Vergleichs"), 6000)
+            return
+        if not pfad:
+            pfad, _ = QtWidgets.QFileDialog.getOpenFileName(self, tr("Modell hinzufügen"),
+                                                            os.path.dirname(self.erg.pfad),
+                                                            DATEIFILTER.format(tr("Alle Modelle"), tr("Netze")))
+            if not pfad:
+                return
+        self.lade_abbrechen()
+        self.statusBar().showMessage(tr("Füge {} hinzu …").format(os.path.basename(pfad)))
+        self.fortschritt.show()
+        self.abbrechen.show()
+        self._lader = Lader(self.erg.pfad, self, [(pfad, None)], basis=self.erg)
+        self._lader.stand.connect(lambda t: self.statusBar().showMessage(t))
+        self._lader.fertig.connect(self._hinzugefuegt)
+        self._lader.fehler.connect(self._ladefehler)
+        self._lader.start()
+        if warten:
+            self._lader.wait()
+            QtWidgets.QApplication.processEvents()
+            QtWidgets.QApplication.processEvents()
+
+    def _hinzugefuegt(self, erg):
+        """Zusammengefuegtes Modell zeigen; Zusammenbau, Messungen und Kommentare bleiben (gleiche erste Datei)."""
+        if self.sender() is not self._lader:
+            return
+        self._lader = None
+        self._laufbalken_pruefen()
+        self.zeige_ergebnis(erg)
+        self.ansicht.setze_teil_lagen(self.baugruppe.lagen)
+        if self.dock_zusammenbau.isVisible():
+            self._zusammenbau_zeigen()
+        z = erg.zusaetze[-1]
+        self.statusBar().showMessage(tr("{} hinzugefügt: {} Flächen, neben das Modell gelegt – im Zusammenbau "
+                                        "verbinden").format(os.path.basename(z.pfad), z.flaechen), 8000)
 
     def _projekt_messungen(self):
         d = getattr(self, "_projekt", None)
@@ -3061,7 +3115,8 @@ class Hauptfenster(QtWidgets.QMainWindow):
             QtWidgets.QMessageBox.warning(self, tr("STEP speichern"), tr("Bitte unter neuem Namen speichern – die "
                                                                          "Originaldatei bleibt unverändert."))
             return None
-        b = step_schreiben.schreibe(self.erg.pfad, pfad, self.erg.pmi, self.erg.modell)
+        from ..kern.zusammenfuegen import pmi_der_ersten_datei
+        b = step_schreiben.schreibe(self.erg.pfad, pfad, pmi_der_ersten_datei(self.erg), self.erg.modell)
         felder = {"neu": tr("(eigene PMI)"), "nennwert": tr("Nennmaß"), "oben": tr("Oberes Abmaß"), "unten": tr("Unteres Abmaß"),
                   "wert": tr("Toleranzwert"), "passung": tr("Toleranzklasse"), "material": tr("Materialbedingung")}
         zeilen = [tr("{} Werte geschrieben.").format(len(b.geschrieben))]
@@ -3795,6 +3850,8 @@ class Hauptfenster(QtWidgets.QMainWindow):
         z = self.zusammenbau
         z.teil_namen = dict(namen)
         aus_datei = werkstoffe.werkstoffe_aus_step(getattr(self.erg.modell, "datei", None)) if self.erg else {}
+        for zusatz in getattr(self.erg, "zusaetze", []):  # Werkstoffe hinzugefuegter Dateien
+            aus_datei = {**werkstoffe.werkstoffe_aus_step(getattr(zusatz.modell, "datei", None)), **aus_datei}
         for nr, name in namen.items():
             if nr not in z.alpha:
                 w = aus_datei.get(name) or aus_datei.get(name.split(" (")[0])
@@ -3967,22 +4024,111 @@ class Hauptfenster(QtWidgets.QMainWindow):
         self.ansicht.zeige_manipulator(rahmen)
 
     def _manipulator_bewegt(self, m):
-        """Ziehen am 3D-Griff: Bewegung auf die offenen Freiheitsgrade zurueckgerechnet, ab der Lage beim Waehlen."""
+        """Ziehen am 3D-Griff: Bewegung auf die offenen Freiheitsgrade zurueckgerechnet, ab der Lage beim Waehlen;
+        dabei rastet das Teil an passenden Gegenstuecken ein (kern.einrasten)."""
         from ..kern import verbindung as vb
         frei, rahmen = getattr(self, "_frei", None), getattr(self, "_manip_rahmen", None)
         if frei is None or rahmen is None:
             return
         teil, basis, start = frei
+        if getattr(self, "_ziehen", None) is None:
+            self._ziehen = self._neues_ziehen(teil, ((0.0, 0.0, 0.0), (0.0, 0.0, 1.0)))
         self.baugruppe.bewege_frei(teil, vb.werte_aus_bewegung(m, basis, rahmen["punkt"]), start, basis)
+        if self._ziehen is not None:
+            self.baugruppe.lagen[teil] = self._ziehen.einrasten(self.baugruppe.lage(teil))
+            self._einrasten_zeigen()
         self.ansicht.setze_teil_lagen(self.baugruppe.lagen)
 
     def _manipulator_fertig(self):
-        """Nach dem Ziehen: neue Ausgangslage, Griff an die neue Stelle."""
+        """Nach dem Ziehen: eingerastet -> Verbindung; neue Ausgangslage, Griff an die neue Stelle."""
         import numpy as np
+        if getattr(self, "_ziehen", None) is not None:
+            self._ziehen.lage = self.baugruppe.lage(self._ziehen.teil)
+            self.teil_ziehen_ende()
         frei = getattr(self, "_frei", None)
         if frei is not None:
             self._frei = (frei[0], frei[1], np.array(self.baugruppe.lage(frei[0])))
         self._manipulator_zeigen()
+
+    # --- Teil ziehen mit Einrasten (kern.einrasten) ---
+
+    def _fangweite(self) -> float:
+        """Fangweite in mm: 15 Bildpunkte, ohne echte Ansicht 2 % der Modellgroesse."""
+        px = self.ansicht.mm_je_pixel()
+        if px > 0:
+            return 15.0 * px
+        from ..kern.einrasten import _box
+        import numpy as np
+        box = _box(self.erg.modell.form)
+        return 0.02 * float(np.linalg.norm(box[1] - box[0])) if box is not None else 1.0
+
+    def _neues_ziehen(self, teil: int, strahl):
+        from ..kern.einrasten import Ziehen
+        knoten = {k.nummer: k for k in self.erg.baum.blaetter() if not k.hilfsgeometrie}
+        if teil not in knoten:
+            return None
+        andere = [(n, k.form) for n, k in knoten.items() if n != teil and n not in self.ansicht.versteckt]
+        return Ziehen(self.baugruppe, teil, knoten[teil].form, self.erg.modell, andere, strahl, self._fangweite())
+
+    def teil_ziehen_start(self, teil: int, strahl):
+        """Teil im 3D gepackt: nur in seinen offenen Freiheitsgraden ziehen, dabei einrasten."""
+        self._ziehen = None
+        if self.erg is None or self.vergleich is not None:
+            return
+        self.zusammenbau.wiggle_an.setChecked(False)
+        z = self._neues_ziehen(teil, strahl)
+        if z is None or not z.frei():
+            self.statusBar().showMessage(tr("Das Teil ist durch seine Verbindungen bestimmt – nichts mehr frei"), 6000)
+            return
+        if len(z.schiebe) == 0 and z.dreh is not None:
+            self.statusBar().showMessage(tr("Nur die Drehung um die Achse ist frei: Ziehen dreht das Teil"), 6000)
+        self._ziehen = z
+
+    def teil_gezogen(self, strahl):
+        z = getattr(self, "_ziehen", None)
+        if z is None:
+            return
+        z.bewege(strahl)
+        lagen = dict(self.baugruppe.lagen)
+        lagen[z.teil] = z.lage
+        self.ansicht.setze_teil_lagen(lagen)
+        self._einrasten_zeigen()
+
+    def _einrasten_zeigen(self):
+        """Gefangenes Flaechenpaar hervorheben und benennen, sonst Hervorhebung aus."""
+        from ..kern import verbindung as vb
+        z = self._ziehen
+        k = z.kandidat
+        if k is None:
+            if self.ansicht.auswahl3d:
+                self.ansicht.setze_auswahl([])
+            self.statusBar().showMessage(tr("Ziehen – in die Nähe einer passenden Fläche bringen, dann rastet es ein"))
+            return
+        self.ansicht.setze_auswahl([k.element.form, k.gegen.form], [z.teil, k.gegen.teil])
+        self.statusBar().showMessage(tr("Rastet ein: {} an {} – loslassen verbindet").format(
+            tr(vb.ART_TEXT[k.art]), self._teil_namen().get(k.gegen.teil, str(k.gegen.teil))))
+
+    def teil_ziehen_ende(self):
+        """Losgelassen: Lage uebernehmen, eingerastet -> Verbindung (Spielraum aus Geometrie und PMI)."""
+        z, self._ziehen = getattr(self, "_ziehen", None), None
+        if z is None:
+            return None
+        v = z.loslassen()
+        if isinstance(v, str):
+            self.statusBar().showMessage(v, 6000)
+            v = None
+        elif v is not None:
+            from ..kern import toleranzzone
+            from ..kern.verbindung import toleranz_aus_pmi
+            allgemein = self._allgemein or toleranzzone.allgemein_aus_hinweisen(self.erg.pmi)
+            toleranz_aus_pmi(self.baugruppe, v, self.erg.modell, self.erg.pmi, allgemein.laenge if allgemein else "")
+            self.statusBar().showMessage(tr("Verbindung {} angelegt").format(v.nummer), 8000)
+        else:
+            self.statusBar().clearMessage()
+        self._zusammenbau_zeigen()
+        if self.zusammenbau.gewaehltes_teil() is not None:
+            self._frei_anzeigen()  # neue Ausgangslage und Freiheitsgrade fuer Felder und 3D-Griff
+        return v
 
     def _frei_bewegen(self, werte: list):
         frei = getattr(self, "_frei", None)

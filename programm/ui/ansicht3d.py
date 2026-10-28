@@ -74,6 +74,9 @@ class AnsichtBasis(QtWidgets.QWidget):
     sichtbarkeit_geaendert = QtCore.Signal()  # Teile aus- oder eingeblendet, isoliert
     manipulator_bewegt = QtCore.Signal(object)  # 4x4 (Welt) seit Beginn des Ziehens am 3D-Griff
     manipulator_fertig = QtCore.Signal()
+    teil_ziehen_start = QtCore.Signal(int, object)  # Knotennummer, Sichtstrahl (Punkt, Richtung) beim Druecken
+    teil_gezogen = QtCore.Signal(object)  # Sichtstrahl unter der Maus
+    teil_ziehen_ende = QtCore.Signal()
 
     def __init__(self, parent=None):
         super().__init__(parent)
@@ -114,6 +117,7 @@ class AnsichtBasis(QtWidgets.QWidget):
         self.explosion = 0.0
         self.teil_lagen: dict = {}  # Knotennummer -> 4x4 (numpy) aus dem Zusammenbau (kern.verbindung)
         self.manipulator: dict | None = None  # Rahmen des 3D-Griffs (kern.verbindung.manipulator_rahmen)
+        self.teil_ziehen_an = False  # Zusammenbau: Teil mit der linken Taste ziehen (kern.einrasten)
         self.auswahl_teile: list = []  # Knotennummer je Eintrag in auswahl3d (None: unbekannt)
         self.klickpunkte: dict = {}  # (Teil, Flaechenindex) -> zuletzt angeklickter Punkt (Weltlage)
         self.material = None
@@ -473,6 +477,10 @@ class AnsichtBasis(QtWidgets.QWidget):
     def setze_teil_lagen(self, lagen: dict):
         """Lagen der Teile aus dem Zusammenbau (4x4 je Knotennummer, Welt); {} = wie in der Datei."""
         self.teil_lagen = dict(lagen)
+
+    def mm_je_pixel(self) -> float:
+        """Laenge eines Bildpunkts im Modell (mm), 0 ohne echte Ansicht."""
+        return 0.0
 
     def zeige_manipulator(self, rahmen: dict | None):
         """3D-Griff (Pfeile, Ringe) fuer die offenen Freiheitsgrade (verbindung.manipulator_rahmen); None: aus."""
@@ -1658,6 +1666,53 @@ class OcctAnsicht(AnsichtBasis):
             return True
         return False
 
+    def mm_je_pixel(self) -> float:
+        return float(self.d.View.Convert(1)) if self._bereit else 0.0
+
+    def _strahl(self, x, y):
+        px, py, pz, vx, vy, vz = self.d.View.ConvertWithProj(int(x), int(y))
+        return (px, py, pz), (vx, vy, vz)
+
+    def _teil_ziehen_maus(self, typ, ev, x, y) -> bool:
+        """Zusammenbau: linke Taste auf einem Teil gedrueckt und gezogen bewegt das Teil (CATIA-Navigation: links
+        allein; klassisch: mit Alt). Ein Klick ohne Ziehen waehlt wie sonst. True, wenn das Ereignis verbraucht ist."""
+        E = QtCore.QEvent.Type
+        links = QtCore.Qt.MouseButton.LeftButton
+        z = getattr(self, "_zieh", None)
+        if typ == E.MouseButtonPress:
+            self._zieh = None
+            alt = bool(ev.modifiers() & QtCore.Qt.KeyboardModifier.AltModifier)
+            andere = ev.modifiers() & ~QtCore.Qt.KeyboardModifier.AltModifier & ~QtCore.Qt.KeyboardModifier.KeypadModifier
+            erlaubt = alt if self.navigation != "catia" else not alt
+            if not (self.teil_ziehen_an and ev.button() == links and ev.buttons() == links and erlaubt
+                    and not andere and not self.messmodus and self.explosion <= 0):
+                return False
+            ctx = self.d.Context
+            ctx.MoveTo(x, y, self.d.View, False)
+            obj = ctx.DetectedInteractive() if ctx.HasDetected() else None
+            teil = next((nr for nr, a in self._teile.items() if obj is not None and a == obj), None)
+            if teil is not None:
+                self._zieh = {"teil": teil, "start": (x, y), "strahl": self._strahl(x, y), "aktiv": False}
+            return False  # Druecken geht auch an die Navigation (Klick ohne Ziehen waehlt)
+        if z is None:
+            return False
+        if typ == E.MouseMove:
+            if not z["aktiv"]:
+                if abs(x - z["start"][0]) + abs(y - z["start"][1]) <= 4:
+                    return False
+                z["aktiv"] = True
+                self.teil_ziehen_start.emit(z["teil"], z["strahl"])
+            self.teil_gezogen.emit(self._strahl(x, y))
+            return True
+        if typ == E.MouseButtonRelease:
+            self._zieh = None
+            if not z["aktiv"]:
+                return False
+            self.nav._zuruecksetzen()  # die Navigation hat nur das Druecken gesehen
+            self.teil_ziehen_ende.emit()
+            return True
+        return False
+
     def _lagen_anwenden(self):
         """Lage je Teil: Explosion, Vergleichsausrichtung und Zusammenbau (Teillage) hintereinander."""
         from OCC.Core.gp import gp_Trsf, gp_Vec
@@ -2613,6 +2668,8 @@ class OcctAnsicht(AnsichtBasis):
             if self._wuerfel_maus(typ, ev, x, y):
                 return True
             if self._manipulator_maus(typ, ev, x, y):
+                return True
+            if self._teil_ziehen_maus(typ, ev, x, y):
                 return True
             knopf, knoepfe = int(ev.button().value), int(ev.buttons().value)
             umschalt = int(ev.modifiers().value)

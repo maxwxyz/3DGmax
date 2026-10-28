@@ -149,6 +149,17 @@ Done in this local session (commit):
   `version.aenderungen_html`, their translations; settings keys `einfuehrung_gesehen`/`version_gesehen` no longer
   read. CHANGELOG files and the release script stay. Branch `claude/ohne-einfuehrung-6b55f6`.
 
+- **Side session (branch `claude/modell-hinzufuegen-f74208`, not merged; the main session merges):** "Add model"
+  (File menu and assembly panel, `kern/zusammenfuegen.py`): further files become parts of the current model (own top
+  node, faces/PMI/views remapped, placed next to the model, stored in the project as `zusaetze`). Tests:
+  `test_kern.py::test_modell_hinzufuegen_zusammenfuegen`, `test_gui.py::test_modell_hinzufuegen_verbinden_projekt`;
+  checked on screen (both models side by side). Limits in PLAN §8.20.
+- Same branch, plan item 5: dragging parts in 3D with live snapping (`kern/einrasten.py`, CATIA navigation: left
+  drag on a part in the assembly; classic: Alt + left), also at the 3D handle; on-screen test
+  `test_bildschirm.py::test_teil_ziehen_einrasten`. STEP kinematics researched (PLAN §8.20): OCCT 8.0.1 parses
+  `StepKinematics_*` but does not transfer them, no public sample file – nothing imported; needs a CAD-exported
+  AP242 file with a mechanism.
+
 **Deferred questions for the user** (do not block on them):
 - UI/UX stage 2 (workspaces) changes the layout a lot – implement only after you have read `docs/UI_UX_Plan.md`?
 - JT: JT 10.5 (NIST) now works; a JT 8/9 file and a JT with colours/PMI from CATIA/NX would still be good tests.

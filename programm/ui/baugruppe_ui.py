@@ -41,6 +41,7 @@ class BaugruppePanel(QtWidgets.QWidget):
     soll = QtCore.Signal(int, str)  # Nummer der Messgroesse, Soll-Text
     mass_pdf = QtCore.Signal()
     mass_kette = QtCore.Signal(int)  # Nummer der Messgroesse als 3D-Kette
+    hinzufuegen = QtCore.Signal()  # weitere Datei ins Modell aufnehmen
 
     VERBINDUNG_SPALTEN = ("Nr", "Teil", "Gegenteil", "Art", "Versatz", "Erfüllt", "Spielraum", "Herkunft")
     TEIL_SPALTEN = ("Teil", "Freiheitsgrade", "Lagestreuung X/Y/Z", "Offene Bewegungen")
@@ -64,10 +65,21 @@ class BaugruppePanel(QtWidgets.QWidget):
                                       "Gegenfläche am anderen Teil: zwei Ebenen liegen aufeinander, zwei Zylinder "
                                       "sind koaxial, Zylinder auf Ebene ist ein Bolzen im Langloch, Kugel auf Ebene "
                                       "ein Punktkontakt, zwei Kugeln ein Kugelgelenk. Die Freiheitsgrade zeigen, was "
-                                      "noch offen ist."))
+                                      "noch offen ist.") + " " +
+                                   tr("Teile lassen sich auch im 3D mit der linken Maustaste ziehen (klassische "
+                                      "Navigation: mit Alt): nur in den offenen Freiheitsgraden, an passenden "
+                                      "Flächen rastet das Teil ein, Loslassen verbindet."))
         hinweis.setWordWrap(True)
         hinweis.setObjectName("leise")
         lay.addWidget(hinweis)
+        reihe = QtWidgets.QHBoxLayout()
+        self.hinzufuegen_knopf = QtWidgets.QPushButton(tr("Modell hinzufügen …"))
+        self.hinzufuegen_knopf.setToolTip(tr("Weitere Datei als zusätzliche Teile aufnehmen; sie liegt zunächst neben "
+                                             "dem Modell und wird dann hier verbunden"))
+        self.hinzufuegen_knopf.clicked.connect(self.hinzufuegen.emit)
+        reihe.addWidget(self.hinzufuegen_knopf)
+        reihe.addStretch(1)
+        lay.addLayout(reihe)
         reihe = QtWidgets.QHBoxLayout()
         reihe.addWidget(QtWidgets.QLabel(tr("Versatz")))
         self.versatz = QtWidgets.QDoubleSpinBox()
