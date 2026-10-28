@@ -1820,5 +1820,12 @@
 "▶ Ablaufen": "▶ Walk",
 "Modell öffnen; Pfeil: auch zwei Stände vergleichen": "Open a model; arrow: also compare two states",
 "Bezug von Hand festlegen (A, B, C); auto: aus den Funktionsrollen vorschlagen – sobald ein Bezug von Hand gesetzt ist, gilt nur die Zuordnung von Hand": "Set the datum by hand (A, B, C); auto: proposed from the function roles – once a datum is set by hand, only the manual assignment applies",
-"Von Hand als Bezug festgelegt": "Set as datum by hand"
+"Von Hand als Bezug festgelegt": "Set as datum by hand",
+"Füge {} hinzu …": "Adding {} …",
+"Modell hinzufügen": "Add model",
+"Modell hinzufügen geht nicht während eines Vergleichs": "Adding a model is not possible during a comparison",
+"Modell hinzufügen …": "Add model …",
+"Weitere Datei als zusätzliche Teile aufnehmen; sie liegt zunächst neben dem Modell und wird dann hier verbunden": "Load another file as additional parts; it is placed next to the model first and then connected here",
+"Weitere Datei als zusätzliche Teile ins geladene Modell aufnehmen (z. B. für den Zusammenbau); sie liegt zunächst neben dem Modell": "Load another file as additional parts into the current model (e.g. for the assembly); it is placed next to the model first",
+"{} hinzugefügt: {} Flächen, neben das Modell gelegt – im Zusammenbau verbinden": "{} added: {} faces, placed next to the model – connect it in the assembly"
 }

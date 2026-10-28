@@ -2141,3 +2141,52 @@ def test_messen_in_der_leiste(fenster_ctc01):
     f.dock_messen.toggleViewAction().trigger()  # Leiste schliessen
     app.processEvents()
     assert not f.aktionen["messen"].isChecked() and not f.ansicht.messmodus
+
+
+def test_modell_hinzufuegen_verbinden_projekt(fenster, tmp_path):
+    """Getriebe zur Testbaugruppe hinzufuegen, ein neues Teil an ein Originalteil fangen, Projekt speichern/oeffnen."""
+    import numpy as np
+    from programm.kern import verbindung as vb
+    f = fenster
+    f.lade(pfad("baugruppe.stp"), warten=True)
+    n_alt = len(f.erg.modell.flaechen)
+    f.zeige_zusammenbau()
+    assert f.zusammenbau.hinzufuegen_knopf.toolTip()
+    f.modell_hinzufuegen(pfad("getriebe.stp"), warten=True)
+    assert f.erg.pfad.endswith("baugruppe.stp") and len(f.erg.zusaetze) == 1
+    oben = f.erg.baum.kinder[-1]
+    eintrag = f.baum.baum.topLevelItem(0)
+    eintrag = eintrag.child(eintrag.childCount() - 1)
+    assert oben.name == "getriebe.stp" and eintrag.text(0) == "getriebe.stp"
+    assert "Welle" in f._teil_namen().values() and f.ansicht.szene.baum is f.erg.baum
+    knoten = {k.nummer: k for k in f.erg.baum.blaetter()}
+    welle = next(k for k in oben.blaetter() if k.name == "Welle")
+    ebene = next(i for i in range(n_alt, len(f.erg.modell.flaechen))
+                 if (fl := vb.flaeche_im_teil(welle.form, i, f.erg.modell)) is not None
+                 and (m := vb.merkmal(fl)) is not None and m[0] == "ebene")
+    fw = vb.flaeche_im_teil(welle.form, ebene, f.erg.modell)
+    fd = vb.flaeche_im_teil(knoten[3].form, 15, f.erg.modell)  # Deckel, Ebene
+    f.ansicht.setze_auswahl([fw, fd], [welle.nummer, 3])
+    v = f.verbinde_auswahl()
+    assert v is not None and v.art == "eben" and v.teil == welle.nummer and not f.baugruppe.verletzt()
+    lage = f.baugruppe.lage(welle.nummer).copy()
+    assert welle.nummer in f.ansicht.teil_lagen
+    from PySide6 import QtCore
+    eintrag.setCheckState(0, QtCore.Qt.CheckState.Unchecked)  # hinzugefuegte Datei ausblenden
+    assert welle.nummer in f.ansicht.versteckt and 3 not in f.ansicht.versteckt
+    eintrag.setCheckState(0, QtCore.Qt.CheckState.Checked)
+    assert welle.nummer not in f.ansicht.versteckt
+    projekt_pfad = f.speichere_projekt(str(tmp_path / "zwei.3dgmax"))
+    import json
+    import zipfile
+    with zipfile.ZipFile(projekt_pfad) as z:
+        daten = json.loads(z.read("projekt.json"))
+        assert daten["zusaetze"][0]["datei"] == "getriebe.stp" and "modelle/getriebe.stp" in z.namelist()
+    f.zusammenbau_zuruecksetzen()
+    f.lade(pfad("baugruppe.stp"), warten=True)
+    assert not getattr(f.erg, "zusaetze", [])
+    f.oeffne_projekt(projekt_pfad, warten=True)
+    assert len(f.erg.zusaetze) == 1 and f.erg.baum.kinder[-1].name == "getriebe.stp"
+    assert len(f.baugruppe.verbindungen) == 1 and np.allclose(f.baugruppe.lage(welle.nummer), lage)
+    assert not f.baugruppe.verletzt()
+    f.zusammenbau_zuruecksetzen()

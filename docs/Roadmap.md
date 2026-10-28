@@ -111,6 +111,7 @@
 | Assembly: move the selected part only along its open DOF (numeric fields per DOF) | ✅ |
 | Assembly: 3D dragger (gizmo with arrows and rings) for the same moves | ✅ |
 | Assembly: 3-2-1 template (six planes, one step) | ✅ |
+| Assembly: add further files as parts ("Add model"; own tree node, placed next to the model, PMI kept, in the project) | ✅ |
 | Assembly: dragging with live snapping, STEP kinematics | ⬜ |
 | Tolerance stack-up 3D (geometric tolerances, chain from the model, sensitivity) – PLAN §8.20: by hand ✅ (§8.33), automatically from the model ⬜ | 🟡 |
 | Assemblies built in the project (mates on datum features), materials and thermal expansion in chains | ⬜ |

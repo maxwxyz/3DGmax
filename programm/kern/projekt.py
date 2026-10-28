@@ -2,6 +2,7 @@
 
 projekt.json:
   format, programm, typ ("modell" | "vergleich"), modelle {"modell"} bzw. {"alt", "neu"} (Dateinamen im ZIP),
+  zusaetze [{datei, versatz}] (mit "Modell hinzufuegen" aufgenommene Dateien und ihre Verschiebung, nur typ "modell"),
   vergleich {toleranz, suchweite, aenderungen [{nr, titel, pruefstatus, kommentar}]}, messungen [...],
   kette {cp, glieder [...], freigabe {geprueft, name, datum, kommentar}} (Toleranzkette, optional), zusammenbau {verbindungen, lagen} (optional)
 Beim Oeffnen werden die Modelle in einen temporaeren Ordner entpackt; der Vergleich wird neu gerechnet
@@ -40,7 +41,8 @@ def speichere(pfad: str, modell_pfad: str | None = None, vergleich=None, messung
               version: str = "", ansichten: list | None = None, kommentare: list | None = None,
               eigene_pmi: list | None = None, pmi_aenderungen: list | None = None, kette: tuple | None = None,
               zusammenbau: dict | None = None, kollision: dict | None = None,
-              funktion: dict | None = None, raumketten: dict | None = None) -> str:
+              funktion: dict | None = None, raumketten: dict | None = None,
+              zusaetze: list | None = None) -> str:
     """Modell oder Vergleich mit Pruefstand und Messungen als .3dgmax speichern."""
     if not pfad.lower().endswith(ENDUNG):
         pfad += ENDUNG
@@ -73,9 +75,13 @@ def speichere(pfad: str, modell_pfad: str | None = None, vergleich=None, messung
                                                      "kommentar": a.kommentar} for a in vergleich.aenderungen]}})
         dateien = {alt: quellen[0], neu: quellen[1]}
     else:
-        name = os.path.basename(modell_pfad)
+        zusaetze = list(zusaetze or [])  # [(Pfad, Verschiebung)] hinzugefuegter Dateien
+        name, *weitere = _eindeutig([os.path.basename(q) for q in [modell_pfad] + [z[0] for z in zusaetze]])
         daten.update({"typ": "modell", "modelle": {"modell": name}})
         dateien = {name: modell_pfad}
+        if zusaetze:
+            daten["zusaetze"] = [{"datei": n, "versatz": [float(x) for x in z[1]]} for n, z in zip(weitere, zusaetze)]
+            dateien.update({n: z[0] for n, z in zip(weitere, zusaetze)})
     with zipfile.ZipFile(pfad, "w", zipfile.ZIP_DEFLATED) as z:
         z.writestr("projekt.json", json.dumps(daten, ensure_ascii=False, indent=1))
         for name, quelle in dateien.items():
@@ -96,6 +102,8 @@ def lade(pfad: str, ziel: str | None = None) -> dict:
                 with open(os.path.join(ziel, sicher), "wb") as f:
                     f.write(z.read(name))
     daten["pfade"] = {k: os.path.join(ziel, v) for k, v in daten["modelle"].items()}
+    daten["zusatz_pfade"] = [(os.path.join(ziel, os.path.basename(z["datei"])), tuple(z["versatz"]))
+                             for z in daten.get("zusaetze", [])]
     daten["messungen"] = [Messung(**m) for m in daten.get("messungen", [])]
     from .ansichten import Ansicht
     from .kommentare import von_dict

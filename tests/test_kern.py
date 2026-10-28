@@ -997,3 +997,51 @@ END-ISO-10303-21;
     modell = SimpleNamespace(datei=datei, step_zu_flaeche={1: 0}, form_von_step=lambda eid: None,
                              flaechen_index=lambda f: None)
     assert farben.flaechen_farben(modell) == {0: (0.2, 0.4, 0.6)}
+
+
+def test_modell_hinzufuegen_zusammenfuegen():
+    """Modell hinzufuegen: Flaechenindex mit Versatz, eindeutige Knotennummern, Lage neben dem Modell, PMI, Grafik
+    und Ansichten der zweiten Datei umgerechnet erhalten."""
+    import numpy as np
+    from OCC.Core.TopAbs import TopAbs_FACE
+    from OCC.Core.TopExp import TopExp_Explorer
+    from programm.kern import zusammenfuegen as zf
+    from programm.ui.lader import lade_alles
+    a = lade_alles(pfad("baugruppe.stp"))
+    b = lade_alles(pfad("nist_ctc_01_asme1_ap242-e1.stp"))
+    n_a, n_b, pmi_b = len(a.modell.flaechen), len(b.modell.flaechen), len(b.pmi)
+    alt_nummern = {k.nummer for k in a.baum.alle()}
+    flaeche_b = {p.step_id: set(p.flaechen) for p in b.pmi}
+    grafik_b = {k: g.linien[0].copy() for k, g in b.grafik.items() if k > 0 and g.linien}
+    e = zf.fuege_hinzu(a, b)
+    assert len(e.modell.flaechen) == n_a + n_b and e.modell.flaechen[:n_a] == a.modell.flaechen
+    assert e.baum.kinder[:-1] == a.baum.kinder and a.baum.kinder[-1].name != b.baum.name  # Original unveraendert
+    oben = e.baum.kinder[-1]
+    nummern = [k.nummer for k in e.baum.alle()]
+    assert oben.name == "nist_ctc_01_asme1_ap242-e1.stp" and len(nummern) == len(set(nummern))
+    assert oben.nummer > max(alt_nummern) and {k.nummer for k in a.baum.alle()} == alt_nummern
+    # Flaechen der neuen Teile: Index = Versatz + Index in der eigenen Datei, Lage enthaelt die Verschiebung
+    blatt = next(k for k in oben.blaetter() if not k.hilfsgeometrie)
+    f = TopExp_Explorer(blatt.form, TopAbs_FACE).Current()
+    i = e.modell.flaechen_index(f)
+    assert i is not None and i >= n_a and i - n_a == b.modell.flaechen_index(f)
+    # ohne Ueberlappung rechts daneben
+    box_a, box_b = zf._box(a.modell.form), zf._box(oben.form)
+    assert box_b[0][0] > box_a[1][0] and np.allclose(zf._box(e.modell.form)[1], np.maximum(box_a[1], box_b[1]))
+    v = np.array(e.zusaetze[0].versatz)
+    # PMI: alle erhalten, Flaechen und #IDs verschoben, Grafik mit verschoben, Ansichten verweisen auf neue IDs
+    neu = [p for p in e.pmi if p.step_id >= zf.ID_VERSATZ]
+    assert len(e.pmi) == len(a.pmi) + pmi_b and len(neu) == len([p for p in b.pmi if p.step_id])
+    p = next(p for p in neu if p.flaechen)
+    assert p.flaechen == {j + n_a for j in flaeche_b[p.step_id - zf.ID_VERSATZ]}
+    assert len({q.nummer for q in e.pmi}) == len(e.pmi)
+    k, linie = next(iter(grafik_b.items()))
+    assert np.allclose(e.grafik[k + zf.ID_VERSATZ].linien[0], linie + v)
+    assert all(i >= zf.ID_VERSATZ for a_ in e.ansichten for i in a_.pmi_ids)
+    assert e.ansichten and e.ansichten[0].name.startswith("nist_ctc_01")
+    assert zf.pmi_der_ersten_datei(e) == list(a.pmi)
+    assert zf.zusatz_von(e, blatt.nummer) is e.zusaetze[0] and zf.zusatz_von(e, 2) is None
+    # zweite Datei dazu: weitere IDs, weiter rechts
+    e2 = zf.fuege_hinzu(e, lade_alles(pfad("getriebe.stp")))
+    assert e2.zusaetze[1].id_versatz == 2 * zf.ID_VERSATZ and e2.zusaetze[1].erste_flaeche == n_a + n_b
+    assert zf._box(e2.baum.kinder[-1].form)[0][0] > box_b[1][0]

@@ -862,6 +862,15 @@ Plan (each stage usable on its own; builds on §8.5 zones and the 1D chain of §
      the canonical face) and applies the assembly position; finding: ownership by bounding box fails for holes with a
      screw inside (the screw's box is smaller).
 
+- Done 2026-10-28 ("Add model", plan item for several files): File › Add model … and a button in the assembly panel
+  load another file (any format) and merge it into the current model (`kern/zusammenfuegen.py`): compound of both
+  shapes, faces appended (face index of the new file + number of existing faces), new top node named after the file
+  with unique node numbers, PMI/graphics/views of the file kept (face indices, STEP #IDs + k·10^8 and PMI numbers
+  remapped, graphics and views translated). Placed to the right (+X) of the existing model's bounding box (gap 10 %,
+  ≥ 5 mm), then connected with the existing tools. The project stores the files and their offsets (`zusaetze`) and
+  re-merges them on opening before the connections are restored. Limits: datum letters are not renamed (same
+  letter in two files is ambiguous); Save STEP writes only the first file's PMI; a comparison drops added files.
+
 ### 8.21 Clash, clearance band and intersection analysis; degrees of freedom (requested 2026-10-27)
 Request (from public feature requests of an open-source CAD project, generalized): check assemblies or a selection of
 parts for intersections, for distances outside a band (minimum/maximum clearance), also while parts move within

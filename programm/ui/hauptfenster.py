@@ -258,6 +258,7 @@ class Hauptfenster(QtWidgets.QMainWindow):
         self.zusammenbau.soll.connect(self._soll)
         self.zusammenbau.mass_pdf.connect(lambda: self.exportiere_messgroessen_pdf())
         self.zusammenbau.mass_kette.connect(self.messgroesse_als_kette3d)
+        self.zusammenbau.hinzufuegen.connect(lambda: self.modell_hinzufuegen(""))
         self.scan.gewaehlt.connect(lambda p: self.pmi.waehle(lambda q: q is p))
         self.scan.beenden.connect(self.scan_aus)
         self.scan.neu_auswerten.connect(lambda b: self.pruefe_scan(self._scan["pfad"], bezug=b)
@@ -575,6 +576,9 @@ class Hauptfenster(QtWidgets.QMainWindow):
         A = self._aktion
         A("oeffnen", tr("Öffnen …"), lambda: self.oeffnen(""), QtGui.QKeySequence.StandardKey.Open,
           tipp=tr("STEP-Datei öffnen"), modell=False)
+        A("modell_hinzufuegen", tr("Modell hinzufügen …"), lambda: self.modell_hinzufuegen(""),
+          tipp=tr("Weitere Datei als zusätzliche Teile ins geladene Modell aufnehmen (z. B. für den Zusammenbau); "
+                  "sie liegt zunächst neben dem Modell"))
         A("neues_fenster", tr("Neues Fenster"), lambda: self.neues_fenster(), QtGui.QKeySequence.StandardKey.New,
           tipp=tr("Weiteres Fenster für ein anderes Modell (Einstellungen und zuletzt verwendet gemeinsam)"),
           modell=False)
@@ -801,6 +805,7 @@ class Hauptfenster(QtWidgets.QMainWindow):
         a = self.aktionen
         m = mb.addMenu(tr("&Datei"))
         m.addAction(a["oeffnen"])
+        m.addAction(a["modell_hinzufuegen"])
         m.addAction(a["neues_fenster"])
         m.addAction(a["in_neuem_fenster"])
         self.menue_zuletzt = m.addMenu(tr("Zuletzt verwendet"))
@@ -1112,8 +1117,9 @@ class Hauptfenster(QtWidgets.QMainWindow):
                 return
         self.lade(pfad)
 
-    def lade(self, pfad: str, warten: bool = False):
-        """Laedt im Hintergrund; warten=True blockiert bis fertig (Tests, Selbsttest)."""
+    def lade(self, pfad: str, warten: bool = False, zusaetze=()):
+        """Laedt im Hintergrund; warten=True blockiert bis fertig (Tests, Selbsttest); zusaetze: weitere Dateien
+        [(Pfad, Verschiebung)], die dazukommen (Projekt mit hinzugefuegten Modellen)."""
         if pfad.lower().endswith(".3dgmax"):
             return self.oeffne_projekt(pfad, warten)
         if pfad.lower().endswith(".3dgkette"):
@@ -1122,7 +1128,7 @@ class Hauptfenster(QtWidgets.QMainWindow):
         self.statusBar().showMessage(tr("Lade {} …").format(os.path.basename(pfad)))
         self.fortschritt.show()
         self.abbrechen.show()
-        self._lader = Lader(pfad, self)
+        self._lader = Lader(pfad, self, zusaetze)
         self._lader.stand.connect(lambda t: self.statusBar().showMessage(t))
         self._lader.fertig.connect(self._geladen)
         self._lader.fehler.connect(self._ladefehler)
@@ -1937,7 +1943,8 @@ class Hauptfenster(QtWidgets.QMainWindow):
                                  self.baugruppe.als_dict() if self.baugruppe.verbindungen or self.baugruppe.lagen
                                  else None, self._kollision_daten(),
                                  self._funktion.zustand() if getattr(self, "_funktion", None) is not None
-                                 and self._funktion.rollen else None, self._raumketten())
+                                 and self._funktion.rollen else None, self._raumketten(),
+                                 [(z.pfad, z.versatz) for z in getattr(self.erg, "zusaetze", [])])
         self.statusBar().showMessage(tr("Projekt gespeichert: {}").format(ziel), 6000)
         return ziel
 
@@ -1977,7 +1984,50 @@ class Hauptfenster(QtWidgets.QMainWindow):
             self.starte_vergleich({"alt": d["pfade"]["alt"], "neu": d["pfade"]["neu"], "toleranz": v["toleranz"],
                                    "suchweite": v["suchweite"]}, warten)
         else:
-            self.lade(d["pfade"]["modell"], warten)
+            self.lade(d["pfade"]["modell"], warten, d.get("zusatz_pfade", []))
+
+    # --- Modell hinzufuegen ---
+
+    def modell_hinzufuegen(self, pfad: str = "", warten: bool = False):
+        """Weitere Datei als zusaetzliche Teile ins geladene Modell aufnehmen (neben das Modell gelegt)."""
+        if self.erg is None:
+            return
+        if self.vergleich is not None:
+            self.statusBar().showMessage(tr("Modell hinzufügen geht nicht während eines Vergleichs"), 6000)
+            return
+        if not pfad:
+            pfad, _ = QtWidgets.QFileDialog.getOpenFileName(self, tr("Modell hinzufügen"),
+                                                            os.path.dirname(self.erg.pfad),
+                                                            DATEIFILTER.format(tr("Alle Modelle"), tr("Netze")))
+            if not pfad:
+                return
+        self.lade_abbrechen()
+        self.statusBar().showMessage(tr("Füge {} hinzu …").format(os.path.basename(pfad)))
+        self.fortschritt.show()
+        self.abbrechen.show()
+        self._lader = Lader(self.erg.pfad, self, [(pfad, None)], basis=self.erg)
+        self._lader.stand.connect(lambda t: self.statusBar().showMessage(t))
+        self._lader.fertig.connect(self._hinzugefuegt)
+        self._lader.fehler.connect(self._ladefehler)
+        self._lader.start()
+        if warten:
+            self._lader.wait()
+            QtWidgets.QApplication.processEvents()
+            QtWidgets.QApplication.processEvents()
+
+    def _hinzugefuegt(self, erg):
+        """Zusammengefuegtes Modell zeigen; Zusammenbau, Messungen und Kommentare bleiben (gleiche erste Datei)."""
+        if self.sender() is not self._lader:
+            return
+        self._lader = None
+        self._laufbalken_pruefen()
+        self.zeige_ergebnis(erg)
+        self.ansicht.setze_teil_lagen(self.baugruppe.lagen)
+        if self.dock_zusammenbau.isVisible():
+            self._zusammenbau_zeigen()
+        z = erg.zusaetze[-1]
+        self.statusBar().showMessage(tr("{} hinzugefügt: {} Flächen, neben das Modell gelegt – im Zusammenbau "
+                                        "verbinden").format(os.path.basename(z.pfad), z.flaechen), 8000)
 
     def _projekt_messungen(self):
         d = getattr(self, "_projekt", None)
@@ -2935,7 +2985,8 @@ class Hauptfenster(QtWidgets.QMainWindow):
             QtWidgets.QMessageBox.warning(self, tr("STEP speichern"), tr("Bitte unter neuem Namen speichern – die "
                                                                          "Originaldatei bleibt unverändert."))
             return None
-        b = step_schreiben.schreibe(self.erg.pfad, pfad, self.erg.pmi, self.erg.modell)
+        from ..kern.zusammenfuegen import pmi_der_ersten_datei
+        b = step_schreiben.schreibe(self.erg.pfad, pfad, pmi_der_ersten_datei(self.erg), self.erg.modell)
         felder = {"neu": tr("(eigene PMI)"), "nennwert": tr("Nennmaß"), "oben": tr("Oberes Abmaß"), "unten": tr("Unteres Abmaß"),
                   "wert": tr("Toleranzwert"), "passung": tr("Toleranzklasse"), "material": tr("Materialbedingung")}
         zeilen = [tr("{} Werte geschrieben.").format(len(b.geschrieben))]
@@ -3663,6 +3714,8 @@ class Hauptfenster(QtWidgets.QMainWindow):
         z = self.zusammenbau
         z.teil_namen = dict(namen)
         aus_datei = werkstoffe.werkstoffe_aus_step(getattr(self.erg.modell, "datei", None)) if self.erg else {}
+        for zusatz in getattr(self.erg, "zusaetze", []):  # Werkstoffe hinzugefuegter Dateien
+            aus_datei = {**werkstoffe.werkstoffe_aus_step(getattr(zusatz.modell, "datei", None)), **aus_datei}
         for nr, name in namen.items():
             if nr not in z.alpha:
                 w = aus_datei.get(name) or aus_datei.get(name.split(" (")[0])

@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import traceback
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 
 from PySide6 import QtCore
 
@@ -18,6 +18,7 @@ class Ergebnis:
     farben: dict
     grafik: dict
     norm: object = None  # kern.norm.Norm (erkannt)
+    zusaetze: list = field(default_factory=list)  # hinzugefuegte Dateien (kern.zusammenfuegen.Zusatz)
 
 
 def lade_alles(pfad: str, fortschritt=lambda text: None) -> Ergebnis:
@@ -58,6 +59,18 @@ def lade_alles(pfad: str, fortschritt=lambda text: None) -> Ergebnis:
     return Ergebnis(pfad, modell, pmi, ansichten, lies_baum(modell), flaechen_farben(modell), grafik, erkannt)
 
 
+def lade_mit_zusaetzen(pfad: str, zusaetze=(), fortschritt=lambda text: None) -> Ergebnis:
+    """Modell laden und weitere Dateien hinzufuegen: zusaetze [(Pfad, Verschiebung oder None)]."""
+    import os
+    from ..i18n import tr
+    from ..kern.zusammenfuegen import fuege_hinzu
+    erg = lade_alles(pfad, fortschritt)
+    for zpfad, versatz in zusaetze:
+        fortschritt(tr("Füge {} hinzu …").format(os.path.basename(zpfad)))
+        erg = fuege_hinzu(erg, lade_alles(zpfad, fortschritt), versatz)
+    return erg
+
+
 class Abbruch(Exception):
     """Hintergrundrechnung vom Nutzer abgebrochen (Ergebnis wird verworfen)."""
 
@@ -76,14 +89,24 @@ class Lader(QtCore.QThread):
     fehler = QtCore.Signal(str)
     stand = QtCore.Signal(str)
 
-    def __init__(self, pfad: str, parent=None):
+    def __init__(self, pfad: str, parent=None, zusaetze=(), basis=None):
+        """zusaetze: weitere Dateien [(Pfad, Verschiebung oder None)]; basis: schon geladenes Ergebnis, zu dem nur
+        die zusaetze hinzukommen (Modell hinzufuegen)."""
         super().__init__(parent)
         self.pfad = pfad
+        self.zusaetze = list(zusaetze)
+        self.basis = basis
         self.abgebrochen = False
 
     def run(self):
         try:
-            erg = lade_alles(self.pfad, self.stand.emit)
+            if self.basis is not None:
+                from ..kern.zusammenfuegen import fuege_hinzu
+                erg = self.basis
+                for zpfad, versatz in self.zusaetze:
+                    erg = fuege_hinzu(erg, lade_alles(zpfad, self.stand.emit), versatz)
+            else:
+                erg = lade_mit_zusaetzen(self.pfad, self.zusaetze, self.stand.emit)
         except Exception as e:  # noqa: BLE001 - Fehler dem Nutzer zeigen
             if not self.abgebrochen:
                 self.fehler.emit(f"{e}\n\n{traceback.format_exc(limit=3)}")
