@@ -44,6 +44,8 @@ Done in this local session (commit):
   Boost licence in `tests/daten/qif/`) – `96c09f4`; ring zones per cross-section – `72b6699`; 3-2-1 template –
   `1eb9c93`; histogram in the assembly report – `542fc64`; axis measures – `7b273cd`; scan roundness/runout per
   cross-section – `dea17e8`; datums as contact per ISO 5459 – `2abb796`.
+- E57 point clouds (own reader; libE57Format test data CC0 / Test Data License in `tests/daten/e57/`) – `2aef5db`;
+  involute splines – `5f0b63f`; own PMI written in assemblies – `ecd7304`.
 - Not done for lack of a verifiable source or test data (kept open in the roadmap): ISO 286 b/t–zc/>500 mm (isofits
   has none of them), surface texture/weld symbols (no sample file), large-assembly LOD (no large model; 3.7 MB STEP
   loads in 2.4 s).
