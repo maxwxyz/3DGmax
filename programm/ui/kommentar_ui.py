@@ -7,6 +7,7 @@ from PySide6 import QtCore, QtWidgets
 from ..i18n import tr
 from ..kern import kommentare as km
 from .tabellen import aenderbar_machen, leer_hinweis
+from .panel_aufbau import zweck_zeile
 
 
 class KommentarDialog(QtWidgets.QDialog):
@@ -43,6 +44,8 @@ class KommentarPanel(QtWidgets.QWidget):
         self.kommentare: list[km.Kommentar] = []
         lay = QtWidgets.QVBoxLayout(self)
         lay.setContentsMargins(6, 6, 6, 6)
+        lay.addWidget(zweck_zeile(tr("Anmerkungen an Flächen, Teilen oder PMI festhalten und abhaken – sie "
+                                     "werden im Projekt gespeichert")))
         oben = QtWidgets.QHBoxLayout()
         self.plus = QtWidgets.QPushButton(tr("＋ Kommentar"))
         self.plus.setObjectName("primaer")

@@ -993,7 +993,7 @@ class Hauptfenster(QtWidgets.QMainWindow):
         messen = QtWidgets.QToolButton()  # Schalter Messen oben in der Leiste Messen
         messen.setDefaultAction(a["messen"])
         messen.setSizePolicy(QtWidgets.QSizePolicy.Policy.Expanding, QtWidgets.QSizePolicy.Policy.Fixed)
-        self.messen.layout().insertWidget(0, messen)
+        self.messen.layout().insertWidget(1, messen)  # unter dem Satz zum Zweck
         # Leiste zu (x, Menue, anderer Arbeitsbereich): Messen aus
         self.dock_messen.toggleViewAction().toggled.connect(
             lambda an: an or not a["messen"].isChecked() or a["messen"].trigger())
@@ -3284,6 +3284,8 @@ class Hauptfenster(QtWidgets.QMainWindow):
                                         for i in [self.erg.modell.flaechen_index(x)] if i is not None}) \
                 if self.erg is not None else []
             f.flaechen_zeigen.connect(self.ansicht.hebe_flaechen)
+            f.flaechen_zeigen.connect(self._funktion_vorschau_hervor)
+            f.vorschau.connect(self.funktion_vorschau)
             f.anlegen.connect(self._funktion_anlegen)
             self._funktion = f
             self._als_leiste(f, tr("Funktion → Tolerierung"), "funktion")
@@ -3292,11 +3294,103 @@ class Hauptfenster(QtWidgets.QMainWindow):
             self._leiste_zeigen(f, "funktion")
         return f
 
+    def funktion_vorschau(self, d: dict | None):
+        """Vorschau aus Funktion -> Tolerierung: Bezugsflaechen A/B/C farbig, offene Freiheitsgrade als Pfeile bzw.
+        Kreise, die Vorschlaege als Callouts (eigene, nur angezeigte PMI) und auf Wunsch deren Toleranzzonen; None
+        entfernt alles wieder."""
+        import copy
+        from ..kern import pmi_erzeugen
+        alt = getattr(self, "_vorschau_pmi", [])
+        if alt:
+            self.ansicht.entferne_grafik({p.step_id for p in alt})
+        if alt or getattr(self, "_vorschau_teile", False):
+            self.ansicht.zeige_bezugssystem([])
+            self.ansicht.zeige_hilfslinien([])
+            self.ansicht.zeige_zone([])
+        self._vorschau_pmi, self._vorschau_teile = [], False
+        if d is None or self.erg is None:
+            return
+        self._vorschau_teile = True
+        self.ansicht.zeige_bezugssystem(d["bezuege"])
+        a = next((f for _b, _s, f in d["bezuege"]), None)
+        self.ansicht.zeige_hilfslinien(self._freiheitsgrad_linien(d["offen"], a))
+        neue = []
+        for i, v in enumerate(d["vorschlaege"], 1):
+            p = copy.deepcopy(v.pmi)
+            p.nummer, p.step_id, p.quelle, p.semantisch = 0, -900_000 - i, "vorschau", True
+            p.name = p.name or tr(p.merkmal())
+            neue.append(p)
+        grafik = pmi_erzeugen.ergaenze(neue, dict(self.erg.grafik), self.erg.modell, self.erg.ansichten)
+        frei = min(list(self.erg.grafik) + [0]) - 1
+        for g in grafik.values():
+            g.vorschau = True  # eigene Farbe, immer sichtbar
+        self.ansicht.ergaenze_grafik({frei - i: g for i, g in enumerate(grafik.values())}, neue)
+        self._vorschau_pmi = neue
+        if d.get("zonen"):
+            from ..kern import toleranzzone
+            ergebnis = toleranzzone.zonen(neue, self.erg.modell, self._zonen_mindest(), self.erg.pmi + neue)
+            zonen = [z for _p, z in ergebnis]
+            self.ansicht.zeige_zone([f for z in zonen for f in z.formen], [r for z in zonen for r in z.rollen])
+
+    def _funktion_vorschau_hervor(self, flaechen: set):
+        """Tabellenzeile gewaehlt: ihre Vorschau-Callouts hervorheben."""
+        ids = {p.step_id for p in getattr(self, "_vorschau_pmi", []) if p.flaechen & set(flaechen)}
+        if ids:
+            self.ansicht.hebe_pmi(ids)
+
+    def _zonen_mindest(self) -> float:
+        """Mindestbreite der Zonendarstellung (schmalere werden ueberhoeht): 1/250 der Modellgroesse."""
+        from OCC.Core.Bnd import Bnd_Box
+        from OCC.Core.BRepBndLib import brepbndlib
+        box = Bnd_Box()
+        brepbndlib.Add(self.erg.modell.form, box)
+        x0, y0, z0, x1, y1, z1 = box.Get()
+        return max(x1 - x0, y1 - y0, z1 - z0) / 250
+
+    def _freiheitsgrad_linien(self, offen: list, flaechen) -> list:
+        """Offene Freiheitsgrade als Hilfslinien: Verschiebung als Doppelpfeil, Drehung als Kreis um die Achse -
+        am Bezug A (sonst in der Modellmitte)."""
+        import math
+        import numpy as np
+        if not offen:
+            return []
+        from OCC.Core.Bnd import Bnd_Box
+        from OCC.Core.BRepBndLib import brepbndlib
+        box = Bnd_Box()
+        brepbndlib.Add(self.erg.modell.form, box)
+        x0, y0, z0, x1, y1, z1 = box.Get()
+        groesse = max(x1 - x0, y1 - y0, z1 - z0) or 1.0
+        mitte = self.ansicht.mitte_von(flaechen) if flaechen else None
+        mitte = np.array([(x0 + x1) / 2, (y0 + y1) / 2, (z0 + z1) / 2]) if mitte is None else np.asarray(mitte, float)
+        farbe, lang, linien = (0.95, 0.55, 0.05), 0.35 * groesse, []
+        for o in offen:
+            r = np.asarray(o.richtung, float)
+            if o.art == "verschiebung":
+                a, b = mitte - r * lang / 2, mitte + r * lang / 2
+                linien.append((a, b, tr("Verschiebung offen"), farbe, 3.0))
+                for spitze, gegen in ((b, -r), (a, r)):  # Pfeilspitzen an beiden Enden
+                    quer = np.cross(r, [1.0, 0, 0] if abs(r[0]) < 0.9 else [0, 1.0, 0])
+                    quer = quer / np.linalg.norm(quer) * lang * 0.06
+                    linien += [(spitze, spitze + gegen * lang * 0.1 + quer, "", farbe, 3.0),
+                               (spitze, spitze + gegen * lang * 0.1 - quer, "", farbe, 3.0)]
+                continue
+            p = np.asarray(o.punkt, float) if o.punkt is not None else mitte
+            p = p + r * float((mitte - p) @ r)  # Kreis auf Hoehe des Bezugs
+            u = np.cross(r, [1.0, 0, 0] if abs(r[0]) < 0.9 else [0, 1.0, 0])
+            u = u / np.linalg.norm(u)
+            w = np.cross(r, u)
+            rad, n = lang / 2, 36
+            pkt = [p + rad * (math.cos(2 * math.pi * k / n) * u + math.sin(2 * math.pi * k / n) * w)
+                   for k in range(n + 1)]
+            linien += [(pkt[k], pkt[k + 1], tr("Drehung offen") if k == 0 else "", farbe, 3.0) for k in range(n)]
+        return linien
+
     def _funktion_anlegen(self, vorschlaege: list, fragen: bool = True) -> list:
         """Vorschlaege aus Funktion -> Tolerierung im Dialog PMI anlegen pruefen und als eigene PMI uebernehmen."""
         from .pmi_anlegen_ui import PmiAnlegenDialog
         if not vorschlaege or self.erg is None:
             return []
+        self.funktion_vorschau(None)  # die Vorschau weicht den echten PMI (die Tabelle zeigt sie danach neu)
         if fragen:
             d = PmiAnlegenDialog(vorschlaege, self)
             if d.exec() != QtWidgets.QDialog.DialogCode.Accepted:

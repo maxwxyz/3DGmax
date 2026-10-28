@@ -215,7 +215,7 @@ class BaugruppePanel(QtWidgets.QWidget):
         self.am_punkt.setToolTip(tr("Statt in der Flächenmitte am angeklickten Punkt der gemessenen Fläche messen "
                                     "(beliebige Fläche zur Ebene oder Achse der Bezugsfläche), z. B. den Spalt an "
                                     "einer Ecke"))
-        reihe.addWidget(self.mass_knopf, 1)
+        reihe.addWidget(self.mass_knopf)
         reihe.addWidget(self.am_punkt)
         self.mass_kette_knopf = QtWidgets.QPushButton(tr("Als 3D-Kette"))
         self.mass_kette_knopf.setToolTip(tr("Gewählte Messgröße als 3D-Toleranzkette öffnen: je Teil auf dem "
@@ -223,9 +223,7 @@ class BaugruppePanel(QtWidgets.QWidget):
                                             "Übernehmen in die Toleranzkette"))
         self.mass_kette_knopf.clicked.connect(lambda: (nr := self.gewaehlte_messgroesse()) and
                                               self.mass_kette.emit(nr))
-        reihe.addWidget(self.mass_weg)
-        reihe.addWidget(self.mass_kette_knopf)
-        reihe.addWidget(self.mass_pdf_knopf)
+        reihe.addStretch(1)
         lay.addLayout(reihe)
         waerme = QtWidgets.QHBoxLayout()
         self.waerme = QtWidgets.QCheckBox(tr("Wärmeausdehnung bei"))
@@ -264,11 +262,18 @@ class BaugruppePanel(QtWidgets.QWidget):
         lay.addWidget(titel)
         self.beitraege = _tabelle(self.BEITRAG_SPALTEN)
         self.beitraege.setToolTip(tr("Bereich: Worst-Case-Breite, wenn nur diese Verbindung streut; statistisch: "
-                                     "Varianzanteil aus Monte Carlo"))
+                                     "Varianzanteil aus Monte Carlo. Bonus Ⓜ/Ⓛ: Spielraum, der mit der Abweichung "
+                                     "der Istmaße vom MMC/LMC wächst (eigener Beitragender)"))
         lay.addWidget(self.beitraege, 1)
         self.mass_hinweis = QtWidgets.QLabel("")
         self.mass_hinweis.setWordWrap(True)
         lay.addWidget(self.mass_hinweis)
+        unten = QtWidgets.QHBoxLayout()  # Nebenbefehle und Export unten (einheitlicher Panel-Aufbau)
+        for w in (self.mass_weg, self.mass_kette_knopf):
+            unten.addWidget(w)
+        unten.addStretch(1)
+        unten.addWidget(self.mass_pdf_knopf)
+        lay.addLayout(unten)
 
     def zeige_masse(self, baugruppe: vb.Baugruppe, namen: dict[int, str], ergebnisse: dict):
         """ergebnisse: Nummer der Messgroesse -> baugruppe_mass.Ergebnis."""
@@ -348,8 +353,8 @@ class BaugruppePanel(QtWidgets.QWidget):
         liste = e.beitraege if e is not None else []
         t.setRowCount(len(liste))
         for z, b in enumerate(liste):
-            werte = (str(b.verbindung), tr(vb.ART_TEXT.get(self._arten.get(b.verbindung), "")), f"{b.bereich:.4f}",
-                     f"{b.anteil_wc:.0%}", f"{b.anteil_var:.0%}")
+            werte = (str(b.verbindung), bm.beitrag_art(b, self._arten), f"{b.bereich:.4f}", f"{b.anteil_wc:.0%}",
+                     f"{b.anteil_var:.0%}")
             for s, w in enumerate(werte):
                 t.setItem(z, s, QtWidgets.QTableWidgetItem(w))
         t.resizeColumnsToContents()
@@ -382,9 +387,13 @@ class BaugruppePanel(QtWidgets.QWidget):
             werte = (str(v.nummer), namen.get(v.teil, str(v.teil)), namen.get(v.gegen_teil, str(v.gegen_teil)),
                      tr(vb.ART_TEXT[v.art]), f"{v.versatz:g}" if v.art in vb.MIT_VERSATZ else "",
                      tr("nein") if v.nummer in verletzt else tr("ja"),
-                     (f"±{v.toleranz:.4g}" if v.art in vb.MIT_VERSATZ else f"{v.toleranz:.4g}"), v.quelle)
+                     (f"±{v.toleranz:.4g}" if v.art in vb.MIT_VERSATZ else f"{v.toleranz:.4g}"),
+                     " ".join(x for x in (v.quelle, vb.bonus_text(v)) if x))
             for s, w in enumerate(werte):
                 it = QtWidgets.QTableWidgetItem(w)
+                if s == 6 and v.bonus > 0:
+                    it.setToolTip(tr("Spielraum ohne Bonus; dazu kommt der Ⓜ/Ⓛ-Bonus {:.4g} (Bezugsverschiebung), "
+                                     "voll genutzt im Worst Case").format(v.bonus))
                 if s != 6:
                     it.setFlags(it.flags() & ~QtCore.Qt.ItemFlag.ItemIsEditable)
                 if s == 5 and v.nummer in verletzt:

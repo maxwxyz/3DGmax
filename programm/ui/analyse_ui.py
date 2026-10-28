@@ -8,6 +8,7 @@ from PySide6 import QtCore, QtWidgets
 
 from ..i18n import tr
 from ..kern import analyse as an
+from .panel_aufbau import zweck_zeile
 
 ARTEN = ((an.ENTFORMUNG, "Entformungsschräge"), (an.KRUEMMUNG, "Krümmungsradius"), (an.WANDSTAERKE, "Wandstärke"))
 RICHTUNGEN = (("blick", "Blickrichtung (zum Betrachter)"), ("+z", "+Z"), ("-z", "−Z"), ("+y", "+Y"), ("-y", "−Y"),
@@ -52,12 +53,14 @@ class AnalysePanel(QtWidgets.QWidget):
         super().__init__(parent)
         lay = QtWidgets.QVBoxLayout(self)
         lay.setContentsMargins(6, 6, 6, 6)
+        lay.addWidget(zweck_zeile(tr("Formanalysen am Modell als Farbkarte: Entformungsschräge, Krümmung oder "
+                                     "Wandstärke")))
         self.art = QtWidgets.QComboBox()
         self.art.setToolTip(tr("Art der Analyse: Entformung, Krümmung oder Wandstärke"))
         for schluessel, text in ARTEN:
             self.art.addItem(tr(text), schluessel)
         lay.addWidget(self.art)
-        form = QtWidgets.QFormLayout()
+        form = self._form = QtWidgets.QFormLayout()
         self.richtung = QtWidgets.QComboBox()
         self.richtung.setToolTip(tr("Entformungsrichtung (Zugrichtung des Werkzeugs)"))
         for schluessel, text in RICHTUNGEN:
@@ -110,7 +113,7 @@ class AnalysePanel(QtWidgets.QWidget):
         art = self.art.currentData()
         sichtbar = {"richtung": art == an.ENTFORMUNG, "mindest": art == an.ENTFORMUNG,
                     "klein": art == an.KRUEMMUNG, "gross": art == an.KRUEMMUNG}
-        form = self.layout().itemAt(1).layout()
+        form = self._form
         for name, w in self._zeilen.items():
             w.setVisible(sichtbar[name])
             form.labelForField(w).setVisible(sichtbar[name])

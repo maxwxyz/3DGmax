@@ -2477,6 +2477,33 @@ def test_gefuehrte_ablaeufe(fenster, tmp_path):
     f.dock_fuehrung.hide()
 
 
+def test_funktion_vorschau_im_3d(fenster):
+    """Funktion -> Tolerierung: Vorschau live im Modell - Bezuege A/B/C farbig, gesperrte Freiheitsgrade, Callouts
+    der Vorschlaege (nur angezeigt), Zonen auf Wunsch; Aendern zieht nach, Ausschalten raeumt auf."""
+    f = fenster
+    assert f.oeffne_beispiel("funktion", warten=True)
+    w = f._funktion
+    w.sende_vorschau()
+    assert [b for b, _s, _f in f.ansicht.bezugssystem] == ["A", "B", "C"]
+    ids = {p.step_id for p in f._vorschau_pmi}
+    assert ids and any(g.pmi_ids & ids for g in f.erg.grafik.values())
+    assert all(p.quelle != "vorschau" for p in f.erg.pmi)  # nur angezeigt, nicht angelegt
+    assert "sperrt 3" in w.bezug_text.text() or "locks 3" in w.bezug_text.text()
+    w.zonen_knopf.setChecked(True)
+    w.sende_vorschau()
+    assert f.ansicht.zone_formen
+    for e, rolle in list(w.rollen.items()):  # Verdrehsicherung und Anschlag weg: Drehung um B bleibt offen
+        if rolle in ("verdrehsicherung", "anschlag"):
+            w._rolle_geaendert(e, "frei")
+    w.sende_vorschau()
+    assert [b for b, _s, _f in f.ansicht.bezugssystem] == ["A", "B"] and f.ansicht.hilfslinien
+    w.vorschau_knopf.setChecked(False)
+    w.sende_vorschau()
+    neu = {p.step_id for p in f._vorschau_pmi}
+    assert not f.ansicht.bezugssystem and not f.ansicht.zone_formen and not neu
+    assert not any(g.pmi_ids & ids for g in f.erg.grafik.values())
+
+
 def test_einheitliches_panel_layout(fenster):
     """Panels einheitlich: leere Tabellen sagen, was zu tun ist; je Panel ein hervorgehobener Hauptknopf."""
     from programm.ui.toleranzkette_ui import ToleranzketteFenster
@@ -2488,3 +2515,9 @@ def test_einheitliches_panel_layout(fenster):
         t.viewport().repaint()  # Hinweis zeichnen ohne Fehler
     for k in (f.zusammenbau.knopf, f.zusammenbau.mass_knopf, f.kollision.start, f.analyse.start):
         assert k.objectName() == "primaer"
+    z = f.zusammenbau.mass_pdf_knopf  # Export unten im Reiter Messgroessen
+    assert z.parentWidget().layout().indexOf(z) < 0 and z.parentWidget().layout().itemAt(
+        z.parentWidget().layout().count() - 1).layout().indexOf(z) >= 0
+    for p in (f.messen, f.analyse, f.kommentare, f.kollision, f.scan, f.aenderungen):  # oben der Zweck
+        erstes = p.layout().itemAt(0).widget()
+        assert erstes is not None and erstes.property("zweck") and erstes.text(), p

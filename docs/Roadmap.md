@@ -93,7 +93,7 @@
 | Function → tolerancing: editable table (role, fit, tolerance by hand), swap faces, multi-face features (half shells) | ✅ |
 | Function → tolerancing: datums by hand (A/B/C), example, generated PMI without overlap across writing planes | ✅ |
 | Hand-built chains (1D/2D/3D): chain-wide material plus optional material per link, thermal expansion for 2D/3D (after UI stage 2) | ✅ |
-| Function → tolerancing: live 3D preview of the proposed datum system (A/B/C flags, locked/open DOF) and of the tolerance proposal (callouts, row ↔ model highlight, zones optional) | ⬜ |
+| Function → tolerancing: live 3D preview of the proposed datum system (A/B/C flags, locked/open DOF) and of the tolerance proposal (callouts, row ↔ model highlight, zones optional) | ✅ |
 | Stack-up: build chains by hand without a model ("＋ Glied", editable cells) | ✅ |
 | Stack-up tables readable: columns sized from header, text and cell widgets, numbers right-aligned (1D/2D/3D) | ✅ |
 | One control height and frame style for all buttons, drop-downs, number and text fields in every window (theme), checked by a GUI test | ✅ |
@@ -125,7 +125,7 @@
 | Assembly variation: histogram per measure in the report | ✅ |
 | Assembly variation: measures on axes (axis to plane, axis distance) | ✅ |
 | Assembly variation: temperature (materials from STEP), traffic light per measure, measures at a clicked point (point to plane/axis), in the PDF | ✅ |
-| Assembly variation: datum shift (MMC/LMC bonus in connections) | ⬜ |
+| Assembly variation: datum shift (MMC/LMC bonus in connections) | ✅ |
 | 3D chain from an assembly measure (one link per part on the connection path, clearance limits per component) | ✅ |
 | Wiggle of the closing faces at the worst-case limits (exaggerated, coloured against the requirement) | ✅ |
 | Chain from faces: median planes as chain ends, chains across parts with joint links from assembly connections | ✅ |
