@@ -55,6 +55,12 @@ class VerzahnungFenster(QtWidgets.QDialog):
         self.tabelle = QtWidgets.QTableWidget()
         self.tabelle.setEditTriggers(QtWidgets.QAbstractItemView.EditTrigger.NoEditTriggers)
         lay.addWidget(self.tabelle, 1)
+        self.paare = vz.paare(self.liste)
+        self.paar_tabelle = QtWidgets.QTableWidget()
+        self.paar_tabelle.setEditTriggers(QtWidgets.QAbstractItemView.EditTrigger.NoEditTriggers)
+        self.paar_titel = QtWidgets.QLabel(tr("<b>Radpaare</b> (parallele Achsen, Abstand passend)"))
+        lay.addWidget(self.paar_titel)
+        lay.addWidget(self.paar_tabelle)
         self.hinweise = QtWidgets.QLabel("")
         self.hinweise.setWordWrap(True)
         lay.addWidget(self.hinweise)
@@ -88,7 +94,20 @@ class VerzahnungFenster(QtWidgets.QDialog):
         for r, (_n, _w, herkunft) in enumerate(zeilen[0] if zeilen else []):
             t.setItem(r, len(self.liste), QtWidgets.QTableWidgetItem(herkunft))
         t.resizeColumnsToContents()
+        pt = self.paar_tabelle
+        pz = [p.zeilen() for p in self.paare]
+        pt.setRowCount(len(pz[0]) if pz else 0)
+        pt.setColumnCount(len(self.paare))
+        pt.setHorizontalHeaderLabels([f"{p.a.teil} – {p.b.teil}" for p in self.paare])
+        pt.setVerticalHeaderLabels([n for n, _ in pz[0]] if pz else [])
+        for s, z in enumerate(pz):
+            for r, (_n, wert) in enumerate(z):
+                pt.setItem(r, s, QtWidgets.QTableWidgetItem(wert))
+        pt.resizeColumnsToContents()
+        for w in (pt, self.paar_titel):
+            w.setVisible(bool(self.paare))
         texte = [f"{v.teil}: {h}" for v in self.liste for h in v.hinweise]
+        texte += [f"{p.a.teil} – {p.b.teil}: {h}" for p in self.paare for h in p.hinweise]
         self.hinweise.setText("\n".join(texte) if texte else ("" if self.liste else tr("Keine Verzahnung gefunden.")))
         for k in (self.csv, self.json):
             k.setEnabled(bool(self.liste))
@@ -104,6 +123,8 @@ class VerzahnungFenster(QtWidgets.QDialog):
             if art == "csv":
                 f.write(vz.als_csv(self.liste))
             else:
-                json.dump({"format": "3dgmax-verzahnung", "version": 1, "zahnraeder": [v.als_dict() for v in self.liste]},
-                          f, ensure_ascii=False, indent=1)
+                paare = [{"a": p.a.teil, "b": p.b.teil, **{k: getattr(p, k) for k in (
+                    "abstand", "abstand_soll", "alpha_wt", "eps_alpha", "eps_beta", "spiel")}} for p in self.paare]
+                json.dump({"format": "3dgmax-verzahnung", "version": 1, "zahnraeder": [v.als_dict() for v in self.liste],
+                           "paare": paare}, f, ensure_ascii=False, indent=1)
         return pfad

@@ -387,6 +387,88 @@ def erkenne(form, teil: str = "") -> Verzahnung | None:
     return v
 
 
+@dataclass
+class Paar:
+    """Radpaar mit parallelen Achsen (aussen-aussen oder Ritzel im Hohlrad)."""
+    a: Verzahnung
+    b: Verzahnung
+    abstand: float  # gemessener Achsabstand
+    abstand_soll: float  # spielfrei aus den Profilverschiebungen (ISO 21771)
+    alpha_wt: float  # Betriebseingriffswinkel (Grad) beim gemessenen Achsabstand
+    eps_alpha: float  # Profilueberdeckung
+    eps_beta: float  # Sprungueberdeckung
+    spiel: float  # Normalflankenspiel aus dem Achsabstandsunterschied (mm), < 0: Ueberdeckung der Zaehne
+    hinweise: list[str] = field(default_factory=list)
+
+    def zeilen(self) -> list[tuple[str, str]]:
+        g = lambda w, n=4: f"{w:.{n}f}".rstrip("0").rstrip(".")  # noqa: E731
+        return [(tr("Achsabstand a"), g(self.abstand, 3)), (tr("Achsabstand spielfrei"), g(self.abstand_soll, 3)),
+                (tr("Betriebseingriffswinkel αwt"), f"{g(self.alpha_wt, 3)}°"),
+                (tr("Profilüberdeckung εα"), g(self.eps_alpha, 3)), (tr("Sprungüberdeckung εβ"), g(self.eps_beta, 3)),
+                (tr("Normalflankenspiel aus a"), g(self.spiel, 4))]
+
+
+def _paar(a: Verzahnung, b: Verzahnung) -> Paar | None:
+    """Paar, wenn die Achsen parallel sind, Modul, Eingriffswinkel und Schraegung passen und der Abstand nahe der
+    Summe (aussen) bzw. Differenz (Hohlrad) der Teilkreisradien liegt."""
+    if a.innen and b.innen or abs(a.richtung @ b.richtung) < 0.9999:
+        return None
+    if abs(a.mn - b.mn) > 0.01 * a.mn or abs(a.alpha_n - b.alpha_n) > 0.1 or abs(a.beta - b.beta) > 0.2:
+        return None
+    if b.innen:
+        a, b = b, a  # a: Hohlrad
+    q = b.punkt - a.punkt
+    abstand = float(np.linalg.norm(q - a.richtung * (q @ a.richtung)))
+    innen = a.innen
+    z1, z2 = (b.z, -a.z) if innen else (a.z, b.z)  # Hohlrad mit negativer Zaehnezahl (ISO 21771)
+    x1, x2 = (b.x, a.x) if innen else (a.x, b.x)
+    soll0 = abs(a.d - b.d) / 2 if innen else (a.d + b.d) / 2
+    if abs(abstand - soll0) > 0.2 * soll0:
+        return None
+    if innen and abstand < 1e-6:
+        return None
+    if a.beta and b.beta and not innen and a.hand == b.hand:
+        hinweis = [tr("Gleiche Steigungsrichtung bei Außenradpaar – kämmt nicht (gegenläufig nötig)")]
+    else:
+        hinweis = []
+    cb = math.cos(math.radians(a.beta))
+    at = math.atan(math.tan(math.radians(a.alpha_n)) / cb)
+    inv_wt = float(_inv(at)) + 2 * math.tan(math.radians(a.alpha_n)) * (x1 + x2) / (z1 + z2)
+    lo, hi = 1e-6, 1.4  # inv ist monoton: alpha_wt durch Halbieren
+    for _ in range(80):
+        m = (lo + hi) / 2
+        lo, hi = (m, hi) if float(_inv(m)) < inv_wt else (lo, m)
+    awt_soll = (lo + hi) / 2
+    a_soll = soll0 * math.cos(at) / math.cos(awt_soll)
+    awt = math.acos(min(1.0, soll0 * math.cos(at) / abstand))
+    mt = a.mn / cb
+    ra = {id(v): (v.da / 2) for v in (a, b)}
+    rb = {id(v): (v.db / 2) for v in (a, b)}
+    strecke = lambda v: math.sqrt(max(ra[id(v)] ** 2 - rb[id(v)] ** 2, 0.0))  # noqa: E731
+    if innen:  # Hohlrad: Kopfkreis innen, die Eingriffsstrecke zaehlt negativ
+        g = strecke(b) - strecke(a) + abstand * math.sin(awt)
+    else:
+        g = strecke(a) + strecke(b) - abstand * math.sin(awt)
+    eps_a = g / (math.pi * mt * math.cos(at))
+    breite = min(a.b, b.b)
+    eps_b = breite * math.sin(math.radians(a.beta)) / (math.pi * a.mn)
+    spiel = 2 * (abstand - a_soll) * math.sin(math.radians(a.alpha_n))
+    if eps_a < 1.0:
+        hinweis.append(tr("Profilüberdeckung unter 1 – kein stetiger Eingriff"))
+    return Paar(a, b, abstand, a_soll, math.degrees(awt), eps_a, eps_b, spiel, hinweis)
+
+
+def paare(liste: list[Verzahnung]) -> list[Paar]:
+    """Alle kaemmenden Radpaare einer Liste (Achsen parallel, Abstand passend)."""
+    out = []
+    for i, a in enumerate(liste):
+        for b in liste[i + 1:]:
+            p = _paar(a, b)
+            if p is not None:
+                out.append(p)
+    return out
+
+
 def als_csv(liste: list[Verzahnung]) -> str:
     import csv
     import io

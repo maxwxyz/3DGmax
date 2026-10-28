@@ -176,7 +176,8 @@
    "Kollisionen auch mit Netzteilen (STL, OBJ, glTF, 3MF, PLY, PRC-Netze) und gemischten Paaren: Abstand über Dreiecke, Durchdringung per Strahltest, Volumen und Tiefe über ein Raster; die Werte sind mit „≈“ als Näherung markiert.",
    "Zeichnung: Schnittansichten (Datei › Exportieren) – je Schnittebene der Rest hinter der Ebene als Kantenansicht, die Schnittfläche nach ISO 128 schraffiert (45°, Löcher frei); Schnitt A–A, B–B, C–C als PDF, SVG oder DXF (Layer SCHRAFFUR).",
    "Zeichnung: Blattformat A4 bis A0 quer (Datei › Exportieren › Blattformat) – Rahmen nach ISO 5457, Schriftfeld mit Titel, Maßstab und Format, größter passender Normmaßstab nach ISO 5455; PDF-Seite in Blattgröße.",
-   "Werkzeuge › Verzahnung erkennen: Stirnräder (außen und innen, gerade und schräg, auch als Netz) aus der Geometrie – Zähnezahl, da, df, b, Schrägungswinkel und Steigungsrichtung, Grundkreis per Evolventen-Fit, daraus mn, αn (Normmodul), Teilkreis, Profilverschiebung und Zahnweite Wk; Tabelle mit Herkunft je Wert, Export CSV/JSON."
+   "Werkzeuge › Verzahnung erkennen: Stirnräder (außen und innen, gerade und schräg, auch als Netz) aus der Geometrie – Zähnezahl, da, df, b, Schrägungswinkel und Steigungsrichtung, Grundkreis per Evolventen-Fit, daraus mn, αn (Normmodul), Teilkreis, Profilverschiebung und Zahnweite Wk; Tabelle mit Herkunft je Wert, Export CSV/JSON.",
+   "Verzahnung: Radpaare (Außenpaar, Ritzel im Hohlrad) mit gemessenem und spielfreiem Achsabstand, Betriebseingriffswinkel, Profil- und Sprungüberdeckung und Normalflankenspiel aus dem Achsabstand; Hinweis bei gleicher Steigungsrichtung oder Überdeckung unter 1."
   ],
   "en": [
    "First viewer version: load STEP AP242, assembly tree, CAD-style navigation, standard views.",
@@ -354,7 +355,8 @@
    "Clashes also with mesh parts (STL, OBJ, glTF, 3MF, PLY, PRC meshes) and mixed pairs: distance from triangles, interference by ray test, volume and depth from a grid; the values are marked “≈” as approximations.",
    "Drawing: section views (File › Export) – per section plane the rest behind the plane as an edge view, the cut face hatched per ISO 128 (45°, holes left free); section A–A, B–B, C–C as PDF, SVG or DXF (layer SCHRAFFUR).",
    "Drawing: sheet format A4 to A0 landscape (File › Export › Sheet format) – frame per ISO 5457, title block with title, scale and format, largest fitting standard scale per ISO 5455; PDF page in sheet size.",
-   "Tools › Recognise gears: cylindrical gears (external and internal, spur and helical, also meshes) from the geometry – number of teeth, da, df, b, helix angle and hand, base circle by involute fit, from it mn, αn (standard module), reference diameter, profile shift and span measurement Wk; table with the origin of each value, export CSV/JSON."
+   "Tools › Recognise gears: cylindrical gears (external and internal, spur and helical, also meshes) from the geometry – number of teeth, da, df, b, helix angle and hand, base circle by involute fit, from it mn, αn (standard module), reference diameter, profile shift and span measurement Wk; table with the origin of each value, export CSV/JSON.",
+   "Gears: gear pairs (external pair, pinion in ring gear) with measured and backlash-free centre distance, working pressure angle, transverse and overlap contact ratio and normal backlash from the centre distance; hint for equal hands or a contact ratio below 1."
   ]
  },
  "releases": [

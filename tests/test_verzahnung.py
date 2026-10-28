@@ -55,3 +55,40 @@ def test_kein_zahnrad_und_export(tmp_path):
     assert "z17" in csv and "17" in csv.splitlines()[2]
     d = json.loads(json.dumps(v.als_dict()))
     assert d["z"] == 17 and abs(d["mn"] - 3.0) < 0.01
+
+
+def test_radpaare():
+    """Zwei Raeder im Achsabstand (mit Profilverschiebung) und ein Ritzel im Hohlrad: Achsabstand, Ueberdeckung,
+    Flankenspiel aus dem Achsabstand; Raeder mit anderem Modul paaren nicht."""
+    import zahnrad
+    from OCC.Core.gp import gp_Trsf, gp_Vec
+    from OCC.Core.TopLoc import TopLoc_Location
+    from programm.kern import verzahnung as vz
+
+    def an(form, x):
+        t = gp_Trsf()
+        t.SetTranslation(gp_Vec(x, 0, 0))
+        return form.Moved(TopLoc_Location(t))
+    z1, z2, mn, x1, x2 = 17, 29, 2.0, 0.3, 0.1
+    at = math.radians(20.0)
+    inv_wt = math.tan(at) - at + 2 * math.tan(at) * (x1 + x2) / (z1 + z2)
+    lo, hi = 0.1, 1.0
+    for _ in range(80):
+        m = (lo + hi) / 2
+        lo, hi = (m, hi) if math.tan(m) - m < inv_wt else (lo, m)
+    a_soll = (z1 + z2) * mn / 2 * math.cos(at) / math.cos(lo)
+    abstand = a_soll + 0.1  # 0,1 mm groesser: Normalflankenspiel 2 * 0,1 * sin 20
+    r1 = vz.erkenne(zahnrad.zahnrad(z1, mn, 10.0, x=x1), "Ritzel")
+    r2 = vz.erkenne(an(zahnrad.zahnrad(z2, mn, 10.0, x=x2), abstand), "Rad")
+    r3 = vz.erkenne(an(zahnrad.zahnrad(20, 3.0, 10.0), -40.0), "anderes Modul")
+    p = vz.paare([r1, r2, r3])
+    assert len(p) == 1 and {p[0].a.teil, p[0].b.teil} == {"Ritzel", "Rad"}
+    p = p[0]
+    assert abs(p.abstand - abstand) < 1e-6 and abs(p.abstand_soll - a_soll) < 0.02
+    assert abs(p.spiel - 2 * 0.1 * math.sin(at)) < 0.015 and 1.2 < p.eps_alpha < 1.8 and p.eps_beta == 0
+    # Ritzel im Hohlrad (ohne Profilverschiebung): a = (d2 - d1) / 2
+    hohl = vz.erkenne(zahnrad.zahnrad(40, 1.5, 12.0, innen=True), "Hohlrad")
+    ritzel = vz.erkenne(an(zahnrad.zahnrad(16, 1.5, 12.0), 18.0), "Ritzel")
+    p = vz.paare([ritzel, hohl])
+    assert len(p) == 1 and p[0].a.teil == "Hohlrad" and abs(p[0].abstand_soll - 18.0) < 0.03
+    assert abs(p[0].spiel) < 0.02 and p[0].eps_alpha > 1.3

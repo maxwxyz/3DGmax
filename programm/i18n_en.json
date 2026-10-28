@@ -1382,5 +1382,14 @@
 "gerade": "spur",
 "linkssteigend": "left hand",
 "rechtssteigend": "right hand",
-"{} Verzahnung(en) erkannt": "{} gear(s) recognised"
+"{} Verzahnung(en) erkannt": "{} gear(s) recognised",
+"<b>Radpaare</b> (parallele Achsen, Abstand passend)": "<b>Gear pairs</b> (parallel axes, matching distance)",
+"Achsabstand a": "Centre distance a",
+"Achsabstand spielfrei": "Centre distance without backlash",
+"Betriebseingriffswinkel αwt": "Working pressure angle αwt",
+"Gleiche Steigungsrichtung bei Außenradpaar – kämmt nicht (gegenläufig nötig)": "Same hand on an external pair – does not mesh (opposite hands needed)",
+"Normalflankenspiel aus a": "Normal backlash from a",
+"Profilüberdeckung unter 1 – kein stetiger Eingriff": "Transverse contact ratio below 1 – no continuous meshing",
+"Profilüberdeckung εα": "Transverse contact ratio εα",
+"Sprungüberdeckung εβ": "Overlap ratio εβ"
 }

@@ -804,6 +804,19 @@ def test_verzahnung_im_fenster(fenster, tmp_path):
     assert j["zahnraeder"][0]["hand"] == "" and abs(j["zahnraeder"][0]["x"] - 0.1) < 0.02
     assert "19" in open(d.speichere("csv", str(tmp_path / "v.csv")), encoding="utf-8-sig").read()
     d.close()
+    # Radpaar: zweite Tabelle und Paare im JSON
+    from OCC.Core.gp import gp_Trsf, gp_Vec
+    from OCC.Core.TopLoc import TopLoc_Location
+    from programm.kern import verzahnung as vz
+    from programm.ui.verzahnung_ui import VerzahnungFenster
+    t = gp_Trsf()
+    t.SetTranslation(gp_Vec(46.0, 0, 0))
+    raeder = [vz.erkenne(zahnrad.zahnrad(19, 2.5, 12.0), "A"),
+              vz.erkenne(zahnrad.zahnrad(18, 2.5, 12.0).Moved(TopLoc_Location(t)), "B")]
+    d = VerzahnungFenster(raeder, str(tmp_path / "x"), f)
+    assert len(d.paare) == 1 and d.paar_tabelle.columnCount() == 1
+    assert json.load(open(d.speichere("json", str(tmp_path / "p.json")), encoding="utf-8"))["paare"][0]["a"] == "A"
+    d.close()
 
 
 def test_fokusmodus(fenster_ctc01):
