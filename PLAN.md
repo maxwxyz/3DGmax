@@ -363,6 +363,23 @@ Throughout: tests (core, offscreen UI, stress test, on-screen test), `--selbstte
 - Open: PMI from JT (TKJT has a PMI manager element), JT B-rep (XT, needs Parasolid), the one shape whose finest LOD
   has inconsistent mesh symbols (coarser LOD used).
 
+### 8.34 Remaining tolerance zones (requested 2026-10-28, done the same day)
+- Line zones per section (`toleranzzone._linienzone`): ProfileOfLine, and LE (Line_Element) / ALS modifiers: the
+  ±t/2 offset surfaces (with UZ) are cut by three planes – across the axis of cylinders/cones, through the axis
+  (0°/60°/120°) for LE/ALS, otherwise across the largest extent – and a ruled band is built between the two section
+  curves (`brepfill.Face`, curves re-oriented). The intersection-plane indicator of the file is not read yet.
+- ACS (Any_Cross_Section) on axis tolerances: disks Ø t on the axis in three cross-sections instead of the cylinder.
+- CZ (Common_Zone) on planar faces of one plane: one pair of planes ±t/2 over all faces; otherwise separate zones.
+  SZ (Separate_Requirement): separate zones with a hint.
+- Tolerances without faces: found in NIST data as (a) the whole part (aspect = PRODUCT_DEFINITION_SHAPE, e.g. FTC-10
+  surface profile 1.5 A|B|C) → zone on all faces with a hint; (b) construction geometry (GEOMETRIC_CURVE_SET of a
+  "Thread Cylinder": circle + trimmed lines, not transferred by OCCT) → edges rebuilt from the P21 data
+  (`pmi_lesen._kurven_aus_datei`, PARAMETER_VALUE trims), axis from the circle, length from the parallel lines at the
+  radius, one Ø t cylinder per thread and the projected zone Ⓟ on the side outside the material (FTC-10: 3 position
+  tolerances × 2 threads); (c) curves/edges (CTC-05 straightness on a TRIMMED_CURVE) → tube Ø t; points → sphere.
+  Shapes are kept as attribute `Pmi.teilformen` (not a dataclass field, so project files are unchanged).
+- Open: intersection-plane indicator, CZ for non-coplanar features and axis patterns.
+
 ### 8.33 Functional dimension chains: view, purpose, 2D/3D, from function to ISO GPS (requested 2026-10-28)
 Requests: show the chain with one click as arrows with dimensions and tolerances in the 3D view (geometric tolerances
 and ranges in other colours, what-if as overlay); clean up the chain window (scrolling, histogram beside the result

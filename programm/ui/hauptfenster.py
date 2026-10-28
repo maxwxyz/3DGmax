@@ -1419,7 +1419,9 @@ class Hauptfenster(QtWidgets.QMainWindow):
         nur = None  # Flaechen fuer die Allgemeintoleranzen (None: alle ohne eigene Angabe)
         sichtbar = self.ansicht.sichtbare_flaechen()  # ausgeblendete Teile zeigen keine Zonen
         if alle:
-            liste = list(self.erg.pmi) if sichtbar is None else [p for p in self.erg.pmi if p.flaechen & sichtbar]
+            liste = list(self.erg.pmi) if sichtbar is None else [
+                p for p in self.erg.pmi if p.flaechen & sichtbar or (not p.flaechen and (
+                    getattr(p, "teilformen", None) or getattr(p, "ganzes_teil", False)))]
             nur = sichtbar
         elif not liste and self.ansicht.auswahl3d:
             nur = {i for f in self.ansicht.auswahl3d for i in [self.erg.modell.flaechen_index(f)] if i is not None}

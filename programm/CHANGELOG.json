@@ -1,10 +1,12 @@
 {
  "unreleased": {
   "de": [
-   "3D-Toleranzkette: Lagen mit Verschiebung und Drehung (je Komponente mit Abmaßen) von Hand im geführten Editor eingeben, Funktionspunkt und Schlussgröße wählen, Kette im Modell zeigen, linear und nichtlinear rechnen und in die Toleranzkette übernehmen."
+   "3D-Toleranzkette: Lagen mit Verschiebung und Drehung (je Komponente mit Abmaßen) von Hand im geführten Editor eingeben, Funktionspunkt und Schlussgröße wählen, Kette im Modell zeigen, linear und nichtlinear rechnen und in die Toleranzkette übernehmen.",
+   "Toleranzzonen: Linienprofil je Schnitt, ACS je Querschnitt, gemeinsame Zone (CZ) bzw. getrennte Zonen (SZ), Toleranzen an Kanten und Punkten, an Gewinden (Konstruktionsgeometrie, mit projizierter Zone) und für das ganze Teil."
   ],
   "en": [
-   "3D tolerance chain: enter positions with translation and rotation (each component with deviations) by hand in a guided editor, choose function point and closing quantity, show the chain in the model, compute linearly and non-linearly and adopt it into the tolerance chain."
+   "3D tolerance chain: enter positions with translation and rotation (each component with deviations) by hand in a guided editor, choose function point and closing quantity, show the chain in the model, compute linearly and non-linearly and adopt it into the tolerance chain.",
+   "Tolerance zones: line profile per section, ACS per cross-section, common zone (CZ) or separate zones (SZ), tolerances on edges and points, on threads (construction geometry, with projected zone) and for the whole part."
   ]
  },
  "releases": [

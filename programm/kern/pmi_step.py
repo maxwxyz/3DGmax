@@ -10,7 +10,7 @@ from __future__ import annotations
 from .laden import StepModell
 from .p21 import DMIA_PH, Entity, Enum, P21Datei, Ref, Typed
 from .pmi import TOLERANZ, BezugsRef, Pmi
-from .pmi_lesen import flaechen_von_aspekt
+from .pmi_lesen import flaechen_von_aspekt, teilformen_von_aspekt
 
 TOL_ARTEN = {
     "STRAIGHTNESS_TOLERANCE": "Straightness", "FLATNESS_TOLERANCE": "Flatness",
@@ -204,6 +204,11 @@ def _lies_rahmen(modell: StepModell, e: Entity, zonen: dict[int, list[Entity]]) 
     _zonen_info(datei, p, zonen.get(e.id, []))
     if isinstance(aspekt, Ref):
         p.flaechen = flaechen_von_aspekt(datei, modell, aspekt.id)
+        ziel = datei.get(aspekt)
+        if ziel is not None and ziel.is_a("PRODUCT_DEFINITION_SHAPE"):
+            p.ganzes_teil = True  # Toleranz fuer das ganze Teil (z. B. Flaechenprofil "All Over")
+        elif not p.flaechen:  # Toleranz an Kanten, Punkten oder Konstruktionsgeometrie
+            p.teilformen = teilformen_von_aspekt(datei, modell, aspekt.id)
     p.grafisch = _hat_praesentation(datei, e.id)
     return p
 

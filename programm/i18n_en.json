@@ -1720,5 +1720,14 @@
 "Richtung am Funktionspunkt (für den Winkel)": "Direction at the function point (for the angle)",
 "Zielpunkt (Abstand) bzw. Zielrichtung (Winkel) in der Basis": "Target point (distance) or target direction (angle) in the base",
 "Abstand am Nennwert fast 0: nicht linearisierbar (wie eine Positionsabweichung) – das nichtlineare Monte-Carlo-Ergebnis gilt; für die Kette X-, Y- und Z-Lage einzeln betrachten": "Distance almost 0 at nominal: not linearisable (like a position deviation) \u2013 the non-linear Monte Carlo result applies; for the chain consider the X, Y and Z positions separately",
-"Im 3D ausblenden": "Hide in 3D"
+"Im 3D ausblenden": "Hide in 3D",
+"ACS: Achse je Querschnitt in einem Kreis Ø {:.4g} (gezeigt in drei Schnitten)": "ACS: axis per cross-section within a circle Ø {:.4g} (shown in three sections)",
+"CZ: eine gemeinsame Zone für {} Flächen": "CZ: one common zone for {} faces",
+"SZ: getrennte Zonen je Element": "SZ: separate zones per feature",
+"Zone je Schnitt (gezeigt in drei Längsschnitten)": "Zone per section (shown in three longitudinal sections)",
+"Zone je Schnitt (gezeigt in drei Schnitten)": "Zone per section (shown in three sections)",
+"Zone um Kanten bzw. Punkte (Ø {:.4g})": "Zone around edges or points (Ø {:.4g})",
+"Zone um die Achse der Konstruktionsgeometrie (z. B. Gewinde), Ø {:.4g}": "Zone around the axis of the construction geometry (e.g. thread), Ø {:.4g}",
+"gilt für das ganze Teil (alle Flächen)": "applies to the whole part (all faces)",
+"projizierte Zone {:.4g} mm außerhalb des Materials": "projected zone {:.4g} mm outside the material"
 }

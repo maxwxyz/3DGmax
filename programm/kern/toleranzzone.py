@@ -8,6 +8,14 @@
   (Masstoleranz plus Lagetoleranz). Mit Maximum-/Minimum-Material (M/L): Zone bei MMC und bei LMC (Bonus).
   Projizierte Zone (P): Zylinder ausserhalb des Elements in der angegebenen Laenge.
 - Masstoleranzen (Durchmesser, Radius): Huellflaechen bei Hoechst- und Mindestmass.
+- Linienzonen je Schnitt (Linienprofil, Geradheit von Mantellinien, Modifikator LE): zwei Schnittkurven der
+  Versatzflaechen +-t/2 in drei Schnittebenen, dazwischen ein Band - quer zur Achse bei Zylinder/Kegel, laengs
+  durch die Achse bei LE/ALS, sonst quer zur groessten Ausdehnung (die Schnittrichtung legt sonst der
+  Schnittebenen-Indikator fest, der nicht gelesen wird).
+- ACS (jeder Querschnitt) an Achszonen: Kreisscheiben Ø t in drei Querschnitten statt des Zylinders; CZ (gemeinsame
+  Zone) an ebenen Flaechen einer Ebene: ein Ebenenpaar ueber alle Flaechen; SZ: getrennte Zonen je Element (Hinweis).
+- Toleranzen an Kanten und Punkten (PMI ohne Flaechen, Teilformen aus der Datei): Rohr Ø t um Kanten, Kugel Ø t um
+  Punkte.
 - Allgemeintoleranzen (Auswahl): ISO 2768-1 (Masse) / -2 (Ebenheit) und ISO 22081 (Flaechenprofil) fuer Flaechen
   ohne eigene Angabe.
 Schmale Zonen werden fuer die Anzeige ueberhoeht (der Faktor wird mitgeliefert; Abstaende zur Nennflaeche werden
@@ -176,6 +184,9 @@ def _zylinder(start, richtung, radius: float, laenge: float):
 
 
 QUERSCHNITTE = (0.1, 0.5, 0.9)  # Lage der Ringzonen entlang der Achse (Anteil der Laenge)
+LAENGSSCHNITTE = (0.0, 60.0, 120.0)  # Winkel der Laengsschnitte durch die Achse (Grad)
+ACS, CZ, SZ, LE = "Any_Cross_Section", "Common_Zone", "Separate_Requirement", "Line_Element"
+LINIENZONE = {"ProfileOfLine"}
 
 
 def _ring(mitte, richtung, r_innen: float, r_aussen: float):
@@ -213,6 +224,215 @@ def _querschnittzone(p, flaechen, t: float, faktor: float) -> "Zone | None":
         _ringe(z, start, d, laenge, r, t / 2 * faktor)
     if z.formen:
         z.hinweise.append(tr("Zone je Querschnitt (gezeigt in drei Schnitten)"))
+    return z if z.formen else None
+
+
+def _schnittebenen(flaeche, laengs: bool = False) -> list[tuple]:
+    """(Punkt, Normale) der drei Schnittebenen einer Flaeche: quer zur Achse (Zylinder/Kegel), laengs durch die
+    Achse (laengs=True) oder quer zur groessten Ausdehnung."""
+    from OCC.Core.Bnd import Bnd_Box
+    from OCC.Core.BRepBndLib import brepbndlib
+    achse = _achse([flaeche])
+    if achse is not None:
+        start, d, laenge, _r, _f = achse
+        if laengs:
+            q = np.cross(d, [1.0, 0.0, 0.0])
+            q = q if np.linalg.norm(q) > 1e-6 else np.cross(d, [0.0, 1.0, 0.0])
+            q = q / np.linalg.norm(q)
+            mitte = start + d * laenge / 2
+            out = []
+            for w in LAENGSSCHNITTE:
+                c, s_ = np.cos(np.radians(w)), np.sin(np.radians(w))
+                out.append((mitte, c * q + s_ * np.cross(d, q)))
+            return out
+        return [(start + d * laenge * a, d) for a in QUERSCHNITTE]
+    b = Bnd_Box()
+    brepbndlib.Add(flaeche, b)
+    if b.IsVoid():
+        return []
+    lo, hi = np.array(b.Get()[:3]), np.array(b.Get()[3:])
+    k = int(np.argmax(hi - lo))
+    n = np.eye(3)[k]
+    return [(lo + (hi - lo) * a, n) for a in QUERSCHNITTE]
+
+
+def _schnitt_kanten(form, punkt, normale) -> list:
+    """Kanten des Schnitts einer Form mit einer Ebene."""
+    from OCC.Core.BRepAlgoAPI import BRepAlgoAPI_Section
+    from OCC.Core.TopAbs import TopAbs_EDGE
+    from OCC.Core.TopExp import TopExp_Explorer
+    from OCC.Core.TopoDS import topods
+    from OCC.Core.gp import gp_Dir, gp_Pln, gp_Pnt
+    if form is None:
+        return []
+    sec = BRepAlgoAPI_Section(form, gp_Pln(gp_Pnt(*map(float, punkt)), gp_Dir(*map(float, normale))), True)
+    if not sec.IsDone():
+        return []
+    out, ex = [], TopExp_Explorer(sec.Shape(), TopAbs_EDGE)
+    while ex.More():
+        out.append(topods.Edge(ex.Current()))
+        ex.Next()
+    return out
+
+
+def _band(kante_a, kante_b):
+    """Regelflaeche zwischen zwei Schnittkurven (gleich ausgerichtet); None, wenn sie nicht entsteht."""
+    from OCC.Core.BRep import BRep_Tool
+    from OCC.Core.BRepFill import brepfill
+    from OCC.Core.TopExp import topexp
+    pa = [BRep_Tool.Pnt(v) for v in (topexp.FirstVertex(kante_a, True), topexp.LastVertex(kante_a, True))]
+    pb = [BRep_Tool.Pnt(v) for v in (topexp.FirstVertex(kante_b, True), topexp.LastVertex(kante_b, True))]
+    if pa[0].Distance(pb[0]) + pa[1].Distance(pb[1]) > pa[0].Distance(pb[1]) + pa[1].Distance(pb[0]):
+        kante_b = kante_b.Reversed()
+    try:
+        return brepfill.Face(kante_a, kante_b)
+    except RuntimeError:
+        return None
+
+
+def _linienzone(p, flaechen, t: float, faktor: float, laengs: bool = False) -> "Zone | None":
+    """Zone je Schnitt: Band zwischen den Schnittkurven der Versatzflaechen in drei Schnittebenen."""
+    aussen, innen = _grenzen_aussen_innen(p, t)
+    z = Zone(breite=t, faktor=faktor, art="linien")
+    for i, f in enumerate(flaechen):
+        a, b = _versatz(f, aussen * faktor), _versatz(f, innen * faktor)
+        for punkt, n in _schnittebenen(f, laengs):
+            ka, kb = _schnitt_kanten(a, punkt, n), _schnitt_kanten(b, punkt, n)
+            if len(ka) == len(kb):
+                for x, y in zip(ka, kb):
+                    z.dazu(_band(x, y) or x)
+            else:  # unterschiedliche Topologie: nur die Kurven
+                for x in ka + kb:
+                    z.dazu(x)
+    if z.formen:
+        z.hinweise.append(tr("Zone je Schnitt (gezeigt in drei Längsschnitten)") if laengs else
+                          tr("Zone je Schnitt (gezeigt in drei Schnitten)"))
+    return z if z.formen else None
+
+
+def _acs_zone(p, flaechen, t: float, faktor: float) -> "Zone | None":
+    """ACS: Achszone in jedem Querschnitt - Kreisscheibe Ø t um die Achse in drei Querschnitten."""
+    z = Zone(breite=t, faktor=faktor, art="querschnitt")
+    for start, d, laenge, _r, _f in _achsen(flaechen):
+        for anteil in QUERSCHNITTE:
+            z.dazu(_ring(start + d * laenge * anteil, d, 0.0, t / 2 * faktor))
+    if z.formen:
+        z.hinweise.append(tr("ACS: Achse je Querschnitt in einem Kreis Ø {:.4g} (gezeigt in drei Schnitten)")
+                          .format(t))
+    return z if z.formen else None
+
+
+def _gemeinsame_ebenenzone(p, flaechen, t: float, faktor: float) -> "Zone | None":
+    """CZ an ebenen Flaechen einer gemeinsamen Ebene: ein Ebenenpaar +-t/2 ueber alle Flaechen."""
+    from OCC.Core.BRepAdaptor import BRepAdaptor_Surface
+    from OCC.Core.GeomAbs import GeomAbs_Plane
+    ebenen = []
+    for f in flaechen:
+        s = BRepAdaptor_Surface(f, True)
+        if s.GetType() != GeomAbs_Plane:
+            return None
+        ax = s.Plane().Axis()
+        ebenen.append((np.array([ax.Location().X(), ax.Location().Y(), ax.Location().Z()]),
+                       np.array([ax.Direction().X(), ax.Direction().Y(), ax.Direction().Z()])))
+    if len(ebenen) < 2:
+        return None
+    from OCC.Core.TopAbs import TopAbs_REVERSED
+    p0, n = ebenen[0]
+    if flaechen[0].Orientation() == TopAbs_REVERSED:  # Normale aus dem Material heraus
+        n = -n
+    if any(abs(abs(float(m @ n)) - 1) > 1e-6 or abs(float((q - p0) @ n)) > 1e-4 for q, m in ebenen):
+        return None  # nicht in einer Ebene
+    pts = np.vstack([_ecken(f) for f in flaechen])
+    aussen, innen = _grenzen_aussen_innen(p, t)
+    z = Zone(breite=t, faktor=faktor, art="flaechen")
+    for versatz in (aussen, innen):
+        z.dazu(_ebene_als_flaeche(p0 + n * float((pts - p0).mean(axis=0) @ n), n, flaechen, versatz * faktor))
+    z.hinweise.append(tr("CZ: eine gemeinsame Zone für {} Flächen").format(len(flaechen)))
+    return z if z.formen else None
+
+
+def _kreisachsen(formen) -> list[tuple]:
+    """Achsen aus Konstruktionsgeometrie (z. B. Gewindezylinder): je Kreis Mitte und Richtung, die dazu parallelen
+    Linien im Abstand des Radius geben die Laenge; [(Start, Richtung, Laenge)]."""
+    from OCC.Core.BRepAdaptor import BRepAdaptor_Curve
+    from OCC.Core.GeomAbs import GeomAbs_Circle, GeomAbs_Line
+    from OCC.Core.TopAbs import TopAbs_EDGE
+    from OCC.Core.TopoDS import topods
+    kreise, linien = [], []
+    for f in formen:
+        if f.ShapeType() != TopAbs_EDGE:
+            continue
+        c = BRepAdaptor_Curve(topods.Edge(f))
+        if c.GetType() == GeomAbs_Circle:
+            ax = c.Circle().Axis()
+            kreise.append((np.array([ax.Location().X(), ax.Location().Y(), ax.Location().Z()]),
+                           np.array([ax.Direction().X(), ax.Direction().Y(), ax.Direction().Z()]), c.Circle().Radius()))
+        elif c.GetType() == GeomAbs_Line:
+            linien.append([np.array([q.X(), q.Y(), q.Z()]) for q in (c.Value(c.FirstParameter()),
+                                                                     c.Value(c.LastParameter()))])
+    out = []
+    for mitte, n, r in kreise:
+        lagen = [0.0]
+        for a, b in linien:  # Mantellinie dieses Kreises: parallel zur Achse im Abstand r
+            v = a - mitte
+            if abs(abs(float((b - a) @ n)) - float(np.linalg.norm(b - a))) < 1e-6 and \
+                    abs(float(np.linalg.norm(v - n * (v @ n))) - r) < 1e-3:
+                lagen += [float((a - mitte) @ n), float((b - mitte) @ n)]
+        lo, hi = min(lagen), max(lagen)
+        out.append((mitte + n * lo, n, hi - lo))
+    return out
+
+
+def _teilform_zone(p, t: float, faktor: float, modell=None) -> "Zone | None":
+    """Toleranz an Konstruktionsgeometrie, Kanten oder Punkten (ohne Flaechen): Achszone um einen Gewinde- bzw.
+    Konstruktionszylinder (mit projizierter Zone Ⓟ ausserhalb des Materials), sonst Rohr Ø t um jede Kante und Kugel
+    Ø t um jeden Punkt."""
+    formen = getattr(p, "teilformen", [])
+    achsen = _kreisachsen(formen) if ("Diameter" in p.modifikatoren or p.zone == "Diameter") else []
+    if achsen:
+        z = Zone(breite=t, faktor=faktor, art="zylinder")
+        for start, d, laenge in achsen:
+            z.dazu(_zylinder(start, d, t / 2 * faktor, max(laenge, t)))
+            if p.zone == "Projected" and p.zonen_wert:
+                ende = start + d * laenge
+                aussen_am_ende = modell is not None and not _im_material(modell, ende + d * 0.1)
+                basis, richtung = (ende, d) if aussen_am_ende else (start, -d)
+                z.dazu(_zylinder(basis, richtung, t / 2 * faktor, float(p.zonen_wert)), BONUS)
+        if p.zone == "Projected" and p.zonen_wert:
+            z.hinweise.append(tr("projizierte Zone {:.4g} mm außerhalb des Materials").format(p.zonen_wert))
+        z.hinweise.append(tr("Zone um die Achse der Konstruktionsgeometrie (z. B. Gewinde), Ø {:.4g}").format(t))
+        return z
+    from OCC.Core.BRep import BRep_Tool
+    from OCC.Core.BRepOffsetAPI import BRepOffsetAPI_MakePipe
+    from OCC.Core.BRepPrimAPI import BRepPrimAPI_MakeSphere
+    from OCC.Core.BRepBuilderAPI import BRepBuilderAPI_MakeEdge, BRepBuilderAPI_MakeWire
+    from OCC.Core.BRepAdaptor import BRepAdaptor_Curve
+    from OCC.Core.TopAbs import TopAbs_EDGE, TopAbs_VERTEX
+    from OCC.Core.TopoDS import topods
+    from OCC.Core.gp import gp_Ax2, gp_Circ, gp_Dir, gp_Pnt, gp_Vec
+    z = Zone(breite=t, faktor=faktor, art="teilform")
+    r = t / 2 * faktor
+    for form in formen:
+        if form.ShapeType() == TopAbs_VERTEX:
+            q = BRep_Tool.Pnt(topods.Vertex(form))
+            z.dazu(BRepPrimAPI_MakeSphere(q, r).Shape())
+        elif form.ShapeType() == TopAbs_EDGE:
+            kante = topods.Edge(form)
+            c = BRepAdaptor_Curve(kante)
+            u = c.FirstParameter()
+            punkt, tangente = gp_Pnt(), gp_Vec()
+            c.D1(u, punkt, tangente)
+            if tangente.Magnitude() < 1e-12:
+                continue
+            profil = BRepBuilderAPI_MakeWire(BRepBuilderAPI_MakeEdge(
+                gp_Circ(gp_Ax2(punkt, gp_Dir(tangente)), r)).Edge()).Wire()
+            try:
+                rohr = BRepOffsetAPI_MakePipe(BRepBuilderAPI_MakeWire(kante).Wire(), profil)
+                z.dazu(rohr.Shape() if rohr.IsDone() else None)
+            except RuntimeError:
+                continue
+    if z.formen:
+        z.hinweise.append(tr("Zone um Kanten bzw. Punkte (Ø {:.4g})").format(t))
     return z if z.formen else None
 
 
@@ -631,7 +851,7 @@ def _ist_laengenmass(p) -> bool:
 
 def breite(p) -> float | None:
     """Breite, nach der die Ueberhoehung bemessen wird (Toleranzwert bzw. Radiusband einer Masstoleranz)."""
-    if not p.flaechen:
+    if not p.flaechen and not getattr(p, "teilformen", None) and not getattr(p, "ganzes_teil", False):
         return None
     if p.art == "mass" and p.typ in GROESSE:
         g = _massgrenzen(p)
@@ -664,6 +884,13 @@ def _zone(p, modell, sichtbar_mindest: float = 0.0, alle_pmi=None, faktor: float
     if faktor is None:
         faktor = max(1.0, sichtbar_mindest / b) if sichtbar_mindest > 0 and b > 0 else 1.0
     flaechen = [modell.flaechen[i] for i in sorted(p.flaechen) if i < len(modell.flaechen)]
+    if not flaechen and getattr(p, "ganzes_teil", False) and p.art != "mass":  # z. B. Flaechenprofil "All Over"
+        flaechen = list(modell.flaechen)
+    if not flaechen and getattr(p, "teilformen", None) and p.art != "mass":
+        z = _teilform_zone(p, b, faktor, modell)
+        if z is not None:
+            z.hinweise += _weitere_hinweise(p)
+        return z
     if p.art == "mass" and p.typ in GROESSE:
         return _masszone(p, flaechen, faktor)
     if p.art == "mass" and "Angular" in (p.typ or ""):
@@ -675,6 +902,12 @@ def _zone(p, modell, sichtbar_mindest: float = 0.0, alle_pmi=None, faktor: float
     z = None
     if "SphericalDiameter" in p.modifikatoren:
         z = _kugelzone(p, flaechen, t, faktor, alle_pmi)
+    if z is None and ACS in p.modifikatoren and durchmesser and p.typ in ACHSZONE:
+        z = _acs_zone(p, flaechen, t, faktor)
+    if z is None and CZ in p.modifikatoren and p.typ in FLAECHENZONE and len(flaechen) > 1:
+        z = _gemeinsame_ebenenzone(p, flaechen, t, faktor)
+    if z is None and not durchmesser and (p.typ in LINIENZONE or LE in p.modifikatoren or "ALS" in p.modifikatoren):
+        z = _linienzone(p, flaechen, t, faktor, laengs=LE in p.modifikatoren or "ALS" in p.modifikatoren)
     if z is None and durchmesser and (p.typ in ACHSZONE or p.typ in ACHSE_MIT_DURCHMESSER):
         z = _achszone(p, modell, flaechen, t, faktor, alle_pmi)
     if z is None and not durchmesser and p.typ in MITTELEBENE and _mittelebene_gemeint(p, alle_pmi):
@@ -726,8 +959,12 @@ def _weitere_hinweise(p) -> list[str]:
     if p.typ in ("Flatness", "Straightness", "CircularityOrRoundness", "Cylindricity") or \
             (p.typ in ("ProfileOfSurface", "ProfileOfLine") and not p.bezuege):
         out.append(tr("Formzone: in Lage und Richtung frei"))
-    if p.typ in ("CircularRunout", "ProfileOfLine", "CircularityOrRoundness", "Concentricity"):
+    if p.typ in ("CircularRunout", "CircularityOrRoundness", "Concentricity") or ACS in p.modifikatoren:
         out.append(tr("gilt je Querschnitt"))
+    if SZ in p.modifikatoren:
+        out.append(tr("SZ: getrennte Zonen je Element"))
+    if getattr(p, "ganzes_teil", False):
+        out.append(tr("gilt für das ganze Teil (alle Flächen)"))
     return out
 
 

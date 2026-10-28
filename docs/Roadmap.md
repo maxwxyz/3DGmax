@@ -63,7 +63,8 @@
 | Tolerance zones in the datum system: coaxiality/runout around the datum axis, datum shift with Ⓜ/Ⓛ, form/orientation inside the higher-level zone | ✅ |
 | Tolerance zones for linear dimensions between planes and angular dimensions | ✅ |
 | Tolerance zones: roundness and circular runout per cross-section (ring zones) | ✅ |
-| Tolerance zones: line profile per section, ACS/ALS, CZ/SZ, tolerances on edges/points | ⬜ |
+| Tolerance zones: line profile per section (bands in three sections, longitudinal for LE), ACS (disks per cross-section), CZ (one common zone for coplanar faces) / SZ (hint), tolerances on edges/points (tube/sphere), on construction geometry (thread axes with projected zone Ⓟ outside the material), for the whole part ("all over") | ✅ |
+| Tolerance zones: intersection-plane indicator for line profiles, CZ for non-coplanar features and axis patterns | ⬜ |
 | Tolerance stack-up 1D (dimension chain from PMI, worst case, RSS, Monte Carlo, CSV) | ✅ |
 | Stack-up 1D: Cp adjustable, angular dimensions excluded | ✅ |
 | Stack-up: chain picked in 3D (planes, cylinder/cone axes) with direction from the geometry, PMI values (also patterns) and ISO 2768 for features without PMI; distribution and Cp per link; contribution share | ✅ |
