@@ -1,7 +1,7 @@
 # Handoff (2026-10-28, local Mac session, user away ~8 h – work continues autonomously)
 
 ## Current state
-All work on `main`, pushed; no other branches. Version not bumped (user's approval needed). Full suite last green on
+All work on `main`, pushed; no other branches. Version 0.2 released (tag v0.2). Full suite last green on
 the Mac (200 tests incl. the new ones, ~11 min); `pixi run test-schnell` skips the six `langsam` tests.
 
 Done in this local session (commit):
@@ -70,6 +70,8 @@ Done in this local session (commit):
   light for the requirement (window + PDF), manual approval with name/date/comment (`.3dgkette` + PDF); results pane
   gets the height it needs (no overlap); Qt's own buttons German in every window (translator also loaded by the main
   window, so scripts/tests show "Schließen" too). Checked on screen.
+- **Released v0.2** (2026-10-28, `packaging/release.py minor --git`, tag pushed) after the full suite was green
+  (281 passed, 3 skipped) – commit `eef4130` holds JT 10, stack-up UI, cost allocation, function → GPS, 2D chains.
 - **User decisions 2026-10-28:** all proposals accepted – chain plan order as in §8.33, traffic light thresholds
   (Cpk 1.33, 0.27 %), version 0.2, Alt+1…6, directions from the closing dimension; one rendering pipeline for all
   views (done: fixed-function for every view); UI stage 2 still only after the user's review of the UI/UX plan.
