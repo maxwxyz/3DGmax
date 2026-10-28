@@ -336,16 +336,18 @@ graphics only, 8.19 QIF graphics, 8.20 3D tolerance analysis,
 8.21 clash/band/intersection analysis, 8.22 plausibility check, 8.23 scan against PMI tolerances).
 
 ## Next (in this order)
-0. Evening order 2026-10-28 – items 1–7 and UI stages 1–3 done; side branches merged (no intro, item 6 PMI
-   presentation + "make semantic", "Modell hinzufügen" + item 5 dragging with live snapping). Next, in this order
-   (user, 2026-10-28):
-   a. Materials in hand-built 1D/2D/3D chains (chain default plus per-link override, PLAN §8.33).
-   b. Live 3D preview for function → tolerancing (datums first, tolerance zones optional).
-   c. Datum shift in the assembly variation (MMC/LMC bonus in connections) – done on branch
-      `claude/bezugsverschiebung-39e50e` (merge pending).
-   Moved to the end (after item 4 below): item 8 DXF dimension entities; then the user checks (CATIA reading of
-   written STEP with own PMI/presentation, screenshot of the blue stripe while loading on Windows, an AP242 file with
-   a mechanism for STEP kinematics).
+0. Evening order 2026-10-28 – items 1–7, UI stages 1–3 and the follow-up list are done and in main:
+   materials in hand-built chains (`a4bda25`), live 3D preview for function → tolerancing and the unified panel order
+   (`7692a6a`), datum shift in the assembly variation (merge `e5ac96e`), readable chain tables and one control height
+   in the whole UI (merge `56da1be`). Full suite 336 passed + 6 on-screen tests green on `56da1be`; a local build
+   (`packaging/build_mac.sh --ohne-tests`) was made for the user's review of UI stage 3.
+   Waiting on the user: review of UI stage 3 on screen (the user decides when it is accepted). UI stage 3 acceptance
+   test with users (≥ 80 %) not run.
+   Next after the review, in this order: the roadmap topics around chains/assembly (traffic light everywhere,
+   2D/3D chains from the model, automatic 3D analysis, assemblies built in the project, advisor stage 2, overlap check
+   per saved view), then formats, performance/gears (gear data sheet, PLAN §8.27), then item 8 DXF dimension entities,
+   then the user checks (CATIA reading of written STEP with own PMI/presentation, screenshot of the blue stripe while
+   loading on Windows, an AP242 file with a mechanism for STEP kinematics).
 1. Visual check on the Mac (see "Visual check on the real screen still open" and: wireframe contrast edges, view cube,
    start screen, side-panel dragging, tab ✕ and right-click menu on tabs, File › Examples, stack-up window and PDF,
    clash dock, assembly dock, scan check with point cloud and 3-2-1 alignment, zones for linear/angular dimensions).
