@@ -32,7 +32,8 @@
    "Zusammenbau: Der 3D-Griff und der Wiggle des Beispiels verschwinden beim Laden einer anderen Datei; Wiggle-Knopf nur mit Symbol (Abspielen/Anhalten).",
    "Vergleich: Der Reiter Änderungen lässt sich ohne Vergleich nicht mehr leer öffnen; ohne Vergleich zeigt er einen Hinweis mit „Zwei Stände vergleichen …“ statt eines wirkungslosen „Prüfen starten“.",
    "Toleranzkette: Wiggle der Schlussflächen – die Endfläche der Kette pendelt im Modell zwischen Worst-Case-Minimum und -Maximum (überhöht, Faktor in der Beschriftung), grün in der Anforderung, rot außerhalb, mit dem jeweiligen Wert.",
-   "Toleranzkette aus 3D-Auswahl: Mittelebene als Kettenanfang oder -ende (z. B. Mitte einer Nut, halbe Breite mit Faktor 0,5) und Ketten über mehrere Teile – an einer Fügestelle mit Verbindung im Zusammenbau entsteht ein Glied mit deren Spielraum."
+   "Toleranzkette aus 3D-Auswahl: Mittelebene als Kettenanfang oder -ende (z. B. Mitte einer Nut, halbe Breite mit Faktor 0,5) und Ketten über mehrere Teile – an einer Fügestelle mit Verbindung im Zusammenbau entsteht ein Glied mit deren Spielraum.",
+   "Arbeitsbereiche: Leiste oben mit Ansehen, Vergleichen & Prüfen, Messen & Analysieren, Tolerieren und Zusammenbau – jeder Bereich zeigt seine Seitenleisten; ein Werkzeug aus einem anderen Bereich nimmt die Leiste mit; der Bereich wird gemerkt."
   ],
   "en": [
    "3D tolerance chain: enter positions with translation and rotation (each component with deviations) by hand in a guided editor, choose function point and closing quantity, show the chain in the model, compute linearly and non-linearly and adopt it into the tolerance chain.",
@@ -66,7 +67,8 @@
    "Assembly: the 3D handle and the wiggle of the example disappear when another file is loaded; wiggle button with icon only (play/pause).",
    "Comparison: the Changes tab can no longer be opened empty without a comparison; without one it shows a hint with “Compare two states …” instead of an ineffective “Start review”.",
    "Tolerance chain: wiggle of the closing faces – the end face of the chain swings in the model between worst-case minimum and maximum (exaggerated, factor in the label), green within the requirement, red outside, with the current value.",
-   "Tolerance chain from 3D selection: median plane as chain start or end (e.g. centre of a slot, half the width with factor 0.5) and chains across several parts – a joint with an assembly connection becomes a link with its clearance."
+   "Tolerance chain from 3D selection: median plane as chain start or end (e.g. centre of a slot, half the width with factor 0.5) and chains across several parts – a joint with an assembly connection becomes a link with its clearance.",
+   "Workspaces: bar at the top with View, Compare & check, Measure & analyse, Tolerancing and Assembly – each shows its side panels; a tool from another workspace takes the bar along; the workspace is remembered."
   ]
  },
  "releases": [

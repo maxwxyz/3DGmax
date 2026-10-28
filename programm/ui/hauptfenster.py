@@ -339,6 +339,10 @@ class Hauptfenster(QtWidgets.QMainWindow):
             self.restoreState(zustand)
         self.dock_aenderungen.hide()  # nur im Vergleich
         self.dock_aenderungen.toggleViewAction().setEnabled(False)  # Menue: ohne Vergleich nicht leer oeffnen
+        bereich = str(self.ein.value("arbeitsbereich", "ansehen"))
+        self.bereiche.zeige(bereich, melden=False)
+        if not zustand:  # gemerkte Anordnung (auch geschlossene Leisten) geht vor; sonst die des Bereichs
+            self.setze_arbeitsbereich(self.bereiche.schluessel())
 
     def _fenster_merken(self):
         for merken in self._spalten_merken:
@@ -412,6 +416,7 @@ class Hauptfenster(QtWidgets.QMainWindow):
         self.addDockWidget(bereich, d)
         # Reiterleisten legt Qt erst beim Stapeln an -> danach mit X versehen
         d.visibilityChanged.connect(lambda _: QtCore.QTimer.singleShot(0, self._tabs_schliessbar))
+        d.visibilityChanged.connect(lambda sichtbar, d=d: self._leiste_sichtbar(d, sichtbar))
         d.dockLocationChanged.connect(lambda _: QtCore.QTimer.singleShot(0, self._tabs_schliessbar))
         return d
 
@@ -441,6 +446,47 @@ class Hauptfenster(QtWidgets.QMainWindow):
         if ausfuehren:
             m.exec(leiste.mapToGlobal(pos))
         return m
+
+    def setze_arbeitsbereich(self, schluessel: str):
+        """Seitenleisten des Arbeitsbereichs zeigen, die anderen ausblenden; Leisten, die nur in einem Zustand Sinn
+        ergeben (Aenderungen im Vergleich, Scanpruefung mit Scan), nur dann."""
+        from .arbeitsbereiche import BEREICHE, leisten
+        self._bereich_schaltet = True
+        try:
+            gewollt = leisten(schluessel)
+            alle = {n for b in BEREICHE for n in b[3]}
+            for name in sorted(alle):
+                d = getattr(self, "dock_" + name, None)
+                if d is None:
+                    continue
+                if name in gewollt and self._leiste_moeglich(name):
+                    d.show()
+                else:
+                    d.hide()
+            vorne = next((n for n in gewollt if n not in ("baum", "ansichten") and self._leiste_moeglich(n)), None)
+            if vorne is not None:
+                getattr(self, "dock_" + vorne).raise_()
+            self.ein.setValue("arbeitsbereich", schluessel)
+        finally:
+            self._bereich_schaltet = False
+
+    def _leiste_moeglich(self, name: str) -> bool:
+        if name == "aenderungen":
+            return self.vergleich is not None
+        if name == "scan":
+            return getattr(self, "_scan", None) is not None
+        return True
+
+    def _leiste_sichtbar(self, d, sichtbar: bool):
+        """Ein Werkzeug oeffnet eine Leiste eines anderen Bereichs: die Bereichsleiste folgt (ohne umzuschalten)."""
+        from .arbeitsbereiche import bereich_von, leisten
+        if not sichtbar or getattr(self, "_bereich_schaltet", False) or getattr(self, "bereiche", None) is None:
+            return
+        name = next((n[5:] for n in vars(self) if n.startswith("dock_") and getattr(self, n) is d), None)
+        ziel = bereich_von(name) if name else None
+        if ziel is not None and name not in leisten(self.bereiche.schluessel()):
+            self.bereiche.zeige(ziel, melden=False)
+            self.ein.setValue("arbeitsbereich", ziel)
 
     def _dock_umschalten(self, d, an: bool, gruppe=None):
         if not an:
@@ -830,6 +876,15 @@ class Hauptfenster(QtWidgets.QMainWindow):
         self._fuelle_zuletzt()
 
     def _baue_leiste(self):
+        from .arbeitsbereiche import Bereichsleiste
+        bt = QtWidgets.QToolBar(tr("Arbeitsbereiche"))
+        bt.setObjectName("arbeitsbereiche")
+        bt.setMovable(False)
+        self.bereiche = Bereichsleiste()
+        self.bereiche.gewaehlt.connect(self.setze_arbeitsbereich)
+        bt.addWidget(self.bereiche)
+        self.addToolBar(QtCore.Qt.ToolBarArea.TopToolBarArea, bt)
+        self.addToolBarBreak()
         tb = self.addToolBar(tr("Werkzeuge"))
         tb.setObjectName("werkzeuge")
         tb.setMovable(False)

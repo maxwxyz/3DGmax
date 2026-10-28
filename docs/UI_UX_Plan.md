@@ -101,6 +101,11 @@ display only; tolerance zones move to "Tolerieren").
 - Acceptance: at most 3 panels open per workspace by default; compare task in ≤ 4 clicks from the start page;
   CATIA users rate "finds things where expected" ≥ 4/5.
 
+- Done 2026-10-28 (step 2.1): workspace bar (`ui/arbeitsbereiche.py`) with five workspaces (View, Compare & check,
+  Measure & analyse, Tolerancing, Assembly – an output workspace was left out: output has no panel, it lives in
+  File › Export); panels that need a state (changes, scan check) only with that state; a tool of another workspace
+  moves the bar without hiding its panel; a saved window arrangement wins over the workspace at start-up.
+
 **Stage 2 additions (user feedback 2026-10-28, approved for implementation):**
 - **Panel or dialog – one rule:** everything that belongs to the loaded model and is used next to the 3D view is a
   panel (tab in a side area): structure, PMI, views, measure, compare/check, assembly, clashes, tolerance chain, 2D/3D

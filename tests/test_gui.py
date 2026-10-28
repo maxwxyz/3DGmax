@@ -1997,3 +1997,25 @@ def test_kette_ueber_fuegestelle_und_mittelebene(fenster):
     assert [g.faktor for g in k.glieder] == [1.0, 0.5]  # Fuegestelle, halbe Deckeldicke zur Mittelebene
     k.mitte_ende.setChecked(False)
     f.ansicht.setze_auswahl([])
+
+
+def test_arbeitsbereiche(fenster):
+    """Arbeitsbereiche zeigen ihre Seitenleisten; ein Werkzeug aus einem anderen Bereich nimmt die Leiste mit, ohne
+    seine Leiste zu verstecken; Aenderungen nur im Vergleich; der Bereich wird gemerkt."""
+    f = fenster
+    app = QtWidgets.QApplication.instance()
+    sicht = lambda: {n[5:] for n in vars(f) if n.startswith("dock_") and getattr(f, n).isVisible()}  # noqa: E731
+    f.bereiche.zeige("zusammenbau")
+    app.processEvents()
+    assert {"zusammenbau", "kollision", "baum"} <= sicht() and "messen" not in sicht()
+    f.bereiche.zeige("vergleichen")
+    app.processEvents()
+    assert "aenderungen" not in sicht() and "scan" not in sicht()  # ohne Vergleich bzw. Scan nicht leer zeigen
+    f.bereiche.zeige("messen")
+    app.processEvents()
+    assert {"messen", "analyse"} <= sicht() and f.ein.value("arbeitsbereich") == "messen"
+    f.zeige_zusammenbau()  # Werkzeuge › Zusammenbau
+    app.processEvents()
+    assert f.bereiche.schluessel() == "zusammenbau" and "zusammenbau" in sicht()
+    f.bereiche.zeige("ansehen")
+    app.processEvents()

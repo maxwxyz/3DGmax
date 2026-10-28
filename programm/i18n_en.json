@@ -1799,5 +1799,16 @@
 "Die letzten zwei gewählten Flächen bilden eine Mittelebene als Kettenende: halbe Breite mit Faktor 0,5": "The last two selected faces form a median plane as chain end: half the width with factor 0.5",
 "Fügestelle {} (Spiel ±{:g})": "Joint {} (clearance ±{:g})",
 "½ × {}: {} (Mittelebene)": "½ × {}: {} (median plane)",
-"½ × Breite {:.4g} (Mittelebene)": "½ × width {:.4g} (median plane)"
+"½ × Breite {:.4g} (Mittelebene)": "½ × width {:.4g} (median plane)",
+"Arbeitsbereiche": "Workspaces",
+"Ansehen": "View",
+"Vergleichen & Prüfen": "Compare & check",
+"Messen & Analysieren": "Measure & analyse",
+"Tolerieren": "Tolerancing",
+"Modell, PMI und gespeicherte Ansichten lesen": "Read the model, PMI and saved views",
+"Zwei Stände vergleichen und die Änderungen prüfen, Scan gegen Toleranzen prüfen": "Compare two states and review the changes, check a scan against tolerances",
+"Messen, Analysen (Entformung, Krümmung, Wandstärke), Kommentare": "Measure, analyses (draft, curvature, wall thickness), comments",
+"PMI und Toleranzzonen, PMI anlegen, Toleranzkette, Funktion → Tolerierung": "PMI and tolerance zones, create PMI, tolerance chain, function → tolerancing",
+"Teile verbinden, Wiggle, Baugruppenvariation, Kollisionen": "Connect parts, wiggle, assembly variation, clashes",
+"Arbeitsbereich: zeigt die Seitenleisten für diese Aufgabe": "Workspace: shows the side panels for this task"
 }

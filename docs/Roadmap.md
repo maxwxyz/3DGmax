@@ -126,6 +126,7 @@
 | Bill of characteristics with balloon numbers (table column, 3D balloons, CSV, PDF) | ✅ |
 | Datum reference frame display for a selected tolerance | ✅ |
 | Section: contour edges of the parts in the section plane (interactive, saved views, box), from the display mesh | ✅ |
+| UI stage 2: workspaces (panel sets per task) | ✅ |
 | Create PMI with tolerancing advisor (stage 1: rules per selection, own PMI in project) | ✅ |
 | Edit existing PMI (values, fit, material condition; saved in the project) | ✅ |
 | Write edited PMI values back into a copy of the STEP file (lossless, own P21 editing) – PLAN §8.28 stage 1 | ✅ |
