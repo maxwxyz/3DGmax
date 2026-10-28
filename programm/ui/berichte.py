@@ -479,7 +479,7 @@ def messgroessen_pdf(fenster, pfad: str) -> str:
 
 
 SCAN_GEWICHT = {"Nr": 0.5, "PMI": 2.0, "Ergebnis": 1.2, "Istwert": 1.0, "Zulässig": 1.0, "Punkte": 0.8,
-                "Auswertung": 3.2}
+                "Prüfung": 1.0, "Kommentar": 1.6, "Auswertung": 2.6}
 
 
 def scan_pdf(fenster, pfad: str, bilder: bool = True) -> str:
@@ -498,15 +498,21 @@ def scan_pdf(fenster, pfad: str, bilder: bool = True) -> str:
     bericht.absatz(tr("Ergebnis: {} i. O., {} n. i. O., {} am Grenzwert, {} nicht auswertbar · Messunsicherheit ±{} mm "
                       "· Näherung für die Sichtprüfung, keine normgerechte Auswertung nach Messstrategie").format(
         z[sp.OK], z[sp.NOK], z[sp.GRENZ], z[sp.OFFEN], sp.UNSICHERHEIT), 10)
+    pz = fenster.scan.pruef_zaehler()  # Pruefrundgang wie im Vergleich
+    bericht.absatz(tr("Prüfrundgang: {} geprüft, {} abgelehnt, {} offen").format(
+        pz["geprueft"], pz["abgelehnt"], pz["offen"]), 10)
     if bilder:
         with _BreiteAnsicht(fenster):
             fenster.pmi.waehle(lambda p: False)
             bericht.bild(fenster.ansicht.bild_qimage(), 0.45)
     gewicht = [SCAN_GEWICHT.get(s, 1.0) for s in ScanPanel.SPALTEN]
     spalten = [(tr(s), w / sum(gewicht)) for s, w in zip(ScanPanel.SPALTEN, gewicht)]
+    from .vergleich_ui import PRUEF_TEXT
+    pruefung = fenster.scan.pruefung
     zeilen = [[str(e.pmi.nummer), e.pmi.wert_text(), tr(STATUS_TEXT[e.status]),
                "" if e.ist is None else f"{e.ist:.4f}", "" if e.zulaessig is None else f"{e.zulaessig:.4f}",
-               str(e.punkte), e.text] for e in fenster.scan.ergebnisse]
+               str(e.punkte), tr(PRUEF_TEXT[pruefung.get(e.pmi.nummer, ["offen"])[0]]),
+               pruefung.get(e.pmi.nummer, ["", ""])[1], e.text] for e in fenster.scan.ergebnisse]
     bericht.tabelle(spalten, zeilen)
     if bilder:
         for e in [e for e in fenster.scan.ergebnisse if e.status in (sp.NOK, sp.GRENZ)]:

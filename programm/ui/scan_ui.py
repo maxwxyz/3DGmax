@@ -8,6 +8,8 @@ from PySide6 import QtCore, QtGui, QtWidgets
 
 from ..i18n import tr
 from ..kern import scanpruefung as sp
+from .tabellen import aenderbar_machen
+from .vergleich_ui import PRUEF_TEXT
 
 STATUS_TEXT = {sp.OK: "✓ i. O.", sp.NOK: "✗ n. i. O.", sp.GRENZ: "≈ am Grenzwert", sp.OFFEN: "– nicht auswertbar"}
 STATUS_FARBE = {sp.OK: "#1f9d55", sp.NOK: "#d6342c", sp.GRENZ: "#c98a00", sp.OFFEN: "#7a7f87"}
@@ -90,7 +92,8 @@ class ScanPanel(QtWidgets.QWidget):
     manuell = QtCore.Signal()  # Startlage von Hand (Punktpaare)
     bericht = QtCore.Signal()
 
-    SPALTEN = ("Nr", "PMI", "Ergebnis", "Istwert", "Zulässig", "Punkte", "Auswertung")
+    SPALTEN = ("Nr", "PMI", "Ergebnis", "Istwert", "Zulässig", "Punkte", "Prüfung", "Kommentar", "Auswertung")
+    SP_PRUEFUNG, SP_KOMMENTAR = 6, 7
 
     def __init__(self, parent=None):
         super().__init__(parent)
@@ -123,10 +126,41 @@ class ScanPanel(QtWidgets.QWidget):
         self.tabelle.setHorizontalHeaderLabels([tr(s) for s in self.SPALTEN])
         self.tabelle.verticalHeader().setVisible(False)
         self.tabelle.setSelectionBehavior(QtWidgets.QAbstractItemView.SelectionBehavior.SelectRows)
-        self.tabelle.setEditTriggers(QtWidgets.QAbstractItemView.EditTrigger.NoEditTriggers)
         self.tabelle.horizontalHeader().setStretchLastSection(True)
         self.tabelle.itemSelectionChanged.connect(self._auswahl)
+        self.tabelle.itemChanged.connect(self._kommentar)
+        aenderbar_machen(self.tabelle)  # Kommentar: getoent, ein Klick
+        # Pruefrundgang wie beim Modellvergleich: Ergebnis fuer Ergebnis pruefen, Status und Kommentar
+        rundgang = QtWidgets.QHBoxLayout()
+        self.start = QtWidgets.QPushButton(tr("Prüfen starten"))
+        self.start.setObjectName("primaer")
+        self.start.setToolTip(tr("Ergebnisse nacheinander durchgehen: jedes wird im Modell gezeigt und bekommt einen "
+                                 "Prüfstatus (Tasten G und A)"))
+        self.start.clicked.connect(self.pruefen_starten)
+        self.zurueck = QtWidgets.QPushButton("◀")
+        self.zurueck.setToolTip(tr("Vorheriges Ergebnis"))
+        self.geprueft = QtWidgets.QPushButton(tr("Geprüft"))
+        self.geprueft.setToolTip(tr("Gewähltes Ergebnis als geprüft (in Ordnung) markieren und zum nächsten"))
+        self.abgelehnt = QtWidgets.QPushButton(tr("Abgelehnt"))
+        self.abgelehnt.setToolTip(tr("Gewähltes Ergebnis als abgelehnt (nicht in Ordnung) markieren und zum nächsten"))
+        self.offen_knopf = QtWidgets.QPushButton(tr("Offen"))
+        self.offen_knopf.setToolTip(tr("Prüfstatus des gewählten Ergebnisses zurücksetzen"))
+        self.vor = QtWidgets.QPushButton("▶")
+        self.vor.setToolTip(tr("Nächstes Ergebnis"))
+        self.zurueck.clicked.connect(lambda: self.gehe(-1))
+        self.vor.clicked.connect(lambda: self.gehe(+1))
+        self.geprueft.clicked.connect(lambda: self.setze_status("geprueft"))
+        self.abgelehnt.clicked.connect(lambda: self.setze_status("abgelehnt"))
+        self.offen_knopf.clicked.connect(lambda: self.setze_status("offen", weiter=False))
+        for taste, status in (("G", "geprueft"), ("A", "abgelehnt")):
+            QtGui.QShortcut(QtGui.QKeySequence(taste), self.tabelle,
+                            activated=lambda s=status: self.setze_status(s))
+        for k in (self.start, self.zurueck, self.geprueft, self.abgelehnt, self.offen_knopf, self.vor):
+            rundgang.addWidget(k)
+        rundgang.addStretch(1)
+        lay.addLayout(rundgang)
         lay.addWidget(self.tabelle, 1)
+        self.pruefung: dict[int, list] = {}  # PMI-Nummer -> [Status, Kommentar] (bleibt beim Neu-Auswerten)
         hinweis = QtWidgets.QLabel(tr("Näherung für die Sichtprüfung: Formtoleranzen als Spannweite, Achsen und "
                                       "Maße über Ausgleichszylinder; Messunsicherheit ±{} mm.").format(sp.UNSICHERHEIT))
         hinweis.setWordWrap(True)
@@ -170,18 +204,78 @@ class ScanPanel(QtWidgets.QWidget):
 
     def zeige(self, ergebnisse: list, kopf: str):
         self.ergebnisse = list(ergebnisse)
+        if not self.ergebnisse:
+            self.pruefung = {}  # Scan verworfen: neuer Rundgang
         self.kopf.setText(kopf)
+        self.tabelle.blockSignals(True)
         self.tabelle.setRowCount(len(self.ergebnisse))
         for z, e in enumerate(self.ergebnisse):
+            status, kommentar = self.pruefung.get(e.pmi.nummer, ["offen", ""])
             werte = (str(e.pmi.nummer), e.pmi.wert_text(), tr(STATUS_TEXT[e.status]),
                      "" if e.ist is None else f"{e.ist:.4f}", "" if e.zulaessig is None else f"{e.zulaessig:.4f}",
-                     str(e.punkte), e.text)
+                     str(e.punkte), tr(PRUEF_TEXT[status]), kommentar, e.text)
             for s, w in enumerate(werte):
                 it = QtWidgets.QTableWidgetItem(w)
                 if s == 2:
                     it.setForeground(QtGui.QBrush(QtGui.QColor(STATUS_FARBE[e.status])))
+                if s != self.SP_KOMMENTAR:
+                    it.setFlags(it.flags() & ~QtCore.Qt.ItemFlag.ItemIsEditable)
                 self.tabelle.setItem(z, s, it)
+        self.tabelle.blockSignals(False)
         self.tabelle.resizeColumnsToContents()
+        self._knoepfe()
+
+    # --- Pruefrundgang ---
+
+    def _knoepfe(self):
+        da = bool(self.ergebnisse)
+        gewaehlt = len({i.row() for i in self.tabelle.selectedItems()}) == 1
+        for k in (self.start, self.zurueck, self.vor):
+            k.setEnabled(da)
+        for k in (self.geprueft, self.abgelehnt, self.offen_knopf):
+            k.setEnabled(gewaehlt)
+
+    def gewaehlte_zeile(self) -> int | None:
+        zeilen = {i.row() for i in self.tabelle.selectedItems()}
+        return zeilen.pop() if len(zeilen) == 1 else None
+
+    def pruefen_starten(self):
+        offen = [z for z, e in enumerate(self.ergebnisse) if self.pruefung.get(e.pmi.nummer, ["offen"])[0] == "offen"]
+        if self.ergebnisse:
+            self.tabelle.selectRow(offen[0] if offen else 0)
+            self.tabelle.setFocus()
+
+    def gehe(self, schritt: int):
+        if not self.ergebnisse:
+            return
+        z = self.gewaehlte_zeile()
+        z = -1 if z is None and schritt > 0 else (len(self.ergebnisse) if z is None else z)
+        self.tabelle.selectRow((z + schritt) % len(self.ergebnisse))
+
+    def setze_status(self, status: str, weiter: bool = True):
+        z = self.gewaehlte_zeile()
+        if z is None:
+            return
+        nr = self.ergebnisse[z].pmi.nummer
+        eintrag = self.pruefung.setdefault(nr, ["offen", ""])
+        eintrag[0] = status
+        self.tabelle.blockSignals(True)
+        self.tabelle.item(z, self.SP_PRUEFUNG).setText(tr(PRUEF_TEXT[status]))
+        self.tabelle.blockSignals(False)
+        offen = [i for i, e in enumerate(self.ergebnisse) if self.pruefung.get(e.pmi.nummer, ["offen"])[0] == "offen"]
+        if weiter and offen:
+            self.tabelle.selectRow(next((i for i in offen if i > z), offen[0]))
+
+    def _kommentar(self, it):
+        if it.column() != self.SP_KOMMENTAR or it.row() >= len(self.ergebnisse):
+            return
+        self.pruefung.setdefault(self.ergebnisse[it.row()].pmi.nummer, ["offen", ""])[1] = it.text().strip()
+
+    def pruef_zaehler(self) -> dict:
+        out = {"geprueft": 0, "abgelehnt": 0, "offen": 0}
+        for e in self.ergebnisse:
+            out[self.pruefung.get(e.pmi.nummer, ["offen"])[0]] += 1
+        return out
 
     def zaehler(self) -> dict:
         out = {k: 0 for k in STATUS_TEXT}
@@ -191,6 +285,7 @@ class ScanPanel(QtWidgets.QWidget):
 
     def _auswahl(self):
         zeilen = {i.row() for i in self.tabelle.selectedItems()}
+        self._knoepfe()
         if len(zeilen) == 1:
             self.gewaehlt.emit(self.ergebnisse[zeilen.pop()].pmi)
 
@@ -202,8 +297,9 @@ class ScanPanel(QtWidgets.QWidget):
         w.writerow([tr(s) for s in self.SPALTEN])
         for e in self.ergebnisse:
             zahl = (lambda x: "" if x is None else f"{x:.4f}".replace(".", ","))
+            status, kommentar = self.pruefung.get(e.pmi.nummer, ["offen", ""])
             w.writerow([e.pmi.nummer, e.pmi.wert_text(), tr(STATUS_TEXT[e.status]), zahl(e.ist), zahl(e.zulaessig),
-                        e.punkte, e.text])
+                        e.punkte, tr(PRUEF_TEXT[status]), kommentar, e.text])
         return puffer.getvalue()
 
     def speichere_csv(self, pfad: str = "") -> bool:

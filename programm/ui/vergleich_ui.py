@@ -616,6 +616,13 @@ MODI = (("vergleich", "Vergleich", "Neuer Stand nach Status gefärbt, entfernte 
         ("ueberlagern", "Überlagern", "Neuer Stand, darüber der alte durchscheinend"),
         ("nebeneinander", "Nebeneinander", "Links alt, rechts neu, Kameras gekoppelt"),
         ("blinken", "Blinken", "Wechselt zwischen alt und neu; Leertaste wechselt von Hand"))
+# Scanpruefung als Vergleich Soll (CAD) <-> Ist (Scan): dieselbe Leiste mit diesen Modi
+SCAN_MODI = (("vergleich", "Vergleich", "Scan mit Abweichungs-Farbkarte, darüber das CAD-Modell durchscheinend"),
+             ("soll", "Soll", "Nur das CAD-Modell"),
+             ("ist", "Ist", "Nur der Scan mit Farbkarte"),
+             ("nebeneinander", "Nebeneinander", "Links Soll (CAD-Modell), rechts Ist (Scan mit Farbkarte), Kameras "
+                                                "gekoppelt"),
+             ("blinken", "Blinken", "Wechselt zwischen Soll und Ist; Leertaste wechselt von Hand"))
 BLINK_TAKTE = ((300, "0,3 s"), (600, "0,6 s"), (1000, "1 s"), (2000, "2 s"))
 
 
@@ -627,15 +634,16 @@ class VergleichsmodusLeiste(QtWidgets.QFrame):
     takt = QtCore.Signal(int)  # ms
     pause = QtCore.Signal(bool)
 
-    def __init__(self, parent=None):
+    def __init__(self, parent=None, modi=MODI, hervor: bool = True, staende=("alt", "neu")):
         super().__init__(parent)
         self.setObjectName("vergleichsmodus")
+        self._staende = staende  # Beschriftung beim Blinken (erster: alter Stand bzw. Soll)
         reihe = QtWidgets.QHBoxLayout(self)
         reihe.setContentsMargins(8, 3, 8, 3)
         reihe.addWidget(QtWidgets.QLabel(tr("Ansicht:")))
         self.gruppe = QtWidgets.QButtonGroup(self)
         self.knoepfe = {}
-        for i, (schluessel, text, tipp) in enumerate(MODI, 1):
+        for i, (schluessel, text, tipp) in enumerate(modi, 1):
             k = QtWidgets.QToolButton()
             k.setText(tr(text))
             k.setCheckable(True)
@@ -653,6 +661,7 @@ class VergleichsmodusLeiste(QtWidgets.QFrame):
         self.hervor.setToolTip(tr("In Alt, Neu, Nebeneinander und Blinken geänderte Flächen und PMI farbig zeigen"))
         self.hervor.toggled.connect(self.hervorheben.emit)
         reihe.addWidget(self.hervor)
+        self.hervor.setVisible(hervor)
         self.blink = QtWidgets.QWidget()
         b = QtWidgets.QHBoxLayout(self.blink)
         b.setContentsMargins(12, 0, 0, 0)
@@ -686,4 +695,4 @@ class VergleichsmodusLeiste(QtWidgets.QFrame):
         self.blink.setVisible(modus == "blinken")
 
     def zeige_stand(self, alt: bool | None):
-        self.stand.setText("" if alt is None else tr("alt") if alt else tr("neu"))
+        self.stand.setText("" if alt is None else tr(self._staende[0]) if alt else tr(self._staende[1]))
