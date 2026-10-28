@@ -59,7 +59,8 @@
    "Geführte Abläufe für Einsteiger (Hilfe › Geführt bzw. Startseite): „Scan prüfen“ und „Spalt messen“ Schritt für Schritt – jeder Schritt mit Erklärung und Knopf, erledigte Schritte werden automatisch abgehakt.",
    "Einheitliche Panels: leere Tabellen sagen, was zu tun ist; je Panel ist der Hauptknopf hervorgehoben.",
    "Werkstoffe in Ketten von Hand: ein Werkstoff für die ganze Kette, je Glied überschreibbar (1D: Werkstoffe …, 2D/3D: Spalte bzw. Feld je Glied); 2D- und 3D-Ketten rechnen die Wärmeausdehnung bei zwei Grenztemperaturen (Längen und Verschiebungen wachsen, Winkel bleiben) und geben Werkstoffe und Temperaturen an die 1D-Kette weiter.",
-   "Toleranzkette (1D, 2D, 3D) besser lesbar: Spalten so breit wie Überschrift, Text und Auswahl- bzw. Zahlenfelder (nichts mehr abgeschnitten oder gequetscht), Gliednamen einzeilig, Zahlen rechtsbündig, gekürzte Texte ganz im Tooltip; von Hand gezogene Spaltenbreiten bleiben."
+   "Toleranzkette (1D, 2D, 3D) besser lesbar: Spalten so breit wie Überschrift, Text und Auswahl- bzw. Zahlenfelder (nichts mehr abgeschnitten oder gequetscht), Gliednamen einzeilig, Zahlen rechtsbündig, gekürzte Texte ganz im Tooltip; von Hand gezogene Spaltenbreiten bleiben.",
+   "Einheitliche Bedienelemente in der ganzen Oberfläche: Knöpfe, Menüknöpfe, Auswahllisten, Zahlen- und Eingabefelder überall gleich hoch und gleich gerahmt (auch bei 90–150 % Oberflächengröße), Zahlenfelder mit eigenen Pfeilen, Menüpfeile einheitlich, Formularbeschriftungen mittig zu ihrem Feld, Abspielen-Symbol auch im dunklen Schema sichtbar. 3D-Kette: keine Überlagerung mehr hinter den Feldern des Editors; Werkstofffelder nicht mehr abgeschnitten."
   ],
   "en": [
    "Assembly: drag parts in 3D with the left mouse button (classic navigation: with Alt) – only along the open degrees of freedom; close to a matching plane or axis the part snaps live (faces highlighted), releasing creates the connection; the 3D handle snaps the same way.",
@@ -120,7 +121,8 @@
    "Guided flows for beginners (Help › Guided or the start page): “Check a scan” and “Measure a gap” step by step – each step with an explanation and a button, finished steps are ticked automatically.",
    "Unified panels: empty tables say what to do; each panel highlights its main button.",
    "Materials in hand-built chains: one material for the whole chain, overridable per link (1D: Materials …, 2D/3D: column or field per link); 2D and 3D chains compute thermal expansion at two limit temperatures (lengths and translations grow, angles stay) and pass materials and temperatures on to the 1D chain.",
-   "Tolerance stack-up (1D, 2D, 3D) easier to read: columns as wide as header, text and the drop-down or number fields (nothing cut off or squashed any more), link names on one line, numbers right-aligned, shortened texts in full in the tooltip; column widths dragged by hand are kept."
+   "Tolerance stack-up (1D, 2D, 3D) easier to read: columns as wide as header, text and the drop-down or number fields (nothing cut off or squashed any more), link names on one line, numbers right-aligned, shortened texts in full in the tooltip; column widths dragged by hand are kept.",
+   "Consistent controls across the whole interface: buttons, menu buttons, drop-downs, number and text fields have the same height and frame everywhere (also at 90–150 % interface size), number fields with matching arrows, uniform menu arrows, form labels centred on their field, play icon visible in the dark scheme. 3D chain: no more overlay behind the editor fields; material fields no longer cut off."
   ]
  },
  "releases": [

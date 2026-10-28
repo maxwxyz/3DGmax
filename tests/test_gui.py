@@ -1812,6 +1812,27 @@ def test_tooltips_vollstaendig(fenster):
     assert not {n: f for n, f in funde.items() if f}
 
 
+def test_bedienelemente_gleich_hoch(fenster):
+    """Knoepfe, Menueknoepfe, Auswahllisten, Zahlen- und Eingabefelder sind im Hauptfenster, in allen Leisten und
+    Dialogen gleich hoch (werkzeuge/hoehen.py, Hoehe aus ui/thema); Formularbeschriftungen mittig zu ihrem Feld."""
+    sys.path.insert(0, os.path.join(WURZEL, "werkzeuge"))
+    import hoehen
+    import tooltips
+    from programm.ui import thema
+    soll = thema.bedien_hoehe()
+    funde = {name: hoehen.abweichend(w, soll) for name, w in [("Hauptfenster", fenster)] + list(tooltips.dialoge(fenster))}
+    assert not {n: f for n, f in funde.items() if f}
+    from programm.ui.vergleich_ui import VergleichDialog
+    d = VergleichDialog(fenster)
+    d.show()
+    QtWidgets.QApplication.processEvents()
+    form = d.layout()
+    beschriftung = form.itemAt(0, QtWidgets.QFormLayout.ItemRole.LabelRole).widget()
+    feld = form.itemAt(0, QtWidgets.QFormLayout.ItemRole.FieldRole)
+    assert abs(beschriftung.geometry().center().y() - feld.geometry().center().y()) <= 1
+    d.close()
+
+
 def test_funktion_zur_tolerierung(fenster):
     """Rollen im Fenster vergeben: Bezugssystem vorschlagen und die Tolerierung als eigene PMI uebernehmen."""
     from programm.kern import funktion as fu
@@ -2044,7 +2065,7 @@ def _spalten_lesbar(t):
         for z in range(t.rowCount()):
             if (w := t.cellWidget(z, s)) is not None:
                 assert breite >= min(w.sizeHint().width(), w.maximumWidth()), (s, z, "Feld", breite)
-                assert t.rowHeight(z) >= w.sizeHint().height(), (s, z, "Zeilenhoehe")
+                assert t.rowHeight(z) >= w.sizeHint().boundedTo(w.maximumSize()).height(), (s, z, "Zeilenhoehe")
 
 
 def test_kettentabellen_lesbar(fenster):

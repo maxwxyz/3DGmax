@@ -10,6 +10,7 @@ from PySide6 import QtCore, QtGui, QtWidgets
 
 from ..i18n import tr
 from ..kern import toleranzkette as tk
+from . import thema
 from .fluss import FlussLayout
 from .tabellen import AENDERBAR_FARBE, inhalt_breite, leer_hinweis, spalten_anpassen  # getoent: aenderbare Zellen
 from .werkstoff_wahl import werkstoff_feld, werkstoff_wert
@@ -639,7 +640,7 @@ class ToleranzketteFenster(QtWidgets.QDialog):
                                   "Lagetoleranzen violett, Längenbereiche orange, Schlussmaß blau; im Planspiel "
                                   "geänderte Glieder zusätzlich grau mit dem Ist-Wert"))
         self.bild3d.toggled.connect(lambda _an: self._bild_senden())
-        self.wiggle = QtWidgets.QPushButton()  # nur Symbol: Abspielen / Anhalten
+        self.wiggle = thema.nur_symbol(QtWidgets.QPushButton())  # nur Symbol: Abspielen / Anhalten
         self.wiggle.setCheckable(True)
         self._wiggle_symbol(False)
         self.wiggle.toggled.connect(self._wiggle_symbol)
@@ -737,7 +738,7 @@ class ToleranzketteFenster(QtWidgets.QDialog):
         return leiste
 
     def _baue_anforderung(self):
-        reihe = QtWidgets.QHBoxLayout()
+        reihe = FlussLayout()  # bricht bei schmalem Fenster um
         self.anforderung = QtWidgets.QCheckBox(tr("Anforderung an das Schlussmaß"))
         self.anforderung.setToolTip(tr("Grenzen des Schlussmaßes (z. B. Spalt): Cp, Cpk und Anteil außerhalb"))
         self.unten, self.oben = QtWidgets.QDoubleSpinBox(), QtWidgets.QDoubleSpinBox()
@@ -751,10 +752,7 @@ class ToleranzketteFenster(QtWidgets.QDialog):
             k.valueChanged.connect(self._rechne)
         self.anforderung.toggled.connect(self._anforderung_an)
         reihe.addWidget(self.anforderung)
-        reihe.addWidget(self.unten)
-        reihe.addWidget(QtWidgets.QLabel("…"))
-        reihe.addWidget(self.oben)
-        reihe.addStretch(1)
+        reihe.addWidget(_paar(self.unten, QtWidgets.QLabel("…"), self.oben))
         return reihe
 
     def _ergebnis_hoehe(self):
@@ -909,7 +907,7 @@ class ToleranzketteFenster(QtWidgets.QDialog):
                                      if a == art else QtGui.QBrush())
 
     def _baue_temperatur(self):
-        reihe = QtWidgets.QHBoxLayout()
+        reihe = FlussLayout()  # bricht bei schmalem Fenster um
         self.waerme = QtWidgets.QCheckBox(tr("Wärmeausdehnung bei"))
         self.waerme.setToolTip(tr("Schlussmaß zusätzlich bei zwei Grenztemperaturen: ΔL = α · L · (T − 20 °C) je "
                                   "Glied mit seinem Werkstoff (eigener, sonst der seines Bauteils, sonst der der "
@@ -930,11 +928,8 @@ class ToleranzketteFenster(QtWidgets.QDialog):
                                            "Glied"))
         self.werkstoff_knopf.clicked.connect(lambda: WerkstoffDialog(self, self).open())
         reihe.addWidget(self.waerme)
-        reihe.addWidget(self.t1)
-        reihe.addWidget(QtWidgets.QLabel(tr("und")))
-        reihe.addWidget(self.t2)
+        reihe.addWidget(_paar(self.t1, QtWidgets.QLabel(tr("und")), self.t2))
         reihe.addWidget(self.werkstoff_knopf)
-        reihe.addStretch(1)
         return reihe
 
     def _methode_gewaehlt(self, *_):
@@ -1206,8 +1201,7 @@ class ToleranzketteFenster(QtWidgets.QDialog):
 
     def _wiggle_symbol(self, an: bool):
         """Abspielen- bzw. Anhalten-Symbol ohne Text; der Tooltip sagt, was ein Klick tut."""
-        bild = QtWidgets.QStyle.StandardPixmap.SP_MediaPause if an else QtWidgets.QStyle.StandardPixmap.SP_MediaPlay
-        self.wiggle.setIcon(self.style().standardIcon(bild))
+        self.wiggle.setIcon(thema.symbol("anhalten" if an else "abspielen"))
         self.wiggle.setToolTip(tr("Wiggle der Schlussflächen anhalten") if an else
                                tr("Wiggle der Schlussflächen: die Endfläche der Kette pendelt zwischen Worst-Case-"
                                   "Minimum und -Maximum (überhöht), grün in der Anforderung, rot außerhalb"))

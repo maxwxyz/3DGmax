@@ -77,6 +77,20 @@ def inhalt_hoehe() -> int:
     return max(QtGui.QFontMetrics(schrift).height(), 16)
 
 
+SYMBOLE = {"abspielen": '<path d="M5 3.5 L12.5 8 L5 12.5 Z" fill="{f}"/>',
+           "anhalten": '<path d="M4.5 3.5 h2.5 v9 h-2.5 Z M9 3.5 h2.5 v9 h-2.5 Z" fill="{f}"/>'}
+
+
+def symbol(name: str) -> QtGui.QIcon:
+    """Kleines Symbol (16 px, SVG) in der Textfarbe des Themas - Qts Standardsymbole sind im Dunklen schwarz."""
+    from PySide6 import QtCore
+    svg = ('<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 16 16">' +
+           SYMBOLE[name].replace("{f}", AKTUELL["text"]) + "</svg>").encode()
+    bild = QtGui.QPixmap()
+    bild.loadFromData(QtCore.QByteArray(svg), "SVG")
+    return QtGui.QIcon(bild)
+
+
 def bedien_hoehe() -> int:
     """Gemeinsame Hoehe der Bedienelemente (Inhalt + 2 x 4 px Innenabstand + 2 x 1 px Rahmen)."""
     return inhalt_hoehe() + 10
@@ -113,10 +127,15 @@ QToolButton[popupMode="2"] {{ padding-right: 24px; }}
 QToolButton::menu-indicator {{ image: url({pfeil}); subcontrol-origin: padding; subcontrol-position: center right;
     width: 12px; height: 12px; right: 6px; }}
 QToolButton::menu-indicator:disabled {{ image: url({pfeil_aus}); }}
+QToolButton[popupMode="1"] {{ padding-right: 26px; }}
+QToolButton::menu-button {{ border: none; border-left: 1px solid {t['rand2']}; width: 20px; }}
+QToolBar QToolButton::menu-button {{ border-left: 1px solid {t['rand']}; }}
+QToolButton::menu-arrow {{ image: url({pfeil}); width: 12px; height: 12px; }}
+QToolButton::menu-arrow:disabled {{ image: url({pfeil_aus}); }}
 QToolBar QToolButton {{ background: transparent; border: 1px solid transparent; padding: 4px 8px; }}
 QToolBar QToolButton:hover {{ background: {t['hover']}; }}
 QToolBar QToolButton:checked {{ background: {t['wahl']}; border: 1px solid transparent; font-weight: normal; }}
-QTabBar QToolButton {{ background: transparent; border: none; padding: 2px; min-height: 0px; max-height: 16777215px; }}
+QTabBar QToolButton {{ background: transparent; border: none; padding: 2px; min-height: 0px; max-height: 9999px; }}
 QDockWidget {{ color: {t['text']}; }}
 QDockWidget::title {{ background: {t['fenster']}; padding: 7px 10px 5px 10px; font-weight: 600; color: {t['text2']}; }}
 QMainWindow::separator {{ background: {t['rand']}; width: 5px; height: 5px; }}
@@ -170,13 +189,16 @@ QLineEdit {{ background: {t['eingabe']}; color: {t['eingabe_text']}; border: 1px
     border-radius: 6px; padding: 4px 8px; selection-background-color: {t['akzent']}; }}
 QLineEdit:focus {{ border: 1px solid {t['akzent']}; }}
 QComboBox QLineEdit, QAbstractSpinBox QLineEdit {{ background: transparent; border: none; border-radius: 0px;
-    padding: 0px; min-height: 0px; max-height: 16777215px; }}
+    padding: 0px; min-height: 0px; max-height: 9999px; }}
 QPushButton {{ background: {t['flaeche']}; color: {t['text']}; border: 1px solid {t['rand2']}; border-radius: 6px; padding: 4px 12px; }}
 QPushButton:hover {{ background: {t['hover']}; }}
 QPushButton:disabled {{ color: {t['aus']}; }}
 QPushButton:checked {{ background: {t['wahl']}; color: {t['akzent']}; border: 1px solid {t['akzent']}; font-weight: 600; }}
 QPushButton#primaer {{ background: {t['akzent']}; border-color: {t['akzent']}; color: white; font-weight: 600; }}
 QPushButton#primaer:hover {{ background: {t['akzent_hover']}; }}
+QPushButton::menu-indicator {{ image: url({pfeil}); subcontrol-origin: padding; subcontrol-position: center right;
+    width: 12px; height: 12px; }}
+QPushButton::menu-indicator:disabled {{ image: url({pfeil_aus}); }}
 QPushButton[symbol="true"], QToolButton[symbol="true"] {{ padding: 4px; min-width: {h}px; max-width: {h}px; }}
 QLabel {{ color: {t['text']}; }}
 QLabel#leise {{ color: {t['leise']}; }}
@@ -224,13 +246,37 @@ def system_dunkel() -> bool:
         return False
 
 
+class _Stil(QtWidgets.QProxyStyle):
+    """Fusion mit Beschriftungen in Formularen mittig zur Zeile: Qt setzt sie oben in eine Zeile von hoechstens 7/4
+    Schrifthoehe, neben den gemeinsam hohen Feldern sassen sie dadurch hoeher als deren Text."""
+
+    def styleHint(self, hinweis, option=None, widget=None, rueckgabe=None):  # noqa: N802 - Qt
+        if hinweis == QtWidgets.QStyle.StyleHint.SH_FormLayoutLabelAlignment:
+            from PySide6 import QtCore
+            return int(QtCore.Qt.AlignmentFlag.AlignLeft | QtCore.Qt.AlignmentFlag.AlignVCenter)
+        return super().styleHint(hinweis, option, widget, rueckgabe)
+
+    def polish(self, w):  # noqa: D102 - Qt
+        super().polish(w)
+        if isinstance(w, QtWidgets.QLabel) and _formular_beschriftung(w):
+            w.setMinimumHeight(bedien_hoehe())
+
+
+def _formular_beschriftung(label: QtWidgets.QLabel) -> bool:
+    eltern = label.parentWidget()
+    if eltern is None:
+        return False
+    rolle = QtWidgets.QFormLayout.ItemRole.LabelRole
+    return any(f.getWidgetPosition(label)[1] == rolle for f in eltern.findChildren(QtWidgets.QFormLayout))
+
+
 def wende_an(app: QtWidgets.QApplication, name: str) -> dict:
     """name: hell, dunkel oder auto (wie das System)."""
     if name not in THEMEN:
         name = "dunkel" if system_dunkel() else "hell"
     AKTUELL.clear()
     AKTUELL.update(THEMEN[name])
-    app.setStyle("Fusion")
+    app.setStyle(_Stil("Fusion"))
     app.setPalette(palette(AKTUELL))
     app.setStyleSheet(qss(AKTUELL))
     return AKTUELL

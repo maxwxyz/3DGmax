@@ -181,6 +181,12 @@ Done in this local session (commit):
   `zahlen_rechts`, `zeilen_hoehe`, `inhalt_breite`; used in 1D chain (links, results, scenarios, materials dialog),
   2D segment table, 3D editor. Test `test_gui.py::test_kettentabellen_lesbar`; on-screen screenshots at 90/100/150 %
   and as wide/low panel compared before/after. Other panels (assembly, function, collisions) could adopt the helper.
+  Extended on request (user reports via the main session): material fields cut off (size hints taken before the
+  stylesheet was polished, editable combos sized too small → `_feld_groesse`), 3D editor overlay (18 new spin boxes
+  per selection lay over the old ones + cell selection drawn behind → fields built once, NoSelection/NoFocus), and
+  one control height in the whole UI (`thema.bedien_hoehe`, spin boxes/tool buttons/menu arrows styled, form label
+  proxy style, `werkzeuge/hoehen.py`, `test_bedienelemente_gleich_hoch`). Merged origin/main (materials) first.
+  Screenshots before/after (100/150 %) in the session scratchpad, not in the repo.
 
 **Deferred questions for the user** (do not block on them):
 - UI/UX stage 2 (workspaces) changes the layout a lot – implement only after you have read `docs/UI_UX_Plan.md`?

@@ -71,8 +71,19 @@ def textbreite_hoechst(tabelle: QtWidgets.QAbstractItemView) -> int:
     return 48 * tabelle.fontMetrics().averageCharWidth()
 
 
-def _feld_breite(w: QtWidgets.QWidget) -> int:
-    return min(w.sizeHint().width(), w.maximumWidth())
+def _feld_groesse(w: QtWidgets.QWidget) -> QtCore.QSize:
+    """Groesse, die das Feld braucht - mit Stylesheet (vor dem ersten Zeigen ist es noch nicht angewandt, dann waere
+    der Innenabstand nicht eingerechnet und der Text vorn abgeschnitten)."""
+    w.ensurePolished()
+    groesse = w.sizeHint()
+    if isinstance(w, QtWidgets.QComboBox) and w.isEditable():  # Qt rechnet den Innenabstand hier zu knapp
+        opt = QtWidgets.QStyleOptionComboBox()
+        w.initStyleOption(opt)
+        feld = w.style().subControlRect(QtWidgets.QStyle.ComplexControl.CC_ComboBox, opt,
+                                        QtWidgets.QStyle.SubControl.SC_ComboBoxEditField, w)
+        text = max((w.fontMetrics().horizontalAdvance(w.itemText(i)) for i in range(w.count())), default=0)
+        groesse.setWidth(max(groesse.width(), text + w.width() - feld.width() + 8))
+    return groesse.boundedTo(w.maximumSize())
 
 
 def spalten_anpassen(tabelle: QtWidgets.QTableWidget, hoechst: int | None = None):
@@ -101,8 +112,14 @@ def spalten_anpassen(tabelle: QtWidgets.QTableWidget, hoechst: int | None = None
                 continue
             felder = [w for z in range(tabelle.rowCount()) if (w := tabelle.cellWidget(z, s)) is not None]
             breite = max([kopf.sectionSizeHint(s), min(tabelle.sizeHintForColumn(s), hoechst)] +
-                         [_feld_breite(w) + 2 for w in felder])
+                         [_feld_groesse(w).width() + 2 for w in felder])
             tabelle.setColumnWidth(s, tabelle._eigene_breiten.get(s, breite))
+            for w in felder:
+                # Fokus nur per Klick: sonst springt der Fokus beim Oeffnen des Fensters in ein Zellfeld und die
+                # Tabelle rollt seitlich weg
+                w.setFocusPolicy(QtCore.Qt.FocusPolicy.ClickFocus)
+                if isinstance(w, QtWidgets.QComboBox) and w.lineEdit() is not None:  # vorn nicht abgeschnitten
+                    w.lineEdit().setCursorPosition(0)
     finally:
         tabelle._passt_an = False
     zeilen_hoehe(tabelle)
@@ -142,7 +159,7 @@ def _gekuerzt_im_tooltip(tabelle: QtWidgets.QTableWidget):
 def zeilen_hoehe(tabelle: QtWidgets.QTableWidget) -> int:
     """Zeilen so hoch wie das hoechste Feld in einer Zelle (mindestens Schrift plus Luft); gibt die Hoehe zurueck."""
     hoehe = max([tabelle.fontMetrics().height() + 12] +
-                [w.sizeHint().height() for z in range(tabelle.rowCount()) for s in range(tabelle.columnCount())
+                [_feld_groesse(w).height() for z in range(tabelle.rowCount()) for s in range(tabelle.columnCount())
                  if (w := tabelle.cellWidget(z, s)) is not None])
     tabelle.verticalHeader().setDefaultSectionSize(hoehe)
     for z in range(tabelle.rowCount()):
