@@ -341,8 +341,8 @@ graphics only, 8.19 QIF graphics, 8.20 3D tolerance analysis,
    (`7692a6a`), datum shift in the assembly variation (merge `e5ac96e`), readable chain tables and one control height
    in the whole UI (merge `56da1be`). Full suite 336 passed + 6 on-screen tests green on `56da1be`; a local build
    (`packaging/build_mac.sh --ohne-tests`) was made for the user's review of UI stage 3.
-   Waiting on the user: review of UI stage 3 on screen (the user decides when it is accepted). UI stage 3 acceptance
-   test with users (≥ 80 %) not run.
+   UI stage 3 accepted by the user on screen (2026-10-28); GitHub build "Apps bauen" (all platforms, tests, JT)
+   started as run 40765527578. Acceptance test with users (≥ 80 %) not run.
    Next after the review, in this order: the roadmap topics around chains/assembly (traffic light everywhere,
    2D/3D chains from the model, automatic 3D analysis, assemblies built in the project, advisor stage 2, overlap check
    per saved view), then formats, performance/gears (gear data sheet, PLAN §8.27), then item 8 DXF dimension entities,

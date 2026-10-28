@@ -181,7 +181,8 @@ display only; tolerance zones move to "Tolerieren").
   without a jump, a drag along the band rolls by the swept angle, a drag in the centre orbits as today.
 
 **Stage 3 – inspector and guidance:** context inspector for the selection (face/part/PMI: properties and actions),
-guided flows for scan check and assembly variation, unified panel layout everywhere – done 2026-10-28:
+guided flows for scan check and assembly variation, unified panel layout everywhere – done 2026-10-28, accepted by
+the user on screen the same day (local build of `d97e01c`):
 - Inspector panel (`ui/inspektor.py`, in every workspace, tabbed with "Ansichten"): title, property table and the
   actions that fit the selection (zoom, edit, chain, section …) as buttons that follow the action state.
 - Guided flows (`ui/fuehrung.py`, Help › Guided and start page): "Scan prüfen" (5 steps) and "Spalt messen" (6 steps);
