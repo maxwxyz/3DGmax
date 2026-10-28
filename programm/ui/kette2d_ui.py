@@ -11,6 +11,7 @@ from PySide6 import QtCore, QtGui, QtWidgets
 from ..i18n import tr
 from ..kern import kette2d as k2
 from ..kern import toleranzkette as tk
+from .tabellen import spalten_anpassen
 from .werkstoff_wahl import WaermeZeile, werkstoff_feld, werkstoff_wert
 
 SPALTEN = (("Name", "Bezeichnung des Segments (z. B. Bauteil oder Maß)"),
@@ -124,10 +125,6 @@ class Kette2DFenster(QtWidgets.QDialog):
             self.tabelle.horizontalHeaderItem(i).setToolTip(tr(hilfe))
         self.tabelle.verticalHeader().setVisible(False)
         self.tabelle.setSelectionBehavior(QtWidgets.QAbstractItemView.SelectionBehavior.SelectRows)
-        self.tabelle.horizontalHeader().setSectionResizeMode(QtWidgets.QHeaderView.ResizeMode.ResizeToContents)
-        self.tabelle.horizontalHeader().setSectionResizeMode(0, QtWidgets.QHeaderView.ResizeMode.Interactive)
-        self.tabelle.setColumnWidth(0, 130)
-        self.tabelle.horizontalHeader().setStretchLastSection(True)
         self.tabelle.itemChanged.connect(self._name_geaendert)
         mitte.addWidget(self.tabelle, 5)
         self.skizze = Skizze()
@@ -217,6 +214,9 @@ class Kette2DFenster(QtWidgets.QDialog):
     def _name_geaendert(self, it):
         if it.column() == 0 and it.row() < len(self.kette.segmente):
             self.kette.segmente[it.row()].name = it.text()
+            self.tabelle.blockSignals(True)
+            spalten_anpassen(self.tabelle)  # laengerer Name: Spalte waechst mit
+            self.tabelle.blockSignals(False)
             self.skizze.update()
 
     def _feld(self, s: k2.Segment, attr: str, lo: float, hi: float, dez: int, einheit: str, hilfe: str):
@@ -226,7 +226,6 @@ class Kette2DFenster(QtWidgets.QDialog):
         w.setSuffix(einheit)
         w.setValue(getattr(s, attr))
         w.setToolTip(tr(hilfe))
-        w.setMaximumWidth(120)
         w.valueChanged.connect(lambda v, s=s, attr=attr: (setattr(s, attr, v), self._rechne()))
         return w
 
@@ -257,6 +256,7 @@ class Kette2DFenster(QtWidgets.QDialog):
             stoff.currentTextChanged.connect(lambda _t, s=s, f=stoff: (setattr(s, "werkstoff", werkstoff_wert(f)),
                                                                        self._rechne()))
             t.setCellWidget(z, SP_WERKSTOFF, stoff)
+        spalten_anpassen(t)
         t.blockSignals(False)
         self.waerme.setze(self.kette.werkstoff, self.kette.temperaturen)
         self.schluss.blockSignals(True)

@@ -194,6 +194,24 @@ guided flows for scan check and assembly variation, unified panel layout everywh
   "Messgrößen": remove / as 3D chain / PDF moved to a bottom row). The chain windows get their table layout and the
   whole UI one control height from the readability/consistency work. Acceptance test with users (≥ 80 %) not run.
 - Acceptance: first-use success ≥ 80 % for laypeople on "check a scan" and "measure a gap" with the example data.
+- Readable tables (user report 2026-10-28, stack-up windows): `tabellen.spalten_anpassen` sizes every column from
+  header, text (capped at ~48 characters, the rest elided with the full text in the tooltip) and the cell widgets'
+  size hint – `ResizeToContents` alone measures only item text, so combo boxes and spin boxes were squashed. Rows as
+  high as the tallest cell widget, text on one line, numbers and number fields right-aligned, per-pixel horizontal
+  scrolling, columns dragged by hand kept. Used in the 1D chain (links, results, scenarios, materials), the 2D segment
+  table and the 3D component editor; test `test_gui.py::test_kettentabellen_lesbar`. Checked on screen at 90/100/150 %
+  and as a wide, low bottom panel. Other panels can adopt the helper the same way.
+- One control height everywhere (user reports 2026-10-28: "alles ist unterschiedlich groß … überall im gesamten
+  UI"): `thema.bedien_hoehe()` = font height (≥ 16 px icon) + 2 × 4 px padding + 2 × 1 px border, applied in the
+  stylesheet as min/max height to QPushButton, QToolButton, QComboBox, QAbstractSpinBox and QLineEdit; spin boxes
+  styled like combo boxes (own arrows), tool buttons framed like push buttons outside the toolbar, menu arrows
+  (InstantPopup, MenuButtonPopup, push button menus) one SVG arrow, inner line edits of combos/spin boxes unstyled,
+  icon-only buttons square (`thema.nur_symbol`), theme-coloured play/pause icons (`thema.symbol`). A proxy style
+  centres form labels on their field (Qt top-aligns them in a row of at most 7/4 text height). Logical pixels, so
+  90–150 % interface size scales it. Exceptions: tab bar scroll buttons. Check: `werkzeuge/hoehen.py` and
+  `test_gui.py::test_bedienelemente_gleich_hoch` (main window, all docks and dialogs). Chain windows: requirement and
+  thermal rows wrap (flow layout) so the panel still shrinks; 3D editor keeps its 18 fields (new fields per selection
+  lay over the old ones until Qt deleted them).
 
 ## 6. Usability test protocol (local)
 - Participants: 2 CATIA designers, 1 3DCS user, 1 metrology staff, 2 students; 30 min each, think aloud.

@@ -1812,6 +1812,27 @@ def test_tooltips_vollstaendig(fenster):
     assert not {n: f for n, f in funde.items() if f}
 
 
+def test_bedienelemente_gleich_hoch(fenster):
+    """Knoepfe, Menueknoepfe, Auswahllisten, Zahlen- und Eingabefelder sind im Hauptfenster, in allen Leisten und
+    Dialogen gleich hoch (werkzeuge/hoehen.py, Hoehe aus ui/thema); Formularbeschriftungen mittig zu ihrem Feld."""
+    sys.path.insert(0, os.path.join(WURZEL, "werkzeuge"))
+    import hoehen
+    import tooltips
+    from programm.ui import thema
+    soll = thema.bedien_hoehe()
+    funde = {name: hoehen.abweichend(w, soll) for name, w in [("Hauptfenster", fenster)] + list(tooltips.dialoge(fenster))}
+    assert not {n: f for n, f in funde.items() if f}
+    from programm.ui.vergleich_ui import VergleichDialog
+    d = VergleichDialog(fenster)
+    d.show()
+    QtWidgets.QApplication.processEvents()
+    form = d.layout()
+    beschriftung = form.itemAt(0, QtWidgets.QFormLayout.ItemRole.LabelRole).widget()
+    feld = form.itemAt(0, QtWidgets.QFormLayout.ItemRole.FieldRole)
+    assert abs(beschriftung.geometry().center().y() - feld.geometry().center().y()) <= 1
+    d.close()
+
+
 def test_funktion_zur_tolerierung(fenster):
     """Rollen im Fenster vergeben: Bezugssystem vorschlagen und die Tolerierung als eigene PMI uebernehmen."""
     from programm.kern import funktion as fu
@@ -2028,6 +2049,47 @@ def test_toleranzkette_fenster_verkleinerbar(fenster):
         app.processEvents()
     assert k.ergebnisse.horizontalScrollBar().maximum() == 0  # genug Platz: ganze Tabelle ohne Leiste
     d.setFloating(False)
+
+
+def _spalten_lesbar(t):
+    """Keine sichtbare Spalte schmaler als Kopf, Text (bis zur Hoechstbreite) oder Feld in der Zelle; Zeilen so hoch
+    wie die Felder."""
+    from programm.ui.tabellen import textbreite_hoechst
+    kopf = t.horizontalHeader()
+    for s in range(t.columnCount()):
+        if t.isColumnHidden(s):
+            continue
+        breite = t.columnWidth(s)
+        assert breite >= kopf.sectionSizeHint(s), (s, "Kopf", breite)
+        assert breite >= min(t.sizeHintForColumn(s), textbreite_hoechst(t)), (s, "Text", breite)
+        for z in range(t.rowCount()):
+            if (w := t.cellWidget(z, s)) is not None:
+                assert breite >= min(w.sizeHint().width(), w.maximumWidth()), (s, z, "Feld", breite)
+                assert t.rowHeight(z) >= w.sizeHint().boundedTo(w.maximumSize()).height(), (s, z, "Zeilenhoehe")
+
+
+def test_kettentabellen_lesbar(fenster):
+    """Spalten der Kettentabellen nach Kopf, Text und Zellfeldern (Getriebe-Beispiel, Planspiel mit fetten Feldern,
+    2D-Vorlage); Zahlen rechtsbuendig, Namen einzeilig."""
+    f = fenster
+    f.oeffne_beispiel("kette_getriebe", warten=True)
+    k = f.zeige_toleranzkette()
+    QtWidgets.QApplication.processEvents()
+    for t in (k.tabelle, k.ergebnisse):
+        _spalten_lesbar(t)
+    assert not k.tabelle.wordWrap()
+    rechts = QtCore.Qt.AlignmentFlag.AlignRight
+    assert k.tabelle.item(0, 2).textAlignment() & rechts and k.ergebnisse.item(0, 1).textAlignment() & rechts
+    k.starte_planspiel()
+    k.glieder[0].verteilung = "trapez"
+    k._fuelle()
+    _spalten_lesbar(k.tabelle)
+    k.beende_planspiel(False)
+    k2 = f.zeige_kette2d()
+    k2.lade_vorlage("hebel")
+    _spalten_lesbar(k2.tabelle)
+    k2.tabelle.item(0, 0).setText("Gestell mit langem Namen für die Spalte")
+    _spalten_lesbar(k2.tabelle)  # Name waechst mit
 
 
 def test_aenderungen_reiter_nur_im_vergleich(fenster):

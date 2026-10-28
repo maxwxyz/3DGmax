@@ -95,6 +95,8 @@
 | Hand-built chains (1D/2D/3D): chain-wide material plus optional material per link, thermal expansion for 2D/3D (after UI stage 2) | ✅ |
 | Function → tolerancing: live 3D preview of the proposed datum system (A/B/C flags, locked/open DOF) and of the tolerance proposal (callouts, row ↔ model highlight, zones optional) | ✅ |
 | Stack-up: build chains by hand without a model ("＋ Glied", editable cells) | ✅ |
+| Stack-up tables readable: columns sized from header, text and cell widgets, numbers right-aligned (1D/2D/3D) | ✅ |
+| One control height and frame style for all buttons, drop-downs, number and text fields in every window (theme), checked by a GUI test | ✅ |
 | 2D vector-loop chains by hand with guided fields, sketch, linear (DLM) and non-linear Monte Carlo, handover to the 1D window (PLAN §8.33) | ✅ |
 | 3D chains by hand: positions with six toleranced components, guided editor, templates, shown in the model, linear and non-linear, handover to the 1D window (PLAN §8.33) | ✅ |
 | 2D/3D chains: save/open as .3dgkette2d/.3dgkette3d and in the project | ✅ |

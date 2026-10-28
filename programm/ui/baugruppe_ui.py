@@ -8,6 +8,7 @@ from PySide6 import QtCore, QtGui, QtWidgets
 from ..i18n import tr
 from ..kern import baugruppe_mass as bm
 from ..kern import verbindung as vb
+from . import thema
 from .tabellen import aenderbar_machen, leer_hinweis
 
 
@@ -138,7 +139,7 @@ class BaugruppePanel(QtWidgets.QWidget):
         self.bewegen_box.hide()
         lay.addWidget(self.bewegen_box)
         reihe = QtWidgets.QHBoxLayout()
-        self.wiggle_an = QtWidgets.QPushButton()  # nur Symbol: Abspielen / Anhalten
+        self.wiggle_an = thema.nur_symbol(QtWidgets.QPushButton())  # nur Symbol: Abspielen / Anhalten
         self.wiggle_an.setCheckable(True)
         self._wiggle_symbol(False)
         self.wiggle_an.toggled.connect(self._wiggle_symbol)  # Zustand sichtbar
@@ -182,9 +183,7 @@ class BaugruppePanel(QtWidgets.QWidget):
 
     def _wiggle_symbol(self, an: bool):
         """Abspielen- bzw. Anhalten-Symbol ohne Text; der Tooltip sagt, was ein Klick tut."""
-        stil = self.style()
-        bild = QtWidgets.QStyle.StandardPixmap.SP_MediaPause if an else QtWidgets.QStyle.StandardPixmap.SP_MediaPlay
-        self.wiggle_an.setIcon(stil.standardIcon(bild))
+        self.wiggle_an.setIcon(thema.symbol("anhalten" if an else "abspielen"))
         self.wiggle_an.setToolTip(tr("Wiggle anhalten") if an else
                                   tr("Wiggle: gewähltes Teil in seinen offenen Freiheitsgraden hin und her bewegen"))
 

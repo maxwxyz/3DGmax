@@ -183,6 +183,20 @@ Done in this local session (commit):
     and the first-start introduction (touches the Help-menu loop in `hauptfenster.py`, which now also lists
     `gefuehrt_scan`/`gefuehrt_spalt`).
 
+- **Side session (branch `claude/kette-lesbar-213437`):** stack-up tables readable (user report "Spaltenbreiten und
+  Zellen in der Toleranzrechnung nicht lesbar"). Cause: `ResizeToContents` measures only item text, not cell widgets,
+  and the stretched name column wrapped. New `tabellen.spalten_anpassen` (header, text ≤ ~48 chars with elide+tooltip,
+  cell widget size hints, row height, numbers right-aligned, per-pixel scrolling, hand-dragged widths kept),
+  `zahlen_rechts`, `zeilen_hoehe`, `inhalt_breite`; used in 1D chain (links, results, scenarios, materials dialog),
+  2D segment table, 3D editor. Test `test_gui.py::test_kettentabellen_lesbar`; on-screen screenshots at 90/100/150 %
+  and as wide/low panel compared before/after. Other panels (assembly, function, collisions) could adopt the helper.
+  Extended on request (user reports via the main session): material fields cut off (size hints taken before the
+  stylesheet was polished, editable combos sized too small → `_feld_groesse`), 3D editor overlay (18 new spin boxes
+  per selection lay over the old ones + cell selection drawn behind → fields built once, NoSelection/NoFocus), and
+  one control height in the whole UI (`thema.bedien_hoehe`, spin boxes/tool buttons/menu arrows styled, form label
+  proxy style, `werkzeuge/hoehen.py`, `test_bedienelemente_gleich_hoch`). Merged origin/main (materials) first.
+  Screenshots before/after (100/150 %) in the session scratchpad, not in the repo.
+
 **Deferred questions for the user** (do not block on them):
 - UI/UX stage 2 (workspaces) changes the layout a lot – implement only after you have read `docs/UI_UX_Plan.md`?
 - JT: JT 10.5 (NIST) now works; a JT 8/9 file and a JT with colours/PMI from CATIA/NX would still be good tests.

@@ -10,8 +10,9 @@ from PySide6 import QtCore, QtGui, QtWidgets
 
 from ..i18n import tr
 from ..kern import toleranzkette as tk
+from . import thema
 from .fluss import FlussLayout
-from .tabellen import AENDERBAR_FARBE, leer_hinweis  # getoent: Zellen, die man aendern kann
+from .tabellen import AENDERBAR_FARBE, inhalt_breite, leer_hinweis, spalten_anpassen  # getoent: aenderbare Zellen
 from .werkstoff_wahl import werkstoff_feld, werkstoff_wert
 
 
@@ -349,13 +350,12 @@ class WerkstoffDialog(QtWidgets.QDialog):
         self.tabelle.horizontalHeader().setStretchLastSection(True)
         for z, teil in enumerate(teile):
             self._teil_zeile(z, teil)
+        spalten_anpassen(self.tabelle)
         lay.addWidget(self.tabelle, 1)
         lay.addWidget(QtWidgets.QLabel(tr("Eigener Werkstoff je Glied")))
         self.glieder = QtWidgets.QTableWidget(len(fenster.glieder), 2)
         self.glieder.setHorizontalHeaderLabels([tr("Glied"), tr("Werkstoff")])
         self.glieder.verticalHeader().setVisible(False)
-        self.glieder.horizontalHeader().setStretchLastSection(True)
-        self.glieder.horizontalHeader().setSectionResizeMode(0, QtWidgets.QHeaderView.ResizeMode.Stretch)
         for z, g in enumerate(fenster.glieder):
             name = QtWidgets.QTableWidgetItem(g.name)
             name.setFlags(name.flags() & ~QtCore.Qt.ItemFlag.ItemIsEditable)
@@ -368,6 +368,8 @@ class WerkstoffDialog(QtWidgets.QDialog):
             feld.currentTextChanged.connect(lambda _t, g=g, f=feld: fenster.setze_glied_werkstoff(g, werkstoff_wert(f)))
             self.glieder.setCellWidget(z, 1, feld)
         leer_hinweis(self.glieder, tr("Noch keine Glieder"))
+        spalten_anpassen(self.glieder)
+        self.resize(max(640, inhalt_breite(self.tabelle) + 40, inhalt_breite(self.glieder) + 40), 480)
         lay.addWidget(self.glieder, 1)
         knoepfe = QtWidgets.QDialogButtonBox(QtWidgets.QDialogButtonBox.StandardButton.Close)
         knoepfe.rejected.connect(self.reject)
@@ -522,9 +524,7 @@ class ToleranzketteFenster(QtWidgets.QDialog):
         self.tabelle.itemChanged.connect(self._wert_geaendert)
         self.tabelle.setItemDelegateForColumn(SP_ANTEIL, AnteilBalken(self.tabelle))
         self.tabelle.setItemDelegateForColumn(SP_STREUUNG, StreuungsBild(self.tabelle))
-        kopf = self.tabelle.horizontalHeader()
-        kopf.setSectionResizeMode(QtWidgets.QHeaderView.ResizeMode.ResizeToContents)
-        kopf.setSectionResizeMode(0, QtWidgets.QHeaderView.ResizeMode.Stretch)  # lange Namen ohne Querlauf
+        spalten_anpassen(self.tabelle)  # nach Kopf, Text und Feldern; schmales Fenster: Querlaufleiste
         self.tabelle.setContextMenuPolicy(QtCore.Qt.ContextMenuPolicy.CustomContextMenu)
         self.tabelle.customContextMenuRequested.connect(self._kontextmenue)
         # Glieder oben, Ergebnis unten; der Teiler laesst sich ziehen
@@ -640,7 +640,7 @@ class ToleranzketteFenster(QtWidgets.QDialog):
                                   "Lagetoleranzen violett, Längenbereiche orange, Schlussmaß blau; im Planspiel "
                                   "geänderte Glieder zusätzlich grau mit dem Ist-Wert"))
         self.bild3d.toggled.connect(lambda _an: self._bild_senden())
-        self.wiggle = QtWidgets.QPushButton()  # nur Symbol: Abspielen / Anhalten
+        self.wiggle = thema.nur_symbol(QtWidgets.QPushButton())  # nur Symbol: Abspielen / Anhalten
         self.wiggle.setCheckable(True)
         self._wiggle_symbol(False)
         self.wiggle.toggled.connect(self._wiggle_symbol)
@@ -738,7 +738,7 @@ class ToleranzketteFenster(QtWidgets.QDialog):
         return leiste
 
     def _baue_anforderung(self):
-        reihe = QtWidgets.QHBoxLayout()
+        reihe = FlussLayout()  # bricht bei schmalem Fenster um
         self.anforderung = QtWidgets.QCheckBox(tr("Anforderung an das Schlussmaß"))
         self.anforderung.setToolTip(tr("Grenzen des Schlussmaßes (z. B. Spalt): Cp, Cpk und Anteil außerhalb"))
         self.unten, self.oben = QtWidgets.QDoubleSpinBox(), QtWidgets.QDoubleSpinBox()
@@ -752,10 +752,7 @@ class ToleranzketteFenster(QtWidgets.QDialog):
             k.valueChanged.connect(self._rechne)
         self.anforderung.toggled.connect(self._anforderung_an)
         reihe.addWidget(self.anforderung)
-        reihe.addWidget(self.unten)
-        reihe.addWidget(QtWidgets.QLabel("…"))
-        reihe.addWidget(self.oben)
-        reihe.addStretch(1)
+        reihe.addWidget(_paar(self.unten, QtWidgets.QLabel("…"), self.oben))
         return reihe
 
     def _ergebnis_hoehe(self):
@@ -910,7 +907,7 @@ class ToleranzketteFenster(QtWidgets.QDialog):
                                      if a == art else QtGui.QBrush())
 
     def _baue_temperatur(self):
-        reihe = QtWidgets.QHBoxLayout()
+        reihe = FlussLayout()  # bricht bei schmalem Fenster um
         self.waerme = QtWidgets.QCheckBox(tr("Wärmeausdehnung bei"))
         self.waerme.setToolTip(tr("Schlussmaß zusätzlich bei zwei Grenztemperaturen: ΔL = α · L · (T − 20 °C) je "
                                   "Glied mit seinem Werkstoff (eigener, sonst der seines Bauteils, sonst der der "
@@ -931,11 +928,8 @@ class ToleranzketteFenster(QtWidgets.QDialog):
                                            "Glied"))
         self.werkstoff_knopf.clicked.connect(lambda: WerkstoffDialog(self, self).open())
         reihe.addWidget(self.waerme)
-        reihe.addWidget(self.t1)
-        reihe.addWidget(QtWidgets.QLabel(tr("und")))
-        reihe.addWidget(self.t2)
+        reihe.addWidget(_paar(self.t1, QtWidgets.QLabel(tr("und")), self.t2))
         reihe.addWidget(self.werkstoff_knopf)
-        reihe.addStretch(1)
         return reihe
 
     def _methode_gewaehlt(self, *_):
@@ -1207,8 +1201,7 @@ class ToleranzketteFenster(QtWidgets.QDialog):
 
     def _wiggle_symbol(self, an: bool):
         """Abspielen- bzw. Anhalten-Symbol ohne Text; der Tooltip sagt, was ein Klick tut."""
-        bild = QtWidgets.QStyle.StandardPixmap.SP_MediaPause if an else QtWidgets.QStyle.StandardPixmap.SP_MediaPlay
-        self.wiggle.setIcon(self.style().standardIcon(bild))
+        self.wiggle.setIcon(thema.symbol("anhalten" if an else "abspielen"))
         self.wiggle.setToolTip(tr("Wiggle der Schlussflächen anhalten") if an else
                                tr("Wiggle der Schlussflächen: die Endfläche der Kette pendelt zwischen Worst-Case-"
                                   "Minimum und -Maximum (überhöht), grün in der Anforderung, rot außerhalb"))
@@ -1425,12 +1418,12 @@ class ToleranzketteFenster(QtWidgets.QDialog):
         for z, zellen in enumerate(zeilen):
             for s, w in enumerate(zellen):
                 t.setItem(z, s, QtWidgets.QTableWidgetItem(w))
-        t.resizeColumnsToContents()
+        spalten_anpassen(t)
         lay.addWidget(t)
         knopf = QtWidgets.QDialogButtonBox(QtWidgets.QDialogButtonBox.StandardButton.Close)
         knopf.rejected.connect(d.reject)
         lay.addWidget(knopf)
-        d.resize(760, 120 + 30 * len(zeilen))
+        d.resize(max(560, inhalt_breite(t) + 40), 120 + t.rowHeight(0) * len(zeilen))
         d.show()
         return d
 
@@ -1540,6 +1533,7 @@ class ToleranzketteFenster(QtWidgets.QDialog):
                     it.setToolTip(tr(SPALTEN_HILFE[name]))
                 elif it is not None and it.toolTip() == tr("Klicken zum Ändern"):
                     it.setToolTip(tr(SPALTEN_HILFE[name]) + "\n" + tr("Klicken zum Ändern"))
+        spalten_anpassen(t)
         t.blockSignals(False)
         self._rechne()
 
@@ -1766,8 +1760,8 @@ class ToleranzketteFenster(QtWidgets.QDialog):
                     schrift.setBold(True)
                     it.setFont(schrift)
                 t.setItem(z, s, it)
-        t.resizeColumnsToContents()
-        inhalt = sum(t.columnWidth(s) for s in range(t.columnCount())) + 2 * t.frameWidth()
+        spalten_anpassen(t, hoechst=10_000)  # Verfahren ganz lesbar; schmales Fenster: Querlaufleiste
+        inhalt = inhalt_breite(t)
         t.setMaximumWidth(inhalt)
         t.setMinimumWidth(min(inhalt, 160))
         self.ampel.setMaximumWidth(max(inhalt, 320))

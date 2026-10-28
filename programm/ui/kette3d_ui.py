@@ -10,6 +10,7 @@ from PySide6 import QtCore, QtWidgets
 from ..i18n import tr
 from ..kern import kette3d as k3
 from ..kern import toleranzkette as tk
+from .tabellen import zahlen_rechts, zeilen_hoehe
 from .werkstoff_wahl import WaermeZeile, werkstoff_feld, werkstoff_wert
 
 VORLAGEN = {
@@ -84,8 +85,12 @@ class Kette3DFenster(QtWidgets.QDialog):
             self.editor.horizontalHeaderItem(i).setToolTip(tr(hilfe))
         self.editor.horizontalHeader().setSectionResizeMode(QtWidgets.QHeaderView.ResizeMode.Stretch)
         self.editor.verticalHeader().setSectionResizeMode(QtWidgets.QHeaderView.ResizeMode.Fixed)
-        self.editor.setFixedHeight(self.editor.horizontalHeader().sizeHint().height()
-                                   + 6 * self.editor.verticalHeader().defaultSectionSize() + 4)
+        # nur Felder, keine Zellen: keine Auswahl- oder Fokusmarkierung hinter den Feldern
+        self.editor.setSelectionMode(QtWidgets.QAbstractItemView.SelectionMode.NoSelection)
+        self.editor.setEditTriggers(QtWidgets.QAbstractItemView.EditTrigger.NoEditTriggers)
+        self.editor.setFocusPolicy(QtCore.Qt.FocusPolicy.NoFocus)
+        self._baue_felder()
+        self._editor_hoehe()
         rechts.addWidget(self.editor)
         vert = QtWidgets.QHBoxLayout()
         vert.addWidget(QtWidgets.QLabel(tr("Verteilung des Glieds")))
@@ -262,17 +267,10 @@ class Kette3DFenster(QtWidgets.QDialog):
         setattr(self.kette, attr, tuple(werte))
         self._rechne()
 
-    def _glied_gewaehlt(self, z: int):
-        """Editor mit den sechs Komponenten des gewaehlten Glieds fuellen."""
-        e = self.editor
-        if not 0 <= z < len(self.kette.glieder):
-            self.editor_titel.setText(tr("Kein Glied gewählt"))
-            for r in range(e.rowCount()):
-                for s in range(e.columnCount()):
-                    e.removeCellWidget(r, s)
-            return
-        g = self.kette.glieder[z]
-        self.editor_titel.setText("<b>" + tr("Glied: {}").format(g.name) + "</b>")
+    def _baue_felder(self):
+        """Die 18 Zahlenfelder einmal anlegen; ein anderes Glied setzt nur ihre Werte (neue Felder je Wahl lagen
+        bis zum Aufraeumen ueber den alten)."""
+        self._felder = {}
         for r, c in enumerate(k3.KOMPONENTEN):
             dreh = c.startswith("r")
             for s, feld in enumerate(("nenn", "oben", "unten")):
@@ -280,16 +278,43 @@ class Kette3DFenster(QtWidgets.QDialog):
                 f.setRange(-360.0 if dreh else -1e5, 360.0 if dreh else 1e5)
                 f.setDecimals(3)
                 f.setSuffix(" °" if dreh else " mm")
-                f.setValue(getattr(g.werte[c], feld))
                 f.setToolTip(tr(k3.KOMPONENTEN_TEXT[c]) + " – " + tr(SPALTEN_EDITOR[s][1]))
-                f.valueChanged.connect(lambda v, g=g, c=c, feld=feld: (setattr(g.werte[c], feld, v), self._rechne()))
-                e.setCellWidget(r, s, f)
+                f.valueChanged.connect(lambda v, c=c, feld=feld: self._komponente_geaendert(c, feld, v))
+                self.editor.setCellWidget(r, s, f)
+                self._felder[c, feld] = f
+        zahlen_rechts(self.editor)
+
+    def _komponente_geaendert(self, c: str, feld: str, v: float):
+        z = self.liste.currentRow()
+        if 0 <= z < len(self.kette.glieder):
+            setattr(self.kette.glieder[z].werte[c], feld, v)
+            self._rechne()
+
+    def _glied_gewaehlt(self, z: int):
+        """Editor mit den sechs Komponenten des gewaehlten Glieds fuellen."""
+        gewaehlt = 0 <= z < len(self.kette.glieder)
+        self.editor.setEnabled(gewaehlt)
+        if not gewaehlt:
+            self.editor_titel.setText(tr("Kein Glied gewählt"))
+            return
+        g = self.kette.glieder[z]
+        self.editor_titel.setText("<b>" + tr("Glied: {}").format(g.name) + "</b>")
+        for (c, feld), f in self._felder.items():
+            f.blockSignals(True)
+            f.setValue(getattr(g.werte[c], feld))
+            f.blockSignals(False)
         self.verteilung.blockSignals(True)
         self.verteilung.setCurrentIndex(max(0, self.verteilung.findData(g.verteilung)))
         self.verteilung.blockSignals(False)
         self.werkstoff.blockSignals(True)
         self.werkstoff.setCurrentText(g.werkstoff or self.werkstoff.itemText(0))
         self.werkstoff.blockSignals(False)
+
+    def _editor_hoehe(self):
+        """Editor genau so hoch wie seine sechs Zeilen; Zeilen so hoch wie die Zahlenfelder."""
+        e = self.editor
+        e.setFixedHeight(e.horizontalHeader().sizeHint().height() + len(k3.KOMPONENTEN) * zeilen_hoehe(e)
+                         + 2 * e.frameWidth())
 
     def _fuelle(self):
         self.liste.blockSignals(True)
