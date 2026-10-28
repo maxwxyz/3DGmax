@@ -73,11 +73,12 @@ def test_eigene_pmi_anhaengen(tmp_path):
         p.quelle, p.nummer, p.step_id = "eigen", 900 + i, -1000 - i
     ziel = str(tmp_path / "eigen.stp")
     b = sw.schreibe(quelle, ziel, a.pmi + neue, a.modell)
-    assert b.neu == [900, 901, 902, 903] and sorted(n for n, _, _ in b.uebersprungen) == [904, 905]
+    assert b.neu == [900, 901, 902, 903, 904] and [n for n, _, _ in b.uebersprungen] == [905]
     grenze = max(a.modell.datei.entities)
     neu = {(p.art, p.typ): p for p in lade_alles(ziel).pmi if p.step_id > grenze}
     assert set(neu) == {("bezug", "Datum"), ("toleranz", "Flatness"), ("mass", "Size_Diameter"),
-                        ("toleranz", "Position")}
+                        ("toleranz", "Position"), ("mass", "Size_Angular")}
+    assert abs(neu[("mass", "Size_Angular")].nennwert - 30) < 1e-9
     pos = neu[("toleranz", "Position")]
     assert pos.flaechen == {loch} and pos.material == "M" and "Diameter" in pos.modifikatoren
     assert [x.name for x in pos.bezuege] == ["Q"] and neu[("bezug", "Datum")].flaechen == {eben}
@@ -96,7 +97,7 @@ def test_eigene_pmi_anhaengen(tmp_path):
             hole(s)
             out.append(s.Length())
         return out
-    assert [n - v for n, v in zip(xcaf(ziel), xcaf(quelle))] == [1, 2, 1]
+    assert [n - v for n, v in zip(xcaf(ziel), xcaf(quelle))] == [2, 2, 1]
     # Baugruppe (mehrere Teile): gemeldet, Datei unveraendert gelesen
     g = lade_alles(pfad("getriebe.stp"))
     p = Pmi("toleranz", "Flatness", "", wert=0.02, flaechen={0})

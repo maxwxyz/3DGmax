@@ -1416,5 +1416,6 @@
 "Maßart nicht schreibbar": "dimension type not writable",
 "Toleranzart nicht schreibbar": "tolerance type not writable",
 "nur für Einzelteile mit Einheiten": "only for single parts with units",
-"{} eigene PMI neu angelegt: {}": "{} own PMI created: {}"
+"{} eigene PMI neu angelegt: {}": "{} own PMI created: {}",
+"Keine Winkeleinheit in der Datei": "no angle unit in the file"
 }

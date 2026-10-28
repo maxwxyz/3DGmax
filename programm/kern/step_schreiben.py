@@ -17,7 +17,7 @@ oder komplex mit GEOMETRIC_TOLERANCE_WITH_DATUM_REFERENCE (DATUM_SYSTEM, DATUM_R
 GEOMETRIC_TOLERANCE_WITH_MODIFIERS (Materialbedingung), Durchmesserzone als TOLERANCE_ZONE; Masse als DIMENSIONAL_SIZE
 bzw. DIMENSIONAL_LOCATION mit SHAPE_DIMENSION_REPRESENTATION ('nominal value') und PLUS_MINUS_TOLERANCE
 (TOLERANCE_VALUE oder LIMITS_AND_FITS); Bezuege als DATUM_FEATURE, DATUM und SHAPE_ASPECT_RELATIONSHIP. Nur
-Einzelteile (eine PRODUCT_DEFINITION_SHAPE mit Geometrie); Winkelmasse und Masse ohne zwei Flaechen werden gemeldet.
+Einzelteile (eine PRODUCT_DEFINITION_SHAPE mit Geometrie); Lagemasse ohne genau zwei Flaechen werden gemeldet.
 """
 
 from __future__ import annotations
@@ -200,8 +200,14 @@ class _Anhang:
             self.neu(f"GEOMETRIC_ITEM_SPECIFIC_USAGE('','',#{sa},#{darst},#{f})")
         return sa
 
+    def winkel_dateiwert(self, grad: float) -> float:
+        """Grad in die Winkeleinheit der Datei (SI: Radiant)."""
+        e = self.datei.entities.get(self.einheit_winkel)
+        return grad / 57.29577951308232 if e is not None and e.is_a("SI_UNIT") else grad
+
     def mass(self, wert: float, winkel: bool = False, art: str = "LENGTH_MEASURE") -> int:
         einheit = self.einheit_winkel if winkel else self.einheit_laenge
+        wert = self.winkel_dateiwert(wert) if winkel else wert
         return self.neu(f"{'PLANE_ANGLE' if winkel else 'LENGTH'}_MEASURE_WITH_UNIT("
                         f"{'PLANE_ANGLE_MEASURE' if winkel else art}({_real(wert)}),#{einheit})")
 
@@ -263,20 +269,36 @@ def _schreibe_mass(a: _Anhang, p) -> str | None:
         if sa is None:
             return tr("Flächen ohne Entsprechung in der Datei")
         dim = a.neu(f"DIMENSIONAL_SIZE(#{sa},'{GROESSE_NAME[p.typ]}')")
-    elif p.typ == "Location_LinearDistance" and len(p.flaechen) == 2:
+    elif p.typ == "Size_Angular":
+        if a.einheit_winkel is None:
+            return tr("Keine Winkeleinheit in der Datei")
+        sa = a.aspekt(p.flaechen)
+        if sa is None:
+            return tr("Flächen ohne Entsprechung in der Datei")
+        dim = a.neu(f"ANGULAR_SIZE(#{sa},'',.EQUAL.)")
+    elif p.typ in ("Location_LinearDistance", "Location_Angular") and len(p.flaechen) == 2:
+        if p.typ == "Location_Angular" and a.einheit_winkel is None:
+            return tr("Keine Winkeleinheit in der Datei")
         f1, f2 = sorted(p.flaechen)
         s1, s2 = a.aspekt({f1}), a.aspekt({f2})
         if s1 is None or s2 is None:
             return tr("Flächen ohne Entsprechung in der Datei")
-        dim = a.neu(f"DIMENSIONAL_LOCATION('linear distance','',#{s1},#{s2})")
+        dim = a.neu(f"DIMENSIONAL_LOCATION('linear distance','',#{s1},#{s2})" if p.typ == "Location_LinearDistance"
+                    else f"ANGULAR_LOCATION('angular location','',#{s1},#{s2},.EQUAL.)")
     else:
         return tr("Maßart nicht schreibbar")
-    wert = a.neu(f"( LENGTH_MEASURE_WITH_UNIT() MEASURE_REPRESENTATION_ITEM() MEASURE_WITH_UNIT("
-                 f"LENGTH_MEASURE({_real(abs(p.nennwert))}),#{a.einheit_laenge}) REPRESENTATION_ITEM('nominal value') )")
+    winkel = p.typ in ("Size_Angular", "Location_Angular")
+    if winkel:
+        wert = a.neu(f"( MEASURE_REPRESENTATION_ITEM() MEASURE_WITH_UNIT(PLANE_ANGLE_MEASURE("
+                     f"{_real(a.winkel_dateiwert(abs(p.nennwert)))}),#{a.einheit_winkel}) PLANE_ANGLE_MEASURE_WITH_UNIT() "
+                     f"REPRESENTATION_ITEM('nominal value') )")
+    else:
+        wert = a.neu(f"( LENGTH_MEASURE_WITH_UNIT() MEASURE_REPRESENTATION_ITEM() MEASURE_WITH_UNIT("
+                     f"LENGTH_MEASURE({_real(abs(p.nennwert))}),#{a.einheit_laenge}) REPRESENTATION_ITEM('nominal value') )")
     darst = a.neu(f"SHAPE_DIMENSION_REPRESENTATION('',(#{wert}),#{a.kontext})")
     a.neu(f"DIMENSIONAL_CHARACTERISTIC_REPRESENTATION(#{dim},#{darst})")
     if p.oben is not None and p.unten is not None and not p.grenzmass:
-        tv = a.neu(f"TOLERANCE_VALUE(#{a.mass(p.unten)},#{a.mass(p.oben)})")
+        tv = a.neu(f"TOLERANCE_VALUE(#{a.mass(p.unten, winkel)},#{a.mass(p.oben, winkel)})")
         a.neu(f"PLUS_MINUS_TOLERANCE(#{tv},#{dim})")
     elif p.passung:
         import re as _re
