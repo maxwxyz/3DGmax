@@ -14,6 +14,15 @@ Then (user request): "Make semantic …" for graphical-only PMI (§8.18 repair) 
 `ui/hauptfenster.py` minimally (`_pmi_befehl` "semantisch", `fuege_pmi_hinzu` replaces the note and keeps the file
 graphic) and `ui/panels.py` (context menu entry); tests `test_nur_grafische_pmi_reparieren`, `test_semantisch_machen`.
 
+Side session 2026-10-28 (branch `claude/bezugsverschiebung-39e50e`, to be merged by the main session): evening item c
+done – datum shift / Ⓜ/Ⓛ bonus in assembly connections (PLAN §8.20 note, Roadmap ✅). `Verbindung.bonus` +
+`bonus_quelle` set by `toleranz_aus_pmi` (`_bonus_aus_pmi`: Ⓜ/Ⓛ location tolerances on both faces grow by the
+feature's size tolerance, datums with Ⓜ/Ⓛ via `toleranzzone.bezugsverschiebung`); `Baugruppe.zeilen(..., bonus=True)`
+includes it by default, `Baugruppe.mc_bonus` draws it; `baugruppe_mass.Analyse` keeps it as its own contributor
+(`Beitrag.bonus`, `beitrag_art`) in the table and PDF. No change to `ui/hauptfenster.py`. Test
+`test_bonus_und_bezugsverschiebung_in_verbindung` (⌀10 H8, position ⌀0.1 Ⓜ, bolt ⌀9.9). The example
+`baugruppe.stp` has no PMI, so its numbers are unchanged. Not checked on screen.
+
 Done in this local session (commit):
 - Test strategy (§8.29): `langsam` marker, `test-schnell`, `test-betroffen -- --schnell` – `b5980b6`.
 - macOS Finder double-click / "Open With" loads the file (QFileOpenEvent), all formats registered – `d623a92`.
@@ -318,7 +327,8 @@ graphics only, 8.19 QIF graphics, 8.20 3D tolerance analysis,
    (user, 2026-10-28):
    a. Materials in hand-built 1D/2D/3D chains (chain default plus per-link override, PLAN §8.33).
    b. Live 3D preview for function → tolerancing (datums first, tolerance zones optional).
-   c. Datum shift in the assembly variation (MMC/LMC bonus in connections).
+   c. Datum shift in the assembly variation (MMC/LMC bonus in connections) – done on branch
+      `claude/bezugsverschiebung-39e50e` (merge pending).
    Moved to the end (after item 4 below): item 8 DXF dimension entities; then the user checks (CATIA reading of
    written STEP with own PMI/presentation, screenshot of the blue stripe while loading on Windows, an AP242 file with
    a mechanism for STEP kinematics).

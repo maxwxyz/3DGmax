@@ -19,6 +19,11 @@ der Normalen +-h (halbe Summe der Lage-/Profiltoleranzen beider Flaechen), Kippe
 an den zwei Enden der gemeinsamen Laenge - daraus folgt auch das Kippspiel. Die Lagestreuung eines Punkts in einer
 Richtung ist im linearen Modell c . A+ y mit y im Quader der Spielraeume; ihr Groesstwert ist die Summe der
 Betraege (Worst Case). Freie Freiheitsgrade bleiben dabei aussen vor.
+Materialbedingung: Lagetoleranzen mit Ⓜ/Ⓛ an den Flaechen wachsen um die Groessentoleranz ihres Elements (Bonus),
+Bezuege mit Ⓜ/Ⓛ verschieben die Zone um die Groessentoleranz des Bezugselements (Bezugsverschiebung); beides
+zusammen ist der Bonus der Verbindung (halber Durchmesser wie bei den Lagetoleranzen), der den Spielraum im Worst Case
+vergroessert. Monte Carlo zieht dafuer das Istmass (normalverteilt in der Groessentoleranz) und nutzt dessen Abstand
+zum MMC- bzw. LMC-Mass voll aus - in zufaelliger Richtung (nicht normalverteilt).
 """
 
 from __future__ import annotations
@@ -50,6 +55,8 @@ class Verbindung:
     kippen: float = 0.0  # eben: +-k (rad) Kippen der Flaeche
     quelle: str = ""  # Herkunft der Toleranz (Text)
     eingriff: tuple = ()  # koaxial/Langloch: Eingriffsenden entlang der Achse (ab dem Achspunkt, siehe _eingriff)
+    bonus: float = 0.0  # zusaetzlicher Spielraum (wie toleranz) aus Ⓜ/Ⓛ-Bonus und Bezugsverschiebung, voll genutzt
+    bonus_quelle: str = ""
 
 
 def _kugel(flaeche):
@@ -446,15 +453,17 @@ class Baugruppe:
         lo, hi = max(a0, b0), min(a1, b1)
         v.eingriff = (lo, hi) if hi > lo + 1e-9 else (b0, b1)
 
-    def zeilen(self, v: Verbindung, mitte=None, achteck: bool = True) -> list[tuple[np.ndarray, float, float]]:
+    def zeilen(self, v: Verbindung, mitte=None, achteck: bool = True,
+               bonus: bool = True) -> list[tuple[np.ndarray, float, float]]:
         """Gesperrte Relativbewegungen einer Verbindung (Zeile w, v um mitte; untere, obere Grenze).
         Radiales Spiel als Achteck (vier Richtungen, hoechstens 8 % groesser als der Kreis), ohne achteck nur die
-        zwei Querrichtungen; Kugel: drei Achsrichtungen."""
+        zwei Querrichtungen; Kugel: drei Achsrichtungen. bonus: Ⓜ/Ⓛ-Bonus im Spielraum (eben nur die
+        Verschiebung)."""
         mitte = np.zeros(3) if mitte is None else np.asarray(mitte, float)
         ma, mb = self.merkmale(v)
         _, q, e = mb
         t1, t2 = _senkrechte(e)
-        h = v.toleranz
+        h = v.toleranz + (v.bonus if bonus else 0.0)
         if v.art == EBEN:
             return [(np.r_[np.cross(q - mitte, e), e], -h, h)] + \
                 [(np.r_[np.cross(t, e), 0, 0, 0], -v.kippen, v.kippen) for t in (t1, t2)]
@@ -475,9 +484,9 @@ class Baugruppe:
     def mc_zeilen(self, v: Verbindung):
         """(Zeilen, Spielraeume, ziehen) fuer Monte Carlo: ziehen(rng, n) liefert n x k Werte der Zeilen (normalverteilt,
         Spielraum = 3 sigma, abgeschnitten; radiales Spiel als Punkt in der Kreisscheibe bzw. Kugel)."""
-        zeilen = self.zeilen(v, achteck=False)
+        zeilen = self.zeilen(v, achteck=False, bonus=False)
         grenzen = np.array([o for _, _, o in zeilen])
-        gruppe = 2 if v.art == KOAXIAL else 3 if v.art == KUGEL else 1
+        gruppe = _gruppe(v)
 
         def ziehen(rng, n):
             y = rng.standard_normal((n, len(zeilen))) * grenzen / 3
@@ -488,6 +497,27 @@ class Baugruppe:
                 y[:, k:k + gruppe] *= np.minimum(1.0, grenzen[k] / np.maximum(b, 1e-300))
             return y
         return [z for z, _, _ in zeilen], grenzen, ziehen
+
+    def mc_bonus(self, v: Verbindung):
+        """ziehen(rng, n) fuer den Ⓜ/Ⓛ-Bonus der Verbindung (n x k Werte zu den Zeilen von mc_zeilen) oder None:
+        Istmass je Probe normalverteilt in der Groessentoleranz (Mitte, 3 sigma = halbe Toleranz, abgeschnitten), der
+        Bonus = Abstand zum MMC/LMC-Mass wird voll genutzt, Richtung zufaellig (radial gleichverteilt, sonst +-)."""
+        if v.bonus <= 0:
+            return None
+        oben = np.array([o for _, _, o in self.zeilen(v, achteck=False)])
+        b = oben - np.array([o for _, _, o in self.zeilen(v, achteck=False, bonus=False)])
+        gruppe = _gruppe(v)
+
+        def ziehen(rng, n):
+            anteil = np.clip(0.5 + rng.standard_normal((n, 1)) / 6, 0.0, 1.0)  # Abstand vom MMC-Mass / Toleranz
+            richtung = rng.standard_normal((n, len(b)))
+            if gruppe == 1:
+                richtung = np.sign(richtung)
+            for k in range(0, len(b) if gruppe > 1 else 0, gruppe):
+                betrag = np.linalg.norm(richtung[:, k:k + gruppe], axis=1, keepdims=True)
+                richtung[:, k:k + gruppe] /= np.maximum(betrag, 1e-300)
+            return richtung * anteil * b
+        return ziehen
 
     def spielraeume(self, teil: int, mitte=None) -> list[tuple[np.ndarray, float, float]]:
         """Gesperrte Bewegungen des Teils mit Spielraum gegen seine (festen) Partner (Zeile w, v um mitte)."""
@@ -683,6 +713,18 @@ class Baugruppe:
                 self.mass_formen[m.nummer] = (fa, fb)
 
 
+def _gruppe(v: Verbindung) -> int:
+    """Zeilen je radialem Spiel in mc_zeilen: koaxial 2 je Eingriffsende, Kugel 3, sonst 1."""
+    return 2 if v.art == KOAXIAL else 3 if v.art == KUGEL else 1
+
+
+def bonus_text(v: Verbindung) -> str:
+    """Bonus der Verbindung als Zusatz zum Spielraum (leer ohne Bonus)."""
+    if v.bonus <= 0:
+        return ""
+    return tr("+ Bonus Ⓜ/Ⓛ {:.4g} ({})").format(v.bonus, v.bonus_quelle)
+
+
 def flaeche_im_teil(form, index: int, modell):
     """Flaeche mit diesem Index in der Form einer Teil-Instanz (mit deren Lage) oder None."""
     from OCC.Core.TopAbs import TopAbs_FACE
@@ -699,6 +741,28 @@ ORT_TYPEN = {"Position", "Symmetry", "Coaxiality", "Concentricity", "ProfileOfSu
 FLAECHE_TYPEN = ORT_TYPEN | {"Flatness", "Parallelism", "Perpendicularity", "Angularity"}
 
 
+def _bonus_aus_pmi(an: list, pmi) -> tuple[float, str]:
+    """(Bonus als halber Durchmesser, Text) der Lagetoleranzen an den Flaechen: Ⓜ/Ⓛ am Element waechst um dessen
+    Groessentoleranz, Bezuege mit Ⓜ/Ⓛ um die Groessentoleranz des Bezugselements (wie in der 1D-Kette)."""
+    from .toleranzzone import _groesse, bezugsverschiebung
+    summe, texte, gesehen = 0.0, [], set()
+    for p in an:
+        if id(p) in gesehen:
+            continue
+        gesehen.add(id(p))
+        if p.art != "toleranz" or p.typ not in ORT_TYPEN or not (p.wert or p.material):
+            continue
+        if p.material in ("M", "L"):
+            dmin, dmax = _groesse(p, pmi, 0.0)
+            if dmax > dmin:
+                summe += dmax - dmin
+                texte.append(tr("{} Bonus ⌀{:.4g}").format(p.wert_text(), dmax - dmin))
+        for name, mat, weg in bezugsverschiebung(p, pmi):
+            summe += weg
+            texte.append(tr("Bezugsverschiebung {} {} ⌀{:.4g}").format(name, "Ⓜ" if mat == "M" else "Ⓛ", weg))
+    return summe / 2, ", ".join(texte)
+
+
 def toleranz_aus_pmi(baugruppe: Baugruppe, v: Verbindung, modell, pmi, allgemein: str = "") -> None:
     """Spielraum der Verbindung aus Geometrie und PMI beider Flaechen setzen (Allgemeintoleranz fuer fehlende
     Durchmesser); Quelle als Text."""
@@ -708,6 +772,7 @@ def toleranz_aus_pmi(baugruppe: Baugruppe, v: Verbindung, modell, pmi, allgemein
     fa, fb = baugruppe.formen[v.nummer]
     flaechen = (v.flaeche, v.gegen_flaeche)
     an = [[p for p in pmi if i in p.flaechen] for i in flaechen]
+    v.bonus, v.bonus_quelle = _bonus_aus_pmi([p for liste in an for p in liste], pmi)
     teile = []
     if v.art in (LANGLOCH, PUNKT, KUGEL):  # Spiel aus Lagetoleranzen; Langlochbreite bei Bedarf von Hand
         ort = [p for liste in an for p in liste if p.art == "toleranz" and p.typ in ORT_TYPEN and p.wert]

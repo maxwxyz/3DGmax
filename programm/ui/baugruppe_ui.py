@@ -265,7 +265,8 @@ class BaugruppePanel(QtWidgets.QWidget):
         lay.addWidget(titel)
         self.beitraege = _tabelle(self.BEITRAG_SPALTEN)
         self.beitraege.setToolTip(tr("Bereich: Worst-Case-Breite, wenn nur diese Verbindung streut; statistisch: "
-                                     "Varianzanteil aus Monte Carlo"))
+                                     "Varianzanteil aus Monte Carlo. Bonus Ⓜ/Ⓛ: Spielraum, der mit der Abweichung "
+                                     "der Istmaße vom MMC/LMC wächst (eigener Beitragender)"))
         lay.addWidget(self.beitraege, 1)
         self.mass_hinweis = QtWidgets.QLabel("")
         self.mass_hinweis.setWordWrap(True)
@@ -349,8 +350,8 @@ class BaugruppePanel(QtWidgets.QWidget):
         liste = e.beitraege if e is not None else []
         t.setRowCount(len(liste))
         for z, b in enumerate(liste):
-            werte = (str(b.verbindung), tr(vb.ART_TEXT.get(self._arten.get(b.verbindung), "")), f"{b.bereich:.4f}",
-                     f"{b.anteil_wc:.0%}", f"{b.anteil_var:.0%}")
+            werte = (str(b.verbindung), bm.beitrag_art(b, self._arten), f"{b.bereich:.4f}", f"{b.anteil_wc:.0%}",
+                     f"{b.anteil_var:.0%}")
             for s, w in enumerate(werte):
                 t.setItem(z, s, QtWidgets.QTableWidgetItem(w))
         t.resizeColumnsToContents()
@@ -383,9 +384,13 @@ class BaugruppePanel(QtWidgets.QWidget):
             werte = (str(v.nummer), namen.get(v.teil, str(v.teil)), namen.get(v.gegen_teil, str(v.gegen_teil)),
                      tr(vb.ART_TEXT[v.art]), f"{v.versatz:g}" if v.art in vb.MIT_VERSATZ else "",
                      tr("nein") if v.nummer in verletzt else tr("ja"),
-                     (f"±{v.toleranz:.4g}" if v.art in vb.MIT_VERSATZ else f"{v.toleranz:.4g}"), v.quelle)
+                     (f"±{v.toleranz:.4g}" if v.art in vb.MIT_VERSATZ else f"{v.toleranz:.4g}"),
+                     " ".join(x for x in (v.quelle, vb.bonus_text(v)) if x))
             for s, w in enumerate(werte):
                 it = QtWidgets.QTableWidgetItem(w)
+                if s == 6 and v.bonus > 0:
+                    it.setToolTip(tr("Spielraum ohne Bonus; dazu kommt der Ⓜ/Ⓛ-Bonus {:.4g} (Bezugsverschiebung), "
+                                     "voll genutzt im Worst Case").format(v.bonus))
                 if s != 6:
                     it.setFlags(it.flags() & ~QtCore.Qt.ItemFlag.ItemIsEditable)
                 if s == 5 and v.nummer in verletzt:
