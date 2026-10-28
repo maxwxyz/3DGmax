@@ -20,9 +20,10 @@ class ScanLader(QtCore.QThread):
     fehler = QtCore.Signal(str)
     stand = QtCore.Signal(str)
 
-    def __init__(self, erg, pfad: str, parent=None, bezug: tuple | None = None, start=None):
+    def __init__(self, erg, pfad: str, parent=None, bezug: tuple | None = None, start=None, anlage: bool = False):
         super().__init__(parent)
         self.erg, self.pfad, self.bezug = erg, pfad, bezug  # bezug: Bezugssystem fuer 3-2-1 (None: Bestpassung)
+        self.anlage = anlage  # Bezuege als anliegende Flaechen (ISO 5459) statt Gauss-Ausgleich
         self.startlage = start  # 4x4 Scan -> CAD von Hand (Punktpaare) statt der Grobausrichtung (nicht "start":
         # das ist QThread.start)
         self.abgebrochen = False
@@ -58,7 +59,8 @@ class ScanLader(QtCore.QThread):
             if self.bezug:
                 melde(tr("Am Bezugssystem {} ausrichten …").format("|".join(self.bezug)))
                 stufen = [sp.bezug_flaechen(self.erg.pmi, b) for b in self.bezug]
-                matrix = sp.richte_nach_bezug(self.erg.modell, probe, matrix, [s for s in stufen if s])
+                matrix = sp.richte_nach_bezug(self.erg.modell, probe, matrix, [s for s in stufen if s],
+                                              anlage=self.anlage)
             melde(tr("Abweichungen berechnen …"))
             punkte = [p @ matrix[:3, :3].T + matrix[:3, 3] for p, _ in netze]
             alle = np.vstack([p for p in punkte if len(p)])
@@ -102,6 +104,10 @@ class ScanPanel(QtWidgets.QWidget):
         self.ausrichtung = QtWidgets.QComboBox()
         self.ausrichtung.setToolTip(tr("Bestpassung über alle Punkte oder 3-2-1 am Bezugssystem der Zeichnung"))
         reihe.addWidget(self.ausrichtung, 1)
+        self.anlage = QtWidgets.QCheckBox(tr("Anlage (ISO 5459)"))
+        self.anlage.setToolTip(tr("Bezüge als anliegende Flächen außen am Material (größter Abstand minimal) statt "
+                                  "Gauß-Ausgleich; empfindlich für Ausreißer im Scan"))
+        reihe.addWidget(self.anlage)
         self.neu = QtWidgets.QPushButton(tr("Neu auswerten"))
         self.neu.clicked.connect(lambda: self.neu_auswerten.emit(self.gewaehlter_bezug()))
         reihe.addWidget(self.neu)

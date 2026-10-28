@@ -454,10 +454,24 @@ def _nullraum(j: np.ndarray, tol: float = 1e-9) -> np.ndarray:
     return vt[rang:].T
 
 
+def _anlage(j: np.ndarray, rechts: np.ndarray) -> np.ndarray | None:
+    """Anlage nach ISO 5459 (Tschebyscheff mit Nebenbedingung): Bewegung z, nach der alle Punkte im Material oder
+    auf der Bezugsflaeche liegen (rechts - j z >= 0, rechts: Tiefe unter der nach aussen zeigenden Flaeche) und der
+    groesste Abstand minimal ist."""
+    from scipy.optimize import linprog
+    k = j.shape[1]
+    c = np.r_[np.zeros(k), 1.0]
+    a = np.vstack([np.c_[j, np.zeros(len(j))], np.c_[-j, -np.ones(len(j))]])
+    b = np.r_[rechts, -rechts]
+    erg = linprog(c, A_ub=a, b_ub=b, bounds=[(None, None)] * k + [(0, None)], method="highs")
+    return erg.x[:k] if erg.status == 0 else None
+
+
 def richte_nach_bezug(modell, scan_punkte: np.ndarray, matrix: np.ndarray, stufen: list[set[int]],
-                      suchweite: float = 0.5, anzahl: int = 2000, schritte: int = 8) -> np.ndarray:
+                      suchweite: float = 0.5, anzahl: int = 2000, schritte: int = 8, anlage: bool = False) -> np.ndarray:
     """Scan am Bezugssystem ausrichten: Primaerbezug passt in seinen Freiheitsgraden, Sekundaer- und Tertiaerbezug
-    nur noch in den verbliebenen (Gauss-Ausgleich je Bezug; Naeherung zur Anlage nach ISO 5459)."""
+    nur noch in den verbliebenen. Gauss-Ausgleich je Bezug oder (anlage) die anliegende Bezugsflaeche nach ISO 5459:
+    aussen am Material, groesster Abstand minimal (empfindlich fuer Ausreisser im Scan)."""
     from OCC.Core.BRep import BRep_Tool
     from .ausrichten import NetzAbstand, _drehung, _matrix, tesselliere
     netze = []
@@ -466,6 +480,8 @@ def richte_nach_bezug(modell, scan_punkte: np.ndarray, matrix: np.ndarray, stufe
         if formen:
             netze.append((NetzAbstand(tesselliere(formen)), [BRep_Tool.Surface(f) for f in formen]))
     m = matrix.copy()
+    if anlage:  # die Anlage haengt an den aeussersten Punkten: nicht ausduennen
+        anzahl = max(anzahl, 20000)
     # je Bezug nur Punkte in seiner Naehe (einmal vorausgewaehlt, die Lage aendert sich nur wenig), hoechstens anzahl
     start = scan_punkte @ m[:3, :3].T + m[:3, 3]
     proben = []
@@ -484,6 +500,7 @@ def richte_nach_bezug(modell, scan_punkte: np.ndarray, matrix: np.ndarray, stufe
             if not len(bt):
                 continue
             d, _, fl = netz.abfrage(bt)
+            aussen = netz.normalen(netz.letzte_dreiecke)  # Netznormalen zeigen aus dem Material
             zeilen, rechts = [], []
             for k in np.nonzero(d <= suchweite)[0]:
                 g = geom[int(fl[k])]
@@ -493,12 +510,16 @@ def richte_nach_bezug(modell, scan_punkte: np.ndarray, matrix: np.ndarray, stufe
                 q, n = fn
                 if abs(abs(float(n @ (q - bt[k]))) - d[k]) > 0.02:
                     continue  # Fusspunkt ausserhalb der Flaeche (Nachbarflaeche am Rand): nicht zum Bezug
+                if anlage and float(n @ aussen[k]) < 0:
+                    n = -n  # nach aussen: rechts > 0 heisst im Material
                 zeilen.append(np.concatenate([np.cross(bt[k], n), n]))
                 rechts.append(float(n @ (q - bt[k])))
             if len(zeilen) < 3:
                 continue
             j = np.array(zeilen) @ frei
-            z, *_ = np.linalg.lstsq(j, np.array(rechts), rcond=None)
+            z = _anlage(j, np.array(rechts)) if anlage else None
+            if z is None:
+                z, *_ = np.linalg.lstsq(j, np.array(rechts), rcond=None)
             x += frei @ z
             frei = frei @ _nullraum(j)
         if np.linalg.norm(x) < 1e-10:

@@ -1439,5 +1439,7 @@
 "Achse zu Ebene": "Axis to plane",
 "Genau zwei Flächen (Ebenen oder Zylinder) an verschiedenen Teilen wählen": "Select exactly two faces (planes or cylinders) on different parts",
 "Messgrößen gehen zwischen zwei parallelen Ebenen (Spalt, Bündigkeit), einer Achse und einer dazu parallelen Ebene oder zwei parallelen Achsen": "Measures work between two parallel planes (gap, flush), an axis and a plane parallel to it, or two parallel axes",
-"je Querschnitt: schlechtester bei {:.1f} mm entlang der Achse, Spannweite {:.4g} (zulässig {:.4g}, {} Schnitte)": "per cross-section: worst at {:.1f} mm along the axis, range {:.4g} (allowed {:.4g}, {} sections)"
+"je Querschnitt: schlechtester bei {:.1f} mm entlang der Achse, Spannweite {:.4g} (zulässig {:.4g}, {} Schnitte)": "per cross-section: worst at {:.1f} mm along the axis, range {:.4g} (allowed {:.4g}, {} sections)",
+"Anlage (ISO 5459)": "Contact (ISO 5459)",
+"Bezüge als anliegende Flächen außen am Material (größter Abstand minimal) statt Gauß-Ausgleich; empfindlich für Ausreißer im Scan": "Datums as contacting features outside the material (largest distance minimal) instead of least squares; sensitive to outliers in the scan"
 }

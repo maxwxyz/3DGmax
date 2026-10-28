@@ -804,3 +804,32 @@ def test_scan_rundheit_und_rundlauf_je_querschnitt():
     assert e.status == sp.NOK and e.ist > 0.025 and "2" in e.text
     lauf = Pmi(TOLERANZ, "CircularRunout", wert=0.02, flaechen={mantel})
     assert sp.bewerte([lauf], modell, z)[0].status == sp.OK  # je Schnitt konstanter Abstand
+
+
+def test_bezug_als_anlage_iso5459():
+    """Bezugsebene aus einer welligen Oberseite mit einer Erhebung: Gauss-Ausgleich legt die Ebene in die Mitte, die
+    Anlage nach ISO 5459 an die hoechsten Punkte (alle Punkte im Material, groesster Abstand minimal)."""
+    from types import SimpleNamespace
+    import numpy as np
+    from OCC.Core.BRepPrimAPI import BRepPrimAPI_MakeBox
+    from OCC.Core.TopAbs import TopAbs_FACE
+    from OCC.Core.TopExp import TopExp_Explorer
+    from programm.kern import scanpruefung as sp, verbindung as vb
+    ex = TopExp_Explorer(BRepPrimAPI_MakeBox(40.0, 30.0, 10.0).Shape(), TopAbs_FACE)
+    flaechen = []
+    while ex.More():
+        flaechen.append(ex.Current())
+        ex.Next()
+    oben = next(i for i, f in enumerate(flaechen) if (m := vb.merkmal(f)) and m[2][2] > 0.99)
+    modell = SimpleNamespace(flaechen=flaechen)
+    rng = np.random.default_rng(4)
+    x, y = rng.uniform(1, 39, 3000), rng.uniform(1, 29, 3000)
+    z = 10 + 0.01 * np.sin(x / 3) * np.cos(y / 4)
+    z[np.hypot(x - 30, y - 20) < 2] += 0.03  # Erhebung
+    punkte = np.column_stack([x, y, z])
+    gauss = sp.richte_nach_bezug(modell, punkte, np.eye(4), [{oben}])
+    anlage = sp.richte_nach_bezug(modell, punkte, np.eye(4), [{oben}], anlage=True)
+    hoehe = lambda m: (punkte @ m[:3, :3].T + m[:3, 3])[:, 2] - 10  # noqa: E731
+    assert abs(float(hoehe(gauss).mean())) < 2e-3
+    h = hoehe(anlage)
+    assert h.max() < 1e-4 and h.max() > -1e-4 and h.min() < -0.005  # an die hoechsten Punkte angelegt

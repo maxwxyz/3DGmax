@@ -3113,7 +3113,8 @@ class Hauptfenster(QtWidgets.QMainWindow):
         else:
             self.statusBar().showMessage(tr("Erst Teile in der Struktur wählen"), 4000)
 
-    def pruefe_scan(self, pfad: str = "", warten: bool = False, bezug: tuple | None = None, start=None):
+    def pruefe_scan(self, pfad: str = "", warten: bool = False, bezug: tuple | None = None, start=None,
+                    anlage: bool | None = None):
         """Scan (Netz oder Punktwolke) gegen die PMI des geoeffneten CAD-Modells pruefen; bezug: Bezugssystem fuer
         die 3-2-1-Ausrichtung (None: Bestpassung)."""
         from .scan_ui import ScanLader
@@ -3127,7 +3128,8 @@ class Hauptfenster(QtWidgets.QMainWindow):
         if not pfad:
             return
         self.scan_aus()
-        lader = ScanLader(self.erg, pfad, self, bezug, start)
+        anlage = self.scan.anlage.isChecked() if anlage is None else anlage
+        lader = ScanLader(self.erg, pfad, self, bezug, start, anlage and bool(bezug))
         lader.stand.connect(lambda t: self.statusBar().showMessage(t))
         lader.fehler.connect(lambda t: QtWidgets.QMessageBox.warning(self, tr("Scanprüfung"), t))
         lader.fertig.connect(lambda d, l=lader: l.abgebrochen or self._scan_fertig(d))
