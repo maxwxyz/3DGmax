@@ -695,7 +695,7 @@ class OcctAnsicht(AnsichtBasis):
         self._bereit = True
         self.viewer._inited = True
         self.setze_thema(self.thema)
-        if self.szene is not None:
+        if self.szene is not None and not self.thema:  # mit Thema hat setze_thema die Szene schon gebaut
             self._baue_szene()
 
     # --- Ansichtswuerfel (mit Achsenkreuz) ---

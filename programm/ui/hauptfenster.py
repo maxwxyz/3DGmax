@@ -1591,7 +1591,11 @@ class Hauptfenster(QtWidgets.QMainWindow):
             self._ansichten_neu(None)
 
     def _starte_vorschau(self):
-        """Vorschaubilder der gespeicherten Ansichten im Hintergrund zeichnen."""
+        """Vorschaubilder der gespeicherten Ansichten im Hintergrund zeichnen - erst wenn die 3D-Ansicht steht: die
+        Kantenberechnung (HLR) haelt die Python-Sperre und wuerde sonst den Szenenaufbau um ein Vielfaches bremsen."""
+        if getattr(self.ansicht, "_bereit", True) is False:
+            QtCore.QTimer.singleShot(200, self._starte_vorschau)
+            return
         from OCC.Core.BRep import BRep_Builder
         from OCC.Core.TopoDS import TopoDS_Compound
         from .panels import VorschauLader
