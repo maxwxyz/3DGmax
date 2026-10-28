@@ -106,7 +106,8 @@
 | Edit existing PMI (values, fit, material condition; saved in the project) | ✅ |
 | Write edited PMI values back into a copy of the STEP file (lossless, own P21 editing) – PLAN §8.28 stage 1 | ✅ |
 | Write own PMI to STEP AP242 as new P21 entities (datums, geometric tolerances, size/distance dimensions; single parts) | ✅ |
-| Write PMI: assemblies, presentation (graphics) for written PMI; advisor stage 2 | ⬜ |
+| Write own PMI in assemblies (context per part) | ✅ |
+| Write PMI: presentation (graphics) for written PMI; advisor stage 2 | ⬜ |
 
 ## Measuring
 | Feature | Status |

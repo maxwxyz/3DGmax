@@ -1413,7 +1413,6 @@
 "Kopie der STEP-Datei: bearbeitete PMI-Werte ersetzt, eigene PMI als semantische AP242-PMI angehängt – alles andere bleibt unverändert": "Copy of the STEP file: edited PMI values replaced, own PMI appended as semantic AP242 PMI – everything else stays unchanged",
 "Maßart nicht schreibbar": "dimension type not writable",
 "Toleranzart nicht schreibbar": "tolerance type not writable",
-"nur für Einzelteile mit Einheiten": "only for single parts with units",
 "{} eigene PMI neu angelegt: {}": "{} own PMI created: {}",
 "Keine Winkeleinheit in der Datei": "no angle unit in the file",
 "Bewertung": "Assessment",
@@ -1443,5 +1442,7 @@
 "Anlage (ISO 5459)": "Contact (ISO 5459)",
 "Bezüge als anliegende Flächen außen am Material (größter Abstand minimal) statt Gauß-Ausgleich; empfindlich für Ausreißer im Scan": "Datums as contacting features outside the material (largest distance minimal) instead of least squares; sensitive to outliers in the scan",
 "Zahnnabe (ISO 4156 / DIN 5480)": "Spline hub (ISO 4156 / DIN 5480)",
-"Zahnwelle (ISO 4156 / DIN 5480)": "Spline shaft (ISO 4156 / DIN 5480)"
+"Zahnwelle (ISO 4156 / DIN 5480)": "Spline shaft (ISO 4156 / DIN 5480)",
+"Flächen aus mehreren Teilen": "faces from several parts",
+"nur für Teile mit Produktform und Einheiten": "only for parts with a product shape and units"
 }

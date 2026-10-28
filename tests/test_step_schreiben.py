@@ -98,9 +98,30 @@ def test_eigene_pmi_anhaengen(tmp_path):
             out.append(s.Length())
         return out
     assert [n - v for n, v in zip(xcaf(ziel), xcaf(quelle))] == [2, 2, 1]
-    # Baugruppe (mehrere Teile): gemeldet, Datei unveraendert gelesen
+    # Baugruppe: Bezug und Toleranz am jeweiligen Teil; Flaechen aus zwei Teilen in einer PMI werden gemeldet
     g = lade_alles(pfad("getriebe.stp"))
-    p = Pmi("toleranz", "Flatness", "", wert=0.02, flaechen={0})
-    p.quelle, p.nummer = "eigen", 1
-    b = sw.schreibe(pfad("getriebe.stp"), str(tmp_path / "g.stp"), [p], g.modell)
-    assert not b.neu and b.uebersprungen[0][0] == 1
+    blaetter = {k.name: k for k in g.baum.blaetter()}
+
+    def flaechen_von(name):
+        from OCC.Core.TopAbs import TopAbs_FACE
+        from OCC.Core.TopExp import TopExp_Explorer
+        out, ex = [], TopExp_Explorer(blaetter[name].form, TopAbs_FACE)
+        while ex.More():
+            out.append(g.modell.flaechen_index(ex.Current()))
+            ex.Next()
+        return out
+    hulse, rad = flaechen_von("Distanzhülse"), flaechen_von("Zahnrad")
+    eigene = [Pmi("bezug", "Datum", "H", flaechen={hulse[0]}),
+              Pmi("toleranz", "Parallelism", "", wert=0.02, bezuege=[BezugsRef("H", 1)], flaechen={hulse[1]}),
+              Pmi("toleranz", "Flatness", "", wert=0.02, flaechen={rad[0]}),
+              Pmi("toleranz", "Flatness", "", wert=0.02, flaechen={rad[0], hulse[0]}),
+              Pmi("toleranz", "Parallelism", "", wert=0.02, bezuege=[BezugsRef("H", 1)], flaechen={rad[1]})]
+    for i, p in enumerate(eigene):
+        p.quelle, p.nummer, p.step_id = "eigen", 1 + i, -1 - i
+    ziel_g = str(tmp_path / "g.stp")
+    b = sw.schreibe(pfad("getriebe.stp"), ziel_g, eigene, g.modell)
+    assert b.neu == [1, 2, 3] and [n for n, _, _ in b.uebersprungen] == [4, 5]  # zwei Teile; H gehoert zur Huelse
+    neu = lade_alles(ziel_g).pmi
+    par = next(p for p in neu if p.typ == "Parallelism")
+    assert [x.name for x in par.bezuege] == ["H"] and par.flaechen == {hulse[1]}
+    assert next(p for p in neu if p.typ == "Flatness").flaechen == {rad[0]}

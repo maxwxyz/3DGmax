@@ -17,7 +17,8 @@ oder komplex mit GEOMETRIC_TOLERANCE_WITH_DATUM_REFERENCE (DATUM_SYSTEM, DATUM_R
 GEOMETRIC_TOLERANCE_WITH_MODIFIERS (Materialbedingung), Durchmesserzone als TOLERANCE_ZONE; Masse als DIMENSIONAL_SIZE
 bzw. DIMENSIONAL_LOCATION mit SHAPE_DIMENSION_REPRESENTATION ('nominal value') und PLUS_MINUS_TOLERANCE
 (TOLERANCE_VALUE oder LIMITS_AND_FITS); Bezuege als DATUM_FEATURE, DATUM und SHAPE_ASPECT_RELATIONSHIP. Nur
-Einzelteile (eine PRODUCT_DEFINITION_SHAPE mit Geometrie); Lagemasse ohne genau zwei Flaechen werden gemeldet.
+Einzelteile und Baugruppen (Produktform, Darstellung und Einheiten je Teil aus den Flaechen der PMI; alle Flaechen
+einer PMI in einem Teil); Lagemasse ohne genau zwei Flaechen werden gemeldet.
 """
 
 from __future__ import annotations
@@ -132,16 +133,20 @@ def _ersetze_zahl(text: str, eid: int, wert: float) -> str:
 
 
 class _Anhang:
-    """Neue Entitaeten mit fortlaufenden Ids ab der hoechsten Id der Datei."""
+    """Neue Entitaeten mit fortlaufenden Ids ab der hoechsten Id der Datei; Teil-Kontext (Produktform, Darstellung,
+    Einheiten) je PMI aus ihren Flaechen - auch in Baugruppen."""
 
     def __init__(self, datei: p21.P21Datei, modell):
         self.datei, self.modell = datei, modell
         self.naechste = max(datei.entities) + 1
         self.zeilen: list[str] = []
         self.flaeche_zu_step = {i: eid for eid, i in getattr(modell, "step_zu_flaeche", {}).items()}
-        self.pds = self._pds()
-        self.einheit_laenge, self.einheit_winkel, self.kontext = self._einheiten()
-        self.bezuege = {e.args("DATUM")[4]: e.id for e in datei.of_type("DATUM")}
+        self.pds = self.darst = self.kontext = self.einheit_laenge = self.einheit_winkel = None
+        self.bezuege = {(e.args("DATUM")[2].id if isinstance(e.args("DATUM")[2], Ref) else None, e.args("DATUM")[4]):
+                        e.id for e in datei.of_type("DATUM")}
+        self._sdr = {e.args("SHAPE_DEFINITION_REPRESENTATION")[1].id: e.args("SHAPE_DEFINITION_REPRESENTATION")[0].id
+                     for e in datei.of_type("SHAPE_DEFINITION_REPRESENTATION")
+                     if all(isinstance(x, Ref) for x in e.args("SHAPE_DEFINITION_REPRESENTATION")[:2])}
 
     def neu(self, text: str) -> int:
         eid = self.naechste
@@ -149,26 +154,40 @@ class _Anhang:
         self.zeilen.append(f"#{eid}={text};")
         return eid
 
-    def _pds(self) -> int | None:
-        """PRODUCT_DEFINITION_SHAPE des Teils (genau eine mit Formdarstellung), sonst None."""
-        kandidaten = {e.args("SHAPE_DEFINITION_REPRESENTATION")[0].id
-                      for e in self.datei.of_type("SHAPE_DEFINITION_REPRESENTATION")
-                      if isinstance(e.args("SHAPE_DEFINITION_REPRESENTATION")[0], Ref)}
-        kandidaten = {k for k in kandidaten if self.datei.entities[k].is_a("PRODUCT_DEFINITION_SHAPE")}
-        return next(iter(kandidaten)) if len(kandidaten) == 1 else None
+    def bezug(self, name: str) -> int | None:
+        return self.bezuege.get((self.pds, name))
 
-    def _einheiten(self):
-        laenge = winkel = kontext = None
-        for e in self.datei.entities.values():
-            if e.is_a("GLOBAL_UNIT_ASSIGNED_CONTEXT") and e.is_a("GEOMETRIC_REPRESENTATION_CONTEXT"):
-                kontext = kontext or e.id
-                for u in e.args("GLOBAL_UNIT_ASSIGNED_CONTEXT")[0] or []:
-                    ue = self.datei.get(u)
-                    if ue is not None and ue.is_a("LENGTH_UNIT"):
-                        laenge = laenge or u.id
-                    elif ue is not None and ue.is_a("PLANE_ANGLE_UNIT"):
-                        winkel = winkel or u.id
-        return laenge, winkel, kontext
+    def _pds_von(self, darst: int) -> int | None:
+        """Produktform zur Darstellung: direkt ueber SHAPE_DEFINITION_REPRESENTATION oder ueber verknuepfte
+        Darstellungen (SHAPE_REPRESENTATION_RELATIONSHIP)."""
+        offen, gesehen = [darst], {darst}
+        verweise = self.datei.referrers()
+        while offen:
+            x = offen.pop(0)
+            if x in self._sdr and self.datei.entities[self._sdr[x]].is_a("PRODUCT_DEFINITION_SHAPE"):
+                return self._sdr[x]
+            for r in verweise.get(x, []):
+                e = self.datei.entities[r]
+                if e.is_a("SHAPE_REPRESENTATION_RELATIONSHIP") or e.is_a("REPRESENTATION_RELATIONSHIP"):
+                    teil = "REPRESENTATION_RELATIONSHIP" if "REPRESENTATION_RELATIONSHIP" in e.parts else \
+                        next(iter(e.parts))
+                    for y in e.args(teil)[2:4]:
+                        if isinstance(y, Ref) and y.id not in gesehen:
+                            gesehen.add(y.id)
+                            offen.append(y.id)
+        return None
+
+    def _einheiten(self, kontext: int):
+        laenge = winkel = None
+        e = self.datei.entities.get(kontext)
+        if e is not None and e.is_a("GLOBAL_UNIT_ASSIGNED_CONTEXT"):
+            for u in e.args("GLOBAL_UNIT_ASSIGNED_CONTEXT")[0] or []:
+                ue = self.datei.get(u)
+                if ue is not None and ue.is_a("LENGTH_UNIT"):
+                    laenge = laenge or u.id
+                elif ue is not None and ue.is_a("PLANE_ANGLE_UNIT"):
+                    winkel = winkel or u.id
+        return laenge, winkel
 
     def darstellung(self, flaeche_step: int) -> int | None:
         """Formdarstellung (REPRESENTATION), in der die Flaeche liegt: aufwaerts ueber die Verweise."""
@@ -188,16 +207,35 @@ class _Anhang:
                     offen.append(r)
         return None
 
+    def waehle(self, flaechen) -> str | None:
+        """Teil-Kontext der Flaechen setzen; Fehlertext, wenn sie nicht in einem Teil mit Einheiten liegen."""
+        stepf = [self.flaeche_zu_step.get(i) for i in sorted(flaechen)]
+        if not stepf or None in stepf:
+            return tr("Flächen ohne Entsprechung in der Datei")
+        darst = {self.darstellung(f) for f in stepf}
+        if len(darst) != 1 or None in darst:
+            return tr("Flächen aus mehreren Teilen")
+        self.darst = darst.pop()
+        self.pds = self._pds_von(self.darst)
+        rep = self.datei.entities[self.darst]
+        teil = "REPRESENTATION" if "REPRESENTATION" in rep.parts else next(iter(rep.parts))
+        args = rep.args(teil)
+        kontext = args[2] if len(args) > 2 else None
+        self.kontext = kontext.id if isinstance(kontext, Ref) else None
+        self.einheit_laenge, self.einheit_winkel = self._einheiten(self.kontext) if self.kontext else (None, None)
+        if self.pds is None or self.einheit_laenge is None:
+            return tr("nur für Teile mit Produktform und Einheiten")
+        self._stepf = stepf
+        return None
+
     def aspekt(self, flaechen, art: str = "SHAPE_ASPECT") -> int | None:
+        """Formaspekt der Flaechen im gewaehlten Teil (waehle vorher)."""
         stepf = [self.flaeche_zu_step.get(i) for i in sorted(flaechen)]
         if not stepf or None in stepf:
             return None
-        darst = self.darstellung(stepf[0])
-        if darst is None:
-            return None
         sa = self.neu(f"{art}('','',#{self.pds},.T.)" if art == "SHAPE_ASPECT" else f"{art}('',$,#{self.pds},.T.)")
         for f in stepf:
-            self.neu(f"GEOMETRIC_ITEM_SPECIFIC_USAGE('','',#{sa},#{darst},#{f})")
+            self.neu(f"GEOMETRIC_ITEM_SPECIFIC_USAGE('','',#{sa},#{self.darst},#{f})")
         return sa
 
     def winkel_dateiwert(self, grad: float) -> float:
@@ -217,14 +255,17 @@ GROESSE_NAME = {"Size_Diameter": "diameter", "Size_Radius": "radius", "Size_Thic
 
 
 def _schreibe_bezug(a: _Anhang, p) -> str | None:
-    if p.name in a.bezuege:
+    fehler = a.waehle(p.flaechen)
+    if fehler:
+        return fehler
+    if a.bezug(p.name) is not None:
         return tr("Bezug {} gibt es in der Datei schon").format(p.name)
     df = a.aspekt(p.flaechen, "DATUM_FEATURE")
     if df is None:
         return tr("Flächen ohne Entsprechung in der Datei")
     d = a.neu(f"DATUM('',$,#{a.pds},.F.,'{p.name}')")
     a.neu(f"SHAPE_ASPECT_RELATIONSHIP('',$,#{df},#{d})")
-    a.bezuege[p.name] = d
+    a.bezuege[(a.pds, p.name)] = d
     return None
 
 
@@ -233,7 +274,10 @@ def _schreibe_toleranz(a: _Anhang, p) -> str | None:
     entitaet = {v: k for k, v in TOL_ARTEN.items()}.get(p.typ)
     if entitaet is None or p.wert is None:
         return tr("Toleranzart nicht schreibbar")
-    fehlend = [b.name for b in p.bezuege if b.name not in a.bezuege]
+    fehler = a.waehle(p.flaechen)
+    if fehler:
+        return fehler
+    fehlend = [b.name for b in p.bezuege if a.bezug(b.name) is None]
     if fehlend:
         return tr("Bezug {} fehlt in der Datei").format(", ".join(fehlend))
     sa = a.aspekt(p.flaechen)
@@ -242,7 +286,7 @@ def _schreibe_toleranz(a: _Anhang, p) -> str | None:
     betrag = a.mass(p.wert)
     teile = {entitaet: "()"}
     if p.bezuege:
-        abteile = [a.neu(f"DATUM_REFERENCE_COMPARTMENT('',$,#{a.pds},.F.,#{a.bezuege[b.name]},$)")
+        abteile = [a.neu(f"DATUM_REFERENCE_COMPARTMENT('',$,#{a.pds},.F.,#{a.bezug(b.name)},$)")
                    for b in sorted(p.bezuege, key=lambda b: b.stelle)]
         system = a.neu(f"DATUM_SYSTEM('',$,#{a.pds},.F.,({','.join(f'#{x}' for x in abteile)}))")
         teile["GEOMETRIC_TOLERANCE_WITH_DATUM_REFERENCE"] = f"((#{system}))"
@@ -264,6 +308,9 @@ def _schreibe_toleranz(a: _Anhang, p) -> str | None:
 def _schreibe_mass(a: _Anhang, p) -> str | None:
     if p.nennwert is None:
         return tr("Maß ohne Wert")
+    fehler = a.waehle(p.flaechen)
+    if fehler:
+        return fehler
     if p.typ in GROESSE_NAME:
         sa = a.aspekt(p.flaechen)
         if sa is None:
@@ -314,10 +361,6 @@ def _haenge_an(text: str, datei, modell, pmi, bericht: Bericht) -> str:
     if not eigene:
         return text
     a = _Anhang(datei, modell)
-    if a.pds is None or a.einheit_laenge is None or a.kontext is None:
-        for p in eigene:
-            bericht.uebersprungen.append((p.nummer, "neu", tr("nur für Einzelteile mit Einheiten")))
-        return text
     # Bezuege zuerst: Toleranzen verweisen auf sie
     for p in sorted(eigene, key=lambda p: p.art != "bezug"):
         vorher = (len(a.zeilen), a.naechste)
