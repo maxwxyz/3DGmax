@@ -448,3 +448,84 @@ def test_rollen_ausserhalb_des_kreises():
     assert zeile, r.stdout[-2000:] + r.stderr[-2000:]
     erg = eval(zeile.split(" ", 1)[1])  # noqa: S307 - eigene Ausgabe
     assert all(v for k, v in erg.items() if k != "text"), erg
+
+
+ZIEHEN = r'''
+import os, sys, tempfile
+sys.path.insert(0, sys.argv[1])
+os.environ["DG_EINSTELLUNGEN"] = os.path.join(tempfile.mkdtemp(), "e.ini")
+from PySide6 import QtCore, QtGui, QtWidgets
+app = QtWidgets.QApplication([])
+from programm.ui.hauptfenster import Hauptfenster
+import numpy as np
+f = Hauptfenster(); f.resize(1200, 800); f.show()
+B = QtCore.Qt.MouseButton
+def maus(typ, pos):
+    v = f.ansicht.viewer
+    knoepfe = B.LeftButton if typ != QtCore.QEvent.Type.MouseButtonRelease else B.NoButton
+    ev = QtGui.QMouseEvent(typ, QtCore.QPointF(*pos), v.mapToGlobal(QtCore.QPointF(*pos)), B.LeftButton, knoepfe,
+                           QtCore.Qt.KeyboardModifier.NoModifier)
+    QtWidgets.QApplication.sendEvent(v, ev)
+def los():
+    erg = {}
+    try:
+        from OCC.Core.Bnd import Bnd_Box
+        from OCC.Core.BRepBndLib import brepbndlib
+        f.ansicht.animation = False  # keine Kamerafahrt: beim Druecken sprang die Kamera sonst ans Fahrtziel
+        f.lade(os.path.join(sys.argv[1], "tests", "daten", "baugruppe.stp"), warten=True)
+        f.zeige_zusammenbau()
+        for _ in range(30):
+            QtWidgets.QApplication.processEvents()
+        erg["an"] = f.ansicht.teil_ziehen_an
+        schraube = next(k for k in f.erg.baum.blaetter() if k.nummer == 4)
+        b = Bnd_Box(); brepbndlib.Add(schraube.form, b)
+        x0, y0, z0, x1, y1, z1 = b.Get()
+        f.ansicht.d.View.FitAll(b, 0.6)  # Schraube gross genug im Bild
+        f.ansicht.d.View.Redraw()
+        fx, fy = f.ansicht._occt_faktor()
+        x, y = f.ansicht.d.View.Convert((x0 + x1) / 2, (y0 + y1) / 2, z1)  # Kopf oben, im Bild sichtbar
+        ctx = f.ansicht.d.Context
+        treffer = None
+        for dx in range(-30, 31, 2):  # Bildpunkt suchen, unter dem die Schraube liegt
+            for dy in range(-30, 31, 2):
+                def schraube(u, v):
+                    ctx.MoveTo(int(u), int(v), f.ansicht.d.View, False)
+                    return ctx.HasDetected() and ctx.DetectedInteractive() == f.ansicht._teile[4]
+                if all(schraube(x + dx + a, y + dy + c) for a, c in ((0, 0), (-4, 0), (4, 0), (0, -4), (0, 4))):
+                    treffer = (x + dx, y + dy)
+                    break
+            if treffer:
+                break
+        erg["sichtbar"] = treffer is not None
+        x, y = treffer[0] / fx, treffer[1] / fy
+        ziele = []
+        f.ansicht.teil_ziehen_start.connect(lambda t, s: ziele.append(t))
+        maus(QtCore.QEvent.Type.MouseButtonPress, (x, y))
+        for k in range(1, 5):
+            maus(QtCore.QEvent.Type.MouseMove, (x + 2 * k, y))
+        erg["gepackt"] = ziele == [4]
+        erg["angezeigt"] = 4 in f.ansicht.teil_lagen
+        maus(QtCore.QEvent.Type.MouseButtonRelease, (x + 8, y))
+        erg["verbunden"] = len(f.baugruppe.verbindungen) == 1 and not f.baugruppe.verletzt()
+        erg["navigation_frei"] = f.ansicht.nav.start is None
+        f.ansicht.d.View.Dump(os.path.join(tempfile.gettempdir(), "3dgmax_ziehen.png"))
+    except Exception as e:
+        erg["fehler"] = False
+        erg["text"] = repr(e)
+    print("ERGEBNIS", erg, flush=True)
+    app.quit()
+QtCore.QTimer.singleShot(1500, los)
+app.exec()
+'''
+
+
+def test_teil_ziehen_einrasten():
+    """Zusammenbau: Schraube mit der linken Maustaste packen und ein Stueck ziehen - sie folgt der Maus, rastet
+    koaxial in die Bohrung ein und Loslassen legt die Verbindung an; die Navigation bleibt nicht haengen."""
+    env = dict(os.environ)
+    env.pop("QT_QPA_PLATFORM", None)
+    r = subprocess.run([sys.executable, "-c", ZIEHEN, WURZEL], capture_output=True, text=True, env=env, timeout=300)
+    zeile = next((z for z in r.stdout.splitlines() if z.startswith("ERGEBNIS")), "")
+    assert zeile, r.stdout[-2000:] + r.stderr[-2000:]
+    erg = eval(zeile.split(" ", 1)[1])  # noqa: S307 - eigene Ausgabe
+    assert all(v for k, v in erg.items() if k != "text"), erg

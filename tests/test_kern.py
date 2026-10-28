@@ -1045,3 +1045,42 @@ def test_modell_hinzufuegen_zusammenfuegen():
     e2 = zf.fuege_hinzu(e, lade_alles(pfad("getriebe.stp")))
     assert e2.zusaetze[1].id_versatz == 2 * zf.ID_VERSATZ and e2.zusaetze[1].erste_flaeche == n_a + n_b
     assert zf._box(e2.baum.kinder[-1].form)[0][0] > box_b[1][0]
+
+
+def test_einrasten_beim_ziehen():
+    """Schraube ziehen: rastet koaxial in die Bohrung, danach (nur noch entlang/um die Achse) mit dem Kopf auf dem
+    Deckel ein; zuletzt bleibt nur die Drehung, Ziehen dreht um die Achse; vorhandene Paare werden nicht erneut
+    gefangen, ferne Flaechen nicht."""
+    import numpy as np
+    from programm.kern import einrasten as er
+    from programm.kern import verbindung as vb
+    from programm.ui.lader import lade_alles
+    erg = lade_alles(pfad("baugruppe.stp"))
+    kn = {k.nummer: k for k in erg.baum.blaetter() if not k.hilfsgeometrie}
+    andere = [(n, k.form) for n, k in kn.items() if n != 4]
+    b = vb.Baugruppe()
+    seite = ((0.0, -200.0, 0.0), (0.0, 1.0, 0.0))  # Blick entlang +Y: Ziehen in X/Z
+    z = er.Ziehen(b, 4, kn[4].form, erg.modell, andere, seite, 2.0)
+    assert len(z.schiebe) == 3 and z.dreh is None
+    z.bewege(((0.0, -200.0, 0.6), (0.0, 1.0, 0.0)))
+    assert z.kandidat.art == vb.KOAXIAL and (z.kandidat.gegen.teil, z.kandidat.gegen.index) == (2, 6)
+    v = z.loslassen()
+    assert v.art == vb.KOAXIAL and not b.verletzt()
+    # entlang der Achse nach oben: Kopf 0.2 mm unter dem Deckel -> eben, auf Beruehrung gefangen
+    z = er.Ziehen(b, 4, kn[4].form, erg.modell, andere, seite, 2.0)
+    assert len(z.schiebe) == 1 and abs(abs(z.schiebe[0][2]) - 1) < 1e-9
+    l = z.bewege(((5.0, -200.0, 1.4), (0.0, 1.0, 0.0)))  # X-Anteil faellt weg (nicht frei)
+    assert z.kandidat.art == vb.EBEN and (z.kandidat.gegen.teil, z.kandidat.gegen.index) == (3, 15)
+    assert np.allclose(l[:3, 3], [0, 0, 1])
+    assert z.loslassen().art == vb.EBEN and len(b.verbindungen) == 2 and not b.verletzt()
+    # nur noch die Drehung: Ziehen quer zur Achse dreht, Verbindungen bleiben erfuellt
+    z = er.Ziehen(b, 4, kn[4].form, erg.modell, andere, ((0.0, 0.0, 200.0), (0.0, 0.0, -1.0)), 2.0)
+    assert not len(z.schiebe) and z.dreh is not None
+    vorher = b.lage(4).copy()
+    l = z.bewege(((3.0, -3.0, 200.0), (0.0, 0.0, -1.0)))  # quer zum Hebel zur Achse (15, 15)
+    assert z.kandidat is None and not np.allclose(l, vorher) and z.loslassen() is None and not b.verletzt()
+    # weit weg: kein Kandidat
+    z = er.Ziehen(vb.Baugruppe(), 4, kn[4].form, erg.modell, andere, seite, 2.0)
+    l = z.bewege(((0.0, -200.0, 80.0), (0.0, 1.0, 0.0)))
+    assert z.kandidat is None and np.allclose(l[:3, 3], [0, 0, 80])
+    assert er.schieberichtungen(np.zeros((0, 6))).shape == (0, 3)

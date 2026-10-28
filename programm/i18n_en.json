@@ -1827,5 +1827,10 @@
 "Modell hinzufügen …": "Add model …",
 "Weitere Datei als zusätzliche Teile aufnehmen; sie liegt zunächst neben dem Modell und wird dann hier verbunden": "Load another file as additional parts; it is placed next to the model first and then connected here",
 "Weitere Datei als zusätzliche Teile ins geladene Modell aufnehmen (z. B. für den Zusammenbau); sie liegt zunächst neben dem Modell": "Load another file as additional parts into the current model (e.g. for the assembly); it is placed next to the model first",
-"{} hinzugefügt: {} Flächen, neben das Modell gelegt – im Zusammenbau verbinden": "{} added: {} faces, placed next to the model – connect it in the assembly"
+"{} hinzugefügt: {} Flächen, neben das Modell gelegt – im Zusammenbau verbinden": "{} added: {} faces, placed next to the model – connect it in the assembly",
+"Das Teil ist durch seine Verbindungen bestimmt – nichts mehr frei": "The part is fully determined by its connections – nothing is free",
+"Nur die Drehung um die Achse ist frei: Ziehen dreht das Teil": "Only the rotation about the axis is free: dragging turns the part",
+"Rastet ein: {} an {} – loslassen verbindet": "Snaps: {} to {} – release to connect",
+"Teile lassen sich auch im 3D mit der linken Maustaste ziehen (klassische Navigation: mit Alt): nur in den offenen Freiheitsgraden, an passenden Flächen rastet das Teil ein, Loslassen verbindet.": "Parts can also be dragged in 3D with the left mouse button (classic navigation: with Alt): only along the open degrees of freedom; the part snaps to matching faces, releasing connects.",
+"Ziehen – in die Nähe einer passenden Fläche bringen, dann rastet es ein": "Dragging – bring it close to a matching face and it snaps"
 }

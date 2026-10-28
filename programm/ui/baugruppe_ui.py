@@ -65,7 +65,10 @@ class BaugruppePanel(QtWidgets.QWidget):
                                       "Gegenfläche am anderen Teil: zwei Ebenen liegen aufeinander, zwei Zylinder "
                                       "sind koaxial, Zylinder auf Ebene ist ein Bolzen im Langloch, Kugel auf Ebene "
                                       "ein Punktkontakt, zwei Kugeln ein Kugelgelenk. Die Freiheitsgrade zeigen, was "
-                                      "noch offen ist."))
+                                      "noch offen ist.") + " " +
+                                   tr("Teile lassen sich auch im 3D mit der linken Maustaste ziehen (klassische "
+                                      "Navigation: mit Alt): nur in den offenen Freiheitsgraden, an passenden "
+                                      "Flächen rastet das Teil ein, Loslassen verbindet."))
         hinweis.setWordWrap(True)
         hinweis.setObjectName("leise")
         lay.addWidget(hinweis)

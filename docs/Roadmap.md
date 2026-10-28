@@ -112,7 +112,8 @@
 | Assembly: 3D dragger (gizmo with arrows and rings) for the same moves | ✅ |
 | Assembly: 3-2-1 template (six planes, one step) | ✅ |
 | Assembly: add further files as parts ("Add model"; own tree node, placed next to the model, PMI kept, in the project) | ✅ |
-| Assembly: dragging with live snapping, STEP kinematics | ⬜ |
+| Assembly: drag a part in 3D in its open DOF with live snapping (plane/plane, coaxial), release connects; also at the 3D handle | ✅ |
+| Assembly: STEP AP242 kinematics (joints, limits) as connections – researched, OCCT parses but does not transfer; needs a sample file | ⬜ |
 | Tolerance stack-up 3D (geometric tolerances, chain from the model, sensitivity) – PLAN §8.20: by hand ✅ (§8.33), automatically from the model ⬜ | 🟡 |
 | Assemblies built in the project (mates on datum features), materials and thermal expansion in chains | ⬜ |
 | Wiggle within tolerances (assembly connections, extreme positions, 1:1 or exaggerated); worst-case position scatter per part | ✅ |

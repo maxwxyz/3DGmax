@@ -2190,3 +2190,44 @@ def test_modell_hinzufuegen_verbinden_projekt(fenster, tmp_path):
     assert len(f.baugruppe.verbindungen) == 1 and np.allclose(f.baugruppe.lage(welle.nummer), lage)
     assert not f.baugruppe.verletzt()
     f.zusammenbau_zuruecksetzen()
+
+
+def test_zusammenbau_ziehen_einrasten(fenster):
+    """Teil im 3D ziehen (Signale der Ansicht): rastet live koaxial ein, Hervorhebung, Loslassen legt die Verbindung
+    an; ein bestimmtes Teil laesst sich nicht ziehen."""
+    import numpy as np
+    f = fenster
+    f.lade(pfad("baugruppe.stp"), warten=True)
+    f.zeige_zusammenbau()
+    assert f.ansicht.teil_ziehen_an
+    seite = ((0.0, -200.0, 0.0), (0.0, 1.0, 0.0))
+    f.ansicht.teil_ziehen_start.emit(4, seite)
+    f.ansicht.teil_gezogen.emit(((0.0, -200.0, 0.6), (0.0, 1.0, 0.0)))
+    assert f._ziehen.kandidat is not None and len(f.ansicht.auswahl3d) == 2 and f.ansicht.auswahl_teile == [4, 2]
+    assert "Rastet ein" in f.statusBar().currentMessage()
+    assert np.allclose(f.ansicht.teil_lagen[4][:3, 3], [0, 0, 0.6])  # nur angezeigt, noch nicht uebernommen
+    f.ansicht.teil_ziehen_ende.emit()
+    assert len(f.baugruppe.verbindungen) == 1 and f.baugruppe.verbindungen[0].art == "koaxial"
+    assert f.zusammenbau.verbindungen.rowCount() == 1 and f.baugruppe.verbindungen[0].toleranz > 0
+    f.ansicht.teil_ziehen_start.emit(4, seite)
+    f.ansicht.teil_gezogen.emit(((0.0, -200.0, 1.4), (0.0, 1.0, 0.0)))
+    f.ansicht.teil_ziehen_ende.emit()
+    assert [v.art for v in f.baugruppe.verbindungen] == ["koaxial", "eben"] and not f.baugruppe.verletzt()
+    # 3D-Griff: Schraube 5 koaxial (verschiebbar und drehbar), am Griff nach oben ziehen -> Kopf rastet am Deckel ein
+    f.ansicht.teil_ziehen_start.emit(5, seite)
+    f.ansicht.teil_gezogen.emit(((0.0, -200.0, 0.3), (0.0, 1.0, 0.0)))
+    f.ansicht.teil_ziehen_ende.emit()
+    z = f.zusammenbau
+    z.teile.selectRow(z._teil_nummern.index(5))
+    r = f.ansicht.manipulator
+    assert r is not None and any(r["verschieben"])
+    achse = r["achsen"][int(np.argmax(r["verschieben"]))]
+    m = np.eye(4)
+    m[:3, 3] = achse * (1.2 if achse[2] > 0 else -1.2)  # 1.2 mm nach oben: Kopf 0.2 mm unter dem Deckel
+    f.ansicht.manipulator_bewegt.emit(m)
+    assert f._ziehen is not None and f._ziehen.kandidat is not None and f._ziehen.kandidat.art == "eben"
+    f.ansicht.manipulator_fertig.emit()
+    assert sum(v.teil == 5 for v in f.baugruppe.verbindungen) == 2 and not f.baugruppe.verletzt()
+    assert np.allclose(f.baugruppe.lage(5)[:3, 3], [0, 0, 1])
+    f.zusammenbau_zuruecksetzen()
+    assert not f.baugruppe.verbindungen

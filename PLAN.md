@@ -871,6 +871,41 @@ Plan (each stage usable on its own; builds on §8.5 zones and the 1D chain of §
   re-merges them on opening before the connections are restored. Limits: datum letters are not renamed (same
   letter in two files is ambiguous); Save STEP writes only the first file's PMI; a comparison drops added files.
 
+- Done 2026-10-28 (plan item 5a, dragging with live snapping, `kern/einrasten.py`): in the assembly (panel visible)
+  a part is dragged in 3D with the left mouse button (CATIA navigation: left alone, where it did nothing before;
+  classic navigation: Alt + left, because left alone rotates there); a click without moving still selects. The drag
+  follows the mouse on the plane through the grab point normal to the view, projected onto the part's free
+  translations (null space of its connection rows without rotation part); a part with only one free rotation (screw
+  with head and shank) turns about its axis instead. In every position candidates are searched: plane against plane
+  (normals opposed within 5°, distance ≤ snap range, faces overlapping sideways) and axis on axis (parallel within 5°,
+  axis distance ≤ snap range, same height, radii within 15 %); snap range 15 screen pixels. The best candidate is
+  snapped with `verbindung.fangen` only if the part's existing connections stay satisfied and the new pair constrains
+  a still open motion (redundant pairs such as a second cylinder on the same axis are skipped; already connected pairs
+  too). The faces are highlighted with the status "Snaps: … to … – release to connect"; release creates the
+  connection (`Baugruppe.verbinde`, clearance from geometry/PMI as with the button). The 3D handle snaps the same way.
+  Checked on screen (`tests/test_bildschirm.py::test_teil_ziehen_einrasten`). Open: sphere/pin–slot candidates while
+  dragging, snapping several pairs at once, offset snapping (distance > 0).
+- Researched 2026-10-28 (plan item 5b, STEP kinematics), by experiment with pythonocc-core 8.0.1: OCCT parses the
+  ISO 10303-105 kinematics entities of AP242 into its STEP data model (`StepKinematics_*`, 86 classes, e.g.
+  `KINEMATIC_LINK`, `KINEMATIC_JOINT`, `REVOLUTE_PAIR_WITH_RANGE`, `PRISMATIC_PAIR`, `MECHANISM_REPRESENTATION` –
+  checked with a hand-written probe file, read with `STEPControl_Reader`, every entity came back with its class), but
+  nothing is transferred to the XCAF document: pythonocc 8.0.1 has no `XCAFKinematics`/`XCAFDoc` kinematics
+  attributes. Our own P21 reader (`kern/p21`) also reads these entities as plain entities. No public sample file
+  with a mechanism was found: the NIST AP242/PMI/CAD sets in `daten/` contain no kinematic entity (searched), and the
+  CAx-IF/MBx-IF kinematics test cases (e.g. round 46J, the "Gripper" model) are only available to members. Therefore
+  nothing is imported yet (no unverified importer). What an import needs: (1) for each `KINEMATIC_PAIR` subtype its
+  joint (`KINEMATIC_JOINT` edge between two `KINEMATIC_LINK`s) and the two pair frames (`transform_item_1/2`,
+  placements in the link frames); (2) link → part: `KINEMATIC_LINK_REPRESENTATION` /
+  `CONTEXT_DEPENDENT_KINEMATIC_LINK_REPRESENTATION` → `PRODUCT_DEFINITION` → tree node (instance via the
+  `NEXT_ASSEMBLY_USAGE_OCCURRENCE` of the representation relationship); (3) mapping of pair types to our open DOF:
+  revolute = rotation about z of the pair frame, prismatic = translation along z, cylindrical = both, spherical =
+  three rotations, planar = translation in xy + rotation about z, fully constrained = none; limits from the
+  `…_WITH_RANGE` attributes (`lower/upper_limit_actual_rotation`, `…_translation`); (4) the current state from
+  `MECHANISM_STATE_REPRESENTATION` / `…_PAIR_VALUE`. Our connections are face based, so imported joints would need
+  a new connection kind "joint" holding the DOF basis directly (rows from the pair frame) plus limits used by the
+  wiggle and the clash check over the range (§8.21 stage 5). Next step: a real AP242 file with kinematics exported
+  from a CAD system (e.g. CATIA/NX/Creo "STEP AP242 with kinematics").
+
 ### 8.21 Clash, clearance band and intersection analysis; degrees of freedom (requested 2026-10-27)
 Request (from public feature requests of an open-source CAD project, generalized): check assemblies or a selection of
 parts for intersections, for distances outside a band (minimum/maximum clearance), also while parts move within
