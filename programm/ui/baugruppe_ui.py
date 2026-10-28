@@ -23,6 +23,7 @@ def _tabelle(spalten) -> QtWidgets.QTableWidget:
 
 class BaugruppePanel(QtWidgets.QWidget):
     verbinden = QtCore.Signal(float)  # Versatz in mm
+    verbinden_321 = QtCore.Signal(float)  # 3-2-1-Vorlage aus sechs gewaehlten Ebenen
     entfernen = QtCore.Signal(int)  # Nummer der Verbindung
     zuruecksetzen = QtCore.Signal()
     wiggle = QtCore.Signal(object)  # Knotennummer oder None (aus)
@@ -72,6 +73,11 @@ class BaugruppePanel(QtWidgets.QWidget):
         self.knopf = QtWidgets.QPushButton(tr("Verbinden"))
         self.knopf.clicked.connect(lambda: self.verbinden.emit(self.versatz.value()))
         reihe.addWidget(self.knopf, 1)
+        self.knopf_321 = QtWidgets.QPushButton(tr("3-2-1"))
+        self.knopf_321.setToolTip(tr("3-2-1-Vorlage: sechs Ebenen paarweise wählen (Teil, Gegenstück) – primär, "
+                                     "sekundär, tertiär; das Teil wird in einem Schritt bestimmt"))
+        self.knopf_321.clicked.connect(lambda: self.verbinden_321.emit(self.versatz.value()))
+        reihe.addWidget(self.knopf_321)
         lay.addLayout(reihe)
         self.verbindungen = _tabelle(self.VERBINDUNG_SPALTEN)
         self.verbindungen.setEditTriggers(QtWidgets.QAbstractItemView.EditTrigger.DoubleClicked)

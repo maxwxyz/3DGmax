@@ -308,3 +308,32 @@ def test_betragsverteilungen():
         assert g.wirk_versatz < 0  # Mittelwert unter der Toleranzmitte
     e = tk.berechne([tk.Glied("a", 10, 10.1, 9.9), tk.Glied("Lauf", 0, 0.05, 0.0, -1, verteilung="betrag")])
     assert abs(e.mc_mittel - e.mitte) < 1e-3 and e.mitte > 10 - 0.025
+
+
+def test_zusammenbau_321():
+    """Quader auf eine Ecke aus drei Ebenen fangen: bestimmt, alle drei Verbindungen erfuellt, auch aus schiefer Lage."""
+    import numpy as np
+    from OCC.Core.BRepPrimAPI import BRepPrimAPI_MakeBox
+    from OCC.Core.TopAbs import TopAbs_FACE
+    from OCC.Core.TopExp import TopExp_Explorer
+    from programm.kern import verbindung as vb
+
+    def ebenen(form):
+        out, ex = {}, TopExp_Explorer(form, TopAbs_FACE)
+        while ex.More():
+            m = vb.merkmal(ex.Current())
+            out[tuple(np.round(m[2], 6)) + (round(float(m[1] @ m[2]), 6),)] = ex.Current()
+            ex.Next()
+        return out
+    klotz = ebenen(BRepPrimAPI_MakeBox(10, 20, 30).Shape())
+    winkel = ebenen(BRepPrimAPI_MakeBox(100, 100, 100).Shape())
+    b = vb.Baugruppe()
+    schief = vb.bewegung_klein(np.array([0.2, -0.1, 0.3, 40, 50, 60]))
+    b.lagen[1] = schief
+    teil = [(klotz[(0.0, 0.0, -1.0, 0.0)], 0), (klotz[(-1.0, 0.0, 0.0, 0.0)], 1), (klotz[(0.0, -1.0, 0.0, 0.0)], 2)]
+    gegen = [(2, winkel[(0.0, 0.0, 1.0, 100.0)], 10), (2, winkel[(1.0, 0.0, 0.0, 100.0)], 11),
+             (2, winkel[(0.0, 1.0, 0.0, 100.0)], 12)]
+    out = b.verbinde_321(1, teil, gegen)
+    assert len(out) == 3 and not b.verletzt() and len(b.freiheitsgrade(1)) == 0
+    assert np.allclose(b.lage(1)[:3, 3], [100, 100, 100], atol=1e-6)  # Ecke des Klotzes auf der Ecke des Winkels
+    assert "Ebenen" in b.verbinde_321(1, teil[:2] + teil[:1], gegen)  # zwei gleiche Richtungen

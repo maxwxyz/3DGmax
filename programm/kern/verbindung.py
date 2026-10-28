@@ -325,6 +325,46 @@ class Baugruppe:
         self._eingriff(v)
         return v
 
+    def verbinde_321(self, teil: int, flaechen: list, gegen: list, versatz: float = 0.0) -> list[Verbindung] | str:
+        """3-2-1-Vorlage: drei Ebenen des Teils (primaer, sekundaer, tertiaer) auf drei Gegenebenen in einem Schritt.
+        flaechen: [(Flaeche, Index)] des Teils, gegen: [(Teil, Flaeche, Index)]. Primaernormale exakt gegen die
+        Gegennormale, Sekundaernormale durch Drehung um sie, Verschiebung aus den drei Ebenengleichungen; danach drei
+        Verbindungen Ebene auf Ebene (das Teil ist bestimmt). Fehlertext bei unpassender Auswahl."""
+        if len(flaechen) != 3 or len(gegen) != 3:
+            return tr("3-2-1: je drei Ebenen am Teil und am Gegenstück wählen")
+        if any(g[0] == teil for g in gegen):
+            return tr("Die zwei Flächen müssen zu verschiedenen Teilen gehören")
+        ma = [merkmal(f, self.lage(teil)) for f, _ in flaechen]
+        mb = [merkmal(f, self.lage(t)) for t, f, _ in gegen]
+        if any(m is None or m[0] != "ebene" for m in ma + mb):
+            return tr("3-2-1: alle sechs Flächen müssen Ebenen sein")
+        n = np.array([m[2] for m in ma])
+        e = np.array([m[2] for m in mb])
+        if abs(np.linalg.det(n)) < 1e-3 or abs(np.linalg.det(e)) < 1e-3:
+            return tr("3-2-1: die drei Ebenen müssen in drei Richtungen zeigen")
+        r = _drehung(n[0], -e[0])
+        n2 = r @ n[1]
+        ziel = -e[1] - e[0] * float(-e[1] @ e[0])  # Sekundaernormale in der Ebene senkrecht zur Primaerachse
+        quelle = n2 - e[0] * float(n2 @ e[0])
+        if np.linalg.norm(ziel) > 1e-9 and np.linalg.norm(quelle) > 1e-9:
+            w = np.arctan2(float(np.cross(quelle, ziel) @ e[0]), float(quelle @ ziel))
+            k = np.array([[0, -e[0][2], e[0][1]], [e[0][2], 0, -e[0][0]], [-e[0][1], e[0][0], 0]])
+            r = (np.eye(3) + np.sin(w) * k + (1 - np.cos(w)) * k @ k) @ r
+        # Verschiebung t: e_i . (R p_i + t) = e_i . q_i + versatz
+        a = e
+        b = np.array([float(e[i] @ (mb[i][1] - r @ ma[i][1])) + versatz for i in range(3)])
+        t = np.linalg.solve(a, b)
+        m = np.eye(4)
+        m[:3, :3], m[:3, 3] = r, t
+        self.lagen[teil] = m @ self.lage(teil)
+        out = []
+        for (f, i), (gt, gf, gi) in zip(flaechen, gegen):
+            v = Verbindung(max((x.nummer for x in self.verbindungen), default=0) + 1, teil, i, gt, gi, EBEN, versatz)
+            self.verbindungen.append(v)
+            self.formen[v.nummer] = (f, gf)
+            out.append(v)
+        return out
+
     def _achse(self, v: Verbindung):
         """Achspunkt und Richtung, ab denen der Eingriff gemessen wird: koaxial die Gegenachse, Langloch der Bolzen."""
         ma, mb = self.merkmale(v)

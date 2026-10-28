@@ -987,6 +987,39 @@ def test_baugruppenvariation_im_fenster(fenster, tmp_path):
     assert len(f.baugruppe.masse) == 1
 
 
+def test_zusammenbau_321_im_fenster(fenster):
+    """3-2-1 aus sechs Ebenen: Deckel an drei Ebenen der Grundplatte, danach bestimmt; falsche Auswahl gemeldet."""
+    import numpy as np
+    from OCC.Core.TopAbs import TopAbs_FACE
+    from OCC.Core.TopExp import TopExp_Explorer
+    from programm.kern import verbindung as vb
+    f = fenster
+    f.lade(pfad("baugruppe.stp"), warten=True)
+    knoten = {k.name: k for k in f.erg.baum.blaetter()}
+
+    def ebene(name, n, groesste):
+        """Ebene des Teils mit Normale n, die am weitesten (groesste) bzw. wenigsten in Richtung n liegt."""
+        kandidaten, ex = [], TopExp_Explorer(knoten[name].form, TopAbs_FACE)
+        while ex.More():
+            m = vb.merkmal(ex.Current())
+            if m and m[0] == "ebene" and np.allclose(m[2], n, atol=1e-6):
+                kandidaten.append((float(m[1] @ np.asarray(n)), ex.Current()))
+            ex.Next()
+        return max(kandidaten, key=lambda x: x[0] if groesste else -x[0])[1]
+    deckel, platte = knoten["Deckel"].nummer, knoten["Grundplatte"].nummer
+    auswahl, teile = [], []
+    for n in ((0, 0, -1), (-1, 0, 0), (0, -1, 0)):
+        gegen = tuple(-x for x in n)
+        auswahl += [ebene("Deckel", n, False), ebene("Grundplatte", gegen, True)]
+        teile += [deckel, platte]
+    f.ansicht.setze_auswahl(auswahl[:4], teile[:4])
+    assert f.verbinde_321() is None
+    f.ansicht.setze_auswahl(auswahl, teile)
+    out = f.verbinde_321()
+    assert out and len(out) == 3 and not f.baugruppe.verletzt() and len(f.baugruppe.freiheitsgrade(deckel)) == 0
+    assert f.zusammenbau.verbindungen.rowCount() >= 3
+
+
 @pytest.mark.langsam
 def test_beispiele_vergleich_und_scan(fenster):
     _beispiele(fenster, ("vergleich_pmi", "vergleich_geo", "baugruppe", "scan"))

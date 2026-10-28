@@ -1430,5 +1430,12 @@
 "n. i. O.": "not OK",
 "{} Merkmale gemessen: {} i. O., {} n. i. O.": "{} characteristics measured: {} OK, {} not OK",
 "{} Messungen ohne passendes Merkmal": "{} measurements without a matching characteristic",
-"Zone je Querschnitt (gezeigt in drei Schnitten)": "Zone per cross-section (shown in three sections)"
+"Zone je Querschnitt (gezeigt in drei Schnitten)": "Zone per cross-section (shown in three sections)",
+"3-2-1": "3-2-1",
+"3-2-1-Vorlage: sechs Ebenen paarweise wählen (Teil, Gegenstück) – primär, sekundär, tertiär; das Teil wird in einem Schritt bestimmt": "3-2-1 template: pick six planes in pairs (part, counterpart) – primary, secondary, tertiary; the part is located in one step",
+"3-2-1: Verbindungen {} angelegt": "3-2-1: connections {} created",
+"3-2-1: alle sechs Flächen müssen Ebenen sein": "3-2-1: all six faces must be planes",
+"3-2-1: die drei Ebenen müssen in drei Richtungen zeigen": "3-2-1: the three planes must face three directions",
+"3-2-1: je drei Ebenen am Teil und am Gegenstück wählen": "3-2-1: pick three planes each on the part and on the counterpart",
+"3-2-1: sechs Ebenen paarweise wählen – je eine am bewegten Teil, dann die Gegenfläche (primär, sekundär, tertiär)": "3-2-1: pick six planes in pairs – one on the moved part, then the counter face (primary, secondary, tertiary)"
 }

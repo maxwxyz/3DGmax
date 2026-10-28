@@ -206,6 +206,7 @@ class Hauptfenster(QtWidgets.QMainWindow):
         self.tabifyDockWidget(self.dock_pmi, self.dock_zusammenbau)
         self.dock_zusammenbau.hide()
         self.zusammenbau.verbinden.connect(self.verbinde_auswahl)
+        self.zusammenbau.verbinden_321.connect(self.verbinde_321)
         self.zusammenbau.entfernen.connect(self._verbindung_entfernen)
         self.zusammenbau.zuruecksetzen.connect(self.zusammenbau_zuruecksetzen)
         self.zusammenbau.wiggle.connect(self._wiggle)
@@ -3334,6 +3335,33 @@ class Hauptfenster(QtWidgets.QMainWindow):
             text += " · " + tr("nicht mehr erfüllt: {}").format(", ".join(str(x.nummer) for x in verletzt))
         self.statusBar().showMessage(text, 8000)
         return v
+
+    def verbinde_321(self, versatz: float = 0.0):
+        """3-2-1-Vorlage: sechs gewaehlte Ebenen paarweise (Teil, Gegenstueck), primaer bis tertiaer."""
+        if self.erg is None or self.vergleich is not None:
+            return None
+        m = self.erg.modell
+        paare = [(f, t) for f, t in zip(self.ansicht.auswahl3d, self.ansicht.auswahl_teile)
+                 if t is not None and m.flaechen_index(f) is not None]
+        if len(paare) != 6 or len({t for f, t in paare[0::2]}) != 1:
+            self.statusBar().showMessage(tr("3-2-1: sechs Ebenen paarweise wählen – je eine am bewegten Teil, dann die "
+                                            "Gegenfläche (primär, sekundär, tertiär)"), 8000)
+            return None
+        teil = paare[0][1]
+        out = self.baugruppe.verbinde_321(teil, [(f, m.flaechen_index(f)) for f, _ in paare[0::2]],
+                                          [(t, f, m.flaechen_index(f)) for f, t in paare[1::2]], versatz)
+        if isinstance(out, str):
+            self.statusBar().showMessage(out, 6000)
+            return None
+        from ..kern import toleranzzone
+        from ..kern.verbindung import toleranz_aus_pmi
+        allgemein = self._allgemein or toleranzzone.allgemein_aus_hinweisen(self.erg.pmi)
+        for v in out:
+            toleranz_aus_pmi(self.baugruppe, v, m, self.erg.pmi, allgemein.laenge if allgemein else "")
+        self._zusammenbau_zeigen()
+        self.statusBar().showMessage(tr("3-2-1: Verbindungen {} angelegt").format(", ".join(str(v.nummer) for v in out)),
+                                     8000)
+        return out
 
     def _frei_anzeigen(self):
         """Gewaehltes Teil: Felder je offenem Freiheitsgrad; die Lage beim Waehlen ist der Ausgangspunkt."""
