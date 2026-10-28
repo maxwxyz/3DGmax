@@ -49,9 +49,28 @@ def schliessen_symbol(farbe: str, name: str) -> str:
     return pfad.replace(os.sep, "/")
 
 
+def pfeil_symbol(farbe: str, name: str) -> str:
+    """Pfeil nach unten als SVG fuer Auswahllisten (mit eigenem Rahmen zeichnet Qt keinen Standardpfeil)."""
+    import tempfile
+    ordner = os.path.join(tempfile.gettempdir(), "3DGmax-symbole")
+    os.makedirs(ordner, exist_ok=True)
+    pfad = os.path.join(ordner, f"pfeil_{name}.svg")
+    svg = (f'<svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 12 12">'
+           f'<path d="M2.5 4.5 L6 8 L9.5 4.5" fill="none" stroke="{farbe}" stroke-width="1.6" stroke-linecap="round" '
+           f'stroke-linejoin="round"/></svg>')
+    try:
+        with open(pfad, "w", encoding="utf-8") as f:
+            f.write(svg)
+    except OSError:
+        return ""
+    return pfad.replace(os.sep, "/")
+
+
 def qss(t: dict) -> str:
     x = schliessen_symbol(t["leise"], t["name"])
     x_hover = schliessen_symbol(t["text"], t["name"] + "_hover")
+    pfeil = pfeil_symbol(t["text2"] if "text2" in t else t["text"], t["name"])
+    pfeil_aus = pfeil_symbol(t["aus"], t["name"] + "_aus")
     return f"""
 * {{ font-family: "{SCHRIFT}", Arial; font-size: 10pt; }}
 QMainWindow, QDialog {{ background: {t['fenster']}; color: {t['text']}; }}
@@ -81,7 +100,11 @@ QScrollBar::add-page, QScrollBar::sub-page {{ background: transparent; }}
 QComboBox {{ background: {t['eingabe']}; color: {t['eingabe_text']}; border: 1px solid {t['rand2']};
     border-radius: 6px; padding: 4px 8px; }}
 QComboBox:hover {{ border-color: {t['akzent']}; }}
-QComboBox::drop-down {{ border: none; width: 18px; }}
+QComboBox {{ padding-right: 24px; }}
+QComboBox::drop-down {{ subcontrol-origin: padding; subcontrol-position: center right; width: 22px;
+    border: none; border-left: 1px solid {t['rand2']}; }}
+QComboBox::down-arrow {{ image: url({pfeil}); width: 12px; height: 12px; }}
+QComboBox::down-arrow:disabled {{ image: url({pfeil_aus}); }}
 QComboBox QAbstractItemView {{ background: {t['flaeche']}; color: {t['text']}; border: 1px solid {t['rand']};
     selection-background-color: {t['wahl']}; selection-color: {t['wahl_text']}; outline: none; }}
 QMenu {{ background: {t['flaeche']}; color: {t['text']}; border: 1px solid {t['rand']}; border-radius: 8px; padding: 4px; }}

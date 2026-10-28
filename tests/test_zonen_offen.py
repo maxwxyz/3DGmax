@@ -64,6 +64,7 @@ def test_acs_und_gemeinsame_zone(platte):
     getrennt = tz.zone(Pmi(TOLERANZ, "Flatness", wert=0.05, flaechen={oben, unten}, modifikatoren=["Common_Zone"]),
                        platte)
     assert getrennt.art == "flaechen" and len(getrennt.formen) == 4
+    assert any("theoretisch genau" in h for h in getrennt.hinweise)  # CZ an versetzten Flaechen: gemeinsam ausgerichtet
 
 
 def test_gemeinsame_zone_koplanar():

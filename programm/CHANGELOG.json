@@ -2,11 +2,25 @@
  "unreleased": {
   "de": [
    "3D-Toleranzkette: Lagen mit Verschiebung und Drehung (je Komponente mit Abmaßen) von Hand im geführten Editor eingeben, Funktionspunkt und Schlussgröße wählen, Kette im Modell zeigen, linear und nichtlinear rechnen und in die Toleranzkette übernehmen.",
-   "Toleranzzonen: Linienprofil je Schnitt, ACS je Querschnitt, gemeinsame Zone (CZ) bzw. getrennte Zonen (SZ), Toleranzen an Kanten und Punkten, an Gewinden (Konstruktionsgeometrie, mit projizierter Zone) und für das ganze Teil."
+   "Toleranzzonen: Linienprofil je Schnitt, ACS je Querschnitt, gemeinsame Zone (CZ) bzw. getrennte Zonen (SZ), Toleranzen an Kanten und Punkten, an Gewinden (Konstruktionsgeometrie, mit projizierter Zone) und für das ganze Teil.",
+   "2D- und 3D-Ketten speichern und öffnen, auch im Projekt; Scanprüfung wertet das Linienprofil je Schnitt aus (mit LE in Längsschnitten); CZ an versetzten Elementen mit Hinweis.",
+   "Behoben: 3D-Auswahl und Navigationswürfel trafen unter Windows bei gemischten DPI (mehrere Monitore) oder geänderter Oberflächengröße daneben – Mauskoordinaten werden jetzt mit dem tatsächlichen Verhältnis von Ansichtsfenster zu Bedienelement umgerechnet.",
+   "Behoben: PMI-Texte und Notizen glänzten je nach Blickwinkel weiß auf; sie werden jetzt unbeleuchtet in der Kontrastfarbe gezeichnet.",
+   "Toleranzkette: Histogramm zeigt standardmäßig alle Verfahren überlagert; eine Ergebniszeile zeigt nur dieses Verfahren.",
+   "Auswahllisten zeigen überall einen deutlichen Pfeil; änderbare Zellen der Toleranzkette (von Hand, Planspiel) sind getönt und lassen sich mit einem Klick bearbeiten.",
+   "Navigation: Der Drehpunkt wandert beim Verschieben mit (wie in CATIA und FreeCAD); ohne gesetzten Drehpunkt wird um die Bildmitte gedreht.",
+   "Neues, klareres Logo und App-Symbol (ohne Kleinteile, mittig ausgerichtet)."
   ],
   "en": [
    "3D tolerance chain: enter positions with translation and rotation (each component with deviations) by hand in a guided editor, choose function point and closing quantity, show the chain in the model, compute linearly and non-linearly and adopt it into the tolerance chain.",
-   "Tolerance zones: line profile per section, ACS per cross-section, common zone (CZ) or separate zones (SZ), tolerances on edges and points, on threads (construction geometry, with projected zone) and for the whole part."
+   "Tolerance zones: line profile per section, ACS per cross-section, common zone (CZ) or separate zones (SZ), tolerances on edges and points, on threads (construction geometry, with projected zone) and for the whole part.",
+   "Save and open 2D and 3D chains, also in the project; the scan check evaluates the line profile per section (with LE in longitudinal sections); CZ on offset features with a hint.",
+   "Fixed: 3D selection and the navigation cube missed on Windows with mixed DPI (several monitors) or a changed interface size – mouse coordinates are now converted with the actual ratio of view window to widget.",
+   "Fixed: PMI texts and notes could shine white depending on the viewing angle; they are now drawn unlit in the contrast colour.",
+   "Tolerance chain: the histogram shows all methods overlaid by default; a result row shows only that method.",
+   "Drop-down lists show a clear arrow everywhere; editable cells of the tolerance chain (by hand, what-if) are tinted and can be edited with one click.",
+   "Navigation: the pivot moves along when panning (as in CATIA and FreeCAD); without a set pivot the view rotates about the view centre.",
+   "New, cleaner logo and app icon (no small details, centred)."
   ]
  },
  "releases": [

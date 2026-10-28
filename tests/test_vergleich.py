@@ -806,6 +806,36 @@ def test_scan_rundheit_und_rundlauf_je_querschnitt():
     assert sp.bewerte([lauf], modell, z)[0].status == sp.OK  # je Schnitt konstanter Abstand
 
 
+def test_scan_linienprofil_je_schnitt():
+    """Linienprofil ohne Bezug je Schnitt: Kegeligkeit 0,05 ueber die Laenge stoert je Querschnitt nicht (Spannweite
+    je Schnitt klein); mit LE (Laengsschnitte) zaehlt sie dagegen - eine Mantellinie ist dann schraeg."""
+    from types import SimpleNamespace
+    import numpy as np
+    from OCC.Core.BRepPrimAPI import BRepPrimAPI_MakeCylinder
+    from OCC.Core.TopAbs import TopAbs_FACE
+    from OCC.Core.TopExp import TopExp_Explorer
+    from programm.kern import scanpruefung as sp, toleranzzone as tz
+    from programm.kern.pmi import TOLERANZ, Pmi
+    ex = TopExp_Explorer(BRepPrimAPI_MakeCylinder(10.0, 30.0).Shape(), TopAbs_FACE)
+    flaechen = []
+    while ex.More():
+        flaechen.append(ex.Current())
+        ex.Next()
+    mantel = next(i for i, f in enumerate(flaechen) if tz._achsen([f]))
+    modell = SimpleNamespace(flaechen=flaechen)
+    rng = np.random.default_rng(3)
+    w, h = rng.uniform(0, 2 * np.pi, 8000), rng.uniform(0.5, 29.5, 8000)
+    d = 0.05 * h / 30
+    punkte = np.column_stack([(10 + d) * np.cos(w), (10 + d) * np.sin(w), h])
+    z = sp.Zuordnung(punkte, d, np.full(len(d), mantel))
+    quer = Pmi(TOLERANZ, "ProfileOfLine", wert=0.02, flaechen={mantel})
+    e = sp.bewerte([quer], modell, z)[0]
+    assert e.status == sp.OK and "Schnitte" in e.text
+    laengs = Pmi(TOLERANZ, "ProfileOfLine", wert=0.02, flaechen={mantel}, modifikatoren=["Line_Element"])
+    e = sp.bewerte([laengs], modell, z)[0]
+    assert e.status == sp.NOK and "Längsschnitte" in e.text and e.ist > 0.04
+
+
 def test_bezug_als_anlage_iso5459():
     """Bezugsebene aus einer welligen Oberseite mit einer Erhebung: Gauss-Ausgleich legt die Ebene in die Mitte, die
     Anlage nach ISO 5459 an die hoechsten Punkte (alle Punkte im Material, groesster Abstand minimal)."""

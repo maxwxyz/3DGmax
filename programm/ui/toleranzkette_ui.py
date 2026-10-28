@@ -67,6 +67,7 @@ METHODEN = (("rss", "RSS", "Varianzen addieren, Schlussmaß ±3σ"),
             ("verschiebung", "Mittenverschiebung", "Je Glied darf die Mitte um den Anteil m der halben Toleranz wandern "
                                                    "(arithmetisch), der Rest streut statistisch"))
 PLAN_FARBE = QtGui.QColor(255, 196, 0, 40)  # Tabelle im Planspiel leicht getoent
+AENDERBAR_FARBE = QtGui.QColor(37, 99, 235, 34)  # Zellen, die man aendern kann (von Hand, im Planspiel)
 
 
 class AnteilBalken(QtWidgets.QStyledItemDelegate):
@@ -490,8 +491,8 @@ class ToleranzketteFenster(QtWidgets.QDialog):
         self.ergebnisse.setEditTriggers(QtWidgets.QAbstractItemView.EditTrigger.NoEditTriggers)
         self.ergebnisse.setSelectionMode(QtWidgets.QAbstractItemView.SelectionMode.NoSelection)
         self.ergebnisse.horizontalHeader().setStretchLastSection(False)
-        self.ergebnisse.setToolTip(tr("Zeile anklicken: das Histogramm zeigt dieses Verfahren (erneut klicken: wieder "
-                                      "das anwendbare mit ✓)"))
+        self.ergebnisse.setToolTip(tr("Zeile anklicken: das Histogramm zeigt nur dieses Verfahren (erneut klicken: wieder "
+                                      "alle überlagert)"))
         self.ergebnisse.cellClicked.connect(self._verfahren_gewaehlt)
         self.hist_art = None  # None: das anwendbare Verfahren (✓) zeigen
         self.ergebnisse.setSizePolicy(QtWidgets.QSizePolicy.Policy.Fixed, QtWidgets.QSizePolicy.Policy.Fixed)
@@ -507,6 +508,7 @@ class ToleranzketteFenster(QtWidgets.QDialog):
         self.ampel.setTextFormat(QtCore.Qt.TextFormat.RichText)
         self.alle_ueberlagern = QtWidgets.QCheckBox(tr("Alle Verfahren im Histogramm überlagern"))
         self.alle_ueberlagern.setToolTip(tr("Worst Case als Band, statistisch als Kurve, Monte Carlo als Histogramm"))
+        self.alle_ueberlagern.setChecked(True)  # Vorgabe: alle Verfahren; eine Ergebniszeile waehlt eines
         self.alle_ueberlagern.toggled.connect(lambda _an: self._zeige_histogramm())
         links = QtWidgets.QVBoxLayout()
         links.addWidget(self.ampel)
@@ -778,13 +780,16 @@ class ToleranzketteFenster(QtWidgets.QDialog):
         QtCore.QTimer.singleShot(0, self._unten_hoehe)
 
     def _verfahren_gewaehlt(self, zeile: int, _spalte: int):
-        """Zeile der Ergebnistabelle: Histogramm auf dieses Verfahren (nochmals: zurueck zum anwendbaren)."""
+        """Zeile der Ergebnistabelle: Histogramm nur mit diesem Verfahren (nochmals: wieder alle ueberlagert)."""
         arten = [a for a, _ in self.ERGEBNIS_ZEILEN]
         if zeile >= len(arten):
             return
         art = arten[zeile]
-        self.hist_art = None if self.hist_art == art else art
-        self.alle_ueberlagern.setChecked(False)
+        zurueck = self.hist_art == art and not self.alle_ueberlagern.isChecked()
+        self.hist_art = None if zurueck else art
+        self.alle_ueberlagern.blockSignals(True)
+        self.alle_ueberlagern.setChecked(zurueck)
+        self.alle_ueberlagern.blockSignals(False)
         self._zeige_histogramm()
 
     def histogramm_art(self) -> str:
@@ -1338,6 +1343,9 @@ class ToleranzketteFenster(QtWidgets.QDialog):
             it.setFlags(it.flags() & ~QtCore.Qt.ItemFlag.ItemIsEditable)
         if self.im_planspiel:
             it.setBackground(PLAN_FARBE)
+        if aenderbar:  # erkennbar machen: getoent, Hinweis; ein Klick in die Zelle bearbeitet
+            it.setBackground(AENDERBAR_FARBE)
+            it.setToolTip(tr("Klicken zum Ändern"))
             if ist_text is not None and ist_text != text:
                 schrift = it.font()
                 schrift.setBold(True)
@@ -1353,7 +1361,9 @@ class ToleranzketteFenster(QtWidgets.QDialog):
     def _fuelle(self):
         t = self.tabelle
         t.blockSignals(True)
-        t.setEditTriggers(QtWidgets.QAbstractItemView.EditTrigger.DoubleClicked |
+        t.setEditTriggers(QtWidgets.QAbstractItemView.EditTrigger.CurrentChanged |
+                          QtWidgets.QAbstractItemView.EditTrigger.SelectedClicked |
+                          QtWidgets.QAbstractItemView.EditTrigger.DoubleClicked |
                           QtWidgets.QAbstractItemView.EditTrigger.EditKeyPressed)  # welche Zelle: aenderbar unten
         t.setRowCount(len(self.glieder))
         for z, g in enumerate(self.glieder):
@@ -1383,6 +1393,8 @@ class ToleranzketteFenster(QtWidgets.QDialog):
                 it = t.item(z, s)
                 if it is not None and not it.toolTip():
                     it.setToolTip(tr(SPALTEN_HILFE[name]))
+                elif it is not None and it.toolTip() == tr("Klicken zum Ändern"):
+                    it.setToolTip(tr(SPALTEN_HILFE[name]) + "\n" + tr("Klicken zum Ändern"))
         t.blockSignals(False)
         self._rechne()
 

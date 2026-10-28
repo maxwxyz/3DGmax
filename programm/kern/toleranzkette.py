@@ -913,3 +913,29 @@ def kettenbild(glieder: list[Glied], modell=None, schluss_text: str = "", ist: l
     linien += pfeil(anfang or 0.0, x, 0, schluss_text or tr("Schlussmaß {:g}").format(x - (anfang or 0.0)),
                     FARBEN["schluss"], 4.0)
     return linien
+
+
+def glied_pfeil(g: Glied, modell) -> list:
+    """Glied beim Ablaufen der Kette als Pfeil an seinen Flaechen: Spitze in Wirkrichtung (+ vom kleineren zum
+    groesseren Ort, − umgekehrt), Farbe wie im Kettenbild, Text mit Mass und Abmassen; [] ohne zwei passende
+    Flaechen. Rueckgabe wie kettenbild: [(Start, Ende, Text, RGB, Breite)]."""
+    strecke = glied_strecke(g, modell)
+    if strecke is None:
+        return []
+    a, b = np.array(strecke[0], float), np.array(strecke[1], float)
+    laenge = float(np.linalg.norm(b - a))
+    rgb = FARBEN[glied_art(g)]
+    if laenge < 1e-9:
+        return [(tuple(a), tuple(b), _glied_text(g), rgb, 3.0)]
+    n = (b - a) / laenge
+    if g.richtung < 0:  # Pfeil zeigt in Wirkrichtung des Glieds
+        a, b, n = b, a, -n
+    q = np.cross(n, [0.0, 0.0, 1.0])
+    q = q if np.linalg.norm(q) > 1e-6 else np.cross(n, [0.0, 1.0, 0.0])
+    q = q / np.linalg.norm(q)
+    h = min(0.15 * laenge, 0.08 * max(laenge, 10.0))
+    linien = [(tuple(map(float, a)), tuple(map(float, b)), _glied_text(g), rgb, 3.0)]
+    for seite in (1, -1):
+        fuss = b - n * h + q * seite * 0.4 * h
+        linien.append((tuple(map(float, b)), tuple(map(float, fuss)), "", rgb, 3.0))
+    return linien

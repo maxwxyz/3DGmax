@@ -1770,7 +1770,7 @@ class Hauptfenster(QtWidgets.QMainWindow):
                                  self._kette_daten(),
                                  self.baugruppe.als_dict() if self.baugruppe.verbindungen or self.baugruppe.lagen
                                  else None, self._kollision_daten(),
-                                 getattr(getattr(self, "_funktion", None), "rollen", None))
+                                 getattr(getattr(self, "_funktion", None), "rollen", None), self._raumketten())
         self.statusBar().showMessage(tr("Projekt gespeichert: {}").format(ziel), 6000)
         return ziel
 
@@ -1779,6 +1779,18 @@ class Hauptfenster(QtWidgets.QMainWindow):
         if not self.kollision.befunde:
             return None
         return {"werte": self.kollision.werte(), "befunde": ko.merke(self.kollision.befunde)}
+
+    def _raumketten(self) -> dict | None:
+        """2D- und 3D-Kette der offenen Fenster fuer das Projekt (nur mit Inhalt)."""
+        from ..kern import kette2d, kette3d
+        out = {}
+        k2 = getattr(self, "_kette2d", None)
+        if k2 is not None and k2.kette.segmente:
+            out["kette2d"] = kette2d.als_dict(k2.kette)
+        k3 = getattr(self, "_kette3d", None)
+        if k3 is not None and k3.kette.glieder:
+            out["kette3d"] = kette3d.als_dict(k3.kette)
+        return out or None
 
     def _kette_daten(self):
         k = getattr(self, "_kette", None)
@@ -1825,6 +1837,12 @@ class Hauptfenster(QtWidgets.QMainWindow):
             k.cp.setValue(d["kette"]["cp"])
             k.ergaenze(d["kette"]["glieder"])
             k.setze_freigabe(d["kette"].get("freigabe") or {})
+        if d and d.get("raumketten"):
+            from ..kern import kette2d, kette3d
+            if d["raumketten"].get("kette2d"):
+                self.zeige_kette2d(nur_anlegen=True).setze_kette(kette2d.von_dict(d["raumketten"]["kette2d"]))
+            if d["raumketten"].get("kette3d"):
+                self.zeige_kette3d(nur_anlegen=True).setze_kette(kette3d.von_dict(d["raumketten"]["kette3d"]))
         if d and d.get("funktion") and self.erg is not None:
             w = self.zeige_funktion(nur_anlegen=True)
             w.rollen = dict(d["funktion"])

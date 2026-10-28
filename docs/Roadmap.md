@@ -64,7 +64,8 @@
 | Tolerance zones for linear dimensions between planes and angular dimensions | ✅ |
 | Tolerance zones: roundness and circular runout per cross-section (ring zones) | ✅ |
 | Tolerance zones: line profile per section (bands in three sections, longitudinal for LE), ACS (disks per cross-section), CZ (one common zone for coplanar faces) / SZ (hint), tolerances on edges/points (tube/sphere), on construction geometry (thread axes with projected zone Ⓟ outside the material), for the whole part ("all over") | ✅ |
-| Tolerance zones: intersection-plane indicator for line profiles, CZ for non-coplanar features and axis patterns | ⬜ |
+| Tolerance zones: CZ for offset features and axis patterns (zones fixed to each other, hint) | ✅ |
+| Tolerance zones: intersection-plane indicator for line profiles (no sample file; pythonocc lacks XCAFDoc_GeomTolerance) | ⬜ |
 | Tolerance stack-up 1D (dimension chain from PMI, worst case, RSS, Monte Carlo, CSV) | ✅ |
 | Stack-up 1D: Cp adjustable, angular dimensions excluded | ✅ |
 | Stack-up: chain picked in 3D (planes, cylinder/cone axes) with direction from the geometry, PMI values (also patterns) and ISO 2768 for features without PMI; distribution and Cp per link; contribution share | ✅ |
@@ -91,7 +92,8 @@
 | Stack-up: build chains by hand without a model ("＋ Glied", editable cells) | ✅ |
 | 2D vector-loop chains by hand with guided fields, sketch, linear (DLM) and non-linear Monte Carlo, handover to the 1D window (PLAN §8.33) | ✅ |
 | 3D chains by hand: positions with six toleranced components, guided editor, templates, shown in the model, linear and non-linear, handover to the 1D window (PLAN §8.33) | ✅ |
-| 2D/3D chains: save in file/project, pick from the model/assembly connections, sliding contacts | ⬜ |
+| 2D/3D chains: save/open as .3dgkette2d/.3dgkette3d and in the project | ✅ |
+| 2D/3D chains: pick from the model/assembly connections, sliding contacts | ⬜ |
 | Stack-up: wiggle of the closing faces by the worst-case extremes | ⬜ |
 | Stack-up: median planes as chain ends, chains across assembly parts | ⬜ |
 | Assembly: connections plane/plane and coaxial with snapping, satisfied check, open DOF per part, DOF wiggle, in the project | ✅ |
@@ -159,7 +161,7 @@
 | Scan check: manual alignment by point pairs | ✅ |
 | Scan check: per-section evaluation of roundness and circular runout | ✅ |
 | Scan check: datums as contacting features (ISO 5459, constrained minimax) | ✅ |
-| Scan check: line profile per section | ⬜ |
+| Scan check: line profile per section (cross sections; LE: longitudinal sections by angle) | ✅ |
 | Plausibility check of the specification stage 1: hierarchy, size vs. form, completeness, datum system, contradicting dimensions, values, nominal vs. geometry (PLAN §8.22) | ✅ |
 | Plausibility check stage 2: closed dimension chains | ✅ |
 | Plausibility check: basic dimensions (with tolerance, location toleranced twice), patterns of different size, datum target counts | ✅ |

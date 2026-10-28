@@ -963,6 +963,9 @@ def _weitere_hinweise(p) -> list[str]:
         out.append(tr("gilt je Querschnitt"))
     if SZ in p.modifikatoren:
         out.append(tr("SZ: getrennte Zonen je Element"))
+    if CZ in p.modifikatoren and len(p.flaechen) > 1:
+        out.append(tr("CZ: die Zonen der Elemente liegen zueinander theoretisch genau und werden gemeinsam "
+                      "ausgerichtet (eine gemeinsame Zone)"))
     if getattr(p, "ganzes_teil", False):
         out.append(tr("gilt für das ganze Teil (alle Flächen)"))
     return out

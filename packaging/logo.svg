@@ -1,33 +1,22 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
-  <!-- 3DGmax: Wuerfel (3D-Modell) mit Massangabe und Toleranzrahmen (PMI) -->
+  <!-- 3DGmax: erzeugt von werkzeuge/logo.py (Wuerfel, orange PMI-Flaeche, Masspfeil; mittig im Keyline-Quadrat) -->
   <defs>
     <linearGradient id="hg" x1="0" y1="0" x2="0" y2="1">
       <stop offset="0" stop-color="#2f6fe4"/>
-      <stop offset="1" stop-color="#1a3f8f"/>
+      <stop offset="1" stop-color="#1b43a0"/>
     </linearGradient>
   </defs>
-  <rect x="16" y="16" width="480" height="480" rx="104" fill="url(#hg)"/>
-  <!-- Wuerfel isometrisch -->
-  <polygon points="236,112 372,190 236,268 100,190" fill="#eef3ff"/>
-  <polygon points="100,190 236,268 236,424 100,346" fill="#b9cbf2"/>
-  <polygon points="236,268 372,190 372,346 236,424" fill="#8eaae6"/>
-  <polyline points="236,112 372,190 236,268 100,190 236,112" fill="none" stroke="#0f2a66" stroke-width="7" stroke-linejoin="round"/>
-  <polyline points="100,190 100,346 236,424 372,346 372,190" fill="none" stroke="#0f2a66" stroke-width="7" stroke-linejoin="round"/>
-  <line x1="236" y1="268" x2="236" y2="424" stroke="#0f2a66" stroke-width="7"/>
-  <!-- hervorgehobene Flaeche (PMI-Bezug) -->
-  <polygon points="236,268 372,190 372,346 236,424" fill="#ff8a1f" opacity="0.85"/>
-  <!-- Massangabe mit Pfeilen entlang der Vorderkante -->
-  <line x1="262" y1="452" x2="398" y2="374" stroke="#ffb35c" stroke-width="9" stroke-linecap="round"/>
-  <polygon points="250,459 284,428 290,449" fill="#ffb35c"/>
-  <polygon points="410,367 370,382 384,399" fill="#ffb35c"/>
-  <!-- Toleranzrahmen -->
-  <rect x="282" y="70" width="190" height="64" rx="10" fill="#ffffff" stroke="#0f2a66" stroke-width="6"/>
-  <line x1="346" y1="70" x2="346" y2="134" stroke="#0f2a66" stroke-width="6"/>
-  <line x1="420" y1="70" x2="420" y2="134" stroke="#0f2a66" stroke-width="6"/>
-  <circle cx="314" cy="102" r="17" fill="none" stroke="#0f2a66" stroke-width="5"/>
-  <line x1="314" y1="78" x2="314" y2="126" stroke="#0f2a66" stroke-width="5"/>
-  <line x1="290" y1="102" x2="338" y2="102" stroke="#0f2a66" stroke-width="5"/>
-  <rect x="360" y="92" width="46" height="20" rx="4" fill="#ff8a1f"/>
-  <text x="446" y="118" font-family="Helvetica, Arial, sans-serif" font-size="40" font-weight="700" fill="#0f2a66" text-anchor="middle">A</text>
-  <line x1="314" y1="134" x2="300" y2="230" stroke="#ffffff" stroke-width="6" stroke-linecap="round"/>
+  <rect x="16" y="16" width="480" height="480" rx="108" fill="url(#hg)"/>
+  <g transform="translate(29.85 17.89) scale(0.8137)">
+    <polygon points="256,104 392,183 256,262 120,183" fill="#f2f6ff"/>
+    <polygon points="120,183 256,262 256,418 120,339" fill="#a9c0f2"/>
+    <polygon points="256,262 392,183 392,339 256,418" fill="#ff8a1f"/>
+    <path d="M256 104 L392 183 L392 339 L256 418 L120 339 L120 183 Z M120 183 L256 262 L392 183 M256 262 L256 418"
+          fill="none" stroke="#0e2a6b" stroke-width="14" stroke-linejoin="round" stroke-linecap="round"/>
+    <g fill="#ffffff" stroke="#ffffff" stroke-linecap="round" stroke-linejoin="round">
+      <line x1="299.2" y1="455.3" x2="403.0" y2="395.1" stroke-width="18"/>
+      <polygon points="266.4,474.4 314.3,481.3 284.2,429.4" stroke-width="8"/>
+      <polygon points="435.9,376.0 418.1,421.0 387.9,369.1" stroke-width="8"/>
+    </g>
+  </g>
 </svg>

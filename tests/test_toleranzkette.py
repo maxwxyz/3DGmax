@@ -404,3 +404,20 @@ def test_kostenoptimale_verteilung():
     assert s.kosten_nachher <= v.kosten_nachher + 1e-9  # statistisch erlaubt weitere Toleranzen
     unmoeglich = tk.verteile_kostenoptimal(glieder, ziel=0.05, statistisch=False)
     assert not unmoeglich.erreichbar and unmoeglich.hinweise
+
+
+def test_glied_pfeil_beim_ablaufen():
+    """Ablaufen: Pfeil mit zwei Spitzenlinien am Ende in Wirkrichtung, Farbe nach Art."""
+    from programm.kern import kette_datei
+    from programm.kern.laden import lade_modell
+    from tests.conftest import pfad
+    k = kette_datei.lade(pfad("getriebe.3dgkette"))
+    m = lade_modell(pfad("getriebe.stp"))
+    g = k.glieder[0]  # Waelzlager, Richtung −
+    linien = tk.glied_pfeil(g, m)
+    assert len(linien) == 3 and linien[0][3] == tk.FARBEN["minus"] and linien[0][2]
+    start, ende = np.array(linien[0][0]), np.array(linien[0][1])
+    s = tk.glied_strecke(g, m)
+    assert np.allclose(ende, s[0]) and np.allclose(start, s[1])  # − : Spitze am Anfang der Strecke
+    assert all(np.allclose(li[0], ende) for li in linien[1:])  # Spitzenlinien gehen vom Pfeilende aus
+    assert tk.glied_pfeil(tk.Glied("x", 1, 1, 1), m) == []

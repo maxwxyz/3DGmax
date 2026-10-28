@@ -630,6 +630,15 @@ def _grafik_form(g, pmi_text: dict):
     return (None if leer else comp), texte
 
 
+def _unbeleuchtet(ais):
+    """Flaechen ohne Licht zeichnen: Text und Symbole zeigen immer genau ihre Farbe (die feste Pipeline liess
+    schattierte Glyphen je nach Blickwinkel weiss aufglaenzen - Kontrastfarbe ging verloren)."""
+    from OCC.Core.Graphic3d import Graphic3d_TypeOfShadingModel_Unlit
+    dr = ais.Attributes()
+    dr.SetupOwnShadingAspect()
+    dr.ShadingAspect().Aspect().SetShadingModel(Graphic3d_TypeOfShadingModel_Unlit)
+
+
 def ist_schild(g) -> bool:
     """Erzeugte Beschriftung ohne Schreibebene (Stufe 1): Textfeld zum Betrachter statt Text in der Ebene."""
     return bool(getattr(g, "erzeugt", False)) and all(not any(ph.x) for ph in g.platzhalter)
@@ -799,7 +808,7 @@ class OcctAnsicht(AnsichtBasis):
             ctx.MoveTo(int(x), int(y), self.d.View, zeichnen)
             return None
         k = getattr(self, "_wuerfel_k", 1.0)
-        breite = self.viewer.width()
+        breite = int(round(self.viewer.width() * self._occt_faktor()[0]))  # x kommt in OCCT-Fensterkoordinaten
         # sichtbare Lage (Geraetepixel ab Ecke oben rechts) in die Pick-Lage umrechnen
         ctx.MoveTo(int(breite - k * (breite - x)), int(k * y), self.d.View, zeichnen)
         treffer = ctx.HasDetected() and ctx.DetectedInteractive() == w
@@ -1292,6 +1301,7 @@ class OcctAnsicht(AnsichtBasis):
             glyphen = text_flaechen(text, ph.ursprung, ph.x, ph.y, max(ph.hoehe, 0.1))
             if glyphen is not None:  # Text in der Ebene als Geometrie: waechst und schrumpft mit dem Modell
                 schrift = AIS_Shape(glyphen)
+                _unbeleuchtet(schrift)  # sonst glaenzt die Schrift je nach Blickwinkel weiss auf
                 schrift.SetColor(farbe)
                 schrift.SetDisplayMode(1)
                 liste.append(schrift)
@@ -1940,13 +1950,15 @@ class OcctAnsicht(AnsichtBasis):
         if self._bereit:
             self._zeige_drehpunkt()
         if melden:
-            self.meldung.emit(tr("Drehpunkt: Mitte des Modells"))
+            self.meldung.emit(tr("Drehpunkt: Bildmitte"))
 
     def _mitte(self):
+        """Drehpunkt: der gesetzte Punkt, sonst die Bildmitte (wandert beim Verschieben mit, wie in CATIA und
+        FreeCAD); die Modellmitte nur ohne bereite Ansicht."""
         from OCC.Core.gp import gp_Pnt
         if self._drehpunkt is not None:
             return self._drehpunkt
-        if self.navigation == "catia":
+        if self._bereit:
             return self.d.View.Camera().Center()
         from OCC.Core.Bnd import Bnd_Box
         from OCC.Core.BRepBndLib import brepbndlib
@@ -2087,6 +2099,9 @@ class OcctAnsicht(AnsichtBasis):
         t = gp_Trsf()
         t.SetTranslation(verschiebung)
         cam.Transform(t)
+        if self._drehpunkt is not None:  # wie CATIA/FreeCAD: der Drehpunkt wandert mit der Ansicht
+            self._drehpunkt = self._drehpunkt.Transformed(t)
+            self._zeige_drehpunkt()
         self._kamera_bewegt()
         v.Redraw()
 
@@ -2252,8 +2267,20 @@ class OcctAnsicht(AnsichtBasis):
     # --- Maus und Trackpad ---
 
     def _px(self, pos):
-        # OCCT rechnet in logischen Punkten (Cocoa_Window), nicht in Geraetepixeln
-        return int(pos.x()), int(pos.y())
+        """Qt-Koordinaten (logisch) in OCCT-Fensterkoordinaten. macOS (Cocoa_Window) rechnet in Punkten, Windows und
+        Linux in physischen Pixeln; dazu kommen der Faktor des Monitors (gemischte DPI) und die Groesse der
+        Oberflaeche (QT_SCALE_FACTOR). Das Verhaeltnis folgt daher aus der tatsaechlichen OCCT-Fenstergroesse."""
+        fx, fy = self._occt_faktor()
+        return int(round(pos.x() * fx)), int(round(pos.y() * fy))
+
+    def _occt_faktor(self) -> tuple[float, float]:
+        """OCCT-Fenstergroesse / Qt-Widgetgroesse je Richtung (1, solange die Ansicht nicht bereit ist)."""
+        try:
+            w, h = self.d.View.Window().Size()
+        except Exception:  # noqa: BLE001 - Ansicht noch nicht erzeugt
+            return 1.0, 1.0
+        qw, qh = self.viewer.width(), self.viewer.height()
+        return (w / qw if w > 0 and qw > 0 else 1.0), (h / qh if h > 0 and qh > 0 else 1.0)
 
     def setze_navigation(self, modus: str):
         super().setze_navigation(modus)
@@ -2450,7 +2477,8 @@ class OcctAnsicht(AnsichtBasis):
         elif art == "hover":
             self._wuerfel_unter_maus(werte[0], werte[1], zeichnen=True)  # hebt Wuerfel oder Modell hervor
         elif art == "kontext":
-            self.kontextmenue.emit(self.viewer.mapToGlobal(QtCore.QPoint(int(werte[0]), int(werte[1]))))
+            fx, fy = self._occt_faktor()  # zurueck in Qt-Koordinaten
+            self.kontextmenue.emit(self.viewer.mapToGlobal(QtCore.QPoint(int(werte[0] / fx), int(werte[1] / fy))))
 
     def _zentriere(self, x, y):
         """CATIA: Punkt unter der Maus wird Bildmitte (und Drehzentrum)."""

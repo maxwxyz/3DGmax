@@ -14,6 +14,9 @@ zuordnen (Netzsuche, Abstand exakt auf der B-Rep-Flaeche, Vorzeichen + = ausserh
 - Rundheit und Rundlauf an Zylindern je Querschnitt (QUERSCHNITTE Scheiben entlang der Achse): Rundheit als
   Spannweite um den Ausgleichskreis des Schnitts, Rundlauf als Spannweite der Abstaende im Schnitt (Achse wie
   ausgerichtet); der schlechteste Schnitt zaehlt.
+- Linienprofil (und Modifikator LE): je Schnitt quer zur Schnittrichtung der Zone (bei LE in Winkelsektoren um die
+  Achse, also Laengsschnitte) - mit Bezug alle Abstaende in der Zone, ohne Bezug Spannweite <= t; der schlechteste
+  Schnitt zaehlt.
 Die Bewertung ist eine Naeherung fuer die Sichtpruefung (keine normgerechte Auswertung nach Messstrategie).
 """
 
@@ -222,6 +225,50 @@ def _querschnitt_auswertung(p, z: Zuordnung, modell, flaechen, suchweite) -> Erg
         lage, ist, t, anzahl), n_punkte)
 
 
+def _linien_auswertung(p, z: Zuordnung, flaechen, suchweite) -> Ergebnis:
+    """Linienprofil je Schnitt (siehe Modulbeschreibung)."""
+    t = float(p.wert)
+    sel = _auswahl(z, set(p.flaechen), suchweite)
+    if sel.sum() < 12:
+        return Ergebnis(p, OFFEN, text=tr("zu wenige Scanpunkte"))
+    pts, d = z.punkte[sel], z.abstand[sel]
+    laengs = tz.LE in p.modifikatoren or "ALS" in p.modifikatoren
+    achse = tz._achse(flaechen)
+    if laengs and achse is not None:  # Laengsschnitte: Winkel um die Achse
+        start, richtung = achse[0], achse[1]
+        q = pts - start
+        radial = q - np.outer(q @ richtung, richtung)
+        x = np.cross(richtung, [1.0, 0.0, 0.0])
+        x = x if np.linalg.norm(x) > 1e-6 else np.cross(richtung, [0.0, 1.0, 0.0])
+        x /= np.linalg.norm(x)
+        lage = np.arctan2(radial @ np.cross(richtung, x), radial @ x)
+        kanten = np.linspace(-np.pi, np.pi, 2 * QUERSCHNITTE + 1)
+    else:
+        ebenen = tz._schnittebenen(flaechen[0], False)
+        n = np.asarray(ebenen[0][1], float) if ebenen else np.array([0.0, 0.0, 1.0])
+        lage = pts @ n
+        kanten = np.linspace(lage.min(), lage.max(), QUERSCHNITTE + 1)
+    aussen, innen = tz._grenzen_aussen_innen(p, t)
+    frei = not p.bezuege
+    schlechtester, anzahl = None, 0
+    for k in range(len(kanten) - 1):
+        im = (lage >= kanten[k]) & (lage <= kanten[k + 1])
+        if im.sum() < 6:
+            continue
+        dd = d[im]
+        ueber = float(dd.max() - dd.min()) - t if frei else max(float(dd.max()) - aussen, innen - float(dd.min()))
+        ist = float(dd.max() - dd.min()) if frei else 2 * float(np.abs(dd - (aussen + innen) / 2).max())
+        anzahl += 1
+        if schlechtester is None or ueber > schlechtester[0]:
+            schlechtester = (ueber, ist)
+    if schlechtester is None:
+        return Ergebnis(p, OFFEN, text=tr("zu wenige Scanpunkte"))
+    ueber, ist = schlechtester
+    art = tr("Längsschnitte") if laengs and achse is not None else tr("Schnitte")
+    return Ergebnis(p, _status(ueber), ist, t, tr("je Schnitt ({} {}): schlechtester {:.4g} (zulässig {:.4g}, {})")
+                    .format(anzahl, art, ist, t, tr("Spannweite") if frei else tr("in der Zone")), int(sel.sum()))
+
+
 def _ist_innen_element(modell, idx, start, richtung) -> bool:
     i = min(idx)
     return tz._ist_innen(modell.flaechen[i], start, richtung) if i < len(modell.flaechen) else False
@@ -351,6 +398,8 @@ def bewerte(pmi: list, modell, z: Zuordnung, suchweite: float | None = None) -> 
                 out.append(_achsen_auswertung(p, z, modell, flaechen, pmi, weite))
             elif p.typ in JE_QUERSCHNITT and (e := _querschnitt_auswertung(p, z, modell, flaechen, weite)):
                 out.append(e)
+            elif not durchmesser and (p.typ in tz.LINIENZONE or tz.LE in p.modifikatoren):
+                out.append(_linien_auswertung(p, z, flaechen, weite))
             elif p.typ in tz.FLAECHENZONE or p.typ in tz.ACHSZONE:
                 out.append(_flaechen_auswertung(p, z, weite))
     return out

@@ -79,6 +79,15 @@ Done in this local session (commit):
   §8.33 stages 2/3 done: `kern/funktion.py` + window "Funktion → Tolerierung" (roles → datum system 3-2-1 →
   GPS proposal with fits → own PMI → STEP). Stage 4 done: 2D vector loop window (`kern/kette2d.py`, `ui/kette2d_ui.py`). Stage 5 done (by hand): 3D chain window
   (`kern/kette3d.py`, `ui/kette3d_ui.py`). Open: 2D/3D chains from the model/assembly, storing them in files/project.
+- **Fix 2026-10-28 (user report, Windows multi-monitor):** 3D picking and the view cube were offset when Qt's logical
+  coordinates differ from OCCT window pixels (Windows/Linux use physical pixels; mixed DPI, UI size ≠ 100 %).
+  `OcctAnsicht._px` now scales by OCCT window size / widget size (`_occt_faktor`), the cube pick uses the OCCT width,
+  the context menu converts back; screen test with QT_SCALE_FACTOR 1.25. Not checked on a real Windows machine.
+- **UI:** combo boxes got a visible arrow (theme `pfeil_symbol`, the QSS border had removed Qt's arrow); editable
+  chain cells tinted + one-click editing; pivot moves with panning, rotation about the view centre without a set pivot
+  (screen test updated); histogram overlay of all methods by default.
+- **Fix:** PMI glyph texts drawn unlit (`_unbeleuchtet`) – with the fixed-function pipeline they shone white.
+- 2D/3D chains in files/project, CZ hint, scan line profile per section – done (see §8.34).
 - **Remaining tolerance zones done (§8.34):** line profile, ACS, CZ/SZ, edges/points, thread axes with Ⓟ, whole part.
 - **Tooltips:** rule from the user – every non-obvious control gets a tooltip. `werkzeuge/tooltips.py` lists controls
   without one (main window, docks, all dialogs constructible with the main window as parent);

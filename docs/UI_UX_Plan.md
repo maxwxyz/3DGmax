@@ -101,6 +101,19 @@ display only; tolerance zones move to "Tolerieren").
 - Acceptance: at most 3 panels open per workspace by default; compare task in ≤ 4 clicks from the start page;
   CATIA users rate "finds things where expected" ≥ 4/5.
 
+**Stage 2 additions (user feedback 2026-10-28, approved for implementation):**
+- **Panel or dialog – one rule:** everything that belongs to the loaded model and is used next to the 3D view is a
+  panel (tab in a side area): structure, PMI, views, measure, compare/check, assembly, clashes, tolerance chain, 2D/3D
+  chain, function → tolerancing (today several of these are separate windows). Dialogs only for short, finishing
+  inputs: open, export, settings, materials, allocation, approval. A panel never closes through a work action
+  (e.g. "Scan ausblenden" closed the scan tab) – actions hide or show content, only the × closes the tab.
+- **Compare and check in one workspace:** a scan check is a comparison "target (CAD) ↔ actual (scan)": the same mode
+  bar (overlay, side by side with coupled cameras, blink, target only, actual only), the PMI results (ok / not ok /
+  at the limit) in the place of the change list with the same review walk (checked / rejected, comment) and the same
+  review report.
+- **Visible affordances:** drop-down lists with a clear arrow, editable table cells tinted and editable with one
+  click (done 2026-10-28 for the chain window; apply the same to every table).
+
 **Stage 3 – inspector and guidance:** context inspector for the selection (face/part/PMI: properties and actions),
 guided flows for scan check and assembly variation, unified panel layout everywhere.
 - Acceptance: first-use success ≥ 80 % for laypeople on "check a scan" and "measure a gap" with the example data.

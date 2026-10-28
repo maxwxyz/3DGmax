@@ -194,3 +194,25 @@ def test_manipulator_rahmen_und_werte():
     r = vb.manipulator_rahmen(b.freiheitsgrade(4), np.zeros(3))
     assert np.allclose(r["punkt"], [20, 20, 80]) and r["drehen"] == [True] * 3 and r["verschieben"] == [False] * 3
     assert vb.manipulator_rahmen(np.zeros((0, 6)), np.zeros(3)) is None
+
+
+def test_waermeausdehnung_im_zusammenbau():
+    """Stahlsockel (fest, 10 hoch) traegt eine Aluplatte (5 dick): Oberseite der Platte gegen die Unterseite des
+    Sockels waechst bei +80 K um 10·11,5e-6·80 + 5·23e-6·80 = 0,0184 mm."""
+    from OCC.Core.BRepPrimAPI import BRepPrimAPI_MakeBox
+    from OCC.Core.gp import gp_Pnt
+    sockel = BRepPrimAPI_MakeBox(gp_Pnt(0, 0, 0), 40, 40, 10).Shape()
+    platte = BRepPrimAPI_MakeBox(gp_Pnt(5, 5, 10), 30, 30, 5).Shape()
+    def flaeche(form, nz, z):
+        return next(f for f in _flaechen(form) if (m := vb.merkmal(f)) and m[0] == "ebene"
+                    and abs(m[2][2] - nz) < 1e-9 and abs(m[1][2] - z) < 1e-9)
+    b = vb.Baugruppe()
+    v = b.verbinde(2, flaeche(platte, -1, 10), 0, 1, flaeche(sockel, 1, 10), 0)
+    assert not isinstance(v, str)
+    mg = b.neue_messgroesse(2, flaeche(platte, 1, 15), 1, 1, flaeche(sockel, -1, 0), 2)
+    assert not isinstance(mg, str)
+    a = bm.Analyse(b)
+    fa, fb = b.mass_formen[mg.nummer]
+    dt = a.waermeverschiebung(mg, fa, fb, {1: 11.5, 2: 23.0}, {1: 100.0, 2: 100.0})
+    assert abs(abs(dt) - (10 * 11.5e-6 * 80 + 5 * 23e-6 * 80)) < 1e-9
+    assert a.waermeverschiebung(mg, fa, fb, {1: 11.5, 2: 23.0}, {}) == 0.0  # 20 °C: keine Dehnung

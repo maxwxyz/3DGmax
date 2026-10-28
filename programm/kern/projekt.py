@@ -40,7 +40,7 @@ def speichere(pfad: str, modell_pfad: str | None = None, vergleich=None, messung
               version: str = "", ansichten: list | None = None, kommentare: list | None = None,
               eigene_pmi: list | None = None, pmi_aenderungen: list | None = None, kette: tuple | None = None,
               zusammenbau: dict | None = None, kollision: dict | None = None,
-              funktion: dict | None = None) -> str:
+              funktion: dict | None = None, raumketten: dict | None = None) -> str:
     """Modell oder Vergleich mit Pruefstand und Messungen als .3dgmax speichern."""
     if not pfad.lower().endswith(ENDUNG):
         pfad += ENDUNG
@@ -58,6 +58,8 @@ def speichere(pfad: str, modell_pfad: str | None = None, vergleich=None, messung
         daten["zusammenbau"] = zusammenbau
     if kollision:  # Einstellungen der Kollisionspruefung und Status/Kommentare der Befunde
         daten["kollision"] = kollision
+    if raumketten:  # {"kette2d": als_dict, "kette3d": als_dict} der 2D-/3D-Kettenfenster
+        daten["raumketten"] = raumketten
     if funktion:  # Funktionsrollen je Flaechenindex (kern.funktion)
         daten["funktion"] = {str(i): rolle for i, rolle in funktion.items()}
     if vergleich is not None:

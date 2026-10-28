@@ -89,14 +89,19 @@ def pruefe_alles():
     a.schnittbox(None)
     ergebnis["schnittbox_aus"] = a._box_ebenen == []
     a.setze_auswahl([])
-    # Drehpunkt per Mitteltaste: bleibt beim Zoomen und Verschieben fest, Kreuz sichtbar
+    # Drehpunkt per Mitteltaste: bleibt beim Zoomen fest; beim Verschieben wandert er mit der Ansicht (wie CATIA,
+    # FreeCAD) und bleibt an derselben Stelle im Bild
     a.standard("iso")
     mitte_px = (a.viewer.width() / 2, a.viewer.height() / 2)
     a._zentriere(*mitte_px)
     dp = a._drehpunkt
     a._zoome(1.3, mitte_px[0] + 120, mitte_px[1] + 60)
+    vorher = a.d.View.Convert(dp.X(), dp.Y(), dp.Z())
     a._verschiebe(40, -25)
-    ergebnis["drehpunkt_fest"] = dp is not None and a._mitte() is dp and a._drehpunkt_ais is None
+    neu = a._mitte()
+    nachher = a.d.View.Convert(neu.X(), neu.Y(), neu.Z())
+    ergebnis["drehpunkt_wandert_mit"] = dp is not None and neu.Distance(dp) > 1e-6 and \
+        abs(nachher[0] - vorher[0]) <= 1 and abs(nachher[1] - vorher[1]) <= 1 and a._drehpunkt_ais is None
     a._mitte_cache = a._mitte()
     a._fuehre_aus(("drehen", 5, 0))  # Kreuz nur waehrend des Drehens
     ergebnis["kreuz_beim_drehen"] = a._drehpunkt_ais is not None
@@ -295,6 +300,49 @@ def test_zweite_ansicht_mit_hintergrund():
     env = dict(os.environ)
     env.pop("QT_QPA_PLATFORM", None)
     r = subprocess.run([sys.executable, "-c", ZWEITE, WURZEL], capture_output=True, text=True, env=env, timeout=300)
+    zeile = next((z for z in r.stdout.splitlines() if z.startswith("ERGEBNIS")), "")
+    assert zeile, r.stdout[-2000:] + r.stderr[-2000:]
+    erg = eval(zeile.split(" ", 1)[1])  # noqa: S307 - eigene Ausgabe
+    assert all(v for k, v in erg.items() if k != "text"), erg
+
+
+WUERFEL = r'''
+import os, sys, tempfile
+sys.path.insert(0, sys.argv[1])
+os.environ["DG_EINSTELLUNGEN"] = os.path.join(tempfile.mkdtemp(), "e.ini")
+from PySide6 import QtCore, QtWidgets
+app = QtWidgets.QApplication([])
+from programm.ui.hauptfenster import Hauptfenster
+f = Hauptfenster(); f.resize(1200, 800); f.show()
+def los():
+    erg = {}
+    try:
+        f.lade(os.path.join(sys.argv[1], "tests", "daten", "getriebe.stp"), warten=True)
+        for _ in range(20):
+            QtWidgets.QApplication.processEvents()
+        a = f.ansicht
+        fx, fy = a._occt_faktor()
+        erg["faktor"] = abs(fx - float(os.environ.get("QT_SCALE_FACTOR", "1"))) < 0.02
+        w_occt = a.d.View.Window().Size()[0]
+        x, y = a._px(QtCore.QPointF((w_occt - 80) / fx, 80 / fy))  # Wuerfelmitte, von Qt aus gesehen
+        erg["wuerfel"] = a._wuerfel_unter_maus(x, y) is not None
+    except Exception as e:
+        erg["fehler"] = False
+        erg["text"] = repr(e)
+    print("ERGEBNIS", erg, flush=True)
+    app.quit()
+QtCore.QTimer.singleShot(1500, los)
+app.exec()
+'''
+
+
+def test_auswahl_trifft_bei_skalierter_oberflaeche():
+    """Maus in Qt-Koordinaten, OCCT in Fensterpixeln: bei Oberflaechengroesse 125 % (wie gemischte DPI unter
+    Windows) muss die Umrechnung den Faktor erkennen und der Navigationswuerfel getroffen werden."""
+    env = dict(os.environ)
+    env.pop("QT_QPA_PLATFORM", None)
+    env["QT_SCALE_FACTOR"] = "1.25"
+    r = subprocess.run([sys.executable, "-c", WUERFEL, WURZEL], capture_output=True, text=True, env=env, timeout=120)
     zeile = next((z for z in r.stdout.splitlines() if z.startswith("ERGEBNIS")), "")
     assert zeile, r.stdout[-2000:] + r.stderr[-2000:]
     erg = eval(zeile.split(" ", 1)[1])  # noqa: S307 - eigene Ausgabe

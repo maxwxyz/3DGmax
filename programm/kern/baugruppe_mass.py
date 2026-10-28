@@ -15,6 +15,10 @@ Ebene), Achsabstand zweier paralleler Achsen den Abstand entlang ihrer Verbindun
   Kontaktrechnung.
 - Beitragende: Worst-Case-Bereich, wenn nur diese Verbindung streut (alle anderen in Nennlage), und Varianzanteil
   aus Monte Carlo (Verbindungen unabhaengig).
+- Waermeausdehnung (deterministisch, je Temperaturfall): jedes Teil dehnt sich um seinen Fixierpunkt aus (Mitte
+  seiner Verbindungsmerkmale; feste Teile: Mitte der Merkmale, an denen andere Teile haengen) mit
+  u_i(x) = u_gegen(o_i) + alpha_i * (T_i - 20 °C) * (x - o_i); der Fixierpunkt folgt dem Gegenteil (Verbindungsbaum).
+  Die Messgroesse aendert sich um n . (u_A(p) - u_B(q)) mit q = Fusspunkt von p auf der Ebene bzw. Achse von B.
 """
 
 from __future__ import annotations
@@ -152,9 +156,8 @@ class Analyse:
                 out[self._spalte[teil]:self._spalte[teil] + 6] += vz * zeile
         return out
 
-    def vektor(self, m: Messgroesse, fa, fb) -> tuple[float, np.ndarray]:
-        """Nennwert und Empfindlichkeit c (Gesamtvektor) der Messgroesse: Abstand des Punkts p (Teil tp) zur Ebene
-        bzw. Achse (Teil tq) entlang n; beide Teile wirken am Messpunkt p."""
+    def _geometrie(self, m: Messgroesse, fa, fb):
+        """Messpunkt p (Teil tp), Bezugspunkt q (Teil tq) und Messrichtung n in der Zusammenbaulage."""
         la, lb = self.bg.lage(m.teil_a), self.bg.lage(m.teil_b)
         if m.art == ACHSABSTAND:
             pa, _ = achse(fa, la)
@@ -174,6 +177,12 @@ class Analyse:
             p, _ = ebene(fa, la)
             q, n = ebene(fb, lb)
             tp, tq = m.teil_a, m.teil_b
+        return p, q, n, tp, tq
+
+    def vektor(self, m: Messgroesse, fa, fb) -> tuple[float, np.ndarray]:
+        """Nennwert und Empfindlichkeit c (Gesamtvektor) der Messgroesse: Abstand des Punkts p (Teil tp) zur Ebene
+        bzw. Achse (Teil tq) entlang n; beide Teile wirken am Messpunkt p."""
+        p, q, n, tp, tq = self._geometrie(m, fa, fb)
         nenn = float(n @ (p - q))
         c = np.zeros(self.n)
         e = _empfindlichkeit(p, n)
@@ -181,6 +190,39 @@ class Analyse:
             if teil in self._spalte:
                 c[self._spalte[teil]:self._spalte[teil] + 6] += vz * e
         return nenn, c
+
+    def _fixierpunkt(self, teil: int) -> np.ndarray:
+        """Mitte der Verbindungsmerkmale, mit denen das Teil haengt (feste Teile: an denen andere haengen)."""
+        punkte = []
+        for v in self.bg.verbindungen:
+            if v.nummer not in self.bg.formen:
+                continue
+            mt, mg = self.bg.merkmale(v)
+            if v.teil == teil and mt is not None:
+                punkte.append(np.asarray(mt[1], float))
+            elif v.gegen_teil == teil and mg is not None and (self.bg.fest(teil) or not punkte):
+                punkte.append(np.asarray(mg[1], float))
+        return np.mean(punkte, axis=0) if punkte else np.zeros(3)
+
+    def _waerme_weg(self, teil: int, x: np.ndarray, dehnung: dict, tiefe: int = 0) -> np.ndarray:
+        """Verschiebung des Punkts x des Teils durch Waermeausdehnung (siehe Modulbeschreibung)."""
+        e = dehnung.get(teil, 0.0)
+        o = self._fixierpunkt(teil)
+        eigen = e * (np.asarray(x, float) - o)
+        v = next((v for v in self.bg.verbindungen if v.teil == teil), None)
+        if v is None or self.bg.fest(teil) or tiefe > 20:
+            return eigen
+        return self._waerme_weg(v.gegen_teil, o, dehnung, tiefe + 1) + eigen
+
+    def waermeverschiebung(self, m: Messgroesse, fa, fb, alpha: dict, temperatur: dict) -> float:
+        """Aenderung der Messgroesse (mm) bei Teiltemperaturen; alpha: Teil -> 1e-6/K, temperatur: Teil -> °C
+        (fehlend: 20 °C, also keine Dehnung)."""
+        from .werkstoffe import REFERENZ
+        p, q, n, tp, tq = self._geometrie(m, fa, fb)
+        dehnung = {t: (alpha.get(t) or 0.0) * 1e-6 * (temperatur.get(t, REFERENZ) - REFERENZ)
+                   for t in set(alpha) | set(temperatur)}
+        fuss = p - n * float(n @ (p - q))  # Fusspunkt von p auf B
+        return float(n @ (self._waerme_weg(tp, p, dehnung) - self._waerme_weg(tq, fuss, dehnung)))
 
     def _extrem(self, c: np.ndarray, nur: int | None = None) -> tuple[float, float]:
         """Min und Max von c . x im Spielraum (nur: nur diese Verbindung streut)."""

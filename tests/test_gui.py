@@ -1390,14 +1390,14 @@ def test_toleranzkette_getriebe_beispiel(fenster, tmp_path):
     k.histogramm.grenze_gezogen.emit(1, 0.8)
     assert k.oben.value() == 0.8 and k.anforderung_werte()[1] == 0.8
     assert k.teiler.count() == 2
-    # Histogramm folgt der Ergebnistabelle: anwendbares Verfahren (hier Worst Case), Zeile waehlt, "alle" ueberlagert
-    assert k.histogramm.art == ("rss" if k.e.statistisch else "wc") and k.histogramm.anteil_unter(0.4) is None
+    # Histogramm: Vorgabe alle Verfahren ueberlagert; eine Ergebniszeile zeigt nur dieses, nochmals: wieder alle
+    assert k.histogramm.art == "alle"
+    k._verfahren_gewaehlt(0, 0)
+    assert k.histogramm.art == "wc" and k.histogramm.anteil_unter(0.4) is None
     k._verfahren_gewaehlt(2, 0)
     assert k.histogramm.art == "mc" and 0.0 < k.histogramm.anteil_unter(k.e.nenn) < 1.0
     k._verfahren_gewaehlt(2, 0)
-    assert k.histogramm.art == ("rss" if k.e.statistisch else "wc")
-    k.alle_ueberlagern.setChecked(True)
-    assert k.histogramm.art == "alle"
+    assert k.histogramm.art == "alle" and k.alle_ueberlagern.isChecked()
     # Erklaerungen: Verfahren in der Ergebnistabelle, Spalten der Gliedertabelle; Streuungsbild je Glied
     from PySide6 import QtCore
     from programm.ui.toleranzkette_ui import SP_STREUUNG
@@ -1772,3 +1772,23 @@ def test_kette3d_fenster(fenster):
     w.schluss.setCurrentIndex(w.schluss.findData("z"))  # Hoehe: Kippung des Sockels wirkt mit Hebel 120
     w.in_kette.click()
     assert any(g.faktor != 1.0 for g in f._kette.glieder)
+
+
+def test_raumketten_datei_und_projekt(fenster, tmp_path):
+    """2D- und 3D-Kette speichern, oeffnen und mit dem Projekt sichern."""
+    f = fenster
+    f.lade(pfad("baugruppe.stp"), warten=True)
+    w2, w3 = f.zeige_kette2d(), f.zeige_kette3d()
+    w2.lade_vorlage("hebel")
+    w3.lade_vorlage("turm")
+    d2, d3 = w2.speichere(str(tmp_path / "k2")), w3.speichere(str(tmp_path / "k3"))
+    assert d2.endswith(".3dgkette2d") and d3.endswith(".3dgkette3d")
+    alt2, alt3 = w2.kette, w3.kette
+    w2.setze_kette(type(alt2)())
+    assert w2.oeffne(d2) and w2.kette == alt2
+    assert not w3.oeffne(d2) and "andere Art" in w3.ergebnis.text()  # 2D-Datei im 3D-Fenster: Meldung
+    projekt = f.speichere_projekt(str(tmp_path / "p.3dgmax"))
+    w2.setze_kette(type(alt2)())
+    w3.setze_kette(type(alt3)())
+    f.oeffne_projekt(projekt, warten=True)
+    assert f._kette2d.kette == alt2 and f._kette3d.kette == alt3

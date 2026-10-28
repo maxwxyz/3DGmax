@@ -102,7 +102,13 @@ class Kette2DFenster(QtWidgets.QDialog):
         self.schluss.setToolTip(tr("Welche Größe die Funktion bestimmt: Abstand vom Ende zum Anfang des Zugs, sein X- "
                                    "oder Y-Anteil oder die Richtung des letzten Segments"))
         self.schluss.currentIndexChanged.connect(self._schluss_geaendert)
-        for w in (self.plus, self.weg, self.vorlage):
+        self.oeffnen_knopf = QtWidgets.QPushButton(tr("Öffnen …"))
+        self.oeffnen_knopf.setToolTip(tr("Gespeicherte {}-Kette laden").format("2D"))
+        self.oeffnen_knopf.clicked.connect(lambda: self.oeffne())
+        self.speichern_knopf = QtWidgets.QPushButton(tr("Speichern …"))
+        self.speichern_knopf.setToolTip(tr("{}-Kette als Datei speichern (auch im Projekt enthalten)").format("2D"))
+        self.speichern_knopf.clicked.connect(lambda: self.speichere())
+        for w in (self.plus, self.weg, self.vorlage, self.oeffnen_knopf, self.speichern_knopf):
             reihe.addWidget(w)
         reihe.addStretch(1)
         reihe.addWidget(QtWidgets.QLabel(tr("Schlussgröße")))
@@ -148,6 +154,38 @@ class Kette2DFenster(QtWidgets.QDialog):
         self.kette.segmente.append(segment or k2.Segment(tr("Segment {}").format(n), 10.0))
         self._fuelle()
         return self.kette.segmente[-1]
+
+    def setze_kette(self, kette):
+        """Kette uebernehmen (aus Datei oder Projekt)."""
+        self.kette = kette
+        self._fuelle()
+
+    def speichere(self, pfad: str = "") -> str | None:
+        from ..kern import kette_datei
+        endung = kette_datei.ENDUNG_2D
+        if not pfad:
+            pfad, _ = QtWidgets.QFileDialog.getSaveFileName(self, tr("Kette speichern"), "kette" + endung,
+                                                            tr("2D-Kette (*{})").format(endung))
+        return kette_datei.speichere_raum(pfad, self.kette) if pfad else None
+
+    def oeffne(self, pfad: str = "") -> bool:
+        from ..kern import kette_datei
+        endung = kette_datei.ENDUNG_2D
+        if not pfad:
+            pfad, _ = QtWidgets.QFileDialog.getOpenFileName(self, tr("Kette öffnen"), "",
+                                                            tr("2D-Kette (*{})").format(endung))
+        if not pfad:
+            return False
+        try:
+            kette = kette_datei.lade_raum(pfad)
+        except (OSError, ValueError, KeyError) as fehler:
+            QtWidgets.QMessageBox.warning(self, tr("Kette öffnen"), str(fehler))
+            return False
+        if not isinstance(kette, k2.Kette2D):
+            self.ergebnis.setText(tr("Diese Datei enthält eine andere Art von Kette."))
+            return False
+        self.setze_kette(kette)
+        return True
 
     def lade_vorlage(self, schluessel: str):
         if not schluessel:

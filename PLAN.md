@@ -378,7 +378,15 @@ Throughout: tests (core, offscreen UI, stress test, on-screen test), `--selbstte
   radius, one Ø t cylinder per thread and the projected zone Ⓟ on the side outside the material (FTC-10: 3 position
   tolerances × 2 threads); (c) curves/edges (CTC-05 straightness on a TRIMMED_CURVE) → tube Ø t; points → sphere.
   Shapes are kept as attribute `Pmi.teilformen` (not a dataclass field, so project files are unchanged).
-- Open: intersection-plane indicator, CZ for non-coplanar features and axis patterns.
+- CZ on offset (non-coplanar) features and axis patterns: separate zones at their nominal places with the hint that
+  they are theoretically exact to each other and aligned together (geometrically the same zones).
+- Scan check: line profile per section (`scanpruefung._linien_auswertung`) – points split into slices across the
+  section direction (LE: angular sectors around the axis = longitudinal sections); with datums all deviations in the
+  zone, without datums range ≤ t; worst slice counts (test: taper 0.05 passes per cross-section, fails with LE).
+- 2D/3D chains saved as .3dgkette2d/.3dgkette3d (`kette_datei.speichere_raum/lade_raum`) and in the project
+  ("raumketten").
+- Open: intersection-plane indicator – no sample file with it, and pythonocc does not wrap XCAFDoc_GeomTolerance,
+  so it cannot be verified by experiment.
 
 ### 8.33 Functional dimension chains: view, purpose, 2D/3D, from function to ISO GPS (requested 2026-10-28)
 Requests: show the chain with one click as arrows with dimensions and tolerances in the 3D view (geometric tolerances

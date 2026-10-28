@@ -76,3 +76,34 @@ def _glieder(liste: list) -> list[Glied]:
     felder = set(Glied.__dataclass_fields__)
     return [Glied(**{**{k: v for k, v in g.items() if k in felder}, "flaechen": tuple(g.get("flaechen", ())),
                      "messwerte": tuple(g.get("messwerte", ()))}) for g in liste]
+
+
+# 2D- und 3D-Ketten (kern.kette2d / kern.kette3d) als eigene Dateien
+ENDUNG_2D, ENDUNG_3D = ".3dgkette2d", ".3dgkette3d"
+FORMAT_2D, FORMAT_3D = "3dgmax-kette2d", "3dgmax-kette3d"
+
+
+def speichere_raum(pfad: str, kette) -> str:
+    """2D- oder 3D-Kette speichern (Endung nach Art der Kette)."""
+    from . import kette2d, kette3d
+    zwei = isinstance(kette, kette2d.Kette2D)
+    endung, fmt = (ENDUNG_2D, FORMAT_2D) if zwei else (ENDUNG_3D, FORMAT_3D)
+    if not pfad.endswith(endung):
+        pfad += endung
+    daten = {"format": fmt, "version": 1, "kette": (kette2d if zwei else kette3d).als_dict(kette)}
+    with open(pfad, "w", encoding="utf-8") as f:
+        json.dump(daten, f, ensure_ascii=False, indent=1)
+    return pfad
+
+
+def lade_raum(pfad: str):
+    """2D- oder 3D-Kette laden (Art aus dem Format der Datei)."""
+    from . import kette2d, kette3d
+    with open(pfad, encoding="utf-8") as f:
+        d = json.load(f)
+    if d.get("format") == FORMAT_2D:
+        return kette2d.von_dict(d["kette"])
+    if d.get("format") == FORMAT_3D:
+        return kette3d.von_dict(d["kette"])
+    raise ValueError("keine 3DGmax-2D/3D-Kettendatei")
+
