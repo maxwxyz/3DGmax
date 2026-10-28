@@ -165,7 +165,8 @@
 | Generate graphical PMI from semantic PMI – stage 1: leader + label, stacked, own color (3D, drawings) | ✅ |
 | Generated PMI stage 2: annotation planes (saved view or model plane), frames/datum symbols as vector graphics, overlap-free layout outside the model, show/hide switch | ✅ |
 | Generated PMI stage 3: dimension lines with arrows and extension lines, layout avoiding projected overlaps per view | ⬜ |
-| Drawing: dimensions/frames as DXF dimension entities, sheet formats and scales | ⬜ |
+| Drawing: sheet formats A4–A0 with frame, title block and standard scales | ✅ |
+| Drawing: dimensions/frames as DXF dimension entities | ⬜ |
 | Annotate: comments/questions/change proposals on faces and PMI, markers, status, project, CSV/PDF | ✅ |
 
 ## Formats

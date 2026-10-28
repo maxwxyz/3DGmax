@@ -668,6 +668,7 @@ class Hauptfenster(QtWidgets.QMainWindow):
         me.addSeparator()
         for n in ("zeichnung_blatt", "zeichnung_aktuell", "zeichnung_ansichten", "zeichnung_schnitt", "zeichnung_pmi"):
             me.addAction(a[n])
+        self._menue_blattformat(me.addMenu(tr("Blattformat")))
         me.addSeparator()
         for n in ("pmi_export", "merkmale_csv", "kommentare_csv", "aenderungen_export"):
             me.addAction(a[n])
@@ -2471,6 +2472,13 @@ class Hauptfenster(QtWidgets.QMainWindow):
                     zeichnung.pmi_hinzu(ansichten[0], self._grafik_fuer(self.ansicht.pmi_ids_sichtbar), pmi_text,
                                         richtung, oben)
                 methode = tr("aktuelle Blickrichtung")
+            zeile = f"{methode} · {tr('Maße in mm')} · 3DGmax {VERSION} · {datetime.date.today().isoformat()}"
+            format_ = str(self.ein.value("zeichnung_format", ""))
+            blatt = None
+            if format_ in zeichnung.FORMATE:  # Normblatt mit Rahmen, Schriftfeld und Massstab
+                ansichten, massstab = zeichnung.auf_blatt(ansichten, format_, titel=name, zeile=zeile)
+                blatt = zeichnung.FORMATE[format_]
+                self._letzter_massstab = massstab
             endung = os.path.splitext(pfad)[1].lower()
             if endung == ".svg":
                 with open(pfad, "w", encoding="utf-8") as f:
@@ -2481,12 +2489,26 @@ class Hauptfenster(QtWidgets.QMainWindow):
             else:
                 if not pfad.lower().endswith(".pdf"):
                     pfad += ".pdf"
-                zeile = f"{methode} · {tr('Maße in mm')} · 3DGmax {VERSION} · {datetime.date.today().isoformat()}"
-                berichte.zeichnung_pdf(zeichnung.als_svg(ansichten, name), pfad, name, zeile)
+                berichte.zeichnung_pdf(zeichnung.als_svg(ansichten, name), pfad, name, zeile, blatt)
         finally:
             QtWidgets.QApplication.restoreOverrideCursor()
         self.statusBar().showMessage(tr("Zeichnung gespeichert: {}").format(pfad), 8000)
         return pfad
+
+    def _menue_blattformat(self, menue):
+        """Zeichnungen frei (Ausdehnung der Ansichten) oder auf einem Normblatt mit Rahmen, Schriftfeld, Massstab."""
+        from ..kern import zeichnung
+        gruppe = QtGui.QActionGroup(self)
+        jetzt = str(self.ein.value("zeichnung_format", ""))
+        self.blattformat_aktionen = {}
+        for schluessel, text in [("", tr("Ohne Blatt (Ausdehnung der Ansichten)"))] + \
+                [(f, tr("{} quer, Maßstab automatisch").format(f)) for f in zeichnung.FORMATE]:
+            akt = menue.addAction(text)
+            akt.setCheckable(True)
+            akt.setChecked(schluessel == jetzt)
+            akt.triggered.connect(lambda _c=False, k=schluessel: self.ein.setValue("zeichnung_format", k))
+            gruppe.addAction(akt)
+            self.blattformat_aktionen[schluessel] = akt
 
     def _grafik_fuer(self, pmi_ids) -> list:
         """Grafiken (Callouts) zu PMI-IDs; None = alle."""

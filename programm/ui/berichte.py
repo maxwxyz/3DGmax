@@ -492,11 +492,22 @@ def scan_pdf(fenster, pfad: str, bilder: bool = True) -> str:
     return bericht.fertig()
 
 
-def zeichnung_pdf(svg, pfad: str, titel: str, zeile: str) -> str:
+def zeichnung_pdf(svg, pfad: str, titel: str, zeile: str, blatt: tuple | None = None) -> str:
     """Zeichnung(en) (SVG, vektoriell) auf A3 quer mit einfachem Schriftfeld; svg: Text oder Liste
-    [(svg, titel, zeile)] fuer mehrere Seiten."""
+    [(svg, titel, zeile)] fuer mehrere Seiten. blatt (Breite, Hoehe in mm): das SVG ist schon ein ganzes Blatt mit
+    Rahmen und Schriftfeld (kern.zeichnung.auf_blatt) und wird 1:1 auf eine Seite dieser Groesse gelegt."""
     from PySide6 import QtCore, QtGui
     schreiber = QtGui.QPdfWriter(pfad)
+    if blatt is not None:
+        from PySide6 import QtSvg
+        schreiber.setPageSize(QtGui.QPageSize(QtCore.QSizeF(*blatt), QtGui.QPageSize.Unit.Millimeter))
+        schreiber.setPageMargins(QtCore.QMarginsF(0, 0, 0, 0), QtGui.QPageLayout.Unit.Millimeter)
+        schreiber.setTitle(titel)
+        maler = QtGui.QPainter(schreiber)
+        renderer = QtSvg.QSvgRenderer(QtCore.QByteArray((svg if isinstance(svg, str) else svg[0][0]).encode("utf-8")))
+        renderer.render(maler, QtCore.QRectF(0, 0, schreiber.width(), schreiber.height()))
+        maler.end()
+        return pfad
     schreiber.setPageSize(QtGui.QPageSize(QtGui.QPageSize.PageSizeId.A3))
     schreiber.setPageOrientation(QtGui.QPageLayout.Orientation.Landscape)
     schreiber.setPageMargins(QtCore.QMarginsF(10, 10, 10, 10), QtGui.QPageLayout.Unit.Millimeter)

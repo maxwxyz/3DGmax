@@ -1343,5 +1343,8 @@
 "Netzteil: aus Dreiecken genähert (genau etwa bis zur Netzfeinheit)": "Mesh part: approximated from triangles (accurate to about the mesh size)",
 "Je Schnittebene (festgehaltene und aktuelle) eine Ansicht auf die Schnittfläche, schraffiert – als PDF, SVG oder DXF": "One view onto the cut face per section plane (kept and current), hatched – as PDF, SVG or DXF",
 "Schnittansicht": "Section view",
-"Zeichnung: Schnittansichten …": "Drawing: section views …"
+"Zeichnung: Schnittansichten …": "Drawing: section views …",
+"Blattformat": "Sheet format",
+"Ohne Blatt (Ausdehnung der Ansichten)": "No sheet (extent of the views)",
+"{} quer, Maßstab automatisch": "{} landscape, automatic scale"
 }

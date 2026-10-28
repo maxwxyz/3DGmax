@@ -726,6 +726,13 @@ def test_mehrere_schnittebenen_und_kontur(fenster_ctc01, tmp_path):
     text = open(dxf).read()
     assert "SCHRAFFUR" in text.split("ENTITIES")[1] and "SICHTBAR" in text.split("ENTITIES")[1]
     assert f.exportiere_zeichnung("schnitt", str(tmp_path / "a.pdf"))
+    f.blattformat_aktionen["A3"].trigger()  # auf ein Normblatt mit Schriftfeld und Massstab
+    try:
+        svg = open(f.exportiere_zeichnung("blatt", str(tmp_path / "b.svg")), encoding="utf-8").read()
+        assert 'width="420.0mm"' in svg and "A3" in svg and f._letzter_massstab <= 1
+        assert os.path.getsize(f.exportiere_zeichnung("blatt", str(tmp_path / "b.pdf"))) > 1000
+    finally:
+        f.blattformat_aktionen[""].trigger()
     f.aktionen["schnitt_aus"].trigger()
     assert f.ansicht.schnitt_ebenen == [] and f.ansicht.alle_schnitt_ebenen() == []
 
@@ -760,6 +767,26 @@ def test_schnittansicht_schraffur():
     assert 'stroke-width="0.13"' in zeichnung.als_svg([a])
     # Schraffur ohne Kontur: nichts
     assert schnitt.schraffur([], 1.0) == []
+
+
+def test_zeichnung_auf_blatt():
+    import numpy as np
+    from programm.kern import zeichnung
+    a = zeichnung.Ansicht2D("x")
+    a.linien[zeichnung.SICHTBAR] = [np.array([[0.0, 0.0], [800.0, 0.0], [800.0, 100.0]])]
+    a.texte = [(np.array([10.0, 10.0]), 0.0, 5.0, "T")]
+    out, m = zeichnung.auf_blatt([a], "A3", titel="Platte")
+    assert m == 0.2 and zeichnung.massstab_text(m) == "1:5" and zeichnung.massstab_text(2.0) == "2:1"
+    lo, hi = zeichnung.rahmen(out)
+    assert np.allclose(lo, 0) and np.allclose(hi, [420, 297])  # SVG genau das Blatt
+    b = out[1]
+    p = b.linien[zeichnung.SICHTBAR][0] + np.asarray(b.versatz)
+    assert np.allclose(np.ptp(p, axis=0), [160, 20]) and 25 <= p[:, 0].min() and p[:, 0].max() <= 405
+    assert b.texte[0][2] == 1.0 and a.texte[0][2] == 5.0  # skaliert, Original unveraendert
+    svg = zeichnung.als_svg(out, "Platte")
+    assert 'width="420.0mm"' in svg and "1:5   A3" in svg and 'fill="#000"' in svg
+    out, m = zeichnung.auf_blatt([a], "A4", massstab=0.1)
+    assert m == 0.1
 
 
 def test_fokusmodus(fenster_ctc01):

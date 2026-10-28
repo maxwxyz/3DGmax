@@ -23,6 +23,8 @@ class Ansicht2D:
     versatz: tuple[float, float] = (0.0, 0.0)  # Lage auf dem Blatt (mm)
     pmi_flaechen: list[np.ndarray] = field(default_factory=list)  # gefuellte Dreiecke (Pfeile, Schrift) 2D
     texte: list[tuple] = field(default_factory=list)  # (Ort 2D, Winkel Grad, Hoehe, Text) aus Platzhaltern
+    schrift_farbe: str = "#1d4ed8"  # Texte der Ansicht (PMI blau, Schriftfeld schwarz)
+    blatt: tuple[float, float] | None = None  # Blattgroesse (mm), wenn dies der Zeichnungsrahmen ist
 
     def grenzen(self):
         alle = [p for art in self.linien.values() for p in art if len(p)]
@@ -275,13 +277,16 @@ def _alle(ansichten):
                 yield a, art, p + np.asarray(a.versatz)
 
 
-def _texte(ansichten):
+def _texte(ansichten, farbe: bool = False):
     for a in ansichten:
         for ort, winkel, hoehe, text in a.texte:
-            yield ort + np.asarray(a.versatz), winkel, hoehe, text
+            yield (ort + np.asarray(a.versatz), winkel, hoehe, text) + ((a.schrift_farbe,) if farbe else ())
 
 
 def rahmen(ansichten, rand: float = 10.0):
+    blatt = next((a.blatt for a in ansichten if a.blatt), None)
+    if blatt:  # Zeichnung auf einem Blatt: genau das Blatt
+        return np.zeros(2), np.asarray(blatt, float)
     pts = [p for _, _, p in _alle(ansichten)]
     for o, winkel, hoehe, text in _texte(ansichten):  # Textkasten grob: Breite ~ 0.6 x Hoehe je Zeichen
         w = np.radians(winkel)
@@ -314,10 +319,10 @@ def als_svg(ansichten: list[Ansicht2D], titel: str = "") -> str:
             punkte = " ".join(f"{x - lo[0]:.3f},{hi[1] - y:.3f}" for x, y in tri)
             teile.append(f'<polygon points="{punkte}"/>')
         teile.append("</g>")
-    for ort, winkel, hoehe, text in _texte(ansichten):
+    for ort, winkel, hoehe, text, farbe in _texte(ansichten, True):
         x, y = ort[0] - lo[0], hi[1] - ort[1]
         teile.append(f'<text x="{x:.3f}" y="{y:.3f}" font-family="Helvetica, Arial, sans-serif" '
-                     f'font-size="{max(hoehe, 0.5):.3f}" fill="#1d4ed8" '
+                     f'font-size="{max(hoehe, 0.5):.3f}" fill="{farbe}" '
                      f'transform="rotate({-winkel:.2f} {x:.3f} {y:.3f})">{_xml(text)}</text>')
     teile.append("</svg>")
     return "\n".join(teile)
@@ -343,6 +348,58 @@ def als_dxf(ansichten: list[Ansicht2D]) -> str:
               "40", f"{max(hoehe, 0.5):.4f}", "1", text.encode("ascii", "replace").decode(), "50", f"{winkel:.3f}"]
     z += ["0", "ENDSEC", "0", "EOF"]
     return "\n".join(z) + "\n"
+
+
+# Blattformate ISO 5457 (quer, mm) und Massstaebe ISO 5455
+FORMATE = {"A4": (297.0, 210.0), "A3": (420.0, 297.0), "A2": (594.0, 420.0), "A1": (841.0, 594.0),
+           "A0": (1189.0, 841.0)}
+MASSSTAEBE = (50.0, 20.0, 10.0, 5.0, 2.0, 1.0, 1 / 2, 1 / 5, 1 / 10, 1 / 20, 1 / 50, 1 / 100, 1 / 200, 1 / 500,
+              1 / 1000)
+SCHRIFTFELD = (180.0, 36.0)  # Breite, Hoehe (ISO 7200: 180 mm breit)
+
+
+def massstab_text(m: float) -> str:
+    return f"{m:g}:1" if m >= 1 else f"1:{1 / m:g}"
+
+
+def skaliere(a: Ansicht2D, k: float) -> Ansicht2D:
+    """Kopie der Ansicht im Massstab k (Linien, PMI-Flaechen, Texte, Lage)."""
+    import copy
+    b = copy.copy(a)
+    b.linien = {art: [p * k for p in linien] for art, linien in a.linien.items()}
+    b.pmi_flaechen = [t * k for t in a.pmi_flaechen]
+    b.texte = [(np.asarray(o) * k, w, h * k, t) for o, w, h, t in a.texte]
+    b.versatz = (a.versatz[0] * k, a.versatz[1] * k)
+    return b
+
+
+def auf_blatt(ansichten: list[Ansicht2D], format: str = "A3", massstab: float | None = None, titel: str = "",
+              zeile: str = "") -> tuple[list[Ansicht2D], float]:
+    """Ansichten im groessten passenden Normmassstab mittig auf ein Blatt mit Rahmen (Heftrand links 20 mm, sonst
+    10 mm) und Schriftfeld unten rechts. Rueckgabe (Ansichten mit Rahmen zuerst, Massstab)."""
+    b, h = FORMATE[format]
+    sb, sh = SCHRIFTFELD
+    links, unten, rechts, oben = 25.0, 10.0 + sh + 5.0, b - 15.0, h - 15.0  # freie Flaeche fuer die Ansichten
+    lo, hi = rahmen(ansichten, 0.0)
+    w, hoehe = max(hi[0] - lo[0], 1e-9), max(hi[1] - lo[1], 1e-9)
+    if massstab is None:
+        massstab = next((m for m in MASSSTAEBE if w * m <= rechts - links and hoehe * m <= oben - unten),
+                        MASSSTAEBE[-1])
+    out = [skaliere(a, massstab) for a in ansichten]
+    mitte = np.array([(links + rechts) / 2, (unten + oben) / 2]) - (lo + hi) / 2 * massstab
+    for a in out:
+        a.versatz = (a.versatz[0] + mitte[0], a.versatz[1] + mitte[1])
+    r = Ansicht2D("Blatt", blatt=(b, h), schrift_farbe="#000")
+    ecke = lambda x0, y0, x1, y1: np.array([[x0, y0], [x1, y0], [x1, y1], [x0, y1], [x0, y0]])  # noqa: E731
+    r.linien[SCHRAFFUR] = [ecke(0, 0, b, h)]  # Beschnitt (schmal)
+    x0, y0 = b - 10 - sb, 10.0
+    r.linien[SICHTBAR] = [ecke(20, 10, b - 10, h - 10), ecke(x0, y0, b - 10, y0 + sh),
+                          np.array([[x0, y0 + sh / 2], [b - 10, y0 + sh / 2]]),
+                          np.array([[x0 + 120, y0], [x0 + 120, y0 + sh / 2]])]
+    r.texte = [(np.array([x0 + 3, y0 + sh / 2 + 6]), 0.0, 6.0, titel),
+               (np.array([x0 + 3, y0 + 7]), 0.0, 2.5, zeile),
+               (np.array([x0 + 123, y0 + 10]), 0.0, 3.5, f"{massstab_text(massstab)}   {format}")]
+    return [r] + out, massstab
 
 
 def _xml(text: str) -> str:

@@ -174,7 +174,8 @@
    "Vergleich: Geometrieänderungen an mehrfach verbauten Teilen stehen je betroffener Instanz in der Änderungsliste (mit Teilname, Auswahl zoomt auf die Instanz und markiert sie im Baum); betrifft eine Änderung alle Instanzen, steht das in der Beschreibung.",
    "Vergleich „Nebeneinander“: beide Strukturbäume untereinander (neuer Stand oben, alter unten, jeweils mit Teilestatus); Haken, Isolieren und Transparenz im unteren Baum wirken auf die Ansicht des alten Stands.",
    "Kollisionen auch mit Netzteilen (STL, OBJ, glTF, 3MF, PLY, PRC-Netze) und gemischten Paaren: Abstand über Dreiecke, Durchdringung per Strahltest, Volumen und Tiefe über ein Raster; die Werte sind mit „≈“ als Näherung markiert.",
-   "Zeichnung: Schnittansichten (Datei › Exportieren) – je Schnittebene der Rest hinter der Ebene als Kantenansicht, die Schnittfläche nach ISO 128 schraffiert (45°, Löcher frei); Schnitt A–A, B–B, C–C als PDF, SVG oder DXF (Layer SCHRAFFUR)."
+   "Zeichnung: Schnittansichten (Datei › Exportieren) – je Schnittebene der Rest hinter der Ebene als Kantenansicht, die Schnittfläche nach ISO 128 schraffiert (45°, Löcher frei); Schnitt A–A, B–B, C–C als PDF, SVG oder DXF (Layer SCHRAFFUR).",
+   "Zeichnung: Blattformat A4 bis A0 quer (Datei › Exportieren › Blattformat) – Rahmen nach ISO 5457, Schriftfeld mit Titel, Maßstab und Format, größter passender Normmaßstab nach ISO 5455; PDF-Seite in Blattgröße."
   ],
   "en": [
    "First viewer version: load STEP AP242, assembly tree, CAD-style navigation, standard views.",
@@ -350,7 +351,8 @@
    "Comparison: geometry changes on parts used several times are listed per affected instance (with the part name; selecting zooms to the instance and marks it in the tree); a change at all instances says so in the description.",
    "Comparison “Side by side”: both structure trees one below the other (new state on top, old below, each with part status); check boxes, isolate and transparency in the lower tree act on the old-state view.",
    "Clashes also with mesh parts (STL, OBJ, glTF, 3MF, PLY, PRC meshes) and mixed pairs: distance from triangles, interference by ray test, volume and depth from a grid; the values are marked “≈” as approximations.",
-   "Drawing: section views (File › Export) – per section plane the rest behind the plane as an edge view, the cut face hatched per ISO 128 (45°, holes left free); section A–A, B–B, C–C as PDF, SVG or DXF (layer SCHRAFFUR)."
+   "Drawing: section views (File › Export) – per section plane the rest behind the plane as an edge view, the cut face hatched per ISO 128 (45°, holes left free); section A–A, B–B, C–C as PDF, SVG or DXF (layer SCHRAFFUR).",
+   "Drawing: sheet format A4 to A0 landscape (File › Export › Sheet format) – frame per ISO 5457, title block with title, scale and format, largest fitting standard scale per ISO 5455; PDF page in sheet size."
   ]
  },
  "releases": [
