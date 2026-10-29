@@ -80,6 +80,17 @@ def fenster(app, tmp_path, monkeypatch):
     yield f
     f.close()
     f.deleteLater()
+    _weg_damit(app)
+
+
+def _weg_damit(app):
+    """Geschlossene Fenster wirklich loeschen: ohne Ereignisschleife bleiben sie sonst bis zum Ende der Sitzung,
+    und jedes setStyleSheet (Thema, Einstellungen) poliert alle alten Widgets mit - unter Windows bis zur Zeitgrenze."""
+    from PySide6 import QtCore, QtWidgets
+    for w in app.topLevelWidgets():  # nur eigene Fenster, keine Qt-Helfer (Tooltip, Menues)
+        if isinstance(w, (QtWidgets.QMainWindow, QtWidgets.QDialog)) and not w.isVisible() and w.parent() is None:
+            w.deleteLater()
+    app.sendPostedEvents(None, QtCore.QEvent.Type.DeferredDelete)
 
 
 @pytest.fixture
