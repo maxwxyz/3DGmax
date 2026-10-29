@@ -8,6 +8,10 @@ Punkts in der Basis, Abstand zu einem Zielpunkt in der Basis, oder Winkel der Pu
 
 Rechnung wie die 2D-Kette (kern.kette2d): Empfindlichkeiten als zentrale Differenzen, 1D-Glieder mit Faktor und
 Linearisierungsrest fuer das 1D-Werkzeug, nichtlineare Monte-Carlo-Rechnung zur Kontrolle.
+
+Gleitende Kontakte: Komponenten koennen "frei" sein (abhaengig, z. B. ein Kontaktpunkt gleitet). Mit genau drei
+freien schliesst die Kette in der Lage (Ende im Ursprung der Basis), mit sechs auch in der Drehung; Newton mit
+numerischer Jacobimatrix, je Monte-Carlo-Probe. Schlussgroesse dann meist eine freie Komponente.
 """
 
 from __future__ import annotations
@@ -24,7 +28,9 @@ KOMPONENTEN = ("x", "y", "z", "rx", "ry", "rz")
 KOMPONENTEN_TEXT = {"x": "Verschiebung X", "y": "Verschiebung Y", "z": "Verschiebung Z", "rx": "Drehung um X",
                     "ry": "Drehung um Y", "rz": "Drehung um Z"}
 SCHLUSS = {"x": "X-Lage des Funktionspunkts", "y": "Y-Lage des Funktionspunkts", "z": "Z-Lage des Funktionspunkts",
-           "abstand": "Abstand zum Zielpunkt", "winkel": "Winkel zur Zielrichtung (°)"}
+           "abstand": "Abstand zum Zielpunkt", "winkel": "Winkel zur Zielrichtung (°)",
+           "frei1": "1. freie Komponente (gleitet)", "frei2": "2. freie Komponente (gleitet)",
+           "frei3": "3. freie Komponente (gleitet)"}
 
 
 @dataclass
@@ -32,6 +38,7 @@ class Komponente:
     nenn: float = 0.0
     oben: float = 0.0
     unten: float = 0.0
+    frei: bool = False  # ergibt sich aus der Schliessbedingung (gleitender Kontakt)
 
 
 @dataclass
@@ -101,7 +108,62 @@ def funktionspunkt(k: Kette3D, werte: dict | None = None) -> tuple[np.ndarray, n
     return t + r @ np.array(k.punkt, float), r @ np.array(k.richtung, float)
 
 
+def freie(k: Kette3D) -> list[tuple[int, str]]:
+    """Gleitende (abhaengige) Komponenten (Glied, Komponente) in Kettenreihenfolge."""
+    return [(i, c) for i, g in enumerate(k.glieder) for c in KOMPONENTEN if g.werte[c].frei]
+
+
+def pruefe(k: Kette3D) -> str:
+    """Fehlertext, wenn die freien Komponenten nicht passen ("" = in Ordnung)."""
+    n = len(freie(k))
+    if n not in (0, 3, 6):
+        return tr("Eine geschlossene Kette braucht drei (Lage) oder sechs (Lage und Drehung) freie Komponenten – "
+                  "gewählt: {}").format(n)
+    if k.schluss.startswith("frei") and int(k.schluss[-1]) > n:
+        return tr("Schlussgröße „freie Komponente“ braucht so viele freie Komponenten")
+    return ""
+
+
+def _rest(k: Kette3D, werte: dict) -> np.ndarray:
+    """Schliessfehler: Ende der Kette gegen den Ursprung (3) und bei sechs freien auch die Drehung (Rotationsvektor)."""
+    r, t = lagen(k, werte)[-1]
+    if len(freie(k)) < 6:
+        return t
+    winkel = math.acos(max(-1.0, min(1.0, (np.trace(r) - 1) / 2)))
+    achse = np.array([r[2, 1] - r[1, 2], r[0, 2] - r[2, 0], r[1, 0] - r[0, 1]])
+    s = np.linalg.norm(achse)
+    return np.concatenate([t, achse / s * winkel if s > 1e-12 else np.zeros(3)])
+
+
+def _schliesse(k: Kette3D, werte: dict) -> dict:
+    """Freie Komponenten so, dass die Kette schliesst (Newton, numerische Jacobimatrix); werte der unabhaengigen."""
+    frei = freie(k)
+    if len(frei) not in (3, 6):
+        return werte
+    x = dict(werte)
+    for key in frei:
+        x.setdefault(key, k.glieder[key[0]].werte[key[1]].nenn)
+    for _ in range(40):
+        f = _rest(k, x)
+        if np.max(np.abs(f)) < 1e-10:
+            break
+        jac = np.empty((len(f), len(frei)))
+        for j, key in enumerate(frei):
+            h = 1e-6
+            y = dict(x)
+            y[key] = x[key] + h
+            jac[:, j] = (_rest(k, y) - f) / h
+        schritt = np.linalg.lstsq(jac, -f, rcond=None)[0]
+        for j, key in enumerate(frei):
+            x[key] = x[key] + float(schritt[j])
+    return x
+
+
 def schlussgroesse(k: Kette3D, werte: dict | None = None) -> float:
+    if freie(k):
+        werte = _schliesse(k, dict(werte or {}))
+        if k.schluss.startswith("frei"):
+            return float(werte[freie(k)[int(k.schluss[-1]) - 1]])
     p, d = funktionspunkt(k, werte)
     if k.schluss in ("x", "y", "z"):
         return float(p["xyz".index(k.schluss)])
@@ -114,7 +176,9 @@ def schlussgroesse(k: Kette3D, werte: dict | None = None) -> float:
 
 
 def _parameter(k: Kette3D):
-    return [(i, c) for i in range(len(k.glieder)) for c in KOMPONENTEN]
+    """Unabhaengige Komponenten (freie ergeben sich aus der Schliessbedingung)."""
+    frei = set(freie(k))
+    return [(i, c) for i in range(len(k.glieder)) for c in KOMPONENTEN if (i, c) not in frei]
 
 
 def empfindlichkeiten(k: Kette3D, schritt: float = 1e-5) -> dict:

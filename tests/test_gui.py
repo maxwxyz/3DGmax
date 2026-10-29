@@ -2066,6 +2066,18 @@ def test_verbinden_an_bezuegen(fenster):
     assert f.zusammenbau.knopf_bezuege.toolTip()
 
 
+def test_kette3d_gleitender_kontakt(fenster):
+    """3D-Fenster: Vorlage Keil (geschlossene Kette), Spalte Gleitet im Editor; falsche Anzahl: Hinweis."""
+    import math
+    w = fenster.zeige_kette3d()
+    w.lade_vorlage("keil")
+    assert abs(w.ergebnisse()["nenn"] - 40 * math.tan(math.radians(30))) < 1e-6 and w.in_kette.isEnabled()
+    w.liste.setCurrentRow(1)
+    assert w._felder["z", "frei"].isChecked()
+    w._felder["z", "frei"].setChecked(False)
+    assert not w.in_kette.isEnabled() and ("drei" in w.ergebnis.text() or "three" in w.ergebnis.text())
+
+
 def test_ketten_aus_dem_modell(fenster_ctc01):
     """2D-Kette aus der 3D-Auswahl (Kennpunkte in Klickreihenfolge, Blickebene, Allgemeintoleranz) und 3D-Glied aus
     einem Teil des Zusammenbaus (Grenzen aus den Spielraeumen)."""

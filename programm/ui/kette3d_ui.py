@@ -4,6 +4,8 @@ Uebernahme in das 1D-Kettenfenster (kern.kette3d)."""
 
 from __future__ import annotations
 
+import html
+
 import numpy as np
 from PySide6 import QtCore, QtWidgets
 
@@ -18,6 +20,7 @@ VORLAGEN = {
     "turm": ("Sockel mit Arm (Kippung wirkt als Hebel)",
              lambda: k3.Kette3D([k3.glied("Sockel", z=(20, 0.05, -0.05), rx=(0, 0.05, -0.05), ry=(0, 0.05, -0.05)),
                                  k3.glied("Arm", x=(100, 0.1, -0.1), rz=(90, 0.1, -0.1))], schluss="z")),
+    "keil": ("Keil: Höhe aus gleitendem Kontakt (geschlossene Kette)", lambda: _keil()),
     "stapel": ("Drei Platten gestapelt, Punkt auf dem Deckel",
                lambda: k3.Kette3D([k3.glied("Grundplatte", z=(10, 0.05, -0.05), rx=(0, 0.02, -0.02),
                                             ry=(0, 0.02, -0.02)),
@@ -27,8 +30,20 @@ VORLAGEN = {
                                             rz=(0, 0.05, -0.05))],
                                   punkt=(0, 0, 0), schluss="z")),
 }
+def _keil() -> k3.Kette3D:
+    """Geschlossene Kette: Grundlaenge 40 +-0,1, Hoehe frei, Keilflaeche unter 30 Grad frei - Hoehe = 40 tan 30."""
+    k = k3.Kette3D([k3.glied("Grundlänge", x=(40, 0.1, -0.1)), k3.glied("Höhe (gleitet)", z=23.1),
+                    k3.glied("Keilwinkel", ry=(150, 0.2, -0.2)), k3.glied("Keilfläche (gleitet)", x=46.2)],
+                   schluss="frei2")
+    for i, c in ((0, "y"), (1, "z"), (3, "x")):
+        k.glieder[i].werte[c].frei = True
+    return k
+
+
 SPALTEN_EDITOR = (("Nennwert", "Nennwert der Komponente (mm bzw. Grad)"),
-                  ("oben", "Oberes Abmaß (mm bzw. Grad)"), ("unten", "Unteres Abmaß (mm bzw. Grad)"))
+                  ("oben", "Oberes Abmaß (mm bzw. Grad)"), ("unten", "Unteres Abmaß (mm bzw. Grad)"),
+                  ("Gleitet", "Gleitender Kontakt: die Komponente ergibt sich aus der geschlossenen Kette (drei freie "
+                              "Komponenten schließen die Lage, sechs auch die Drehung)"))
 
 
 class Kette3DFenster(QtWidgets.QDialog):
@@ -296,6 +311,11 @@ class Kette3DFenster(QtWidgets.QDialog):
                 f.valueChanged.connect(lambda v, c=c, feld=feld: self._komponente_geaendert(c, feld, v))
                 self.editor.setCellWidget(r, s, f)
                 self._felder[c, feld] = f
+            frei = QtWidgets.QCheckBox()
+            frei.setToolTip(tr(k3.KOMPONENTEN_TEXT[c]) + " – " + tr(SPALTEN_EDITOR[3][1]))
+            frei.toggled.connect(lambda an, c=c: self._komponente_geaendert(c, "frei", an))
+            self.editor.setCellWidget(r, 3, frei)
+            self._felder[c, "frei"] = frei
         zahlen_rechts(self.editor)
 
     def _komponente_geaendert(self, c: str, feld: str, v: float):
@@ -315,7 +335,10 @@ class Kette3DFenster(QtWidgets.QDialog):
         self.editor_titel.setText("<b>" + tr("Glied: {}").format(g.name) + "</b>")
         for (c, feld), f in self._felder.items():
             f.blockSignals(True)
-            f.setValue(getattr(g.werte[c], feld))
+            if feld == "frei":
+                f.setChecked(g.werte[c].frei)
+            else:
+                f.setValue(getattr(g.werte[c], feld))
             f.blockSignals(False)
         self.verteilung.blockSignals(True)
         self.verteilung.setCurrentIndex(max(0, self.verteilung.findData(g.verteilung)))
@@ -368,14 +391,22 @@ class Kette3DFenster(QtWidgets.QDialog):
         return out
 
     def _rechne(self):
-        self.in_kette.setEnabled(bool(self.kette.glieder))
+        fehler = k3.pruefe(self.kette)
+        self.in_kette.setEnabled(bool(self.kette.glieder) and not fehler)
         self._zeigen()
+        if fehler and self.kette.glieder:
+            self.bewertung.zeige("", "")
+            self.ergebnis.setText(f"<span style='color:#c0392b'>{html.escape(fehler)}</span>")
+            return
         r = self.ergebnisse()
         self.bewertung.zeige(*(r.get("ampel") or ("", "")))
         if not r:
             self.ergebnis.setText(tr("Noch keine Glieder – „＋ Glied“ oder eine Vorlage wählen."))
             return
-        einheit = "°" if self.kette.schluss == "winkel" else " mm"
+        frei = k3.freie(self.kette)
+        nr = int(self.kette.schluss[-1]) - 1 if self.kette.schluss.startswith("frei") else -1
+        winkel = self.kette.schluss == "winkel" or (0 <= nr < len(frei) and frei[nr][1].startswith("r"))
+        einheit = "°" if winkel else " mm"
         z = lambda a, b: f"{a:.4f} … {b:.4f}{einheit}"  # noqa: E731
         toleriert = {k: d for k, d in r["empfindlichkeit"].items()
                      if self.kette.glieder[k[0]].werte[k[1]].oben != self.kette.glieder[k[0]].werte[k[1]].unten}

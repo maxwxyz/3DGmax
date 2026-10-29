@@ -153,6 +153,23 @@ def test_gleitender_kontakt_schliesst_den_zug():
     assert zurueck.segmente[1].frei == "laenge"
 
 
+def test_gleitender_kontakt_3d():
+    """3D-Kette geschlossen: Keil in der XZ-Ebene - Hoehe (frei) = 40 tan 30, Empfindlichkeit tan 30; drei freie
+    Komponenten schliessen die Lage, eine falsche Anzahl wird gemeldet."""
+    from programm.kern import kette3d as k3
+    k = k3.Kette3D([k3.glied("Basis", x=(40, 0.1, -0.1)), k3.glied("Hoehe", z=20), k3.glied("Keil", ry=150),
+                    k3.glied("Flaeche", x=40)], schluss="frei2")
+    for i, c in ((0, "y"), (1, "z"), (3, "x")):
+        k.glieder[i].werte[c].frei = True
+    t30 = math.tan(math.radians(30))
+    assert not k3.pruefe(k) and abs(k3.schlussgroesse(k) - 40 * t30) < 1e-8
+    assert abs(k3.empfindlichkeiten(k)[(0, "x")] - t30) < 1e-5 and (1, "z") not in k3.empfindlichkeiten(k)
+    assert abs(np.mean(k3.monte_carlo(k, 1000)) - 40 * t30) < 0.01
+    k.glieder[0].werte["y"].frei = False
+    assert k3.pruefe(k)
+    assert k3.von_dict(k3.als_dict(k)).glieder[1].werte["z"].frei
+
+
 def test_getriebe_kette_temperatur_stellglied_datei(tmp_path):
     import copy
     from programm.kern import kette_datei

@@ -569,8 +569,10 @@ Open: angle tolerances from ISO 2768-1 angular classes, PMI dimensions matched t
 quantity; with exactly two the loop is closed (end = start) and `kette2d._schliesse` solves them by Newton with the
 analytic 2×2 Jacobian, vectorised over Monte Carlo samples; sensitivities and the 1D hand-over use only the
 independent quantities; closing quantity "1./2. freie Größe". Checked on a wedge: height 40·tan 30° = 23.094,
-sensitivity tan 30°, Monte Carlo σ as linear. Open: sliding contacts in 3D chains (closure of position and
-orientation, six dependent variables).
+sensitivity tan 30°, Monte Carlo σ as linear. **Done the same day in 3D:** `Komponente.frei`; three free components
+close the chain in position (end at the base origin), six also in rotation (rotation vector of the end frame);
+`kette3d._schliesse` Newton with a numerical Jacobian (least squares step), per Monte Carlo sample; closing quantity
+"1./2./3. freie Komponente"; template "Keil" (same 23.094 result).
 
 **What a functional dimension chain is for** (answer for the user, background for the guide):
 - Analysis: does the function (gap, overlap, preload, alignment) hold for the given part tolerances – worst case or

@@ -74,7 +74,8 @@
    "2D-Kette mit gleitenden Kontakten: Spalte „Gleitet“ – zwei Längen oder Winkel ergeben sich aus dem geschlossenen Zug (kinematische Anpassung, z. B. Kontaktpunkt auf einer Fläche), auch je Monte-Carlo-Probe; Schlussgröße kann eine freie Größe sein; Vorlage „Keil“.",
    "Variationsrechnung automatisch aus dem Modell: Lage- und Profiltoleranzen der gemessenen Flächen wirken mit (halbe Zonenbreite entlang der Messrichtung, Worst Case und Monte Carlo) und erscheinen als eigene Beitragende – Flächen von Verbindungen zählen nicht doppelt.",
    "Zusammenbau „An Bezügen“: ein Teil wird an seinen Bezügen A, B, C aus den PMI verbunden – Bezüge gleichen Namens am Gegenteil werden gepaart, sonst nimmt A die gewählte Gegenfläche und B, C die nächste passende Fläche (Ebene gegenüber, Zylinder gleichachsig).",
-   "Tolerierungsberater Stufe 2: Startwerte nach ISO-286-IT-Grad bei der Elementgröße (Form IT6, Richtung IT7, Lage IT8, Profil IT9, Abstände ±IT11/2), gleiche Bohrungen als Lochmuster mit gemeinsamer Positionstoleranz, Abgleich mit den vorhandenen PMI (schon vorhandene Angaben markiert und abgewählt, kein doppelter Bezug, Bezüge ohne Bezugselement genannt)."
+   "Tolerierungsberater Stufe 2: Startwerte nach ISO-286-IT-Grad bei der Elementgröße (Form IT6, Richtung IT7, Lage IT8, Profil IT9, Abstände ±IT11/2), gleiche Bohrungen als Lochmuster mit gemeinsamer Positionstoleranz, Abgleich mit den vorhandenen PMI (schon vorhandene Angaben markiert und abgewählt, kein doppelter Bezug, Bezüge ohne Bezugselement genannt).",
+   "3D-Kette mit gleitenden Kontakten: Spalte „Gleitet“ im Editor – drei freie Komponenten schließen die Kette in der Lage, sechs auch in der Drehung (auch je Monte-Carlo-Probe); Schlussgröße kann eine freie Komponente sein; Vorlage „Keil“."
   ],
   "en": [
    "Assembly: drag parts in 3D with the left mouse button (classic navigation: with Alt) – only along the open degrees of freedom; close to a matching plane or axis the part snaps live (faces highlighted), releasing creates the connection; the 3D handle snaps the same way.",
@@ -150,7 +151,8 @@
    "2D chain with sliding contacts: column “Slides” – two lengths or angles follow from the closed loop (kinematic adjustment, e.g. a contact point on a face), also per Monte Carlo sample; the closing quantity can be a free quantity; template “Wedge”.",
    "Assembly variation automatically from the model: location and profile tolerances of the measured faces contribute (half the zone width along the measuring direction, worst case and Monte Carlo) and appear as contributors of their own – connection faces are not counted twice.",
    "Assembly “At datums”: a part is connected at its datums A, B, C from the PMI – datums of the same name on the mating part are paired, otherwise A takes the selected mating face and B, C the nearest matching face (opposite plane, coaxial cylinder).",
-   "Tolerancing advisor stage 2: start values from the ISO 286 IT grade at the feature size (form IT6, orientation IT7, location IT8, profile IT9, distances ±IT11/2), equal holes as a hole pattern with a common position tolerance, check against the existing PMI (existing annotations marked and unticked, no duplicate datum, datums without a datum feature named)."
+   "Tolerancing advisor stage 2: start values from the ISO 286 IT grade at the feature size (form IT6, orientation IT7, location IT8, profile IT9, distances ±IT11/2), equal holes as a hole pattern with a common position tolerance, check against the existing PMI (existing annotations marked and unticked, no duplicate datum, datums without a datum feature named).",
+   "3D chain with sliding contacts: column “Slides” in the editor – three free components close the chain in position, six also in rotation (also per Monte Carlo sample); the closing quantity can be a free component; template “Wedge”."
   ]
  },
  "releases": [
