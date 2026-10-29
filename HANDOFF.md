@@ -4,7 +4,7 @@
 All work on `main`, pushed; no other branches. Version 0.2 released (tag v0.2). Full suite last green on
 the Mac (200 tests incl. the new ones, ~11 min); `pixi run test-schnell` skips the six `langsam` tests.
 
-Side session 2026-10-29 (branch `claude/beispiel-welle-abdfe0`, to be merged by the main session): user request –
+Side session 2026-10-29 (branch `claude/beispiel-welle-abdfe0`, merged into main `db2cd0d`): user request –
 the example "Funktion → Tolerierung" now uses a generated gearbox shaft instead of NIST FTC-10 (PLAN §8.33 note,
 Roadmap ✅). Generator `werkzeuge/welle.py` → `tests/daten/getriebewelle.stp` (bundled via `beispiele.alle_dateien`),
 roles in `kern/beispiele.WELLE_ROLLEN`/`welle_rollen`. `kern/funktion.py`: new roles lagersitz, dichtsitz, nabensitz,
@@ -15,6 +15,24 @@ runout/symmetry on turned parts (`_drehteil`, `_passfedernut`, `_ringnut`, conte
 Main window: `_beispiel_funktion` (roles from kern.beispiele, front view fitted incl. callouts –
 `ansicht.standard(name, pmi_ids)`). Open: the DIN 471/472 groove-diameter classes by size are start values (h10/h11/h12
 rule not checked against the standard text); keyway widths are edge-on in the front view (visible from the top).
+
+Side session 2026-10-29 (branch `claude/vergleich-beispiel-b688ce`, merged into main): File ›
+Examples has ONE comparison example `vergleich` ("Vergleich: Geometrie und PMI geändert", opens with the colour map,
+`Hauptfenster._beispiel_farbkarte` waits for the map with `warten`) instead of `vergleich_pmi`/`vergleich_geo`.
+New variant `tests/daten/varianten/ctc01_geo_pmi_deutlich.stp` from `werkzeuge/testmodelle.py` (`deutlich`,
+reproducible): OCCT geometry (hole Ø25 at (160, 45) moved +15 mm in X as two half shells like the original, hole Ø25
+at (−160, −45) filled topologically – OCCT's Defeaturing would unify all split holes –, 3 mm chamfer at the hole at
+(160, −45)), the new B-rep spliced into the original file (`form_einsetzen`: faces/edges matched by sample points,
+references re-pointed, removed geometry with its styles dropped, cone angles converted rad → degree); PMI: Position.1
+0.75 → 0.5, Position.2 own datum system A|C|B, Perpendicularity.1 removed with its presentation (`pmi_entfernen`),
+new Position ⌀0.4 Ⓜ A|B|C on the moved hole via `step_schreiben`. The old small variants stay for the tests.
+Core fixes found with it (`kern/vergleich.py`, `kern/vergleich_geo.py`): pure translation detected regardless of the
+order of equal faces (`_paare`; before: "rotated 139°"), moved faces beyond the search radius get a face mapping so
+their PMI become "PMI verschoben"; sampling: ≥ 5 points per face (`_mindestens`, chamfer cones had none), projected
+mesh points outside the face boundary pulled onto the face (spurious 0.037 mm at a Ø35 hole edge). Test
+`test_deutliche_aenderung_geometrie_und_pmi`. Checked in the app (screenshots): change list 7 PMI + 4 geometry rows,
+material +/− and review walk fine. Open/follow-up: the colour map shows the filled hole only as a small spot (planar
+faces refined to diag/40 only, colours per vertex) – a finer refinement where the deviation changes would help.
 
 Side session 2026-10-28 (branch `claude/pmi-darstellung-8f2b0b`, merged into main after UI
 work): plan item 6 done – own PMI written to STEP carry their presentation (PLAN §8.28 stage 3,

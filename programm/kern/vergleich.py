@@ -140,28 +140,45 @@ def _geo_aenderungen(geo, nachbarn_neu, nachbarn_alt) -> list[Aenderung]:
 
 
 def _kennwerte(flaechen) -> list[tuple]:
-    """(Flaechentyp, Inhalt, Schwerpunkt) je Flaeche, sortiert nach Typ und Inhalt."""
+    """(Flaechentyp, Inhalt, Schwerpunkt, Position in 'flaechen') je Flaeche, sortiert nach Typ und Inhalt."""
     import numpy as np
     from OCC.Core.BRep import BRep_Tool
     from OCC.Core.BRepAdaptor import BRepAdaptor_Surface
     from OCC.Core.BRepGProp import brepgprop
     from OCC.Core.GProp import GProp_GProps
     out = []
-    for f in flaechen:
+    for i, f in enumerate(flaechen):
         g = GProp_GProps()
         brepgprop.SurfaceProperties(f, g)
         c = g.CentreOfMass()
         typ = BRepAdaptor_Surface(f, True).GetType() if BRep_Tool.Surface(f) is not None else -1
-        out.append((int(typ), abs(g.Mass()), np.array([c.X(), c.Y(), c.Z()])))
+        out.append((int(typ), abs(g.Mass()), np.array([c.X(), c.Y(), c.Z()]), i))
     return sorted(out, key=lambda k: (k[0], k[1]))
 
 
-def _verschiebungen(aenderungen, alt, neu, ausrichtung, toleranz: float) -> list[Aenderung]:
+def _paare(kn, kw, d, grenze: float) -> list[tuple[int, int]] | None:
+    """Jede neue Flaeche (Kennwerte) zu einer alten gleichen Typs und Inhalts, deren Schwerpunkt um d versetzt
+    liegt - unabhaengig von der Reihenfolge gleich grosser Flaechen (z. B. Halbschalen); None, wenn eine fehlt."""
+    import numpy as np
+    frei, out = set(range(len(kw))), []
+    for t1, f1, c1, i in kn:
+        abst = {j: float(np.linalg.norm(c1 - d - kw[j][2])) for j in frei
+                if kw[j][0] == t1 and abs(kw[j][1] - f1) <= 1e-3 * max(f1, 1.0)}
+        j = min(abst, key=abst.get, default=None)
+        if j is None or abst[j] > grenze:
+            return None
+        frei.discard(j)
+        out.append((i, kw[j][3]))
+    return out
+
+
+def _verschiebungen(aenderungen, alt, neu, ausrichtung, toleranz: float,
+                    paare: dict | None = None) -> list[Aenderung]:
     """Paare aus 'neu' und 'entfernt' mit gleicher Form in anderer Lage -> 'verschoben' (auch gedreht/gespiegelt).
 
     Zuerst reiner Versatz (alle Schwerpunkte gleich verschoben), sonst starre Lage ueber die Netzpunkte
     (Drehung oder Spiegelung), bestaetigt durch den Abstand der abgebildeten Flaechen zu den alten in beide
-    Richtungen.
+    Richtungen. paare (neue -> alte Flaeche) bekommt die Zuordnung der verschobenen Flaechen (fuer die PMI).
     """
     import numpy as np
     neue = [a for a in aenderungen if a.kategorie == GEOMETRIE and a.status == NEU]
@@ -173,16 +190,15 @@ def _verschiebungen(aenderungen, alt, neu, ausrichtung, toleranz: float) -> list
     genutzt, ersetzt, dazu = set(), set(), []
     for a in neue:
         kn = _kennwerte([neu.modell.flaechen[i] for i in sorted(a.flaechen_neu)])
-        kn = [(t, f, c @ m[:3, :3].T + m[:3, 3]) for t, f, c in kn]  # ins System des alten Stands
+        kn = [(t, f, c @ m[:3, :3].T + m[:3, 3], i) for t, f, c, i in kn]  # ins System des alten Stands
         for b in weg:
             kw = kenn_weg[id(b)]
             if id(b) in genutzt or len(kw) != len(kn):
                 continue
-            if any(t1 != t2 or abs(f1 - f2) > 1e-3 * max(f1, 1.0) for (t1, f1, _), (t2, f2, _) in zip(kn, kw)):
+            if any(t1 != t2 or abs(f1 - f2) > 1e-3 * max(f1, 1.0) for (t1, f1, *_), (t2, f2, *_) in zip(kn, kw)):
                 continue
-            versatz = [c1 - c2 for (_, _, c1), (_, _, c2) in zip(kn, kw)]
-            d = np.mean(versatz, axis=0)
-            if np.linalg.norm(d) > toleranz and max(np.linalg.norm(v - d) for v in versatz) <= max(10 * toleranz, 1e-3):
+            d = np.mean([k[2] for k in kn], axis=0) - np.mean([k[2] for k in kw], axis=0)
+            if np.linalg.norm(d) > toleranz and _paare(kn, kw, d, max(10 * toleranz, 1e-3)) is not None:
                 titel = tr(GEO_TITEL[VERSCHOBEN])
                 text = tr("{} Fläche(n) um dX {:+.3f}  dY {:+.3f}  dZ {:+.3f} mm ({:.3f} mm)").format(
                     len(a.flaechen_neu), d[0], d[1], d[2], float(np.linalg.norm(d)))
@@ -195,6 +211,9 @@ def _verschiebungen(aenderungen, alt, neu, ausrichtung, toleranz: float) -> list
                 titel = tr(GEO_TITEL[art])
                 text = tr("{} Fläche(n) {}; Schwerpunkt dX {:+.3f}  dY {:+.3f}  dZ {:+.3f} mm").format(
                     len(a.flaechen_neu), beschreibung, d[0], d[1], d[2])
+            if paare is not None:
+                nf, af = sorted(a.flaechen_neu), sorted(b.flaechen_alt)
+                paare.update({nf[i]: af[j] for i, j in _paare(kn, kw, d, np.inf) or []})
             genutzt.add(id(b))
             ersetzt |= {id(a), id(b)}
             dazu.append(Aenderung(0, GEOMETRIE, VERSCHOBEN, titel, text, set(a.flaechen_neu), set(b.flaechen_alt),
@@ -467,13 +486,19 @@ def vergleiche(alt, neu, toleranz: float = 0.01, suchweite: float = 2.0, ausrich
         ausrichtung = ausrichten.richte_aus(alt.modell.flaechen, neu.modell.flaechen, toleranz)
     fortschritt(tr("Geometrie vergleichen …"))
     geo = vergleich_geo.vergleiche(alt.modell, neu.modell, ausrichtung, toleranz, suchweite=suchweite)
+    nachbarn_neu = vergleich_geo._nachbarn(neu.modell.flaechen, neu.modell.flaechen_index)
+    nachbarn_alt = vergleich_geo._nachbarn(alt.modell.flaechen, alt.modell.flaechen_index)
+    paare = {}
+    geo_liste = _verschiebungen(_geo_aenderungen(geo, nachbarn_neu, nachbarn_alt), alt, neu, ausrichtung, toleranz,
+                                paare)
+    geo_liste = _je_instanz(geo_liste, neu, geo)
+    # verschobene Flaechen (ausserhalb der Suchweite) zuordnen: ihre PMI folgen ihnen
+    for f_neu, f_alt in paare.items():
+        geo.zuordnung.setdefault(f_neu, f_alt)
+        geo.zuordnung_ab.setdefault(f_alt, f_neu)
     fortschritt(tr("PMI vergleichen …"))
     pmi = vergleich_pmi.vergleiche_pmi(alt.pmi, neu.pmi, geo.zuordnung, zuordnung_ab=geo.zuordnung_ab,
                                        geo_status=geo.status_b)
-    nachbarn_neu = vergleich_geo._nachbarn(neu.modell.flaechen, neu.modell.flaechen_index)
-    nachbarn_alt = vergleich_geo._nachbarn(alt.modell.flaechen, alt.modell.flaechen_index)
-    geo_liste = _verschiebungen(_geo_aenderungen(geo, nachbarn_neu, nachbarn_alt), alt, neu, ausrichtung, toleranz)
-    geo_liste = _je_instanz(geo_liste, neu, geo)
     pmi_liste = _pmi_aenderungen(pmi)
     # PMI, deren Flaechen nur verschoben wurden: "PMI verschoben" statt "Geometrie unter PMI geaendert"
     for a in pmi_liste:

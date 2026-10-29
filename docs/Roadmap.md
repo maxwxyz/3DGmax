@@ -166,6 +166,7 @@
 | Deviation color map (scale, tolerance limit, sign, value on click) | ✅ |
 | Display like CATIA Compare Products: added/removed volume (exact, Boolean) | ✅ |
 | Detect moved elements (translation) and moved PMI | ✅ |
+| Moved elements beyond the search radius: faces paired regardless of the order of equal faces (half shells), their PMI follow (“PMI moved”); sampling: at least five points per face, mesh points outside the face boundary pulled onto the face | ✅ |
 | Detect rotated/mirrored elements (angle and axis, mirror plane) | ✅ |
 | Graphical PMI comparison: moved or reshaped presentation of equal PMI | ✅ |
 | Graphical-only PMI (notes) matched and compared by text | ✅ |
@@ -250,6 +251,7 @@
 | Release script: bump version, keep changelog DE/EN | ✅ |
 | Tests: core, offscreen UI, stress test, on-screen test | ✅ |
 | Examples for the main functions (File › Examples, free test data, no copies in the repository) – PLAN §8.24 | ✅ |
+| One comparison example with clear geometry and PMI changes (hole moved 15 mm, hole removed, chamfer; value, datum order, removed and new PMI) | ✅ |
 | Several models side by side: File › New window, open in new window, linked cameras – PLAN §8.26 | ✅ |
 | Wireframe with high-contrast edges (setting, default on); calmer, more legible view cube | ✅ |
 | Status-bar progress with Cancel for all background jobs (load, compare, analysis, colour map, material, scan) | ✅ |

@@ -62,12 +62,10 @@ BEISPIELE = (
     Beispiel("schnittansicht", "Schnittansicht aus der Datei",
              "Ansicht mit Schnittebenen aus STEP AP242 (Ebene durch die Bohrung, Stufenschnitt)",
              ("ctc01_schnittansicht.stp",)),
-    Beispiel("vergleich_pmi", "Vergleich: geänderte PMI",
-             "Gleiche Geometrie, andere PMI: Toleranzart, Bezugsreihenfolge und ein Wert geändert",
-             (CTC01, "ctc01_pmi_andere.stp")),
-    Beispiel("vergleich_geo", "Vergleich: kleine Geometrieänderung mit Farbkarte",
-             "Bohrung um 0,1 mm verschoben: Änderungsliste, Prüfrundgang und Abweichungs-Farbkarte",
-             (CTC01, "ctc01_geo_klein.stp")),
+    Beispiel("vergleich", "Vergleich: Geometrie und PMI geändert",
+             "Bohrung Ø25 um 15 mm versetzt (ihr Maß folgt), eine Bohrung entfallen, Fase 3 mm; Position 0,75 → 0,5, "
+             "Bezüge A|B|C → A|C|B, Rechtwinkligkeit entfallen, Position neu – Änderungsliste mit Prüfrundgang, "
+             "Farbkarte, Material + / −", (CTC01, "ctc01_geo_pmi_deutlich.stp")),
     Beispiel("scan", "Scan gegen Toleranzen",
              "Erzeugter Scan mit Fase, Delle und Welligkeit: ausgerichtet, je PMI bewertet, Farbkarte über dem Modell",
              (CTC01, "ctc01_scan_fehler.ply")),

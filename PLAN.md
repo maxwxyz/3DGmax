@@ -1099,6 +1099,8 @@ Planned rules (each finding with severity, the PMI involved, a short reason and 
 Done: `kern/beispiele.py` (eleven examples, files looked up in the built app under `programm/beispiele/` or in
 `tests/daten`; the spec copies them, so the repository holds no duplicates), File › Examples, steps after loading
 via `Hauptfenster.oeffne_beispiel`, `test_beispiele_oeffnen`. Analyses (draft, wall thickness) left out on request.
+Comparison: one example (`vergleich`, `ctc01_geo_pmi_deutlich.stp`) with clear geometry and PMI changes in one file
+(2026-10-29) instead of the two subtle ones.
 Open: examples as project files with review state and comments; manual screenshots from the examples.
 Example projects in the repository (`beispiele/`, project containers `.3dgmax` plus the referenced public-domain or
 self-generated models) that show one function each and open with File › Examples: PMI display and views, check
