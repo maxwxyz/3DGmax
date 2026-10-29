@@ -11,8 +11,9 @@ from PySide6 import QtCore, QtGui, QtWidgets
 from ..i18n import tr
 from ..kern import toleranzkette as tk
 from . import thema
-from .fluss import FlussLayout
-from .tabellen import AENDERBAR_FARBE, inhalt_breite, leer_hinweis, spalten_anpassen  # getoent: aenderbare Zellen
+from .fluss import FlussLayout, hoehe_nach_breite
+from .tabellen import (AENDERBAR_FARBE, erste_spalte_fest, inhalt_breite, leer_hinweis,  # getoent: aenderbare Zellen
+                       spalten_anpassen)
 from .werkstoff_wahl import werkstoff_feld, werkstoff_wert
 
 
@@ -525,6 +526,7 @@ class ToleranzketteFenster(QtWidgets.QDialog):
         self.tabelle.setItemDelegateForColumn(SP_ANTEIL, AnteilBalken(self.tabelle))
         self.tabelle.setItemDelegateForColumn(SP_STREUUNG, StreuungsBild(self.tabelle))
         spalten_anpassen(self.tabelle)  # nach Kopf, Text und Feldern; schmales Fenster: Querlaufleiste
+        erste_spalte_fest(self.tabelle)  # Glied bleibt beim Querrollen stehen
         self.tabelle.setContextMenuPolicy(QtCore.Qt.ContextMenuPolicy.CustomContextMenu)
         self.tabelle.customContextMenuRequested.connect(self._kontextmenue)
         # Glieder oben, Ergebnis unten; der Teiler laesst sich ziehen
@@ -579,24 +581,29 @@ class ToleranzketteFenster(QtWidgets.QDialog):
         unten_lay.addWidget(self.ergebnis)
         unten_lay.addLayout(self._baue_freigabe())
         self.teiler.addWidget(unten)
+        hoehe_nach_breite(unten)  # umbrechende Zeilen (Anforderung, Waerme, Knoepfe) ueberlappen nicht
         self.teiler.setStretchFactor(0, 3)
         self.teiler.setStretchFactor(1, 2)
         lay.addWidget(self.teiler, 1)
-        knoepfe = QtWidgets.QDialogButtonBox(QtWidgets.QDialogButtonBox.StandardButton.Close)
-        self.kette_oeffnen = knoepfe.addButton(tr("Kette öffnen …"), QtWidgets.QDialogButtonBox.ButtonRole.ActionRole)
+        # Fliesslayout statt QDialogButtonBox: die Knopfreihe bricht um, sonst bestimmt sie die Mindestbreite
+        knoepfe = FlussLayout()
+        self.kette_oeffnen = QtWidgets.QPushButton(tr("Kette öffnen …"))
         self.kette_oeffnen.setToolTip(tr("Gespeicherte Kette (.3dgkette) laden, auch mit ihrem Modell"))
         self.kette_oeffnen.clicked.connect(self.oeffnen.emit)
-        self.kette_speichern = knoepfe.addButton(tr("Kette speichern …"),
-                                                 QtWidgets.QDialogButtonBox.ButtonRole.ActionRole)
+        self.kette_speichern = QtWidgets.QPushButton(tr("Kette speichern …"))
         self.kette_speichern.setToolTip(tr("Kette mit Werten, Temperaturen und Werkstoffen speichern, um später "
                                            "weiterzuarbeiten"))
         self.kette_speichern.clicked.connect(lambda: self.speichere_kette())
-        self.export = knoepfe.addButton(tr("Als CSV speichern …"), QtWidgets.QDialogButtonBox.ButtonRole.ActionRole)
+        self.export = QtWidgets.QPushButton(tr("Als CSV speichern …"))
         self.export.setToolTip(tr("Glieder und Ergebnisse als Tabelle (CSV) speichern"))
-        self.pdf = knoepfe.addButton(tr("PDF-Bericht …"), QtWidgets.QDialogButtonBox.ButtonRole.ActionRole)
+        self.pdf = QtWidgets.QPushButton(tr("PDF-Bericht …"))
         self.pdf.setToolTip(tr("Bericht mit Bild der Kette, Ergebnis, Bewertung, Freigabe und Histogramm als PDF"))
-        knoepfe.rejected.connect(self.reject)
-        lay.addWidget(knoepfe)
+        schliessen = QtWidgets.QPushButton(tr("Schließen"))
+        schliessen.clicked.connect(self.reject)
+        for k in (self.kette_oeffnen, self.kette_speichern, self.export, self.pdf, schliessen):
+            k.setAutoDefault(False)  # Eingabetaste in einem Feld schliesst das Fenster nicht
+            knoepfe.addWidget(k)
+        lay.addLayout(knoepfe)
         self.export.clicked.connect(lambda: self.speichere())
         self._methode_gewaehlt()
 

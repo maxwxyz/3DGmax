@@ -9,7 +9,7 @@ from PySide6 import QtCore, QtGui, QtWidgets
 from .. import i18n
 from ..i18n import tr
 from ..version import VERSION
-from . import ansicht3d, thema
+from . import ansicht3d, tabellen, thema
 from .groesse import SKALEN, skalierung
 from .lader import Lader
 from .messwerkzeug import MessPanel
@@ -354,14 +354,11 @@ class Hauptfenster(QtWidgets.QMainWindow):
         self.ansicht.setze_perspektive(an)
 
     def spalten_anpassen(self):
-        """Tabellen ohne gemerkte Breiten an den Inhalt anpassen (begrenzt, damit nichts ausufert)."""
+        """Neuer Inhalt (Modell, Vergleich): Spalten an den Inhalt anpassen, auch wenn vorher von Hand gezogen;
+        danach bleiben gezogene Breiten bis zum naechsten Modell."""
         for t in self._tabellen().values():
-            if t.property("breiten_gemerkt") or t.rowCount() == 0:
-                continue
-            t.resizeColumnsToContents()
-            kopf = t.horizontalHeader()
-            for i in range(t.columnCount()):
-                kopf.resizeSection(i, min(kopf.sectionSize(i) + 8, 320))
+            if t.rowCount():
+                tabellen.spalten_anpassen(t, neu=True, strecken=True)
 
     def _fenster_herstellen(self):
         """Fenstergroesse und Anordnung der Seitenleisten wie beim letzten Beenden."""
@@ -404,16 +401,13 @@ class Hauptfenster(QtWidgets.QMainWindow):
             # Version 2: Breiten ziehbar (fruehere Zustaende hatten automatische Breiten)
             schluessel = f"spalten_{name}_{t.columnCount()}_2"  # neue Spalten -> alter Zustand passt nicht mehr
             zustand = self.ein.value(schluessel)
-            if zustand:
+            if zustand:  # Reihenfolge und sichtbare Spalten; die Breiten passt das naechste Modell an
                 kopf.restoreState(zustand)
-                t.setProperty("breiten_gemerkt", True)
             # Breiten per Ziehen, Doppelklick auf die Trennlinie passt an den Inhalt an
             kopf.setSectionResizeMode(QtWidgets.QHeaderView.ResizeMode.Interactive)
             kopf.setStretchLastSection(True)
-            # nur Ziehen am Spaltenkopf zaehlt als eigene Breite (nicht das Ziehen der Seitenleiste)
-            kopf.sectionResized.connect(
-                lambda *_a, tab=t, k=kopf: k.underMouse() and QtWidgets.QApplication.mouseButtons()
-                != QtCore.Qt.MouseButton.NoButton and tab.setProperty("breiten_gemerkt", True))
+            if name == "messen":  # waechst je Messung: neue Zeilen passen die Spalten an (gezogene bleiben)
+                tabellen.automatisch_anpassen(t, strecken=True)
             merken = (lambda n=schluessel, k=kopf: self.ein.setValue(n, k.saveState()))
             self._spalten_merken.append(merken)
             spaeter = QtCore.QTimer(self)  # beim Ziehen der Seitenleiste nicht bei jedem Pixel speichern
@@ -490,7 +484,9 @@ class Hauptfenster(QtWidgets.QMainWindow):
         Modell gehoert und neben der 3D-Ansicht benutzt wird, ist eine Leiste). Schliessen/Esc schliesst die Leiste,
         Wiederoeffnen zeigt den Inhalt wieder."""
         f.setWindowFlags(QtCore.Qt.WindowType.Widget)
-        d = self._dock(titel, f, QtCore.Qt.DockWidgetArea.BottomDockWidgetArea, rollen=False)
+        # im Rollbereich: die Leiste (auch herausgeloest) laesst sich schmaler ziehen als der Inhalt mindestens braucht,
+        # darunter rollt sie quer; bei normaler Hoehe rollen nur die Tabellen, die Knoepfe bleiben stehen
+        d = self._dock(titel, f, QtCore.Qt.DockWidgetArea.BottomDockWidgetArea)
         setattr(self, "dock_" + name, d)
         gruppe = next((x for n in self.WERKZEUG_LEISTEN if n != name and (x := getattr(self, "dock_" + n, None))
                        is not None and not x.isFloating()), None)
@@ -992,8 +988,7 @@ class Hauptfenster(QtWidgets.QMainWindow):
         tb.addAction(a["grafik"])  # Messen schaltet die Leiste Messen (Knopf oben in ihr, Taste M)
         messen = QtWidgets.QToolButton()  # Schalter Messen oben in der Leiste Messen
         messen.setDefaultAction(a["messen"])
-        messen.setSizePolicy(QtWidgets.QSizePolicy.Policy.Expanding, QtWidgets.QSizePolicy.Policy.Fixed)
-        self.messen.layout().insertWidget(1, messen)  # unter dem Satz zum Zweck
+        self.messen.layout().insertWidget(1, messen, 0, QtCore.Qt.AlignmentFlag.AlignLeft)  # unter dem Satz zum Zweck
         # Leiste zu (x, Menue, anderer Arbeitsbereich): Messen aus
         self.dock_messen.toggleViewAction().toggled.connect(
             lambda an: an or not a["messen"].isChecked() or a["messen"].trigger())

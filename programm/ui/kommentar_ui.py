@@ -6,7 +6,7 @@ from PySide6 import QtCore, QtWidgets
 
 from ..i18n import tr
 from ..kern import kommentare as km
-from .tabellen import aenderbar_machen, leer_hinweis
+from .tabellen import aenderbar_machen, leer_hinweis, spalten_anpassen
 from .panel_aufbau import zweck_zeile
 
 
@@ -112,7 +112,7 @@ class KommentarPanel(QtWidgets.QWidget):
                 if s == 3:
                     it.setToolTip(f"{k.autor} · {k.datum}")
                 t.setItem(z, s, it)
-        t.resizeColumnsToContents()
+        spalten_anpassen(t, strecken=True)
         t.blockSignals(False)
         self._filtern()
         self._knoepfe()

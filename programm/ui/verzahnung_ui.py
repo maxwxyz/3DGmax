@@ -9,6 +9,7 @@ from PySide6 import QtCore, QtWidgets
 
 from ..i18n import tr
 from ..kern import verzahnung as vz
+from .tabellen import spalten_anpassen
 
 
 class VerzahnungLader(QtCore.QThread):
@@ -93,7 +94,7 @@ class VerzahnungFenster(QtWidgets.QDialog):
                 t.setItem(r, s, QtWidgets.QTableWidgetItem(wert))
         for r, (_n, _w, herkunft) in enumerate(zeilen[0] if zeilen else []):
             t.setItem(r, len(self.liste), QtWidgets.QTableWidgetItem(herkunft))
-        t.resizeColumnsToContents()
+        spalten_anpassen(t)
         pt = self.paar_tabelle
         pz = [p.zeilen() for p in self.paare]
         pt.setRowCount(len(pz[0]) if pz else 0)
@@ -103,7 +104,7 @@ class VerzahnungFenster(QtWidgets.QDialog):
         for s, z in enumerate(pz):
             for r, (_n, wert) in enumerate(z):
                 pt.setItem(r, s, QtWidgets.QTableWidgetItem(wert))
-        pt.resizeColumnsToContents()
+        spalten_anpassen(pt)
         for w in (pt, self.paar_titel):
             w.setVisible(bool(self.paare))
         texte = [f"{v.teil}: {h}" for v in self.liste for h in v.hinweise]

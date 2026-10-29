@@ -6,6 +6,7 @@ from PySide6 import QtCore, QtGui, QtWidgets
 
 from ..i18n import tr
 from ..kern import qif_ergebnisse as qe
+from .tabellen import spalten_anpassen
 
 SPALTEN = ("Ballon", "Merkmal", "Wert", "Obere Grenze", "Untere Grenze", "Messwert", "Status (Datei)", "Bewertung")
 FARBE = {qe.GUT: "#2e9d47", qe.SCHLECHT: "#c0392b"}
@@ -46,7 +47,7 @@ class MessergebnisseFenster(QtWidgets.QDialog):
                 if s == 7 and urteil in FARBE:
                     it.setForeground(QtGui.QBrush(QtGui.QColor(FARBE[urteil])))
                 self.tabelle.setItem(r, s, it)
-        self.tabelle.resizeColumnsToContents()
+        spalten_anpassen(self.tabelle, strecken=True)
         self.tabelle.itemSelectionChanged.connect(self._auswahl)
         lay.addWidget(self.tabelle, 1)
         lay.addWidget(QtWidgets.QLabel(tr("Die Merkmalsliste (CSV/PDF) übernimmt die Messwerte, solange das Modell "

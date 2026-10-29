@@ -40,7 +40,7 @@ def schliessen_symbol(farbe: str, name: str) -> str:
     os.makedirs(ordner, exist_ok=True)
     pfad = os.path.join(ordner, f"schliessen_{name}.svg")
     svg = (f'<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 16 16">'
-           f'<path d="M5 5 L11 11 M11 5 L5 11" stroke="{farbe}" stroke-width="1.4" stroke-linecap="round"/></svg>')
+           f'<path d="M4 4 L12 12 M12 4 L4 12" stroke="{farbe}" stroke-width="1.6" stroke-linecap="round"/></svg>')
     try:
         with open(pfad, "w", encoding="utf-8") as f:
             f.write(svg)
@@ -89,6 +89,12 @@ def symbol(name: str) -> QtGui.QIcon:
     bild = QtGui.QPixmap()
     bild.loadFromData(QtCore.QByteArray(svg), "SVG")
     return QtGui.QIcon(bild)
+
+
+def schliessen_groesse() -> int:
+    """Kantenlaenge der X zum Schliessen (Reiter, Leistentitel): etwas groesser als die Schrift, damit man es so
+    leicht trifft wie den Reiter selbst; folgt der Groesse der Oberflaeche."""
+    return inhalt_hoehe() + 6
 
 
 def bedien_hoehe() -> int:
@@ -140,12 +146,14 @@ QDockWidget {{ color: {t['text']}; }}
 QDockWidget::title {{ background: {t['fenster']}; padding: 7px 10px 5px 10px; font-weight: 600; color: {t['text2']}; }}
 QMainWindow::separator {{ background: {t['rand']}; width: 5px; height: 5px; }}
 QMainWindow::separator:hover {{ background: {t['akzent']}; }}
-QTreeWidget, QTableWidget, QListWidget, QTextBrowser {{ background: {t['flaeche']}; color: {t['text']};
+QTreeWidget, QTableWidget, QTableView#festeSpalte, QListWidget, QTextBrowser {{ background: {t['flaeche']}; color: {t['text']};
     border: 1px solid {t['rand']}; border-radius: 6px; alternate-background-color: {t['fenster']}; }}
 QTreeWidget::item, QListWidget::item {{ padding: 3px 4px; border-radius: 4px; }}
-QTableWidget::item {{ padding: 0px 6px; }}
-QTreeWidget::item:hover, QListWidget::item:hover, QTableWidget::item:hover {{ background: {t['hover']}; }}
-QTreeWidget::item:selected, QTableWidget::item:selected, QListWidget::item:selected {{
+QTableView#festeSpalte {{ border: none; border-right: 1px solid {t['rand']}; border-radius: 0px; }}
+QTableWidget::item, QTableView#festeSpalte::item {{ padding: 0px 6px; }}
+QTreeWidget::item:hover, QListWidget::item:hover, QTableWidget::item:hover, QTableView#festeSpalte::item:hover {{ background: {t['hover']}; }}
+QTreeWidget::item:selected, QTableWidget::item:selected, QTableView#festeSpalte::item:selected,
+QListWidget::item:selected {{
     background: {t['wahl']}; color: {t['wahl_text']}; }}
 QTableCornerButton::section {{ background: {t['fenster']}; border: none; }}
 QScrollBar:vertical {{ background: transparent; width: 10px; margin: 2px; }}
@@ -208,12 +216,11 @@ QProgressBar {{ border: none; background: {t['rand']}; border-radius: 3px; max-h
 QProgressBar::chunk {{ background: {t['akzent']}; border-radius: 3px; }}
 QTabBar::tab {{ padding: 5px 12px; color: {t['leise']}; background: transparent; border: none; }}
 QTabBar::tab:selected {{ color: {t['text']}; font-weight: 600; border-bottom: 2px solid {t['akzent']}; }}
-QTabBar::close-button {{ image: url("{x}"); subcontrol-position: right; margin-left: 4px; width: 14px; height: 14px;
-                         border-radius: 7px; }}
-QTabBar::close-button:hover {{ image: url("{x_hover}"); background: {t['hover']}; }}
+QTabBar::close-button {{ image: url("{x}"); subcontrol-position: right; margin-left: 4px; border-radius: 5px; }}
+QTabBar::close-button:hover {{ image: url("{x_hover}"); background: {t['rand']}; }}
 QDockWidget {{ titlebar-close-icon: url("{x}"); }}
-QDockWidget::close-button {{ border: none; border-radius: 3px; padding: 1px; }}
-QDockWidget::close-button:hover {{ background: {t['hover']}; }}
+QDockWidget::close-button {{ border: none; border-radius: 5px; background: transparent; }}
+QDockWidget::close-button:hover {{ background: {t['rand']}; }}
 """
 
 
@@ -248,9 +255,21 @@ def system_dunkel() -> bool:
 
 class _Stil(QtWidgets.QProxyStyle):
     """Fusion mit Beschriftungen in Formularen mittig zur Zeile: Qt setzt sie oben in eine Zeile von hoechstens 7/4
-    Schrifthoehe, neben den gemeinsam hohen Feldern sassen sie dadurch hoeher als deren Text."""
+    Schrifthoehe, neben den gemeinsam hohen Feldern sassen sie dadurch hoeher als deren Text. Dazu gut treffbare X
+    zum Schliessen der Reiter."""
+
+    def pixelMetric(self, mass, option=None, widget=None):  # noqa: N802 - Qt
+        # Groesse der X in Reitern: das Stylesheet (width/height) wirkt dort nicht, Qt fragt nur den Stil
+        if mass in (QtWidgets.QStyle.PixelMetric.PM_TabCloseIndicatorWidth,
+                    QtWidgets.QStyle.PixelMetric.PM_TabCloseIndicatorHeight):
+            return schliessen_groesse()
+        if mass == QtWidgets.QStyle.PixelMetric.PM_DockWidgetTitleBarButtonMargin:  # um das 16-px-Symbol
+            return max(1, (schliessen_groesse() - 16) // 2)
+        return super().pixelMetric(mass, option, widget)
 
     def styleHint(self, hinweis, option=None, widget=None, rueckgabe=None):  # noqa: N802 - Qt
+        if hinweis == QtWidgets.QStyle.StyleHint.SH_DockWidget_ButtonsHaveFrame:
+            return 0  # sonst begrenzt Qt das X im Leistentitel auf 10 px (auf dem Mac 7 px); Rahmen kommt aus dem QSS
         if hinweis == QtWidgets.QStyle.StyleHint.SH_FormLayoutLabelAlignment:
             from PySide6 import QtCore
             return int(QtCore.Qt.AlignmentFlag.AlignLeft | QtCore.Qt.AlignmentFlag.AlignVCenter)

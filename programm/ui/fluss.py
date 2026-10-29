@@ -74,3 +74,20 @@ def fluss_zeile(*widgets, abstand: int = 6) -> QtWidgets.QWidget:
     for x in widgets:
         lay.addWidget(x)
     return w
+
+
+class _HoeheNachBreite(QtCore.QObject):
+    def eventFilter(self, obj, ev):  # noqa: N802 - Qt
+        if ev.type() == QtCore.QEvent.Type.Resize and obj.layout() is not None:
+            hoehe = obj.layout().minimumHeightForWidth(obj.width())
+            if hoehe > 0 and hoehe != obj.minimumHeight():
+                obj.setMinimumHeight(hoehe)
+        return False
+
+
+def hoehe_nach_breite(widget: QtWidgets.QWidget):
+    """Fuer Teile eines QSplitter mit umbrechenden Zeilen: Mindesthoehe passend zur Breite. Der Teiler fragt nur die
+    Mindesthoehe ohne Breite - bei schmalem Fenster ueberlappten sonst die umgebrochenen Zeilen."""
+    filter_ = _HoeheNachBreite(widget)
+    widget.installEventFilter(filter_)
+    widget._hoehe_nach_breite = filter_

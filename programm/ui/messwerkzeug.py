@@ -56,10 +56,12 @@ class MessPanel(QtWidgets.QWidget):
             k.setToolTip(tr(ART_TIPP[art]))
             k.setCheckable(True)
             k.setToolButtonStyle(QtCore.Qt.ToolButtonStyle.ToolButtonTextOnly)
-            k.setSizePolicy(QtWidgets.QSizePolicy.Policy.Expanding, QtWidgets.QSizePolicy.Policy.Fixed)
+            # so breit wie die Spalte (der laengste Text darin), nicht ueber die ganze Leiste
+            k.setSizePolicy(QtWidgets.QSizePolicy.Policy.Preferred, QtWidgets.QSizePolicy.Policy.Fixed)
             k.clicked.connect(lambda an, art=art: self.setze_modus(art if an else None))
             reihe.addWidget(k, i // 3, i % 3)
             self.knoepfe[art] = k
+        reihe.setColumnStretch(3, 1)  # Knoepfe so breit wie ihr Text, nicht ueber die ganze Leiste
         lay.addLayout(reihe)
         self.fang = QtWidgets.QCheckBox(tr("Fangen an Endpunkt, Mitte, Kreismitte"))
         self.fang.setToolTip(tr("Punkte rasten an Kantenenden, Kantenmitten und Kreismitten ein (sonst der "
@@ -89,6 +91,7 @@ class MessPanel(QtWidgets.QWidget):
         self.kopieren.setToolTip(tr("Gewählte Messung als Text in die Zwischenablage"))
         for k in (self.loeschen, self.alle_loeschen, self.kopieren, self.csv):
             unten.addWidget(k)
+        unten.addStretch(1)
         lay.addLayout(unten)
         self.loeschen.clicked.connect(self.loesche_gewaehlte)
         self.alle_loeschen.clicked.connect(self.loesche_alle)

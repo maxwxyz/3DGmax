@@ -5,6 +5,7 @@ from __future__ import annotations
 from PySide6 import QtCore, QtWidgets
 
 from ..i18n import tr
+from .tabellen import spalten_anpassen, textbreite_hoechst
 
 
 class PruefFenster(QtWidgets.QDialog):
@@ -27,7 +28,6 @@ class PruefFenster(QtWidgets.QDialog):
         self.tabelle.verticalHeader().setVisible(False)
         self.tabelle.setEditTriggers(QtWidgets.QAbstractItemView.EditTrigger.NoEditTriggers)
         self.tabelle.setSelectionBehavior(QtWidgets.QAbstractItemView.SelectionBehavior.SelectRows)
-        self.tabelle.horizontalHeader().setSectionResizeMode(2, QtWidgets.QHeaderView.ResizeMode.Stretch)
         for z, b in enumerate(befunde):
             nummern = ", ".join(map(str, b.nummern[:12])) + (" …" if len(b.nummern) > 12 else "")
             if not b.nummern and b.flaechen:
@@ -36,8 +36,7 @@ class PruefFenster(QtWidgets.QDialog):
                      tr(b.text) if "{" not in b.text else b.text, nummern)
             for s, w in enumerate(werte):
                 self.tabelle.setItem(z, s, QtWidgets.QTableWidgetItem(w))
-        self.tabelle.resizeColumnToContents(0)
-        self.tabelle.resizeColumnToContents(1)
+        spalten_anpassen(self.tabelle, hoechst=2 * textbreite_hoechst(self.tabelle), strecken=True)  # Befund: Saetze
         self.tabelle.cellDoubleClicked.connect(self._waehle)
         lay.addWidget(self.tabelle, 1)
         knopf = QtWidgets.QPushButton(tr("Schließen"))

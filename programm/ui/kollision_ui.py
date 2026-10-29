@@ -8,7 +8,7 @@ from PySide6 import QtCore, QtGui, QtWidgets
 
 from ..i18n import tr
 from ..kern import kollision as ko
-from .tabellen import aenderbar_machen, leer_hinweis
+from .tabellen import aenderbar_machen, leer_hinweis, spalten_anpassen
 from .panel_aufbau import zweck_zeile
 
 ART_FARBE = {ko.KOLLISION: "#c0392b", ko.ZU_NAH: "#d35400", ko.KONTAKT: "#2471a3", ko.ZU_WEIT: "#7d3c98"}
@@ -133,7 +133,7 @@ class KollisionPanel(QtWidgets.QWidget):
         self.start.setObjectName("primaer")
         self.start.setToolTip(tr("Kollisionsprüfung mit den Einstellungen oben starten"))
         self.start.clicked.connect(lambda: self.starten.emit(self.werte()))
-        lay.addWidget(self.start)
+        lay.addWidget(self.start, 0, QtCore.Qt.AlignmentFlag.AlignLeft)
         self.umfang.currentIndexChanged.connect(self._aktiv)
         self.kopf = QtWidgets.QLabel("")
         self.kopf.setWordWrap(True)
@@ -209,7 +209,7 @@ class KollisionPanel(QtWidgets.QWidget):
             t.setCellWidget(z, 7, status)
             t.setItem(z, 8, QtWidgets.QTableWidgetItem(b.kommentar))  # Doppelklick: Kommentar
         t.blockSignals(False)
-        t.resizeColumnsToContents()
+        spalten_anpassen(t, strecken=True)
         self.csv.setEnabled(bool(self.befunde))
         self.pdf_knopf.setEnabled(bool(self.befunde))
         self.aus.setEnabled(bool(self.befunde))
