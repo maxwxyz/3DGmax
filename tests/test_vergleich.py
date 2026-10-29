@@ -622,6 +622,42 @@ def test_neue_varianten_vergleich():
     assert len(c.pmi) == len(a.pmi)
 
 
+def test_deutliche_aenderung_geometrie_und_pmi():
+    """Beispiel "Vergleich": versetzte Bohrung (verschoben, ihr Mass folgt), gefuellte Bohrung (entfernt), Fase
+    (neue Kegel in der Aenderung der Oberseite); PMI: Wert, Bezugsreihenfolge, entfallen, neu - und sonst nichts."""
+    from programm.kern import vergleich
+    from programm.ui.lader import lade_alles
+    a = lade_alles(pfad("nist_ctc_01_asme1_ap242-e1.stp"))
+    b = _variante("ctc01_geo_pmi_deutlich")
+    v = vergleich.vergleiche(a, b)
+    assert v.ausrichtung.methode == "gleich"
+    geo = {(x.status, len(x.flaechen_neu), len(x.flaechen_alt)): x for x in v.aenderungen if x.kategorie == "geometrie"}
+    versetzt = geo[(vergleich.VERSCHOBEN, 2, 2)]
+    assert "dX +15.000  dY +0.000  dZ +0.000" in versetzt.beschreibung
+    assert (vergleich.ENTFERNT, 0, 2) in geo  # gefuellte Bohrung
+    kegel = {i for i, f in enumerate(b.modell.flaechen) if _flaechentyp(f) == "kegel"}
+    fase = [x for x in v.aenderungen if x.kategorie == "geometrie" and x.status == vergleich.GEAENDERT
+            and x.flaechen_neu & kegel]
+    assert len(fase) == 1 and len(fase[0].flaechen_neu & kegel) == 2  # beide Kegel der Fase
+    assert len([x for x in v.aenderungen if x.kategorie == "geometrie"]) == 4  # keine Randartefakte
+    pmi = {(x.status, (x.pmi_alt or x.pmi_neu).typ): x for x in v.aenderungen if x.kategorie == "pmi"}
+    assert pmi[("geaendert", "Position")].pmi_alt is not None
+    werte = sorted(vergleich.spalten(x)[:3] for x in v.aenderungen if x.kategorie == "pmi" and x.status == "geaendert")
+    assert werte == [("Bezüge", "A|B|C", "A|C|B"), ("Toleranzwert", "0.75", "0.5")]
+    assert ("entfallen", "Perpendicularity") in pmi and ("neu", "Position") in pmi
+    mass = pmi[(vergleich.VERSCHOBEN, "Size_Diameter")]  # Mass der versetzten Bohrung folgt ihr
+    assert mass.pmi_neu.nennwert == 25.0 and mass.flaechen_neu == versetzt.flaechen_neu
+    assert pmi[("neu", "Position")].flaechen_neu == versetzt.flaechen_neu
+    assert {x.status for x in v.aenderungen if x.kategorie == "pmi"} == {"geaendert", "entfallen", "neu",
+                                                                       vergleich.VERSCHOBEN, "geometrie"}
+
+
+def _flaechentyp(f) -> str:
+    from OCC.Core.BRepAdaptor import BRepAdaptor_Surface
+    from OCC.Core.GeomAbs import GeomAbs_Cone
+    return "kegel" if BRepAdaptor_Surface(f).GetType() == GeomAbs_Cone else ""
+
+
 @pytest.mark.langsam
 def test_scanpruefung_stufe2(tmp_path):
     """Winkel- und Laengenmasse, Ausrichtung am Bezugssystem A|B|C, Punktwolke ohne Dreiecke."""

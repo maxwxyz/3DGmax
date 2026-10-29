@@ -999,8 +999,9 @@ def _beispiele(f, namen):
             assert "allgemein" in f.ansicht.zone_rollen and "zone" in f.ansicht.zone_rollen
         elif b.name == "schnittansicht":
             assert f.ansicht.ansicht_schnitt
-        elif b.name in ("vergleich_pmi", "vergleich_geo", "baugruppe"):
+        elif b.name in ("vergleich", "baugruppe"):
             assert f.vergleich is not None and f.vergleich.aenderungen
+            assert b.name != "vergleich" or f.ansicht.abweichung is not None  # Farbkarte fertig gerechnet
         elif b.name == "scan":
             assert getattr(f, "_scan", None) is not None
         elif b.name == "kette":
@@ -1043,7 +1044,7 @@ def test_beispiele_modell(fenster):
     """Datei > Beispiele (ein Modell): Dateien gefunden, Schritte nach dem Laden ausgefuehrt."""
     from programm.kern import beispiele
     assert {b.name for b in beispiele.BEISPIELE} == {"pmi", "pruefen", "zonen", "schnittansicht", "kette", "scan",
-                                                      "vergleich_pmi", "vergleich_geo", "baugruppe", "kollision",
+                                                      "vergleich", "baugruppe", "kollision",
                                                       "zusammenbau", "variation", "kette_getriebe", "funktion",
                                                       "messen", "analyse", "merkmale", "kette2d", "kette3d"}
     _beispiele(fenster, ("pmi", "pruefen", "zonen", "schnittansicht", "kette", "kollision", "zusammenbau",
@@ -1149,7 +1150,7 @@ def test_zusammenbau_321_im_fenster(fenster):
 
 @pytest.mark.langsam
 def test_beispiele_vergleich_und_scan(fenster):
-    _beispiele(fenster, ("vergleich_pmi", "vergleich_geo", "baugruppe", "scan"))
+    _beispiele(fenster, ("vergleich", "baugruppe", "scan"))
 
 
 def test_toleranzkette_aus_3d_auswahl(fenster):
@@ -2303,7 +2304,7 @@ def test_aenderungen_reiter_nur_im_vergleich(fenster):
     f = fenster
     menue = f.dock_aenderungen.toggleViewAction()
     assert not menue.isEnabled() and f.aenderungen.neu_knopf.isVisibleTo(f.aenderungen)
-    assert f.oeffne_beispiel("vergleich_pmi", warten=True)
+    assert f.oeffne_beispiel("vergleich", warten=True)
     assert menue.isEnabled() and not f.aenderungen.neu_knopf.isVisibleTo(f.aenderungen)
     assert f.vergleich_stand.isVisibleTo(f) and "→" in f.vergleich_stand.text()  # beide Staende sichtbar
     assert f.aenderungen.start.isEnabled()

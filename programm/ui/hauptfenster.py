@@ -1325,8 +1325,8 @@ class Hauptfenster(QtWidgets.QMainWindow):
                 self.statusBar().showMessage(text, 20000)
             return weiter
         vergleich = {"alt": pfade[0], "neu": pfade[-1], "toleranz": 0.01, "suchweite": 2.0}
-        if name in ("vergleich_pmi", "vergleich_geo", "baugruppe"):
-            schritte = [lambda: self.aenderungen.karte_an.setChecked(True)] if name == "vergleich_geo" else []
+        if name in ("vergleich", "baugruppe"):
+            schritte = [lambda: self._beispiel_farbkarte(warten)] if name == "vergleich" else []
             self._nach_laden = zeigen(*schritte)
             self.starte_vergleich(vergleich, warten)
             return True
@@ -2655,6 +2655,13 @@ class Hauptfenster(QtWidgets.QMainWindow):
         v.material = m
         if self.vergleich is v and self.aenderungen.material_an.isChecked():
             self.zeige_material(True)
+
+    def _beispiel_farbkarte(self, warten: bool):
+        """Farbkarte einschalten; mit warten erst nach der Berechnung zurueck (kein Hintergrund-Thread offen)."""
+        self.aenderungen.karte_an.blockSignals(True)
+        self.aenderungen.karte_an.setChecked(True)
+        self.aenderungen.karte_an.blockSignals(False)
+        self.zeige_farbkarte(True, self.aenderungen.skala.value(), warten)
 
     def _farbkarte_fertig(self, v, karte):
         v.karte = karte

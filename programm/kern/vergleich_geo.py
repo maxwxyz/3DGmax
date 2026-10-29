@@ -90,9 +90,14 @@ def _nachbarn(flaechen, index_von) -> dict[int, set[int]]:
 
 
 def _auf_flaeche(punkte: np.ndarray, flaeche_idx: np.ndarray, flaechen) -> np.ndarray:
-    """Netzpunkte auf die exakte Flaeche projizieren (Sehnenfehler des Netzes entfernen)."""
+    """Netzpunkte auf die exakte Flaeche projizieren (Sehnenfehler des Netzes entfernen). Punkte, die dabei
+    ausserhalb der Berandung liegen (Netz eines gekruemmten Rands ragt ueber die Flaeche hinaus), auf den
+    naechsten Punkt der Flaeche - sonst zeigen sie am Rand einer Bohrung eine Abweichung bis zur Sehnenhoehe."""
+    from OCC.Core.BRepTopAdaptor import BRepTopAdaptor_FClass2d
+    from OCC.Core.TopAbs import TopAbs_OUT
+    from OCC.Core.gp import gp_Pnt2d
     out = punkte.copy()
-    flaechen_geom = {}
+    flaechen_geom, klassen = {}, {}
     for j, (p, fi) in enumerate(zip(punkte, flaeche_idx)):
         if fi not in flaechen_geom:
             flaechen_geom[fi] = BRep_Tool.Surface(flaechen[fi])
@@ -101,8 +106,31 @@ def _auf_flaeche(punkte: np.ndarray, flaeche_idx: np.ndarray, flaechen) -> np.nd
         pr = GeomAPI_ProjectPointOnSurf(gp_Pnt(*p), flaechen_geom[fi])
         if pr.IsDone() and pr.NbPoints() > 0:
             q = pr.NearestPoint()
+            if fi not in klassen:
+                klassen[fi] = BRepTopAdaptor_FClass2d(flaechen[fi], 1e-7)
+            if klassen[fi].Perform(gp_Pnt2d(*pr.LowerDistanceParameters())) == TopAbs_OUT:
+                e = BRepExtrema_DistShapeShape(BRepBuilderAPI_MakeVertex(q).Vertex(), flaechen[fi],
+                                               Extrema_ExtFlag_MIN)
+                if e.IsDone() and e.NbSolution():
+                    q = e.PointOnShape2(1)
             out[j] = (q.X(), q.Y(), q.Z())
     return out
+
+
+def _mindestens(netze, punkte: np.ndarray, flaeche_idx: np.ndarray, anzahl: int = 5):
+    """Flaechen mit weniger als 'anzahl' Abtastpunkten: Schwerpunkte ihrer groessten Dreiecke dazu (kleine
+    Flaechen wie eine Fase bekaemen auf einem grossen Teil sonst keinen Punkt und gaelten als gleich)."""
+    zahl = np.bincount(flaeche_idx.astype(int), minlength=len(netze))
+    dazu_p, dazu_f = [punkte], [flaeche_idx]
+    for idx, (pts, tri) in enumerate(netze):
+        fehlt = anzahl - zahl[idx]
+        if fehlt <= 0 or len(tri) == 0:
+            continue
+        a, b, c = pts[tri[:, 0]], pts[tri[:, 1]], pts[tri[:, 2]]
+        wahl = np.argsort(-np.linalg.norm(np.cross(b - a, c - a), axis=1))[:fehlt]
+        dazu_p.append((a[wahl] + b[wahl] + c[wahl]) / 3)
+        dazu_f.append(np.full(len(wahl), idx, dtype=flaeche_idx.dtype))
+    return np.vstack(dazu_p), np.concatenate(dazu_f)
 
 
 def _instanzen(modell) -> tuple[list, np.ndarray | None]:
@@ -142,7 +170,7 @@ def bereite_vor(modell, anzahl: int = 8000, feinheit: float | None = None) -> Se
         diag = float(np.linalg.norm([x1 - x0, y1 - y0, z1 - z0]))
         feinheit = min(max(diag * 5e-4, 0.01), 0.2)
     netze = tesselliere(flaechen, feinheit)
-    punkte, fi = abtasten(netze, anzahl)
+    punkte, fi = _mindestens(netze, *abtasten(netze, anzahl))
     punkte = _auf_flaeche(punkte, fi, flaechen)
     if basis is None:
         nachbarn = _nachbarn(flaechen, modell.flaechen_index)
