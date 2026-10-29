@@ -657,7 +657,8 @@ class VergleichsmodusLeiste(QtWidgets.QFrame):
         reihe.addSpacing(12)
         self.hervor = QtWidgets.QCheckBox(tr("Änderungen hervorheben"))
         self.hervor.setChecked(True)
-        self.hervor.setToolTip(tr("In Alt, Neu, Nebeneinander und Blinken geänderte Flächen und PMI farbig zeigen"))
+        self.hervor.setToolTip(tr("In Alt, Neu, Nebeneinander und Blinken geänderte Flächen und PMI farbig zeigen, "
+                                 "dazu Farbkarte und Material + / −"))
         self.hervor.toggled.connect(self.hervorheben.emit)
         reihe.addWidget(self.hervor)
         self.hervor.setVisible(hervor)

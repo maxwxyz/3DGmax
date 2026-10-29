@@ -154,6 +154,7 @@
 | Distance, angle, radius/Ø, wall thickness, coordinates; snapping; list, CSV, copy | ✅ |
 | Quick measure in the status bar for the selection (length, Ø/R, area, distances, axis distance, angle, PMI info) | ✅ |
 | Own views (camera, PMI, measurements) in project and PDF; measurement report PDF | ✅ |
+| Loading another model clears all model-bound tool state (function → tolerancing, chains, measurements, comments, assembly, overlays); projects restore theirs | ✅ |
 
 ## Comparison
 | Feature | Status |
@@ -174,6 +175,7 @@
 | Change table with characteristic, old, new, Δ, tendency (tighter/looser), also in PDF/CSV | ✅ |
 | Comparison modes: comparison, old, new, overlay, side by side (coupled cameras), blink; tree follows the mode | ✅ |
 | Comparison modes stage 2: tree with part status colours | ✅ |
+| Comparison modes: display is a function of mode and “Highlight changes” (colour map/material too), camera kept on every switch | ✅ |
 | Comparison: both trees side by side in "Side by side" | ✅ |
 | Geometry comparison per part instance (each instance sampled; status shown on the shared faces) | ✅ |
 | Status colors per instance in the 3D view (instance key: face index + location), removed instances shown | ✅ |

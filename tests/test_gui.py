@@ -2843,3 +2843,82 @@ def test_knoepfe_nie_ueber_die_ganze_breite(fenster):
     import knopfbreiten
     funde = {name: knopfbreiten.zu_breit(w) for name, w in knopfbreiten.fenster_breit(fenster)}
     assert not {n: f for n, f in funde.items() if f}
+
+
+def test_neues_modell_leert_werkzeuge(fenster, tmp_path):
+    """Laden einer anderen Datei leert alles, was am vorigen Modell haengt (Funktion -> Tolerierung, Ketten,
+    Messungen, Kommentare, Zusammenbau, Hilfslinien, Schnitt); ein Projekt stellt seinen Stand danach wieder her."""
+    from programm.kern import kette2d, kette3d, toleranzkette as tk
+    from programm.kern.messen import Messung
+    f = fenster
+    f.lade(pfad("nist_ctc_01_asme1_ap242-e1.stp"), warten=True)
+    w = f.zeige_funktion()
+    w.setze_rolle([0], "auflage")
+    k = f.zeige_toleranzkette()
+    k.uebernimm([p for p in f.erg.pmi if p.art == "mass" and p.nennwert is not None][:2])
+    k.anforderung.setChecked(True)
+    k.szenarien = {"eng": (1.0, list(k.glieder))}
+    f.zeige_kette2d().lade_vorlage("hebel")
+    f.zeige_kette3d().lade_vorlage("turm")
+    f.messen.fuege_hinzu(Messung("abstand", 12.5, "mm", [(0, 0, 0), (12.5, 0, 0)], "Punkt – Punkt"))
+    f.ansicht.setze_auswahl([f.erg.modell.flaechen[5]])
+    assert f.neuer_kommentar("Fase prüfen") is not None
+    f.ansicht.zeige_hilfslinien([((0, 0, 0), (1, 0, 0))])
+    f.aktionen["schnitt_x"].trigger()
+    assert w.rollen and k.glieder and k.szenarien and f._kette2d.kette.segmente and f._kette3d.kette.glieder
+    projekt = f.speichere_projekt(str(tmp_path / "a.3dgmax"))
+    glieder = list(k.glieder)
+    f.lade(pfad("getriebewelle.stp"), warten=True)
+    assert not w.rollen and w.modell is f.erg.modell
+    assert not k.glieder and not k.szenarien and not k.anforderung.isChecked() and not k.freigabe
+    assert f._kette2d.kette == kette2d.Kette2D() and f._kette3d.kette == kette3d.Kette3D()
+    assert not f.messen.messungen and not f.kommentare.kommentare and not f.ansicht.kommentar_marken
+    assert not f.ansicht.hilfslinien and f.ansicht.schnitt_zustand is None and f._schnitt_achse is None
+    assert f.aktionen["schnitt_aus"].isChecked() and not f.ansicht.auswahl3d
+    f.oeffne_projekt(projekt, warten=True)  # Projekt: Stand von Modell A zurueck
+    assert f.erg.pfad.endswith("nist_ctc_01_asme1_ap242-e1.stp")
+    assert f._funktion.rollen and [g.name for g in f._kette.glieder] == [g.name for g in glieder]
+    assert f.messen.messungen and f.kommentare.kommentare and f._kette2d.kette.segmente
+    assert isinstance(f._kette.glieder[0], tk.Glied)
+
+
+def test_vergleichsanzeige_nach_modus_und_haken(fenster):
+    """Vergleichsbeispiel: die Anzeige haengt nur von (Modus, Aenderungen hervorheben) ab - in jeder Reihenfolge der
+    Umschaltungen (Fehler: Alt + Haken aus liess Neu danach falsch zurueck); die Kamera bleibt."""
+    import random
+    f = fenster
+    assert f.oeffne_beispiel("vergleich", warten=True)
+    v = f.vergleich
+    assert f.aenderungen.karte_an.isChecked() and v.karte is not None
+    f.modus_leiste.pause_knopf.setChecked(True)  # Blinken steht (sonst wechselt der Takt die Ansicht)
+    kamera = ((1.0, -2.0, 3.0), (0.0, 0.0, 0.0), (0.0, 0.0, 1.0), 77.0)
+    f.ansicht.setze_kamera_daten(kamera)
+
+    def pruefe(m, hervor):
+        sichtbar = m in ("vergleich", "ueberlagern") or hervor
+        a = f.ansicht
+        assert bool(a.vergleich_status) == sichtbar, (m, hervor)
+        assert (a.abweichung is not None) == sichtbar, (m, hervor)  # Farbkarte nur mit sichtbaren Aenderungen
+        assert (a.ueberlagerung is not None) == (m == "ueberlagern"), (m, hervor)
+        assert bool(a.vergleich_entfernt) == (m == "vergleich"), (m, hervor)
+        assert a.isVisible() == (m in ("vergleich", "neu", "ueberlagern", "nebeneinander", "blinken")), (m, hervor)
+        alt = f.ansicht_alt
+        if alt is not None:
+            assert alt.isVisible() == (m in ("alt", "nebeneinander")), (m, hervor)
+            if m in ("alt", "nebeneinander"):
+                assert bool(alt.vergleich_status) == hervor, (m, hervor)
+        assert a.kamera_daten() == kamera, (m, hervor)
+
+    # Ablauf aus der Meldung: Alt, Haken aus, Haken an, Neu
+    for m, hervor in (("alt", True), ("alt", False), ("alt", True), ("neu", True), ("neu", False), ("neu", True)):
+        f.setze_vergleichsmodus(m)
+        f.modus_leiste.hervor.setChecked(hervor)
+        pruefe(m, hervor)
+    zufall = random.Random(7)
+    modi = ["vergleich", "alt", "neu", "ueberlagern", "nebeneinander", "blinken"]
+    for _ in range(60):
+        if zufall.random() < 0.5:
+            f.setze_vergleichsmodus(zufall.choice(modi))
+        else:
+            f.modus_leiste.hervor.setChecked(not f.modus_leiste.hervor.isChecked())
+        pruefe(f._vergleichsmodus, f.modus_leiste.hervor.isChecked())

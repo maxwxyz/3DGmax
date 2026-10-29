@@ -731,6 +731,9 @@ class OcctAnsicht(AnsichtBasis):
         super().showEvent(ev)
         if not self._bereit:
             QtCore.QTimer.singleShot(0, self._starte)
+        else:  # verdeckt geaenderte Kamera (Vergleich: gekoppelte Ansicht): Tiefenbereich neu, sonst schneidet er
+            self.d.View.ZFitAll()
+            self._neu_zeichnen()
 
     def _starte(self):
         if self._bereit:
@@ -1000,8 +1003,8 @@ class OcctAnsicht(AnsichtBasis):
         from OCC.Core.Aspect import Aspect_GFM_VER
         oben, unten = self.hintergrund or (thema["hg_oben"], thema["hg_unten"])
         self.d.View.SetBgGradientColors(_farbe(oben), _farbe(unten), Aspect_GFM_VER, True)
-        if self.szene is not None:
-            self._baue_szene()
+        if self.szene is not None:  # Farben neu: eine schon gezeigte Szene behaelt ihre Kamera
+            self._baue_szene(kamera=getattr(self, "_szene_gebaut", None) is not self.szene)
         else:
             self._zeige_wuerfel()
             self._neu_zeichnen()
@@ -1013,14 +1016,15 @@ class OcctAnsicht(AnsichtBasis):
         if self._bereit:
             self._baue_szene()
 
-    def _baue_szene(self):
-        """Szene neu aufbauen; der 3D-Griff (von RemoveAll entfernt) kommt danach wieder dazu."""
-        self._baue_szene_inhalt()
+    def _baue_szene(self, kamera: bool = True):
+        """Szene neu aufbauen; der 3D-Griff (von RemoveAll entfernt) kommt danach wieder dazu. kamera False:
+        Kamera und Kameraverlauf bleiben (nur Faerbung geaendert)."""
+        self._baue_szene_inhalt(kamera)
         self._manip_ais = None
         if self.manipulator is not None:
             self.zeige_manipulator(self.manipulator)
 
-    def _baue_szene_inhalt(self):
+    def _baue_szene_inhalt(self, kamera: bool = True):
         from OCC.Core.AIS import AIS_ColoredShape, AIS_Shape
         from OCC.Core.Graphic3d import Graphic3d_MaterialAspect, Graphic3d_NameOfMaterial_Plastified
         from OCC.Core.TopAbs import TopAbs_FACE
@@ -1094,10 +1098,17 @@ class OcctAnsicht(AnsichtBasis):
             self._lagen_anwenden()
         self._wende_darstellung_an()
         self._wende_sichtbarkeit_an()
-        self._verlauf, self._verlauf_pos = [], -1
-        self.setze_perspektive(self.perspektive)
-        self.standard(self.letzte_ansicht if self.letzte_ansicht in STANDARDANSICHTEN else "iso")
         self._drehpunkt = None
+        self._szene_gebaut = sz
+        self.setze_perspektive(self.perspektive)
+        offen, self._kamera_offen = getattr(self, "_kamera_offen", None), None
+        if not kamera:
+            return
+        self._verlauf, self._verlauf_pos = [], -1
+        if offen is not None:  # vor dem Start gesetzte Kamera (gekoppelte Ansicht im Vergleich)
+            self._kamera_setzen(offen)
+        else:
+            self.standard(self.letzte_ansicht if self.letzte_ansicht in STANDARDANSICHTEN else "iso")
 
     def _baue_entfernt(self):
         """Im alten Stand vorhandene, im neuen entfernte Flaechen: rot, durchscheinend, nicht waehlbar."""
@@ -1123,8 +1134,12 @@ class OcctAnsicht(AnsichtBasis):
         super().zeige_vergleich(status, entfernt_formen, trsf, instanzen)
         if status is None:
             self.abweichung = None
+        # nur der erste Aufbau einer Szene im Vergleich passt ein (Ausrichtung verschiebt das Modell); danach
+        # aendert sich nur die Faerbung, die Kamera bleibt
+        behalten = status is not None and getattr(self, "_vergleich_szene", None) is self.szene
+        self._vergleich_szene = self.szene if status is not None else None
         if self._bereit and self.szene is not None:
-            self._baue_szene()
+            self._baue_szene(kamera=not behalten)
 
     def zeige_analyse(self, karte, skala=None):
         super().zeige_analyse(karte, skala)
@@ -2130,7 +2145,12 @@ class OcctAnsicht(AnsichtBasis):
 
     def setze_kamera_daten(self, k):
         super().setze_kamera_daten(k)
-        if self._bereit and k is not None and not self._gleich(self._kamera_jetzt(), k):
+        if not self._bereit:
+            self._kamera_offen = k  # gilt beim ersten Aufbau statt der Standardansicht
+            return
+        if getattr(self, "_fahrt_uhr", None) is not None:
+            self._fahrt_uhr.stop()  # eine laufende Kamerafahrt wuerde die gesetzte Kamera wieder ueberschreiben
+        if k is not None and not self._gleich(self._kamera_jetzt(), k):
             self._kamera_setzen(k)
 
     def zeige_ueberlagerung(self, form):

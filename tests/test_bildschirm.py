@@ -547,3 +547,77 @@ def test_teil_ziehen_einrasten():
     assert zeile, r.stdout[-2000:] + r.stderr[-2000:]
     erg = eval(zeile.split(" ", 1)[1])  # noqa: S307 - eigene Ausgabe
     assert all(v for k, v in erg.items() if k != "text"), erg
+
+
+VERGLEICHSMODI = r'''
+import os, random, sys, tempfile
+sys.path.insert(0, sys.argv[1])
+os.environ["DG_EINSTELLUNGEN"] = os.path.join(tempfile.mkdtemp(), "e.ini")
+from PySide6 import QtCore, QtWidgets
+from PySide6.QtTest import QTest
+app = QtWidgets.QApplication([])
+from programm.ui.hauptfenster import Hauptfenster
+f = Hauptfenster(); f.resize(1400, 850); f.show()
+bilder = os.environ.get("DG_BILDER")  # Bildschirmfotos je Schritt (nur zur Sichtpruefung)
+def los():
+    erg = {"kamera": True, "deckend": True, "farben": True, "sichtbar": True}
+    try:
+        f.oeffne_beispiel("vergleich", warten=True)
+        f.modus_leiste.pause_knopf.setChecked(True)
+        QTest.qWait(800)
+        a = f.ansicht
+        a.standard("vorne")
+        QTest.qWait(600)
+        k = a.kamera_daten()
+        a.setze_kamera_daten((k[0], k[1], k[2], k[3] * 0.6))  # eigener Ausschnitt, keine Standardansicht
+        kamera = a.kamera_daten()
+        schritte = [("alt", True), ("alt", False), ("alt", True), ("neu", True), ("neu", False), ("vergleich", False)]
+        zufall = random.Random(3)
+        modi = ["vergleich", "alt", "neu", "ueberlagern", "nebeneinander", "blinken"]
+        schritte += [(zufall.choice(modi), zufall.random() < 0.5) for _ in range(14)]
+        for i, (m, hervor) in enumerate(schritte):
+            f.setze_vergleichsmodus(m)
+            f.modus_leiste.hervor.setChecked(hervor)
+            QTest.qWait(450)  # Kamerafahrten und Kopplung haetten jetzt gewirkt
+            sicht = f.ansicht_alt if m == "alt" else a
+            if not sicht._gleich(sicht.kamera_daten(), kamera):
+                erg["kamera"] = False
+                erg["text"] = f"Kamera nach {i}: {m} {hervor}"
+            karte = m in ("vergleich", "ueberlagern") or hervor
+            ctx = a.d.Context
+            for ais in a._teile.values():
+                if karte != (not ctx.IsDisplayed(ais)):  # Farbkarte ersetzt das Modell, sonst Modell sichtbar
+                    erg["sichtbar"] = False
+                    erg["text"] = f"Modell sichtbar nach {i}: {m} {hervor}"
+                elif not karte and m != "ueberlagern" and ais.Transparency() > 0.01:
+                    erg["deckend"] = False
+                    erg["text"] = f"Neu durchscheinend nach {i}: {m} {hervor}"
+            if m in ("alt", "nebeneinander"):
+                alt = f.ansicht_alt
+                if bool(alt.vergleich_status) != hervor or any(x.Transparency() > 0.01 for x in alt._teile.values()):
+                    erg["farben"] = False
+                    erg["text"] = f"Alter Stand nach {i}: {m} {hervor}"
+            if bilder:
+                f.screen().grabWindow(0, f.x(), f.y(), f.width(), f.height()).save(
+                    os.path.join(bilder, f"{i:02d}_{m}_{'mit' if hervor else 'ohne'}.png"))
+    except Exception as e:
+        erg["fehler"] = False
+        erg["text"] = repr(e)
+    print("ERGEBNIS", erg, flush=True)
+    app.quit()
+QtCore.QTimer.singleShot(1500, los)
+app.exec()
+'''
+
+
+def test_vergleichsmodi_kamera_und_darstellung():
+    """Vergleichsbeispiel: Modus und "Aenderungen hervorheben" in vielen Reihenfolgen umschalten - die Kamera bleibt
+    stehen, Neu ist ohne sichtbare Aenderungen deckend, der alte Stand zeigt seine Farben nur mit dem Haken."""
+    env = dict(os.environ)
+    env.pop("QT_QPA_PLATFORM", None)
+    r = subprocess.run([sys.executable, "-c", VERGLEICHSMODI, WURZEL], capture_output=True, text=True, env=env,
+                       timeout=300)
+    zeile = next((z for z in r.stdout.splitlines() if z.startswith("ERGEBNIS")), "")
+    assert zeile, r.stdout[-2000:] + r.stderr[-2000:]
+    erg = eval(zeile.split(" ", 1)[1])  # noqa: S307 - eigene Ausgabe
+    assert all(v for k, v in erg.items() if k != "text"), erg

@@ -648,6 +648,20 @@ tree shows only the new model. Modes as in ZGmax (Old, New, Comparison, Side by 
 - Implementation: a second full 3D view for the old state (own scene with PMI graphics and status colours of the old
   state), both in a splitter in the central area; the camera is coupled by a 50 ms check of eye/centre/up/scale
   (works for every camera change incl. the view cube); the second view is created at the first comparison.
+- Display state (fix 2026-10-29): `Hauptfenster._vergleich_anzeigen` derives everything from (mode, "Änderungen
+  hervorheben") and applies it idempotently – status colours, colour map and material only while changes are visible
+  (`_aenderungen_sichtbar`: Comparison/Overlay always, otherwise the switch). The camera never moves on these
+  switches: a colour-only rebuild keeps it (`OcctAnsicht.zeige_vergleich`/`setze_thema` → `_baue_szene(kamera=False)`,
+  only the first build of a scene fits), a camera set on a not yet started view is applied at its first build
+  (`_kamera_offen`), and setting a camera stops a running camera flight (the old view's flight to iso used to win
+  over the coupled camera).
+- Loading (fix 2026-10-29): `zeige_ergebnis` calls `_modellzustand_zuruecksetzen` whenever a different result is
+  shown (file, comparison, example, project, close): function → tolerancing, 1D/2D/3D chains, measurements, comments,
+  collision, assembly, zones, helper lines, sections, balloons, focus, selection, inspector are cleared; projects and
+  chain files restore their state afterwards. Kept: "Add model" (`zuruecksetzen=False`), re-alignment (same new
+  state object), windows filled before any model was loaded (e.g. a hand-built 2D chain), the guided flow (its first
+  step loads the model). 2D/3D chains are cleared even without model references – they belong to the session of the
+  model; save them as chain files or in the project.
 
 ### 8.9 Test data
 - NIST: FTC/STC/CTC (AP242); D2MI 827-9999-904 rev C (AP242 with PMI) ↔ 906 (same geometry, no PMI); FTC-06 ↔ STC-06

@@ -4,6 +4,22 @@
 All work on `main`, pushed; no other branches. Version 0.2 released (tag v0.2). Full suite last green on
 the Mac (200 tests incl. the new ones, ~11 min); `pixi run test-schnell` skips the six `langsam` tests.
 
+Side session 2026-10-29 (branch `claude/laden-vergleich-a08067`, to be merged by the main session): two user
+reports. (1) Loading another file kept old data: new `Hauptfenster._modellzustand_zuruecksetzen` (called from
+`zeige_ergebnis` whenever a different result is shown, and from `schliesse_modell`) clears function → tolerancing
+(`setze_modell`, preview), 1D chain (`lade_datei(KettenDatei([]))`: links, requirement, materials, temperatures,
+approval, scenarios), 2D/3D chains, measurements, quick measure, comments, collision, assembly, zones, helper lines,
+datum colours, sections, balloons, focus, selection, inspector. Projects/chain files restore afterwards; "Add model"
+passes `zuruecksetzen=False`, re-alignment keeps it (same new-state object); guided flow stays. (2) Comparison
+display: `_vergleich_anzeigen` is a function of (mode, highlight switch), colour map/material follow
+`_aenderungen_sichtbar`; `ansicht3d`: colour-only rebuilds keep the camera (`_baue_szene(kamera=False)`, also on
+`setze_thema`), pending camera for a not yet started view (`_kamera_offen`), `setze_kamera_daten` stops a running
+flight, `showEvent` refits the depth range. PLAN §8.31 notes, Roadmap ✅. Tests `test_neues_modell_leert_werkzeuge`,
+`test_vergleichsanzeige_nach_modus_und_haken` (offscreen), `test_vergleichsmodi_kamera_und_darstellung` (on screen,
+`DG_BILDER=<dir>` saves a screenshot per step). Not reproduced literally: the "semi-transparent New" – likely the
+colour map shown in New after switching (now hidden without the switch) or a stale depth range after the hidden view
+was rebuilt (now refitted on show); user should re-check with the example.
+
 Side session 2026-10-29 (branch `claude/beispiel-welle-abdfe0`, merged into main `db2cd0d`): user request –
 the example "Funktion → Tolerierung" now uses a generated gearbox shaft instead of NIST FTC-10 (PLAN §8.33 note,
 Roadmap ✅). Generator `werkzeuge/welle.py` → `tests/daten/getriebewelle.stp` (bundled via `beispiele.alle_dateien`),
