@@ -94,6 +94,7 @@
 | Function → tolerancing: datums by hand (A/B/C), example, generated PMI without overlap across writing planes | ✅ |
 | Hand-built chains (1D/2D/3D): chain-wide material plus optional material per link, thermal expansion for 2D/3D (after UI stage 2) | ✅ |
 | Function → tolerancing: live 3D preview of the proposed datum system (A/B/C flags, locked/open DOF) and of the tolerance proposal (callouts, row ↔ model highlight, zones optional) | ✅ |
+| Function → tolerancing for shafts: gearbox shaft example (generated, licence-free), common datum axis A-B from two bearing seats, roles bearing seat / seal seat / hub seat / keyway / retaining ring groove, runout and symmetry proposals, annotations in the axial plane; common datums in zones and STEP | ✅ |
 | Stack-up: build chains by hand without a model ("＋ Glied", editable cells) | ✅ |
 | Stack-up tables readable: columns sized from header, text and cell widgets, numbers right-aligned (1D/2D/3D) | ✅ |
 | One control height and frame style for all buttons, drop-downs, number and text fields in every window (theme), checked by a GUI test | ✅ |

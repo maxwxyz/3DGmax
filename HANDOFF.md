@@ -4,6 +4,18 @@
 All work on `main`, pushed; no other branches. Version 0.2 released (tag v0.2). Full suite last green on
 the Mac (200 tests incl. the new ones, ~11 min); `pixi run test-schnell` skips the six `langsam` tests.
 
+Side session 2026-10-29 (branch `claude/beispiel-welle-abdfe0`, to be merged by the main session): user request –
+the example "Funktion → Tolerierung" now uses a generated gearbox shaft instead of NIST FTC-10 (PLAN §8.33 note,
+Roadmap ✅). Generator `werkzeuge/welle.py` → `tests/daten/getriebewelle.stp` (bundled via `beispiele.alle_dateien`),
+roles in `kern/beispiele.WELLE_ROLLEN`/`welle_rollen`. `kern/funktion.py`: new roles lagersitz, dichtsitz, nabensitz,
+passfedernut, sicherungsringnut; common datum A-B (`BezugVorschlag.gemeinsam`, `Bezugssystem.drf()`); runout/axial
+runout/symmetry on turned parts (`_drehteil`, `_passfedernut`, `_ringnut`, context `_Kontext`). "A-B" now resolves in
+`toleranzzone`, `plausibilitaet`, `pmi_vorschlag` and is written to STEP as COMMON_DATUM_LIST (`step_schreiben`).
+`pmi_erzeugen`: on long turned parts annotations on axial elements lie in the axial plane above/below the part.
+Main window: `_beispiel_funktion` (roles from kern.beispiele, front view fitted incl. callouts –
+`ansicht.standard(name, pmi_ids)`). Open: the DIN 471/472 groove-diameter classes by size are start values (h10/h11/h12
+rule not checked against the standard text); keyway widths are edge-on in the front view (visible from the top).
+
 Side session 2026-10-28 (branch `claude/pmi-darstellung-8f2b0b`, merged into main after UI
 work): plan item 6 done – own PMI written to STEP carry their presentation (PLAN §8.28 stage 3,
 `kern/pmi_darstellung.py`; reader places part presentation at the instance in assemblies, `praesentation.in_teillage`

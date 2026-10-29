@@ -1024,8 +1024,13 @@ def _beispiele(f, namen):
             f._kette3d.reject()
         elif b.name == "funktion":
             w = f._funktion
-            assert len(w.rollen) >= 3 and [x.buchstabe for x in w.bezugssystem().bezuege][:2] == ["A", "B"]
+            s = w.bezugssystem()
+            assert len(w.rollen) == 11 and [(x.buchstabe, x.gemeinsam) for x in s.bezuege] == \
+                [("A", "A-B"), ("B", "A-B"), ("C", "")]  # Getriebewelle: gemeinsame Bezugsachse der Lagersitze
             assert f.dock_funktion.isVisible() and "<b>A</b>" in w.bezug_text.text()
+            from PySide6 import QtTest
+            QtTest.QTest.qWait(300)  # Ansicht von vorne erst, wenn die Leiste die 3D-Ansicht verkleinert hat
+            assert f.ansicht.letzte_ansicht == "vorne"
             w.reject()
         elif b.name == "zusammenbau":
             assert len(f.baugruppe.verbindungen) == 2 and f.zusammenbau.wiggle_an.isChecked()
@@ -2729,15 +2734,15 @@ def test_funktion_vorschau_im_3d(fenster):
     assert f.oeffne_beispiel("funktion", warten=True)
     w = f._funktion
     w.sende_vorschau()
-    assert [b for b, _s, _f in f.ansicht.bezugssystem] == ["A", "B", "C"]
+    assert [(b, s) for b, s, _f in f.ansicht.bezugssystem] == [("A", 1), ("B", 1), ("C", 2)]  # A-B gemeinsam
     ids = {p.step_id for p in f._vorschau_pmi}
     assert ids and any(g.pmi_ids & ids for g in f.erg.grafik.values())
     assert all(p.quelle != "vorschau" for p in f.erg.pmi)  # nur angezeigt, nicht angelegt
-    assert "sperrt 3" in w.bezug_text.text() or "locks 3" in w.bezug_text.text()
+    assert "sperrt 4" in w.bezug_text.text() or "locks 4" in w.bezug_text.text()
     w.zonen_knopf.setChecked(True)
     w.sende_vorschau()
     assert f.ansicht.zone_formen
-    for e, rolle in list(w.rollen.items()):  # Verdrehsicherung und Anschlag weg: Drehung um B bleibt offen
+    for e, rolle in list(w.rollen.items()):  # Anschlaege weg: Verschiebung entlang A-B bleibt offen
         if rolle in ("verdrehsicherung", "anschlag"):
             w._rolle_geaendert(e, "frei")
     w.sende_vorschau()

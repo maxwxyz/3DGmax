@@ -266,6 +266,15 @@ def _schreibe_bezug(a: _Anhang, p) -> str | None:
     return None
 
 
+def _bezug_basis(a: _Anhang, name: str) -> str:
+    """Basis eines Abteils im Bezugssystem: der Bezug oder bei 'A-B' eine Liste gemeinsamer Bezugselemente."""
+    teile = name.split("-")
+    if len(teile) == 1:
+        return f"#{a.bezug(name)}"
+    elemente = [a.neu(f"DATUM_REFERENCE_ELEMENT('',$,#{a.pds},.F.,#{a.bezug(n)},$)") for n in teile]
+    return "COMMON_DATUM_LIST((" + ",".join(f"#{e}" for e in elemente) + "))"
+
+
 def _schreibe_toleranz(a: _Anhang, p) -> str | None:
     from .pmi_step import TOL_ARTEN
     entitaet = {v: k for k, v in TOL_ARTEN.items()}.get(p.typ)
@@ -274,7 +283,7 @@ def _schreibe_toleranz(a: _Anhang, p) -> str | None:
     fehler = a.waehle(p.flaechen)
     if fehler:
         return fehler
-    fehlend = [b.name for b in p.bezuege if a.bezug(b.name) is None]
+    fehlend = [n for b in p.bezuege for n in b.name.split("-") if a.bezug(n) is None]
     if fehlend:
         return tr("Bezug {} fehlt in der Datei").format(", ".join(fehlend))
     sa = a.aspekt(p.flaechen)
@@ -283,7 +292,7 @@ def _schreibe_toleranz(a: _Anhang, p) -> str | None:
     betrag = a.mass(p.wert)
     teile = {entitaet: "()"}
     if p.bezuege:
-        abteile = [a.neu(f"DATUM_REFERENCE_COMPARTMENT('',$,#{a.pds},.F.,#{a.bezug(b.name)},$)")
+        abteile = [a.neu(f"DATUM_REFERENCE_COMPARTMENT('',$,#{a.pds},.F.,{_bezug_basis(a, b.name)},$)")
                    for b in sorted(p.bezuege, key=lambda b: b.stelle)]
         system = a.neu(f"DATUM_SYSTEM('',$,#{a.pds},.F.,({','.join(f'#{x}' for x in abteile)}))")
         teile["GEOMETRIC_TOLERANCE_WITH_DATUM_REFERENCE"] = f"((#{system}))"

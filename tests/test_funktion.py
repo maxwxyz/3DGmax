@@ -165,3 +165,148 @@ def test_bezug_vorschau_freiheitsgrade(teil):
     achse = fu._geo(teil, bohrung)["richtung"]
     assert nur.gesperrt == {"A": 4} and sorted(b.art for b in nur.offen) == ["drehung", "verschiebung"]
     assert all(abs(abs(float(b.richtung @ achse)) - 1) < 1e-6 for b in nur.offen)
+
+
+@pytest.fixture(scope="module")
+def welle():
+    """Getriebewelle des Beispiels (werkzeuge/welle.py) mit den Rollen aus kern.beispiele."""
+    from programm.kern import beispiele
+    from programm.ui.lader import lade_alles
+    from tests.conftest import pfad
+    erg = lade_alles(pfad(beispiele.WELLE))
+    return SimpleNamespace(erg=erg, modell=erg.modell, rollen=dict(beispiele.welle_rollen(erg.modell)))
+
+
+def test_welle_generator_und_rollen(welle):
+    """Der Generator erzeugt die mitgelieferte Welle (gueltiger Koerper, gleiche Flaechen); alle Rollen des Beispiels
+    finden ihre Flaeche."""
+    from programm.kern import beispiele
+    from werkzeuge import welle as gen  # Wurzel steht im Suchpfad (conftest)
+    form = gen.welle()
+    neu = SimpleNamespace(flaechen=[f for f in _flaechen(form)])
+    assert len(neu.flaechen) == len(welle.modell.flaechen)
+    assert sorted(beispiele.welle_rollen(neu)) == sorted(welle.rollen.items())
+    assert len(welle.rollen) == len(beispiele.WELLE_ROLLEN)
+    assert sorted(welle.rollen.values()).count("lagersitz") == 2
+
+
+def _flaechen(form):
+    from OCC.Core.TopAbs import TopAbs_FACE
+    from OCC.Core.TopExp import TopExp_Explorer
+    from OCC.Core.TopoDS import topods
+    ex = TopExp_Explorer(form, TopAbs_FACE)
+    while ex.More():
+        yield topods.Face(ex.Current())
+        ex.Next()
+
+
+def _rolle(welle, rolle, **bed):
+    """Erstes Element der Rolle, dessen Geometrie die Bedingungen erfuellt (z. B. d=30)."""
+    for i, r in sorted(welle.rollen.items()):
+        g = fu._geo(welle.modell, i)
+        if r == rolle and all(abs(g[{"d": "groesse"}.get(k, k)] - v) < 1e-6 for k, v in bed.items()):
+            return i
+    raise AssertionError(rolle)
+
+
+def test_welle_gemeinsame_bezugsachse(welle):
+    """Zwei koaxiale Lagersitze -> gemeinsame Bezugsachse A-B (A links, B rechts), die Lagerschulter des Festlagers
+    (groesster Anschlag) wird C; offen bleibt nur die Drehung um die Achse."""
+    from programm.kern import bezug_vorschau as bv
+    m, rollen = welle.modell, welle.rollen
+    lager = sorted((i for i, r in rollen.items() if r == "lagersitz"), key=lambda i: fu._geo(m, i)["mitte"][0])
+    s = fu.bezugssystem(m, rollen)
+    assert [(b.buchstabe, b.flaeche, b.element, b.gemeinsam) for b in s.bezuege[:2]] == \
+        [("A", lager[0], "achse", "A-B"), ("B", lager[1], "achse", "A-B")]
+    c = s.bezuege[2]
+    assert c.buchstabe == "C" and c.element == "ebene" and abs(fu._geo(m, c.flaeche)["mitte"][0] - 70) < 1e-6
+    assert [(r.name, r.stelle) for r in s.drf()] == [("A-B", 1), ("C", 2)] and s.offen == 1
+    v = bv.vorschau(m, s)
+    assert v.gesperrt == {"A": 4, "B": 0, "C": 1} and [b.art for b in v.offen] == ["drehung"]
+    # von Hand: A und B auf die Lagersitze -> ebenfalls gemeinsame Achse
+    hand = fu.bezugssystem(m, rollen, vorgabe={lager[1]: "B", lager[0]: "A"})
+    assert [b.gemeinsam for b in hand.bezuege] == ["A-B", "A-B"] and hand.offen == 2
+    # nur ein Lagersitz: einfache Bezugsachse A
+    einer = fu.bezugssystem(m, {lager[0]: "lagersitz"})
+    assert [(b.buchstabe, b.gemeinsam, b.freiheitsgrade) for b in einer.bezuege] == [("A", "", 4)]
+
+
+def test_welle_tolerierung(welle):
+    """Vorschlaege an der Welle: Lagersitze k6 mit Zylinderform IT5/2 und Rundlauf zu A-B, Lagerschulter Planlauf
+    IT5, Dichtsitz h11 mit Rauheitshinweis, Nabensitze k6 mit Rundlauf, Passfedernut N9 mit Symmetrie, Ringnut
+    h12/H13 mit Lage der tragenden Flanke zu C."""
+    from programm.kern import iso286
+    m, rollen = welle.modell, welle.rollen
+    v = fu.tolerierung(m, rollen)
+    pmi = [x.pmi for x in v]
+
+    def an(i, typ):
+        return [p for p in pmi if p.typ == typ and i in p.flaechen]
+    lager = _rolle(welle, "lagersitz", d=30.0)
+    assert [p.passung for p in an(lager, "Size_Diameter")] == ["k6"]
+    assert an(lager, "Cylindricity")[0].wert == round(iso286.it(5, 30) / 2000, 4)
+    lauf = an(lager, "CircularRunout")[0]
+    assert [b.name for b in lauf.bezuege] == ["A-B"] and lauf.wert == iso286.it(5, 30) / 1000
+    schulter = next(i for i, r in rollen.items() if r == "anschlag" and abs(fu._geo(m, i)["mitte"][0] - 70) < 1e-6)
+    plan = an(schulter, "TotalRunout")[0]
+    assert [b.name for b in plan.bezuege] == ["A-B"] and plan.wert < 0.02
+    nabe_schulter = next(i for i, r in rollen.items() if r == "anschlag" and abs(fu._geo(m, i)["mitte"][0] - 78) < 1e-6)
+    assert an(nabe_schulter, "TotalRunout")[0].wert > plan.wert  # kein Lager daneben: Anschlag IT8
+    dicht = _rolle(welle, "dichtsitz")
+    assert [p.passung for p in an(dicht, "Size_Diameter")] == ["h11"] and an(dicht, "CircularRunout")
+    assert "drallfrei" in an(dicht, "Note")[0].nur_grafik_text
+    for d in (20.0, 36.0):
+        nabe = _rolle(welle, "nabensitz", d=d)
+        assert [p.passung for p in an(nabe, "Size_Diameter")] == ["k6"] and an(nabe, "CircularRunout")
+    nuten = sorted((i for i, r in rollen.items() if r == "passfedernut"), key=lambda i: fu._geo(m, i)["mitte"][0])
+    for i, b in zip(nuten, (6.0, 10.0)):
+        nut = fu.passfedernut(m, i)
+        assert nut and not nut["nabe"] and abs(nut["breite"] - b) < 1e-6
+        waende = set(nut["waende"])
+        breite = next(p for p in pmi if p.typ == "Size_Thickness" and p.flaechen == waende)
+        sym = next(p for p in pmi if p.typ == "Symmetry" and p.flaechen == waende)
+        assert breite.passung == "N9" and abs(breite.nennwert - b) < 1e-6 and [x.name for x in sym.bezuege] == ["A-B"]
+    ring = _rolle(welle, "sicherungsringnut")
+    assert [p.passung for p in an(ring, "Size_Diameter")] == ["h12"]
+    nut = fu.ringnut(m, ring)
+    assert abs(nut["breite"] - 1.6) < 1e-6
+    assert next(p for p in pmi if p.typ == "Size_Thickness" and p.flaechen == set(nut["flanken"])).passung == "H13"
+    lage = next(p for p in pmi if p.typ == "Location_LinearDistance")
+    assert abs(lage.nennwert - 16) < 1e-6 and lage.unten == 0 and lage.oben > 0 and schulter in lage.flaechen
+    assert {p.name for p in pmi if p.art == BEZUG} == {"A", "B", "C"}
+    # eigene Werte: Passung der Passfedernut (Breite) und Toleranz des Lagersitzes
+    w = fu.tolerierung(m, rollen, werte={nuten[0]: {"passung": "P9"}, lager: {"toleranz": 0.005}})
+    assert next(x.pmi for x in w if x.pmi.typ == "Size_Thickness" and x.pmi.flaechen == set(
+        fu.passfedernut(m, nuten[0])["waende"])).passung == "P9"
+    assert {x.pmi.wert for x in w if lager in x.pmi.flaechen and x.pmi.art == TOLERANZ} == {0.005}
+    assert fu.startwerte(m, nuten[0], "passfedernut")["passung"] == "N9"
+    assert fu.startwerte(m, schulter, "anschlag", rollen=rollen)["lage"] == plan.wert
+
+
+def test_welle_zonen_und_step(welle, tmp_path):
+    """Gemeinsamer Bezug A-B: Laufzone um die Achse beider Lagersitze, Schreiben als COMMON_DATUM_LIST und wieder
+    gelesen als "A-B"; Callouts der Vorschlaege in der Ebene durch die Achse, ueber bzw. unter der Welle."""
+    import numpy as np
+    from programm.kern import pmi_erzeugen as pe, step_schreiben as sw, toleranzzone as tz
+    from programm.ui.lader import lade_alles
+    from tests.conftest import pfad
+    m, rollen = welle.modell, welle.rollen
+    pmi = [x.pmi for x in fu.tolerierung(m, rollen)]
+    for k, p in enumerate(pmi, 1):
+        p.quelle, p.nummer, p.step_id = "eigen", k, -3000 - k
+    dicht = _rolle(welle, "dichtsitz")
+    lauf = next(p for p in pmi if p.typ == "CircularRunout" and dicht in p.flaechen)
+    achse = tz.bezugsachse(lauf, m, pmi)
+    assert achse is not None and achse[4] == "A-B" and achse[2] > 70  # ueber beide Lagersitze
+    assert tz.zone(lauf, m, 0.01, pmi) is not None
+    neu = pe.ergaenze(pmi, {}, m, [])
+    for g in neu.values():
+        if any(fu._geometrie(m.flaechen[i])["art"] == "zylinder" for p in pmi if p.step_id in g.pmi_ids
+               for i in p.flaechen) and g.platzhalter:
+            assert abs(abs(float(g.ebene[3] @ np.array([0, 1.0, 0]))) - 1) < 1e-9  # Ebene XZ durch die Achse
+    ziel = str(tmp_path / "welle.stp")
+    b = sw.schreibe(pfad("getriebewelle.stp"), ziel, pmi, m)
+    geschrieben = {p.nummer for p in pmi if p.art in (TOLERANZ, BEZUG)} - {n for n, _, _ in b.uebersprungen}
+    assert lauf.nummer in geschrieben, b.uebersprungen
+    gelesen = [p for p in lade_alles(ziel).pmi if p.typ == "CircularRunout"]
+    assert gelesen and all([x.name for x in p.bezuege] == ["A-B"] for p in gelesen)

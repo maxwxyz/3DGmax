@@ -18,7 +18,15 @@ ROLLEN_HILFE = {
     "presssitz": "Fest gefügte Verbindung (Übermaßpassung H7/p6)",
     "verdrehsicherung": "Stift oder Bohrung gegen Verdrehen (Übergangspassung H7/m6, Position mit Ⓜ)",
     "dichtung": "Dichtfläche (Ebenheit, Rauheit, drallfrei)",
-    "anschlag": "Anschlag, der eine Richtung begrenzt (Flächenprofil zum Bezugssystem)",
+    "anschlag": "Anschlag, der eine Richtung begrenzt (Flächenprofil zum Bezugssystem; an Wellen Planlauf)",
+    "lagersitz": "Sitz eines Wälzlagers (Welle k6, Gehäuse H7, Zylinderform, Rundlauf) – zwei koaxiale Lagersitze "
+                 "bilden die gemeinsame Bezugsachse A-B",
+    "dichtsitz": "Lauffläche eines Radialwellendichtrings (Welle h11, Gehäuse H8, Rundlauf, Rauheit, drallfrei)",
+    "nabensitz": "Sitz einer Nabe, z. B. Zahnrad oder Kupplung mit Passfeder (H7/k6, Rundlauf zur Bezugsachse)",
+    "passfedernut": "Nutgrund einer Passfedernut wählen: Breite N9 (Welle) bzw. JS9 (Nabe), Symmetrie zur "
+                    "Bezugsachse",
+    "sicherungsringnut": "Nutgrund einer Sicherungsringnut wählen: Nutdurchmesser und -breite H13, Lage der Flanke "
+                         "zum Anschlag",
     "frei": "Ohne Funktion – Allgemeintoleranz genügt",
 }
 
@@ -220,7 +228,7 @@ class FunktionFenster(QtWidgets.QDialog):
             art = "" if g is None else (tr("Ebene") if g["art"] == "ebene" else
                                         tr("Bohrung ⌀{:g}").format(round(g["groesse"], 3)) if g["bohrung"] else
                                         tr("Zapfen ⌀{:g}").format(round(g["groesse"], 3)))
-            start = fu.startwerte(self.modell, i, rolle, self.gruppen) if self.modell is not None else {}
+            start = fu.startwerte(self.modell, i, rolle, self.gruppen, self.rollen) if self.modell is not None else {}
             w = self.werte.get(i, {})
             flaechen = " + ".join(str(x) for x in self.flaechen(i))
             for s, text in enumerate((flaechen, art)):
@@ -247,7 +255,7 @@ class FunktionFenster(QtWidgets.QDialog):
             bezug.currentIndexChanged.connect(lambda _k, e=i, b=bezug: self._bezug_geaendert(e, b.currentData()))
             t.setItem(z, self.SP_BEZUG, QtWidgets.QTableWidgetItem(""))
             t.setCellWidget(z, self.SP_BEZUG, bezug)
-            zylinder = g is not None and g["art"] == "zylinder"
+            passbar = g is not None and (g["art"] == "zylinder" or bool(start.get("passung")))  # auch Nutbreite
             for s, eigen, auto, hilfe in (
                     (self.SP_PASSUNG, w.get("passung"), start.get("passung", ""),
                      tr("Toleranzklasse nach ISO 286, z. B. H7 oder g6; leer = aus der Funktion ({})")),
@@ -256,9 +264,9 @@ class FunktionFenster(QtWidgets.QDialog):
                         "({})"))):
                 it = QtWidgets.QTableWidgetItem("" if eigen is None else (f"{eigen:g}" if s == self.SP_TOLERANZ
                                                                          else eigen))
-                if s == self.SP_PASSUNG and not zylinder:
+                if s == self.SP_PASSUNG and not passbar:
                     it.setFlags(it.flags() & ~QtCore.Qt.ItemFlag.ItemIsEditable)
-                    it.setToolTip(tr("Passungen nur an Zylindern"))
+                    it.setToolTip(tr("Passungen nur an Zylindern und Nutbreiten"))
                 else:
                     it.setBackground(AENDERBAR_FARBE)
                     if eigen is None:  # Startwert grau anzeigen; Eingabe ersetzt ihn
@@ -299,7 +307,7 @@ class FunktionFenster(QtWidgets.QDialog):
             return
         erste = it.data(QtCore.Qt.ItemDataRole.UserRole)
         text = it.text().strip()
-        start = fu.startwerte(self.modell, erste, self.rollen.get(erste, "frei"), self.gruppen)
+        start = fu.startwerte(self.modell, erste, self.rollen.get(erste, "frei"), self.gruppen, self.rollen)
         w = self.werte.setdefault(erste, {})
         if it.column() == self.SP_PASSUNG:
             w.pop("passung", None)
@@ -351,7 +359,8 @@ class FunktionFenster(QtWidgets.QDialog):
         s = self.bezugssystem()
         v = bv.vorschau(self.modell, s, self.gruppen)
         self._zeige_bezug_text(s, v)
-        return {"bezuege": [(b.buchstabe, "ABC".index(b.buchstabe) + 1, set(self.flaechen(b.flaeche)))
+        stelle = [r.name for r in s.drf()]  # gemeinsamer Bezug A-B: beide an erster Stelle
+        return {"bezuege": [(b.buchstabe, stelle.index(b.name) + 1, set(self.flaechen(b.flaeche)))
                             for b in s.bezuege],
                 "offen": v.offen, "vorschlaege": fu.tolerierung(self.modell, self.rollen, s, self.gruppen, self.werte),
                 "zonen": self.zonen_knopf.isChecked()}

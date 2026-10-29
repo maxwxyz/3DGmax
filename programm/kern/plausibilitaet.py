@@ -112,11 +112,12 @@ def bezugssystem(pmi, modell) -> list:
         return out
     bezuege = {p.name: p for p in pmi if p.art == "bezug" and p.typ == "Datum"}
 
-    def geometrie(name):
-        b = bezuege.get(name)
-        if b is None:
+    def geometrie(name):  # gemeinsamer Bezug A-B: Flaechen beider Elemente
+        teile = [bezuege.get(n) for n in name.split("-")]
+        if None in teile:
             return None
-        flaechen = [modell.flaechen[i] for i in sorted(b.flaechen) if i < len(modell.flaechen)]
+        idx = set().union(*(b.flaechen for b in teile))
+        flaechen = [modell.flaechen[i] for i in sorted(idx) if i < len(modell.flaechen)]
         achsen = tz._achsen(flaechen)
         if achsen:
             return "achse", achsen[0][1]

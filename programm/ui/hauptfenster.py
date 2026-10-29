@@ -1352,26 +1352,17 @@ class Hauptfenster(QtWidgets.QMainWindow):
         return True
 
     def _beispiel_funktion(self):
-        """FTC-10: groesste ebene Flaeche als Auflage, groesste Bohrung senkrecht dazu als Zentrierung, eine weitere
-        Bohrung als Verdrehsicherung, eine Seitenflaeche als Anschlag; Bezuege vorschlagen."""
-        from ..kern import funktion as fu
-        m = self.erg.modell
-        geo = {i: g for i in range(len(m.flaechen)) if (g := fu._geometrie(m.flaechen[i])) is not None}
-        ebenen = sorted((i for i in geo if geo[i]["art"] == "ebene"), key=lambda i: -geo[i]["inhalt"])
-        auflage = ebenen[0]
-        n = geo[auflage]["richtung"]
-        bohrungen = sorted((i for i in geo if geo[i]["art"] == "zylinder" and geo[i]["bohrung"]
-                            and fu._parallel(geo[i]["richtung"], n)), key=lambda i: -geo[i]["groesse"])
-        seite = next((i for i in ebenen if fu._senkrecht(geo[i]["richtung"], n)), None)
+        """Getriebewelle: Rollen aus kern.beispiele (Lagersitze, Schultern, Sitze, Nuten); Bezuege vorschlagen."""
+        from ..kern import beispiele
         w = self.zeige_funktion()
-        w.setze_rolle([auflage], "auflage")
-        if bohrungen:
-            w.setze_rolle([bohrungen[0]], "zentrierung")
-        if len(bohrungen) > 1:
-            w.setze_rolle([bohrungen[-1]], "verdrehsicherung")
-        if seite is not None:
-            w.setze_rolle([seite], "anschlag")
+        for i, rolle in beispiele.welle_rollen(self.erg.modell):
+            w.setze_rolle([i], rolle)
         w.zeige_bezuege()
+        w.sende_vorschau()  # sofort, damit die Ansicht auf Teil und Angaben passt
+        # Angaben stehen in der Ebene durch die Achse: von vorne wie in der Zeichnung lesbar; erst einpassen, wenn die
+        # Leiste die 3D-Ansicht verkleinert hat
+        QtCore.QTimer.singleShot(150, lambda: self.ansicht.standard(
+            "vorne", {p.step_id for p in getattr(self, "_vorschau_pmi", [])}))
 
     def _beispiel_zonen(self):
         from ..kern.toleranzzone import Allgemein

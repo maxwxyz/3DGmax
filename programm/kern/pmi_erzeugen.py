@@ -10,6 +10,9 @@ Stufe 2 (PLAN §8.16):
 Stufe 3: Abstands- und Dickenmasse zwischen zwei parallelen Ebenen als Masslinie mit Masshilfslinien und Pfeilen
 ausserhalb des Modells (Schreibebene enthaelt die Massrichtung, Text ueber der Masslinie in Leserichtung); Hinweislinien
 enden mit Pfeil am naechsten Punkt der Flaeche statt am Flaechenschwerpunkt (bei Bohrungen sonst auf der Achse).
+Drehteile (Modell entlang einer Achse mindestens doppelt so lang wie quer): Angaben an Elementen auf dieser Achse
+(Zylinder, Planflaechen) stehen wie in der Zeichnung in der Ebene durch die Achse und quer zur Achse ueber bzw. unter
+dem Teil, statt im Querschnitt (dort lagen sie im Gesamtbild alle hintereinander).
 Alles ist als 'erzeugt' markiert (eigene Farbe), damit es nie mit der Darstellung des Autors verwechselt wird.
 """
 
@@ -261,6 +264,7 @@ def ergaenze(pmi: list, grafik: dict, modell, ansichten: list | None = None) -> 
     diag = float(np.linalg.norm(hi - lo)) or 1.0
     h = diag / 70
     quader = np.array([[x, y, z] for x in (lo[0], hi[0]) for y in (lo[1], hi[1]) for z in (lo[2], hi[2])])
+    welle = _wellenachse(hi - lo)
     belegt: list[np.ndarray] = [np.array(g.grenzen()) for g in grafik.values() if g.erzeugt and g.grenzen()]
     neu = {}
     for i, p in enumerate(offen, 1):
@@ -274,9 +278,16 @@ def ergaenze(pmi: list, grafik: dict, modell, ansichten: list | None = None) -> 
                 neu[-i] = g
                 continue
         ansicht = next((a for a in (ansichten or []) if p.step_id in a.pmi_ids and not a.eigen), None)
-        x, y, n = ansicht_ebene(ansicht) if ansicht is not None else modell_ebene(_richtung_element(flaechen))
+        richtung = _richtung_element(flaechen)
+        drehteil = ansicht is None and welle is not None and richtung is not None and abs(richtung[welle]) > 0.9999
+        x, y, n = ansicht_ebene(ansicht) if ansicht is not None else \
+            modell_ebene(ACHSEN[1 if welle != 1 else 0] if drehteil else richtung)
         raus = anker - mitte
         raus = raus - n * (raus @ n)  # in der Ebene nach aussen
+        if drehteil:  # quer zur Achse; Elemente auf der Achse abwechselnd ueber und unter das Teil
+            raus = raus - ACHSEN[welle] * raus[welle]
+            if np.linalg.norm(raus) < 1e-6 * diag:
+                raus = y * (1.0 if i % 2 else -1.0)
         if np.linalg.norm(raus) < 1e-6 * diag:
             raus = x.copy()
         raus = raus / np.linalg.norm(raus)
@@ -302,6 +313,13 @@ def ergaenze(pmi: list, grafik: dict, modell, ansichten: list | None = None) -> 
                 _pfeil(g, spitze, spitze - andock, 0.8 * h)
         neu[-i] = g
     return neu
+
+
+def _wellenachse(groesse) -> int | None:
+    """Index der Modellachse, entlang der das Modell mindestens doppelt so lang ist wie quer (Drehteil), sonst None."""
+    k = int(np.argmax(groesse))
+    quer = max(groesse[j] for j in range(3) if j != k)
+    return k if groesse[k] >= 2 * quer > 0 else None
 
 
 def _platz(rahmen: _Rahmen, start, raus, x, y, quader, belegt, h) -> np.ndarray:
