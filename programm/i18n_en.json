@@ -2005,5 +2005,7 @@
 "Eine geschlossene Kette braucht drei (Lage) oder sechs (Lage und Drehung) freie Komponenten – gewählt: {}": "A closed chain needs three (position) or six (position and rotation) free components – selected: {}",
 "Schlussgröße „freie Komponente“ braucht so viele freie Komponenten": "Closing quantity “free component” needs that many free components",
 "Gleitender Kontakt: die Komponente ergibt sich aus der geschlossenen Kette (drei freie Komponenten schließen die Lage, sechs auch die Drehung)": "Sliding contact: the component follows from the closed chain (three free components close the position, six also the rotation)",
-"Keil: Höhe aus gleitendem Kontakt (geschlossene Kette)": "Wedge: height from a sliding contact (closed chain)"
+"Keil: Höhe aus gleitendem Kontakt (geschlossene Kette)": "Wedge: height from a sliding contact (closed chain)",
+"Alle Verfahren": "All methods",
+"Alle Verfahren im Histogramm überlagern: Worst Case als Band, statistisch als Kurve, Monte Carlo als Histogramm": "Overlay all methods in the histogram: worst case as a band, statistical as a curve, Monte Carlo as a histogram"
 }

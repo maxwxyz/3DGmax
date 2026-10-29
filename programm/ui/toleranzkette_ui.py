@@ -563,8 +563,9 @@ class ToleranzketteFenster(QtWidgets.QDialog):
         self.ampel.setMinimumWidth(160)
         self.ampel.setMaximumWidth(520)
         self.ampel.setTextFormat(QtCore.Qt.TextFormat.RichText)
-        self.alle_ueberlagern = QtWidgets.QCheckBox(tr("Alle Verfahren im Histogramm überlagern"))
-        self.alle_ueberlagern.setToolTip(tr("Worst Case als Band, statistisch als Kurve, Monte Carlo als Histogramm"))
+        self.alle_ueberlagern = QtWidgets.QCheckBox(tr("Alle Verfahren"))  # kurz: Kaestchentext bricht nicht um
+        self.alle_ueberlagern.setToolTip(tr("Alle Verfahren im Histogramm überlagern: Worst Case als Band, statistisch "
+                                            "als Kurve, Monte Carlo als Histogramm"))
         self.alle_ueberlagern.setChecked(True)  # Vorgabe: alle Verfahren; eine Ergebniszeile waehlt eines
         self.alle_ueberlagern.toggled.connect(lambda _an: self._zeige_histogramm())
         links = QtWidgets.QVBoxLayout()
