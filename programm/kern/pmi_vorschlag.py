@@ -182,7 +182,7 @@ def _abgleich(out: list[Vorschlag], pmi: list):
         if gleich is not None:
             v.vorhanden = True
             v.hinweis = tr("schon vorhanden: {}").format(gleich.wert_text())
-        fehlt = [b.name for b in v.pmi.bezuege if b.name not in merkmale]
+        fehlt = [b.name for b in v.pmi.bezuege if not set(b.name.split("-")) <= merkmale]  # auch gemeinsam A-B
         if fehlt and not v.vorhanden:
             v.hinweis = tr("Bezug {} hat noch kein Bezugselement").format(", ".join(fehlt))
 

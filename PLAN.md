@@ -459,6 +459,19 @@ IT grade, shown greyed), "Flächen aus Auswahl" swaps the faces of a feature kee
 feature sums the area and spans all faces (`_geo`); stored in the project (old role-only format still read).
 Found on the way: position/perpendicularity envelopes were full cylinders around the axis even for a half shell –
 now offset copies of the actual faces (`_eine_achse`).
+**Done 2026-10-29 (user request): shaft example and common datum.** The example "Funktion → Tolerierung" uses a
+generated gearbox shaft (`werkzeuge/welle.py` → `tests/daten/getriebewelle.stp`, roles in
+`kern/beispiele.WELLE_ROLLEN`) instead of NIST FTC-10, which was too complex to show the idea. Two coaxial bearing seats form the common datum axis
+A-B (ISO 5459; datum features A and B, frame entry "A-B", 4 DOF; also when A and B are set by hand on two bearing
+seats), a stop along the axis becomes C. New roles: bearing seat (k6/H7 for rotating inner-ring load, cylindricity
+IT5/2 and runout IT5 per bearing manufacturers' seat recommendations), seal seat for radial shaft seals (h11/H8,
+Ra 0.2…0.8 µm, Rz 1…4 µm, lead-free – DIN 3760 / seal manufacturers), hub seat (H7/k6), keyway (select the bottom:
+walls found via shared edges, width N9 shaft / JS9 hub per DIN 6885-1, symmetry IT9 to A-B) and retaining ring
+groove (select the bottom: groove diameter h10/h11/h12 by size – start value, check the DIN 471/472 table; width H13;
+loaded flank to stop C with +IT11 so bearing and ring always fit). On turned parts (primary datum = axis): coaxial
+seats get circular runout to A-B, stops perpendicular to the axis total axial runout (IT5 next to a bearing seat).
+Generated PMI on long turned parts are written in the axial plane, above/below the part (`pmi_erzeugen._wellenachse`);
+"A-B" resolves in zones (`toleranzzone._bezug_flaechen`), plausibility and is written to STEP as COMMON_DATUM_LIST.
 
 **Done 2026-10-28 (plan item 3): wiggle of the closing faces.** `kern/schluss_wiggle.py`: closing faces = first face
 of the first and last face of the last link with faces (direction from the first link, oriented so the closing size

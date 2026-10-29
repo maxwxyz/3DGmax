@@ -284,10 +284,11 @@ class AnsichtBasis(QtWidgets.QWidget):
     def darstellung(self, modus: str):
         self.modus = modus
 
-    def standard(self, name: str):
+    def standard(self, name: str, pmi_ids: set | None = None):
+        """Standardansicht, eingepasst auf die Teile (und die Grafik der PMI pmi_ids)."""
         self.letzte_ansicht = name
 
-    def alles_zeigen(self):
+    def alles_zeigen(self, pmi_ids: set | None = None):
         pass
 
     def kamera(self, ansicht):
@@ -2021,8 +2022,8 @@ class OcctAnsicht(AnsichtBasis):
 
     # --- Kamera ---
 
-    def standard(self, name):
-        super().standard(name)
+    def standard(self, name, pmi_ids=None):
+        super().standard(name, pmi_ids)
         if not self._bereit:
             return
         from OCC.Core import V3d
@@ -2031,7 +2032,7 @@ class OcctAnsicht(AnsichtBasis):
                     "iso": V3d.V3d_XposYnegZpos}[name]
         def aendern():
             self.d.View.SetProj(richtung)
-            self.alles_zeigen()
+            self.alles_zeigen(pmi_ids)
         self._mit_fahrt(aendern)
         self._kamera_bewegt()
 
@@ -2047,13 +2048,18 @@ class OcctAnsicht(AnsichtBasis):
                 brepbndlib.Add(ais.Shape().Moved(lage) if lage is not None else ais.Shape(), box)
         return box
 
-    def alles_zeigen(self):
-        """Auf die sichtbaren Teile einpassen (PMI-Beschriftungen ragen oft weit hinaus)."""
+    def alles_zeigen(self, pmi_ids=None):
+        """Auf die sichtbaren Teile einpassen (PMI-Beschriftungen ragen oft weit hinaus); pmi_ids: deren Grafik mit
+        einpassen."""
         if not self._bereit:
             return
         if self._drehpunkt is not None:
             self.drehpunkt_zuruecksetzen(melden=False)  # neuer Ausschnitt: Drehen wieder um die Bildmitte
         box = self._sichtbare_box()
+        if pmi_ids:
+            from OCC.Core.BRepBndLib import brepbndlib
+            for f in self._auswahl_formen(set(), None, pmi_ids):
+                brepbndlib.Add(f, box)
         if box.IsVoid():
             self.d.View.FitAll(0.05, False)
         else:

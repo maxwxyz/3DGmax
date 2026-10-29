@@ -13,6 +13,14 @@ from dataclasses import dataclass
 
 CTC01 = "nist_ctc_01_asme1_ap242-e1.stp"
 FTC10 = "nist_ftc_10_asme1_ap242-e2.stp"
+WELLE = "getriebewelle.stp"  # werkzeuge/welle.py
+# Funktion der Flaechen der Getriebewelle: (Rolle, Art, x der Flaechenmitte, Durchmesser bzw. Normale)
+WELLE_ROLLEN = (("lagersitz", "zylinder", 62.0, 30.0), ("lagersitz", "zylinder", 126.5, 30.0),
+                ("anschlag", "ebene", 70.0, (1, 0, 0)), ("anschlag", "ebene", 78.0, (1, 0, 0)),
+                ("anschlag", "ebene", 118.0, (1, 0, 0)), ("sicherungsringnut", "zylinder", 53.2, 28.6),
+                ("dichtsitz", "zylinder", 44.75, 25.0), ("nabensitz", "zylinder", 18.5, 20.0),
+                ("nabensitz", "zylinder", 98.0, 36.0), ("passfedernut", "ebene", 18.0, (0, 0, 1)),
+                ("passfedernut", "ebene", 98.0, (0, 0, 1)))
 
 
 @dataclass(frozen=True)
@@ -30,9 +38,9 @@ BEISPIELE = (
              "NIST FTC-10: Befunde zu Bezügen, Vollständigkeit und Widersprüchen – Doppelklick wählt PMI bzw. Flächen",
              (FTC10,)),
     Beispiel("funktion", "Funktion → Tolerierung",
-             "NIST FTC-10: Auflage, Zentrierung, Verdrehsicherung und Anschlag sind zugeordnet – Bezüge A|B|C "
-             "vorgeschlagen; Rollen, Bezüge, Passungen und Toleranzen in der Tabelle ändern, dann „Tolerierung "
-             "vorschlagen …“", (FTC10,)),
+             "Getriebewelle: zwei Lagersitze (gemeinsame Bezugsachse A-B), Schultern, Dichtsitz, Nabensitze mit "
+             "Passfedernut und Sicherungsringnut sind zugeordnet; Rollen, Bezüge, Passungen und Toleranzen in der "
+             "Tabelle ändern, dann „Tolerierung vorschlagen …“", (WELLE,)),
     Beispiel("messen", "Messen",
              "NIST CTC-01: Messen ist an (Abstand) – zwei Elemente im Modell anklicken; Winkel, Radius, Wandstärke "
              "und Koordinaten in der Leiste Messen", (CTC01,)),
@@ -83,6 +91,24 @@ BEISPIELE = (
              "Zwei Stände einer Baugruppe: Teile verschoben, geändert, hinzugekommen", ("baugruppe.stp",
                                                                                            "baugruppe_b.stp")),
 )
+
+
+def welle_rollen(modell) -> list[tuple[int, str]]:
+    """Beispiel Funktion -> Tolerierung: (Flaeche, Rolle) der Getriebewelle nach WELLE_ROLLEN."""
+    import numpy as np
+    from . import funktion as fu
+    out = []
+    for i, f in enumerate(modell.flaechen):
+        g = fu._geometrie(f)
+        if g is None:
+            continue
+        for rolle, art, x, kennung in WELLE_ROLLEN:
+            if g["art"] != art or abs(g["mitte"][0] - x) > 0.6:
+                continue
+            if art == "zylinder" and abs(g["groesse"] - kennung) < 0.01 or \
+                    art == "ebene" and abs(abs(float(g["richtung"] @ np.array(kennung))) - 1) < 1e-6:
+                out.append((i, rolle))
+    return out
 
 
 def ordner() -> list[str]:

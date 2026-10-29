@@ -491,7 +491,9 @@ def _bonus(material: str, innen: bool, d: float, dmin: float, dmax: float) -> fl
 # --- Bezugssystem ---
 
 def _bezug_flaechen(name: str, alle_pmi) -> set[int]:
-    return {i for q in alle_pmi or [] if q.art == "bezug" and q.typ == "Datum" and q.name == name for i in q.flaechen}
+    """Flaechen eines Bezugs; ein gemeinsamer Bezug 'A-B' vereinigt beide Bezugselemente."""
+    teile = set(name.split("-"))
+    return {i for q in alle_pmi or [] if q.art == "bezug" and q.typ == "Datum" and q.name in teile for i in q.flaechen}
 
 
 def bezugsachse(p, modell, alle_pmi):
