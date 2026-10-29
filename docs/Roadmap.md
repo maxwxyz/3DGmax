@@ -97,6 +97,7 @@
 | Function → tolerancing for shafts: gearbox shaft example (generated, licence-free), common datum axis A-B from two bearing seats, roles bearing seat / seal seat / hub seat / keyway / retaining ring groove, runout and symmetry proposals, annotations in the axial plane; common datums in zones and STEP | ✅ |
 | Stack-up: build chains by hand without a model ("＋ Glied", editable cells) | ✅ |
 | Stack-up tables readable: columns sized from header, text and cell widgets, numbers right-aligned (1D/2D/3D) | ✅ |
+| Tables: hovering never selects a row (only click or keyboard); middle mouse button scrolls like a web browser in all tables, lists and panels | ✅ |
 | One control height and frame style for all buttons, drop-downs, number and text fields in every window (theme), checked by a GUI test | ✅ |
 | 2D vector-loop chains by hand with guided fields, sketch, linear (DLM) and non-linear Monte Carlo, handover to the 1D window (PLAN §8.33) | ✅ |
 | 3D chains by hand: positions with six toleranced components, guided editor, templates, shown in the model, linear and non-linear, handover to the 1D window (PLAN §8.33) | ✅ |

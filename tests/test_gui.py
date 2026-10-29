@@ -2504,6 +2504,128 @@ def test_mausrad_zellfelder_nie_auch_nach_klick(fenster):
         t.setMaximumHeight(16777215)
 
 
+
+def _zellfeld_tabellen(f):
+    """Tabellen mit Feldern in den Zellen: Funktion → Tolerierung, Toleranzkette, 2D-Kette."""
+    assert f.oeffne_beispiel("funktion", warten=True)
+    tabellen = [f.zeige_funktion().tabelle]
+    assert f.oeffne_beispiel("kette_getriebe", warten=True)
+    k2 = f.zeige_kette2d()
+    k2.lade_vorlage("hebel")
+    tabellen += [f.zeige_toleranzkette().tabelle, k2.tabelle]
+    QtWidgets.QApplication.instance().processEvents()
+    return tabellen
+
+
+def _zellfelder(t):
+    return [w for z in range(t.rowCount()) for s in range(t.columnCount()) if (w := t.cellWidget(z, s)) is not None]
+
+
+def test_ueberfahren_von_zellfeldern_waehlt_keine_zeile(fenster):
+    """Ueberfahren, Rad und Fokus ohne Klick (Fensterwechsel, Code, Rad) ueber Auswahllisten und Zahlenfeldern in
+    Tabellenzellen aendern weder Auswahl noch aktuelle Zelle (Regression: Hovern waehlte die Zeile); Tab und Klick
+    waehlen die Zeile wie gewohnt."""
+    from PySide6 import QtGui
+    from PySide6.QtTest import QTest
+    app = QtWidgets.QApplication.instance()
+    grund = QtCore.Qt.FocusReason
+    for t in _zellfeld_tabellen(fenster):
+        felder = [w for w in _zellfelder(t) if t.indexAt(w.geometry().center()).row() > 0]
+        assert felder, t
+        t.setFocus()
+        t.selectRow(0)
+        app.processEvents()
+        vorher = (sorted((i.row(), i.column()) for i in t.selectedIndexes()), t.currentIndex().row())
+        signale = []
+        t.itemSelectionChanged.connect(lambda s=signale: s.append(1))
+        for w in felder[:6]:
+            mitte = QtCore.QPointF(w.rect().center())
+            app.sendEvent(w, QtGui.QEnterEvent(mitte, mitte, QtCore.QPointF(w.mapToGlobal(mitte))))
+            global_ = QtCore.QPointF(w.mapToGlobal(mitte))
+            app.sendEvent(w, QtGui.QHoverEvent(QtCore.QEvent.Type.HoverMove, mitte, global_, mitte))
+            QTest.mouseMove(w, mitte.toPoint())
+            app.sendEvent(w, QtGui.QWheelEvent(mitte, w.mapToGlobal(mitte), QtCore.QPoint(), QtCore.QPoint(0, -120),
+                                               QtCore.Qt.MouseButton.NoButton, QtCore.Qt.KeyboardModifier.NoModifier,
+                                               QtCore.Qt.ScrollPhase.NoScrollPhase, False))
+            for g in (grund.MouseFocusReason, grund.ActiveWindowFocusReason, grund.OtherFocusReason,
+                      grund.PopupFocusReason):  # Rad bzw. Fensterwechsel geben den Fokus ohne Klick
+                w.setFocus(g)
+                app.processEvents()
+                assert (sorted((i.row(), i.column()) for i in t.selectedIndexes()), t.currentIndex().row()) == vorher, \
+                    (t, w, g)
+            t.setFocus()  # auch der Weg aus der Tabelle in ein Zellfeld
+        assert not signale, t
+        w = felder[0]
+        zeile = t.indexAt(w.geometry().center()).row()
+        w.setFocus(grund.TabFocusReason)  # Tastatur waehlt wie gewohnt
+        app.processEvents()
+        assert t.currentIndex().row() == zeile and signale
+        t.clearSelection()
+    spin = next(w for w in _zellfelder(t) if isinstance(w, QtWidgets.QAbstractSpinBox))
+    t.setFocus()
+    t.selectRow(0)
+    QTest.mouseClick(spin, QtCore.Qt.MouseButton.LeftButton, pos=spin.rect().center())  # Klick waehlt die Zeile
+    app.processEvents()
+    assert t.currentIndex().row() == t.indexAt(spin.geometry().center()).row()
+
+
+def _maus(w, typ, knopf, knoepfe, pos=None):
+    from PySide6 import QtGui
+    p = QtCore.QPointF(pos if pos is not None else w.rect().center())
+    QtWidgets.QApplication.sendEvent(w, QtGui.QMouseEvent(typ, p, QtCore.QPointF(w.mapToGlobal(p)), knopf, knoepfe,
+                                                          QtCore.Qt.KeyboardModifier.NoModifier))
+
+
+def test_mittlere_taste_rollt_wie_im_browser(fenster):
+    """Mittlere Taste in einer Tabelle (auch ueber einem Zellfeld): Marke am Anker, Rollen in beide Richtungen mit
+    dem Abstand der Maus, Loslassen nach dem Ziehen beendet; ein kurzer Klick laesst es an bis zum naechsten Klick
+    (der nichts waehlt). Nicht in der 3D-Ansicht."""
+    from PySide6 import QtGui
+    from programm.ui import autorollen
+    app = QtWidgets.QApplication.instance()
+    r = app._autorollen
+    typ, knopf = QtCore.QEvent.Type, QtCore.Qt.MouseButton
+    for t in _zellfeld_tabellen(fenster):
+        t.setMaximumSize(260, 3 * t.rowHeight(0) + t.horizontalHeader().height())  # rollt in beide Richtungen
+        app.processEvents()
+        hoch, quer = t.verticalScrollBar(), t.horizontalScrollBar()
+        assert hoch.maximum() > 0 and quer.maximum() > 0, t
+        hoch.setValue(0)
+        quer.setValue(0)
+        t.selectRow(0)
+        vorher = sorted(i.row() for i in t.selectedIndexes())
+        w = next(w for w in _zellfelder(t) if w.geometry().intersects(t.viewport().rect()))
+        _maus(w, typ.MouseButtonPress, knopf.MiddleButton, knopf.MiddleButton)
+        assert r.bereich is t and r.marke is not None and r.marke.isVisible()
+        if getattr(t, "_feste_spalte", None) is not None:  # ueber der festen Spalte rollt die Tabelle
+            assert autorollen.rollbereich(t._feste_spalte.viewport()) is t
+        assert app.overrideCursor().shape() == QtCore.Qt.CursorShape.SizeAllCursor
+        anker = r.anker
+        QtGui.QCursor.setPos(anker + QtCore.QPoint(5, 5))  # im ruhigen Bereich: steht
+        for _ in range(10):
+            r.takt()
+        assert (hoch.value(), quer.value()) == (0, 0)
+        QtGui.QCursor.setPos(anker + QtCore.QPoint(120, 120))
+        for _ in range(60):
+            r.takt()
+        assert hoch.value() > 0 and quer.value() > 0, t
+        QtGui.QCursor.setPos(anker + QtCore.QPoint(-120, -120))  # zurueck nach oben links
+        for _ in range(200):
+            r.takt()
+        assert (hoch.value(), quer.value()) == (0, 0)
+        _maus(w, typ.MouseButtonRelease, knopf.MiddleButton, knopf.NoButton)  # nach dem Ziehen: aus
+        assert r.bereich is None and app.overrideCursor() is None
+        # kurzer Klick: bleibt an; der naechste Klick beendet und waehlt nichts
+        QtGui.QCursor.setPos(t.viewport().mapToGlobal(t.viewport().rect().center()))
+        _maus(t.viewport(), typ.MouseButtonPress, knopf.MiddleButton, knopf.MiddleButton)
+        _maus(t.viewport(), typ.MouseButtonRelease, knopf.MiddleButton, knopf.NoButton)
+        assert r.bereich is t
+        _maus(t.viewport(), typ.MouseButtonPress, knopf.LeftButton, knopf.LeftButton, QtCore.QPoint(5, 5))
+        assert r.bereich is None and app.overrideCursor() is None
+        assert sorted(i.row() for i in t.selectedIndexes()) == vorher
+        t.setMaximumSize(16777215, 16777215)
+    assert autorollen.rollbereich(fenster.ansicht) is None
+
 def test_glied_waehlen_zeigt_es_im_3d(fenster):
     """Glied in der Tabelle waehlen: bei eingeblendeter Kette ist es im Kettenbild hervorgehoben, sonst erscheint nur
     sein Pfeil."""

@@ -4,6 +4,21 @@
 All work on `main`, pushed; no other branches. Version 0.2 released (tag v0.2). Full suite last green on
 the Mac (200 tests incl. the new ones, ~11 min); `pixi run test-schnell` skips the six `langsam` tests.
 
+Side session 2026-10-29 (branch `claude/tabellen-maus-338d20`, to be merged by the main session): user reports on
+table mouse behaviour (UI_UX_Plan stage 2 note, Roadmap ✅, PLAN §8.30). (1) Hovering over cells with drop-downs or
+number fields selected the row. Cause found by experiment: Qt makes the cell of a cell widget current and selects the
+row whenever the widget gets focus – without a click too (wheel/MouseFocusReason without button, window change, code)
+and when an open click-editor (`EIN_KLICK`, CurrentChanged) closes because focus moved into a cell widget (its
+FocusOut). `ui/radsperre.py` (app-wide filter) now delivers those FocusIn/FocusOut events with the selection model's
+signals blocked and restores selection and current cell; left/right click and Tab still select. (2) Middle mouse
+button autoscroll like a browser: new `ui/autorollen.py`, installed by `radsperre.installieren` (no change to
+`hauptfenster.py`); item views, QScrollArea, text views; anchor marker child of the scroll area, override cursor,
+dead zone 10 px, speed 0.08 px/tick per px, units converted via pageStep/viewport (per-item tables); release after
+dragging ends, short click sticky until next click/Esc, wheel ends; not over WA_PaintOnScreen (OCCT viewer) or in
+popups; over the frozen first column the table scrolls. Tests `test_ueberfahren_von_zellfeldern_waehlt_keine_zeile`,
+`test_mittlere_taste_rollt_wie_im_browser` (function, chain, 2D chain tables). Not checked with a real mouse on screen
+(synthetic events only; real cursor moves could not be generated from a script) – user should try it.
+
 Side session 2026-10-29 (branch `claude/beispiel-welle-abdfe0`, merged into main `db2cd0d`): user request –
 the example "Funktion → Tolerierung" now uses a generated gearbox shaft instead of NIST FTC-10 (PLAN §8.33 note,
 Roadmap ✅). Generator `werkzeuge/welle.py` → `tests/daten/getriebewelle.stp` (bundled via `beispiele.alle_dateien`),
