@@ -349,10 +349,16 @@ graphics only, 8.19 QIF graphics, 8.20 3D tolerance analysis,
    ~9 min instead of ~40. Plan items done: traffic light/approval for 2D/3D chains and assembly measures (`0136119`),
    chains from the model (`17a857e`), sliding contacts in 2D chains (`9238077`). GitHub build run 40826336669 started.
    A session card "Erzeugte PMI: Überlappung je gespeicherter Ansicht" waits for the user to start it.
-   Next, in this order: automatic 3D analysis from the model (PLAN §8.20), assemblies built in the project, advisor
-   stage 2 (define first, §8.10), sliding contacts in 3D chains, then formats, performance/gears (gear data sheet,
-   PLAN §8.27), then item 8 DXF dimension entities, then the user checks (CATIA reading of written STEP with own
-   PMI/presentation, screenshot of the blue stripe while loading on Windows, an AP242 file with a mechanism).
+   Later on 2026-10-29: measured-face tolerances in the assembly variation (`400a251`, first part of "automatically
+   from the model"), "An Bezügen" connect at datum features (`49b8c3d`), advisor stage 2 (`82919f2`), sliding
+   contacts in 3D chains (`3bc5419`). All chain/assembly roadmap items of the order are done (open in §8.20: full
+   feature torsors inside a part, one-sided contact). Windows CI: `test_toleranzkette_fenster_verkleinerbar` gives
+   715 px on the Windows runner (macOS/Linux fine); the test now prints the widest children – read them from the
+   next Windows run and fix that widget.
+   Next, in this order: formats (QIF Plans export, STEP-XML, PRC compressed tessellation/B-rep, PMI from JT),
+   performance/gears (gear data sheet, PLAN §8.27), then item 8 DXF dimension entities, then the user checks (CATIA
+   reading of written STEP with own PMI/presentation, screenshot of the blue stripe while loading on Windows, an
+   AP242 file with a mechanism).
 1. Visual check on the Mac (see "Visual check on the real screen still open" and: wireframe contrast edges, view cube,
    start screen, side-panel dragging, tab ✕ and right-click menu on tabs, File › Examples, stack-up window and PDF,
    clash dock, assembly dock, scan check with point cloud and 3-2-1 alignment, zones for linear/angular dimensions).
