@@ -559,6 +559,13 @@ that origin translation and tilt rows decouple: on the example assembly the line
 assembly analysis exactly (head to lid ±0.03, heads flush ±0.06, lid to plate ±0.1); with the fixing point as origin
 the box doubled the tilt lever (±0.24). `Kette3D.basis` places the chain in the model. Remaining: 2D chains and
 chains picked directly from model faces without an assembly (stage 2a of 1D covers the 1D case).
+**Done 2026-10-29:** "＋ Aus 3D-Auswahl" in the 2D chain (`kette2d.aus_punkten`; characteristic point per element:
+vertex, circle centre, cylinder axis point at the centroid height, face/edge centroid; projected into the view plane
+`ansicht3d.blickebene`; lengths with the ISO 2768 general tolerance from the choice or the file, angles exact until
+tolerated by hand) and "＋ Aus Zusammenbau" in the 3D chain (`Analyse.glied_fuer_teil`: translation from the previous
+chain point to the part's fixing point, limits from the clearances of its connections, chains in world position).
+Open: sliding contacts (kinematic adjustment – the contact point slides, a dependent variable solved by closing the
+loop, Chase/Gao DLM), angle tolerances from ISO 2768-1 angular classes, PMI dimensions matched to picked features.
 
 **What a functional dimension chain is for** (answer for the user, background for the guide):
 - Analysis: does the function (gap, overlap, preload, alignment) hold for the given part tolerances – worst case or

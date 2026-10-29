@@ -75,6 +75,7 @@ class Skizze(QtWidgets.QWidget):
 
 class Kette2DFenster(QtWidgets.QDialog):
     uebernehmen = QtCore.Signal(list)  # linearisierte Glieder fuer das 1D-Kettenfenster
+    aus_auswahl = QtCore.Signal()  # Zug aus den im Modell gewaehlten Elementen bauen (Hauptfenster)
 
     def __init__(self, parent=None):
         super().__init__(parent)
@@ -113,7 +114,13 @@ class Kette2DFenster(QtWidgets.QDialog):
         self.speichern_knopf = QtWidgets.QPushButton(tr("Speichern …"))
         self.speichern_knopf.setToolTip(tr("{}-Kette als Datei speichern (auch im Projekt enthalten)").format("2D"))
         self.speichern_knopf.clicked.connect(lambda: self.speichere())
-        for w in (self.plus, self.weg, self.vorlage, self.oeffnen_knopf, self.speichern_knopf):
+        self.aus_auswahl_knopf = QtWidgets.QPushButton(tr("＋ Aus 3D-Auswahl"))
+        self.aus_auswahl_knopf.setToolTip(tr("Zug durch die im Modell gewählten Punkte, Kanten oder Flächen (in "
+                                             "Klickreihenfolge, projiziert in die Blickebene): Längen mit "
+                                             "Allgemeintoleranz, Winkel von Hand tolerieren"))
+        self.aus_auswahl_knopf.clicked.connect(self.aus_auswahl.emit)
+        for w in (self.plus, self.aus_auswahl_knopf, self.weg, self.vorlage, self.oeffnen_knopf,
+                  self.speichern_knopf):
             reihe.addWidget(w)
         reihe.addStretch(1)
         reihe.addWidget(QtWidgets.QLabel(tr("Schlussgröße")))

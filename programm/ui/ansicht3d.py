@@ -261,6 +261,11 @@ class AnsichtBasis(QtWidgets.QWidget):
         """Schwerpunkt von Flaechen (Index) oder None."""
         return None
 
+    def blickebene(self):
+        """Achsen der Bildebene (rechts, oben) in Weltkoordinaten; ohne Kamera X und Y."""
+        import numpy as np
+        return np.array([1.0, 0.0, 0.0]), np.array([0.0, 1.0, 0.0])
+
     def zeige_bezugssystem(self, bezuege: list):
         """Bezugssystem einer Toleranz: [(Name, Stelle 1..3, Flaechen)] farbig mit Beschriftung; [] blendet aus."""
         self.bezugssystem = list(bezuege)
@@ -1946,6 +1951,17 @@ class OcctAnsicht(AnsichtBasis):
 
     def mitte_von(self, flaechen):
         return self._mitte_von(flaechen, lage=False) if self._bereit else None
+
+    def blickebene(self):
+        import numpy as np
+        if not self._bereit:
+            return super().blickebene()
+        cam = self.d.View.Camera()
+        d, u = cam.Direction(), cam.Up()
+        d, u = np.array([d.X(), d.Y(), d.Z()]), np.array([u.X(), u.Y(), u.Z()])
+        u = u - d * float(u @ d)
+        u = u / np.linalg.norm(u)
+        return np.cross(d, u), u  # rechts = Blickrichtung x oben
 
     def _mitte_von(self, flaechen, lage: bool = True):
         from OCC.Core.BRepGProp import brepgprop

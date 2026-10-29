@@ -3240,6 +3240,7 @@ class Hauptfenster(QtWidgets.QMainWindow):
             f = Kette2DFenster(self)
             f.uebernehmen.connect(lambda gl, f=f: self._kette2d_uebernehmen(gl, f.kette.temperaturen,
                                                                             f.kette.anforderung))
+            f.aus_auswahl.connect(self.kette2d_aus_auswahl)
             self._kette2d = f
             self._als_leiste(f, tr("2D-Toleranzkette"), "kette2d")
         if not nur_anlegen:
@@ -3254,12 +3255,97 @@ class Hauptfenster(QtWidgets.QMainWindow):
             f = Kette3DFenster(self)
             f.uebernehmen.connect(lambda gl, f=f: self._kette2d_uebernehmen(gl, f.kette.temperaturen,
                                                                             f.kette.anforderung))
+            f.aus_teil.connect(self.kette3d_aus_teil)
             f.zeigen.connect(lambda linien: self.ansicht.zeige_hilfslinien(linien or [], einpassen=bool(linien)))
             self._kette3d = f
             self._als_leiste(f, tr("3D-Toleranzkette"), "kette3d")
         if not nur_anlegen:
             self._leiste_zeigen(f, "kette3d")
         return f
+
+    def _punkt_von_form(self, form):
+        """Kennpunkt eines gewaehlten Elements: Punkt, Kreismitte bzw. Kantenmitte, Achspunkt eines Zylinders bzw.
+        Flaechenschwerpunkt (Welt)."""
+        import numpy as np
+        from OCC.Core.BRep import BRep_Tool
+        from OCC.Core.BRepAdaptor import BRepAdaptor_Curve, BRepAdaptor_Surface
+        from OCC.Core.BRepGProp import brepgprop
+        from OCC.Core.GeomAbs import GeomAbs_Circle, GeomAbs_Cylinder
+        from OCC.Core.GProp import GProp_GProps
+        from OCC.Core.TopAbs import TopAbs_EDGE, TopAbs_FACE, TopAbs_VERTEX
+        from OCC.Core.TopoDS import topods
+        art = form.ShapeType()
+        if art == TopAbs_VERTEX:
+            p = BRep_Tool.Pnt(topods.Vertex(form))
+            return np.array([p.X(), p.Y(), p.Z()])
+        pr = GProp_GProps()
+        if art == TopAbs_EDGE:
+            c = BRepAdaptor_Curve(topods.Edge(form))
+            if c.GetType() == GeomAbs_Circle:
+                p = c.Circle().Location()
+                return np.array([p.X(), p.Y(), p.Z()])
+            brepgprop.LinearProperties(form, pr)
+        elif art == TopAbs_FACE:
+            brepgprop.SurfaceProperties(form, pr)
+            s = BRepAdaptor_Surface(topods.Face(form), True)
+            if s.GetType() == GeomAbs_Cylinder:  # Achspunkt auf Hoehe des Schwerpunkts
+                ax = s.Cylinder().Axis()
+                o, d = ax.Location(), ax.Direction()
+                o, d = np.array([o.X(), o.Y(), o.Z()]), np.array([d.X(), d.Y(), d.Z()])
+                m = pr.CentreOfMass()
+                m = np.array([m.X(), m.Y(), m.Z()])
+                return o + d * float((m - o) @ d)
+        else:
+            return None
+        m = pr.CentreOfMass()
+        return np.array([m.X(), m.Y(), m.Z()])
+
+    def kette2d_aus_auswahl(self) -> int:
+        """2D-Kette aus den gewaehlten Elementen: Kennpunkte in Klickreihenfolge, projiziert in die Blickebene,
+        Laengen mit der Allgemeintoleranz (Wahl oder Datei); ersetzt die Segmente des Fensters."""
+        from ..kern import kette2d as k2, toleranzzone
+        w = self.zeige_kette2d()
+        if self.erg is None:
+            return 0
+        punkte = [p for f in self.ansicht.auswahl3d if (p := self._punkt_von_form(f)) is not None]
+        if len(punkte) < 2:
+            self.statusBar().showMessage(tr("Erst mindestens zwei Punkte, Kanten oder Flächen im Modell wählen "
+                                            "(Strg/⌘ für weitere)"), 6000)
+            return 0
+        rechts, oben = self.ansicht.blickebene()
+        pts2 = [(float(p @ rechts), float(p @ oben)) for p in punkte]
+        allgemein = self._allgemein or toleranzzone.allgemein_aus_hinweisen(self.erg.pmi)
+        klasse = allgemein.laenge if allgemein else ""
+        segmente = k2.aus_punkten(pts2, [f"P{i + 1}" for i in range(len(pts2))],
+                                  (lambda l: toleranzzone.iso2768_laenge(klasse, l)) if klasse else None)
+        w.setze_kette(k2.Kette2D(segmente, w.kette.schluss, w.kette.werkstoff, w.kette.temperaturen,
+                                 w.kette.anforderung, w.kette.freigabe))
+        self.statusBar().showMessage(tr("{} Segmente aus der Auswahl (Blickebene){}").format(
+            len(segmente), tr(", Längen ISO 2768-{}").format(klasse) if klasse else ""), 8000)
+        return len(segmente)
+
+    def kette3d_aus_teil(self) -> bool:
+        """Glied fuer das gewaehlte Teil des Zusammenbaus an die 3D-Kette haengen (vom letzten Kettenpunkt aus)."""
+        import numpy as np
+        from ..kern import kette3d as k3
+        from ..kern.baugruppe_mass import Analyse
+        w = self.zeige_kette3d()
+        teil = next((t for t in reversed(self.ansicht.auswahl_teile) if t is not None), None)
+        if self.erg is None or teil is None:
+            self.statusBar().showMessage(tr("Erst ein Teil des Zusammenbaus im Modell wählen"), 6000)
+            return False
+        k = w.kette
+        vorher = k3.lagen(k)[-1][1] if k.glieder and k.basis is None else np.zeros(3)
+        if k.basis is not None:
+            self.statusBar().showMessage(tr("Diese Kette liegt in einer eigenen Basis – Teile nur in Ketten in "
+                                            "Weltlage anhängen"), 6000)
+            return False
+        neu = Analyse(self.baugruppe).glied_fuer_teil(teil, vorher, self._teil_namen().get(teil, str(teil)))
+        if neu is None:
+            self.statusBar().showMessage(tr("Das Teil ist fest oder hat keine Verbindung im Zusammenbau"), 6000)
+            return False
+        w.neues_glied(neu[0])
+        return True
 
     def _kette2d_uebernehmen(self, glieder: list, temperaturen: tuple | None = None, anforderung: tuple | None = None):
         """Linearisierte 2D/3D-Kette ins 1D-Fenster; die Werkstoffe stecken in den Gliedern, Grenztemperaturen und

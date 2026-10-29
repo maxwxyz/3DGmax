@@ -2027,6 +2027,32 @@ def test_ampel_und_freigabe_fuer_2d_3d_und_messgroessen(fenster, tmp_path):
     assert f.baugruppe.masse[0].freigabe.get("kommentar") == "Versuch"
 
 
+def test_ketten_aus_dem_modell(fenster_ctc01):
+    """2D-Kette aus der 3D-Auswahl (Kennpunkte in Klickreihenfolge, Blickebene, Allgemeintoleranz) und 3D-Glied aus
+    einem Teil des Zusammenbaus (Grenzen aus den Spielraeumen)."""
+    import numpy as np
+    from programm.kern import kette2d as k2
+    f = fenster_ctc01
+    m = f.erg.modell
+    formen = [m.flaechen[i] for i in (0, 5, 9)]
+    f.ansicht.setze_auswahl(formen)
+    assert f.kette2d_aus_auswahl() >= 1
+    w = f._kette2d
+    pkt = [f._punkt_von_form(x) for x in formen]
+    r, o = f.ansicht.blickebene()
+    erwartet = [float(np.hypot((b - a) @ r, (b - a) @ o)) for a, b in zip(pkt, pkt[1:])]
+    erwartet = [x for x in erwartet if x > 1e-9]
+    assert [round(s.laenge, 4) for s in w.kette.segmente] == [round(x, 4) for x in erwartet]
+    assert abs(k2.schlussgroesse(w.kette) - float(np.hypot((pkt[-1] - pkt[0]) @ r, (pkt[-1] - pkt[0]) @ o))) < 1e-6
+    f.lade(pfad("baugruppe.stp"), warten=True)
+    f._beispiel_variation()
+    teil = next(v.teil for v in f.baugruppe.verbindungen if not f.baugruppe.fest(v.teil))
+    f.ansicht.setze_auswahl([f.erg.modell.flaechen[0]], [teil])
+    assert f.kette3d_aus_teil()
+    g = f._kette3d.kette.glieder[-1]
+    assert any(abs(g.werte[c].oben - g.werte[c].unten) > 0 for c in ("x", "y", "z", "rx", "ry", "rz"))
+
+
 def test_raumketten_datei_und_projekt(fenster, tmp_path):
     """2D- und 3D-Kette speichern, oeffnen und mit dem Projekt sichern."""
     f = fenster

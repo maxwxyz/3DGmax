@@ -1972,5 +1972,14 @@
 "Manuelle Freigabe, auch abweichend vom Ergebnis (z. B. Funktion im Versuch nachgewiesen) – mit Name, Datum und Kommentar in der Kettendatei und im Projekt": "Manual approval, also against the result (e.g. function proven in a test) – with name, date and comment in the chain file and the project",
 "Messgröße i. O. / geprüft": "Measure OK / checked",
 "Messgröße {} freigeben": "Approve measure {}",
-"Untere und obere Grenze der Schlussgröße": "Lower and upper limit of the closing quantity"
+"Untere und obere Grenze der Schlussgröße": "Lower and upper limit of the closing quantity",
+", Längen ISO 2768-{}": ", lengths ISO 2768-{}",
+"Das Teil ist fest oder hat keine Verbindung im Zusammenbau": "The part is fixed or has no connection in the assembly",
+"Diese Kette liegt in einer eigenen Basis – Teile nur in Ketten in Weltlage anhängen": "This chain lies in its own base – append parts only to chains in world position",
+"Erst ein Teil des Zusammenbaus im Modell wählen": "Select a part of the assembly in the model first",
+"Erst mindestens zwei Punkte, Kanten oder Flächen im Modell wählen (Strg/⌘ für weitere)": "Select at least two points, edges or faces in the model first (Ctrl/⌘ for more)",
+"Glied für das im Modell gewählte Teil des Zusammenbaus anhängen: Lage seines Fixierpunkts, Grenzen aus den Spielräumen seiner Verbindungen": "Append a link for the assembly part selected in the model: position of its fixing point, limits from the clearances of its connections",
+"Zug durch die im Modell gewählten Punkte, Kanten oder Flächen (in Klickreihenfolge, projiziert in die Blickebene): Längen mit Allgemeintoleranz, Winkel von Hand tolerieren": "Loop through the points, edges or faces selected in the model (in click order, projected into the view plane): lengths with the general tolerance, tolerate angles by hand",
+"{} Segmente aus der Auswahl (Blickebene){}": "{} segments from the selection (view plane){}",
+"＋ Aus Zusammenbau": "＋ From assembly"
 }

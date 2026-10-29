@@ -48,6 +48,26 @@ class Kette2D:
     freigabe: dict = field(default_factory=dict)  # manuelle Freigabe {"geprueft", "name", "datum", "kommentar"}
 
 
+def aus_punkten(punkte, namen: list[str] | None = None, toleranz=None) -> list[Segment]:
+    """Segmente eines Zugs durch die Punkte (2D, in Reihenfolge): Laenge und Winkel zum vorigen Segment (erstes zur
+    X-Achse); toleranz(Laenge) -> +-Abmass der Laenge (z. B. Allgemeintoleranz) oder None (ohne). Winkel ohne
+    Abmasse (von Hand ergaenzen)."""
+    pts = [np.asarray(p, float) for p in punkte]
+    out, vorher = [], 0.0
+    for i in range(1, len(pts)):
+        d = pts[i] - pts[i - 1]
+        laenge = float(np.linalg.norm(d))
+        if laenge < 1e-9:
+            continue  # doppelter Punkt
+        richtung = math.degrees(math.atan2(d[1], d[0]))
+        winkel = (richtung - vorher + 180.0) % 360.0 - 180.0 if out else richtung
+        vorher = richtung
+        t = toleranz(laenge) if toleranz else None
+        name = (namen[i - 1] + " – " + namen[i]) if namen and len(namen) > i else tr("Segment {}").format(len(out) + 1)
+        out.append(Segment(name, round(laenge, 6), t or 0.0, -(t or 0.0), round(winkel, 6)))
+    return out
+
+
 def werkstoff(k: Kette2D, s: Segment) -> str:
     """Werkstoff eines Segments: eigener, sonst der der Kette."""
     return s.werkstoff or k.werkstoff

@@ -322,6 +322,25 @@ class Analyse:
         return k3.Kette3D(glieder, tuple(float(x) for x in p - ursprung), (0.0, 0.0, 1.0), "z",
                           basis=basis.tolist())
 
+    def glied_fuer_teil(self, teil: int, vorher: np.ndarray, name: str = ""):
+        """3D-Kettenglied eines Teils im Zusammenbau (wie in als_kette3d): Verschiebung vom vorigen Kettenpunkt zum
+        Fixierpunkt des Teils (Welt, ohne Nenndrehung), Grenzen der sechs Komponenten aus den Spielraeumen gegen seine
+        Gegenteile. Ergebnis (Glied3D, neuer Kettenpunkt); None fuer ein festes Teil oder ohne Verbindung."""
+        import math
+        from . import kette3d as k3
+        if self.bg.fest(teil) or not any(v.teil == teil for v in self.bg.verbindungen):
+            return None
+        o = self._kettenpunkt(teil)
+        grenzen = self._torsor_grenzen(teil, o)
+        g = k3.Glied3D(name or str(teil))
+        for i, c in enumerate(("rx", "ry", "rz", "x", "y", "z")):
+            lo, hi = grenzen[i]
+            if c.startswith("r"):
+                lo, hi = math.degrees(lo), math.degrees(hi)
+            nenn = 0.0 if c.startswith("r") else float((o - np.asarray(vorher, float))["xyz".index(c)])
+            g.werte[c] = k3.Komponente(nenn, hi, lo)
+        return g, o
+
     def _extrem(self, c: np.ndarray, nur: int | None = None, bonus: bool = False) -> tuple[float, float]:
         """Min und Max von c . x im Spielraum samt Bonus (nur: nur diese Verbindung streut, mit bonus nur ihr
         Ⓜ/Ⓛ-Bonus, sonst nur ihr Spielraum)."""

@@ -33,6 +33,7 @@ SPALTEN_EDITOR = (("Nennwert", "Nennwert der Komponente (mm bzw. Grad)"),
 
 class Kette3DFenster(QtWidgets.QDialog):
     uebernehmen = QtCore.Signal(list)  # linearisierte Glieder fuer das 1D-Kettenfenster
+    aus_teil = QtCore.Signal()  # Glied aus dem gewaehlten Teil im Zusammenbau anhaengen (Hauptfenster)
     zeigen = QtCore.Signal(object)  # Linien fuer die 3D-Ansicht (wie Kettenbild) oder None
 
     def __init__(self, parent=None):
@@ -66,7 +67,12 @@ class Kette3DFenster(QtWidgets.QDialog):
         self.speichern_knopf = QtWidgets.QPushButton(tr("Speichern …"))
         self.speichern_knopf.setToolTip(tr("{}-Kette als Datei speichern (auch im Projekt enthalten)").format("3D"))
         self.speichern_knopf.clicked.connect(lambda: self.speichere())
-        for w in (self.plus, self.weg, self.vorlage, self.oeffnen_knopf, self.speichern_knopf):
+        self.aus_teil_knopf = QtWidgets.QPushButton(tr("＋ Aus Zusammenbau"))
+        self.aus_teil_knopf.setToolTip(tr("Glied für das im Modell gewählte Teil des Zusammenbaus anhängen: Lage "
+                                          "seines Fixierpunkts, Grenzen aus den Spielräumen seiner Verbindungen"))
+        self.aus_teil_knopf.clicked.connect(self.aus_teil.emit)
+        for w in (self.plus, self.aus_teil_knopf, self.weg, self.vorlage, self.oeffnen_knopf,
+                  self.speichern_knopf):
             reihe.addWidget(w)
         reihe.addStretch(1)
         lay.addLayout(reihe)
