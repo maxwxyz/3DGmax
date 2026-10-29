@@ -341,13 +341,18 @@ graphics only, 8.19 QIF graphics, 8.20 3D tolerance analysis,
    (`7692a6a`), datum shift in the assembly variation (merge `e5ac96e`), readable chain tables and one control height
    in the whole UI (merge `56da1be`). Full suite 336 passed + 6 on-screen tests green on `56da1be`; a local build
    (`packaging/build_mac.sh --ohne-tests`) was made for the user's review of UI stage 3.
-   UI stage 3 accepted by the user on screen (2026-10-28); GitHub build "Apps bauen" (all platforms, tests, JT)
-   started as run 40765527578. Acceptance test with users (≥ 80 %) not run.
-   Next after the review, in this order: the roadmap topics around chains/assembly (traffic light everywhere,
-   2D/3D chains from the model, automatic 3D analysis, assemblies built in the project, advisor stage 2, overlap check
-   per saved view), then formats, performance/gears (gear data sheet, PLAN §8.27), then item 8 DXF dimension entities,
-   then the user checks (CATIA reading of written STEP with own PMI/presentation, screenshot of the blue stripe while
-   loading on Windows, an AP242 file with a mechanism for STEP kinematics).
+   UI stage 3 accepted by the user on screen (2026-10-28). Acceptance test with users (≥ 80 %) not run.
+   2026-10-29: user fixes (view cube hover lower left on Retina, multi-selection order lost after the PMI list
+   re-highlight, measured elements shown as selection, compact buttons, larger tab ✕, fitted columns, wheel guard,
+   frozen first column); CI fixed (test windows were never deleted → setStyleSheet repolished all of them, Windows ran
+   into the 300 s timeout; slots on deleted windows; Windows font widths; JT fake converter as .cmd) – full suite now
+   ~9 min instead of ~40. Plan items done: traffic light/approval for 2D/3D chains and assembly measures (`0136119`),
+   chains from the model (`17a857e`), sliding contacts in 2D chains (`9238077`). GitHub build run 40826336669 started.
+   A session card "Erzeugte PMI: Überlappung je gespeicherter Ansicht" waits for the user to start it.
+   Next, in this order: automatic 3D analysis from the model (PLAN §8.20), assemblies built in the project, advisor
+   stage 2 (define first, §8.10), sliding contacts in 3D chains, then formats, performance/gears (gear data sheet,
+   PLAN §8.27), then item 8 DXF dimension entities, then the user checks (CATIA reading of written STEP with own
+   PMI/presentation, screenshot of the blue stripe while loading on Windows, an AP242 file with a mechanism).
 1. Visual check on the Mac (see "Visual check on the real screen still open" and: wireframe contrast edges, view cube,
    start screen, side-panel dragging, tab ✕ and right-click menu on tabs, File › Examples, stack-up window and PDF,
    clash dock, assembly dock, scan check with point cloud and 3-2-1 alignment, zones for linear/angular dimensions).
