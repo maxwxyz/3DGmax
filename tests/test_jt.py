@@ -16,6 +16,20 @@ def _jt(tmp_path, version: str) -> str:
     return str(p)
 
 
+def _ersatz(tmp_path, code: str) -> str:
+    """Ersatz-Konverter aus Python-Code: unter Windows als .cmd, das Python startet (ein Skript mit #! laesst sich
+    dort nicht ausfuehren), sonst als ausfuehrbares Skript."""
+    if sys.platform == "win32":
+        (tmp_path / "jt2glb.py").write_text(code)
+        cmd = tmp_path / "jt2glb.cmd"
+        cmd.write_text(f'@"{sys.executable}" "%~dp0jt2glb.py" %*\r\n')
+        return str(cmd)
+    skript = tmp_path / "jt2glb"
+    skript.write_text(f"#!{sys.executable}\n" + code)
+    skript.chmod(skript.stat().st_mode | stat.S_IEXEC)
+    return str(skript)
+
+
 def test_version_und_meldungen(tmp_path, monkeypatch):
     assert laden.jt_version(_jt(tmp_path, "9.5")) == (9, 5)
     (tmp_path / "kein.jt").write_bytes(b"irgendwas")
@@ -30,10 +44,7 @@ def test_version_und_meldungen(tmp_path, monkeypatch):
 def test_ladeweg_mit_ersatz_konverter(tmp_path, monkeypatch):
     """Der Konverter schreibt eine GLB; 3DGmax laedt sie wie glTF und behaelt den JT-Pfad."""
     glb = pfad(os.path.join("formate", "baugruppe.glb"))
-    skript = tmp_path / "jt2glb"
-    skript.write_text(f"#!{sys.executable}\nimport shutil, sys\nshutil.copy({glb!r}, sys.argv[2])\n")
-    skript.chmod(skript.stat().st_mode | stat.S_IEXEC)
-    monkeypatch.setenv("DG_JT2GLB", str(skript))
+    monkeypatch.setenv("DG_JT2GLB", _ersatz(tmp_path, f"import shutil, sys\nshutil.copy({glb!r}, sys.argv[2])\n"))
     jt = _jt(tmp_path, "9.5")
     m = laden.lade_modell(jt)
     assert m.pfad == jt and len(m.flaechen) > 0 and laden.ist_netz(m)
@@ -54,12 +65,10 @@ def test_nist_jt10_wird_geladen():
 def test_fehlermeldung_ohne_tkjt_hinweise(tmp_path, monkeypatch):
     """Bricht der Konverter ab, nennt die Meldung den Code und die letzten echten Zeilen - nicht die vielen Hinweise
     von TKJT auf uebersprungene, unbekannte Elementtypen."""
-    skript = tmp_path / "jt2glb"
     hinweis = "JtReader: unknown object type GUID 98134716-0010-0818-19-98-08-00-09-83-5d-5a, skipping element"
-    skript.write_text(f"#!{sys.executable}\nimport sys\nfor _ in range(50):\n    print({hinweis!r}, file=sys.stderr)\n"
-                      "print('Segment 7 kaputt', file=sys.stderr)\nsys.exit(3)\n")
-    skript.chmod(skript.stat().st_mode | stat.S_IEXEC)
-    monkeypatch.setenv("DG_JT2GLB", str(skript))
+    monkeypatch.setenv("DG_JT2GLB", _ersatz(tmp_path, f"import sys\nfor _ in range(50):\n    print({hinweis!r}, "
+                                                      "file=sys.stderr)\nprint('Segment 7 kaputt', file=sys.stderr)\n"
+                                                      "sys.exit(3)\n"))
     with pytest.raises(laden.LadeFehler) as e:
         laden.lade_modell(_jt(tmp_path, "9.5"))
     assert "3" in str(e.value) and "Segment 7 kaputt" in str(e.value) and "skipping" not in str(e.value)

@@ -699,7 +699,8 @@ class ToleranzketteFenster(QtWidgets.QDialog):
         self.methode_wert.setSingleStep(0.05)
         self.methode.currentIndexChanged.connect(self._methode_gewaehlt)
         self.methode_wert.valueChanged.connect(self._rechne)
-        reihe.addWidget(_paar(self.methode, self.methode_wert))
+        for w in (self.methode, self.methode_wert):  # einzeln: schmales Fenster bricht zwischen ihnen um
+            reihe.addWidget(w)
         self.plan_knopf = QtWidgets.QPushButton(tr("Planspiel …"))
         self.plan_knopf.setToolTip(tr("Werte vorübergehend ändern und mit dem Ist vergleichen, ohne die Kette zu "
                                       "verändern"))
@@ -759,7 +760,8 @@ class ToleranzketteFenster(QtWidgets.QDialog):
             k.valueChanged.connect(self._rechne)
         self.anforderung.toggled.connect(self._anforderung_an)
         reihe.addWidget(self.anforderung)
-        reihe.addWidget(_paar(self.unten, QtWidgets.QLabel("…"), self.oben))
+        for w in (self.unten, QtWidgets.QLabel("…"), self.oben):  # einzeln: bricht in schmalen Fenstern um
+            reihe.addWidget(w)
         return reihe
 
     def _ergebnis_hoehe(self):
@@ -935,7 +937,8 @@ class ToleranzketteFenster(QtWidgets.QDialog):
                                            "Glied"))
         self.werkstoff_knopf.clicked.connect(lambda: WerkstoffDialog(self, self).open())
         reihe.addWidget(self.waerme)
-        reihe.addWidget(_paar(self.t1, QtWidgets.QLabel(tr("und")), self.t2))
+        for w in (self.t1, QtWidgets.QLabel(tr("und")), self.t2):
+            reihe.addWidget(w)
         reihe.addWidget(self.werkstoff_knopf)
         return reihe
 

@@ -57,7 +57,7 @@ class MessPanel(QtWidgets.QWidget):
             k.setCheckable(True)
             k.setToolButtonStyle(QtCore.Qt.ToolButtonStyle.ToolButtonTextOnly)
             # so breit wie die Spalte (der laengste Text darin), nicht ueber die ganze Leiste
-            k.setSizePolicy(QtWidgets.QSizePolicy.Policy.Preferred, QtWidgets.QSizePolicy.Policy.Fixed)
+            k.setSizePolicy(QtWidgets.QSizePolicy.Policy.Maximum, QtWidgets.QSizePolicy.Policy.Fixed)  # nie gestreckt
             k.clicked.connect(lambda an, art=art: self.setze_modus(art if an else None))
             reihe.addWidget(k, i // 3, i % 3)
             self.knoepfe[art] = k

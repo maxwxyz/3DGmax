@@ -446,10 +446,19 @@ class Hauptfenster(QtWidgets.QMainWindow):
                       QtWidgets.QDockWidget.DockWidgetFeature.DockWidgetClosable)
         self.addDockWidget(bereich, d)
         # Reiterleisten legt Qt erst beim Stapeln an -> danach mit X versehen
-        d.visibilityChanged.connect(lambda _: QtCore.QTimer.singleShot(0, self._tabs_schliessbar))
-        d.visibilityChanged.connect(lambda sichtbar, d=d: self._leiste_sichtbar(d, sichtbar))
-        d.dockLocationChanged.connect(lambda _: QtCore.QTimer.singleShot(0, self._tabs_schliessbar))
+        # Methoden statt Lambdas: Qt trennt sie, wenn das Fenster geloescht wird
+        d.visibilityChanged.connect(self._dock_sichtbarkeit)
+        d.dockLocationChanged.connect(self._tabs_spaeter)
         return d
+
+    def _dock_sichtbarkeit(self, sichtbar: bool):
+        d = self.sender()
+        self._tabs_spaeter()
+        if isinstance(d, QtWidgets.QDockWidget):
+            self._leiste_sichtbar(d, sichtbar)
+
+    def _tabs_spaeter(self, *_):
+        QtCore.QTimer.singleShot(0, self, self._tabs_schliessbar)
 
     def _tabs_schliessbar(self):
         """Reiter gestapelter Leisten mit X schliessen (wie das X in der Titelleiste der Leiste)."""
