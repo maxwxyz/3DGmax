@@ -87,7 +87,7 @@
 | Stack-up: manual approval "OK / checked" with name, date, comment (chain file, PDF) | ✅ |
 | Stack-up: tooltips per method and column, distribution sparkline per link ("Spread") | ✅ |
 | Tooltips for every non-obvious control, checked by a test (`werkzeuge/tooltips.py`) | ✅ |
-| Stack-up: approval and traffic light also in the project file and for 2D/3D chains / assembly measures | ⬜ |
+| Stack-up: approval and traffic light also in the project file and for 2D/3D chains / assembly measures | ✅ |
 | Stack-up: cost-optimal tolerance allocation with process capability table (PLAN §8.33) | ✅ |
 | Function roles per face → datum system and ISO GPS tolerance proposal → STEP PMI (PLAN §8.33) | ✅ |
 | Function → tolerancing: editable table (role, fit, tolerance by hand), swap faces, multi-face features (half shells) | ✅ |

@@ -457,6 +457,10 @@ def messgroessen_pdf(fenster, pfad: str) -> str:
         stufe, wort = bm.bewertung(e, m)
         if stufe:
             bericht.absatz(tr("Bewertung: {}").format(wort), 10)
+        if m.freigabe.get("geprueft"):
+            bericht.absatz("✔ " + tr("manuell freigegeben: {} {}").format(m.freigabe.get("name", ""),
+                                                                         m.freigabe.get("datum", "")).strip() +
+                           (" – " + m.freigabe["kommentar"] if m.freigabe.get("kommentar") else ""), 10)
         if m.punkt is not None:
             bericht.absatz(tr("Gemessen am Punkt ({:.2f}, {:.2f}, {:.2f}) des Teils {}").format(
                 *m.punkt, namen.get(m.teil_a, m.teil_a)), 9)

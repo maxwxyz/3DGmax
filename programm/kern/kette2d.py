@@ -44,6 +44,8 @@ class Kette2D:
     schluss: str = "abstand"
     werkstoff: str = ""  # Vorgabe fuer alle Segmente ohne eigenen Werkstoff
     temperaturen: tuple | None = None  # zwei Grenztemperaturen (°C) fuer die Waermeausdehnung, None: ohne
+    anforderung: tuple | None = None  # Grenzen der Schlussgroesse (unten, oben), None: ohne
+    freigabe: dict = field(default_factory=dict)  # manuelle Freigabe {"geprueft", "name", "datum", "kommentar"}
 
 
 def werkstoff(k: Kette2D, s: Segment) -> str:
@@ -147,11 +149,13 @@ def monte_carlo(k: Kette2D, proben: int = 50_000, cp: float = 1.0, zufall: int =
 def als_dict(k: Kette2D) -> dict:
     from dataclasses import asdict
     return {"schluss": k.schluss, "segmente": [asdict(s) for s in k.segmente], "werkstoff": k.werkstoff,
-            "temperaturen": list(k.temperaturen) if k.temperaturen else None}
+            "temperaturen": list(k.temperaturen) if k.temperaturen else None,
+            "anforderung": list(k.anforderung) if k.anforderung else None, "freigabe": dict(k.freigabe)}
 
 
 def von_dict(d: dict) -> Kette2D:
     felder = set(Segment.__dataclass_fields__)
     return Kette2D([Segment(**{a: b for a, b in s.items() if a in felder}) for s in d.get("segmente", [])],
                    d.get("schluss", "abstand"), d.get("werkstoff", ""),
-                   tuple(d["temperaturen"]) if d.get("temperaturen") else None)
+                   tuple(d["temperaturen"]) if d.get("temperaturen") else None,
+                   tuple(d["anforderung"]) if d.get("anforderung") else None, dict(d.get("freigabe") or {}))

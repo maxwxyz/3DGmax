@@ -206,6 +206,19 @@ def bewertung(e: Ergebnis, anforderung: tuple[float, float] | None, bereich: tup
     return "rot", tr("nicht eingehalten: {:.0f} ppm außerhalb (Monte Carlo), Cpk {:.2f}").format(ausser * 1e6, cpk)
 
 
+def bewertung_nichtlinear(e: Ergebnis, anforderung: tuple[float, float] | None, stichprobe) -> tuple[str, str]:
+    """Ampel einer 2D-/3D-Kette: Bereich des anwendbaren linearen Verfahrens (e aus den linearisierten Gliedern),
+    Anteil ausserhalb aus der nichtlinearen Monte-Carlo-Stichprobe der Schlussgroesse."""
+    import copy
+    if not anforderung:
+        return "", ""
+    s = np.asarray(stichprobe, float)
+    e = copy.copy(e)
+    e.mc_ausserhalb = float(np.mean((s < anforderung[0] - 1e-12) | (s > anforderung[1] + 1e-12))) if len(s) else None
+    bereich = (e.mitte - e.rss, e.mitte + e.rss) if e.statistisch else (e.wc_min, e.wc_max)
+    return bewertung(e, anforderung, bereich)
+
+
 def glied_von_pmi(p, richtung: int = 1) -> Glied | None:
     """Kettenglied aus einem Laengenmass mit Grenzen (auch aus ISO-286-Klasse); None fuer Winkel und ohne Nennmass."""
     if p.art != "mass" or p.nennwert is None or ist_winkel(p):

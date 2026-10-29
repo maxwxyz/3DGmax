@@ -40,6 +40,7 @@ class BaugruppePanel(QtWidgets.QWidget):
     mass_entfernen = QtCore.Signal(int)  # Nummer der Messgroesse
     neu_rechnen = QtCore.Signal()  # Temperatur oder Werkstoffe geaendert
     soll = QtCore.Signal(int, str)  # Nummer der Messgroesse, Soll-Text
+    freigabe = QtCore.Signal(int, dict)  # Nummer der Messgroesse, manuelle Freigabe ({} = keine)
     mass_pdf = QtCore.Signal()
     mass_kette = QtCore.Signal(int)  # Nummer der Messgroesse als 3D-Kette
     hinzufuegen = QtCore.Signal()  # weitere Datei ins Modell aufnehmen
@@ -270,7 +271,15 @@ class BaugruppePanel(QtWidgets.QWidget):
         self.mass_hinweis.setWordWrap(True)
         lay.addWidget(self.mass_hinweis)
         unten = QtWidgets.QHBoxLayout()  # Nebenbefehle und Export unten (einheitlicher Panel-Aufbau)
-        for w in (self.mass_weg, self.mass_kette_knopf):
+        self.mass_freigabe_knopf = QtWidgets.QPushButton(tr("Freigeben …"))
+        self.mass_freigabe_knopf.setToolTip(tr("Gewählte Messgröße manuell freigeben (i. O. / geprüft), auch "
+                                               "abweichend von der Bewertung – mit Name, Datum und Kommentar im "
+                                               "Bericht und im Projekt"))
+        self.mass_freigabe_knopf.clicked.connect(self._freigabe_dialog)
+        self.mass_freigabe_knopf.setEnabled(False)
+        self.masse.itemSelectionChanged.connect(
+            lambda: self.mass_freigabe_knopf.setEnabled(self.gewaehlte_messgroesse() is not None))
+        for w in (self.mass_weg, self.mass_kette_knopf, self.mass_freigabe_knopf):
             unten.addWidget(w)
         unten.addStretch(1)
         unten.addWidget(self.mass_pdf_knopf)
@@ -285,6 +294,7 @@ class BaugruppePanel(QtWidgets.QWidget):
         t.blockSignals(True)
         t.setRowCount(len(baugruppe.masse))
         self._mass_nummern = [m.nummer for m in baugruppe.masse]
+        self._masse = list(baugruppe.masse)
         for z, m in enumerate(baugruppe.masse):
             e = ergebnisse.get(m.nummer)
             werte = [str(m.nummer), bm.text(m, namen)]
@@ -297,16 +307,22 @@ class BaugruppePanel(QtWidgets.QWidget):
             werte.append("" if e is None or e.cpk is None else f"{e.cpk:.2f}")
             werte.append("" if e is None or e.waerme is None else f"{e.waerme:+.4f}")
             stufe, grund = bm.bewertung(e, m) if e is not None else ("", "")
-            werte.append({"gruen": "● " + tr("eingehalten"), "gelb": "● " + tr("knapp"),
-                          "rot": "● " + tr("nicht eingehalten")}.get(stufe, ""))
+            werte.append(({"gruen": "● " + tr("eingehalten"), "gelb": "● " + tr("knapp"),
+                           "rot": "● " + tr("nicht eingehalten")}.get(stufe, "") +
+                          ("  ✔ " + tr("freigegeben") if m.freigabe.get("geprueft") else "")).strip())
+            if m.freigabe.get("geprueft"):
+                grund = (grund + "\n" if grund else "") + tr("manuell freigegeben: {} {}").format(
+                    m.freigabe.get("name", ""), m.freigabe.get("datum", "")).strip() + \
+                    (" – " + m.freigabe["kommentar"] if m.freigabe.get("kommentar") else "")
             for s, w in enumerate(werte):
                 it = QtWidgets.QTableWidgetItem(w)
                 if s != 5:
                     it.setFlags(it.flags() & ~QtCore.Qt.ItemFlag.ItemIsEditable)
                 if s == 6 and e is not None and e.aussen:
                     it.setForeground(QtGui.QBrush(QtGui.QColor("#c0392b")))
-                if s == len(werte) - 1 and stufe:
-                    it.setForeground(QtGui.QBrush(QtGui.QColor(AMPEL[stufe])))
+                if s == len(werte) - 1 and (stufe or grund):
+                    if stufe:
+                        it.setForeground(QtGui.QBrush(QtGui.QColor(AMPEL[stufe])))
                     it.setToolTip(grund)
                 t.setItem(z, s, it)
         t.blockSignals(False)
@@ -318,6 +334,31 @@ class BaugruppePanel(QtWidgets.QWidget):
         for k in (self.mass_weg, self.mass_pdf_knopf):
             k.setEnabled(bool(baugruppe.masse))
         self._zeige_beitraege()
+
+    def _freigabe_dialog(self):
+        """Manuelle Freigabe der gewaehlten Messgroesse: geprueft, Name, Kommentar (Datum beim Freigeben)."""
+        nr = self.gewaehlte_messgroesse()
+        m = next((x for x in getattr(self, "_masse", []) if x.nummer == nr), None)
+        if m is None:
+            return None
+        from .bewertung_ui import BewertungLeiste
+        d = QtWidgets.QDialog(self)
+        d.setWindowTitle(tr("Messgröße {} freigeben").format(nr))
+        lay = QtWidgets.QVBoxLayout(d)
+        leiste = BewertungLeiste()
+        for w in (leiste.anforderung, leiste.unten, leiste.oben):  # das Soll steht in der Tabelle
+            w.hide()
+        leiste.geprueft.setText(tr("Messgröße i. O. / geprüft"))
+        leiste.setze(None, m.freigabe)
+        lay.addWidget(leiste)
+        knoepfe = QtWidgets.QDialogButtonBox(QtWidgets.QDialogButtonBox.StandardButton.Ok |
+                                             QtWidgets.QDialogButtonBox.StandardButton.Cancel)
+        knoepfe.accepted.connect(d.accept)
+        knoepfe.rejected.connect(d.reject)
+        lay.addWidget(knoepfe)
+        d.accepted.connect(lambda: self.freigabe.emit(nr, leiste.freigabe()))
+        d.open()
+        return d
 
     def _werkstoffe_dialog(self):
         """Ausdehnungskoeffizient je Teil eintragen (1e-6/K)."""

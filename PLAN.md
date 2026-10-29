@@ -419,6 +419,11 @@ green = applicable result inside the requirement (statistical also Cpk ≥ 1.33)
 outside but ≤ 0.27 % of the Monte Carlo values outside, red otherwise; in the window and the PDF. Manual approval
 ("Kette i. O. / geprüft", name, date, comment) independent of the result, stored in `.3dgkette` and printed in the
 PDF. Open: approval in the project file, traffic light for assembly measures and later 2D/3D chains (same function).
+Done 2026-10-29: 1D approval is stored in the project; 2D/3D chains have requirement, traffic light
+(`toleranzkette.bewertung_nichtlinear`: range of the applicable linear method, share outside from the non-linear
+Monte Carlo sample) and manual approval (`ui/bewertung_ui.BewertungLeiste`, stored in `Kette2D/Kette3D` and thus in
+`.3dgkette2d/.3dgkette3d` and the project; the hand-over passes the requirement to the 1D window); assembly measures
+have a manual approval per measure (`Messgroesse.freigabe`, "Freigeben …", table, PDF, project).
 
 **Done 2026-10-28 – stage 1 (cost-optimal allocation):** `kern/fertigung.py` – processes with the finest economic
 and the coarse IT grade and a relative cost factor (guide values from the usual process → IT grade charts, editable

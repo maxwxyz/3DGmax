@@ -117,6 +117,23 @@ def test_werkstoff_der_kette_und_je_glied():
     assert zurueck.glieder[1].werkstoff == "Aluminium" and zurueck.temperaturen == (-20.0, 70.0)
 
 
+def test_raumkette_anforderung_ampel_freigabe():
+    """2D/3D-Kette: Ampel aus dem linearen Verfahren mit dem nichtlinearen Anteil ausserhalb; Anforderung und
+    Freigabe in Datei und Projekt."""
+    from programm.kern import kette2d as k2, kette3d as k3
+    k = k2.Kette2D([k2.Segment("a", 30, 0.1, -0.1), k2.Segment("b", 40, 0.1, -0.1, 90, 0.5, -0.5)], "abstand")
+    e = tk.berechne(k2.als_glieder(k), anforderung=(49.0, 51.0))
+    mc = k2.monte_carlo(k, 20_000)
+    assert tk.bewertung_nichtlinear(e, (49.0, 51.0), mc)[0] == "gruen"
+    assert tk.bewertung_nichtlinear(e, (49.95, 50.05), mc)[0] == "rot"
+    assert tk.bewertung_nichtlinear(e, None, mc) == ("", "")
+    k.anforderung, k.freigabe = (49.0, 51.0), {"geprueft": True, "name": "X", "datum": "2026-10-29", "kommentar": ""}
+    z = k2.von_dict(k2.als_dict(k))
+    assert z.anforderung == (49.0, 51.0) and z.freigabe["geprueft"]
+    k3k = k3.Kette3D([k3.glied("a", z=(10, 0.1, -0.1))], anforderung=(9.5, 10.5), freigabe={"geprueft": True})
+    assert k3.von_dict(k3.als_dict(k3k)).anforderung == (9.5, 10.5)
+
+
 def test_getriebe_kette_temperatur_stellglied_datei(tmp_path):
     import copy
     from programm.kern import kette_datei

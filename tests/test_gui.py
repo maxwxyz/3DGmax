@@ -1993,6 +1993,40 @@ def test_werkstoffe_in_ketten_von_hand(fenster):
     assert w3.kette.glieder[1].werkstoff == "Aluminium"
 
 
+def test_ampel_und_freigabe_fuer_2d_3d_und_messgroessen(fenster, tmp_path):
+    """2D-/3D-Kette: Anforderung, Ampel und Freigabe im Fenster, Anforderung geht an die 1D-Kette; Messgroessen im
+    Zusammenbau: manuelle Freigabe in Tabelle, Bericht und Projekt."""
+    f = fenster
+    w = f.zeige_kette2d()
+    w.lade_vorlage("winkel")
+    w.bewertung.anforderung.setChecked(True)
+    w.bewertung.unten.setValue(49.0)
+    w.bewertung.oben.setValue(51.0)
+    assert w.kette.anforderung == (49.0, 51.0) and "●" in w.bewertung.ampel.text()
+    w.bewertung.geprueft.setChecked(True)
+    assert w.kette.freigabe["geprueft"] and "✔" in w.bewertung.ampel.text()
+    w.in_kette.click()
+    k = f._kette
+    assert k.anforderung.isChecked() and (k.unten.value(), k.oben.value()) == (49.0, 51.0)
+    w3 = f.zeige_kette3d()
+    w3.lade_vorlage("turm")
+    w3.bewertung.anforderung.setChecked(True)
+    w3.bewertung.unten.setValue(19.0)
+    w3.bewertung.oben.setValue(21.0)
+    assert "●" in w3.bewertung.ampel.text()
+    f.lade(pfad("baugruppe.stp"), warten=True)
+    f._beispiel_variation()
+    nr = f.baugruppe.masse[0].nummer
+    f._mass_freigabe(nr, {"geprueft": True, "name": "Prüfer", "datum": "2026-10-29", "kommentar": "Versuch"})
+    spalte = f.zusammenbau.masse.columnCount() - 1
+    assert "✔" in f.zusammenbau.masse.item(0, spalte).text()
+    assert "Versuch" in f.zusammenbau.masse.item(0, spalte).toolTip()
+    assert f.exportiere_messgroessen_pdf(str(tmp_path / "m.pdf"))
+    projekt = f.speichere_projekt(str(tmp_path / "p.3dgmax"))
+    f.oeffne_projekt(projekt, warten=True)
+    assert f.baugruppe.masse[0].freigabe.get("kommentar") == "Versuch"
+
+
 def test_raumketten_datei_und_projekt(fenster, tmp_path):
     """2D- und 3D-Kette speichern, oeffnen und mit dem Projekt sichern."""
     f = fenster

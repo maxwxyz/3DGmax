@@ -11,6 +11,7 @@ from ..i18n import tr
 from ..kern import kette3d as k3
 from ..kern import toleranzkette as tk
 from .tabellen import zahlen_rechts, zeilen_hoehe
+from .bewertung_ui import BewertungLeiste
 from .werkstoff_wahl import WaermeZeile, werkstoff_feld, werkstoff_wert
 
 VORLAGEN = {
@@ -132,6 +133,9 @@ class Kette3DFenster(QtWidgets.QDialog):
         self.waerme = WaermeZeile()
         self.waerme.geaendert.connect(self._waerme_geaendert)
         lay.addWidget(self.waerme)
+        self.bewertung = BewertungLeiste()
+        self.bewertung.geaendert.connect(self._bewertung_geaendert)
+        lay.addWidget(self.bewertung)
         self.ergebnis = QtWidgets.QLabel("")
         self.ergebnis.setWordWrap(True)
         self.ergebnis.setTextFormat(QtCore.Qt.TextFormat.RichText)
@@ -253,6 +257,10 @@ class Kette3DFenster(QtWidgets.QDialog):
             self.kette.glieder[z].werkstoff = werkstoff_wert(self.werkstoff)
             self._rechne()
 
+    def _bewertung_geaendert(self):
+        self.kette.anforderung, self.kette.freigabe = self.bewertung.anforderung_werte(), self.bewertung.freigabe()
+        self._rechne()
+
     def _waerme_geaendert(self):
         self.kette.werkstoff, self.kette.temperaturen = self.waerme.wert(), self.waerme.temperaturen()
         self._rechne()
@@ -333,6 +341,7 @@ class Kette3DFenster(QtWidgets.QDialog):
         for w, attr in ((self.punkt, "punkt"), (self.richtung, "richtung"), (self.ziel, "ziel")):
             self._setze_vektor(w, getattr(self.kette, attr))
         self.waerme.setze(self.kette.werkstoff, self.kette.temperaturen)
+        self.bewertung.setze(self.kette.anforderung, self.kette.freigabe)
         self._rechne()
 
     # --- Ergebnis und Anzeige ---
@@ -342,11 +351,12 @@ class Kette3DFenster(QtWidgets.QDialog):
         k = kette or self.kette
         if not k.glieder:
             return {}
-        e = tk.berechne(k3.als_glieder(k), proben=20_000)
+        e = tk.berechne(k3.als_glieder(k), proben=20_000, anforderung=k.anforderung)
         mc = k3.monte_carlo(k, 3000)
         out = {"nenn": k3.schlussgroesse(k), "wc": (e.wc_min, e.wc_max), "rss": (e.mitte - e.rss, e.mitte + e.rss),
                "mc": tuple(float(x) for x in np.quantile(mc, [0.00135, 0.99865])),
                "empfindlichkeit": k3.empfindlichkeiten(k)}
+        out["ampel"] = tk.bewertung_nichtlinear(e, k.anforderung, mc)
         if kette is None and k.temperaturen:
             out["temperaturen"] = [(t, self.ergebnisse(k3.bei_temperatur(k, t))) for t in k.temperaturen]
         return out
@@ -355,6 +365,7 @@ class Kette3DFenster(QtWidgets.QDialog):
         self.in_kette.setEnabled(bool(self.kette.glieder))
         self._zeigen()
         r = self.ergebnisse()
+        self.bewertung.zeige(*(r.get("ampel") or ("", "")))
         if not r:
             self.ergebnis.setText(tr("Noch keine Glieder – „＋ Glied“ oder eine Vorlage wählen."))
             return

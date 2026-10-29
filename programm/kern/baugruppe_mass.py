@@ -51,6 +51,7 @@ class Messgroesse:
     soll_max: float | None = None
     name: str = ""
     punkt: list[float] | None = None  # Messpunkt auf A in Dateilage des Teils (None: Flaechenschwerpunkt)
+    freigabe: dict = field(default_factory=dict)  # manuelle Freigabe {"geprueft", "name", "datum", "kommentar"}
 
 
 @dataclass

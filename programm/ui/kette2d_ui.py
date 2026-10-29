@@ -12,6 +12,7 @@ from ..i18n import tr
 from ..kern import kette2d as k2
 from ..kern import toleranzkette as tk
 from .tabellen import erste_spalte_fest, spalten_anpassen
+from .bewertung_ui import BewertungLeiste
 from .werkstoff_wahl import WaermeZeile, werkstoff_feld, werkstoff_wert
 
 SPALTEN = (("Name", "Bezeichnung des Segments (z. B. Bauteil oder Maß)"),
@@ -134,6 +135,9 @@ class Kette2DFenster(QtWidgets.QDialog):
         self.waerme = WaermeZeile()
         self.waerme.geaendert.connect(self._waerme_geaendert)
         lay.addWidget(self.waerme)
+        self.bewertung = BewertungLeiste()
+        self.bewertung.geaendert.connect(self._bewertung_geaendert)
+        lay.addWidget(self.bewertung)
         self.ergebnis = QtWidgets.QLabel("")
         self.ergebnis.setWordWrap(True)
         self.ergebnis.setTextFormat(QtCore.Qt.TextFormat.RichText)
@@ -204,6 +208,10 @@ class Kette2DFenster(QtWidgets.QDialog):
             del self.kette.segmente[z]
         self._fuelle()
 
+    def _bewertung_geaendert(self):
+        self.kette.anforderung, self.kette.freigabe = self.bewertung.anforderung_werte(), self.bewertung.freigabe()
+        self._rechne()
+
     def _waerme_geaendert(self):
         self.kette.werkstoff, self.kette.temperaturen = self.waerme.wert(), self.waerme.temperaturen()
         self._rechne()
@@ -260,6 +268,7 @@ class Kette2DFenster(QtWidgets.QDialog):
         spalten_anpassen(t)
         t.blockSignals(False)
         self.waerme.setze(self.kette.werkstoff, self.kette.temperaturen)
+        self.bewertung.setze(self.kette.anforderung, self.kette.freigabe)
         self.schluss.blockSignals(True)
         self.schluss.setCurrentIndex(max(0, self.schluss.findData(self.kette.schluss)))
         self.schluss.blockSignals(False)
@@ -273,11 +282,12 @@ class Kette2DFenster(QtWidgets.QDialog):
         k = kette or self.kette
         if not k.segmente:
             return {}
-        e = tk.berechne(k2.als_glieder(k), proben=20_000)
+        e = tk.berechne(k2.als_glieder(k), proben=20_000, anforderung=k.anforderung)
         mc = k2.monte_carlo(k, 20_000)
         out = {"nenn": k2.schlussgroesse(k), "wc": (e.wc_min, e.wc_max), "rss": (e.mitte - e.rss, e.mitte + e.rss),
                "mc": tuple(float(x) for x in np.quantile(mc, [0.00135, 0.99865])),
                "empfindlichkeit": k2.empfindlichkeiten(k), "statistisch": e.statistisch}
+        out["ampel"] = tk.bewertung_nichtlinear(e, k.anforderung, mc)
         if kette is None and k.temperaturen:
             out["temperaturen"] = [(t, self.ergebnisse(k2.bei_temperatur(k, t))) for t in k.temperaturen]
         return out
@@ -287,6 +297,7 @@ class Kette2DFenster(QtWidgets.QDialog):
         self.skizze.update()
         self.in_kette.setEnabled(bool(self.kette.segmente))
         r = self.ergebnisse()
+        self.bewertung.zeige(*(r.get("ampel") or ("", "")))
         if not r:
             self.ergebnis.setText(tr("Noch keine Segmente – „＋ Segment“ oder eine Vorlage wählen."))
             return

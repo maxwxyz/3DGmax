@@ -52,6 +52,8 @@ class Kette3D:
     basis: list | None = None  # Lage der Basis im Modell (4x4), z. B. aus einer Baugruppen-Messgroesse; None: Welt
     werkstoff: str = ""  # Vorgabe fuer alle Glieder ohne eigenen Werkstoff
     temperaturen: tuple | None = None  # zwei Grenztemperaturen (°C) fuer die Waermeausdehnung, None: ohne
+    anforderung: tuple | None = None  # Grenzen der Schlussgroesse (unten, oben), None: ohne
+    freigabe: dict = field(default_factory=dict)  # manuelle Freigabe {"geprueft", "name", "datum", "kommentar"}
 
 
 def werkstoff(k: Kette3D, g: Glied3D) -> str:
@@ -165,7 +167,8 @@ def als_dict(k: Kette3D) -> dict:
     from dataclasses import asdict
     return {"glieder": [asdict(g) for g in k.glieder], "punkt": list(k.punkt), "richtung": list(k.richtung),
             "schluss": k.schluss, "ziel": list(k.ziel), "basis": k.basis, "werkstoff": k.werkstoff,
-            "temperaturen": list(k.temperaturen) if k.temperaturen else None}
+            "temperaturen": list(k.temperaturen) if k.temperaturen else None,
+            "anforderung": list(k.anforderung) if k.anforderung else None, "freigabe": dict(k.freigabe)}
 
 
 def von_dict(d: dict) -> Kette3D:
@@ -173,7 +176,8 @@ def von_dict(d: dict) -> Kette3D:
                        g.get("werkstoff", "")) for g in d.get("glieder", [])]
     return Kette3D(glieder, tuple(d.get("punkt", (0, 0, 0))), tuple(d.get("richtung", (0, 0, 1))),
                    d.get("schluss", "z"), tuple(d.get("ziel", (0, 0, 0))), d.get("basis"), d.get("werkstoff", ""),
-                   tuple(d["temperaturen"]) if d.get("temperaturen") else None)
+                   tuple(d["temperaturen"]) if d.get("temperaturen") else None,
+                   tuple(d["anforderung"]) if d.get("anforderung") else None, dict(d.get("freigabe") or {}))
 
 
 def glied(name: str, werkstoff: str = "", **komponenten) -> Glied3D:

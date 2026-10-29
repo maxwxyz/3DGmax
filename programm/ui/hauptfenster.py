@@ -274,6 +274,7 @@ class Hauptfenster(QtWidgets.QMainWindow):
         self.zusammenbau.mass_entfernen.connect(self._messgroesse_entfernen)
         self.zusammenbau.neu_rechnen.connect(self._zusammenbau_zeigen)
         self.zusammenbau.soll.connect(self._soll)
+        self.zusammenbau.freigabe.connect(self._mass_freigabe)
         self.zusammenbau.mass_pdf.connect(lambda: self.exportiere_messgroessen_pdf())
         self.zusammenbau.mass_kette.connect(self.messgroesse_als_kette3d)
         self.zusammenbau.hinzufuegen.connect(lambda: self.modell_hinzufuegen(""))
@@ -3237,7 +3238,8 @@ class Hauptfenster(QtWidgets.QMainWindow):
         f = getattr(self, "_kette2d", None)
         if f is None:
             f = Kette2DFenster(self)
-            f.uebernehmen.connect(lambda gl, f=f: self._kette2d_uebernehmen(gl, f.kette.temperaturen))
+            f.uebernehmen.connect(lambda gl, f=f: self._kette2d_uebernehmen(gl, f.kette.temperaturen,
+                                                                            f.kette.anforderung))
             self._kette2d = f
             self._als_leiste(f, tr("2D-Toleranzkette"), "kette2d")
         if not nur_anlegen:
@@ -3250,7 +3252,8 @@ class Hauptfenster(QtWidgets.QMainWindow):
         f = getattr(self, "_kette3d", None)
         if f is None:
             f = Kette3DFenster(self)
-            f.uebernehmen.connect(lambda gl, f=f: self._kette2d_uebernehmen(gl, f.kette.temperaturen))
+            f.uebernehmen.connect(lambda gl, f=f: self._kette2d_uebernehmen(gl, f.kette.temperaturen,
+                                                                            f.kette.anforderung))
             f.zeigen.connect(lambda linien: self.ansicht.zeige_hilfslinien(linien or [], einpassen=bool(linien)))
             self._kette3d = f
             self._als_leiste(f, tr("3D-Toleranzkette"), "kette3d")
@@ -3258,9 +3261,9 @@ class Hauptfenster(QtWidgets.QMainWindow):
             self._leiste_zeigen(f, "kette3d")
         return f
 
-    def _kette2d_uebernehmen(self, glieder: list, temperaturen: tuple | None = None):
-        """Linearisierte 2D/3D-Kette ins 1D-Fenster; die Werkstoffe stecken in den Gliedern, die Grenztemperaturen
-        der Kette werden mit uebernommen."""
+    def _kette2d_uebernehmen(self, glieder: list, temperaturen: tuple | None = None, anforderung: tuple | None = None):
+        """Linearisierte 2D/3D-Kette ins 1D-Fenster; die Werkstoffe stecken in den Gliedern, Grenztemperaturen und
+        Anforderung der Kette werden mit uebernommen."""
         k = self.zeige_toleranzkette()
         k.beende_planspiel(False)
         k.setze_glieder(glieder)
@@ -3268,6 +3271,10 @@ class Hauptfenster(QtWidgets.QMainWindow):
             k.t1.setValue(temperaturen[0])
             k.t2.setValue(temperaturen[1])
             k.waerme.setChecked(True)
+        if anforderung:
+            k.unten.setValue(anforderung[0])
+            k.oben.setValue(anforderung[1])
+            k.anforderung.setChecked(True)
         self.statusBar().showMessage(tr("Kette als {} Glieder übernommen (linearisiert)").format(len(glieder)), 6000)
 
     def zeige_funktion(self, nur_anlegen: bool = False):
@@ -4099,6 +4106,12 @@ class Hauptfenster(QtWidgets.QMainWindow):
     def _messgroesse_entfernen(self, nummer: int):
         self.baugruppe.entferne_messgroesse(nummer)
         self._zusammenbau_zeigen()
+
+    def _mass_freigabe(self, nummer: int, freigabe: dict):
+        m = next((x for x in self.baugruppe.masse if x.nummer == nummer), None)
+        if m is not None:
+            m.freigabe = dict(freigabe)
+            self._zusammenbau_zeigen()
 
     def _soll(self, nummer: int, text: str):
         from ..kern.baugruppe_mass import lies_soll

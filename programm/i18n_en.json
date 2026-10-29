@@ -1963,5 +1963,14 @@
 "Anmerkungen an Flächen, Teilen oder PMI festhalten und abhaken – sie werden im Projekt gespeichert": "Record notes on faces, parts or PMI and tick them off – they are saved in the project",
 "Teile auf Durchdringungen, Kontakte und zu kleine oder zu große Abstände prüfen": "Check parts for penetrations, contacts and distances that are too small or too large",
 "Scan (Netz oder Punktwolke) gegen das Modell und seine PMI-Toleranzen prüfen": "Check a scan (mesh or point cloud) against the model and its PMI tolerances",
-"Unterschiede zweier Stände an Geometrie und PMI auflisten, zeigen und abhaken": "List, show and tick off the differences of two states in geometry and PMI"
+"Unterschiede zweier Stände an Geometrie und PMI auflisten, zeigen und abhaken": "List, show and tick off the differences of two states in geometry and PMI",
+"Anforderung an die Schlussgröße": "Requirement for the closing quantity",
+"Begründung der Freigabe, z. B. Versuch, Erfahrung, Abstimmung": "Reason for the approval, e.g. test, experience, agreement",
+"Freigeben …": "Approve …",
+"Gewählte Messgröße manuell freigeben (i. O. / geprüft), auch abweichend von der Bewertung – mit Name, Datum und Kommentar im Bericht und im Projekt": "Approve the selected measure manually (OK / checked), also against the rating – with name, date and comment in the report and the project",
+"Grenzen der Schlussgröße (z. B. Spalt): daraus Ampel, Cpk und Anteil außerhalb (nichtlinear per Monte Carlo)": "Limits of the closing quantity (e.g. gap): giving the traffic light, Cpk and share outside (non-linear by Monte Carlo)",
+"Manuelle Freigabe, auch abweichend vom Ergebnis (z. B. Funktion im Versuch nachgewiesen) – mit Name, Datum und Kommentar in der Kettendatei und im Projekt": "Manual approval, also against the result (e.g. function proven in a test) – with name, date and comment in the chain file and the project",
+"Messgröße i. O. / geprüft": "Measure OK / checked",
+"Messgröße {} freigeben": "Approve measure {}",
+"Untere und obere Grenze der Schlussgröße": "Lower and upper limit of the closing quantity"
 }
