@@ -385,6 +385,13 @@ graphics only, 8.19 QIF graphics, 8.20 3D tolerance analysis,
    feature torsors inside a part, one-sided contact). Windows CI: `test_toleranzkette_fenster_verkleinerbar` gives
    715 px on the Windows runner (macOS/Linux fine); the test now prints the widest children – read them from the
    next Windows run and fix that widget.
+   Later on 2026-10-29: GitHub builds green on all platforms (run 40833502869). Examples merged without a test run
+   after the merge (user's choice): gearbox shaft for function → tolerancing (`db2cd0d`), one comparison example with
+   clear geometry and PMI changes (`bc91a17`). Bevel gears dropped (user: no generator, gears = analysis only).
+   Paused by the user, to resume later: functional-chain open items (branch `claude/fmk-offen-804965`, no code yet,
+   plan in the shared note `fmk-offen.md`) and spline recognition (branch `claude/passverzahnung-a24808`, empty WIP
+   commit with the plan, note `passverzahnung.md`). QIF Plans export waits for the user's OK to download the QIF 3
+   XSDs; the cylindrical gear data sheet waits for the user's decision (gears paused for now).
    Next, in this order: formats (QIF Plans export, STEP-XML, PRC compressed tessellation/B-rep, PMI from JT),
    performance/gears (gear data sheet, PLAN §8.27), then item 8 DXF dimension entities, then the user checks (CATIA
    reading of written STEP with own PMI/presentation, screenshot of the blue stripe while loading on Windows, an
