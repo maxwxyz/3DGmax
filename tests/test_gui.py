@@ -2041,6 +2041,30 @@ def test_kette2d_gleitender_kontakt(fenster):
     assert not w.in_kette.isEnabled() and ("zwei" in w.ergebnis.text() or "two" in w.ergebnis.text())
 
 
+def test_verbinden_an_bezuegen(fenster):
+    """Zusammenbau an Bezuegen: Bezuege A, B der Schraube aus den PMI; ohne Gegenbezug nimmt A die gewaehlte
+    Gegenflaeche, B findet am Deckel keinen Zylinder; mit Bezug A am Deckel werden die Buchstaben gepaart."""
+    from programm.kern.pmi import Pmi
+    from programm.kern.verbindung import flaeche_im_teil
+    f = fenster
+    f.lade(pfad("baugruppe.stp"), warten=True)
+    f.zeige_zusammenbau()
+    knoten = {k.nummer: k for k in f.erg.baum.blaetter()}
+    fl = lambda t, i: flaeche_im_teil(knoten[t].form, i, f.erg.modell)  # noqa: E731
+    f.erg.pmi += [Pmi("bezug", "Datum", "A", flaechen={18}), Pmi("bezug", "Datum", "B", flaechen={19})]
+    assert f._bezuege_des_teils(4) == [("A", 18), ("B", 19)] and f._bezuege_des_teils(3) == []
+    f.ansicht.setze_auswahl([fl(4, 17), fl(3, 15)], [4, 3])
+    neu = f.verbinde_an_bezuegen()
+    assert [(v.flaeche, v.gegen_flaeche, v.art) for v in neu] == [(18, 15, "eben")]
+    assert "B" in f.statusBar().currentMessage()
+    f.zusammenbau_zuruecksetzen()
+    f.erg.pmi.append(Pmi("bezug", "Datum", "A", flaechen={15}))  # Deckel hat ebenfalls einen Bezug A
+    f.ansicht.setze_auswahl([fl(4, 17), fl(3, 10)], [4, 3])
+    neu = f.verbinde_an_bezuegen()
+    assert neu and (neu[0].flaeche, neu[0].gegen_flaeche) == (18, 15)  # gepaart nach Buchstabe, nicht nach Auswahl
+    assert f.zusammenbau.knopf_bezuege.toolTip()
+
+
 def test_ketten_aus_dem_modell(fenster_ctc01):
     """2D-Kette aus der 3D-Auswahl (Kennpunkte in Klickreihenfolge, Blickebene, Allgemeintoleranz) und 3D-Glied aus
     einem Teil des Zusammenbaus (Grenzen aus den Spielraeumen)."""

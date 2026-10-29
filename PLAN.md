@@ -899,6 +899,11 @@ Plan (each stage usable on its own; builds on §8.5 zones and the 1D chain of §
   orientation of the measured face as tilt over its size (at a measuring point), size tolerances of features of
   size measured to their axis, torsors per feature inside a part between its datums and the connection features
   (full SDT chain), one-sided contact.
+- Done 2026-10-29 (stage 1, mates on datum features): "An Bezügen" connects a part at its datum features A, B, C
+  from the PMI (`Hauptfenster.verbinde_an_bezuegen`): datums of the same letter on the mating part are paired,
+  otherwise A takes the selected mating face and B, C the nearest matching face in the current position (opposite
+  plane, parallel coaxial cylinder). With "Modell hinzufügen", materials per part and the chain materials the roadmap
+  item "assemblies built in the project" is complete.
 - Done 2026-10-28: clash check at the tolerance limit positions (each connected part at the extremes of its
   clearance, others nominal; only findings that do not exist nominally, worst case per pair). Finding: the symmetric
   ±h of a planar contact lets a lid sink into its seat and the octagon of the radial play (up to 8 % larger) lets a

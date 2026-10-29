@@ -253,6 +253,7 @@ class Hauptfenster(QtWidgets.QMainWindow):
         self.dock_zusammenbau.hide()
         self.zusammenbau.verbinden.connect(self.verbinde_auswahl)
         self.zusammenbau.verbinden_321.connect(self.verbinde_321)
+        self.zusammenbau.verbinden_bezuege.connect(self.verbinde_an_bezuegen)
         self.zusammenbau.entfernen.connect(self._verbindung_entfernen)
         self.zusammenbau.zuruecksetzen.connect(self.zusammenbau_zuruecksetzen)
         self.zusammenbau.wiggle.connect(self._wiggle)
@@ -4263,6 +4264,99 @@ class Hauptfenster(QtWidgets.QMainWindow):
             text += " · " + tr("nicht mehr erfüllt: {}").format(", ".join(str(x.nummer) for x in verletzt))
         self.statusBar().showMessage(text, 8000)
         return v
+
+    def _bezuege_des_teils(self, teil: int) -> list[tuple[str, int]]:
+        """Bezuege (Buchstabe, erste Flaeche) aus den PMI, deren Flaechen zu diesem Teil gehoeren, nach Buchstabe."""
+        from ..kern.verbindung import flaeche_im_teil
+        knoten = next((k for k in self.erg.baum.blaetter() if k.nummer == teil), None)
+        if knoten is None:
+            return []
+        out = {}
+        for p in self.erg.pmi:
+            if p.art == "bezug" and p.typ == "Datum" and p.name and p.name not in out:
+                idx = next((i for i in sorted(p.flaechen)
+                            if flaeche_im_teil(knoten.form, i, self.erg.modell) is not None), None)
+                if idx is not None:
+                    out[p.name] = idx
+        return sorted(out.items())
+
+    def _passende_gegenflaeche(self, teil: int, flaeche, gegen_teil: int):
+        """Naechste Flaeche des Gegenteils, die zu dieser Flaeche passt (Ebene gegenueber, Zylinder gleichachsig) -
+        in der aktuellen Lage, also nach den schon gesetzten Verbindungen. (Flaeche, Index) oder (None, None)."""
+        import numpy as np
+        from OCC.Core.TopAbs import TopAbs_FACE
+        from OCC.Core.TopExp import TopExp_Explorer
+        from ..kern.verbindung import merkmal
+        ma = merkmal(flaeche, self.baugruppe.lage(teil))
+        knoten = next((k for k in self.erg.baum.blaetter() if k.nummer == gegen_teil), None)
+        if ma is None or knoten is None:
+            return None, None
+        beste, abstand = (None, None), np.inf
+        ex = TopExp_Explorer(knoten.form, TopAbs_FACE)
+        while ex.More():
+            g = ex.Current()
+            ex.Next()
+            mb = merkmal(g, self.baugruppe.lage(gegen_teil))
+            if mb is None or mb[0] != ma[0] or ma[0] == "kugel":
+                continue
+            p, d = np.asarray(ma[1], float), np.asarray(ma[2], float)
+            q, e = np.asarray(mb[1], float), np.asarray(mb[2], float)
+            if ma[0] == "ebene":
+                if d @ e > -0.99:  # Ebenen muessen sich gegenueberliegen
+                    continue
+                a = abs(float((p - q) @ e)) + 0.01 * float(np.linalg.norm(p - q))
+            else:
+                if abs(d @ e) < 0.99:
+                    continue
+                r = p - q
+                a = float(np.linalg.norm(r - e * float(r @ e)))
+            if a < abstand:
+                idx = self.erg.modell.flaechen_index(g)
+                if idx is not None:
+                    beste, abstand = (g, idx), a
+        return beste
+
+    def verbinde_an_bezuegen(self, versatz: float = 0.0) -> list:
+        """Teil an seinen Bezuegen (A, B, C aus den PMI) mit dem Gegenteil verbinden. Gewaehlt: eine Flaeche am
+        bewegten Teil, eine am Gegenteil. Hat das Gegenteil Bezuege gleichen Namens, werden sie gepaart; sonst nimmt
+        A die gewaehlte Gegenflaeche und B, C die naechste passende Flaeche des Gegenteils."""
+        from ..kern.verbindung import flaeche_im_teil
+        if self.erg is None or self.vergleich is not None:
+            return []
+        m = self.erg.modell
+        paare = [(f, t) for f, t in zip(self.ansicht.auswahl3d, self.ansicht.auswahl_teile)
+                 if t is not None and m.flaechen_index(f) is not None]
+        if len(paare) != 2 or paare[0][1] == paare[1][1]:
+            self.statusBar().showMessage(tr("Eine Fläche am bewegten Teil und eine am Gegenteil wählen"), 6000)
+            return []
+        (fa, ta), (fb, tb) = paare
+        eigene = self._bezuege_des_teils(ta)
+        if not eigene:
+            self.statusBar().showMessage(tr("Das gewählte Teil hat keine Bezüge in den PMI – einzeln verbinden"), 6000)
+            return []
+        knoten = {k.nummer: k for k in self.erg.baum.blaetter()}
+        gegen = dict(self._bezuege_des_teils(tb))
+        neu, texte = [], []
+        for n, (buchstabe, idx) in enumerate(eigene[:3]):
+            f = flaeche_im_teil(knoten[ta].form, idx, m)
+            if buchstabe in gegen:
+                g, g_idx = flaeche_im_teil(knoten[tb].form, gegen[buchstabe], m), gegen[buchstabe]
+            elif n == 0:
+                g, g_idx = fb, m.flaechen_index(fb)
+            else:
+                g, g_idx = self._passende_gegenflaeche(ta, f, tb)
+            if f is None or g is None:
+                texte.append(tr("{}: keine passende Gegenfläche").format(buchstabe))
+                continue
+            v = self.baugruppe.verbinde(ta, f, idx, tb, g, g_idx, versatz if n == 0 else 0.0)
+            if isinstance(v, str):
+                texte.append(f"{buchstabe}: {v}")
+                continue
+            neu.append(v)
+            texte.append(tr("{} verbunden").format(buchstabe))
+        self._zusammenbau_zeigen()
+        self.statusBar().showMessage("; ".join(texte), 8000)
+        return neu
 
     def verbinde_321(self, versatz: float = 0.0):
         """3-2-1-Vorlage: sechs gewaehlte Ebenen paarweise (Teil, Gegenstueck), primaer bis tertiaer."""

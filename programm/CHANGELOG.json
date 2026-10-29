@@ -72,7 +72,8 @@
    "Ampel und Freigabe überall: 2D- und 3D-Ketten haben eine Anforderung an die Schlussgröße mit Ampel (lineares Verfahren, Anteil außerhalb nichtlinear per Monte Carlo) und manuelle Freigabe, in Kettendatei und Projekt, die Anforderung geht an die 1D-Kette mit; Messgrößen im Zusammenbau lassen sich manuell freigeben (Tabelle, Bericht, Projekt).",
    "Ketten aus dem Modell: Die 2D-Kette baut ihren Zug aus der 3D-Auswahl (Punkte, Kreismitten, Achsen, Flächenmitten in Klickreihenfolge, in die Blickebene projiziert, Längen mit Allgemeintoleranz); die 3D-Kette hängt ein Glied für das gewählte Teil des Zusammenbaus an (Grenzen aus den Spielräumen seiner Verbindungen).",
    "2D-Kette mit gleitenden Kontakten: Spalte „Gleitet“ – zwei Längen oder Winkel ergeben sich aus dem geschlossenen Zug (kinematische Anpassung, z. B. Kontaktpunkt auf einer Fläche), auch je Monte-Carlo-Probe; Schlussgröße kann eine freie Größe sein; Vorlage „Keil“.",
-   "Variationsrechnung automatisch aus dem Modell: Lage- und Profiltoleranzen der gemessenen Flächen wirken mit (halbe Zonenbreite entlang der Messrichtung, Worst Case und Monte Carlo) und erscheinen als eigene Beitragende – Flächen von Verbindungen zählen nicht doppelt."
+   "Variationsrechnung automatisch aus dem Modell: Lage- und Profiltoleranzen der gemessenen Flächen wirken mit (halbe Zonenbreite entlang der Messrichtung, Worst Case und Monte Carlo) und erscheinen als eigene Beitragende – Flächen von Verbindungen zählen nicht doppelt.",
+   "Zusammenbau „An Bezügen“: ein Teil wird an seinen Bezügen A, B, C aus den PMI verbunden – Bezüge gleichen Namens am Gegenteil werden gepaart, sonst nimmt A die gewählte Gegenfläche und B, C die nächste passende Fläche (Ebene gegenüber, Zylinder gleichachsig)."
   ],
   "en": [
    "Assembly: drag parts in 3D with the left mouse button (classic navigation: with Alt) – only along the open degrees of freedom; close to a matching plane or axis the part snaps live (faces highlighted), releasing creates the connection; the 3D handle snaps the same way.",
@@ -146,7 +147,8 @@
    "Traffic light and approval everywhere: 2D and 3D chains have a requirement for the closing quantity with a traffic light (linear method, share outside non-linear by Monte Carlo) and manual approval, in the chain file and the project, the requirement is passed on to the 1D chain; assembly measures can be approved manually (table, report, project).",
    "Chains from the model: the 2D chain builds its loop from the 3D selection (points, circle centres, axes, face centres in click order, projected into the view plane, lengths with the general tolerance); the 3D chain appends a link for the selected assembly part (limits from the clearances of its connections).",
    "2D chain with sliding contacts: column “Slides” – two lengths or angles follow from the closed loop (kinematic adjustment, e.g. a contact point on a face), also per Monte Carlo sample; the closing quantity can be a free quantity; template “Wedge”.",
-   "Assembly variation automatically from the model: location and profile tolerances of the measured faces contribute (half the zone width along the measuring direction, worst case and Monte Carlo) and appear as contributors of their own – connection faces are not counted twice."
+   "Assembly variation automatically from the model: location and profile tolerances of the measured faces contribute (half the zone width along the measuring direction, worst case and Monte Carlo) and appear as contributors of their own – connection faces are not counted twice.",
+   "Assembly “At datums”: a part is connected at its datums A, B, C from the PMI – datums of the same name on the mating part are paired, otherwise A takes the selected mating face and B, C the nearest matching face (opposite plane, coaxial cylinder)."
   ]
  },
  "releases": [

@@ -28,6 +28,7 @@ AMPEL = {"gruen": "#2e9e48", "gelb": "#c99400", "rot": "#c0392b"}  # Bewertung d
 class BaugruppePanel(QtWidgets.QWidget):
     verbinden = QtCore.Signal(float)  # Versatz in mm
     verbinden_321 = QtCore.Signal(float)  # 3-2-1-Vorlage aus sechs gewaehlten Ebenen
+    verbinden_bezuege = QtCore.Signal(float)  # Teil an seinen Bezuegen A, B, C verbinden
     entfernen = QtCore.Signal(int)  # Nummer der Verbindung
     zuruecksetzen = QtCore.Signal()
     wiggle = QtCore.Signal(object)  # Knotennummer oder None (aus)
@@ -100,6 +101,13 @@ class BaugruppePanel(QtWidgets.QWidget):
                                      "sekundär, tertiär; das Teil wird in einem Schritt bestimmt"))
         self.knopf_321.clicked.connect(lambda: self.verbinden_321.emit(self.versatz.value()))
         reihe.addWidget(self.knopf_321)
+        self.knopf_bezuege = QtWidgets.QPushButton(tr("An Bezügen"))
+        self.knopf_bezuege.setToolTip(tr("Teil an seinen Bezügen A, B, C (aus den PMI) verbinden: eine Fläche am "
+                                         "bewegten Teil und eine am Gegenteil wählen – Bezüge gleichen Namens am "
+                                         "Gegenteil werden gepaart, sonst nimmt A die gewählte Gegenfläche und B, C "
+                                         "die nächste passende"))
+        self.knopf_bezuege.clicked.connect(lambda: self.verbinden_bezuege.emit(self.versatz.value()))
+        reihe.addWidget(self.knopf_bezuege)
         reihe.addStretch(1)  # Knoepfe so breit wie ihr Text, nicht ueber die ganze Leiste
         lay.addLayout(reihe)
         self.verbindungen = _tabelle(self.VERBINDUNG_SPALTEN)
