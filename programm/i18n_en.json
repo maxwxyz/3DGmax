@@ -1988,5 +1988,6 @@
 "Gleitender Kontakt: diese Länge bzw. dieser Winkel ist nicht toleriert, sondern ergibt sich aus dem geschlossenen Zug (genau zwei Größen gleiten, z. B. Kontaktpunkt auf einer Fläche)": "Sliding contact: this length or angle is not toleranced but follows from the closed loop (exactly two quantities slide, e.g. a contact point on a face)",
 "Gleitet": "Slides",
 "Keil: Höhe aus gleitendem Kontakt": "Wedge: height from a sliding contact",
-"Schlussgröße „freie Größe“ braucht zwei freie (gleitende) Größen": "Closing quantity “free quantity” needs two free (sliding) quantities"
+"Schlussgröße „freie Größe“ braucht zwei freie (gleitende) Größen": "Closing quantity “free quantity” needs two free (sliding) quantities",
+"Toleranz der Messfläche {}: {}": "Tolerance of measured face {}: {}"
 }

@@ -475,7 +475,8 @@ def messgroessen_pdf(fenster, pfad: str) -> str:
             bericht.bild(h.grab().toImage(), 0.14)
         spalten = [(tr(s), 1 / len(BaugruppePanel.BEITRAG_SPALTEN)) for s in BaugruppePanel.BEITRAG_SPALTEN]
         arten = {v.nummer: v.art for v in b.verbindungen}
-        bericht.tabelle(spalten, [[str(x.verbindung), bm.beitrag_art(x, arten), f"{x.bereich:.4f}",
+        bericht.tabelle(spalten, [["–" if x.flaeche is not None else str(x.verbindung), bm.beitrag_art(x, arten),
+                                   f"{x.bereich:.4f}",
                                    f"{x.anteil_wc:.0%}", f"{x.anteil_var:.0%}"] for x in e.beitraege])
     bericht.absatz(tr("Lineares Modell: Teile bewegen sich in den Spielräumen ihrer Verbindungen; Worst Case per "
                       "linearem Programm, Monte Carlo normalverteilt (Spielraum = 3σ) mit gewichtetem Ausgleich bei "

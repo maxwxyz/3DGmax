@@ -96,6 +96,27 @@ def test_messgroessen_worst_case_monte_carlo():
     assert [m.nummer for m in b2.masse] == [1, 2, 3] and b2.masse[1].soll_max == 0.05
 
 
+def test_toleranz_der_messflaechen():
+    """Automatisch aus dem Modell: Lage-/Profiltoleranzen der gemessenen Flaechen (die nicht schon Verbindungsflaechen
+    sind) wirken mit halber Zonenbreite entlang der Messrichtung - Worst Case breiter um 2h, eigener Beitragender."""
+    from types import SimpleNamespace
+    b, f = _baugruppe()
+    kopf = b.neue_messgroesse(4, f(4, 17), 17, 3, f(3, 15), 15)
+    ohne = bm.Analyse(b).berechne(kopf, *b.mass_formen[kopf.nummer])
+    profil = SimpleNamespace(art="toleranz", typ="ProfileOfSurface", wert=0.1, flaechen={17},
+                             wert_text=lambda: "⌓ | 0.1 | A")
+    mit = bm.Analyse(b, [profil]).berechne(kopf, *b.mass_formen[kopf.nummer])
+    assert abs((mit.wc_max - mit.wc_min) - (ohne.wc_max - ohne.wc_min) - 0.1) < 1e-9
+    eigen = [x for x in mit.beitraege if x.flaeche == 17]
+    assert len(eigen) == 1 and abs(eigen[0].bereich - 0.1) < 1e-12 and "0.1" in bm.beitrag_art(eigen[0], {})
+    assert mit.std > ohne.std and abs(sum(x.anteil_var for x in mit.beitraege) - 1) < 1e-9
+    verbunden = next(v for v in b.verbindungen)  # Flaeche einer Verbindung: steckt schon im Spielraum
+    doppelt = SimpleNamespace(art="toleranz", typ="Position", wert=0.2, flaechen={verbunden.flaeche},
+                              wert_text=lambda: "⌖ 0.2")
+    m2 = bm.Messgroesse(99, verbunden.teil, verbunden.flaeche, kopf.teil_b, kopf.flaeche_b)
+    assert bm.Analyse(b, [doppelt]).flaechen_toleranzen(m2) == []
+
+
 def test_soll_text():
     assert bm.lies_soll("14,5 … 15,5") == (14.5, 15.5)
     assert bm.lies_soll(">= 1") == (1.0, None) and bm.lies_soll("≤ 2") == (None, 2.0)

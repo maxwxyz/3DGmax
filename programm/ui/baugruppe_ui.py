@@ -395,7 +395,8 @@ class BaugruppePanel(QtWidgets.QWidget):
         liste = e.beitraege if e is not None else []
         t.setRowCount(len(liste))
         for z, b in enumerate(liste):
-            werte = (str(b.verbindung), bm.beitrag_art(b, self._arten), f"{b.bereich:.4f}", f"{b.anteil_wc:.0%}",
+            werte = ("–" if b.flaeche is not None else str(b.verbindung), bm.beitrag_art(b, self._arten),
+                     f"{b.bereich:.4f}", f"{b.anteil_wc:.0%}",
                      f"{b.anteil_var:.0%}")
             for s, w in enumerate(werte):
                 t.setItem(z, s, QtWidgets.QTableWidgetItem(w))

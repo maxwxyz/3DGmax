@@ -61,6 +61,8 @@ class Beitrag:
     anteil_wc: float  # Anteil an der Summe der Bereiche
     anteil_var: float  # Varianzanteil aus Monte Carlo
     bonus: bool = False  # Ⓜ/Ⓛ-Bonus bzw. Bezugsverschiebung der Verbindung statt ihres Spielraums
+    flaeche: int | None = None  # Toleranz einer gemessenen Flaeche (Lage/Profil zu ihren Bezuegen) statt Verbindung
+    text: str = ""  # Toleranzangaben dieser Flaeche
 
 
 @dataclass
@@ -142,8 +144,9 @@ def _empfindlichkeit(punkt: np.ndarray, normale: np.ndarray) -> np.ndarray:
 class Analyse:
     """Lineares Modell aller Verbindungen einer Baugruppe fuer eine oder mehrere Messgroessen."""
 
-    def __init__(self, baugruppe):
+    def __init__(self, baugruppe, pmi: list | None = None):
         self.bg = baugruppe
+        self.pmi = list(pmi or [])  # fuer die Toleranzen der gemessenen Flaechen
         self.teile = [t for t in baugruppe.teile() if not baugruppe.fest(t)]
         self._spalte = {t: 6 * i for i, t in enumerate(self.teile)}
         self.n = 6 * len(self.teile)
@@ -365,6 +368,19 @@ class Analyse:
         return [(nr, zeilen, grenzen, ziehen(rng, anzahl), None if bonus is None else bonus(rng, anzahl))
                 for nr, zeilen, grenzen, ziehen, bonus in self.mc]
 
+    def flaechen_toleranzen(self, m: Messgroesse) -> list[tuple[int, float, str]]:
+        """Toleranzen der beiden gemessenen Flaechen, die nicht schon im Spielraum einer Verbindung stecken: je
+        Flaeche (Index, halbe Zonenbreite h entlang der Messrichtung, Angaben) aus Lage-/Profiltoleranzen."""
+        from .verbindung import ORT_TYPEN
+        out = []
+        for teil, idx in ((m.teil_a, m.flaeche_a), (m.teil_b, m.flaeche_b)):
+            verbunden = any((v.teil == teil and v.flaeche == idx) or (v.gegen_teil == teil and v.gegen_flaeche == idx)
+                            for v in self.bg.verbindungen)
+            ort = [p for p in self.pmi if idx in p.flaechen and p.art == "toleranz" and p.typ in ORT_TYPEN and p.wert]
+            if ort and not verbunden:
+                out.append((idx, sum(float(p.wert) for p in ort) / 2, ", ".join(p.wert_text() for p in ort)))
+        return out
+
     def berechne(self, m: Messgroesse, fa, fb, proben: int = 20_000, zufall: int = 1) -> Ergebnis:
         nenn, c = self.vektor(m, fa, fb)
         frei = c - self.basis.T @ (self.basis @ c) if len(self.basis) else c
@@ -383,14 +399,22 @@ class Analyse:
                 if yb is not None:  # Bonus wirkt auf dieselben Zeilen (y + yb)
                     teile.append(((nr, True), yb @ g[k:k + len(zeilen)]))
                 k += len(zeilen)
+        eigene = self.flaechen_toleranzen(m)  # Zone der gemessenen Flaeche verschiebt sie entlang der Messrichtung
+        rng = np.random.default_rng(zufall + 7)
+        for idx, h, _ in eigene:
+            lo, hi = lo - h, hi + h
+            teile.append((("flaeche", idx), np.clip(rng.normal(0.0, h / 3, proben), -h, h)))
         werte = nenn + (np.sum([t for _, t in teile], axis=0) if teile else np.zeros(proben))
         var = {schluessel: float(np.var(t)) for schluessel, t in teile}
         summe_var = sum(var.values()) or 1.0
         bereiche = {(v.nummer, bonus): max(0.0, float(np.subtract(*self._extrem(c, v.nummer, bonus)[::-1])))
                     for v in self.bg.verbindungen for bonus in ((False, True) if v.bonus > 0 else (False,))}
-        summe_wc = sum(bereiche.values()) or 1.0
-        beitraege = sorted((Beitrag(nr, b, b / summe_wc, var.get((nr, bonus), 0.0) / summe_var, bonus)
-                            for (nr, bonus), b in bereiche.items()), key=lambda x: (-x.anteil_var, -x.anteil_wc))
+        summe_wc = (sum(bereiche.values()) + sum(2 * h for _, h, _ in eigene)) or 1.0
+        beitraege = [Beitrag(nr, b, b / summe_wc, var.get((nr, bonus), 0.0) / summe_var, bonus)
+                     for (nr, bonus), b in bereiche.items()]
+        beitraege += [Beitrag(0, 2 * h, 2 * h / summe_wc, var.get(("flaeche", idx), 0.0) / summe_var, flaeche=idx,
+                              text=t) for idx, h, t in eigene]
+        beitraege.sort(key=lambda x: (-x.anteil_var, -x.anteil_wc))
         q = np.quantile(werte, [0.00135, 0.99865])
         e = Ergebnis(nenn, nenn + lo, nenn + hi, float(werte.mean()), float(werte.std()), float(q[0]), float(q[1]),
                      unbestimmt=unbestimmt, beitraege=beitraege, proben=werte)
@@ -462,6 +486,8 @@ def _bewerte(e: Ergebnis, smin: float | None, smax: float | None):
 def beitrag_art(b: Beitrag, arten: dict) -> str:
     """Art des Beitragenden: Verbindungsart, beim Bonus "Bonus Ⓜ/Ⓛ / Bezugsverschiebung (Art)"."""
     from .verbindung import ART_TEXT as VERBINDUNG_ART
+    if b.flaeche is not None:
+        return tr("Toleranz der Messfläche {}: {}").format(b.flaeche, b.text)
     art = tr(VERBINDUNG_ART.get(arten.get(b.verbindung), ""))
     return tr("Bonus Ⓜ/Ⓛ / Bezugsverschiebung ({})").format(art) if b.bonus else art
 

@@ -892,6 +892,13 @@ Plan (each stage usable on its own; builds on §8.5 zones and the 1D chain of §
   ⌀0.122 at LMC), axis-to-plane worst case ±0.122. Assumptions: the size draw is independent of the clearance draw
   (the size clearance in the connection already uses the worst-case sizes); the datum feature's own location
   tolerance is not added (as in `bezugsverschiebung`). Still open: one-sided contact.
+- Done 2026-10-29 (stage 3, automatically from the model, first part): the measured faces' own location/profile
+  tolerances (`ORT_TYPEN`) enter each measure with half the zone width along the measuring direction – worst case
+  ±h, Monte Carlo normal (3σ = h, clipped) – as contributors "tolerance of measured face" (`Analyse(…, pmi)`,
+  `flaechen_toleranzen`); faces that are connection faces are skipped (already in the clearance). Open: form and
+  orientation of the measured face as tilt over its size (at a measuring point), size tolerances of features of
+  size measured to their axis, torsors per feature inside a part between its datums and the connection features
+  (full SDT chain), one-sided contact.
 - Done 2026-10-28: clash check at the tolerance limit positions (each connected part at the extremes of its
   clearance, others nominal; only findings that do not exist nominally, worst case per pair). Finding: the symmetric
   ±h of a planar contact lets a lid sink into its seat and the octagon of the radial play (up to 8 % larger) lets a

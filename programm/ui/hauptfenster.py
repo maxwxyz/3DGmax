@@ -4151,7 +4151,7 @@ class Hauptfenster(QtWidgets.QMainWindow):
         if not self.baugruppe.masse:
             return {}
         from ..kern.baugruppe_mass import Analyse
-        a = Analyse(self.baugruppe)
+        a = Analyse(self.baugruppe, self.erg.pmi if self.erg is not None else [])
         out = {m.nummer: a.berechne(m, *self.baugruppe.mass_formen[m.nummer]) for m in self.baugruppe.masse}
         z = self.zusammenbau
         if z.waerme.isChecked():
