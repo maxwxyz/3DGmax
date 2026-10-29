@@ -101,7 +101,8 @@
 | 3D chains by hand: positions with six toleranced components, guided editor, templates, shown in the model, linear and non-linear, handover to the 1D window (PLAN §8.33) | ✅ |
 | 2D/3D chains: save/open as .3dgkette2d/.3dgkette3d and in the project | ✅ |
 | 2D/3D chains: pick from the model/assembly connections | ✅ |
-| 2D/3D chains: sliding contacts (kinematic adjustment, contact point slides – dependent variables solved by loop closure) | ⬜ |
+| 2D chains: sliding contacts (kinematic adjustment, contact point slides – dependent variables solved by loop closure) | ✅ |
+| 3D chains: sliding contacts (closure of position and orientation, six dependent variables) | ⬜ |
 | Stack-up: wiggle of the closing faces by the worst-case extremes | ✅ |
 | Stack-up: median planes as chain ends, chains across assembly parts | ✅ |
 | Assembly: connections plane/plane and coaxial with snapping, satisfied check, open DOF per part, DOF wiggle, in the project | ✅ |

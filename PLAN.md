@@ -564,8 +564,13 @@ vertex, circle centre, cylinder axis point at the centroid height, face/edge cen
 `ansicht3d.blickebene`; lengths with the ISO 2768 general tolerance from the choice or the file, angles exact until
 tolerated by hand) and "＋ Aus Zusammenbau" in the 3D chain (`Analyse.glied_fuer_teil`: translation from the previous
 chain point to the part's fixing point, limits from the clearances of its connections, chains in world position).
-Open: sliding contacts (kinematic adjustment – the contact point slides, a dependent variable solved by closing the
-loop, Chase/Gao DLM), angle tolerances from ISO 2768-1 angular classes, PMI dimensions matched to picked features.
+Open: angle tolerances from ISO 2768-1 angular classes, PMI dimensions matched to picked features.
+**Done 2026-10-29 – sliding contacts in 2D:** `Segment.frei` ("laenge"/"winkel") marks a dependent (kinematic)
+quantity; with exactly two the loop is closed (end = start) and `kette2d._schliesse` solves them by Newton with the
+analytic 2×2 Jacobian, vectorised over Monte Carlo samples; sensitivities and the 1D hand-over use only the
+independent quantities; closing quantity "1./2. freie Größe". Checked on a wedge: height 40·tan 30° = 23.094,
+sensitivity tan 30°, Monte Carlo σ as linear. Open: sliding contacts in 3D chains (closure of position and
+orientation, six dependent variables).
 
 **What a functional dimension chain is for** (answer for the user, background for the guide):
 - Analysis: does the function (gap, overlap, preload, alignment) hold for the given part tolerances – worst case or

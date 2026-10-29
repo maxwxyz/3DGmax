@@ -1981,5 +1981,12 @@
 "Glied für das im Modell gewählte Teil des Zusammenbaus anhängen: Lage seines Fixierpunkts, Grenzen aus den Spielräumen seiner Verbindungen": "Append a link for the assembly part selected in the model: position of its fixing point, limits from the clearances of its connections",
 "Zug durch die im Modell gewählten Punkte, Kanten oder Flächen (in Klickreihenfolge, projiziert in die Blickebene): Längen mit Allgemeintoleranz, Winkel von Hand tolerieren": "Loop through the points, edges or faces selected in the model (in click order, projected into the view plane): lengths with the general tolerance, tolerate angles by hand",
 "{} Segmente aus der Auswahl (Blickebene){}": "{} segments from the selection (view plane){}",
-"＋ Aus Zusammenbau": "＋ From assembly"
+"＋ Aus Zusammenbau": "＋ From assembly",
+"1. freie Größe (gleitet)": "1st free quantity (sliding)",
+"2. freie Größe (gleitet)": "2nd free quantity (sliding)",
+"Ein geschlossener Zug braucht genau zwei freie (gleitende) Größen – gewählt: {}": "A closed loop needs exactly two free (sliding) quantities – selected: {}",
+"Gleitender Kontakt: diese Länge bzw. dieser Winkel ist nicht toleriert, sondern ergibt sich aus dem geschlossenen Zug (genau zwei Größen gleiten, z. B. Kontaktpunkt auf einer Fläche)": "Sliding contact: this length or angle is not toleranced but follows from the closed loop (exactly two quantities slide, e.g. a contact point on a face)",
+"Gleitet": "Slides",
+"Keil: Höhe aus gleitendem Kontakt": "Wedge: height from a sliding contact",
+"Schlussgröße „freie Größe“ braucht zwei freie (gleitende) Größen": "Closing quantity “free quantity” needs two free (sliding) quantities"
 }

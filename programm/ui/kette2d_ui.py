@@ -3,6 +3,7 @@
 
 from __future__ import annotations
 
+import html
 import math
 
 import numpy as np
@@ -23,14 +24,20 @@ SPALTEN = (("Name", "Bezeichnung des Segments (z. B. Bauteil oder Maß)"),
                       "Uhrzeigersinn"),
            ("oben °", "Oberes Abmaß des Winkels in Grad"),
            ("unten °", "Unteres Abmaß des Winkels in Grad"),
+           ("Gleitet", "Gleitender Kontakt: diese Länge bzw. dieser Winkel ist nicht toleriert, sondern ergibt sich aus "
+                       "dem geschlossenen Zug (genau zwei Größen gleiten, z. B. Kontaktpunkt auf einer Fläche)"),
            ("Verteilung", "Streuung von Länge und Winkel in der Fertigung"),
            ("Werkstoff", "Eigener Werkstoff des Segments für die Wärmeausdehnung; „wie Kette“: der Werkstoff der Kette"))
-SP_VERTEILUNG, SP_WERKSTOFF = len(SPALTEN) - 2, len(SPALTEN) - 1
+SP_GLEITET, SP_VERTEILUNG, SP_WERKSTOFF = len(SPALTEN) - 3, len(SPALTEN) - 2, len(SPALTEN) - 1
 VORLAGEN = {"winkel": ("Rechter Winkel (3-4-5)", [k2.Segment("Schenkel 1", 30, 0.1, -0.1),
                                                    k2.Segment("Schenkel 2", 40, 0.1, -0.1, 90, 0.5, -0.5)]),
             "hebel": ("Hebel mit Lagerabstand", [k2.Segment("Gestell", 80, 0.05, -0.05),
                                                   k2.Segment("Hebel", 50, 0.1, -0.1, 120, 0.25, -0.25),
-                                                  k2.Segment("Koppel", 60, 0.1, -0.1, 100, 0.25, -0.25)])}
+                                                  k2.Segment("Koppel", 60, 0.1, -0.1, 100, 0.25, -0.25)]),
+            "keil": ("Keil: Höhe aus gleitendem Kontakt", [k2.Segment("Grundlänge", 40, 0.1, -0.1),
+                                                          k2.Segment("Höhe (gleitet)", 23.1, 0, 0, 90, frei="laenge"),
+                                                          k2.Segment("Keilfläche (gleitet)", 46.2, 0, 0, 120, 0.2, -0.2,
+                                                                     frei="laenge")])}
 
 
 class Skizze(QtWidgets.QWidget):
@@ -206,7 +213,11 @@ class Kette2DFenster(QtWidgets.QDialog):
         if not schluessel:
             return
         import copy
-        self.kette = k2.Kette2D(copy.deepcopy(VORLAGEN[schluessel][1]), self.kette.schluss)
+        segmente = copy.deepcopy(VORLAGEN[schluessel][1])
+        schluss = self.kette.schluss
+        if any(s.frei for s in segmente) != (schluss in ("frei1", "frei2")):  # geschlossener Zug: freie Groesse
+            schluss = "frei1" if any(s.frei for s in segmente) else "abstand"
+        self.kette = k2.Kette2D(segmente, schluss)
         self.vorlage.setCurrentIndex(0)
         self._fuelle()
 
@@ -268,6 +279,14 @@ class Kette2DFenster(QtWidgets.QDialog):
             art.currentIndexChanged.connect(lambda _i, s=s, art=art: (setattr(s, "verteilung", art.currentData()),
                                                                       self._rechne()))
             t.setCellWidget(z, SP_VERTEILUNG, art)
+            gleitet = QtWidgets.QComboBox()
+            for schluessel, text in k2.FREI.items():
+                gleitet.addItem(tr(text), schluessel)
+            gleitet.setCurrentIndex(max(0, gleitet.findData(s.frei)))
+            gleitet.setToolTip(tr(hilfe["Gleitet"]))
+            gleitet.currentIndexChanged.connect(lambda _i, s=s, g=gleitet: (setattr(s, "frei", g.currentData()),
+                                                                             self._rechne()))
+            t.setCellWidget(z, SP_GLEITET, gleitet)
             stoff = werkstoff_feld(s.werkstoff, tr("wie Kette"), tr(hilfe["Werkstoff"]))
             stoff.currentTextChanged.connect(lambda _t, s=s, f=stoff: (setattr(s, "werkstoff", werkstoff_wert(f)),
                                                                        self._rechne()))
@@ -302,13 +321,21 @@ class Kette2DFenster(QtWidgets.QDialog):
     def _rechne(self):
         self.skizze.kette = self.kette
         self.skizze.update()
-        self.in_kette.setEnabled(bool(self.kette.segmente))
+        fehler = k2.pruefe(self.kette)
+        self.in_kette.setEnabled(bool(self.kette.segmente) and not fehler)
+        if fehler and self.kette.segmente:
+            self.bewertung.zeige("", "")
+            self.ergebnis.setText(f"<span style='color:#c0392b'>{html.escape(fehler)}</span>")
+            return
         r = self.ergebnisse()
         self.bewertung.zeige(*(r.get("ampel") or ("", "")))
         if not r:
             self.ergebnis.setText(tr("Noch keine Segmente – „＋ Segment“ oder eine Vorlage wählen."))
             return
-        einheit = "°" if self.kette.schluss == "winkel" else " mm"
+        frei = k2.freie(self.kette)
+        winkel = self.kette.schluss == "winkel" or (self.kette.schluss in ("frei1", "frei2") and len(frei) == 2 and
+                                                    frei[0 if self.kette.schluss == "frei1" else 1][1] == "winkel")
+        einheit = "°" if winkel else " mm"
         z = lambda a, b: f"{a:.4f} … {b:.4f}{einheit}"  # noqa: E731
         groesste = sorted(r["empfindlichkeit"].items(), key=lambda kv: -abs(kv[1]))[:3]
         teile = ", ".join(f"{self.kette.segmente[i].name} ({tr('Winkel') if g == 'winkel' else tr('Länge')}) "

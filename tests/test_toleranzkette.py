@@ -134,6 +134,25 @@ def test_raumkette_anforderung_ampel_freigabe():
     assert k3.von_dict(k3.als_dict(k3k)).anforderung == (9.5, 10.5)
 
 
+def test_gleitender_kontakt_schliesst_den_zug():
+    """2D-Kette mit gleitendem Kontakt (kinematische Anpassung): Keil - Grundlaenge 40, Hoehe und Keilflaeche frei,
+    Keilwinkel 30 Grad: Hoehe = 40 tan 30, Empfindlichkeit tan 30; Monte Carlo pro Probe geschlossen."""
+    from programm.kern import kette2d as k2
+    k = k2.Kette2D([k2.Segment("Basis", 40, 0.1, -0.1), k2.Segment("Hoehe", 20, 0, 0, 90, frei="laenge"),
+                    k2.Segment("Flaeche", 40, 0, 0, 120, 0.2, -0.2, frei="laenge")], "frei1")
+    assert not k2.pruefe(k)
+    t30 = math.tan(math.radians(30))
+    assert abs(k2.schlussgroesse(k) - 40 * t30) < 1e-9
+    e = k2.empfindlichkeiten(k)
+    assert abs(e[(0, "laenge")] - t30) < 1e-6 and (1, "laenge") not in e
+    mc = k2.monte_carlo(k, 20_000)
+    assert abs(np.mean(mc) - 40 * t30) < 0.01 and np.all(np.isfinite(mc))
+    k.segmente[2].frei = ""
+    assert k2.pruefe(k)  # nur eine freie Groesse: nicht schliessbar
+    zurueck = k2.von_dict(k2.als_dict(k))
+    assert zurueck.segmente[1].frei == "laenge"
+
+
 def test_getriebe_kette_temperatur_stellglied_datei(tmp_path):
     import copy
     from programm.kern import kette_datei

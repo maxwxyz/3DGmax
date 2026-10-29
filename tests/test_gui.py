@@ -1545,7 +1545,7 @@ def test_toleranzkette_getriebe_beispiel(fenster, tmp_path):
     assert k.freigabe["geprueft"] and k.freigabe["datum"] and k.als_datei().freigabe["kommentar"]
     ziel = f.exportiere_kette_pdf(str(tmp_path / "kette.pdf"))
     from pypdf import PdfReader
-    text = "".join(s.extract_text() for s in PdfReader(ziel).pages)
+    text = " ".join(" ".join(s.extract_text() for s in PdfReader(ziel).pages).split())  # Linux/Windows: Tabs
     assert "Manuell freigegeben" in text and "Bewertung" in text
 
 
@@ -2025,6 +2025,20 @@ def test_ampel_und_freigabe_fuer_2d_3d_und_messgroessen(fenster, tmp_path):
     projekt = f.speichere_projekt(str(tmp_path / "p.3dgmax"))
     f.oeffne_projekt(projekt, warten=True)
     assert f.baugruppe.masse[0].freigabe.get("kommentar") == "Versuch"
+
+
+def test_kette2d_gleitender_kontakt(fenster):
+    """2D-Fenster: Vorlage Keil (zwei gleitende Groessen, Schlussgroesse = Hoehe), Spalte Gleitet; nur eine freie
+    Groesse: Hinweis statt Ergebnis, Uebernahme gesperrt."""
+    import math
+    from programm.ui.kette2d_ui import SP_GLEITET
+    w = fenster.zeige_kette2d()
+    w.lade_vorlage("keil")
+    assert w.kette.schluss == "frei1" and abs(w.ergebnisse()["nenn"] - 40 * math.tan(math.radians(30))) < 1e-6
+    assert w.in_kette.isEnabled()
+    feld = w.tabelle.cellWidget(2, SP_GLEITET)
+    feld.setCurrentIndex(feld.findData(""))
+    assert not w.in_kette.isEnabled() and ("zwei" in w.ergebnis.text() or "two" in w.ergebnis.text())
 
 
 def test_ketten_aus_dem_modell(fenster_ctc01):
