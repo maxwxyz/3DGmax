@@ -2027,5 +2027,11 @@
 "Gleitender Kontakt: die Komponente ergibt sich aus der geschlossenen Kette (drei freie Komponenten schließen die Lage, sechs auch die Drehung)": "Sliding contact: the component follows from the closed chain (three free components close the position, six also the rotation)",
 "Keil: Höhe aus gleitendem Kontakt (geschlossene Kette)": "Wedge: height from a sliding contact (closed chain)",
 "Alle Verfahren": "All methods",
-"Alle Verfahren im Histogramm überlagern: Worst Case als Band, statistisch als Kurve, Monte Carlo als Histogramm": "Overlay all methods in the histogram: worst case as a band, statistical as a curve, Monte Carlo as a histogram"
+"Alle Verfahren im Histogramm überlagern: Worst Case als Band, statistisch als Kurve, Monte Carlo als Histogramm": "Overlay all methods in the histogram: worst case as a band, statistical as a curve, Monte Carlo as a histogram",
+"Alle PMI in dieser Farbe zeigen, unabhängig vom Farbschema und von der Datei": "Show all PMI in this colour, regardless of the colour scheme and the file",
+"⚠ Wenig Kontrast zum Hintergrund ({0}:1, lesbar ab {1}:1) – PMI sind schwer zu lesen.": "⚠ Low contrast to the background ({0}:1, readable from {1}:1) – PMI are hard to read.",
+"Bezug {} ({}.)": "Datum {} ({}.)",
+"Bonus bei Ⓜ/Ⓛ": "Bonus with Ⓜ/Ⓛ",
+"Bezugsverschiebung": "Datum shift",
+"Raum der Fläche (Maß)": "Space of the surface (size)"
 }

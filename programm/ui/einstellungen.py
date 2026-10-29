@@ -2,9 +2,10 @@
 
 from __future__ import annotations
 
-from PySide6 import QtGui, QtWidgets
+from PySide6 import QtCore, QtGui, QtWidgets
 
 from ..i18n import tr
+from . import thema as _thema
 
 STEUERUNG_TEXT = {
     "catia": ("CATIA",
@@ -42,6 +43,7 @@ class EinstellungenDialog(QtWidgets.QDialog):
         self.kontrast = QtWidgets.QCheckBox(tr("PMI-Farbe für guten Kontrast anpassen"))
         self.kontrast.setToolTip(tr("Aus: Farben aus der Datei (z. B. weiß aus CATIA), auch wenn sie schlecht lesbar sind"))
         self.pmi_eigen = QtWidgets.QCheckBox(tr("Eigene PMI-Farbe"))
+        self.pmi_eigen.setToolTip(tr("Alle PMI in dieser Farbe zeigen, unabhängig vom Farbschema und von der Datei"))
         self.pmi_farbe = FarbKnopf(ein.value("pmi_eigene_farbe", "#d4145a"))
         reihe = QtWidgets.QHBoxLayout()
         reihe.addWidget(self.pmi_eigen)
@@ -49,6 +51,9 @@ class EinstellungenDialog(QtWidgets.QDialog):
         reihe.addStretch(1)
         form.addRow(tr("PMI-Farbe"), self.kontrast)
         form.addRow("", reihe)
+        self.pmi_warnung = QtWidgets.QLabel()
+        self.pmi_warnung.setWordWrap(True)
+        form.addRow("", self.pmi_warnung)
         self.draht_kontrast = QtWidgets.QCheckBox(tr("Kanten in Kontrastfarbe"))
         self.draht_kontrast.setToolTip(tr("Aus: Kanten in der Bauteil- bzw. Flächenfarbe (auf hellem Grund oft schwach)"))
         form.addRow(tr("Drahtmodell"), self.draht_kontrast)
@@ -65,6 +70,9 @@ class EinstellungenDialog(QtWidgets.QDialog):
         form.addRow(tr("Hintergrund"), reihe2)
         self.pmi_eigen.toggled.connect(self._aktiv)
         self.hg_eigen.toggled.connect(self._aktiv)
+        for knopf in (self.pmi_farbe, self.hg_oben, self.hg_unten):
+            knopf.geaendert.connect(self._pruefe_kontrast)
+        self.thema.currentIndexChanged.connect(self._pruefe_kontrast)
         self.sprache = QtWidgets.QComboBox()
         for schluessel, name in (("auto", tr("Wie System")), ("de", "Deutsch"), ("en", "English")):
             self.sprache.addItem(name, schluessel)
@@ -89,6 +97,25 @@ class EinstellungenDialog(QtWidgets.QDialog):
         self.kontrast.setEnabled(not self.pmi_eigen.isChecked())
         for k in (self.hg_oben, self.hg_unten):
             k.setEnabled(self.hg_eigen.isChecked())
+        self._pruefe_kontrast()
+
+    def _hintergrund(self) -> tuple:
+        """Hintergrundfarben (oben, unten), die mit den gewaehlten Einstellungen gelten wuerden."""
+        if self.hg_eigen.isChecked():
+            return rgb(self.hg_oben.farbe), rgb(self.hg_unten.farbe)
+        name = self.thema.currentData()
+        if name not in _thema.THEMEN:
+            name = "dunkel" if _thema.system_dunkel() else "hell"
+        return _thema.hintergrund_3d(_thema.THEMEN[name])
+
+    def _pruefe_kontrast(self, *_):
+        """Hinweis, wenn die eigene PMI-Farbe auf dem Hintergrund schlecht lesbar ist (Kontrast unter 4,5:1)."""
+        wert = _thema.kleinster_kontrast(rgb(self.pmi_farbe.farbe), self._hintergrund())
+        zu_wenig = self.pmi_eigen.isChecked() and wert < _thema.MIN_KONTRAST
+        self.pmi_warnung.setText(tr("⚠ Wenig Kontrast zum Hintergrund ({0}:1, lesbar ab {1}:1) – PMI sind schwer "
+                                    "zu lesen.").format(f"{wert:.1f}", f"{_thema.MIN_KONTRAST:.1f}")
+                                 if zu_wenig else "")
+        self.pmi_warnung.setVisible(zu_wenig)
 
     @staticmethod
     def _setze(combo, wert):
@@ -109,6 +136,8 @@ class EinstellungenDialog(QtWidgets.QDialog):
 class FarbKnopf(QtWidgets.QPushButton):
     """Knopf, der eine Farbe zeigt und per Farbwahl aendert (Wert als #rrggbb)."""
 
+    geaendert = QtCore.Signal(str)
+
     def __init__(self, farbe: str, parent=None):
         super().__init__(parent)
         self.farbe = farbe
@@ -123,8 +152,12 @@ class FarbKnopf(QtWidgets.QPushButton):
     def _waehle(self):
         f = QtWidgets.QColorDialog.getColor(QtGui.QColor(self.farbe), self, tr("Farbe wählen"))
         if f.isValid():
-            self.farbe = f.name()
-            self._zeige()
+            self.setze(f.name())
+
+    def setze(self, farbe: str):
+        self.farbe = farbe
+        self._zeige()
+        self.geaendert.emit(farbe)
 
 
 def rgb(hexfarbe: str) -> tuple[float, float, float]:
