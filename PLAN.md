@@ -586,6 +586,27 @@ sensitivity tan 30°, Monte Carlo σ as linear. **Done the same day in 3D:** `Ko
 close the chain in position (end at the base origin), six also in rotation (rotation vector of the end frame);
 `kette3d._schliesse` Newton with a numerical Jacobian (least squares step), per Monte Carlo sample; closing quantity
 "1./2./3. freie Komponente"; template "Keil" (same 23.094 result).
+**Done 2026-10-29 (user reports: 3D chains not clean, 1D example could not be wiggled):** `kern/kette3d_anzeige.py`
+draws the 3D chain (base with axis letters, link names at the middle of their segment or together at a shared axis
+cross, crosses scaled to the chain extent, function point as a star, target point / target and point direction) and
+wiggles it: the toleranced independent components swing as a sine between their limits, either all at once towards
+the limit that increases the closing quantity (worst-case combination; extremes = non-linear corners, equal to the
+linear worst case for linear chains) or link by link; display 1:1, ×10, ×100 or automatic (largest point motion ≈
+1/20 of the chain size), the label shows the real value, green/red against the requirement. `Glied3D.teil` remembers
+the assembly part of a link (`als_kette3d`, "＋ Aus Zusammenbau"); during the wiggle the part moves rigidly with its
+link frame, relative to the base (B-side parts reversed – a view from the base). "＋ Aus Zusammenbau" at a rotated
+chain end or in a chain with its own base first appends an untoleranced alignment link back to the model axes
+(`kette3d.ausrichtung`). Fixed: the example chain was invisible (the first scene build removed the helper lines –
+`OcctAnsicht` now re-shows them), every edit refitted the view, the window needed scrolling (three columns now).
+1D: `schluss_wiggle.schluss_oder_grund` walks the links along their faces (each starts where the previous ends;
+pattern faces at the same location count once) – the old rule (first face of the first link, last of the last) moved
+the wrong face in the gearbox example (bearing inner face / ring outer face instead of the 0.4 mm play faces); without
+determinable closing faces the play button is disabled with the reason as tooltip (faces missing – e.g. handed over
+from a 2D/3D chain –, links not in chain order). The 1D example ("kette") was a list of unrelated FTC-10 dimensions in
+X, Y and Z; it is now a chain of four model faces along Z (counterbore floor – top – bottom – counterbore floor, depths
+from the PMI, height 75 per ISO 2768-m, closing 55 ± 0.7) with chain picture and running wiggle. Open: the chain
+origin of assembly links is the mating feature point of the first connection (a plane's location point, possibly far
+from the part) – needed for the exact decoupling, but rotations about it swing the part visibly in the wiggle.
 
 **What a functional dimension chain is for** (answer for the user, background for the guide):
 - Analysis: does the function (gap, overlap, preload, alignment) hold for the given part tolerances – worst case or

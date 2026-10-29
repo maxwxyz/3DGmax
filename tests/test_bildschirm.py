@@ -547,3 +547,51 @@ def test_teil_ziehen_einrasten():
     assert zeile, r.stdout[-2000:] + r.stderr[-2000:]
     erg = eval(zeile.split(" ", 1)[1])  # noqa: S307 - eigene Ausgabe
     assert all(v for k, v in erg.items() if k != "text"), erg
+
+
+KETTE3D = r'''
+import os, sys, tempfile
+sys.path.insert(0, sys.argv[1])
+os.environ["DG_EINSTELLUNGEN"] = os.path.join(tempfile.mkdtemp(), "e.ini")
+from PySide6 import QtCore, QtWidgets
+app = QtWidgets.QApplication([])
+from programm.ui.hauptfenster import Hauptfenster
+f = Hauptfenster(); f.resize(1400, 900); f.show()
+def los():
+    erg = {}
+    try:
+        f.oeffne_beispiel("kette3d", warten=True)
+        for _ in range(40):
+            QtWidgets.QApplication.processEvents()
+        a, ctx = f.ansicht, f.ansicht.d.Context
+        # vorher entfernte der erste Szenenaufbau die Linien des Beispiels (nichts zu sehen)
+        erg["kette_sichtbar"] = len(a._hilfs_ais) > 10 and all(ctx.IsDisplayed(x) for x in a._hilfs_ais)
+        w = f._kette3d
+        w.wiggle.click()
+        for _ in range(10):
+            w._wiggle_schritt()
+        erg["wiggle_zeichnet"] = all(ctx.IsDisplayed(x) for x in a._hilfs_ais) and w.wiggle_bild is not None
+        erg["teile_bewegt"] = any(abs(a._teile[t].LocalTransformation().TranslationPart().X()
+                                      - f.baugruppe.lage(t)[0, 3]) > 1e-6 for t in (4, 5) if t in a._teile)
+        w.wiggle.click()
+        erg["angehalten"] = not w._uhr.isActive()
+    except Exception as e:
+        erg["fehler"] = False
+        erg["text"] = repr(e)
+    print("ERGEBNIS", erg, flush=True)
+    app.quit()
+QtCore.QTimer.singleShot(800, los)
+app.exec()
+'''
+
+
+def test_3d_kette_sichtbar_und_wiggle():
+    """Beispiel 3D-Kette: Linien bleiben nach dem ersten Szenenaufbau sichtbar, der Wiggle zeichnet und bewegt die
+    Schrauben, Anhalten stoppt."""
+    env = dict(os.environ)
+    env.pop("QT_QPA_PLATFORM", None)
+    r = subprocess.run([sys.executable, "-c", KETTE3D, WURZEL], capture_output=True, text=True, env=env, timeout=300)
+    zeile = next((z for z in r.stdout.splitlines() if z.startswith("ERGEBNIS")), "")
+    assert zeile, r.stdout[-2000:] + r.stderr[-2000:]
+    erg = eval(zeile.split(" ", 1)[1])  # noqa: S307 - eigene Ausgabe
+    assert all(v for k, v in erg.items() if k != "text"), erg

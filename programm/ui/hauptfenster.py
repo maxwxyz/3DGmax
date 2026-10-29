@@ -1423,12 +1423,20 @@ class Hauptfenster(QtWidgets.QMainWindow):
         self.zusammenbau.masse.selectRow(1)
 
     def _beispiel_kette(self):
-        from ..kern import toleranzkette as tk
+        """FTC-10: Kette aus vier Modellflaechen in Kettenreihenfolge (Senkungsboden, Oberseite, Unterseite,
+        Senkungsboden) - Tiefen aus der PMI, die Hoehe ohne PMI nach ISO 2768-m; Schlussflaechen bestimmbar (Wiggle)."""
+        from ..kern import beispiele, toleranzkette as tk
         k = self.zeige_toleranzkette()
-        self.pmi.waehle(lambda p: p.art == "mass" and p.nennwert is not None and not tk.ist_winkel(p)
-                        and not any(t in (p.typ or "") for t in ("Diameter", "Radius")))
-        self._kette_uebernehmen(+1)
+        flaechen = beispiele.kette_flaechen(self.erg.modell)
+        glieder, _richtung, _hinweise = tk.kette_aus_flaechen(self.erg.modell, flaechen, self.erg.pmi, "m",
+                                                              k.lage.isChecked())
+        k.ergaenze(glieder)
         k.cp.setValue(1.33)
+        k.bild3d.setChecked(True)
+        k.wiggle.setChecked(True)
+        # Kette entlang Z: von vorne liegen alle Glieder in der Bildebene; einpassen, wenn die Leiste die Ansicht
+        # verkleinert hat
+        QtCore.QTimer.singleShot(150, lambda: self.ansicht.standard("vorne"))
 
     def _ladefehler(self, text):
         self._nach_laden = None
@@ -3264,12 +3272,25 @@ class Hauptfenster(QtWidgets.QMainWindow):
             f.uebernehmen.connect(lambda gl, f=f: self._kette2d_uebernehmen(gl, f.kette.temperaturen,
                                                                             f.kette.anforderung))
             f.aus_teil.connect(self.kette3d_aus_teil)
-            f.zeigen.connect(lambda linien: self.ansicht.zeige_hilfslinien(linien or [], einpassen=bool(linien)))
+            f.zeigen.connect(lambda linien, einpassen: self.ansicht.zeige_hilfslinien(
+                linien or [], einpassen=einpassen and bool(linien)))
+            f.teile_bewegen.connect(self._kette3d_teile)
             self._kette3d = f
             self._als_leiste(f, tr("3D-Toleranzkette"), "kette3d")
         if not nur_anlegen:
             self._leiste_zeigen(f, "kette3d")
         return f
+
+    def _kette3d_teile(self, bewegungen):
+        """Wiggle der 3D-Kette: Teile des Zusammenbaus mit ihrem Glied bewegen; None: Lagen wie zusammengebaut."""
+        if self.erg is None:
+            return
+        lagen = dict(self.baugruppe.lagen)
+        teile = {k.nummer for k in self.erg.baum.blaetter()}
+        for teil, m in (bewegungen or {}).items():
+            if teil in teile:
+                lagen[teil] = m @ self.baugruppe.lage(teil)
+        self.ansicht.setze_teil_lagen(lagen)
 
     def _punkt_von_form(self, form):
         """Kennpunkt eines gewaehlten Elements: Punkt, Kreismitte bzw. Kantenmitte, Achspunkt eines Zylinders bzw.
@@ -3334,7 +3355,6 @@ class Hauptfenster(QtWidgets.QMainWindow):
 
     def kette3d_aus_teil(self) -> bool:
         """Glied fuer das gewaehlte Teil des Zusammenbaus an die 3D-Kette haengen (vom letzten Kettenpunkt aus)."""
-        import numpy as np
         from ..kern import kette3d as k3
         from ..kern.baugruppe_mass import Analyse
         w = self.zeige_kette3d()
@@ -3343,16 +3363,19 @@ class Hauptfenster(QtWidgets.QMainWindow):
             self.statusBar().showMessage(tr("Erst ein Teil des Zusammenbaus im Modell wählen"), 6000)
             return False
         k = w.kette
-        vorher = k3.lagen(k)[-1][1] if k.glieder and k.basis is None else np.zeros(3)
-        if k.basis is not None:
-            self.statusBar().showMessage(tr("Diese Kette liegt in einer eigenen Basis – Teile nur in Ketten in "
-                                            "Weltlage anhängen"), 6000)
-            return False
+        _r, vorher = k3.ende_welt(k)  # Kettenende im Modell (auch in einer eigenen Basis)
         neu = Analyse(self.baugruppe).glied_fuer_teil(teil, vorher, self._teil_namen().get(teil, str(teil)))
         if neu is None:
             self.statusBar().showMessage(tr("Das Teil ist fest oder hat keine Verbindung im Zusammenbau"), 6000)
             return False
-        w.neues_glied(neu[0])
+        g, ort = neu
+        # Grenzen des Teils gelten in Modellachsen: ist das Kettenende gedreht, erst ein Glied zurueck zu den Achsen
+        ausrichtung = k3.ausrichtung(k, ort, tr("Ausrichtung zu {}").format(g.name))
+        if ausrichtung is not None:
+            k.glieder.append(ausrichtung)
+            for c in ("x", "y", "z"):
+                g.werte[c].nenn = 0.0
+        w.neues_glied(g)
         return True
 
     def _kette2d_uebernehmen(self, glieder: list, temperaturen: tuple | None = None, anforderung: tuple | None = None):
@@ -3539,11 +3562,13 @@ class Hauptfenster(QtWidgets.QMainWindow):
             f.finished.connect(lambda _r: f.wiggle.setChecked(False))  # Leiste zu: Wiggle aus
             f.oeffnen.connect(lambda: self.oeffne_kette())
             f.teil_von = self._teil_von_flaechen
+            f.wiggle_grund = self._wiggle_grund
             self._kette = f
             self._als_leiste(f, tr("Toleranzkette"), "kette")
         if self.erg is not None and f.modell_pfad != self.erg.pfad:
             f.modell_pfad = self.erg.pfad
             self._werkstoffe_vorbelegen(f)
+            f.pruefe_wiggle()  # anderes Modell: Schlussflaechen neu bestimmen
         if not nur_anlegen:
             self._leiste_zeigen(f, "kette")
         return f
@@ -3611,6 +3636,11 @@ class Hauptfenster(QtWidgets.QMainWindow):
         linien = tk.glied_pfeil(g, self.erg.modell) if g is not None and self.erg is not None else []
         self.ansicht.zeige_hilfslinien(linien)
 
+    def _wiggle_grund(self, glieder) -> str:
+        """Warum die Kette keinen Wiggle der Schlussflaechen hat ("" = Schlussflaechen bestimmbar)."""
+        from ..kern import schluss_wiggle as sw
+        return sw.schluss_oder_grund(glieder, self.erg.modell if self.erg is not None else None)[1]
+
     def schluss_wiggle(self, an: bool) -> bool:
         """Wiggle der Schlussflaechen (kern.schluss_wiggle): Endflaeche zwischen den Worst-Case-Grenzen, ueberhoeht,
         gruen in der Anforderung, rot ausserhalb; False, wenn die Kette keine Schlussflaechen im Modell hat."""
@@ -3621,13 +3651,13 @@ class Hauptfenster(QtWidgets.QMainWindow):
             uhr.setInterval(60)
             uhr.timeout.connect(self._schluss_wiggle_schritt)
         k = getattr(self, "_kette", None)
-        s = sw.schlussflaechen(k.glieder, self.erg.modell) if an and k is not None and self.erg is not None else None
+        s, grund = sw.schluss_oder_grund(k.glieder, self.erg.modell if self.erg is not None else None) \
+            if an and k is not None else (None, "")
         if s is None or getattr(k, "e", None) is None:
             uhr.stop()
             self.ansicht.zeige_schlussflaeche(None)
             if an:
-                self.statusBar().showMessage(tr("Wiggle braucht eine Kette aus Modellflächen in Kettenreihenfolge "
-                                                "(„Aus 3D-Auswahl“ oder „Richtungen aus Schlussmaß“)"), 8000)
+                self.statusBar().showMessage(grund, 8000)
                 k.wiggle.setChecked(False)
             return False
         self._schluss = [s, 0]

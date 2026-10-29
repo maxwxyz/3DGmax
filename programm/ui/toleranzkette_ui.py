@@ -497,6 +497,9 @@ class ToleranzketteFenster(QtWidgets.QDialog):
         self.szenarien: dict[str, tuple[float, list]] = {}  # gemerkte Planspiele: Name -> (Cp, Glieder)
         self.werkstoffe: dict = {}  # Bauteil -> {"name": Werkstoff, "alpha": 1e-6/K}
         self.teil_von = lambda flaechen: ""  # Bauteil zu Flaechen (setzt das Hauptfenster)
+        # Grund, warum der Wiggle nicht geht ("" = Schlussflaechen bestimmbar; setzt das Hauptfenster)
+        self.wiggle_grund = lambda glieder: tr("Wiggle braucht das Modell der Kette")
+        self._wiggle_grund = tr("Noch keine Glieder")
         self.e_temp: list = []  # (Temperatur, Ergebnis) bei Waermeausdehnung
         self.modell_pfad = ""
         lay = QtWidgets.QVBoxLayout(self)
@@ -650,6 +653,7 @@ class ToleranzketteFenster(QtWidgets.QDialog):
         self.bild3d.toggled.connect(lambda _an: self._bild_senden())
         self.wiggle = thema.nur_symbol(QtWidgets.QPushButton())  # nur Symbol: Abspielen / Anhalten
         self.wiggle.setCheckable(True)
+        self.wiggle.setEnabled(False)
         self._wiggle_symbol(False)
         self.wiggle.toggled.connect(self._wiggle_symbol)
         self.wiggle.toggled.connect(self.schluss_wiggle.emit)
@@ -1211,11 +1215,23 @@ class ToleranzketteFenster(QtWidgets.QDialog):
         return knopf
 
     def _wiggle_symbol(self, an: bool):
-        """Abspielen- bzw. Anhalten-Symbol ohne Text; der Tooltip sagt, was ein Klick tut."""
+        """Abspielen- bzw. Anhalten-Symbol ohne Text; der Tooltip sagt, was ein Klick tut (oder warum es nicht geht)."""
         self.wiggle.setIcon(thema.symbol("anhalten" if an else "abspielen"))
+        if self._wiggle_grund and not an:
+            self.wiggle.setToolTip(tr("Wiggle der Schlussflächen nicht möglich: {}").format(self._wiggle_grund))
+            return
         self.wiggle.setToolTip(tr("Wiggle der Schlussflächen anhalten") if an else
                                tr("Wiggle der Schlussflächen: die Endfläche der Kette pendelt zwischen Worst-Case-"
                                   "Minimum und -Maximum (überhöht), grün in der Anforderung, rot außerhalb"))
+
+    def pruefe_wiggle(self):
+        """Wiggle nur, wenn die Schlussflaechen bestimmbar sind; sonst aus und der Grund im Tooltip."""
+        self._wiggle_grund = self.wiggle_grund(self.glieder) if self.glieder else \
+            tr("Noch keine Glieder")
+        if self._wiggle_grund and self.wiggle.isChecked():
+            self.wiggle.setChecked(False)
+        self.wiggle.setEnabled(not self._wiggle_grund)
+        self._wiggle_symbol(self.wiggle.isChecked())
 
     def schluss_text(self) -> str:
         """Beschriftung des Schlussmasses im 3D: Nennmass, Worst Case und statistisches Ergebnis."""
@@ -1546,6 +1562,7 @@ class ToleranzketteFenster(QtWidgets.QDialog):
                     it.setToolTip(tr(SPALTEN_HILFE[name]) + "\n" + tr("Klicken zum Ändern"))
         spalten_anpassen(t)
         t.blockSignals(False)
+        self.pruefe_wiggle()
         self._rechne()
 
     def _fertigung(self, z: int, g, ist):

@@ -4,6 +4,23 @@
 All work on `main`, pushed; no other branches. Version 0.2 released (tag v0.2). Full suite last green on
 the Mac (200 tests incl. the new ones, ~11 min); `pixi run test-schnell` skips the six `langsam` tests.
 
+Side session 2026-10-29 (branch `claude/ketten-wiggle-7d70d7`, to be merged by the main session): user reports
+"3D chains: building, display and wiggle not clean" and "1D chain of the example cannot be wiggled". New
+`kern/kette3d_anzeige.py` (lines + wiggle of 3D chains: worst case of the closing quantity or link by link, 1:1 /
+×10 / ×100 / automatic, real value at the function point, assembly parts move with their link via `Glied3D.teil`);
+`ui/kette3d_ui.py` in three columns with ▶/⏸, art and exaggeration combos, view fitted only when switched on or for a
+new chain; `Hauptfenster._kette3d_teile` moves parts (`setze_teil_lagen`). Bug fixes: example 3D chain invisible
+(`OcctAnsicht._baue_szene_inhalt` now re-shows `hilfslinien`; base `zeige()` clears them for another model);
+"＋ Aus Zusammenbau" on rotated chain ends / chains with a base (`kette3d.ausrichtung`). 1D:
+`schluss_wiggle.schluss_oder_grund` walks the links along their faces – it fixed the gearbox example moving the
+wrong faces (19/22 → 18/23); play button disabled with the reason as tooltip (`ToleranzketteFenster.wiggle_grund`,
+`pruefe_wiggle`). Example "kette" is now a 4-face chain on FTC-10 (`beispiele.KETTE_FLAECHEN`, 55 ± 0.7) with chain
+picture and running wiggle. Tests: `test_kette3d` (2 new), `test_gui` (`test_beispiel_kette_wiggelt`,
+`test_3d_kette_wiggle`, wiggle test extended), screen test `test_3d_kette_sichtbar_und_wiggle`. PLAN §8.33 note,
+Roadmap ✅. Open: assembly link origins are the mating feature point (a plane's location point, possibly far from the
+part) – correct for the analysis but rotations swing the part in the wiggle; templates are drawn at the world origin
+inside a loaded model (no relation to it).
+
 Side session 2026-10-29 (branch `claude/beispiel-welle-abdfe0`, merged into main `db2cd0d`): user request –
 the example "Funktion → Tolerierung" now uses a generated gearbox shaft instead of NIST FTC-10 (PLAN §8.33 note,
 Roadmap ✅). Generator `werkzeuge/welle.py` → `tests/daten/getriebewelle.stp` (bundled via `beispiele.alle_dateien`),

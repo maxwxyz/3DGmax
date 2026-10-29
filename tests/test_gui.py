@@ -2340,11 +2340,88 @@ def test_wiggle_der_schlussflaechen(fenster):
         farben.add(farbe)
     assert len(werte) > 10 and f"{k.e.wc_max:.4f}" in werte
     assert len(farben) == 2  # an der unteren Grenze (0 mm) ausserhalb der Anforderung 0,05 … 1,1
+    s = sw.schlussflaechen(k.glieder, f.erg.modell)
+    assert (s.start, s.ende) == (18, 23)  # Lager- und Ringflaeche des Axialspiels (vorher 19/22: falsche Seiten)
     k.wiggle.click()
     assert f.ansicht.schlussflaeche is None
+    # Masse aus der PMI-Liste ohne Kettenreihenfolge: Wiggle aus, der Tooltip sagt warum
+    assert f.oeffne_beispiel("pruefen", warten=True)
+    k = f.zeige_toleranzkette()
+    k.leeren()
+    f.pmi.waehle(lambda p: p.nummer in (5, 8, 15))
+    f._kette_uebernehmen(+1)
+    assert len(k.glieder) == 3 and not k.wiggle.isEnabled()
+    assert "Kettenreihenfolge" in k.wiggle.toolTip()
+    k.wiggle.setChecked(True)  # auch per Programm: ohne Schlussflaechen kein Wiggle
+    assert not k.wiggle.isChecked() and f.ansicht.schlussflaeche is None
+
+
+def test_beispiel_kette_wiggelt(fenster):
+    """Beispiel Toleranzkette (1D): Kette aus vier FTC-10-Flaechen in Kettenreihenfolge, der Wiggle laeuft sofort
+    und bewegt den unteren Senkungsboden zwischen den Worst-Case-Grenzen (Bericht: liess sich nicht wigglen)."""
+    import numpy as np
+    from programm.kern import beispiele
+    f = fenster
     assert f.oeffne_beispiel("kette", warten=True)
-    f._kette.wiggle.click()
-    assert not f._kette.wiggle.isChecked() and f.ansicht.schlussflaeche is None
+    k = f._kette
+    flaechen = beispiele.kette_flaechen(f.erg.modell)
+    assert len(flaechen) == 4 and [g.quelle for g in k.glieder[:3]] == ["pmi", "allgemein", "pmi"]
+    assert abs(k.e.nenn - 55.0) < 1e-9 and abs(k.e.wc_max - k.e.wc_min - 1.4) < 1e-9
+    assert k.wiggle.isEnabled() and k.wiggle.isChecked() and f._schluss_uhr.isActive()
+    assert f._schluss[0].start == flaechen[0] and f._schluss[0].ende == flaechen[-1]
+    orte, werte = [], set()
+    for _ in range(12):
+        f._schluss_wiggle_schritt()
+        _form, _farbe, text, ort = f.ansicht.schlussflaeche
+        orte.append(np.asarray(ort))
+        werte.add(float(text.split(" mm")[0]))
+    assert max(np.linalg.norm(o - orte[0]) for o in orte) > 1.0  # die Flaeche wandert sichtbar (ueberhoeht)
+    assert min(werte) >= k.e.wc_min - 1e-9 and max(werte) <= k.e.wc_max + 1e-9 and len(werte) > 5
+    k.wiggle.click()
+    assert not f._schluss_uhr.isActive() and f.ansicht.schlussflaeche is None
+
+
+def test_3d_kette_wiggle(fenster):
+    """Wiggle der 3D-Kette (Beispiel Baugruppe): Bilder laufen weiter, der Funktionspunkt bleibt im berechneten
+    Bereich und erreicht beide Grenzen, die Schrauben bewegen sich mit ihren Gliedern; Anhalten stoppt und stellt
+    die Teile zurueck. Uebernahme in 1D: dort kein Wiggle (keine Modellflaechen), mit Grund im Tooltip."""
+    import numpy as np
+    from programm.kern import kette3d_anzeige as ka
+    f = fenster
+    assert f.oeffne_beispiel("kette3d", warten=True)
+    w = f._kette3d
+    assert w.im_modell.isChecked() and f.ansicht.hilfslinien  # Kette sichtbar
+    texte = [t for *_, t, _f, _b in f.ansicht.hilfslinien if t]
+    assert "Basis" in texte and any("Schraube" in t for t in texte)
+    assert w.wiggle.isEnabled() and {g.teil for g in w.kette.glieder} == {None, 4, 5}
+    lo, hi = ka.bereich(w.kette)
+    assert abs(lo - w.ergebnisse()["wc"][0]) < 2e-3 and abs(hi - w.ergebnisse()["wc"][1]) < 2e-3
+    w.wiggle.click()
+    assert w._uhr.isActive() and "anhalten" in w.wiggle.toolTip()
+    nr0, werte, punkte, bewegt = w._wiggle_nr, [], [], set()
+    for _ in range(ka.SCHRITTE):
+        w._wiggle_schritt()
+        werte.append(w.wiggle_bild.wert)
+        punkte.append(next(l[0] for l in f.ansicht.hilfslinien if l[2].startswith("Funktionspunkt")))
+        bewegt |= {t for t in (4, 5) if not np.allclose(f.ansicht.teil_lagen[t], f.baugruppe.lage(t))}
+    assert w._wiggle_nr == nr0 + ka.SCHRITTE
+    assert lo - 1e-9 <= min(werte) and max(werte) <= hi + 1e-9
+    assert abs(min(werte) - lo) < 1e-9 and abs(max(werte) - hi) < 1e-9
+    assert len({tuple(np.round(p, 6)) for p in punkte}) > 10  # der Funktionspunkt bewegt sich
+    assert bewegt == {4, 5}  # beide Schrauben wandern mit ihren Gliedern
+    w.wiggle_art.setCurrentIndex(1)  # Glied fuer Glied, 1:1
+    w.ueberhoehung.setCurrentIndex(1)
+    w._wiggle_schritt()
+    assert w.wiggle_bild.glied >= 0 and w._wiggle_faktor == 1.0
+    w.wiggle.click()
+    assert not w._uhr.isActive() and w.wiggle_bild is None
+    assert all(np.allclose(f.ansicht.teil_lagen[t], f.baugruppe.lage(t)) for t in (4, 5))
+    n = len(f.ansicht.hilfslinien)
+    w._uhr.timeout.emit()  # ein verspaeteter Takt nach dem Anhalten aendert nichts
+    assert w.wiggle_bild is None and len(f.ansicht.hilfslinien) == n
+    w.in_kette.click()
+    k = f._kette
+    assert k.glieder and not k.wiggle.isEnabled() and "3D-Toleranzkette" in k.wiggle.toolTip()
 
 
 def test_kette_ueber_fuegestelle_und_mittelebene(fenster):

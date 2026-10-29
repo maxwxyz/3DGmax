@@ -310,7 +310,7 @@ class Analyse:
             o = self._kettenpunkt(teil)
             grenzen = self._torsor_grenzen(teil, o)
             g = k3.Glied3D(tr("{} (umgekehrt)").format(namen.get(teil, teil)) if vz < 0 else
-                           str(namen.get(teil, teil)))
+                           str(namen.get(teil, teil)), teil=teil)
             for i, c in enumerate(("rx", "ry", "rz", "x", "y", "z")):
                 lo, hi = grenzen[i]
                 lo, hi = (-hi, -lo) if vz < 0 else (lo, hi)
@@ -335,7 +335,7 @@ class Analyse:
             return None
         o = self._kettenpunkt(teil)
         grenzen = self._torsor_grenzen(teil, o)
-        g = k3.Glied3D(name or str(teil))
+        g = k3.Glied3D(name or str(teil), teil=teil)
         for i, c in enumerate(("rx", "ry", "rz", "x", "y", "z")):
             lo, hi = grenzen[i]
             if c.startswith("r"):

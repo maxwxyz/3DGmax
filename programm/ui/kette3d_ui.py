@@ -11,7 +11,9 @@ from PySide6 import QtCore, QtWidgets
 
 from ..i18n import tr
 from ..kern import kette3d as k3
+from ..kern import kette3d_anzeige as ka
 from ..kern import toleranzkette as tk
+from . import thema
 from .tabellen import zahlen_rechts, zeilen_hoehe
 from .bewertung_ui import BewertungLeiste
 from .werkstoff_wahl import WaermeZeile, werkstoff_feld, werkstoff_wert
@@ -49,7 +51,8 @@ SPALTEN_EDITOR = (("Nennwert", "Nennwert der Komponente (mm bzw. Grad)"),
 class Kette3DFenster(QtWidgets.QDialog):
     uebernehmen = QtCore.Signal(list)  # linearisierte Glieder fuer das 1D-Kettenfenster
     aus_teil = QtCore.Signal()  # Glied aus dem gewaehlten Teil im Zusammenbau anhaengen (Hauptfenster)
-    zeigen = QtCore.Signal(object)  # Linien fuer die 3D-Ansicht (wie Kettenbild) oder None
+    zeigen = QtCore.Signal(object, bool)  # Linien fuer die 3D-Ansicht (wie Kettenbild) oder None; einpassen
+    teile_bewegen = QtCore.Signal(object)  # Wiggle: {Teil: Bewegung 4x4 im Modell} oder None (Lagen wie zuvor)
 
     def __init__(self, parent=None):
         super().__init__(parent)
@@ -91,13 +94,18 @@ class Kette3DFenster(QtWidgets.QDialog):
             reihe.addWidget(w)
         reihe.addStretch(1)
         lay.addLayout(reihe)
-        mitte = QtWidgets.QHBoxLayout()
+        # drei Spalten nebeneinander: Glieder | Editor des Glieds | Schlussgroesse, Ergebnis und Anzeige - so bleiben
+        # Ergebnis und Knoepfe auch in einer flachen Leiste sichtbar
+        mitte = QtWidgets.QSplitter(QtCore.Qt.Orientation.Horizontal)
+        mitte.setChildrenCollapsible(False)
         self.liste = QtWidgets.QListWidget()
         self.liste.setToolTip(tr("Glieder in Kettenreihenfolge (Basis zuerst); Doppelklick benennt um"))
         self.liste.currentRowChanged.connect(self._glied_gewaehlt)
         self.liste.itemChanged.connect(self._umbenannt)
-        mitte.addWidget(self.liste, 1)
-        rechts = QtWidgets.QVBoxLayout()
+        mitte.addWidget(self.liste)
+        links = QtWidgets.QWidget()
+        rechts = QtWidgets.QVBoxLayout(links)
+        rechts.setContentsMargins(0, 0, 0, 0)
         self.editor_titel = QtWidgets.QLabel("")
         rechts.addWidget(self.editor_titel)
         self.editor = QtWidgets.QTableWidget(len(k3.KOMPONENTEN), len(SPALTEN_EDITOR))
@@ -106,6 +114,7 @@ class Kette3DFenster(QtWidgets.QDialog):
         for i, (_, hilfe) in enumerate(SPALTEN_EDITOR):
             self.editor.horizontalHeaderItem(i).setToolTip(tr(hilfe))
         self.editor.horizontalHeader().setSectionResizeMode(QtWidgets.QHeaderView.ResizeMode.Stretch)
+        self.editor.horizontalHeader().setSectionResizeMode(3, QtWidgets.QHeaderView.ResizeMode.ResizeToContents)
         self.editor.verticalHeader().setSectionResizeMode(QtWidgets.QHeaderView.ResizeMode.Fixed)
         # nur Felder, keine Zellen: keine Auswahl- oder Fokusmarkierung hinter den Feldern
         self.editor.setSelectionMode(QtWidgets.QAbstractItemView.SelectionMode.NoSelection)
@@ -132,9 +141,14 @@ class Kette3DFenster(QtWidgets.QDialog):
         self.werkstoff.currentTextChanged.connect(self._werkstoff_geaendert)
         stoff.addWidget(self.werkstoff, 1)
         rechts.addLayout(stoff)
+        self.waerme = WaermeZeile()
+        self.waerme.geaendert.connect(self._waerme_geaendert)
+        rechts.addWidget(self.waerme)
         rechts.addStretch(1)
-        mitte.addLayout(rechts, 3)
-        lay.addLayout(mitte, 1)
+        mitte.addWidget(links)
+        spalte = QtWidgets.QWidget()
+        rechts = QtWidgets.QVBoxLayout(spalte)
+        rechts.setContentsMargins(0, 0, 0, 0)
         form = QtWidgets.QGridLayout()
         self.schluss = QtWidgets.QComboBox()
         for schluessel, name in k3.SCHLUSS.items():
@@ -148,37 +162,34 @@ class Kette3DFenster(QtWidgets.QDialog):
         self.ziel = self._vektor(tr("Zielpunkt (Abstand) bzw. Zielrichtung (Winkel) in der Basis"), "ziel")
         for z, (text, w) in enumerate(((tr("Schlussgröße"), self.schluss), (tr("Funktionspunkt"), self.punkt),
                                        (tr("Richtung"), self.richtung), (tr("Ziel"), self.ziel))):
-            form.addWidget(QtWidgets.QLabel(text), z // 2, (z % 2) * 2)
-            form.addWidget(w, z // 2, (z % 2) * 2 + 1)
-        lay.addLayout(form)
-        self.waerme = WaermeZeile()
-        self.waerme.geaendert.connect(self._waerme_geaendert)
-        lay.addWidget(self.waerme)
+            form.addWidget(QtWidgets.QLabel(text), z, 0)
+            form.addWidget(w, z, 1)
+        form.setColumnStretch(1, 1)
+        rechts.addLayout(form)
         self.bewertung = BewertungLeiste()
         self.bewertung.geaendert.connect(self._bewertung_geaendert)
-        lay.addWidget(self.bewertung)
+        rechts.addWidget(self.bewertung)
         self.ergebnis = QtWidgets.QLabel("")
         self.ergebnis.setWordWrap(True)
         self.ergebnis.setTextFormat(QtCore.Qt.TextFormat.RichText)
         self.ergebnis.setTextInteractionFlags(QtCore.Qt.TextInteractionFlag.TextSelectableByMouse)
-        lay.addWidget(self.ergebnis)
+        rechts.addWidget(self.ergebnis)
+        rechts.addLayout(self._baue_anzeige())
         knoepfe = QtWidgets.QHBoxLayout()
-        self.im_modell = QtWidgets.QPushButton(tr("Im 3D zeigen"))
-        self.im_modell.setCheckable(True)
-        self.im_modell.setToolTip(tr("Lagen der Glieder als Linienzug mit Achsenkreuzen und den Funktionspunkt in der "
-                                     "3D-Ansicht zeigen"))
-        self.im_modell.toggled.connect(lambda an: (self.im_modell.setText(tr("Im 3D ausblenden") if an else
-                                                                          tr("Im 3D zeigen")), self._zeigen()))
         self.in_kette = QtWidgets.QPushButton(tr("In Toleranzkette übernehmen"))
         self.in_kette.setObjectName("primaer")
         self.in_kette.setToolTip(tr("Linearisierte Kette (je tolerierte Komponente ein Glied mit ihrer Empfindlichkeit "
                                     "als Faktor) ins Fenster Toleranzkette: dort Anforderung, Ampel, Histogramm, "
                                     "Kostenoptimierung und Bericht"))
         self.in_kette.clicked.connect(lambda: self.uebernehmen.emit(k3.als_glieder(self.kette)))
-        knoepfe.addWidget(self.im_modell)
         knoepfe.addStretch(1)
         knoepfe.addWidget(self.in_kette)
-        lay.addLayout(knoepfe)
+        rechts.addLayout(knoepfe)
+        rechts.addStretch(1)
+        mitte.addWidget(spalte)
+        for i, f in enumerate((2, 5, 4)):
+            mitte.setStretchFactor(i, f)
+        lay.addWidget(mitte, 1)
         self._fuelle()
 
     # --- Aufbau ---
@@ -215,8 +226,14 @@ class Kette3DFenster(QtWidgets.QDialog):
         return self.kette.glieder[-1]
 
     def setze_kette(self, kette):
-        """Kette uebernehmen (aus Datei oder Projekt)."""
+        """Kette uebernehmen (aus Datei, Projekt oder Zusammenbau); die Anzeige passt sich neu ein."""
+        self._neue_kette(kette)
+
+    def _neue_kette(self, kette):
+        if self.wiggle.isChecked():
+            self.teile_bewegen.emit(None)  # Teile der alten Kette zurueck
         self.kette = kette
+        self._einpassen = True
         self._fuelle()
 
     def speichere(self, pfad: str = "") -> str | None:
@@ -249,9 +266,8 @@ class Kette3DFenster(QtWidgets.QDialog):
     def lade_vorlage(self, schluessel: str):
         if not schluessel:
             return
-        self.kette = VORLAGEN[schluessel][1]()
         self.vorlage.setCurrentIndex(0)
-        self._fuelle()
+        self._neue_kette(VORLAGEN[schluessel][1]())
         self.liste.setCurrentRow(0)
 
     def _entfernen(self):
@@ -393,6 +409,7 @@ class Kette3DFenster(QtWidgets.QDialog):
     def _rechne(self):
         fehler = k3.pruefe(self.kette)
         self.in_kette.setEnabled(bool(self.kette.glieder) and not fehler)
+        self._wiggle_pruefen()
         self._zeigen()
         if fehler and self.kette.glieder:
             self.bewertung.zeige("", "")
@@ -403,10 +420,7 @@ class Kette3DFenster(QtWidgets.QDialog):
         if not r:
             self.ergebnis.setText(tr("Noch keine Glieder – „＋ Glied“ oder eine Vorlage wählen."))
             return
-        frei = k3.freie(self.kette)
-        nr = int(self.kette.schluss[-1]) - 1 if self.kette.schluss.startswith("frei") else -1
-        winkel = self.kette.schluss == "winkel" or (0 <= nr < len(frei) and frei[nr][1].startswith("r"))
-        einheit = "°" if winkel else " mm"
+        einheit = self._einheit()
         z = lambda a, b: f"{a:.4f} … {b:.4f}{einheit}"  # noqa: E731
         toleriert = {k: d for k, d in r["empfindlichkeit"].items()
                      if self.kette.glieder[k[0]].werte[k[1]].oben != self.kette.glieder[k[0]].werte[k[1]].unten}
@@ -427,27 +441,129 @@ class Kette3DFenster(QtWidgets.QDialog):
                 f"{tr('Worst Case')} {z(*w['wc'])} &nbsp;·&nbsp; {tr('Monte Carlo nichtlinear')} {z(*w['mc'])}"
                 for t, w in r.get("temperaturen", [])) + warnung)
 
+    def _einheit(self) -> str:
+        """Einheit der Schlussgroesse: Grad fuer Winkel und freie Drehungen, sonst mm."""
+        frei = k3.freie(self.kette)
+        nr = int(self.kette.schluss[-1]) - 1 if self.kette.schluss.startswith("frei") else -1
+        winkel = self.kette.schluss == "winkel" or (0 <= nr < len(frei) and frei[nr][1].startswith("r"))
+        return "°" if winkel else " mm"
+
     def linien(self) -> list:
-        """Linienzug der Glied-Ursprunge, Achsenkreuz je Lage (X rot, Y gruen, Z blau), Funktionspunkt."""
-        if not self.kette.glieder:
-            return []
-        lagen = k3.lagen(self.kette)
-        groesse = max(1.0, max(float(np.linalg.norm(t)) for _, t in lagen))
-        a = 0.08 * groesse
-        out, vorher = [], np.zeros(3)
-        for g, (r, t) in zip(self.kette.glieder, lagen):
-            if np.linalg.norm(t - vorher) > 1e-9:  # Glied ohne Versatz: nur Achsenkreuz, keine gestapelte Beschriftung
-                out.append((tuple(vorher), tuple(t), g.name, (0.13, 0.42, 0.85), 3.0))
-            for achse, farbe in ((0, (0.75, 0.22, 0.17)), (1, (0.18, 0.62, 0.28)), (2, (0.13, 0.42, 0.85))):
-                out.append((tuple(t), tuple(t + r[:, achse] * a), "", farbe, 1.5))
-            vorher = t
-        p, _ = k3.funktionspunkt(self.kette)
-        out.append((tuple(vorher), tuple(p), tr("Funktionspunkt"), (0.90, 0.55, 0.10), 2.0))
-        if self.kette.basis is not None:  # Basis liegt im Modell (z. B. Bezugsebene einer Messgroesse)
-            m = np.asarray(self.kette.basis, float)
-            welt = lambda x: tuple(m[:3, :3] @ np.asarray(x, float) + m[:3, 3])  # noqa: E731
-            out = [(welt(a), welt(b), *rest) for a, b, *rest in out]
-        return out
+        """Linien der Kette in Nennlage (kern.kette3d_anzeige), im Modell."""
+        return ka.linien(self.kette)
 
     def _zeigen(self):
-        self.zeigen.emit(self.linien() if self.im_modell.isChecked() else None)
+        """Anzeige im Modell erneuern; eingepasst nur beim Einschalten und fuer eine neue Kette (nicht bei jeder
+        Eingabe). Waehrend des Wiggles zeichnet das naechste Bild."""
+        einpassen, self._einpassen = self._einpassen, False
+        if self.wiggle.isChecked():
+            self._wiggle_bilder = None  # Kette geaendert: Bilder neu
+            self._wiggle_schritt(einpassen)
+            return
+        self.zeigen.emit(self.linien() if self.im_modell.isChecked() else None, einpassen)
+
+    # --- Wiggle ---
+
+    def _baue_anzeige(self) -> QtWidgets.QHBoxLayout:
+        """Im 3D zeigen und Wiggle (Abspielen/Anhalten, Art, Ueberhoehung)."""
+        self._einpassen = True
+        self._wiggle_bilder: list | None = None
+        self._wiggle_nr = 0
+        self.wiggle_bild: ka.Bild | None = None  # zuletzt gezeigtes Bild
+        reihe = QtWidgets.QHBoxLayout()
+        self.im_modell = QtWidgets.QPushButton(tr("Im 3D zeigen"))
+        self.im_modell.setCheckable(True)
+        self.im_modell.setToolTip(tr("Lagen der Glieder als Linienzug mit Achsenkreuzen (X rot, Y grün, Z blau) und den "
+                                     "Funktionspunkt in der 3D-Ansicht zeigen"))
+        self.im_modell.toggled.connect(self._im_modell_umgeschaltet)
+        self.wiggle = thema.nur_symbol(QtWidgets.QPushButton())
+        self.wiggle.setCheckable(True)
+        self.wiggle.toggled.connect(self._wiggle_umgeschaltet)
+        self.wiggle_art = QtWidgets.QComboBox()
+        self.wiggle_art.addItem(tr("Worst Case der Schlussgröße"), "wc")
+        self.wiggle_art.addItem(tr("Glied für Glied"), "glieder")
+        self.wiggle_art.setToolTip(tr("Worst Case: alle tolerierten Komponenten zugleich an die Grenze, die die "
+                                      "Schlussgröße vergrößert bzw. verkleinert; Glied für Glied: jedes Glied allein"))
+        self.wiggle_art.currentIndexChanged.connect(lambda _i: self._wiggle_neu())
+        self.ueberhoehung = QtWidgets.QComboBox()
+        for text, wert in ((tr("überhöht (automatisch)"), 0.0), ("1:1", 1.0), ("×10", 10.0), ("×100", 100.0)):
+            self.ueberhoehung.addItem(text, wert)
+        self.ueberhoehung.setToolTip(tr("Bewegung im 3D: 1:1 oder überhöht, damit Hundertstel sichtbar werden "
+                                        "(der angezeigte Wert der Schlussgröße ist immer der echte)"))
+        self.ueberhoehung.currentIndexChanged.connect(lambda _i: self._wiggle_neu())
+        for w in (self.im_modell, self.wiggle, self.wiggle_art, self.ueberhoehung):
+            reihe.addWidget(w)
+        reihe.addStretch(1)
+        self._uhr = QtCore.QTimer(self)
+        self._uhr.setInterval(50)
+        self._uhr.timeout.connect(self._wiggle_schritt)
+        self._wiggle_pruefen()
+        return reihe
+
+    def _im_modell_umgeschaltet(self, an: bool):
+        self.im_modell.setText(tr("Im 3D ausblenden") if an else tr("Im 3D zeigen"))
+        if not an and self.wiggle.isChecked():
+            self.wiggle.setChecked(False)
+        self._einpassen = an
+        self._zeigen()
+
+    def _wiggle_pruefen(self):
+        """Wiggle nur mit tolerierten Komponenten in einer gueltigen Kette; sonst aus, der Grund im Tooltip."""
+        grund = ka.grund(self.kette)
+        if grund and self.wiggle.isChecked():
+            self.wiggle.setChecked(False)
+        self.wiggle.setEnabled(not grund)
+        an = self.wiggle.isChecked()
+        self.wiggle.setIcon(thema.symbol("anhalten" if an else "abspielen"))
+        self.wiggle.setToolTip(
+            tr("Wiggle anhalten") if an else tr("Wiggle nicht möglich: {}").format(grund) if grund else
+            tr("Wiggle der 3D-Kette: die tolerierten Komponenten pendeln zwischen ihren Grenzen, der Funktionspunkt "
+               "zeigt den echten Wert der Schlussgröße (grün in der Anforderung, rot außerhalb); Teile aus dem "
+               "Zusammenbau bewegen sich mit ihrem Glied (relativ zur Basis)"))
+
+    def _wiggle_umgeschaltet(self, an: bool):
+        self._wiggle_pruefen()
+        if an:
+            if not self.im_modell.isChecked():
+                self.im_modell.setChecked(True)  # zeigt die Linien und passt ein
+            self._wiggle_neu()
+            self._uhr.start()
+            return
+        self._uhr.stop()
+        self.wiggle_bild = None
+        self.teile_bewegen.emit(None)
+        self._zeigen()
+
+    def _wiggle_neu(self):
+        """Art oder Ueberhoehung geaendert: Bilder neu, von vorn."""
+        self._wiggle_bilder, self._wiggle_nr = None, 0
+        if self.wiggle.isChecked():
+            self._wiggle_schritt()
+
+    def wiggle_faktor(self) -> float:
+        wert = self.ueberhoehung.currentData()
+        return wert if wert else ka.faktor(self.kette)
+
+    def _wiggle_schritt(self, einpassen: bool = False):
+        """Naechstes Bild: Linien mit den ueberhoehten Werten, Funktionspunkt mit dem echten Wert, Teile mitbewegt."""
+        if not self.wiggle.isChecked():
+            return  # verspaeteter Takt nach dem Anhalten
+        if self._wiggle_bilder is None:
+            self._wiggle_bilder = ka.bilder(self.kette, self.wiggle_art.currentData())
+            self._wiggle_faktor = self.wiggle_faktor()
+        if not self._wiggle_bilder:
+            self.wiggle.setChecked(False)
+            return
+        b = self._wiggle_bilder[self._wiggle_nr % len(self._wiggle_bilder)]
+        self._wiggle_nr += 1
+        self.wiggle_bild = b
+        werte = ka.anzeige_werte(self.kette, b.werte, self._wiggle_faktor)
+        text = f"{round(b.wert, 4) + 0.0:.4f}{self._einheit()}"
+        if b.glied >= 0:
+            text += f"  ({self.kette.glieder[b.glied].name})"
+        if self._wiggle_faktor > 1.5:
+            text += tr("  (Bewegung ×{:.0f})").format(self._wiggle_faktor)
+        self.zeigen.emit(ka.linien(self.kette, werte, text, ka.FARBEN.get(b.stufe)), einpassen)
+        bewegungen = ka.teil_bewegungen(self.kette, werte)
+        if bewegungen:
+            self.teile_bewegen.emit(bewegungen)

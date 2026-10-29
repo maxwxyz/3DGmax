@@ -96,6 +96,7 @@ class AnsichtBasis(QtWidgets.QWidget):
         self.schnitt_kette = False  # mehrere Ebenen schneiden nur den gemeinsamen Bereich weg
         self.ansicht_schnitt: list[list[tuple]] = []  # Schnitt der gespeicherten Ansicht (kern.ansichten)
         self.schlussflaeche = None  # Wiggle der Schlussflaechen: (Form, Farbe, Text, Ort)
+        self.hilfslinien: list = []  # Kettenbild, 3D-Kette, Messlinien (zeige_hilfslinien)
         self.letzte_ansicht = "iso"
         self.thema: dict = {}
         self.navigation = "catia"
@@ -138,6 +139,8 @@ class AnsichtBasis(QtWidgets.QWidget):
     # --- Schnittstelle (Unterklassen ergaenzen die Darstellung) ---
 
     def zeige(self, szene: Szene | None):
+        if szene is not self.szene:
+            self.hilfslinien = []  # Linien gehoeren zum vorigen Modell
         self.szene = szene
         self.hervor, self.pmi_ids_hervor = set(), set()
         self.versteckt, self.transparent = set(), set()
@@ -1098,6 +1101,9 @@ class OcctAnsicht(AnsichtBasis):
         self.setze_perspektive(self.perspektive)
         self.standard(self.letzte_ansicht if self.letzte_ansicht in STANDARDANSICHTEN else "iso")
         self._drehpunkt = None
+        self._hilfs_ais = []  # RemoveAll hat sie entfernt: z. B. die 3D-Kette eines Beispiels vor dem ersten Aufbau
+        if self.hilfslinien:
+            self.zeige_hilfslinien(self.hilfslinien)
 
     def _baue_entfernt(self):
         """Im alten Stand vorhandene, im neuen entfernte Flaechen: rot, durchscheinend, nicht waehlbar."""

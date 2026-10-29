@@ -105,6 +105,8 @@
 | 2D chains: sliding contacts (kinematic adjustment, contact point slides – dependent variables solved by loop closure) | ✅ |
 | 3D chains: sliding contacts (closure of position and orientation, six dependent variables) | ✅ |
 | Stack-up: wiggle of the closing faces by the worst-case extremes | ✅ |
+| Stack-up: closing faces found by walking the links along their faces; wiggle greyed out with the reason when they cannot be determined; 1D example as a real face chain | ✅ |
+| 3D chains: wiggle (worst case of the closing quantity or link by link, 1:1 or exaggerated, function point with the real value, assembly parts move with their link); cleaner display in the model | ✅ |
 | Stack-up: median planes as chain ends, chains across assembly parts | ✅ |
 | Assembly: connections plane/plane and coaxial with snapping, satisfied check, open DOF per part, DOF wiggle, in the project | ✅ |
 | Assembly: point contact (sphere on plane), pin–slot (line on plane), ball joint | ✅ |
