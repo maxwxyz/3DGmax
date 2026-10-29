@@ -1995,5 +1995,8 @@
 "Eine Fläche am bewegten Teil und eine am Gegenteil wählen": "Select one face on the moving part and one on the mating part",
 "Teil an seinen Bezügen A, B, C (aus den PMI) verbinden: eine Fläche am bewegten Teil und eine am Gegenteil wählen – Bezüge gleichen Namens am Gegenteil werden gepaart, sonst nimmt A die gewählte Gegenfläche und B, C die nächste passende": "Connect the part at its datums A, B, C (from the PMI): select one face on the moving part and one on the mating part – datums of the same name on the mating part are paired, otherwise A takes the selected mating face and B, C the nearest matching one",
 "{} verbunden": "{} connected",
-"{}: keine passende Gegenfläche": "{}: no matching face"
+"{}: keine passende Gegenfläche": "{}: no matching face",
+"Bezug {} hat noch kein Bezugselement": "Datum {} has no datum feature yet",
+"schon vorhanden: {}": "already present: {}",
+"Lochmuster: gemeinsame Positionstoleranz aller Achsen zum Bezugssystem": "Hole pattern: common position tolerance of all axes to the datum system"
 }

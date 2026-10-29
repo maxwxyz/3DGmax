@@ -115,7 +115,11 @@ class HilfeFenster(QtWidgets.QDialog):
 
     @classmethod
     def zeige(cls, fenster):
-        if cls._offen is None or cls._offen.parent() is not fenster:
+        try:  # das gemerkte Fenster kann mit seinem Hauptfenster geloescht worden sein
+            alt = cls._offen.parent() if cls._offen is not None else None
+        except RuntimeError:
+            alt = None
+        if alt is not fenster:
             cls._offen = cls(fenster)
         cls._offen.show()
         cls._offen.raise_()

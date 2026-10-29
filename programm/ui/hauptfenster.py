@@ -82,7 +82,7 @@ class Startseite(QtWidgets.QWidget):
         hinweis = self.formate = QtWidgets.QLabel(tr("STEP, IGES, QIF, PRC/3D-PDF, STL, OBJ, glTF, 3MF, PLY – oder "
                                                      "Datei hierher ziehen · Befehl suchen mit Strg/⌘+K"))
         # JT nur in der Programmvariante mit Konverter; erst nach dem Start pruefen (kern.laden laedt OCCT)
-        QtCore.QTimer.singleShot(0, self._jt_nennen)
+        QtCore.QTimer.singleShot(0, self, self._jt_nennen)
         hinweis.setWordWrap(True)  # schmales Fenster: umbrechen statt die Mindestbreite vorzugeben
         hinweis.setObjectName("leise")
         hinweis.setAlignment(QtCore.Qt.AlignmentFlag.AlignCenter)

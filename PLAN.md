@@ -645,6 +645,12 @@ tree shows only the new model. Modes as in ZGmax (Old, New, Comparison, Side by 
 - **Tolerancing advisor:** contextual suggestions based on the selection (e.g. hole pattern → position with ⌀ zone and
   Ⓜ, planar datum face → flatness, mating cylinder → fit), checking consistency with the datum reference frame and
   the plausibility rules (§ PMI check).
+- Done 2026-10-29 (advisor stage 2, `kern/pmi_vorschlag.py`): start values from the ISO 286 IT grade at the feature
+  size (form IT6, orientation IT7, location IT8, profile IT9, distances ±IT11/2; size = face diagonal or diameter),
+  equal cylinders on different axes proposed as a hole pattern with one position tolerance, proposals checked
+  against the existing PMI (same kind on these faces → "already present", unticked in the dialog; a face that is
+  already a datum feature is not proposed again; datums referenced without a datum feature are named). Open: run
+  the full plausibility check on the proposals, pattern count "n×" in the annotation, proposals for edges/points.
 
 ### 8.11 Open CATIA V5/V6 files (CATPart, CATProduct) – feasibility only
 - Native CATIA formats are proprietary and undocumented. No free, legally safe reader exists; reverse engineering

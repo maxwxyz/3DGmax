@@ -224,12 +224,13 @@ class _FesteSpalte(QtWidgets.QTableView):
         # Rollen, Breite und Zeilenhoehen folgen der Tabelle
         self.verticalScrollBar().valueChanged.connect(tabelle.verticalScrollBar().setValue)
         tabelle.verticalScrollBar().valueChanged.connect(self.verticalScrollBar().setValue)
-        tabelle.horizontalHeader().sectionResized.connect(lambda s, _a, _n: s == 0 and self.lage())
-        tabelle.verticalHeader().sectionResized.connect(lambda z, _a, h: self.setRowHeight(z, h))
+        # Methoden statt Lambdas: Qt trennt sie, wenn diese Spalte vor der Tabelle geloescht wird
+        tabelle.horizontalHeader().sectionResized.connect(self._spalte_geaendert)
+        tabelle.verticalHeader().sectionResized.connect(self._zeile_geaendert)
         tabelle.horizontalHeader().geometriesChanged.connect(self.lage)
         for signal in (tabelle.model().rowsInserted, tabelle.model().rowsRemoved, tabelle.model().modelReset,
                        tabelle.model().columnsInserted):
-            signal.connect(lambda *_a: QtCore.QTimer.singleShot(0, self.lage))
+            signal.connect(self._spaeter)
         # Klicks wie in der Tabelle selbst (Doppelklick, Klick, Kontextmenue)
         self.clicked.connect(lambda i: tabelle.cellClicked.emit(i.row(), i.column()))
         self.doubleClicked.connect(lambda i: tabelle.cellDoubleClicked.emit(i.row(), i.column()))
@@ -238,6 +239,17 @@ class _FesteSpalte(QtWidgets.QTableView):
                 tabelle.viewport().mapFromGlobal(self.viewport().mapToGlobal(pos))))
         tabelle.installEventFilter(self)
         self.lage()
+
+
+    def _spalte_geaendert(self, spalte: int, *_):
+        if spalte == 0:
+            self.lage()
+
+    def _zeile_geaendert(self, zeile: int, _alt: int, hoehe: int):
+        self.setRowHeight(zeile, hoehe)
+
+    def _spaeter(self, *_):
+        QtCore.QTimer.singleShot(0, self, self.lage)
 
     def eventFilter(self, obj, ev):  # noqa: N802 - Qt
         if obj is self.tabelle and ev.type() in (QtCore.QEvent.Type.Resize, QtCore.QEvent.Type.Show,

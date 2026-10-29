@@ -653,6 +653,24 @@ def test_tolerierungsberater_regeln(ctc01):
     assert zwei and zwei[0].pmi.typ in ("Perpendicularity", "Parallelism", "Location_LinearDistance",
                                        "Size_Thickness", "Location_Angular")
     assert all(g in pv.GRUENDE for x in v + zwei for g in [x.grund])
+    # Stufe 2: vorhandene Angaben markiert und abgewaehlt, Werte nach IT-Grad, Lochmuster, kein doppelter Bezug
+    assert v[0].vorhanden and loch.wert_text() in v[0].hinweis
+    from programm.kern.iso286 import it
+    flach = pv.vorschlaege(eben[:1], ctc01, [])
+    assert flach[0].pmi.wert == pv._wert("form", pv._groesse(ctc01.flaechen[eben[0]]), 0.05)
+    assert pv._wert("form", 50.0, 0.0) == round(it(6, 50.0) / 1000, 3) == 0.016  # IT6 bei 50 mm (16 µm)
+    assert any(x.pmi.typ == "Datum" for x in flach)
+    from programm.kern.pmi import BEZUG, Pmi
+    mit_bezug = [Pmi(BEZUG, "Datum", "A", flaechen={eben[0]})]
+    assert not any(x.pmi.typ == "Datum" for x in pv.vorschlaege(eben[:1], ctc01, mit_bezug))
+    from programm.kern.messen import art_von as art
+    zyl = [i for i, f in enumerate(ctc01.flaechen) if art(f) == "Zylinder"]
+    infos = {i: pv._flaeche_info(ctc01.flaechen[i]) for i in zyl}
+    r0 = infos[zyl[0]][1]["r"]
+    gleich = [i for i in zyl if abs(infos[i][1]["r"] - r0) < 1e-6]
+    if pv._achsen([infos[i] for i in gleich]) > 1:
+        muster = pv.vorschlaege(gleich, ctc01, [])
+        assert "Lochmuster" in muster[1].grund
 
 
 def test_iso14405_modifikatoren_im_text():

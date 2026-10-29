@@ -29,9 +29,11 @@ class PmiAnlegenDialog(QtWidgets.QDialog):
         for z, v in enumerate(vorschlaege):
             p = v.pmi
             haken = QtWidgets.QTableWidgetItem()
-            haken.setCheckState(QtCore.Qt.CheckState.Checked)
+            haken.setCheckState(QtCore.Qt.CheckState.Unchecked if getattr(v, "vorhanden", False) else
+                                QtCore.Qt.CheckState.Checked)
             self.tabelle.setItem(z, 0, haken)
-            for s, text in ((1, tr(p.merkmal())), (2, p.wert_text()), (5, tr(v.grund))):
+            grund = tr(v.grund) + (" – " + v.hinweis if getattr(v, "hinweis", "") else "")
+            for s, text in ((1, tr(p.merkmal())), (2, p.wert_text()), (5, grund)):
                 it = QtWidgets.QTableWidgetItem(text)
                 it.setFlags(it.flags() & ~QtCore.Qt.ItemFlag.ItemIsEditable)
                 self.tabelle.setItem(z, s, it)
