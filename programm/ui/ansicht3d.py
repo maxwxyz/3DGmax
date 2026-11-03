@@ -19,6 +19,7 @@ import time
 from PySide6 import QtCore, QtGui, QtWidgets
 
 from ..i18n import tr
+from . import thema as _thema
 from .navigation import Navigation
 
 STANDARDANSICHTEN = ("vorne", "hinten", "oben", "unten", "links", "rechts", "iso")
@@ -247,6 +248,19 @@ class AnsichtBasis(QtWidgets.QWidget):
         self.zone_formen = list(formen)
         self.zone_rollen = list(rollen or ["zone"] * len(self.zone_formen))
 
+    def zonen_legende(self) -> list[tuple[str, tuple]]:
+        """Legende der gezeigten Toleranzzonen: (Text, Farbe) nur fuer die angezeigten Rollen, dazu die Bezuege des
+        gezeigten Bezugssystems; [] ohne Zonen."""
+        if not self.zone_formen:
+            return []
+        gezeigt = set(self.zone_rollen)
+        eintraege = [(tr(text), ZONEN_FARBE[rolle][0]) for rolle, text in ZONEN_TEXT if rolle in gezeigt]
+        for name, stelle, _f in self.bezugssystem:
+            text = tr("Bezug {} ({}.)").format(name, stelle)
+            if all(text != e[0] for e in eintraege):
+                eintraege.append((text, BEZUG_FARBEN.get(stelle, BEZUG_FARBEN[3])))
+        return eintraege
+
     def setze_explosion(self, anteil: float):
         """Explosionsansicht: Teile vom Mittelpunkt weg verschieben (0 = aus, 1 = weit)."""
         self.explosion = max(0.0, min(1.0, anteil))
@@ -429,15 +443,25 @@ class AnsichtBasis(QtWidgets.QWidget):
 
     def pmi_farbe(self, g) -> tuple:
         """Anzeigefarbe einer Annotation: eigene Farbe, Schemafarbe (gut lesbar) oder Farbe aus der Datei;
-        aus der Semantik erzeugte Beschriftungen immer in eigener Farbe, Vorschau-Callouts in ihrer."""
+        aus der Semantik erzeugte Beschriftungen immer in eigener Farbe, Vorschau-Callouts in ihrer. Schemafarben
+        werden auf dem tatsaechlichen Hintergrund (auch einem eigenen) lesbar gemacht."""
+        t = self.thema or {}
         if getattr(g, "vorschau", False):
-            return VORSCHAU_FARBE
+            return self.lesbar(t.get("pmi_vorschau", VORSCHAU_FARBE))
         if getattr(g, "erzeugt", False):
-            return ERZEUGT_FARBE
+            return self.lesbar(t.get("pmi_erzeugt", ERZEUGT_FARBE))
         if self.pmi_eigene_farbe is not None:
             return self.pmi_eigene_farbe
-        schema = (self.thema or {}).get("pmi", (0.05, 0.2, 0.55))
-        return schema if self.pmi_kontrast or g.farbe is None else g.farbe
+        if self.pmi_kontrast or g.farbe is None:
+            return self.lesbar(t.get("pmi", (0.05, 0.2, 0.55)))
+        return g.farbe
+
+    def pmi_hervor_farbe(self) -> tuple:
+        return self.lesbar((self.thema or {}).get("pmi_hervor", (0.54, 0.12, 0.0)))
+
+    def lesbar(self, farbe) -> tuple:
+        """Farbe mit Mindestkontrast auf beiden Hintergrundfarben (Verlauf oben/unten) der Ansicht."""
+        return _thema.lesbar(farbe, _thema.hintergrund_3d(self.thema or {}, self.hintergrund))
 
     def setze_farben(self, pmi_eigen, hintergrund):
         self.pmi_eigene_farbe = pmi_eigen
@@ -621,8 +645,31 @@ def pmi_schrift() -> str:
     return _PMI_SCHRIFT[0]
 
 
-ERZEUGT_FARBE = (0.50, 0.28, 0.72)  # aus der Semantik erzeugte PMI (nicht aus der Datei)
-VORSCHAU_FARBE = (0.0, 0.55, 0.50)  # Vorschau-Callouts (Funktion -> Tolerierung), noch keine PMI
+# Ersatz ohne Farbschema; sonst gelten pmi_erzeugt / pmi_vorschau aus ui.thema (je Schema lesbar)
+def schrift_fuer(texte) -> str:
+    """Erste Schrift, die alle Zeichen der Texte hat (OCCT-Beschriftungen ersetzen fehlende Zeichen nicht
+    verlaesslich): Oberflaechenschrift, sonst eine mit Symbolen."""
+    zeichen = {ord(c) for t in texte for c in t if not c.isspace()}
+    for name in (SCHRIFT, "Arial Unicode MS", "Segoe UI Symbol", "DejaVu Sans"):
+        if QtGui.QFontInfo(QtGui.QFont(name)).family().lower() != name.lower():
+            continue  # nicht installiert
+        roh = QtGui.QRawFont.fromFont(QtGui.QFont(name))
+        if all(roh.supportsCharacter(c) for c in zeichen):
+            return name
+    return SCHRIFT
+
+
+ERZEUGT_FARBE = (0.38, 0.14, 0.58)  # aus der Semantik erzeugte PMI (nicht aus der Datei)
+VORSCHAU_FARBE = (0.0, 0.31, 0.28)  # Vorschau-Callouts (Funktion -> Tolerierung), noch keine PMI
+# Toleranzzonen je Rolle (kern.toleranzzone): Farbe, Durchsicht; unterscheidbar von den Bezugsfarben (rot, gruen,
+# blau) und der Hervorhebung (orange)
+ZONEN_FARBE = {"zone": ((0.98, 0.82, 0.10), 0.4), "bonus": ((0.90, 0.30, 0.75), 0.6),
+               "huelle": ((0.10, 0.78, 0.85), 0.75), "allgemein": ((0.55, 0.40, 0.85), 0.6),
+               "verschiebung": ((0.95, 0.55, 0.50), 0.75)}
+ZONEN_TEXT = (("zone", "Toleranzzone"), ("bonus", "Bonus bei Ⓜ/Ⓛ"), ("verschiebung", "Bezugsverschiebung"),
+              ("huelle", "Raum der Fläche (Maß)"), ("allgemein", "Allgemeintoleranz"))
+PMI_LINIE = 1.5  # Linienbreite grafischer PMI (logische Pixel)
+PMI_SCHILD_HOEHE = 14  # Schrifthoehe erzeugter Beschriftungen ohne Ebene (logische Pixel)
 # Bezugssystem: primaer, sekundaer, tertiaer (gut unterscheidbar, auch neben der Hervorhebung in Orange)
 BEZUG_FARBEN = {1: (0.85, 0.20, 0.25), 2: (0.20, 0.65, 0.35), 3: (0.25, 0.45, 0.90)}
 SCHRIFT = "Helvetica Neue" if sys.platform == "darwin" else ("Segoe UI" if sys.platform == "win32" else "DejaVu Sans")
@@ -1079,6 +1126,7 @@ class OcctAnsicht(AnsichtBasis):
         self._material_ais = []
         self._kommentar_ais = []
         self._zone_ais = []
+        self._legende_ais = []
         self._baue_entfernt()
         self._baue_grafik()
         self._baue_abweichung()
@@ -1086,6 +1134,8 @@ class OcctAnsicht(AnsichtBasis):
             self.zeige_ballone(self.ballone)
         self._baue_material()
         self._baue_kollision()
+        if self.zone_formen:  # Zonen und Legende ueberstehen den Neuaufbau (z. B. Wechsel des Farbschemas)
+            self.zeige_zone(self.zone_formen, self.zone_rollen)
         if self.kommentar_marken:
             self.zeige_kommentare(self.kommentar_marken)
         if self.explosion > 0:
@@ -1338,14 +1388,16 @@ class OcctAnsicht(AnsichtBasis):
         from OCC.Core.gp import gp_Ax2, gp_Dir, gp_Pnt
         from OCC.Core.TCollection import TCollection_ExtendedString
         sz = self.szene
-        farbe = _farbe((self.thema or {}).get("pmi", (0.05, 0.2, 0.55)))
+        rgb = self.pmi_farbe(g)
+        farbe = _farbe(rgb)
+        k = self._geraete_k()
         liste = []
         form, texte = _grafik_form(g, sz.pmi_text)
         if form is not None:
             ais = AIS_Shape(form)
             _unbeleuchtet(ais)  # gefuellte grafische PMI (Dreiecke) sonst je nach Blickwinkel weiss statt Kontrastfarbe
             ais.SetColor(farbe)
-            ais.SetWidth(2.0)
+            ais.SetWidth(PMI_LINIE * k)
             liste.append(ais)
         for ph, text in texte:
             lab = AIS_TextLabel()
@@ -1356,9 +1408,9 @@ class OcctAnsicht(AnsichtBasis):
             if ist_schild(g):  # erzeugte Beschriftung ohne Ebene: zum Betrachter, Textfeld in eigener Farbe
                 from OCC.Core.Aspect import Aspect_TODT_SUBTITLE
                 lab.SetDisplayType(Aspect_TODT_SUBTITLE)
-                lab.SetColorSubTitle(_farbe(ERZEUGT_FARBE))
-                lab.SetColor(_farbe((1.0, 1.0, 1.0)))
-                lab.SetHeight(14)
+                lab.SetColorSubTitle(farbe)
+                lab.SetColor(_farbe(_thema.schrift_auf(rgb)))
+                lab.SetHeight(PMI_SCHILD_HOEHE * k)
                 liste.append(lab)
                 continue
             glyphen = text_flaechen(text, ph.ursprung, ph.x, ph.y, max(ph.hoehe, 0.1))
@@ -1417,9 +1469,9 @@ class OcctAnsicht(AnsichtBasis):
                 ctx.Display(ais, False)
             else:
                 ctx.Erase(ais, False)
-        hervor_farbe = _farbe((self.thema or {}).get("pmi_hervor", (0.85, 0.25, 0.0)))
+        hervor_rgb = self.pmi_hervor_farbe()
         for cid, liste in self._callouts.items():
-            normal = _farbe(self.pmi_farbe(self.szene.grafik[cid]))
+            normal_rgb = self.pmi_farbe(self.szene.grafik[cid])
             g = self.szene.grafik[cid]
             vorschau = getattr(g, "vorschau", False)  # Vorschau immer sichtbar, solange sie besteht
             zeigen = vorschau or self.grafik_an and not self.grafik_nur_auswahl and (self.erzeugt_an or not g.erzeugt) \
@@ -1428,11 +1480,13 @@ class OcctAnsicht(AnsichtBasis):
             zeigen = (zeigen or hervor) and self.explosion <= 0  # Beschriftungen passen nur zur Einbaulage
             for ais in liste:
                 if zeigen:
-                    farbe = hervor_farbe if hervor else normal
+                    rgb = hervor_rgb if hervor else normal_rgb
                     if ist_schild(g) and ais.DynamicType().Name() == "AIS_TextLabel":
-                        AIS_TextLabel.DownCast(ais).SetColorSubTitle(farbe)  # Text bleibt weiss im Farbfeld
+                        lab = AIS_TextLabel.DownCast(ais)
+                        lab.SetColorSubTitle(_farbe(rgb))  # Farbfeld, Text schwarz oder weiss darauf
+                        lab.SetColor(_farbe(_thema.schrift_auf(rgb)))
                     else:
-                        ais.SetColor(farbe)
+                        ais.SetColor(_farbe(rgb))
                     ctx.Display(ais, False)
                     ctx.Redisplay(ais, False)
                 else:
@@ -1577,6 +1631,8 @@ class OcctAnsicht(AnsichtBasis):
             ctx.Display(lab, False)
             ctx.Deactivate(lab)
             self._bezug_ais.append(lab)
+        if self.zone_formen:
+            self._baue_zonen_legende()  # Bezuege stehen mit in der Legende
         self._neu_zeichnen()
 
     def aktuelle_ansicht(self, name):
@@ -1790,11 +1846,6 @@ class OcctAnsicht(AnsichtBasis):
             self._kommentar_ais.append(lab)
         self._neu_zeichnen()
 
-    # Farben unterscheiden sich von den Bezugsfarben (rot, gruen, blau) und der Hervorhebung (orange)
-    ZONEN_FARBE = {"zone": ((0.98, 0.82, 0.10), 0.4), "bonus": ((0.90, 0.30, 0.75), 0.6),
-                   "huelle": ((0.10, 0.78, 0.85), 0.75), "allgemein": ((0.55, 0.40, 0.85), 0.6),
-                   "verschiebung": ((0.95, 0.55, 0.50), 0.75)}
-
     def zeige_zone(self, formen, rollen=None):
         super().zeige_zone(formen, rollen)
         if not self._bereit:
@@ -1805,7 +1856,7 @@ class OcctAnsicht(AnsichtBasis):
             ctx.Remove(a, False)
         self._zone_ais = []
         for f, rolle in zip(self.zone_formen, self.zone_rollen):
-            farbe, durchsicht = self.ZONEN_FARBE.get(rolle, self.ZONEN_FARBE["zone"])
+            farbe, durchsicht = ZONEN_FARBE.get(rolle, ZONEN_FARBE["zone"])
             ais = AIS_Shape(f)
             ais.SetColor(_farbe(farbe))
             if self.vergleich_trsf is not None:
@@ -1814,8 +1865,81 @@ class OcctAnsicht(AnsichtBasis):
             ctx.SetTransparency(ais, durchsicht, False)
             ctx.Deactivate(ais)
             self._zone_ais.append(ais)
+        self._baue_zonen_legende()
         self._wende_sichtbarkeit_an()  # Bauteile durchscheinend, solange Zonen gezeigt werden
         self._neu_zeichnen()
+
+    def _baue_zonen_legende(self):
+        """Legende unten links (neben der Farbkarten-Legende) mit den Farben der gezeigten Zonen, auf einem Feld in
+        Flaechenfarbe ueber allem (OSD-Ebene); der Ansichtswuerfel oben rechts bleibt frei."""
+        from OCC.Core.AIS import AIS_ColorScale, AIS_Shape
+        from OCC.Core.Aspect import Aspect_TOCSD_USER, Aspect_TOTP_LEFT_LOWER
+        from OCC.Core.BRepBuilderAPI import BRepBuilderAPI_MakeFace, BRepBuilderAPI_MakePolygon
+        from OCC.Core.Graphic3d import (Graphic3d_TMF_2d, Graphic3d_TransformPers, Graphic3d_Vec2i,
+                                        Graphic3d_ZLayerId_Topmost, Graphic3d_ZLayerId_TopOSD)
+        from OCC.Core.Prs3d import Prs3d_TextAspect
+        from OCC.Core.TColStd import TColStd_SequenceOfExtendedString
+        from OCC.Core.TCollection import TCollection_ExtendedString
+        from OCC.Core.gp import gp_Pnt
+        ctx = self.d.Context
+        for alt in getattr(self, "_legende_ais", []):
+            ctx.Remove(alt, False)
+        self._legende_ais = []
+        eintraege = list(reversed(self.zonen_legende()))  # die Skala zaehlt von unten nach oben
+        if not eintraege:
+            return
+        k = self._geraete_k()
+        t = self.thema or {}
+        feld = _thema.rgb_hex(t.get("flaeche", "#ffffff"))
+        schrift = _thema.schrift_auf(feld)
+        hoehe_text, zeile, rand = 13, 22, 8
+        titel = tr("Toleranzzonen")
+        schriftart = schrift_fuer([titel] + [e[0] for e in eintraege])  # mit Ⓜ/Ⓛ
+        qfont = QtGui.QFont(schriftart)
+        qfont.setPixelSize(hoehe_text)
+        breite_text = max(QtGui.QFontMetrics(qfont).horizontalAdvance(x) for x in [titel] + [e[0] for e in eintraege])
+        # OCCT: Farbbalken = Skalenbreite - Textbreite - Abstaende, hoechstens 20 Geraetepixel; reichlich Breite
+        # geben, das Feld dahinter endet nach dem laengsten Text
+        breite, hoehe = 20 / k + 10 + breite_text, zeile * len(eintraege) + zeile + 4
+        skala = AIS_ColorScale()
+        skala.SetRange(0.0, float(len(eintraege)))
+        skala.SetNumberOfIntervals(len(eintraege))
+        skala.SetColorType(Aspect_TOCSD_USER)
+        skala.SetLabelType(Aspect_TOCSD_USER)
+        texte = TColStd_SequenceOfExtendedString()
+        for i, (text, farbe) in enumerate(eintraege):
+            skala.SetIntervalColor(_farbe(farbe), i + 1)
+            texte.Append(TCollection_ExtendedString(text, True))
+        skala.SetLabels(texte)
+        skala.SetLabelAtBorder(False)  # Text mittig neben dem Farbfeld
+        skala.SetTitle(TCollection_ExtendedString(titel, True))
+        skala.SetColor(_farbe(schrift))
+        skala.SetTextHeight(int(hoehe_text * k))
+        skala.SetSize(int((breite + 40) * k), int(hoehe * k))
+        aspekt = Prs3d_TextAspect()
+        aspekt.Aspect().SetFont(schriftart)
+        aspekt.SetColor(_farbe(schrift))
+        aspekt.SetHeight(int(hoehe_text * k))
+        skala.Attributes().SetTextAspect(aspekt)
+        # Feld hinter der Skala (Pixelkoordinaten ab ihrer Ecke unten links)
+        # (die Skala laesst oben und unten etwa eine halbe Zeile frei)
+        x0, y0, x1, y1 = -rand * k, (8 - rand) * k, (breite + rand) * k, (hoehe + rand - 8) * k
+        rahmen = BRepBuilderAPI_MakePolygon(gp_Pnt(x0, y0, 0), gp_Pnt(x1, y0, 0), gp_Pnt(x1, y1, 0),
+                                            gp_Pnt(x0, y1, 0), True)
+        grund = AIS_Shape(BRepBuilderAPI_MakeFace(rahmen.Wire()).Face())
+        _unbeleuchtet(grund)
+        grund.SetColor(_farbe(feld))
+        x = 20 + rand + (150 if self.abweichung is not None else 0)  # rechts neben der Farbkarten-Legende
+        lage = Graphic3d_Vec2i(int(x * k), int((20 + rand) * k))
+        # Feld in der obersten Ebene, Skala in der Bildschirmebene darueber (innerhalb einer Ebene ist die
+        # Reihenfolge nicht verlaesslich)
+        for ais, modus, ebene in ((grund, 1, Graphic3d_ZLayerId_Topmost), (skala, 0, Graphic3d_ZLayerId_TopOSD)):
+            ais.SetTransformPersistence(Graphic3d_TransformPers(Graphic3d_TMF_2d, Aspect_TOTP_LEFT_LOWER, lage))
+            ais.SetZLayer(ebene)
+            ctx.Display(ais, modus, -1, False)
+            ctx.Deactivate(ais)
+            self._legende_ais.append(ais)
+
 
     def schnittbox(self, box):
         super().schnittbox(box)
@@ -2565,6 +2689,10 @@ class OcctAnsicht(AnsichtBasis):
         Oberflaeche (QT_SCALE_FACTOR). Das Verhaeltnis folgt daher aus der tatsaechlichen OCCT-Fenstergroesse."""
         fx, fy = self._occt_faktor()
         return int(round(pos.x() * fx)), int(round(pos.y() * fy))
+
+    def _geraete_k(self) -> float:
+        """macOS zeichnet Linienbreiten und Pixelgroessen in Geraetepixeln: Faktor fuer gleiche Groesse wie in Qt."""
+        return max(1.0, self.viewer.devicePixelRatioF()) if sys.platform == "darwin" else 1.0
 
     def _occt_faktor(self) -> tuple[float, float]:
         """OCCT-Fenstergroesse / Qt-Widgetgroesse je Richtung (1, solange die Ansicht nicht bereit ist)."""

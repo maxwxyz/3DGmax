@@ -606,6 +606,37 @@ def test_kommentare_anlegen_projekt_export(fenster_ctc01, tmp_path):
     assert [k.text for k in f.kommentare.kommentare] == ["Fase prüfen", "Toleranz zu eng?"]
 
 
+def test_zonen_legende_nur_gezeigte_rollen(fenster_ctc01):
+    """Legende der Toleranzzonen: genau die angezeigten Rollen in ihrer Farbe, dazu gezeigte Bezuege; ohne Zonen leer."""
+    from programm.i18n import tr
+    from programm.kern.toleranzzone import Allgemein
+    from programm.ui import ansicht3d
+    f = fenster_ctc01
+    assert f.ansicht.zonen_legende() == []
+
+    def erwartet():
+        rollen = set(f.ansicht.zone_rollen)
+        return [(tr(t), ansicht3d.ZONEN_FARBE[r][0]) for r, t in ansicht3d.ZONEN_TEXT if r in rollen]
+    f.aktionen["toleranzzonen_alle"].setChecked(True)
+    f._zone_aktualisieren([])
+    assert f.ansicht.zone_formen and f.ansicht.zonen_legende() == erwartet()
+    assert tr("Allgemeintoleranz") not in [t for t, _ in f.ansicht.zonen_legende()]
+    f._allgemein = Allgemein("m", "K")
+    f.aktionen["allgemein_zeigen"].setChecked(True)
+    f._allgemein_umschalten()
+    assert tr("Allgemeintoleranz") in [t for t, _ in f.ansicht.zonen_legende()]
+    assert f.ansicht.zonen_legende() == erwartet()
+    f.ansicht.zeige_bezugssystem([("A", 1, {0}), ("A", 1, {1})])
+    assert f.ansicht.zonen_legende()[-1] == (tr("Bezug {} ({}.)").format("A", 1), ansicht3d.BEZUG_FARBEN[1])
+    assert len(f.ansicht.zonen_legende()) == len(erwartet()) + 1  # Bezug nur einmal
+    f.ansicht.zeige_bezugssystem([])
+    f.aktionen["allgemein_zeigen"].setChecked(False)
+    f._allgemein_umschalten()
+    f.aktionen["toleranzzonen_alle"].setChecked(False)
+    f._zone_aktualisieren([])
+    assert f.ansicht.zonen_legende() == []
+
+
 def test_toleranzzone_anzeigen(fenster_ctc01):
     f = fenster_ctc01
     f.aktionen["toleranzzone"].setChecked(True)

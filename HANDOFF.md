@@ -4,6 +4,19 @@
 All work on `main`, pushed; no other branches. Version 0.2 released (tag v0.2). Full suite last green on
 the Mac (200 tests incl. the new ones, ~11 min); `pixi run test-schnell` skips the six `langsam` tests.
 
+Side session 2026-10-29 (branch `claude/ansicht-kontrast-3e4797`, to be merged by the main session): user reports
+"PMI im Dark Mode nicht lesbar" and "Legende für Toleranzzonen". Root cause: OCCT shows the background gradient
+gamma-encoded while unlit PMI keep their value – the dark scheme's 3D background appeared mid grey (#7b818b), where no
+colour reaches 4.5:1 on both ends. Dark 3D background now really dark; PMI colours per scheme in `ui/thema.py`
+(`pmi`, `pmi_erzeugt`, `pmi_vorschau`, `pmi_hervor`, helpers `kontrast`/`lesbar`/`hintergrund_3d`), ≥ 4.5:1 against
+both ends as given and encoded (test `tests/test_kontrast.py`); own background: scheme colours made readable; own PMI
+colour kept, settings warn. Zone legend bottom left (`AnsichtBasis.zonen_legende`, `OcctAnsicht._baue_zonen_legende`;
+test `test_zonen_legende_nur_gezeigte_rollen`, on screen in `test_navigation_und_klick`). Zones now survive a scene
+rebuild (theme switch). Checked on screen (Retina) light/dark with the shaft and FTC-10 zone examples. Seen, not fixed:
+the Funktion panel's datum preview stays when another example is opened; own background colours appear lighter than
+picked (gamma); `View.Dump` renders at logical size on Retina (use `bild_qimage` for checks). PLAN/Roadmap: Roadmap row
+added (✅), UI_UX_Plan note; no PLAN item affected.
+
 Side session 2026-10-29 (branch `claude/beispiel-welle-abdfe0`, merged into main `db2cd0d`): user request –
 the example "Funktion → Tolerierung" now uses a generated gearbox shaft instead of NIST FTC-10 (PLAN §8.33 note,
 Roadmap ✅). Generator `werkzeuge/welle.py` → `tests/daten/getriebewelle.stp` (bundled via `beispiele.alle_dateien`),

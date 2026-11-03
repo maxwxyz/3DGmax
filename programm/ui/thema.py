@@ -18,19 +18,81 @@ THEMEN = {
         # 3D-Ansicht (RGB 0..1)
         hg_oben=(0.86, 0.89, 0.93), hg_unten=(0.70, 0.74, 0.80),
         modell=(0.78, 0.80, 0.84), kante=(0.15, 0.17, 0.20), pmi=(0.05, 0.20, 0.55),
-        hervor=(1.0, 0.45, 0.0), pmi_hervor=(0.85, 0.25, 0.0), schnitt=(1.0, 0.55, 0.1),
+        # PMI: aus der Datei (blau), erzeugt (violett), Vorschau (petrol), hervorgehoben (rost); Kontrast >= 4,5:1
+        pmi_erzeugt=(0.38, 0.14, 0.58), pmi_vorschau=(0.0, 0.31, 0.28),
+        hervor=(1.0, 0.45, 0.0), pmi_hervor=(0.54, 0.12, 0.0), schnitt=(1.0, 0.55, 0.1),
         v_geaendert=(0.96, 0.72, 0.05), v_neu=(0.15, 0.70, 0.30), v_entfernt=(0.90, 0.15, 0.15)),
     "dunkel": dict(
         name="dunkel", fenster="#1c1f24", flaeche="#262a31", rand="#353b44", rand2="#4a515c",
         text="#e5e7eb", text2="#cbd0d8", leise="#9ca3af", aus="#6b7280", hover="#323842",
         wahl="#1e3a6e", wahl_text="#f3f4f6", akzent="#3b82f6", akzent_hover="#2563eb",
         eingabe="#15171b", eingabe_text="#f3f4f6",
-        hg_oben=(0.20, 0.22, 0.26), hg_unten=(0.09, 0.10, 0.12),
+        # OCCT zeigt den Verlauf gammakorrigiert (0,045 -> #3c3f46): wirklich dunkel wie das Fenster
+        hg_oben=(0.045, 0.05, 0.062), hg_unten=(0.012, 0.013, 0.016),
         modell=(0.62, 0.65, 0.70), kante=(0.08, 0.09, 0.10), pmi=(0.55, 0.80, 1.0),
+        pmi_erzeugt=(0.84, 0.62, 1.0), pmi_vorschau=(0.30, 0.85, 0.75),
         hervor=(1.0, 0.55, 0.1), pmi_hervor=(1.0, 0.65, 0.2), schnitt=(1.0, 0.6, 0.15),
         v_geaendert=(1.0, 0.80, 0.15), v_neu=(0.30, 0.85, 0.40), v_entfernt=(1.0, 0.30, 0.30)),
 }
 AKTUELL = dict(THEMEN["hell"])
+MIN_KONTRAST = 4.5  # wie WCAG AA fuer normalen Text
+
+
+def leuchtdichte(rgb) -> float:
+    """Relative Leuchtdichte nach WCAG 2 (RGB 0..1)."""
+    def linear(c):
+        return c / 12.92 if c <= 0.03928 else ((c + 0.055) / 1.055) ** 2.4
+    r, g, b = (linear(float(c)) for c in rgb[:3])
+    return 0.2126 * r + 0.7152 * g + 0.0722 * b
+
+
+def kontrast(a, b) -> float:
+    """Kontrastverhaeltnis 1..21 zweier Farben nach WCAG 2."""
+    la, lb = sorted((leuchtdichte(a), leuchtdichte(b)), reverse=True)
+    return (la + 0.05) / (lb + 0.05)
+
+
+def kleinster_kontrast(farbe, hintergruende) -> float:
+    return min(kontrast(farbe, h) for h in hintergruende)
+
+
+def lesbar(farbe, hintergruende, ziel: float = MIN_KONTRAST) -> tuple:
+    """Farbe so weit zu Schwarz bzw. Weiss hin mischen, bis sie auf allen Hintergrundfarben (z. B. Verlauf oben
+    und unten) den Mindestkontrast hat; der Farbton bleibt so weit wie moeglich erhalten."""
+    farbe = tuple(float(c) for c in farbe[:3])
+    if kleinster_kontrast(farbe, hintergruende) >= ziel:
+        return farbe
+    ende = (0.0, 0.0, 0.0) if kleinster_kontrast((0, 0, 0), hintergruende) >= \
+        kleinster_kontrast((1, 1, 1), hintergruende) else (1.0, 1.0, 1.0)
+    for i in range(1, 21):
+        t = i / 20
+        neu = tuple(c + (e - c) * t for c, e in zip(farbe, ende))
+        if kleinster_kontrast(neu, hintergruende) >= ziel:
+            return neu
+    return ende
+
+
+def schrift_auf(farbe) -> tuple:
+    """Schwarz oder Weiss, je nachdem was auf der Flaechenfarbe besser lesbar ist (Text in Farbfeldern)."""
+    return (1.0, 1.0, 1.0) if kontrast((1, 1, 1), farbe) >= kontrast((0, 0, 0), farbe) else (0.0, 0.0, 0.0)
+
+
+def srgb(rgb) -> tuple:
+    """Lineares RGB als sRGB (so zeigt OCCT den Hintergrundverlauf; Linien und Texte erscheinen unveraendert)."""
+    return tuple(12.92 * c if c <= 0.0031308 else 1.055 * c ** (1 / 2.4) - 0.055 for c in rgb[:3])
+
+
+def hintergrund_3d(t: dict, eigen=None) -> tuple:
+    """Hintergrundfarben der 3D-Ansicht (oben, unten; eigene oder die des Farbschemas), jeweils wie angegeben und
+    gammakorrigiert: je nach Grafiktreiber erscheint der Verlauf so oder so, lesbar soll es in beiden Faellen sein."""
+    oben, unten = tuple(eigen) if eigen else (t.get("hg_oben", (1, 1, 1)), t.get("hg_unten", (1, 1, 1)))
+    return tuple(oben), tuple(unten), srgb(oben), srgb(unten)
+
+
+def rgb_hex(farbe: str) -> tuple:
+    """#rrggbb als RGB 0..1."""
+    farbe = farbe.lstrip("#")
+    return tuple(int(farbe[i:i + 2], 16) / 255 for i in (0, 2, 4))
 
 
 def schliessen_symbol(farbe: str, name: str) -> str:

@@ -254,5 +254,6 @@
 | One comparison example with clear geometry and PMI changes (hole moved 15 mm, hole removed, chamfer; value, datum order, removed and new PMI) | ✅ |
 | Several models side by side: File › New window, open in new window, linked cameras – PLAN §8.26 | ✅ |
 | Wireframe with high-contrast edges (setting, default on); calmer, more legible view cube | ✅ |
+| Readable PMI in both schemes (contrast ≥ 4.5:1 against the real 3D background, darker dark-scheme background, warning for a low-contrast own colour); legend of the shown tolerance zones in the 3D view | ✅ |
 | Status-bar progress with Cancel for all background jobs (load, compare, analysis, colour map, material, scan) | ✅ |
 | Closable tabs of stacked side panels; smooth side-panel resizing (batched 3D buffer resize) | ✅ |

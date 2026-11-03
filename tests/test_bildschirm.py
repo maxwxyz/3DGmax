@@ -211,6 +211,16 @@ def pruefe_alles():
     aus = not any(ctx.IsDisplayed(k) for k in a._kanten.values())
     a.setze_draht_kontrast(True); a.darstellung("kanten")
     ergebnis["draht_kontrast"] = an and aus and all(ctx.IsDisplayed(k) for k in a._kanten.values())
+    # Zonen-Legende: nur mit gezeigten Zonen, uebersteht den Wechsel des Farbschemas
+    f.aktionen["toleranzzonen_alle"].setChecked(True)
+    f._zone_aktualisieren([])
+    an = len(a._legende_ais) == 2 and all(ctx.IsDisplayed(x) for x in a._legende_ais)
+    f.setze_thema("dunkel")
+    dunkel = len(a._legende_ais) == 2 and bool(a._zone_ais)
+    f.aktionen["toleranzzonen_alle"].setChecked(False)
+    f._zone_aktualisieren([])
+    ergebnis["zonen_legende"] = an and dunkel and a._legende_ais == []
+    f.setze_thema("hell")
     pfad = os.path.join(tempfile.mkdtemp(), "b.png")
     ergebnis["bild"] = f.ansicht.bild(pfad) and os.path.getsize(pfad) > 1000
     print("ERGEBNIS", ergebnis, flush=True)
@@ -317,7 +327,12 @@ def los():
         f.ansicht_alt.d.View.Dump(pfad)
         bild = QtGui.QImage(pfad)
         ecke = bild.pixelColor(5, bild.height() - 5)
-        erg["hintergrund"] = ecke.red() + ecke.green() + ecke.blue() > 150  # Verlauf, nicht schwarz
+        # Verlauf des Farbschemas (OCCT zeigt ihn gammakorrigiert), nicht schwarz
+        from programm.ui import thema
+        unten = thema.hintergrund_3d(f.thema)[3]
+        erg["hintergrund"] = max(abs(c / 255 - u) for c, u in zip((ecke.red(), ecke.green(), ecke.blue()), unten)) < 0.08
+        erg["nicht_schwarz"] = ecke.red() + ecke.green() + ecke.blue() > 30
+        erg["text"] = (ecke.name(), unten)
     except Exception as e:
         erg["fehler"] = False
         erg["text"] = repr(e)

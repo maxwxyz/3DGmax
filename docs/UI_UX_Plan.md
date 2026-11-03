@@ -241,6 +241,19 @@ the user on screen the same day (local build of `d97e01c`):
   `test_knoepfe_nie_ueber_die_ganze_breite`. (d) Frozen first column (`tabellen.erste_spalte_fest`, Qt's frozen
   column pattern: overlay QTableView with the same model and selection) in the 1D chain table and the 2D segment
   table; clicks, double-clicks and context menu act as in the table. Test `test_kettentabelle_erste_spalte_fest`.
+- 3D readability (user report 2026-10-29: "PMI in the dark scheme barely readable"; "legend for tolerance zones"):
+  OCCT shows the background gradient gamma-encoded (linear → sRGB: the dark scheme's 0.20 appeared as #7b818b,
+  mid grey) while unlit PMI lines and labels keep their value – no colour reached 4.5:1 against both ends of that
+  gradient. The dark scheme's 3D background is now really dark (#3c3f46 → #1a1b1f as shown); PMI colours per scheme
+  (`thema`: `pmi` from file, `pmi_erzeugt`, `pmi_vorschau`, `pmi_hervor`) have ≥ 4.5:1 (WCAG) against top and bottom,
+  both as given and gamma-encoded (`thema.hintergrund_3d`), hues ≥ 25° apart; with an own background the scheme
+  colours are mixed towards black/white until readable (`thema.lesbar`), an own PMI colour is kept and the settings
+  warn below 4.5:1. Generated labels without a plane: black or white text on their colour field (`schrift_auf`);
+  PMI lines 1.5 px and label height scaled by the device pixel ratio on macOS. Tolerance zones get a legend at the
+  bottom left (OCCT colour scale in the OSD layer on a field in the panel colour, font with Ⓜ/Ⓛ, only the shown
+  roles plus shown datums, rebuilt on theme changes). Note for screenshots on Retina: `View.Dump` renders at logical
+  size (texts look twice as large) – use `bild_qimage`. Tests `test_kontrast.py`,
+  `test_gui.py::test_zonen_legende_nur_gezeigte_rollen`, on screen `zonen_legende` in `test_navigation_und_klick`.
 
 ## 6. Usability test protocol (local)
 - Participants: 2 CATIA designers, 1 3DCS user, 1 metrology staff, 2 students; 30 min each, think aloud.

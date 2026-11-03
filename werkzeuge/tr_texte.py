@@ -61,6 +61,8 @@ def tr_texte() -> set[str]:
     from programm.ui import scan_ui
     out |= set(scan_ui.STATUS_TEXT.values()) | set(scan_ui.ScanPanel.SPALTEN) | {"Netze"}
     out |= {t for _, t in panels.AnsichtenPanel.VORSCHAU_TEXT}
+    from programm.ui import ansicht3d
+    out |= {t for _, t in ansicht3d.ZONEN_TEXT}
     from programm.kern import messen
     out |= set(messen.WOERTER)
     import re
