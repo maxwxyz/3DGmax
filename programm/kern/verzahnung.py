@@ -29,7 +29,8 @@ NORMMODULE = (0.5, 0.6, 0.7, 0.8, 0.9, 1.0, 1.125, 1.25, 1.375, 1.5, 1.75, 2.0, 
               5.0, 5.5, 6.0, 7.0, 8.0, 9.0, 10.0, 11.0, 12.0, 14.0, 16.0, 18.0, 20.0, 22.0, 25.0, 28.0, 32.0, 36.0,
               40.0, 45.0, 50.0)
 ABTASTUNG = 8192  # Winkelschritte je Umlauf fuer r(theta)
-MIN_AMPLITUDE = 0.02  # verzahnt: Amplitude der Zahnharmonischen mindestens 2 % des mittleren Radius
+MIN_AMPLITUDE = 0.08  # verzahnt: Amplitude der Zahnharmonischen mindestens 8 % der Teilung (2 pi r / z) - bezogen
+# auf den Radius waere sie bei vielen kleinen Zaehnen zu klein (z 100, m 1: knapp 2 % des Radius)
 MIN_PERIODISCH = 0.9  # verzahnt: Anteil der Schwankung von r(theta) in Vielfachen der Zahnharmonischen
 MIN_ZAEHNE = 5
 ZAHNHOEHE = (1.5, 3.0)  # Zahnhoehe in Vielfachen von mn (Bezugsprofil ISO 53: 2,25)
@@ -232,7 +233,7 @@ def _zahn_harmonische(r: np.ndarray) -> tuple[int, complex, float]:
     vielfache = leistung[k - 1::k].sum() / max(leistung.sum(), 1e-300)
     if k < MIN_ZAEHNE or vielfache < MIN_PERIODISCH:
         return k, complex(f[k]), 0.0
-    return k, complex(f[k]), float(2 * abs(f[k]) / r.mean())
+    return k, complex(f[k]), float(2 * abs(f[k]) * k / (2 * np.pi * r.mean()))  # Amplitude je Teilung
 
 
 def _verzahnt(schnitte: _Schnitte, s: float):
@@ -340,6 +341,50 @@ def _ableiten(v: Verzahnung, rb: float, q: np.ndarray, r_raster: np.ndarray):
             2 * v.x * mn * math.sin(math.radians(an))
 
 
+def _drehung(schnitte_netz, s0: float, mitte, a: float, b: float, z: int, r: float, schnitte) -> float:
+    """Drehung des Zahnmusters je mm entlang der Achse (rad/mm, rechtssteigend positiv). Die Phase der z-ten
+    Harmonischen wiederholt sich nach 2 pi - bei grossem Schraegungswinkel, vielen Zaehnen oder breiten Raedern dreht
+    sie sich zwischen weit auseinander liegenden Schnitten um mehr als das. Deshalb: erste Steigung aus zwei sehr nahen
+    Schnitten (Abstand so klein, dass auch 60 Grad Schraegung unter pi/4 bleibt), dann mit verdoppeltem Abstand nach
+    aussen, jede Phase auf die Vorhersage der bisherigen Steigung gelegt, Steigung jeweils neu ausgeglichen."""
+    teilung = 2 * np.pi * r / z
+    delta = teilung / (8 * np.tan(np.radians(60.0)))
+    p0 = float(np.angle(mitte[3]))
+    punkte = [(s0, p0)]
+    for s_neu in (s0 + delta, s0 - delta):
+        t = _verzahnt(schnitte_netz, s_neu) if a < s_neu < b else None
+        if t is not None:  # so nah, dass sich die Phase um weniger als pi/4 dreht: auf p0 legen
+            dp = (float(np.angle(t[3])) - p0 + np.pi) % (2 * np.pi) - np.pi
+            punkte.append((s_neu, p0 + dp))
+    if len(punkte) < 2:
+        return 0.0
+    abstaende = []
+    d = 2 * delta
+    while d < (b - a) / 2:
+        abstaende += [d, -d]
+        d *= 2
+    kandidaten = sorted({round(s, 9) for s in [s0 + x for x in abstaende] + [x for x, _ in schnitte]},
+                        key=lambda s: abs(s - s0))
+    steigung = _steigung(punkte)
+    for s_neu in kandidaten:
+        if not a < s_neu < b or any(abs(s_neu - s) < 1e-9 for s, _ in punkte):
+            continue
+        t = _verzahnt(schnitte_netz, s_neu)
+        if t is None:
+            continue
+        vorhersage = punkte[0][1] + steigung * (s_neu - s0)
+        phase = float(np.angle(t[3]))
+        phase += 2 * np.pi * round((vorhersage - phase) / (2 * np.pi))
+        punkte.append((s_neu, phase))
+        steigung = _steigung(punkte)
+    return -steigung / z  # Phase der Harmonischen laeuft gegen die Drehung
+
+
+def _steigung(punkte) -> float:
+    """Ausgleichsgerade der (bereits auf die Vorhersage gelegten) Phasen ueber der Achslage."""
+    return float(np.polyfit([p[0] for p in punkte], [p[1] for p in punkte], 1)[0])
+
+
 def erkenne(form, teil: str = "") -> Verzahnung | None:
     """Verzahnung eines Teils oder None (keine verzahnte Kontur gefunden)."""
     from OCC.Core.Bnd import Bnd_Box
@@ -356,21 +401,17 @@ def erkenne(form, teil: str = "") -> Verzahnung | None:
         return None
     a, b, schnitte = breite
     mitte_s = (a + b) / 2
-    mitte = _verzahnt(schnitte_netz, mitte_s) or schnitte[len(schnitte) // 2][1]
+    mitte = _verzahnt(schnitte_netz, mitte_s)
+    if mitte is None:  # Mitte nicht verzahnt (z. B. Nut): der mittlere verzahnte Schnitt samt seiner Lage
+        mitte_s, mitte = schnitte[len(schnitte) // 2]
     q, r, z, _h, innen = mitte
     radien = np.hypot(q[:, 0], q[:, 1])
     rmin, rmax = float(radien.min()), float(radien.max())
     da, df = (2 * rmin, 2 * rmax) if innen else (2 * rmax, 2 * rmin)
     v = Verzahnung(teil, punkt, n, innen, z, da, df, b - a)
     v.r_mitte, v.r_schnitte = r, [(float(s), t[1]) for s, t in schnitte]
-    # Schraegung: Phase der Zahnharmonischen entlang der Achse
-    if len(schnitte) >= 2:
-        ss = np.array([x for x, _ in schnitte])
-        phase = np.unwrap(np.array([np.angle(t[3]) for _, t in schnitte]))
-        steigung = float(np.polyfit(ss, phase, 1)[0])  # rad Phase je mm; Drehung = -Phase / z
-        dreh = -steigung / z
-    else:
-        dreh = 0.0
+    # Schraegung: Phase der Zahnharmonischen entlang der Achse, nachgefuehrt von der Mitte nach aussen
+    dreh = _drehung(schnitte_netz, mitte_s, mitte, a, b, z, (rmin + rmax) / 2, schnitte)
     h = rmax - rmin
     rb, fit = _evolventen_fit(r, z, rmin + 0.15 * h, rmax - 0.15 * h)
     v.db, v.fit_fehler = 2 * rb, fit

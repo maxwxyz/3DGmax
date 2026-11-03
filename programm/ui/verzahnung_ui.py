@@ -70,6 +70,13 @@ class VerzahnungFenster(QtWidgets.QDialog):
         self.getriebe_titel = QtWidgets.QLabel(tr("<b>Getriebe</b> (Stufen über gleichachsige Räder, Planetensätze)"))
         lay.addWidget(self.getriebe_titel)
         lay.addWidget(self.getriebe_tabelle)
+        self.befund_tabelle = QtWidgets.QTableWidget()
+        self.befund_tabelle.setEditTriggers(QtWidgets.QAbstractItemView.EditTrigger.NoEditTriggers)
+        self.befund_titel = QtWidgets.QLabel(tr("<b>Auslegungsbefunde</b> – welche Entscheidungen die Geometrie "
+                                                "zeigt, eingeordnet nach den üblichen Regeln (mit Quelle)"))
+        self.befund_titel.setWordWrap(True)
+        lay.addWidget(self.befund_titel)
+        lay.addWidget(self.befund_tabelle)
         self.hinweise = QtWidgets.QLabel("")
         self.hinweise.setWordWrap(True)
         lay.addWidget(self.hinweise)
@@ -132,6 +139,21 @@ class VerzahnungFenster(QtWidgets.QDialog):
         spalten_anpassen(gt)
         for w in (gt, self.getriebe_titel):
             w.setVisible(bool(getriebe))
+        from ..kern import verzahnung_auslegung as va
+        befunde = va.alle(self.liste, self.paare)
+        bt = self.befund_tabelle
+        bt.setRowCount(len(befunde))
+        bt.setColumnCount(len(va.SPALTEN))
+        bt.setHorizontalHeaderLabels([tr(s) for s in va.SPALTEN])
+        bt.verticalHeader().setVisible(False)
+        for r, b in enumerate(befunde):
+            for s, text in enumerate(b.zeile()):
+                it = QtWidgets.QTableWidgetItem(text)
+                it.setToolTip(text)
+                bt.setItem(r, s, it)
+        spalten_anpassen(bt)
+        for w in (bt, self.befund_titel):
+            w.setVisible(bool(befunde))
         texte = [f"{v.teil}: {h}" for v in self.liste for h in v.hinweise]
         texte += [f"{p.a.teil} – {p.b.teil}: {h}" for p in self.paare for h in p.hinweise]
         self.hinweise.setText("\n".join(texte) if texte else ("" if self.liste else tr("Keine Verzahnung gefunden.")))
