@@ -120,3 +120,89 @@ def test_zahnwelle_30_grad(innen):
     assert v is not None and v.welle and v.z == 24 and v.alpha_n == 30.0 and abs(v.mn - 1.25) < 2e-3
     assert "4156" in v.zeilen()[0][1]
     assert vz.erkenne(zahnrad.zahnrad(24, 1.25, 15.0, 20.0, kopf=0.5, fuss=0.6)) is None  # 20 Grad und flach: nicht
+
+
+def _an(form, x, y=0.0, z=0.0):
+    from OCC.Core.BRepBuilderAPI import BRepBuilderAPI_Transform
+    from OCC.Core.gp import gp_Trsf, gp_Vec
+    t = gp_Trsf()
+    t.SetTranslation(gp_Vec(x, y, z))
+    return BRepBuilderAPI_Transform(form, t, True).Shape()
+
+
+def test_datenblatt_rad_und_mikrogeometrie():
+    """Abgeleitete Werte nach ISO 21771, Formkreise aus der Zahndicke ueber dem Radius, Kopfruecknahme an Testdaten
+    mit bekannter Ruecknahme (0,02 mm ab 60 % der Waelzlaenge); reine Evolvente: keine Korrektur."""
+    import zahnrad
+    from programm.kern import verzahnung as vz, verzahnung_daten as vd
+    rein = vz.erkenne(zahnrad.zahnrad(23, 2.0, 20.0), "rein")
+    w = vd.stirnwerte(rein)
+    assert abs(w["sn"] - math.pi) < 0.02 and abs(w["ha_stern"] - 1.0) < 0.01 and abs(w["hf_stern"] - 1.25) < 0.01
+    dm, md = vd.kugelmass(rein)
+    assert dm == 3.5 and rein.da < md < rein.da + dm
+    p = vd.profil(rein)
+    assert not p.ca and abs(p.dff - max(rein.db, rein.df)) < 0.15 and abs(p.dfa - rein.da) < 0.15
+    assert abs(p.fh_alpha) <= p.toleranz and vd.breitenballigkeit(rein) is not None
+    assert any(n.startswith("Kopfrücknahme") or n.startswith("Tip relief") for n, *_ in vd.mikro_zeilen(rein))
+    mit = vz.erkenne(zahnrad.zahnrad(23, 2.0, 20.0, ruecknahme=(0.02, 0.6)), "Rücknahme")
+    p = vd.profil(mit)
+    rb = 23 * 2.0 * math.cos(math.radians(20.0)) / 2
+    beginn = 2 * math.hypot(rb, 0.6 * math.sqrt(25.0 ** 2 - rb ** 2))
+    assert abs(p.ca - 0.02) < 0.003 and abs(p.dca - beginn) < 0.3
+    innen = vd.profil(vz.erkenne(zahnrad.zahnrad(40, 1.5, 12.0, innen=True), "Hohlrad"))
+    assert not innen.ca
+
+
+def test_datenblatt_paar_stufen_planeten(tmp_path):
+    """Paar: Uebersetzung, Kopfspiel 0,25 m, Spiele; zwei Stufen ueber eine gemeinsame Welle: Gesamtuebersetzung
+    und Drehrichtung; Planetensatz 18/18/54 mit drei Planeten; CSV und JSON enthalten alles."""
+    import json
+    import numpy as np
+    import zahnrad
+    from programm.kern import verzahnung as vz, verzahnung_daten as vd
+    r1 = vz.erkenne(zahnrad.zahnrad(17, 2.0, 10.0), "Ritzel 1")
+    r2 = vz.erkenne(_an(zahnrad.zahnrad(51, 2.0, 10.0), 68.0), "Rad 1")
+    r3 = vz.erkenne(_an(zahnrad.zahnrad(20, 2.0, 10.0), 68.0, 0, 15.0), "Ritzel 2")
+    r4 = vz.erkenne(_an(zahnrad.zahnrad(40, 2.0, 10.0), 128.0, 0, 15.0), "Rad 2")
+    liste = [r1, r2, r3, r4]
+    paare = vz.paare(liste)
+    w = vd.paar_werte(paare[0])
+    assert abs(w["u"] - 3) < 1e-9 and abs(w["c_klein"] - 0.5) < 0.03 and abs(w["c_gross"] - 0.5) < 0.03
+    assert w["gegenlaeufig"] and w["gleiten"][0] < w["gleiten"][1] < 0  # Ritzelfuss gleitet am staerksten
+    st, ziel = vd.stufen(liste, paare, [])
+    assert [round(s.u, 6) for s in st] == [3.0, 2.0]
+    assert sorted((round(i, 6), r) for i, r in ziel.values()) == [(1.0, 1), (3.0, -1), (6.0, 1)]
+    mn = 1.5
+    a = 18 * mn
+    planeten = [vz.erkenne(_an(zahnrad.zahnrad(18, mn, 12.0), a * math.cos(t), a * math.sin(t)), f"Planet {k}")
+                for k, t in enumerate(np.radians([0, 120, 240]), 1)]
+    satz_liste = [vz.erkenne(zahnrad.zahnrad(18, mn, 12.0), "Sonne"),
+                  vz.erkenne(zahnrad.zahnrad(54, mn, 12.0, innen=True), "Hohlrad")] + planeten
+    saetze = vd.planetensaetze(satz_liste, vz.paare(satz_liste))
+    assert len(saetze) == 1 and (saetze[0].z_sonne, saetze[0].z_planet, saetze[0].z_hohlrad) == (18, 18, 54)
+    texte = dict(saetze[0].zeilen(satz_liste))
+    assert len(saetze[0].planeten) == 3 and not saetze[0].hinweise
+    assert any("120.0°" in t for t in texte.values())
+    csv = vd.als_csv(liste, paare)
+    daten = json.loads(json.dumps(vd.datenblatt(liste, paare)))
+    assert "Kugel" in csv or "balls" in csv
+    assert len(daten["stufen"]) == 2 and daten["zahnraeder"][0]["mikrogeometrie"]["dFf"] > 0
+
+
+def test_verzahnungsfenster_datenblatt(tmp_path):
+    """Fenster: Datenblatt je Rad (gemessen, abgeleitet, Mikrogeometrie), Paare und Getriebe; JSON Version 2."""
+    import json
+    import zahnrad
+    from PySide6 import QtWidgets
+    from programm.kern import verzahnung as vz
+    from programm.ui.verzahnung_ui import VerzahnungFenster
+    QtWidgets.QApplication.instance() or QtWidgets.QApplication([])
+    liste = [vz.erkenne(zahnrad.zahnrad(17, 2.0, 10.0), "Ritzel"),
+             vz.erkenne(_an(zahnrad.zahnrad(51, 2.0, 10.0), 68.0), "Rad")]
+    f = VerzahnungFenster(liste, str(tmp_path / "g"))
+    namen = [f.tabelle.verticalHeaderItem(r).text() for r in range(f.tabelle.rowCount())]
+    assert any("Kugeln" in n or "balls" in n for n in namen) and any("dFf" in n for n in namen)
+    assert f.paar_tabelle.rowCount() > 6 and f.getriebe_tabelle.rowCount() >= 1
+    pfad = f.speichere("json", str(tmp_path / "g.json"))
+    d = json.load(open(pfad, encoding="utf-8"))
+    assert d["version"] == 2 and d["paare"] and d["zahnraeder"][0]["kugelmass"]["DM"] == 3.5

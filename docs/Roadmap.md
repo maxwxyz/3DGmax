@@ -203,7 +203,8 @@
 | Gear pairs: centre distance, working pressure angle, contact ratios, backlash from the centre distance | ✅ |
 | Gear data in notes checked against the geometry (plausibility) | ✅ |
 | Gear analysis: involute splines (30°, ISO 4156 / DIN 5480) | ✅ |
-| Gear analysis: bevel gears, planetary gear sets, ring gears, gear stages (overall ratio), fitted and plug-in splines (ISO 4156 / DIN 5480, ISO 14; flank/diameter centred), worm gears; full data sheet (contact ratios, profile shift, modifications/micro-geometry, form diameters, backlash) as input for gear tools | ⬜ |
+| Gear analysis: full data sheet for cylindrical gears (ISO 21771 values, ball dimension, form diameters, tip relief, crowning, pair data, stages, planetary sets, CSV/JSON) | ✅ |
+| Gear analysis: fitted and plug-in splines (ISO 4156 / DIN 5480, ISO 14; flank/diameter centred) – paused, worm gears; bevel gears dropped | ⬜ |
 | Wiggle in the open degrees of freedom (kinematic) | ✅ |
 | Clash check at the tolerance limit positions (assembly) | ✅ |
 | Clash check over joint ranges (open DOF): free range per DOF up to the first collision | ✅ |

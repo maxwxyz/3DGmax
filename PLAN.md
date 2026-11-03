@@ -1205,6 +1205,20 @@ tools (the user names MASTA as an example of a tool that needs these inputs), an
   - Output: table in the window, CSV/JSON and a neutral exchange layout that maps 1:1 to the input fields of common
     gear tools (research their field lists first; no tool-specific file format without a public specification),
     plus a comparison against the PMI/notes (§8.22).
+- Done 2026-11-03 (data sheet for cylindrical gears, analysis only – `kern/verzahnung_daten.py`): derived values per
+  ISO 21771 (mt, αt, βb, pz, ha/hf with coefficients, h, sn, en, dimension over/between balls with DM ≈ 1.68 mn from
+  the usual ball series); root/tip form diameters and modifications from the tooth thickness over the radius in the
+  middle transverse section (ψ(r) from r(θ), base circle refitted on the root third so a tip relief does not bias
+  it; tip relief Cαa as a line over the roll length in the relief zone → value at the tip circle and its start;
+  profile slope deviation; lead crowning from the tooth thickness of the sections along the face width; detection
+  threshold max(0.004 mm, 0.003 mn)); checked on test data: pure involute "none modelled", dFf ≈ max(db, df),
+  dFa ≈ da, tip relief 0.02 mm from 60 % roll length found as 0.0207 mm from Ø45.76 (true Ø45.79). Pairs: u, εγ,
+  tip clearances (0.25 m found), jt, jr, specific sliding at both roots (external pairs), direction; stages via
+  coaxial gears (assumption: same axis = same shaft) with overall ratio and direction per shaft; planetary sets
+  (ring + coaxial sun + ≥ 2 planets meshing both): i0, sun→carrier, ring→carrier, assembly condition, spacing.
+  Window shows gear/pair/gearbox tables; CSV and JSON v2 contain everything. Not done: tip chamfer vs. relief
+  distinction beyond the slope test, root fillet radius, topological modifications, field mapping to specific
+  gear tools (needs their public field lists), bevel gears (dropped), splines (paused).
 
 ### 8.28 Writing STEP AP242 with semantic PMI (research 2026-10-27, by experiment)
 Findings (pythonocc-core 8.0.1.2 and OCP 8.0.1.1, both on OCCT 8.0.1; scripts were throw-away):

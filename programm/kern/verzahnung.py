@@ -59,6 +59,10 @@ class Verzahnung:
     wk: float = 0.0
     fit_fehler: float = 0.0  # mittlere Abweichung des Evolventen-Fits (mm, in Umfangsrichtung)
     hinweise: list[str] = field(default_factory=list)
+    # Rohdaten fuer das Datenblatt (Formkreise, Mikrogeometrie; kern.verzahnung_daten): r(theta) im mittleren
+    # Stirnschnitt und je Schnitt entlang der Breite (Lage auf der Achse, r(theta))
+    r_mitte: np.ndarray | None = field(default=None, repr=False)
+    r_schnitte: list = field(default_factory=list, repr=False)
 
     def zeilen(self) -> list[tuple[str, str, str]]:
         """(Groesse, Wert, Herkunft) fuer Tabelle und Export."""
@@ -358,6 +362,7 @@ def erkenne(form, teil: str = "") -> Verzahnung | None:
     rmin, rmax = float(radien.min()), float(radien.max())
     da, df = (2 * rmin, 2 * rmax) if innen else (2 * rmax, 2 * rmin)
     v = Verzahnung(teil, punkt, n, innen, z, da, df, b - a)
+    v.r_mitte, v.r_schnitte = r, [(float(s), t[1]) for s, t in schnitte]
     # Schraegung: Phase der Zahnharmonischen entlang der Achse
     if len(schnitte) >= 2:
         ss = np.array([x for x, _ in schnitte])

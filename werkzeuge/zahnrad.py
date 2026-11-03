@@ -22,9 +22,12 @@ def _inv(a: float) -> float:
 
 
 def stirnschnitt(z: int, mn: float, alpha_n: float = 20.0, beta: float = 0.0, x: float = 0.0, innen: bool = False,
-                 flanke: int = 12, kopf: float = 1.0, fuss: float = 1.25) -> np.ndarray:
+                 flanke: int = 12, kopf: float = 1.0, fuss: float = 1.25,
+                 ruecknahme: tuple[float, float] = (0.0, 1.0)) -> np.ndarray:
     """Punkte (N x 2) des Stirnschnitts; innen: Kontur der Bohrung eines Hohlrads (Zaehne nach innen); kopf, fuss:
-    Kopf- und Fusshoehe in Vielfachen von mn (Bezugsprofil ISO 53: 1 / 1,25; Zahnwelle ISO 4156 etwa 0,5 / 0,6)."""
+    Kopf- und Fusshoehe in Vielfachen von mn (Bezugsprofil ISO 53: 1 / 1,25; Zahnwelle ISO 4156 etwa 0,5 / 0,6).
+    ruecknahme (Testdaten fuer die Mikrogeometrie-Erkennung): (Ca in mm je Flanke am Kopfkreis, Beginn als Anteil
+    der Waelzlaenge zwischen Fussform- und Kopfkreis), linear in der Waelzlaenge."""
     b = math.radians(beta)
     at = math.atan(math.tan(math.radians(alpha_n)) / math.cos(b))
     mt = mn / math.cos(b)
@@ -38,9 +41,17 @@ def stirnschnitt(z: int, mn: float, alpha_n: float = 20.0, beta: float = 0.0, x:
         s = mt * (math.pi / 2 + 2 * x * math.tan(at))  # Zahndicke am Teilkreis
     eta = s / d  # halber Winkel am Teilkreis
 
-    def winkel(r):  # halber Winkel der Flanke beim Radius r (Mitte des Zahns bzw. der Luecke = 0)
-        return eta + _inv(at) - _inv(math.acos(min(1.0, rb / r))) if r > rb else eta + _inv(at)
     r0 = max(rf, rb)
+    ca, anfang = ruecknahme
+    l0, la = math.sqrt(max(r0 ** 2 - rb ** 2, 0.0)), math.sqrt(max(ra ** 2 - rb ** 2, 0.0))
+    ls = l0 + anfang * (la - l0)
+
+    def winkel(r):  # halber Winkel der Flanke beim Radius r (Mitte des Zahns bzw. der Luecke = 0)
+        w = eta + _inv(at) - _inv(math.acos(min(1.0, rb / r))) if r > rb else eta + _inv(at)
+        lr = math.sqrt(max(r ** 2 - rb ** 2, 0.0))
+        if ca and lr > ls:  # Kopfruecknahme: Flanke um ca * (l - ls) / (la - ls) zuruecknehmen (normal zur Flanke)
+            w -= ca * (lr - ls) / (la - ls) / rb
+        return w
     radien = np.linspace(r0, ra, flanke)
     punkte = []
     for i in range(z):
@@ -75,14 +86,16 @@ def _draht(p: np.ndarray, z0: float, drehung: float = 0.0):
 
 
 def zahnrad(z: int, mn: float, b: float, alpha_n: float = 20.0, beta: float = 0.0, x: float = 0.0,
-            innen: bool = False, schnitte: int = 9, kopf: float = 1.0, fuss: float = 1.25):
-    """Zahnrad als Volumen, Achse Z ab z = 0, Breite b."""
+            innen: bool = False, schnitte: int = 9, kopf: float = 1.0, fuss: float = 1.25,
+            ruecknahme: tuple[float, float] = (0.0, 1.0)):
+    """Zahnrad als Volumen, Achse Z ab z = 0, Breite b (Testdaten mit bekannten Sollwerten)."""
     from OCC.Core.BRepAlgoAPI import BRepAlgoAPI_Cut
     from OCC.Core.BRepBuilderAPI import BRepBuilderAPI_MakeFace
     from OCC.Core.BRepOffsetAPI import BRepOffsetAPI_ThruSections
     from OCC.Core.BRepPrimAPI import BRepPrimAPI_MakeCylinder, BRepPrimAPI_MakePrism
     from OCC.Core.gp import gp_Ax2, gp_Dir, gp_Pnt, gp_Vec
-    p = stirnschnitt(z, mn, alpha_n, beta, x, innen, kopf=kopf, fuss=fuss)
+    p = stirnschnitt(z, mn, alpha_n, beta, x, innen, flanke=40 if ruecknahme[0] else 12, kopf=kopf, fuss=fuss,
+                     ruecknahme=ruecknahme)
     if abs(beta) < 1e-9:
         verzahnung = BRepPrimAPI_MakePrism(BRepBuilderAPI_MakeFace(_draht(p, 0.0)).Face(), gp_Vec(0, 0, b)).Shape()
     else:

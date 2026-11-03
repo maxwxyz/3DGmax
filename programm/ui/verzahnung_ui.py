@@ -9,6 +9,7 @@ from PySide6 import QtCore, QtWidgets
 
 from ..i18n import tr
 from ..kern import verzahnung as vz
+from ..kern import verzahnung_daten as vd
 from .tabellen import spalten_anpassen
 
 
@@ -51,8 +52,9 @@ class VerzahnungFenster(QtWidgets.QDialog):
         self.liste = list(liste)
         self.basis = basis  # Pfad ohne Endung fuer die Exporte
         lay = QtWidgets.QVBoxLayout(self)
-        lay.addWidget(QtWidgets.QLabel(tr("Aus der Geometrie erkannt (Stirnschnitte, Evolventen-Fit). Abgeleitete Werte "
-                                          "gelten für Evolventenverzahnungen ohne Flankenkorrekturen.")))
+        lay.addWidget(QtWidgets.QLabel(tr("Aus der Geometrie erkannt (Stirnschnitte, Evolventen-Fit), abgeleitet nach "
+                                          "ISO 21771; Formkreise und Flankenkorrekturen aus der Zahndicke über dem "
+                                          "Radius. „nicht bestimmbar“ statt geschätzter Werte.")))
         self.tabelle = QtWidgets.QTableWidget()
         self.tabelle.setEditTriggers(QtWidgets.QAbstractItemView.EditTrigger.NoEditTriggers)
         lay.addWidget(self.tabelle, 1)
@@ -62,6 +64,11 @@ class VerzahnungFenster(QtWidgets.QDialog):
         self.paar_titel = QtWidgets.QLabel(tr("<b>Radpaare</b> (parallele Achsen, Abstand passend)"))
         lay.addWidget(self.paar_titel)
         lay.addWidget(self.paar_tabelle)
+        self.getriebe_tabelle = QtWidgets.QTableWidget()
+        self.getriebe_tabelle.setEditTriggers(QtWidgets.QAbstractItemView.EditTrigger.NoEditTriggers)
+        self.getriebe_titel = QtWidgets.QLabel(tr("<b>Getriebe</b> (Stufen über gleichachsige Räder, Planetensätze)"))
+        lay.addWidget(self.getriebe_titel)
+        lay.addWidget(self.getriebe_tabelle)
         self.hinweise = QtWidgets.QLabel("")
         self.hinweise.setWordWrap(True)
         lay.addWidget(self.hinweise)
@@ -83,30 +90,42 @@ class VerzahnungFenster(QtWidgets.QDialog):
 
     def _fuelle(self):
         t = self.tabelle
-        zeilen = [v.zeilen() for v in self.liste]
-        namen = [z[0] for z in zeilen[0]] if zeilen else []
+        zeilen = [vd.rad_alle_zeilen(v) for v in self.liste]
+        namen, werte = vd.tabelle(zeilen)
+        herkunft = {e[0]: e[2] for z in zeilen for e in z}
         t.setRowCount(len(namen))
         t.setColumnCount(len(self.liste) + 1)
         t.setHorizontalHeaderLabels([v.teil for v in self.liste] + [tr("Herkunft")])
         t.setVerticalHeaderLabels(namen)
-        for s, z in enumerate(zeilen):
-            for r, (_n, wert, _h) in enumerate(z):
+        for s, spalte in enumerate(werte):
+            for r, wert in enumerate(spalte):
                 t.setItem(r, s, QtWidgets.QTableWidgetItem(wert))
-        for r, (_n, _w, herkunft) in enumerate(zeilen[0] if zeilen else []):
-            t.setItem(r, len(self.liste), QtWidgets.QTableWidgetItem(herkunft))
+        for r, n in enumerate(namen):
+            t.setItem(r, len(self.liste), QtWidgets.QTableWidgetItem(herkunft.get(n, "")))
         spalten_anpassen(t)
         pt = self.paar_tabelle
-        pz = [p.zeilen() for p in self.paare]
-        pt.setRowCount(len(pz[0]) if pz else 0)
+        namen, werte = vd.tabelle([p.zeilen() + vd.paar_zeilen(p) for p in self.paare])
+        pt.setRowCount(len(namen))
         pt.setColumnCount(len(self.paare))
         pt.setHorizontalHeaderLabels([f"{p.a.teil} – {p.b.teil}" for p in self.paare])
-        pt.setVerticalHeaderLabels([n for n, _ in pz[0]] if pz else [])
-        for s, z in enumerate(pz):
-            for r, (_n, wert) in enumerate(z):
+        pt.setVerticalHeaderLabels(namen)
+        for s, spalte in enumerate(werte):
+            for r, wert in enumerate(spalte):
                 pt.setItem(r, s, QtWidgets.QTableWidgetItem(wert))
         spalten_anpassen(pt)
         for w in (pt, self.paar_titel):
             w.setVisible(bool(self.paare))
+        getriebe = vd.getriebe_zeilen(self.liste, self.paare) if self.paare else []
+        gt = self.getriebe_tabelle
+        gt.setRowCount(len(getriebe))
+        gt.setColumnCount(1)
+        gt.setHorizontalHeaderLabels([tr("Wert")])
+        gt.setVerticalHeaderLabels([a for a, _ in getriebe])
+        for r, (_a, b) in enumerate(getriebe):
+            gt.setItem(r, 0, QtWidgets.QTableWidgetItem(b))
+        spalten_anpassen(gt)
+        for w in (gt, self.getriebe_titel):
+            w.setVisible(bool(getriebe))
         texte = [f"{v.teil}: {h}" for v in self.liste for h in v.hinweise]
         texte += [f"{p.a.teil} – {p.b.teil}: {h}" for p in self.paare for h in p.hinweise]
         self.hinweise.setText("\n".join(texte) if texte else ("" if self.liste else tr("Keine Verzahnung gefunden.")))
@@ -122,10 +141,8 @@ class VerzahnungFenster(QtWidgets.QDialog):
             return None
         with open(pfad, "w", encoding="utf-8-sig" if art == "csv" else "utf-8") as f:
             if art == "csv":
-                f.write(vz.als_csv(self.liste))
+                f.write(vd.als_csv(self.liste, self.paare))
             else:
-                paare = [{"a": p.a.teil, "b": p.b.teil, **{k: getattr(p, k) for k in (
-                    "abstand", "abstand_soll", "alpha_wt", "eps_alpha", "eps_beta", "spiel")}} for p in self.paare]
-                json.dump({"format": "3dgmax-verzahnung", "version": 1, "zahnraeder": [v.als_dict() for v in self.liste],
-                           "paare": paare}, f, ensure_ascii=False, indent=1)
+                json.dump({"format": "3dgmax-verzahnung", "version": 2, **vd.datenblatt(self.liste, self.paare)}, f,
+                          ensure_ascii=False, indent=1)
         return pfad
