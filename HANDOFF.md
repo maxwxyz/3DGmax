@@ -32,6 +32,22 @@ popups; over the frozen first column the table scrolls. Tests `test_ueberfahren_
 `test_mittlere_taste_rollt_wie_im_browser` (function, chain, 2D chain tables). Not checked with a real mouse on screen
 (synthetic events only; real cursor moves could not be generated from a script) – user should try it.
 
+Side session 2026-10-29 (branch `claude/laden-vergleich-a08067`, merged into main): two user
+reports. (1) Loading another file kept old data: new `Hauptfenster._modellzustand_zuruecksetzen` (called from
+`zeige_ergebnis` whenever a different result is shown, and from `schliesse_modell`) clears function → tolerancing
+(`setze_modell`, preview), 1D chain (`lade_datei(KettenDatei([]))`: links, requirement, materials, temperatures,
+approval, scenarios), 2D/3D chains, measurements, quick measure, comments, collision, assembly, zones, helper lines,
+datum colours, sections, balloons, focus, selection, inspector. Projects/chain files restore afterwards; "Add model"
+passes `zuruecksetzen=False`, re-alignment keeps it (same new-state object); guided flow stays. (2) Comparison
+display: `_vergleich_anzeigen` is a function of (mode, highlight switch), colour map/material follow
+`_aenderungen_sichtbar`; `ansicht3d`: colour-only rebuilds keep the camera (`_baue_szene(kamera=False)`, also on
+`setze_thema`), pending camera for a not yet started view (`_kamera_offen`), `setze_kamera_daten` stops a running
+flight, `showEvent` refits the depth range. PLAN §8.31 notes, Roadmap ✅. Tests `test_neues_modell_leert_werkzeuge`,
+`test_vergleichsanzeige_nach_modus_und_haken` (offscreen), `test_vergleichsmodi_kamera_und_darstellung` (on screen,
+`DG_BILDER=<dir>` saves a screenshot per step). Not reproduced literally: the "semi-transparent New" – likely the
+colour map shown in New after switching (now hidden without the switch) or a stale depth range after the hidden view
+was rebuilt (now refitted on show); user should re-check with the example.
+
 Side session 2026-10-29 (branch `claude/beispiel-welle-abdfe0`, merged into main `db2cd0d`): user request –
 the example "Funktion → Tolerierung" now uses a generated gearbox shaft instead of NIST FTC-10 (PLAN §8.33 note,
 Roadmap ✅). Generator `werkzeuge/welle.py` → `tests/daten/getriebewelle.stp` (bundled via `beispiele.alle_dateien`),

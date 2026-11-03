@@ -1231,7 +1231,14 @@ class Hauptfenster(QtWidgets.QMainWindow):
         self._projekt_messungen()
         self._danach()
 
-    def zeige_ergebnis(self, erg, vergleich=None):
+    def zeige_ergebnis(self, erg, vergleich=None, zuruecksetzen: bool | None = None):
+        """Modell (bzw. neuen Stand eines Vergleichs) zeigen. zuruecksetzen: alles am vorigen Modell leeren -
+        Standard bei einem anderen Ergebnis (neue Datei, neuer Vergleich, Beispiel, Projekt); Modell hinzufuegen und
+        neu Ausrichten (gleicher neuer Stand) behalten den Stand."""
+        if zuruecksetzen is None:
+            zuruecksetzen = erg is not self.erg
+        if zuruecksetzen and self.erg is not None:
+            self._modellzustand_zuruecksetzen(erg.modell)
         self.scan_aus()  # die Scanpruefung gehoert zum vorigen Modell
         if vergleich is None and self.vergleich is not None:
             self.beende_vergleich(neu_zeigen=False)
@@ -1241,20 +1248,6 @@ class Hauptfenster(QtWidgets.QMainWindow):
         if self.aktionen["schnittbox"].isChecked():
             self.aktionen["schnittbox"].setChecked(False)
             self.ansicht.schnittbox(None)
-        if self.erg is not None and erg.pfad != self.erg.pfad:
-            self.kommentare.setze([])  # Kommentare gehoeren zum vorigen Modell
-            if getattr(self, "_kette", None) is not None:
-                self._kette.leeren()  # Kettenglieder verweisen auf PMI des vorigen Modells
-            self._allgemein = None  # Allgemeintoleranzen gehoeren zum vorigen Modell
-            self.kollision_aus()
-            self._wiggle(None)
-            self.zusammenbau.wiggle_an.setChecked(False)
-            self._frei = None  # 3D-Griff und Freiheitsgrade gehoeren zum vorigen Modell
-            self._manipulator_zeigen()
-            self.baugruppe.zuruecksetzen()
-            self.zusammenbau.zeige(self.baugruppe, {})
-            self.ansicht.setze_teil_lagen({})
-            self.aktionen["allgemein_zeigen"].setChecked(False)
         if vergleich is None and self.ansicht.abweichung is not None:
             self.ansicht.zeige_analyse(None)  # Analyse gehoert zum alten Modell
         self.erg = erg
@@ -1274,6 +1267,56 @@ class Hauptfenster(QtWidgets.QMainWindow):
         n = len(erg.pmi)
         self.statusBar().showMessage(tr("{} geladen: {} Flächen, {} PMI, {} Ansichten ({:.1f} s)").format(
             os.path.basename(erg.pfad), len(erg.modell.flaechen), n, len(erg.ansichten), erg.modell.ladezeit), 8000)
+
+    def _modellzustand_zuruecksetzen(self, modell=None):
+        """Alles leeren, was am vorigen Modell haengt (Laden, Vergleich, Beispiel, Projekt, Schliessen): Funktion ->
+        Tolerierung, Ketten (1D, 2D, 3D), Zusammenbau, Messungen, Kommentare, Kollision, Inspektor, Hervorhebungen,
+        Hilfslinien, Zonen, Schnitte, Ballone, Fokus, eigene PMI-Vorschau. Ein Projekt stellt seinen Stand danach
+        wieder her (_projekt_messungen), eine Kettendatei ihre Kette (_kette_anwenden). Der gefuehrte Ablauf bleibt
+        (sein erster Schritt laedt das Modell). modell: das neue Modell (None beim Schliessen)."""
+        from ..kern import kette2d, kette3d
+        from ..kern.kette_datei import KettenDatei
+        self.funktion_vorschau(None)
+        if getattr(self, "_funktion", None) is not None:
+            self._funktion.setze_modell(modell)  # Rollen, Gruppen, Werte, Bezuege gehoeren zum vorigen Modell
+        k = getattr(self, "_kette", None)
+        if k is not None:  # Glieder, Anforderung, Werkstoffe, Temperaturen, Freigabe, Szenarien
+            k.wiggle.setChecked(False)
+            k.lade_datei(KettenDatei([]))
+            k.modell_pfad = ""  # Werkstoffe des neuen Modells beim naechsten Zeigen vorbelegen
+        self.schluss_wiggle(False)
+        if getattr(self, "_kette2d", None) is not None:
+            self._kette2d.setze_kette(kette2d.Kette2D())
+        if getattr(self, "_kette3d", None) is not None:
+            self._kette3d.setze_kette(kette3d.Kette3D())
+        self.kommentare.setze([])
+        self.messen.loesche_alle()
+        self._schnell_formen, self._schnell_pmi = [], []
+        self._schnell_zeigen()
+        self._allgemein = None  # Allgemeintoleranzen gehoeren zum vorigen Modell
+        self.aktionen["allgemein_zeigen"].setChecked(False)
+        self.kollision_aus()
+        self._wiggle(None)
+        self.zusammenbau.wiggle_an.setChecked(False)
+        self._frei = None  # 3D-Griff und Freiheitsgrade gehoeren zum vorigen Modell
+        self._manipulator_zeigen()
+        self.baugruppe.zuruecksetzen()
+        self.zusammenbau.zeige(self.baugruppe, {})
+        self.ansicht.setze_teil_lagen({})
+        for name in ("toleranzzonen_alle", "ballone", "fokus"):
+            self.aktionen[name].setChecked(False)
+        self.ansicht.zeige_zone([])
+        self.ansicht.zeige_ballone([])
+        self.ansicht.setze_fokus(False, set())
+        self.ansicht.zeige_hilfslinien([])
+        self.ansicht.zeige_bezugssystem([])
+        self.ansicht.hebe_flaechen(set())
+        self.ansicht.setze_auswahl([])
+        self.aktionen["schnitt_aus"].setChecked(True)
+        self.ansicht.schnitt_ebenen_loeschen()
+        self._schnitt(None)
+        self._inspektor_quelle = None
+        self.inspektor.zeige("", [], [])
 
     def _danach(self):
         """Naechster Schritt eines Beispiels, sobald das Modell bzw. der Vergleich steht."""
@@ -1440,9 +1483,8 @@ class Hauptfenster(QtWidgets.QMainWindow):
 
     def schliesse_modell(self):
         self.beende_vergleich(neu_zeigen=False)
-        self.messen.loesche_alle()
-        self._schnell_formen, self._schnell_pmi = [], []
-        self._schnell_zeigen()
+        if self.erg is not None:
+            self._modellzustand_zuruecksetzen()
         self.erg = None
         self.ansicht.zeige(None)
         self.baum.zeige(None)
@@ -2211,7 +2253,7 @@ class Hauptfenster(QtWidgets.QMainWindow):
             return
         self._lader = None
         self._laufbalken_pruefen()
-        self.zeige_ergebnis(erg)
+        self.zeige_ergebnis(erg, zuruecksetzen=False)
         self.ansicht.setze_teil_lagen(self.baugruppe.lagen)
         if self.dock_zusammenbau.isVisible():
             self._zusammenbau_zeigen()
@@ -2268,7 +2310,7 @@ class Hauptfenster(QtWidgets.QMainWindow):
         self.vergleich = v
         self.zeige_ergebnis(v.neu, vergleich=v)
         self._alt_szene_fuer = None  # die Ansicht des alten Stands gehoert zum vorigen Vergleich
-        self._anzeige_art = None
+        self._anzeige_art = self._anzeige_art_alt = None
         self._vergleichsmodus = "vergleich"
         self._vergleich_anzeigen()
         self.modus_leiste.show()
@@ -2383,8 +2425,15 @@ class Hauptfenster(QtWidgets.QMainWindow):
         if modus in texte:
             self.statusBar().showMessage(texte[modus], 6000)
 
+    def _aenderungen_sichtbar(self) -> bool:
+        """Aenderungen (Statusfarben, Farbkarte, Material) zeigen: in Vergleich und Ueberlagern immer, sonst nach
+        dem Haken."""
+        return self._vergleichsmodus in ("vergleich", "ueberlagern") or self.modus_leiste.hervor.isChecked()
+
     def _vergleich_anzeigen(self):
-        """Faerbung, Ueberlagerung, Sichtbarkeit beider Ansichten und Baum nach dem Vergleichsmodus."""
+        """Anzeige als Funktion von (Modus, Aenderungen hervorheben): Faerbung, Farbkarte, Material, Ueberlagerung,
+        Sichtbarkeit beider Ansichten und Baum - unabhaengig von der Reihenfolge der Umschaltungen; die Kamera
+        bleibt."""
         v, m = self.vergleich, self._vergleichsmodus
         if v is None:
             return
@@ -2402,9 +2451,12 @@ class Hauptfenster(QtWidgets.QMainWindow):
             self._anzeige_art = art
         self.ansicht.zeige_ueberlagerung(v.alt.modell.form if m == "ueberlagern" else None)
         braucht_alt = m in ("alt", "nebeneinander", "blinken")
+        self._karte_material_anwenden()
         if braucht_alt:
             alt = self._alte_ansicht()
-            alt.zeige_vergleich(v.geo.status_a if hervor else {}, [], None)
+            if getattr(self, "_anzeige_art_alt", None) != (alt.szene, hervor):
+                alt.zeige_vergleich(v.geo.status_a if hervor else {}, [], None)
+                self._anzeige_art_alt = (alt.szene, hervor)
             alt.hebe_pmi({x.pmi_alt.step_id for x in v.aenderungen if x.pmi_alt is not None and x.pmi_alt.step_id}
                          if hervor else set())
         self.ansicht.hebe_pmi({x.pmi_neu.step_id for x in v.aenderungen if x.pmi_neu is not None and x.pmi_neu.step_id}
@@ -2425,6 +2477,16 @@ class Hauptfenster(QtWidgets.QMainWindow):
         self.baum.setze_status(self._teil_status(v, False) if hervor or m == "vergleich" else None)
         self.dock_baum.setWindowTitle(tr("Struktur"))
         self._zweiter_baum(v, hervor)
+
+    def _karte_material_anwenden(self):
+        """Farbkarte und Material (wenn angehakt und berechnet) nur zeigen, solange Aenderungen sichtbar sind."""
+        v, an = self.vergleich, self._aenderungen_sichtbar()
+        karte = an and self.aenderungen.karte_an.isChecked() and getattr(v, "karte", None) is not None
+        if karte != (self.ansicht.abweichung is not None):
+            self.zeige_farbkarte(karte, self.aenderungen.skala.value())
+        material = an and self.aenderungen.material_an.isChecked() and getattr(v, "material", None) is not None
+        if material != (self.ansicht.material is not None):
+            self.zeige_material(material)
 
     def _zweiter_baum(self, v, hervor: bool = True):
         """Nebeneinander: beide Strukturen untereinander (neu oben, alt unten); v None blendet den alten aus."""
@@ -2537,7 +2599,7 @@ class Hauptfenster(QtWidgets.QMainWindow):
             self.ansicht_alt.hide()
         self.ansicht.show()
         self._alt_szene_fuer = None
-        self._anzeige_art = None
+        self._anzeige_art = self._anzeige_art_alt = None
         if getattr(self, "_baum_zeigt_alt", False) and self.erg is not None:
             self.baum.zeige(self.erg.baum)
         self._baum_zeigt_alt = False
@@ -2609,6 +2671,9 @@ class Hauptfenster(QtWidgets.QMainWindow):
                 lader.wait()
                 QtWidgets.QApplication.processEvents()
             return
+        if not self._aenderungen_sichtbar():  # berechnet, aber erst mit "Aenderungen hervorheben" sichtbar
+            self.ansicht.zeige_abweichung(None)
+            return
         from ..kern import abweichung
         grenze = grenze or abweichung.standard_grenze(karte, v.toleranz)
         grenze = max(grenze, 2 * v.toleranz)
@@ -2637,6 +2702,9 @@ class Hauptfenster(QtWidgets.QMainWindow):
             if warten:
                 lader.wait()
                 QtWidgets.QApplication.processEvents()
+            return
+        if not self._aenderungen_sichtbar():
+            self.ansicht.zeige_material(None, None)
             return
         self.ansicht.zeige_material(m.dazu, m.weg)
         self.statusBar().showMessage(tr("Material: +{:.2f} mm³ ({} Bereiche) hinzu, −{:.2f} mm³ ({} Bereiche) entfernt")
