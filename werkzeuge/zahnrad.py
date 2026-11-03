@@ -86,7 +86,7 @@ def _draht(p: np.ndarray, z0: float, drehung: float = 0.0):
 
 
 def zahnrad(z: int, mn: float, b: float, alpha_n: float = 20.0, beta: float = 0.0, x: float = 0.0,
-            innen: bool = False, schnitte: int = 9, kopf: float = 1.0, fuss: float = 1.25,
+            innen: bool = False, schnitte: int = 0, kopf: float = 1.0, fuss: float = 1.25,
             ruecknahme: tuple[float, float] = (0.0, 1.0)):
     """Zahnrad als Volumen, Achse Z ab z = 0, Breite b (Testdaten mit bekannten Sollwerten)."""
     from OCC.Core.BRepAlgoAPI import BRepAlgoAPI_Cut
@@ -101,6 +101,9 @@ def zahnrad(z: int, mn: float, b: float, alpha_n: float = 20.0, beta: float = 0.
     else:
         d = z * mn / math.cos(math.radians(beta))
         dreh = math.tan(math.radians(beta)) / (d / 2)  # rad je mm (rechtssteigend positiv)
+        # Regelflaechen zwischen den Schnitten: hoechstens 1/10 Teilung Drehung je Abschnitt, sonst laufen die
+        # Verbindungslinien quer durch die Luecken und das Rad ist kein Schraegrad mehr
+        schnitte = max(schnitte or 9, int(math.ceil(abs(dreh) * b / (2 * math.pi / z) * 10)) + 1)
         thru = BRepOffsetAPI_ThruSections(True, True)
         for s in np.linspace(0.0, b, schnitte):
             thru.AddWire(_draht(p, float(s), float(s * dreh)))

@@ -1256,6 +1256,19 @@ intent; "nicht bestimmbar" where the geometry does not tell.
 - Output: "Auslegungsbefunde" table per gear/stage/set in the gear window, in CSV/JSON/PDF, each with source.
 - Order (user, 2026-11-03): next after the REXS export; cylindrical stages and planetary sets first (test data from
   the existing test helper), splines (resume the paused work), bevel gears once test geometry is clarified.
+- Done 2026-11-03 for cylindrical stages and planetary sets (`kern/verzahnung_auslegung.py`, table "Auslegungsbefunde",
+  CSV/JSON): per gear basic rack (ha*, hf* without the profile shift), helix class, undercut vs. profile shift
+  (z < 17), tip relief (Ca/mn) and lead crowning; per stage profile shift sum (V-zero/plus/minus), distribution from the
+  specific sliding at both roots (balanced within 25 %), εα (high contact ratio ≥ 2), εβ (integer within 0.1), b/d1 and
+  b/mn, coprime / integer / common-factor tooth numbers, tip clearance vs. 0.25 mn, round centre distance; gearbox:
+  ratio split across stages; planetary sets: assembly condition, in-phase vs. sequential meshing (zs and zr divisible
+  by n), ratio range, zr = zs + 2 zp. Each with source (ISO 53, ISO 21771, DIN 3992, Niemann/Winter, Linke, planet
+  phasing literature). On the way fixed: helix angle recognition – the phase of the tooth harmonic is tracked from the
+  middle with doubling distances (first slope from two sections a 1/(8 tan 60°) pitch apart), before it was unwrapped
+  between 12 evenly spaced sections and failed when the pattern turned more than half a pitch between them (wrong
+  angle/hand or no gear); "toothed" threshold per pitch (8 %) instead of per radius (2 %), which missed gears with many
+  small teeth. Checked on test data: z 15–100, β 8–35°, b up to 120 mm all within 0.01°. Test-data helper: loft
+  sections so the pattern turns at most 1/10 pitch per section (coarser lofts are no longer helical gears).
 
 ### 8.28 Writing STEP AP242 with semantic PMI (research 2026-10-27, by experiment)
 Findings (pythonocc-core 8.0.1.2 and OCP 8.0.1.1, both on OCCT 8.0.1; scripts were throw-away):

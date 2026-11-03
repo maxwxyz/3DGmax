@@ -240,3 +240,59 @@ def test_rexs_export(tmp_path):
     assert sum(r["type"] == "reference" and r["refs"][1]["id"] == relief["id"] for r in d["relations"]) == 2
     stufe = werte(next(c for c in d["components"] if c["type"] == "cylindrical_stage"))
     assert abs(stufe["gear_ratio"] - 3.0) < 1e-9 and abs(stufe["center_distance"] - 68.0) < 1e-6
+
+
+def test_auslegungsbefunde():
+    """Reverse Engineering: Bezugsprofil, V-Null/V-Plus, teilerfremde bzw. ganzzahlige Zaehnezahlen, Kopfspiel,
+    Stufenaufteilung, Planetensatz mit gleichphasigem Eingriff - jeweils mit Quelle; im Fenster und im JSON."""
+    import json
+    import numpy as np
+    import zahnrad
+    from programm.kern import verzahnung as vz, verzahnung_auslegung as va, verzahnung_daten as vd
+    r1 = vz.erkenne(zahnrad.zahnrad(17, 2.0, 10.0), "Ritzel 1")
+    r2 = vz.erkenne(_an(zahnrad.zahnrad(51, 2.0, 10.0), 68.0), "Rad 1")
+    r3 = vz.erkenne(_an(zahnrad.zahnrad(20, 2.0, 10.0), 68.0, 0, 15.0), "Ritzel 2")
+    r4 = vz.erkenne(_an(zahnrad.zahnrad(41, 2.0, 10.0), 129.0, 0, 15.0), "Rad 2")
+    liste = [r1, r2, r3, r4]
+    paare = vz.paare(liste)
+    befunde = {(b.bereich, b.thema): b for b in va.alle(liste, paare)}
+    assert all(b.quelle for b in befunde.values())
+    assert "Norm" in befunde[("Ritzel 1", "Bezugsprofil")].einordnung or \
+        "standard" in befunde[("Ritzel 1", "Bezugsprofil")].einordnung
+    assert "V-Null" in befunde[("Ritzel 1 – Rad 1", "Summe der Profilverschiebungen")].einordnung or \
+        "V-zero" in befunde[("Ritzel 1 – Rad 1", "Summe der Profilverschiebungen")].einordnung
+    assert "ganzzahlig" in befunde[("Ritzel 1 – Rad 1", "Zähnezahlen")].einordnung or \
+        "integer" in befunde[("Ritzel 1 – Rad 1", "Zähnezahlen")].einordnung  # 17 : 51 = 1 : 3
+    assert "ggT 1" in befunde[("Ritzel 2 – Rad 2", "Zähnezahlen")].wert  # 20 : 41 teilerfremd
+    assert any(t == "Stufenaufteilung" for _, t in befunde)
+    mn, a = 1.5, 27.0
+    satz = [vz.erkenne(zahnrad.zahnrad(18, mn, 12.0), "Sonne"),
+            vz.erkenne(zahnrad.zahnrad(54, mn, 12.0, innen=True), "Hohlrad")]
+    satz += [vz.erkenne(_an(zahnrad.zahnrad(18, mn, 12.0), a * math.cos(t), a * math.sin(t)), f"P{k}")
+             for k, t in enumerate(np.radians([0, 120, 240]), 1)]
+    sb = {b.thema: b for b in va.getriebe_befunde(satz, vz.paare(satz))}
+    assert "gleichphasig" in sb["Phasenlage der Planeten"].einordnung or "in-phase" in sb["Phasenlage der Planeten"].einordnung
+    assert "erfüllt" in sb["Planetenzahl"].einordnung or "met" in sb["Planetenzahl"].einordnung
+    daten = json.loads(json.dumps(vd.datenblatt(liste, paare)))
+    assert daten["auslegungsbefunde"] and {"bereich", "thema", "wert", "einordnung", "quelle"} <= set(
+        daten["auslegungsbefunde"][0])
+
+
+def test_viele_kleine_zaehne_erkannt():
+    """Amplitude je Teilung statt je Radius: ein Rad mit 100 Zaehnen und Modul 1 (Amplitude knapp 2 % des Radius)
+    wird erkannt."""
+    import zahnrad
+    from programm.kern import verzahnung as vz
+    v = vz.erkenne(zahnrad.zahnrad(100, 1.0, 10.0), "z100")
+    assert v is not None and v.z == 100 and abs(v.mn - 1.0) < 0.002
+
+
+@pytest.mark.langsam
+def test_schraegungswinkel_bei_grosser_verdrehung():
+    """Breites Schraegrad, dessen Zahnmuster sich zwischen weit auseinander liegenden Stirnschnitten um mehr als eine
+    halbe Teilung dreht: die Phase wird von der Mitte aus nachgefuehrt, Winkel und Richtung stimmen."""
+    import zahnrad
+    from programm.kern import verzahnung as vz
+    v = vz.erkenne(zahnrad.zahnrad(60, 1.0, 60.0, beta=-30.0), "breit")
+    assert v is not None and v.z == 60 and abs(v.beta - 30.0) < 0.05 and v.hand == "links"
+    assert abs(v.mn - 1.0) < 0.003

@@ -205,7 +205,9 @@
 | Gear analysis: involute splines (30°, ISO 4156 / DIN 5480) | ✅ |
 | Gear analysis: full data sheet for cylindrical gears (ISO 21771 values, ball dimension, form diameters, tip relief, crowning, pair data, stages, planetary sets, CSV/JSON) | ✅ |
 | Gear analysis: export as REXS model (FVA exchange format 1.7) for gear design and rating programs | ✅ |
-| Gear design analysis (reverse engineering of design philosophies): cylindrical stages, planetary sets, splines shaft/hub, bevel gears – PLAN §8.27a | ⬜ |
+| Gear design analysis (reverse engineering of design philosophies): cylindrical stages and planetary sets – PLAN §8.27a | ✅ |
+| Gear design analysis: splines shaft/hub, bevel gears (test geometry to clarify) – PLAN §8.27a | ⬜ |
+| Fix: helix angle recognition for large angles, many teeth, wide gears | ✅ |
 | Gear analysis: fitted and plug-in splines (ISO 4156 / DIN 5480, ISO 14; flank/diameter centred) – paused, worm gears; bevel gears dropped | ⬜ |
 | Wiggle in the open degrees of freedom (kinematic) | ✅ |
 | Clash check at the tolerance limit positions (assembly) | ✅ |

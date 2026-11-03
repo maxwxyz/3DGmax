@@ -340,7 +340,13 @@ def datenblatt(liste: list[Verzahnung], paare: list[Paar]) -> dict:
             "uebersetzung_je_welle": {str(k): {"i": i, "richtung": r} for k, (i, r) in ziel.items()},
             "planetensaetze": [{"sonne": s.sonne, "hohlrad": s.hohlrad, "planeten": s.planeten, "z_sonne": s.z_sonne,
                                 "z_planet": s.z_planet, "z_hohlrad": s.z_hohlrad, "hinweise": s.hinweise}
-                               for s in saetze]}
+                               for s in saetze],
+            "auslegungsbefunde": _befunde(liste, paare)}
+
+
+def _befunde(liste, paare) -> list[dict]:
+    from . import verzahnung_auslegung as va
+    return va.als_dicts(va.alle(liste, paare))
 
 
 # --- Formkreise und Mikrogeometrie aus der Zahndicke ueber dem Radius ---
@@ -509,4 +515,12 @@ def als_csv(liste: list[Verzahnung], paare: list[Paar]) -> str:
             w.writerow([tr("Getriebe")])
             for a, b in getriebe:
                 w.writerow([a, b])
+    from . import verzahnung_auslegung as va
+    befunde = va.alle(liste, paare)
+    if befunde:
+        w.writerow([])
+        w.writerow([tr("Auslegungsbefunde")])
+        w.writerow([tr(s) for s in va.SPALTEN])
+        for b in befunde:
+            w.writerow(list(b.zeile()))
     return puffer.getvalue()
