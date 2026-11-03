@@ -2537,15 +2537,18 @@ def test_mausrad_zellfelder_nie_auch_nach_klick(fenster):
 
 
 def _zellfeld_tabellen(f):
-    """Tabellen mit Feldern in den Zellen: Funktion → Tolerierung, Toleranzkette, 2D-Kette."""
+    """Tabellen mit Feldern in den Zellen: Funktion → Tolerierung, Toleranzkette, 2D-Kette - je Tabelle gleich nach
+    dem Oeffnen ihres Beispiels geliefert (ein weiteres Beispiel setzt die Werkzeuge des vorigen Modells zurueck)."""
+    app = QtWidgets.QApplication.instance()
     assert f.oeffne_beispiel("funktion", warten=True)
-    tabellen = [f.zeige_funktion().tabelle]
+    app.processEvents()
+    yield f.zeige_funktion().tabelle
     assert f.oeffne_beispiel("kette_getriebe", warten=True)
     k2 = f.zeige_kette2d()
     k2.lade_vorlage("hebel")
-    tabellen += [f.zeige_toleranzkette().tabelle, k2.tabelle]
-    QtWidgets.QApplication.instance().processEvents()
-    return tabellen
+    app.processEvents()
+    yield f.zeige_toleranzkette().tabelle
+    yield k2.tabelle
 
 
 def _zellfelder(t):
