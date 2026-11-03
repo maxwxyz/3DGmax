@@ -450,6 +450,13 @@ graphics only, 8.19 QIF graphics, 8.20 3D tolerance analysis,
    PMI/presentation, screenshot of the blue stripe while loading on Windows, an AP242 file with a mechanism); paused:
    functional-chain open items (note `fmk-offen.md`), spline recognition (note `passverzahnung.md`); at the very end:
    2D/3D chains (merge `claude/ketten-wiggle-7d70d7`, then further 2D/3D chain work).
+   2026-11-03 later: REXS 1.7 export (`8eed44c`, `kern/rexs.py`, valid against the FVA JSON schema) and gear design
+   findings for cylindrical stages and planetary sets (`80c1c90`, `kern/verzahnung_auslegung.py`, PLAN §8.27a, table
+   "Auslegungsbefunde", CSV/JSON). User report "Schrägungswinkel nicht sauber erkannt" fixed in the same commit:
+   phase tracked from the middle (`_drehung`), toothed threshold per pitch; also a phase wrap at ±π (internal spur
+   gear) found by the tests. Probe z 15–100, β 8–35°, b ≤ 120 mm: all within 0.01°; all gear tests incl. the slow one
+   green. Spline session `claude/steckverzahnung-32bc37` resumed (user: start it when the gear work is done) – merge
+   it into main when it reports; bevel gears (analysis only) wait for test geometry from the user.
 1. Visual check on the Mac (see "Visual check on the real screen still open" and: wireframe contrast edges, view cube,
    start screen, side-panel dragging, tab ✕ and right-click menu on tabs, File › Examples, stack-up window and PDF,
    clash dock, assembly dock, scan check with point cloud and 3-2-1 alignment, zones for linear/angular dimensions).
