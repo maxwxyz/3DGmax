@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import os
 import traceback
 
 from PySide6 import QtCore, QtWidgets
@@ -78,8 +79,13 @@ class VerzahnungFenster(QtWidgets.QDialog):
         self.json = QtWidgets.QPushButton(tr("JSON speichern …"))
         self.json.setToolTip(tr("Werte je Rad für den Import in Verzahnungs- und Systemprogramme"))
         self.json.clicked.connect(lambda: self.speichere("json"))
+        self.rexs = QtWidgets.QPushButton(tr("REXS speichern …"))
+        self.rexs.setToolTip(tr("Räder, Stufen, Wellen und Planetensätze als REXS-Modell (offenes Austauschformat für "
+                                "Getriebedaten der FVA, Version 1.7), z. B. für Auslegungs- und Nachrechenprogramme"))
+        self.rexs.clicked.connect(lambda: self.speichere("rexs"))
         reihe.addWidget(self.csv)
         reihe.addWidget(self.json)
+        reihe.addWidget(self.rexs)
         reihe.addStretch(1)
         schliessen = QtWidgets.QPushButton(tr("Schließen"))
         schliessen.clicked.connect(self.close)
@@ -129,19 +135,24 @@ class VerzahnungFenster(QtWidgets.QDialog):
         texte = [f"{v.teil}: {h}" for v in self.liste for h in v.hinweise]
         texte += [f"{p.a.teil} – {p.b.teil}: {h}" for p in self.paare for h in p.hinweise]
         self.hinweise.setText("\n".join(texte) if texte else ("" if self.liste else tr("Keine Verzahnung gefunden.")))
-        for k in (self.csv, self.json):
+        for k in (self.csv, self.json, self.rexs):
             k.setEnabled(bool(self.liste))
 
     def speichere(self, art: str, pfad: str = "") -> str | None:
-        endung = ".csv" if art == "csv" else ".json"
+        endung = {"csv": ".csv", "json": ".json", "rexs": ".rexsj"}[art]
+        filter_ = {"csv": "CSV (*.csv)", "json": "JSON (*.json)", "rexs": tr("REXS-Modell (*.rexsj *.rexs.json)")}[art]
         pfad = pfad or QtWidgets.QFileDialog.getSaveFileName(self, tr("Verzahnung speichern"),
-                                                             self.basis + "_verzahnung" + endung,
-                                                             "CSV (*.csv)" if art == "csv" else "JSON (*.json)")[0]
+                                                             self.basis + "_verzahnung" + endung, filter_)[0]
         if not pfad:
             return None
         with open(pfad, "w", encoding="utf-8-sig" if art == "csv" else "utf-8") as f:
             if art == "csv":
                 f.write(vd.als_csv(self.liste, self.paare))
+            elif art == "rexs":
+                from ..kern import rexs
+                from ..version import VERSION
+                json.dump(rexs.modell(self.liste, self.paare, os.path.basename(self.basis) or "3DGmax", VERSION), f,
+                          ensure_ascii=False, indent=1)
             else:
                 json.dump({"format": "3dgmax-verzahnung", "version": 2, **vd.datenblatt(self.liste, self.paare)}, f,
                           ensure_ascii=False, indent=1)

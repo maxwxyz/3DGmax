@@ -206,3 +206,37 @@ def test_verzahnungsfenster_datenblatt(tmp_path):
     pfad = f.speichere("json", str(tmp_path / "g.json"))
     d = json.load(open(pfad, encoding="utf-8"))
     assert d["version"] == 2 and d["paare"] and d["zahnraeder"][0]["kugelmass"]["DM"] == 3.5
+    r = json.load(open(f.speichere("rexs", str(tmp_path / "g.rexsj")), encoding="utf-8"))
+    assert r["model"]["applicationId"] == "3DGmax" and f.rexs.toolTip()
+
+
+def test_rexs_export(tmp_path):
+    """REXS-Modell (FVA, Version 1.7) aus erkannten Raedern: Pflichtfelder der Datei, eindeutige Ids, Relationen
+    nur mit vorhandenen Komponenten und den Rollen ihres Typs, Einheiten laut Datenbank; Werte eines bekannten Rads,
+    Hohlrad als ring_gear, Kopfruecknahme als tip_relief an beiden Flanken. (Gegen das Datenbankmodell und das
+    JSON-Schema der FVA einmal vollstaendig geprueft - siehe kern/rexs.py; hier die Regeln, die davon abhaengen.)"""
+    import zahnrad
+    from programm.kern import rexs, verzahnung as vz
+    liste = [vz.erkenne(zahnrad.zahnrad(17, 2.0, 10.0, ruecknahme=(0.02, 0.6)), "Ritzel"),
+             vz.erkenne(_an(zahnrad.zahnrad(51, 2.0, 10.0), 68.0), "Rad"),
+             vz.erkenne(_an(zahnrad.zahnrad(40, 1.5, 12.0, innen=True), 0, 200), "Hohlrad")]
+    d = rexs.modell(liste, vz.paare(liste), "Test", "1.0")["model"]
+    assert {"version", "applicationId", "applicationVersion", "date", "relations", "components"} <= set(d)
+    assert d["version"] == "1.7" and len(d["date"]) == 25 and d["date"][-3] == ":"
+    typ = {c["id"]: c["type"] for c in d["components"]}
+    assert len(typ) == len(d["components"]) and len({r["id"] for r in d["relations"]}) == len(d["relations"])
+    for r in d["relations"]:
+        assert all(x["id"] in typ for x in r["refs"]) and [x["role"] for x in r["refs"]] == list(rexs.ROLLEN[r["type"]])
+    for c in d["components"]:
+        for a in c["attributes"]:
+            assert a["unit"] == rexs.EINHEIT[a["id"]] and len(a) == 3
+    werte = lambda c: {a["id"]: next(v for k, v in a.items() if k not in ("id", "unit")) for a in c["attributes"]}  # noqa
+    ritzel = werte(next(c for c in d["components"] if c["name"] == "Ritzel"))
+    assert ritzel["number_of_teeth"] == 17 and abs(ritzel["normal_module"] - 2.0) < 0.005
+    assert abs(ritzel["tip_diameter"] - 38.0) < 0.05 and "size_over_balls" in ritzel
+    assert any(c["type"] == "ring_gear" and c["name"] == "Hohlrad" for c in d["components"])
+    relief = next(c for c in d["components"] if c["type"] == "tip_relief")
+    assert abs(werte(relief)["tip_relief_depth"] - 0.02) < 0.004
+    assert sum(r["type"] == "reference" and r["refs"][1]["id"] == relief["id"] for r in d["relations"]) == 2
+    stufe = werte(next(c for c in d["components"] if c["type"] == "cylindrical_stage"))
+    assert abs(stufe["gear_ratio"] - 3.0) < 1e-9 and abs(stufe["center_distance"] - 68.0) < 1e-6

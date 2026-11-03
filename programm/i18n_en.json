@@ -2090,5 +2090,8 @@
 "{} ab d = {}": "{} from d = {}",
 "Übersetzung Hohlrad → Steg (Sonne fest)": "Ratio ring gear → carrier (sun fixed)",
 "Übersetzung Sonne → Steg (Hohlrad fest)": "Ratio sun → carrier (ring gear fixed)",
-"Übersetzung u": "Gear ratio u"
+"Übersetzung u": "Gear ratio u",
+"REXS speichern …": "Save REXS …",
+"Räder, Stufen, Wellen und Planetensätze als REXS-Modell (offenes Austauschformat für Getriebedaten der FVA, Version 1.7), z. B. für Auslegungs- und Nachrechenprogramme": "Gears, stages, shafts and planetary sets as a REXS model (open FVA exchange format for gearbox data, version 1.7), e.g. for gear design and rating programs",
+"REXS-Modell (*.rexsj *.rexs.json)": "REXS model (*.rexsj *.rexs.json)"
 }

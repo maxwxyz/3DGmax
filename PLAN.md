@@ -1219,6 +1219,16 @@ tools (the user names MASTA as an example of a tool that needs these inputs), an
   Window shows gear/pair/gearbox tables; CSV and JSON v2 contain everything. Not done: tip chamfer vs. relief
   distinction beyond the slope test, root fillet radius, topological modifications, field mapping to specific
   gear tools (needs their public field lists), bevel gears (dropped), splines (paused).
+- Done 2026-11-03 (field mapping): instead of tool-specific field lists (not public) the export goes to REXS, the open
+  FVA exchange format for gearbox data read by common gear design and rating programs (`kern/rexs.py`, button
+  "REXS speichern …", `.rexsj`). Component/attribute/unit/relation names from the REXS 1.7 database model in the
+  FVA's open REXS library (github.com/fva-net/rexs-api-cpp, Apache-2.0; spec CC-BY-SA); file layout per its JSON
+  schema. Checked once completely: every component, attribute, unit and relation of an export (2 stages, planetary
+  set, ring gear, tip relief) is allowed by the 1.7 database model, and the file is valid against the FVA JSON
+  schema (negative control rejected); the repo test checks the rules that depend on it. Assumptions: helix angle
+  sign right hand positive (ISO 21771), normal backlash from the nominal geometry written as min = max, tip relief
+  shape "linear", both flanks share the averaged modifications. Not exported: planet carrier (not determinable
+  from gears), bearings and loads (not part of the analysis).
 
 ### 8.28 Writing STEP AP242 with semantic PMI (research 2026-10-27, by experiment)
 Findings (pythonocc-core 8.0.1.2 and OCP 8.0.1.1, both on OCCT 8.0.1; scripts were throw-away):
