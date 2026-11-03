@@ -455,8 +455,12 @@ graphics only, 8.19 QIF graphics, 8.20 3D tolerance analysis,
    "Auslegungsbefunde", CSV/JSON). User report "Schrägungswinkel nicht sauber erkannt" fixed in the same commit:
    phase tracked from the middle (`_drehung`), toothed threshold per pitch; also a phase wrap at ±π (internal spur
    gear) found by the tests. Probe z 15–100, β 8–35°, b ≤ 120 mm: all within 0.01°; all gear tests incl. the slow one
-   green. Spline session `claude/steckverzahnung-32bc37` resumed (user: start it when the gear work is done) – merge
-   it into main when it reports; bevel gears (analysis only) wait for test geometry from the user.
+   green. Spline session `claude/steckverzahnung-32bc37` resumed and paused again by the user the same evening; its
+   finished part merged into main (`ba33fe9`): test-data helpers for spline shafts/hubs in `werkzeuge/zahnrad.py`
+   (involute DIN 5480/ISO 4156 style with flat or full-radius root, straight-sided ISO 14, serration; checked: valid
+   solids, plausible volumes). Recognition (`kern/passverzahnung.py`), pairing male/female and findings not started;
+   the branch stays for resuming (design notes in the session's shared note `steckverzahnung.md`). Bevel gears
+   (analysis only) wait for test geometry from the user.
 1. Visual check on the Mac (see "Visual check on the real screen still open" and: wireframe contrast edges, view cube,
    start screen, side-panel dragging, tab ✕ and right-click menu on tabs, File › Examples, stack-up window and PDF,
    clash dock, assembly dock, scan check with point cloud and 3-2-1 alignment, zones for linear/angular dimensions).
