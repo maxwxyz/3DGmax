@@ -441,6 +441,9 @@ graphics only, 8.19 QIF graphics, 8.20 3D tolerance analysis,
    reported issues first, 2D/3D chains at the very end. The finished branch `claude/ketten-wiggle-7d70d7` (3D chain
    wiggle, clean 3D chain display, 1D wiggle of the example finds the closing faces; full suite green there) stays
    unmerged until the user calls for the chain topic.
+   2026-11-03: gear data sheet for cylindrical gears done (`f7babef`, `kern/verzahnung_daten.py`, see PLAN §8.27
+   note; test-data helper got an optional tip relief, analysis only). Open in gears: tip chamfer vs. relief, root
+   fillet radius, topological modifications, mapping to the input fields of specific gear tools; splines paused.
    Next, in this order: formats (QIF Plans export – waits for the OK to download the QIF 3 XSDs, STEP-XML, PRC
    compressed tessellation/B-rep, PMI from JT), performance/gears (gear data sheet, PLAN §8.27; analysis only, no
    generators), item 8 DXF dimension entities, the user checks (CATIA reading of written STEP with own
