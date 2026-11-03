@@ -118,6 +118,93 @@ def zahnrad(z: int, mn: float, b: float, alpha_n: float = 20.0, beta: float = 0.
     return BRepAlgoAPI_Cut(verzahnung, bohrung).Shape()
 
 
+# --- Steckverzahnungen (Testdaten fuer kern.passverzahnung; kein Generator als Funktion des Programms) ---
+
+def zahnprofil(z: int, halbwinkel, rf: float, ra: float, flanke: int = 16, rund: float = 0.0) -> np.ndarray:
+    """Kontur (N x 2) mit z Zaehnen in Wellenform (Zahnmitte bei 2 pi i / z), halbwinkel(r): halber Zahnwinkel beim
+    Radius r, Kopfkreis ra, Fusskreis rf. Eine Nabe hat dieselbe Kontur (ihre Luecke ist der Wellenzahn): ra ist dann
+    ihr Fuss-, rf ihr Kopfkreis. rund > 0: Fuss als Kreisbogen (Vollrundung) ab rf + rund * (ra - rf) durch die
+    Mitte der Luecke auf dem Fusskreis, sonst flacher Fuss mit scharfen Ecken."""
+    r0 = rf + rund * (ra - rf) if rund else rf
+    radien = np.linspace(r0, ra, flanke)
+    teilung = 2 * math.pi / z
+    punkte = []
+    for i in range(z):
+        c = teilung * i
+        punkte += [(r, c - halbwinkel(r)) for r in radien]
+        punkte += [(ra, t) for t in np.linspace(c - halbwinkel(ra), c + halbwinkel(ra), 5)[1:-1]]
+        punkte += [(r, c + halbwinkel(r)) for r in radien[::-1]]
+        a, b = c + halbwinkel(r0), c + teilung - halbwinkel(r0)
+        if rund:
+            punkte += _bogen((r0, a), (rf, (a + b) / 2), (r0, b), 12)
+        else:
+            punkte += [(rf, t) for t in np.linspace(a, b, 6)[1:-1]]
+    return np.array([(r * math.cos(t), r * math.sin(t)) for r, t in punkte])
+
+
+def _bogen(p1, pm, p2, n: int) -> list[tuple[float, float]]:
+    """Innere Punkte (polar) des Kreisbogens durch drei Punkte (polar), von p1 ueber pm nach p2."""
+    a, m, b = (np.array([r * math.cos(t), r * math.sin(t)]) for r, t in (p1, pm, p2))
+    s = np.array([[2 * (m - a)[0], 2 * (m - a)[1]], [2 * (b - a)[0], 2 * (b - a)[1]]])
+    mp = np.linalg.solve(s, [m @ m - a @ a, b @ b - a @ a])
+    w = [math.atan2(*(q - mp)[::-1]) for q in (a, m, b)]
+    w1, w2 = np.unwrap([w[0], w[1]]), np.unwrap([w[0], w[2]])
+    if not min(w1[0], w2[1]) <= w1[1] <= max(w1[0], w2[1]):  # ueber die andere Seite
+        w2[1] += 2 * math.pi * (1 if w2[1] < w1[0] else -1)
+    rho = float(np.linalg.norm(a - mp))
+    q = [mp + rho * np.array([math.cos(t), math.sin(t)]) for t in np.linspace(w2[0], w2[1], n)[1:-1]]
+    return [(float(np.hypot(*p)), math.atan2(p[1], p[0])) for p in q]
+
+
+def evolventen_steck(z: int, m: float, alpha: float, x: float, da: float, df: float, rund: float = 0.0,
+                     flanke: int = 16) -> np.ndarray:
+    """Evolventen-Steckverzahnung (Wellenform, Teilkreis d = m z): Zahndicke am Teilkreis m (pi/2 + 2 x tan alpha),
+    Kopfkreis da, Fusskreis df (Nabe: da = Fusskreis, df = Kopfkreis der Nabe, x = Lueckenweite wie bei der Welle)."""
+    a = math.radians(alpha)
+    d = m * z
+    rb = d / 2 * math.cos(a)
+    eta = m * (math.pi / 2 + 2 * x * math.tan(a)) / d
+
+    def halb(r):
+        return eta + _inv(a) - (_inv(math.acos(rb / r)) if r > rb else 0.0)
+    return zahnprofil(z, halb, df / 2, da / 2, flanke, rund)
+
+
+def keil_steck(n: int, d: float, D: float, B: float) -> np.ndarray:
+    """Keilwelle (gerade, parallele Flanken; ISO 14: n x d x D, Keilbreite B); Nabe: Nut der Breite B."""
+    return zahnprofil(n, lambda r: math.asin(B / (2 * r)), d / 2, D / 2)
+
+
+def kerb_steck(z: int, da: float, df: float, winkel: float) -> np.ndarray:
+    """Kerbverzahnung: gerade Flanken mit dem eingeschlossenen Winkel winkel (Grad) des Wellenzahns, Zahndicke und
+    Lueckenweite auf dem mittleren Durchmesser gleich."""
+    rm = (da + df) / 4
+    pm = np.array([rm * math.cos(math.pi / (2 * z)), rm * math.sin(math.pi / (2 * z))])
+    g = math.radians(winkel / 2)
+    richtung = np.array([math.cos(g), -math.sin(g)])
+
+    def halb(r):
+        k = pm @ richtung
+        t = -k + math.sqrt(k * k - rm * rm + r * r)
+        p = pm + t * richtung
+        return math.atan2(p[1], p[0])
+    return zahnprofil(z, halb, df / 2, da / 2)
+
+
+def steckteil(p: np.ndarray, b: float, innen: bool = False, rand: float = 4.0):
+    """Welle (Prisma der Kontur) bzw. Nabe (Ring mit der Kontur als Bohrung), Achse Z ab z = 0, Laenge b."""
+    from OCC.Core.BRepAlgoAPI import BRepAlgoAPI_Cut
+    from OCC.Core.BRepBuilderAPI import BRepBuilderAPI_MakeFace
+    from OCC.Core.BRepPrimAPI import BRepPrimAPI_MakeCylinder, BRepPrimAPI_MakePrism
+    from OCC.Core.gp import gp_Ax2, gp_Dir, gp_Pnt, gp_Vec
+    if not innen:
+        return BRepPrimAPI_MakePrism(BRepBuilderAPI_MakeFace(_draht(p, 0.0)).Face(), gp_Vec(0, 0, b)).Shape()
+    profil = BRepPrimAPI_MakePrism(BRepBuilderAPI_MakeFace(_draht(p, -1.0)).Face(), gp_Vec(0, 0, b + 2)).Shape()
+    ring = BRepPrimAPI_MakeCylinder(gp_Ax2(gp_Pnt(0, 0, 0), gp_Dir(0, 0, 1)),
+                                    float(np.linalg.norm(p, axis=1).max()) + rand, b).Shape()
+    return BRepAlgoAPI_Cut(ring, profil).Shape()
+
+
 def speichere(form, pfad: str, name: str) -> str:
     from OCC.Core.IFSelect import IFSelect_RetDone
     from OCC.Core.STEPCAFControl import STEPCAFControl_Writer
