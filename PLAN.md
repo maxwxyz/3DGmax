@@ -1230,6 +1230,33 @@ tools (the user names MASTA as an example of a tool that needs these inputs), an
   shape "linear", both flanks share the averaged modifications. Not exported: planet carrier (not determinable
   from gears), bearings and loads (not part of the analysis).
 
+### 8.27a Design analysis of gears – reverse engineering of design philosophies (requested 2026-11-03)
+Goal (user): from existing gear geometry (analysis only, no generators as a feature) recognise the design decisions
+and the philosophy behind them – for cylindrical gear stages, planetary sets, bevel gears, splines (shaft/hub, male/
+female) and further gear types – so a designer understands why a competitor's or an old design looks as it does.
+Per finding: the measured value, the usual rule or range from the literature/standards with its source, the
+classification (e.g. "balanced specific sliding", "high contact ratio design", "hunting tooth ratio") and the likely
+intent; "nicht bestimmbar" where the geometry does not tell.
+- Cylindrical stages: profile shift sum and distribution (V-zero / V-plus / V-minus, distribution per DIN 3992 /
+  balanced specific sliding at both roots, strength-oriented vs. sliding-oriented), contact ratios (εα ≥ 2 high
+  contact ratio for noise, εβ integer for noise, εγ), tooth depth (standard vs. deep tooth), module and face width
+  ratios (b/d1, b/mn), tooth number choices (hunting tooth: gcd(z1, z2) = 1, prime numbers, integer ratio avoided),
+  helix angle class (spur, helical 8–15°, double helical), backlash and tip clearance class, tip relief amount and
+  start relative to module/load (Ca/mn, long/short relief), lead crowning, form diameter reserve (dFf vs. active
+  root diameter), centre distance rounding (standard series), ratio split across stages (first stage ratio vs. total).
+- Planetary sets: number of planets vs. assembly condition and phasing (sequential vs. in-phase meshing: zs/n and
+  zr/n fractional parts → noise strategy), planet spacing (equal / unequal for assembly or noise), ring gear rim
+  thickness indication, sun/planet/ring tooth number relations (zr = zs + 2 zp or with profile shift), ratio range
+  and speed ratios, floating sun indication from geometry where visible.
+- Bevel gears (analysis only, test data needed – no generator as a feature): system (Gleason/Klingelnberg/straight),
+  pitch cone angles, shaft angle, ratio, spiral angle and hand, outer/mean module, face width to cone distance ratio.
+- Splines shaft/hub (male/female): standard (ISO 4156 / DIN 5480 / ISO 14 / serrations), centring (flank /
+  major / minor diameter) from the clearances of the pair, fit class, root form (flat/fillet), load-oriented choices
+  (pressure angle 30/37.5/45°, module vs. diameter).
+- Output: "Auslegungsbefunde" table per gear/stage/set in the gear window, in CSV/JSON/PDF, each with source.
+- Order (user, 2026-11-03): next after the REXS export; cylindrical stages and planetary sets first (test data from
+  the existing test helper), splines (resume the paused work), bevel gears once test geometry is clarified.
+
 ### 8.28 Writing STEP AP242 with semantic PMI (research 2026-10-27, by experiment)
 Findings (pythonocc-core 8.0.1.2 and OCP 8.0.1.1, both on OCCT 8.0.1; scripts were throw-away):
 - The old note "writing new-style dimensions segfaults" was wrong in its cause: the writer crashed because the schema
