@@ -140,6 +140,15 @@ display only; tolerance zones move to "Tolerieren").
   click – done 2026-10-28 for every table (`ui/tabellen.py`, delegate tints cells with ItemIsEditable); pressed
   toggle buttons styled (QPushButton:checked); mouse wheel over number fields/lists scrolls instead of changing
   values (`ui/radsperre.py`); chain panel: Add/Chain menus, buttons do not scroll away.
+- **Mouse in tables (user, 2026-10-29), done:** hovering over cells with drop-downs or number fields no longer selects
+  the row. Cause: Qt makes the cell of a cell widget current (and selects the row) whenever the widget gets focus –
+  also without a click (wheel, window change, code) and when an open click-editor closes because focus moved into a
+  cell widget. `ui/radsperre.py` lets such focus changes through without touching selection and current cell; only a
+  left/right click or Tab selects. Middle mouse button scrolls like a web browser in every table, list, tree and
+  scrolling panel, also over cell widgets (`ui/autorollen.py`, app-wide filter): anchor marker, speed proportional to
+  the distance with a dead zone, release after dragging ends it, a short click keeps it on until the next click or
+  Esc; not in the 3D view or drop-down popups. GUI tests `test_ueberfahren_von_zellfeldern_waehlt_keine_zeile`,
+  `test_mittlere_taste_rollt_wie_im_browser`.
 - **Smooth side-panel resizing – analysed and fixed 2026-10-28:** measured per step (resizeDocks + events, FTC-10):
   median 5 ms, but 90th percentile 1088 ms – the preview thread of the saved views ran exact HLR, which holds the GIL
   (about 1 s per view under load). Previews now use the polygonal HLR (`zeichnung.projiziere(schnell=True)`,

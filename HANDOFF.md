@@ -4,7 +4,7 @@
 All work on `main`, pushed; no other branches. Version 0.2 released (tag v0.2). Full suite last green on
 the Mac (200 tests incl. the new ones, ~11 min); `pixi run test-schnell` skips the six `langsam` tests.
 
-Side session 2026-10-29 (branch `claude/ansicht-kontrast-3e4797`, to be merged by the main session): user reports
+Side session 2026-10-29 (branch `claude/ansicht-kontrast-3e4797`, merged into main): user reports
 "PMI im Dark Mode nicht lesbar" and "Legende für Toleranzzonen". Root cause: OCCT shows the background gradient
 gamma-encoded while unlit PMI keep their value – the dark scheme's 3D background appeared mid grey (#7b818b), where no
 colour reaches 4.5:1 on both ends. Dark 3D background now really dark; PMI colours per scheme in `ui/thema.py`
@@ -16,6 +16,21 @@ rebuild (theme switch). Checked on screen (Retina) light/dark with the shaft and
 the Funktion panel's datum preview stays when another example is opened; own background colours appear lighter than
 picked (gamma); `View.Dump` renders at logical size on Retina (use `bild_qimage` for checks). PLAN/Roadmap: Roadmap row
 added (✅), UI_UX_Plan note; no PLAN item affected.
+
+Side session 2026-10-29 (branch `claude/tabellen-maus-338d20`, merged into main): user reports on
+table mouse behaviour (UI_UX_Plan stage 2 note, Roadmap ✅, PLAN §8.30). (1) Hovering over cells with drop-downs or
+number fields selected the row. Cause found by experiment: Qt makes the cell of a cell widget current and selects the
+row whenever the widget gets focus – without a click too (wheel/MouseFocusReason without button, window change, code)
+and when an open click-editor (`EIN_KLICK`, CurrentChanged) closes because focus moved into a cell widget (its
+FocusOut). `ui/radsperre.py` (app-wide filter) now delivers those FocusIn/FocusOut events with the selection model's
+signals blocked and restores selection and current cell; left/right click and Tab still select. (2) Middle mouse
+button autoscroll like a browser: new `ui/autorollen.py`, installed by `radsperre.installieren` (no change to
+`hauptfenster.py`); item views, QScrollArea, text views; anchor marker child of the scroll area, override cursor,
+dead zone 10 px, speed 0.08 px/tick per px, units converted via pageStep/viewport (per-item tables); release after
+dragging ends, short click sticky until next click/Esc, wheel ends; not over WA_PaintOnScreen (OCCT viewer) or in
+popups; over the frozen first column the table scrolls. Tests `test_ueberfahren_von_zellfeldern_waehlt_keine_zeile`,
+`test_mittlere_taste_rollt_wie_im_browser` (function, chain, 2D chain tables). Not checked with a real mouse on screen
+(synthetic events only; real cursor moves could not be generated from a script) – user should try it.
 
 Side session 2026-10-29 (branch `claude/beispiel-welle-abdfe0`, merged into main `db2cd0d`): user request –
 the example "Funktion → Tolerierung" now uses a generated gearbox shaft instead of NIST FTC-10 (PLAN §8.33 note,
@@ -57,7 +72,7 @@ Then (user request): "Make semantic …" for graphical-only PMI (§8.18 repair) 
 `ui/hauptfenster.py` minimally (`_pmi_befehl` "semantisch", `fuege_pmi_hinzu` replaces the note and keeps the file
 graphic) and `ui/panels.py` (context menu entry); tests `test_nur_grafische_pmi_reparieren`, `test_semantisch_machen`.
 
-Side session 2026-10-28 (branch `claude/bezugsverschiebung-39e50e`, to be merged by the main session): evening item c
+Side session 2026-10-28 (branch `claude/bezugsverschiebung-39e50e`, merged into main): evening item c
 done – datum shift / Ⓜ/Ⓛ bonus in assembly connections (PLAN §8.20 note, Roadmap ✅). `Verbindung.bonus` +
 `bonus_quelle` set by `toleranz_aus_pmi` (`_bonus_aus_pmi`: Ⓜ/Ⓛ location tolerances on both faces grow by the
 feature's size tolerance, datums with Ⓜ/Ⓛ via `toleranzzone.bezugsverschiebung`); `Baugruppe.zeilen(..., bonus=True)`
