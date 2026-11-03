@@ -436,10 +436,17 @@ graphics only, 8.19 QIF graphics, 8.20 3D tolerance analysis,
    plan in the shared note `fmk-offen.md`) and spline recognition (branch `claude/passverzahnung-a24808`, empty WIP
    commit with the plan, note `passverzahnung.md`). QIF Plans export waits for the user's OK to download the QIF 3
    XSDs; the cylindrical gear data sheet waits for the user's decision (gears paused for now).
-   Next, in this order: formats (QIF Plans export, STEP-XML, PRC compressed tessellation/B-rep, PMI from JT),
-   performance/gears (gear data sheet, PLAN §8.27), then item 8 DXF dimension entities, then the user checks (CATIA
-   reading of written STEP with own PMI/presentation, screenshot of the blue stripe while loading on Windows, an
-   AP242 file with a mechanism).
+   2026-11-03: user reports fixed and merged – readable PMI in both schemes + zone legend, tables (hover never selects,
+   middle-button autoscroll), state reset on loading + stable comparison display (camera kept). User order: fix the
+   reported issues first, 2D/3D chains at the very end. The finished branch `claude/ketten-wiggle-7d70d7` (3D chain
+   wiggle, clean 3D chain display, 1D wiggle of the example finds the closing faces; full suite green there) stays
+   unmerged until the user calls for the chain topic.
+   Next, in this order: formats (QIF Plans export – waits for the OK to download the QIF 3 XSDs, STEP-XML, PRC
+   compressed tessellation/B-rep, PMI from JT), performance/gears (gear data sheet, PLAN §8.27; analysis only, no
+   generators), item 8 DXF dimension entities, the user checks (CATIA reading of written STEP with own
+   PMI/presentation, screenshot of the blue stripe while loading on Windows, an AP242 file with a mechanism); paused:
+   functional-chain open items (note `fmk-offen.md`), spline recognition (note `passverzahnung.md`); at the very end:
+   2D/3D chains (merge `claude/ketten-wiggle-7d70d7`, then further 2D/3D chain work).
 1. Visual check on the Mac (see "Visual check on the real screen still open" and: wireframe contrast edges, view cube,
    start screen, side-panel dragging, tab ✕ and right-click menu on tabs, File › Examples, stack-up window and PDF,
    clash dock, assembly dock, scan check with point cloud and 3-2-1 alignment, zones for linear/angular dimensions).
