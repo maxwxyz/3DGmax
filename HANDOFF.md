@@ -461,6 +461,10 @@ graphics only, 8.19 QIF graphics, 8.20 3D tolerance analysis,
    solids, plausible volumes). Recognition (`kern/passverzahnung.py`), pairing male/female and findings not started;
    the branch stays for resuming (design notes in the session's shared note `steckverzahnung.md`). Bevel gears
    (analysis only) wait for test geometry from the user.
+   2026-11-04: user report – the stack-up strip needed vertical scrolling to reach the table's scroll bar. Not the
+   histogram but the result table with the traffic light above it set the height. Wide strip now: hint only as table
+   tooltip, button row below the links, traffic light across the full width, compact result rows, closing dimension
+   text under the histogram; minimum height 595 → 360 px (offscreen). Tall layout unchanged in order.
 1. Visual check on the Mac (see "Visual check on the real screen still open" and: wireframe contrast edges, view cube,
    start screen, side-panel dragging, tab ✕ and right-click menu on tabs, File › Examples, stack-up window and PDF,
    clash dock, assembly dock, scan check with point cloud and 3-2-1 alignment, zones for linear/angular dimensions).

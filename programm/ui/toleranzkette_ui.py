@@ -506,6 +506,7 @@ class ToleranzketteFenster(QtWidgets.QDialog):
                                       "Fertigungsart."))
         hinweis.setWordWrap(True)
         hinweis.setObjectName("leise")
+        self._hinweis = hinweis  # breite, niedrige Leiste: ausgeblendet, steht dann im Tooltip der Tabelle
         lay.addWidget(hinweis)
         lay.addLayout(self._baue_eingaben())
         self.plan_leiste = self._baue_planleiste()
@@ -529,10 +530,15 @@ class ToleranzketteFenster(QtWidgets.QDialog):
         erste_spalte_fest(self.tabelle)  # Glied bleibt beim Querrollen stehen
         self.tabelle.setContextMenuPolicy(QtCore.Qt.ContextMenuPolicy.CustomContextMenu)
         self.tabelle.customContextMenuRequested.connect(self._kontextmenue)
+        self.tabelle.setToolTip(hinweis.text())
         # Glieder oben, Ergebnis unten; der Teiler laesst sich ziehen
         self.teiler = QtWidgets.QSplitter(QtCore.Qt.Orientation.Vertical)
         self.teiler.setChildrenCollapsible(False)
-        self.teiler.addWidget(self.tabelle)
+        self._links = QtWidgets.QWidget()  # Glieder; in der breiten Leiste auch die Knopfreihe darunter
+        links_lay = QtWidgets.QVBoxLayout(self._links)
+        links_lay.setContentsMargins(0, 0, 0, 0)
+        links_lay.addWidget(self.tabelle, 1)
+        self.teiler.addWidget(self._links)
         unten = self._unten = QtWidgets.QWidget()
         unten_lay = QtWidgets.QVBoxLayout(unten)
         unten_lay.setContentsMargins(0, 0, 0, 0)
@@ -561,25 +567,26 @@ class ToleranzketteFenster(QtWidgets.QDialog):
         self.ampel = QtWidgets.QLabel("")  # Anforderung eingehalten? gruen / gelb / rot mit Begruendung
         self.ampel.setWordWrap(True)
         self.ampel.setMinimumWidth(160)
-        self.ampel.setMaximumWidth(520)
         self.ampel.setTextFormat(QtCore.Qt.TextFormat.RichText)
         self.alle_ueberlagern = QtWidgets.QCheckBox(tr("Alle Verfahren"))  # kurz: Kaestchentext bricht nicht um
         self.alle_ueberlagern.setToolTip(tr("Alle Verfahren im Histogramm überlagern: Worst Case als Band, statistisch "
                                             "als Kurve, Monte Carlo als Histogramm"))
         self.alle_ueberlagern.setChecked(True)  # Vorgabe: alle Verfahren; eine Ergebniszeile waehlt eines
         self.alle_ueberlagern.toggled.connect(lambda _an: self._zeige_histogramm())
+        # Ampel ueber die ganze Breite (wenige Zeilen); die Ergebnistabelle bestimmt die Hoehe, Histogramm und
+        # Schlussmass-Text teilen sich den Platz daneben
+        unten_lay.addWidget(self.ampel)
         links = QtWidgets.QVBoxLayout()
-        links.addWidget(self.ampel)
         links.addWidget(self.ergebnisse)
         links.addStretch(1)
         rechts = QtWidgets.QVBoxLayout()
         rechts.addWidget(self.histogramm, 1)
         rechts.addWidget(self.alle_ueberlagern)
+        rechts.addWidget(self.ergebnis)
         nebeneinander = QtWidgets.QHBoxLayout()
         nebeneinander.addLayout(links)
         nebeneinander.addLayout(rechts, 1)
         unten_lay.addLayout(nebeneinander, 1)
-        unten_lay.addWidget(self.ergebnis)
         unten_lay.addLayout(self._baue_freigabe())
         self.teiler.addWidget(unten)
         hoehe_nach_breite(unten)  # umbrechende Zeilen (Anforderung, Waerme, Knoepfe) ueberlappen nicht
@@ -587,7 +594,8 @@ class ToleranzketteFenster(QtWidgets.QDialog):
         self.teiler.setStretchFactor(1, 2)
         lay.addWidget(self.teiler, 1)
         # Fliesslayout statt QDialogButtonBox: die Knopfreihe bricht um, sonst bestimmt sie die Mindestbreite
-        knoepfe = FlussLayout()
+        self._knoepfe = QtWidgets.QWidget()  # breite Leiste: unter den Gliedern, sonst unter allem
+        knoepfe = FlussLayout(self._knoepfe)
         self.kette_oeffnen = QtWidgets.QPushButton(tr("Kette öffnen …"))
         self.kette_oeffnen.setToolTip(tr("Gespeicherte Kette (.3dgkette) laden, auch mit ihrem Modell"))
         self.kette_oeffnen.clicked.connect(self.oeffnen.emit)
@@ -604,7 +612,7 @@ class ToleranzketteFenster(QtWidgets.QDialog):
         for k in (self.kette_oeffnen, self.kette_speichern, self.export, self.pdf, schliessen):
             k.setAutoDefault(False)  # Eingabetaste in einem Feld schliesst das Fenster nicht
             knoepfe.addWidget(k)
-        lay.addLayout(knoepfe)
+        lay.addWidget(self._knoepfe)
         self.export.clicked.connect(lambda: self.speichere())
         self._methode_gewaehlt()
 
@@ -789,6 +797,9 @@ class ToleranzketteFenster(QtWidgets.QDialog):
         richtung = QtCore.Qt.Orientation.Horizontal if quer else QtCore.Qt.Orientation.Vertical
         if self.teiler.orientation() != richtung:
             self.teiler.setOrientation(richtung)
+            # breit und niedrig: Hinweis nur als Tooltip, Knopfreihe unter den Gliedern (spart zwei Zeilen Hoehe)
+            self._hinweis.setVisible(not quer)
+            (self._links.layout() if quer else self.layout()).addWidget(self._knoepfe)
             self._unten.setMinimumHeight(0)
             QtCore.QTimer.singleShot(0, self._unten_hoehe)
         QtCore.QTimer.singleShot(0, self._ampel_hoehe)  # nach dem Layout: neue Breite der Ampelzeile
@@ -1772,10 +1783,11 @@ class ToleranzketteFenster(QtWidgets.QDialog):
                     it.setFont(schrift)
                 t.setItem(z, s, it)
         spalten_anpassen(t, hoechst=10_000)  # Verfahren ganz lesbar; schmales Fenster: Querlaufleiste
+        for z in range(t.rowCount()):  # nur Text, keine Felder: kompakte Zeilen (die Tabelle gibt die Hoehe vor)
+            t.setRowHeight(z, t.fontMetrics().height() + 6)
         inhalt = inhalt_breite(t)
         t.setMaximumWidth(inhalt)
         t.setMinimumWidth(min(inhalt, 160))
-        self.ampel.setMaximumWidth(max(inhalt, 320))
         self._ergebnis_hoehe()
         self._ampel_hoehe()
         e = self.e

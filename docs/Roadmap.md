@@ -208,6 +208,7 @@
 | Gear design analysis (reverse engineering of design philosophies): cylindrical stages and planetary sets – PLAN §8.27a | ✅ |
 | Gear design analysis: splines shaft/hub, bevel gears (test geometry to clarify) – PLAN §8.27a | ⬜ |
 | Fix: helix angle recognition for large angles, many teeth, wide gears | ✅ |
+| Fix: tolerance stack-up strip lower (hint as tooltip, buttons below the links, compact results) | ✅ |
 | Gear analysis: fitted and plug-in splines (ISO 4156 / DIN 5480, ISO 14; flank/diameter centred) – paused, worm gears; bevel gears dropped | ⬜ |
 | Wiggle in the open degrees of freedom (kinematic) | ✅ |
 | Clash check at the tolerance limit positions (assembly) | ✅ |

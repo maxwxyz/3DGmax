@@ -2239,7 +2239,8 @@ def test_werkzeugleisten_schmal_ziehbar(fenster):
                 assert d.width() <= 380, (name, d.width())
         d.setFloating(False)
     k = f._kette  # Knopfreihe unten bricht um
-    assert k.kette_oeffnen.parentWidget() is k and k.findChild(QtWidgets.QDialogButtonBox) is None
+    assert k.findChild(QtWidgets.QDialogButtonBox) is None
+    assert type(k.kette_oeffnen.parentWidget().layout()).__name__ == "FlussLayout"
     d = f.dock_kette  # schmal: umgebrochene Zeilen unten im Teiler bekommen ihre Hoehe (keine Ueberlappung)
     d.setFloating(True)
     d.resize(400, 800)
