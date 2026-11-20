@@ -381,6 +381,11 @@ over-constrained, the tighter connection decides its position.</li>
 <li><b>Requirement</b> by double-click (e.g. <code>3.8 … 4.2</code>, <code>≥ 1</code>): share outside and Cpk.</li>
 <li><b>Contributors</b> of the selected measure: worst-case range when only this connection varies, and its share of
 the variance – this shows which tolerance to change.</li>
+<li>A tolerance referencing a <b>common datum A-B</b> uses both features at one precedence level.
+For two coaxial bearing seats, the datum axis passes through their displaced centres. Additional
+seats have equal weight in the line fit. Coplanar pads facing the same way define an area-weighted
+fitted plane. The table shows each face's contribution at the measuring point. This calculation
+models rigid features. Unresolved datum geometry leaves the requirement verdict open.</li>
 <li>If the measure depends on open degrees of freedom, a note says so: connect the parts completely first.
 <b>As PDF …</b> saves connections, results and contributors. Example: <b>File › Examples › Assembly variation</b>.</li>
 </ul>
@@ -450,7 +455,11 @@ and the sun, or the first carrier and the next sun. For a reverted train with co
 use separate assignments for coaxial gears and couple the two wheels on the intermediate shaft.
 Specified speeds are treated as exact. Leave derived
 speeds unticked so the calculation retains their full precision. The results identify free speeds and conflicting inputs.
-Worm pairs appear in the power-flow view. CSV, JSON and PDF include the operating point.</p>
+CSV, JSON and PDF include the operating point.</p>
+<p>For a <b>worm stage</b>, the operating point shows speeds relative to each displayed positive
+shaft axis. A two-start worm at 900 rpm gives 100 rpm at an 18-tooth wheel. Rotation direction
+depends on worm hand and installed position. Entering the wheel speed solves for worm speed.
+Whether the wheel can drive the worm under load also depends on friction.</p>
 <p>STEP solids and triangle meshes such as STL and OBJ may contain several separate gears in one object.
 On a one-piece stepped shaft, each identifiable tooth band is reported separately with position, width and tooth count.
 Finer flank resolution improves the involute fit. The fit error is included in the data sheet. Very coarse meshes

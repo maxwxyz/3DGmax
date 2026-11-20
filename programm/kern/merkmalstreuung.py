@@ -14,6 +14,7 @@ from dataclasses import dataclass
 import numpy as np
 
 from ..i18n import tr
+from . import gemeinsamer_bezug
 from . import toleranzzone as tz
 from .verbindung import ORT_TYPEN, _senkrechte
 
@@ -158,7 +159,11 @@ def _rahmenanteile(merkmale, punkt, empfindlichkeit):
 
 
 def _bezuege(p):
-    return tuple(b.name for b in sorted(getattr(p, "bezuege", ()), key=lambda b: b.stelle))
+    refs = sorted(getattr(p, "bezuege", ()), key=lambda b: b.stelle)
+    if len({b.stelle for b in refs}) != len(refs) or any(b.stelle < 1 for b in refs):
+        return None
+    return tuple("-".join(sorted(name.strip() for name in b.name.split("-")))
+                 for b in refs)
 
 
 def _angaben(pmi, art):
@@ -167,7 +172,8 @@ def _angaben(pmi, art):
         mods = getattr(p, "modifikatoren", ())
         zone = getattr(p, "zone", "")
         if (p.wert is None or p.wert <= 0 or not getattr(p, "semantisch", True) or len(p.flaechen) != 1 or
-                getattr(p, "material", "") or any(b.modifikatoren for b in getattr(p, "bezuege", ())) or
+                getattr(p, "material", "") or any(b.modifikatoren or getattr(b, "element_modifikatoren", {})
+                                                   for b in getattr(p, "bezuege", ())) or
                 any(x not in ("Diameter",) and not x.startswith("UZ ") for x in mods) or zone not in ("", "Diameter")):
             fehlt.append(p)
         elif p.typ not in ORT_TYPEN | ORIENTIERUNG or (hasattr(p, "bezuege") and not p.bezuege):
@@ -205,11 +211,12 @@ class Messmerkmale:
             for idx in p.flaechen:
                 if p.art == "toleranz":
                     self.pmi[idx].append(p)
-                elif p.art == "bezug" and p.typ == "Datum":
+                elif p.art == "bezug" and p.typ == "Datum" and getattr(p, "semantisch", True):
                     self.datum[p.name].add(idx)
                 elif p.art == "mass" and p.typ in ("Size_Diameter", "Size_Radius"):
                     self.groessen[idx].append(p)
         self.zonen, self.hinweise = {}, []
+        self.bezugsmodelle = defaultdict(set)
         self.kraefte = defaultdict(lambda: np.zeros(6))
 
     def _form(self, teil, idx):
@@ -223,20 +230,39 @@ class Messmerkmale:
         if meldung not in self.hinweise:
             self.hinweise.append(meldung)
 
-    def _bezugssystem(self, teil, idx, refs):
-        merkmale = []
-        for name in refs:
-            kandidaten = [(i, f) for i in self.datum[name] if (f := self._form(teil, i)) is not None]
+    def _bezugsfach(self, teil, name, lage, belegt):
+        elemente = []
+        for buchstabe in name.split("-"):
+            if not buchstabe.strip():
+                return None
+            kandidaten = [(i, f) for i in self.datum[buchstabe.strip()] if (f := self._form(teil, i)) is not None]
             if len(kandidaten) != 1:
-                self._unvollstaendig(teil, idx, tr("Bezug {}").format(name))
-                return []
+                return None
             i, f = kandidaten[0]
-            g = _merkmal(f, self.bg.lage(teil))
-            if g is None or any(j == i for j, _ in merkmale):
+            g = _merkmal(f, lage)
+            if g is None or i in belegt or any(f.IsSame(andere) for _, andere, _ in elemente):
+                return None
+            belegt.add(i)
+            elemente.append((i, f, g))
+        if len(elemente) == 1:
+            i, _, g = elemente[0]
+            return g, {i: np.eye(6)}
+        return gemeinsamer_bezug.aufloesen(elemente, self.punkt, lage)
+
+    def _bezugssystem(self, teil, idx, refs):
+        merkmale, abbildungen, belegt = [], {}, set()
+        for rang, name in enumerate(refs):
+            fach = self._bezugsfach(teil, name, self.bg.lage(teil), belegt)
+            if fach is None:
                 self._unvollstaendig(teil, idx, tr("Bezug {}").format(name))
-                return []
-            merkmale.append((i, g))
-        return merkmale
+                return [], {}
+            merkmal, abbildungen[rang] = fach
+            merkmale.append((rang, merkmal))
+            if len(abbildungen[rang]) > 1:
+                text = (tr("Gemeinsamer Bezug {}: Achse aus Sitzmitten") if merkmal[0] == "achse" else
+                        tr("Gemeinsamer Bezug {}: flächengewichtete Ausgleichsebene"))
+                self.bezugsmodelle[teil, idx].add(text.format(name))
+        return merkmale, abbildungen
 
     def verfolge(self, teil, idx, kraft, besucht=()):
         if (teil, idx) in self.verbunden or not self.pmi[idx] or np.linalg.norm(kraft) < 1e-10:
@@ -256,6 +282,9 @@ class Messmerkmale:
         if not angaben:
             return
         systeme = {_bezuege(p) for p in angaben}
+        if None in systeme:
+            self._unvollstaendig(teil, idx, tr("Rangfolge der Bezüge"))
+            return
         if len(systeme) != 1:
             self._unvollstaendig(teil, idx, tr("Verschiedene Bezugssysteme"))
             return
@@ -268,7 +297,7 @@ class Messmerkmale:
         refs = next(iter(systeme))
         if not refs:
             return
-        merkmale = self._bezugssystem(teil, idx, refs)
+        merkmale, abbildungen = self._bezugssystem(teil, idx, refs)
         if not merkmale:
             return
         # Nur die von der Zone gebundenen Bewegungen ihres zugeordneten Bezugsrahmens weitergeben.
@@ -280,8 +309,9 @@ class Messmerkmale:
         anteile, rest = _rahmenanteile(merkmale, self.punkt, ursprung)
         if rest > 1e-7 * max(1., np.linalg.norm(ursprung)):
             self._unvollstaendig(teil, idx, tr("Offener Freiheitsgrad im Bezugssystem"))
-        for i, k in anteile.items():
-            self.verfolge(teil, i, k, (*besucht, idx))
+        for rang, k in anteile.items():
+            for i, abbildung in abbildungen[rang].items():
+                self.verfolge(teil, i, k @ abbildung, (*besucht, idx))
 
     def groesse_am_punkt(self, teil, idx, kraft):
         """Groessentoleranz eines Zylinders am angeklickten Mantelpunkt; die Achse bleibt dabei ortsfest."""
@@ -335,5 +365,6 @@ class Messmerkmale:
             if grenzen is None:
                 self._unvollstaendig(teil, idx, tr("Geometrie der Toleranzzone"))
             elif max(abs(w) for w in grenzen) > 1e-12:
-                out.append(Anteil(teil, idx, *grenzen, ", ".join(p.wert_text() for p in angaben)))
+                texte = [p.wert_text() for p in angaben] + sorted(self.bezugsmodelle[teil, idx])
+                out.append(Anteil(teil, idx, *grenzen, ", ".join(texte)))
         return out

@@ -125,7 +125,7 @@
 | Assembly: add further files as parts ("Add model"; own tree node, placed next to the model, PMI kept, in the project) | ✅ |
 | Assembly: drag a part in 3D in its open DOF with live snapping (plane/plane, coaxial), release connects; also at the 3D handle | ✅ |
 | Assembly: STEP AP242 kinematics (joints, limits) as connections – researched, OCCT parses but does not transfer; needs a sample file | ⬜ |
-| Tolerance stack-up 3D (geometric tolerances, chain from the model, sensitivity) – PLAN §8.20: by hand ✅ (§8.33), automatically from the model 🟡 (connections + measured faces; measured planes/straight axes supported, compound datum and deformation cases open) | 🟡 |
+| Tolerance stack-up 3D (geometric tolerances, chain from the model, sensitivity) – PLAN §8.20: by hand ✅ (§8.33), automatically from the model 🟡 (connections, measured planes and straight axes, common bearing axes and coplanar datum pads) | 🟡 |
 | Assemblies built in the project (mates on datum features), materials and thermal expansion in chains | ✅ |
 | Wiggle within tolerances (assembly connections, extreme positions, 1:1 or exaggerated); worst-case position scatter per part | ✅ |
 | Assembly variation: measures between parts (gap/flush), worst case and Monte Carlo over all connections, requirement with Cpk/share outside, contributor ranking, PDF, example | ✅ |
@@ -135,7 +135,8 @@
 | Assembly variation: datum shift (MMC/LMC bonus in connections) | ✅ |
 | Assembly variation: one-sided planar stops in worst case and Monte Carlo, explicit per connection | ✅ |
 | Assembly variation: measured planes and axes in their datum frame, lever arm at the measuring point, incomplete inputs indicated in the UI, PDF and chain | ✅ |
-| Assembly variation: deformable form, common multi-feature datums and additional material/projection modifiers on measured features | ⬜ |
+| Assembly variation: common datum axis from separate coaxial bearing seats, common plane from coplanar pads, individual member contributions | ✅ |
+| Assembly variation: deformable form, other common datum geometries, datum simulator contact and additional material/projection modifiers | ⬜ |
 | 3D chain from an assembly measure (one link per part on the connection path, clearance limits per component) | ✅ |
 | Wiggle of the closing faces at the worst-case limits (exaggerated, coloured against the requirement) | ✅ |
 | Chain from faces: median planes as chain ends, chains across parts with joint links from assembly connections | ✅ |
@@ -227,6 +228,7 @@
 | Gearbox reverse engineering for an individual gear, selected parts or all visible components, including disconnected wheels inside a single STL/OBJ mesh or CAD compound | ✅ |
 | Stepped gears: distinguish axial tooth bands on a single solid or connected mesh, including tooth-count changes across a shoulder | ✅ |
 | Multistage power flow with selectable reference shaft, branches, independent gear trains, cycle checks and mixed spur/bevel/worm stages | ✅ |
+| Operating speeds and directions through worm stages and connected shafts, referred to the displayed positive shaft axes | ✅ |
 | Operating speeds across coupled spur, bevel and simple planetary stages, reverted trains with separate coaxial input/output shafts, star operation with a fixed carrier, and symmetric open bevel differentials with selectable carrier axis | ✅ |
 | Stepped planetary sets with two tooth bands on each one-piece planet: sun-side and ring-side mesh assignment, carrier ratio, operating speeds and REXS planet shafts | ✅ |
 | Ravigneaux recognition and four-shaft operating speeds with a shared carrier, verified through STEP and STL | ✅ |

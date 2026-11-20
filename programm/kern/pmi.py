@@ -66,12 +66,16 @@ class BezugsRef:
     name: str
     stelle: int = 1  # 1 primaer, 2 sekundaer, 3 tertiaer
     modifikatoren: list[str] = field(default_factory=list)
+    element_modifikatoren: dict[str, list[str]] = field(default_factory=dict)
 
     def text(self) -> str:
-        mods = "".join(MAT_SYMBOL.get(m[0], "") if m in ("MaximumMaterialRequirement",
-                                                          "LeastMaterialRequirement") else ""
-                       for m in self.modifikatoren)
-        return self.name + mods
+        def symbole(modifikatoren):
+            return "".join(MAT_SYMBOL[m[0]] for m in modifikatoren
+                           if m in ("MaximumMaterialRequirement", "LeastMaterialRequirement"))
+
+        name = "-".join(n + symbole(self.element_modifikatoren.get(n, ())) for n in self.name.split("-"))
+        fach = symbole(self.modifikatoren)
+        return f"({name}){fach}" if fach and "-" in name else name + fach
 
 
 @dataclass

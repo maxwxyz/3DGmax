@@ -256,7 +256,7 @@ def test_pmi_liste_name_ansichten_bezuege(app, tmp_path, monkeypatch):
     assert 0 < len(p.sichtbare()) <= 3
     p.suche.setText("")
     # Toleranz D | E-F-G -> Bezuege D, E, F, G waehlen
-    tol = next(q for q in p.pmi if q.bezug_text() == "D|E-F-G")
+    tol = next(q for q in p.pmi if q.bezug_text() == "D|EⓂ-FⓂ-GⓂ")
     assert p.waehle_bezuege([tol]) == 4
     a = next(q for q in p.pmi if q.art == "bezug" and q.name == "A")
     assert p.waehle_mit_bezug([a]) > 10

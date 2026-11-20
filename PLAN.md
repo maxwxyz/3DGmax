@@ -882,9 +882,15 @@ Current coverage (2026-11-20), superseding the earlier progress notes below:
   Per-feature worst-case bounds and independently sampled projected contributions appear in the ranking
   and the exported 3D chain. Repeated instances have separate feature contributions. Combined
   cylindrical position and orientation constraints support arbitrary measuring directions at the two ends.
+- A common datum such as A-B occupies a single precedence level. For separate coaxial cylindrical
+  bearing seats the rigid variation model fits an axis to the displaced seat centres with equal
+  weight per seat. For coplanar pads facing the same way it fits a plane weighted by surface area.
+  Each member retains its own tolerance contribution at the measurement location. This model
+  describes nominal rigid feature variation. Physical datum simulator contact needs a separate model.
 - Unknown or unsupported inputs follow the measure into the UI, PDF and chain. Incomplete measures
-  suppress the requirement verdict. Remaining cases include deformable form, common multi-feature datums,
-  projected zones and material-condition modifiers on measured features. Curved boundaries are sampled.
+  suppress the requirement verdict. Remaining cases include deformable form, other common datum
+  geometries, projected zones and material-condition modifiers. STEP modifiers on individual
+  common datum members retain their member assignment. Curved boundaries are sampled.
 Request: build assemblies, set up functional dimension chains ("Funktionsmaßketten", FMK – assumed meaning) from the
 PMI, recognize or assign materials, take temperatures and thermal expansion into account, compute stack-ups, and
 move parts within their tolerances (1:1 and exaggerated) in worst case or per tolerance / chain ("wiggle") to find
@@ -1285,6 +1291,10 @@ tools (the user names MASTA as an example of a tool that needs these inputs), an
 - A throated wheel and a low-start screw can form a candidate worm pair. The check compares axis angle
   and position, waist, pitch, hand and tooth trace. A 2-start/18-tooth control and incompatible placements
   test the assignment. Conjugacy and load capacity require further data and verification.
+- The operating point propagates signed speeds through the worm pair and connected shafts. Magnitude
+  follows the ratio of worm starts to wheel teeth. Hand, wheel placement and the displayed positive
+  shaft axes determine the sign. Solving backwards gives a kinematic speed relation. Assessing
+  self-locking under load requires friction data. [KHK worm gear technical information](https://khkgears.net/pdf/worm-tech.pdf)
 - Gearbox reverse engineering accepts a single gear, a selection of components or a complete visible
   gearbox. The same analysis handles B-rep solids and disconnected bodies in a triangle mesh. Real
   STL and OBJ imports were checked with an inclined helical gear and four gears on three shafts.
@@ -1327,8 +1337,8 @@ tools (the user names MASTA as an example of a tool that needs these inputs), an
   equal output speeds. Limited slip admits differentiation and provides torque bounds under
   stated steady driving conditions. CSV, JSON and PDF record the selected assumptions and results.
   [Torque bias ratio](https://torsen.com/faqs/what-is-tbr/)
-- Measured component-specific friction laws, transient lock engagement, overrun characteristics
-  and signed speeds through worm pairs remain open.
+- Measured component-specific friction laws, transient lock engagement and overrun characteristics
+  remain open.
 - Cylindrical pairs require axial overlap, used in the overlap ratio. Flank maps show sampled deviations on
   both flanks over the working width and radius, averaged across teeth. CSV and JSON include the numerical
   map. The PDF includes the data sheets, maps and sourced design findings. Individual-tooth scatter,

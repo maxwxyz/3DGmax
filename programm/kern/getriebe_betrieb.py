@@ -1,4 +1,4 @@
-"""Drehzahlen gekoppelter Stirnrad-, Kegelrad- und Umlaufstufen berechnen."""
+"""Drehzahlen gekoppelter Stirnrad-, Kegelrad-, Schnecken- und Umlaufstufen berechnen."""
 
 from __future__ import annotations
 
@@ -10,7 +10,7 @@ import numpy as np
 
 from ..i18n import tr
 from . import verzahnung_daten as vd
-from .verzahnung_sonder import kegelpaar_kandidaten
+from .verzahnung_sonder import Schneckenpaar, kegelpaar_kandidaten, schneckenpaar_kandidaten
 
 
 def _positive_achse(d):
@@ -157,9 +157,9 @@ def _loesen(anzahl, gleichungen):
 
 
 class Betriebsmodell:
-    """Benannte Wellen und lineare Drehzahlgleichungen im gemeinsamen Drehsinn paralleler Achsen."""
+    """Benannte Wellen und lineare Drehzahlgleichungen, bezogen auf die positive Achse jeder Welle."""
 
-    def __init__(self, liste, paare, *, getrennte_wellen=False):
+    def __init__(self, liste, paare, *, getrennte_wellen=False, schneckenpaare=None):
         from .verzahnung import Verzahnung
         from .schraegraddifferential import schraegradgruppen
         self.liste = liste
@@ -187,9 +187,14 @@ class Betriebsmodell:
         self.namen = [" + ".join(liste[i].teil for i in g) for g in self.gruppen]
         self.achsteil = [g[0] for g in self.gruppen]
         self.feste_paare = []
-        for p in [*paare, *kegel]:
+        if schneckenpaare is None:
+            schneckenpaare = schneckenpaar_kandidaten(liste)
+        self.schneckenstufen = []
+        for p in [*paare, *kegel, *schneckenpaare]:
             i, j = idx[id(p.a)], idx[id(p.b)]
             wa, wb = self.welle[i], self.welle[j]
+            if wa == wb:
+                continue
             ea = _positive_achse(liste[self.achsteil[wa]].richtung)
             eb = _positive_achse(liste[self.achsteil[wb]].richtung)
             if isinstance(p.a, Verzahnung):
@@ -197,11 +202,18 @@ class Betriebsmodell:
                     continue
                 sinn = -1 if p.a.innen or p.b.innen else 1
                 sinn *= 1 if ea @ eb > 0 else -1
+            elif isinstance(p, Schneckenpaar):
+                drehsinn = p.drehsinn(ea, eb)
+                sinn = -drehsinn
+                self.schneckenstufen.append({"schnecke": i, "schneckenrad": j, "wellen": [wa, wb],
+                                             "gangzahl": p.a.z, "zaehnezahl": p.b.z,
+                                             "hand": "rechts" if p.a.phase > 0 else "links",
+                                             "bedingung": "eingriff_vorausgesetzt", "ruecktreibbarkeit": "unbestimmt",
+                                             "n_rad_durch_n_schnecke": drehsinn * p.a.z / p.b.z})
             else:
                 # Die gemessenen Kegelachsen weisen vom Scheitel nach aussen.
                 sinn = 1 if (p.a.richtung @ ea) * (p.b.richtung @ eb) > 0 else -1
-            if wa != wb:
-                self.feste_paare.append((i, j, {wa: p.a.z, wb: sinn * p.b.z}))
+            self.feste_paare.append((i, j, {wa: p.a.z, wb: sinn * p.b.z}))
 
     def betrieb(self, auswahl=None):
         """Ein Steg je Satz. Nicht eindeutig bestimmte Differentialachsen brauchen eine Auswahl."""
@@ -244,7 +256,8 @@ class Betriebsmodell:
                     zeilen.append((gleichung, 0.))
             beschreibung.append({"art": s.art, "raeder": list(s.zentralraeder), "umlaufraeder": list(s.umlauf),
                                  "wellen": wellen, "koeffizienten": matrix[0] if len(matrix) == 1 else matrix})
-        return Betrieb(self, namen, achsen, sorted(ports), zeilen, beschreibung)
+        schnecken = [s for s in self.schneckenstufen if umlauf.isdisjoint(s["wellen"])]
+        return Betrieb(self, namen, achsen, sorted(ports), zeilen, beschreibung, schnecken)
 
 
 @dataclass
@@ -255,6 +268,7 @@ class Betrieb:
     ports: list
     zeilen: list
     saetze: list
+    schneckenstufen: list
 
     def koppelbar(self, i, j):
         teile = self.modell.liste
@@ -281,5 +295,5 @@ class Betrieb:
         return {"saetze": self.saetze, "wellen": [{"id": i, "name": self.namen[i], "vorgabe": drehzahlen.get(i),
                 "drehzahl": werte[i], "status": "widerspruch" if i in konflikt else
                 "frei" if werte[i] is None else "bestimmt"} for i in self.ports],
-                "kupplungen": list(kupplungen), "einheit": "1/min",
+                "kupplungen": list(kupplungen), "einheit": "1/min", "schneckenstufen": self.schneckenstufen,
                 "differentialsperren": momentdaten(faelle, kupplungen, konflikt, werte, self)}

@@ -91,7 +91,7 @@ class VerzahnungFenster(QtWidgets.QDialog):
         self.bezugswelle.currentIndexChanged.connect(self._bezug_geaendert)
         from .getriebe_betrieb_ui import BetriebspunktSeite
         self.betriebspunkt = BetriebspunktSeite(self.liste, self.paare,
-                                                any(isinstance(p, Schneckenpaar) for p in self.sonderpaare))
+                                                [p for p in self.sonderpaare if isinstance(p, Schneckenpaar)])
         self.betriebspunkt.achseGeaendert.connect(self._achse_geaendert)
         self.reiter.addTab(self.betriebspunkt, tr("Betriebspunkt"))
         self._reiter_zeigen(self.betriebspunkt, self.betriebspunkt.verfuegbar())

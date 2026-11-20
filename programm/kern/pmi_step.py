@@ -116,8 +116,26 @@ def _bezug_mods(datei: P21Datei, e: Entity) -> list[str]:
                     out.append(BEZUG_MODS.get(m.args[0].name, m.args[0].name))
                 elif isinstance(m, Enum):
                     out.append(BEZUG_MODS.get(m.name, m.name))
+                elif isinstance(m, Ref):
+                    merkmal = datei.get(m)
+                    out.append(merkmal.typ if merkmal is not None else "?")
+                elif isinstance(m, Typed):
+                    out.append(m.typ)
             return out
     return []
+
+
+def _element_modifikatoren(datei, basis):
+    """Modifikatoren am Einzelbezug einer COMMON_DATUM_LIST gelten nur fuer diesen Sitz."""
+    if isinstance(basis, Typed) and basis.typ == "COMMON_DATUM_LIST":
+        basis = basis.args[0] if len(basis.args) == 1 and isinstance(basis.args[0], list) else basis.args
+    out = {}
+    if isinstance(basis, list):
+        for ref in basis:
+            e = datei.get(ref) if isinstance(ref, Ref) else None
+            if e is not None and (mods := _bezug_mods(datei, e)):
+                out[_bezug_name(datei, ref)] = mods
+    return out
 
 
 def _bezugssystem(datei: P21Datei, refs) -> list[BezugsRef]:
@@ -129,8 +147,9 @@ def _bezugssystem(datei: P21Datei, refs) -> list[BezugsRef]:
         if e.is_a("DATUM_SYSTEM"):
             for stelle, fach in enumerate(e.args("DATUM_SYSTEM")[4], 1):
                 fe = datei.get(fach)
-                name = _bezug_name(datei, _basis(fe))
-                out.append(BezugsRef(name, stelle, _bezug_mods(datei, fe)))
+                basis = _basis(fe)
+                out.append(BezugsRef(_bezug_name(datei, basis), stelle, _bezug_mods(datei, fe),
+                                     _element_modifikatoren(datei, basis)))
         elif e.is_a("DATUM_REFERENCE"):
             # AP242 e1 / AP214: DATUM_REFERENCE(precedence, datum)
             prez, dat = e.args("DATUM_REFERENCE")[:2]

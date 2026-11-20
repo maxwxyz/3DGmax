@@ -106,7 +106,9 @@
    "Getriebe analysieren berechnet Drehzahlen über mehrere gekoppelte Stirnrad-, Kegelrad- und Planetenstufen. Fester Steg, bewegliche Zentralräder und offene symmetrische Kegelraddifferentiale lassen sich mit eigenen Drehzahlvorgaben untersuchen. Bei mehrdeutigem Differentialkreuz ist die Trägerachse wählbar. CSV, JSON und PDF enthalten den Betriebspunkt. Für rückkehrende Stirnradzüge lassen sich gleichachsige Ein- und Abtriebswellen getrennt zuordnen. Der REXS-Export unterscheidet Sonnen-, Hohlrad- und Planetenwellen.",
    "Getriebe analysieren erkennt einteilige Stufenplaneten mit getrennten Zahnbändern für Sonne und Hohlrad. Kraftfluss und Betriebspunkt berücksichtigen beide Zähnezahlen. Der REXS-Export ordnet beide Zahnbänder derselben Planetenwelle zu. Die Kopfspiele werden auch bei umgekehrter Radreihenfolge und identischen Teilnamen richtig zugeordnet.",
    "Die Getriebeanalyse erkennt klassische Ravigneaux-Sätze aus STEP- und Mesh-Baugruppen. Sie berechnet Drehzahlen für beide Sonnen, Hohlrad und gemeinsamen Steg und übernimmt die tatsächlichen Eingriffe in den REXS-Export.",
-   "Für symmetrische Kegelrad- und paarweise kämmende Schrägraddifferentiale lassen sich offener Betrieb, starre Sperre, Torque Bias Ratio und Lamellenkupplung vorgeben. Der Betriebspunkt zeigt die daraus bestimmbaren Drehzahlen und Momentengrenzen auch in CSV, JSON und PDF."
+   "Für symmetrische Kegelrad- und paarweise kämmende Schrägraddifferentiale lassen sich offener Betrieb, starre Sperre, Torque Bias Ratio und Lamellenkupplung vorgeben. Der Betriebspunkt zeigt die daraus bestimmbaren Drehzahlen und Momentengrenzen auch in CSV, JSON und PDF.",
+   "Der Getriebe-Betriebspunkt berechnet Drehzahl und Drehrichtung über eingreifende Schneckenstufen und ihre Nachbarstufen. Die Vorzeichen beziehen sich auf die angezeigten Wellenachsen.",
+   "Die 3D-Toleranzanalyse berücksichtigt gemeinsame Bezugsachsen aus koaxialen Lagersitzen und gemeinsame Bezugsebenen aus koplanaren Auflagen. Die Beiträge der einzelnen Flächen bleiben sichtbar. Bei STEP-Bezügen bleiben Materialmodifikatoren den einzelnen Mitgliedern zugeordnet."
   ],
   "en": [
    "Assembly: drag parts in 3D with the left mouse button (classic navigation: with Alt) – only along the open degrees of freedom; close to a matching plane or axis the part snaps live (faces highlighted), releasing creates the connection; the 3D handle snaps the same way.",
@@ -214,7 +216,9 @@
    "Analyse gearbox calculates speeds across coupled cylindrical, bevel and planetary stages. Set shaft speeds to evaluate fixed-carrier star operation, moving central gears and symmetric open bevel differentials. Select the carrier axis when the bevel cross admits two assignments. CSV, JSON and PDF include the operating point. Reverted gear trains can have separate coaxial input and output shafts. REXS export distinguishes sun, ring and planet shafts.",
    "Analyse gearbox recognises one-piece stepped planets with separate sun-side and ring-side tooth bands. Power flow and operating speeds account for both tooth counts. REXS places both tooth bands on the same planet shaft. Gear tip clearances are assigned correctly with reversed gear order and duplicate part names.",
    "Gearbox analysis recognises classic Ravigneaux sets in STEP and mesh assemblies. It calculates speeds for both suns, the ring and the common carrier and exports their actual meshes to REXS.",
-   "Symmetric bevel and paired-pinion helical differentials support open, rigidly locked, torque bias ratio and plate-clutch operating modes. The operating point shows the resulting speeds and torque bounds in the dialog and in CSV, JSON and PDF."
+   "Symmetric bevel and paired-pinion helical differentials support open, rigidly locked, torque bias ratio and plate-clutch operating modes. The operating point shows the resulting speeds and torque bounds in the dialog and in CSV, JSON and PDF.",
+   "The gearbox operating point calculates signed speeds through meshing worm stages and connected stages. Speed signs refer to the displayed shaft axes.",
+   "3D tolerance analysis supports common datum axes from coaxial bearing seats and common datum planes from coplanar pads. Each face retains its contribution. STEP datum modifiers remain associated with their individual members."
   ]
  },
  "releases": [

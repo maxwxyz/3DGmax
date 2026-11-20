@@ -10,6 +10,25 @@ def _aendere(p, **werte):
     p.bearbeitet = True
 
 
+def test_ap242_modifikator_am_zweiten_mitglied_des_gemeinsamen_bezugs(tmp_path):
+    from programm.kern import step_schreiben as sw
+    from programm.kern.pmi import BezugsRef, Pmi
+    from programm.ui.lader import lade_alles
+
+    quelle = pfad("nist_ftc_10_asme1_ap242-e2.stp")
+    a = lade_alles(quelle)
+    pos = next(p for p in a.pmi if p.typ == "Position" and p.flaechen)
+    bezug = BezugsRef("E-F", element_modifikatoren={"F": ["MaximumMaterialRequirement"]})
+    p = Pmi("toleranz", "Position", "Kontrolle EF", wert=.1, bezuege=[bezug], quelle="eigen",
+            nummer=901, step_id=-901, flaechen=pos.flaechen, modifikatoren=["Diameter"])
+    ziel = str(tmp_path / "gemeinsamer_bezug.stp")
+    bericht = sw.schreibe(quelle, ziel, [*a.pmi, p], a.modell)
+    assert bericht.neu == [901]
+    neu = next(t for t in lade_alles(ziel).pmi if t.name == p.name)
+    assert neu.bezuege == [bezug] and neu.bezug_text() == "E-FⓂ"
+    assert BezugsRef("E-F", modifikatoren=["MaximumMaterialRequirement"]).text() == "(E-F)Ⓜ"
+
+
 def test_werte_schreiben_nur_geaenderte(tmp_path):
     from programm.kern import step_schreiben as sw
     from programm.ui.lader import lade_alles

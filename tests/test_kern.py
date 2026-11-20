@@ -85,7 +85,7 @@ def test_ftc10_modifikatoren(ftc10):
     assert len(tol) == 40
     assert "⌖ | ⌀1Ⓜ | A | B | C" in tol
     assert "⌖ | ⌀0.8 Ⓟ3.2 | D | E | B" in tol
-    assert "⌖ | ⌀0.8 | D | E-F-G" in tol
+    assert "⌖ | ⌀0.8 | D | EⓂ-FⓂ-GⓂ" in tol
     masse = [p.wert_text() for p in _art(lies_pmi(ftc10), MASS)]
     assert "⌀3.5 G6" in masse
 

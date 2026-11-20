@@ -385,6 +385,11 @@ Alle Verbindungen streuen zugleich in ihren Spielräumen:</p>
 <li><b>Soll</b> per Doppelklick (z. B. <code>3,8 … 4,2</code>, <code>≥ 1</code>): Anteil außerhalb und Cpk.</li>
 <li><b>Beitragende</b> der gewählten Messgröße: Worst-Case-Bereich, wenn nur diese Verbindung streut, und ihr
 Varianzanteil – so sieht man, welche Toleranz man ändern muss.</li>
+<li>Verweist eine Toleranz auf einen <b>gemeinsamen Bezug A-B</b>, wertet die Analyse beide Flächen
+im selben Rang aus. Bei zwei koaxialen Lagersitzen verläuft die Bezugsachse durch die versetzten Sitzmitten.
+Bei weiteren Sitzen zählen alle Mitten gleich. Koplanare, gleichgerichtete Auflagen ergeben eine
+flächengewichtete Ausgleichsebene. Die Tabelle zeigt den Beitrag jeder Fläche am Messort.
+Diese Rechnung beschreibt starre Merkmale. Bei ungeklärter Bezugsgeometrie bleibt die Sollbewertung offen.</li>
 <li>Hängt die Messgröße von offenen Freiheitsgraden ab, steht ein Hinweis darunter: die Teile erst vollständig
 verbinden. <b>Als PDF …</b> speichert Verbindungen, Ergebnisse und Beitragende. Beispiel: <b>Datei › Beispiele ›
 Baugruppenvariation</b>.</li>
@@ -458,8 +463,13 @@ etwa das Abtriebsrad einer Stirnradstufe mit der Sonne oder den Steg eines Satze
 Liegen Antrieb und Abtrieb eines Stirnradzugs auf derselben Achse, wählen Sie im Betriebspunkt die getrennte
 Zuordnung gleichachsiger Räder. Koppeln Sie dann die tatsächlich verbundenen Räder der Zwischenwelle.
 Vorgegebene Drehzahlen gelten als exakt. Lassen Sie abgeleitete Drehzahlen deaktiviert, damit das Programm
-sie mit voller Genauigkeit berechnet. Die Rechnung kennzeichnet freie Drehzahlen und widersprüchliche Vorgaben. Schneckenpaare erscheinen im Kraftfluss.
+sie mit voller Genauigkeit berechnet. Die Rechnung kennzeichnet freie Drehzahlen und widersprüchliche Vorgaben.
 CSV, JSON und PDF übernehmen den Betriebspunkt.</p>
+<p>Bei einer <b>Schneckenstufe</b> zeigt der Betriebspunkt die Drehzahl mit Vorzeichen zur angegebenen
+positiven Wellenachse. Eine zweigängige Schnecke mit 900 U/min ergibt an einem Rad mit 18 Zähnen
+100 U/min. Die Drehrichtung hängt von der Gangrichtung und der Einbaulage ab. Eine Vorgabe am
+Schneckenrad erlaubt die kinematische Rückrechnung. Ob das Rad die Schnecke unter Last antreiben
+kann, hängt auch von der Reibung ab.</p>
 <p>STEP-Körper und Dreiecksnetze wie STL und OBJ können auch mehrere getrennte Räder in einem Objekt enthalten.
 Bei einer einteiligen Stufenwelle werden erkennbare Zahnbänder einzeln mit ihrer Lage, Breite und Zähnezahl ausgewiesen.
 Je feiner die Flanken im Netz aufgelöst sind, desto genauer lässt sich die Evolvente anpassen. Der Fitfehler steht

@@ -2316,7 +2316,6 @@
 "Offenes Kegelraddifferential {}": "Open bevel gear differential {}",
 "Planetensatz": "Planetary gearset",
 "Positive Achse (X, Y, Z)": "Positive axis (X, Y, Z)",
-"Schneckenstufen sind im Kraftfluss enthalten. Der Betriebspunkt berechnet die Drehzahlen der übrigen Stufen.": "Worm stages are listed under Power flow. The operating point calculates the speeds of the other stages.",
 "Seitenrad A": "Side gear A",
 "Seitenrad B": "Side gear B",
 "Seitenräder A / B": "Side gears A / B",
@@ -2381,5 +2380,13 @@
 "M_K max.": "Max. M_K",
 "Maximales Kupplungsmoment A–B": "Maximum clutch torque between A and B",
 "Maximales Kupplungsmoment zwischen A und B für diesen Betriebspunkt eingeben.": "Enter the maximum clutch torque between A and B for this operating point.",
-"Die Lamellenkupplung überträgt höchstens M_K zwischen den Seitenrädern A und B. Im stationären Zugbetrieb mit zwei nichtnegativen Seitenmomenten gilt M_A + M_B = M_C und |M_A − M_B| ≤ 2 M_K. Bei Schlupf wirkt Reibung der Relativdrehung entgegen.": "The plate clutch transfers up to M_K between side gears A and B. In steady driving with two nonnegative output torques, M_A + M_B = M_C and |M_A − M_B| ≤ 2 M_K. During slip, friction opposes relative rotation."
+"Die Lamellenkupplung überträgt höchstens M_K zwischen den Seitenrädern A und B. Im stationären Zugbetrieb mit zwei nichtnegativen Seitenmomenten gilt M_A + M_B = M_C und |M_A − M_B| ≤ 2 M_K. Bei Schlupf wirkt Reibung der Relativdrehung entgegen.": "The plate clutch transfers up to M_K between side gears A and B. In steady driving with two nonnegative output torques, M_A + M_B = M_C and |M_A − M_B| ≤ 2 M_K. During slip, friction opposes relative rotation.",
+"Schnecke": "Worm",
+"Schneckenrad": "Worm wheel",
+"Schneckenstufe W{} → W{}": "Worm stage W{} → W{}",
+"Die Drehzahlen setzen den Eingriff des erkannten Schneckenpaars voraus. Ob das Rad die Schnecke unter Last antreiben kann, hängt von der Reibung ab.": "The speeds assume the identified worm and wheel are in mesh. Whether the wheel can drive the worm under load depends on friction.",
+"Gemeinsamer Bezug {}: Achse aus Sitzmitten": "Common datum {}: axis through seat centres",
+"Gemeinsamer Bezug {}: flächengewichtete Ausgleichsebene": "Common datum {}: area-weighted fitted plane",
+"Bezugsmodifikator nicht schreibbar": "Cannot write the datum modifier",
+"Rangfolge der Bezüge": "Datum precedence"
 }

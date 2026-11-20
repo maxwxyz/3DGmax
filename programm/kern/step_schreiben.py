@@ -266,17 +266,28 @@ def _schreibe_bezug(a: _Anhang, p) -> str | None:
     return None
 
 
-def _bezug_basis(a: _Anhang, name: str) -> str:
+def _bezug_mods(mods) -> str:
+    from .pmi_step import BEZUG_MODS
+    if not mods:
+        return "$"
+    enums = {name: key for key, name in BEZUG_MODS.items()}
+    return "(" + ",".join(f"SIMPLE_DATUM_REFERENCE_MODIFIER(.{enums[m]}.)" for m in mods) + ")"
+
+
+def _bezug_basis(a: _Anhang, b) -> str:
     """Basis eines Abteils im Bezugssystem: der Bezug oder bei 'A-B' eine Liste gemeinsamer Bezugselemente."""
-    teile = name.split("-")
+    teile = b.name.split("-")
     if len(teile) == 1:
-        return f"#{a.bezug(name)}"
-    elemente = [a.neu(f"DATUM_REFERENCE_ELEMENT('',$,#{a.pds},.F.,#{a.bezug(n)},$)") for n in teile]
+        return f"#{a.bezug(b.name)}"
+    elemente = []
+    for n in teile:
+        mods = _bezug_mods(b.element_modifikatoren.get(n, ()))
+        elemente.append(a.neu(f"DATUM_REFERENCE_ELEMENT('',$,#{a.pds},.F.,#{a.bezug(n)},{mods})"))
     return "COMMON_DATUM_LIST((" + ",".join(f"#{e}" for e in elemente) + "))"
 
 
 def _schreibe_toleranz(a: _Anhang, p) -> str | None:
-    from .pmi_step import TOL_ARTEN
+    from .pmi_step import BEZUG_MODS, TOL_ARTEN
     entitaet = {v: k for k, v in TOL_ARTEN.items()}.get(p.typ)
     if entitaet is None or p.wert is None:
         return tr("Toleranzart nicht schreibbar")
@@ -286,13 +297,19 @@ def _schreibe_toleranz(a: _Anhang, p) -> str | None:
     fehlend = [n for b in p.bezuege for n in b.name.split("-") if a.bezug(n) is None]
     if fehlend:
         return tr("Bezug {} fehlt in der Datei").format(", ".join(fehlend))
+    for b in p.bezuege:
+        if b.element_modifikatoren and ("-" not in b.name or b.element_modifikatoren.keys() - set(b.name.split("-"))):
+            return tr("Bezugsmodifikator nicht schreibbar")
+        gruppen = [b.modifikatoren, *b.element_modifikatoren.values()]
+        if any(m not in BEZUG_MODS.values() for gruppe in gruppen for m in gruppe):
+            return tr("Bezugsmodifikator nicht schreibbar")
     sa = a.aspekt(p.flaechen)
     if sa is None:
         return tr("Flächen ohne Entsprechung in der Datei")
     betrag = a.mass(p.wert)
     teile = {entitaet: "()"}
     if p.bezuege:
-        abteile = [a.neu(f"DATUM_REFERENCE_COMPARTMENT('',$,#{a.pds},.F.,{_bezug_basis(a, b.name)},$)")
+        abteile = [a.neu(f"DATUM_REFERENCE_COMPARTMENT('',$,#{a.pds},.F.,{_bezug_basis(a, b)},{_bezug_mods(b.modifikatoren)})")
                    for b in sorted(p.bezuege, key=lambda b: b.stelle)]
         system = a.neu(f"DATUM_SYSTEM('',$,#{a.pds},.F.,({','.join(f'#{x}' for x in abteile)}))")
         teile["GEOMETRIC_TOLERANCE_WITH_DATUM_REFERENCE"] = f"((#{system}))"

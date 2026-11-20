@@ -2,14 +2,28 @@
 
 ## Current state, 2026-11-20
 
-### Next work after Ravigneaux and differential operating points
+### Worm stage speeds and common datums in assembly variation
 
-PLAN §§8.27, 8.33 and 8.37 and the Roadmap retain tolerance and gear analysis as the current
-priority. A concrete next gear task is to propagate signed speeds through a worm pair in the
-operating point. The power-flow view already recognises the pair. In parallel, automatic 3D
-tolerance analysis still has open cases for common multi-feature datums and measured-feature
-modifiers. The plan sets no strict order between these tasks. Drawing comparison precedes 3D
-reconstruction from drawings, with the remaining QIF work last.
+- The operating point resolves rotation about each displayed shaft axis from the worm hand,
+  contact side, number of starts and wheel tooth count. Both STEP and STL imports of a generated
+  left-hand pair gave −100 rpm at the 18-tooth wheel for +900 rpm at the two-start worm.
+  A downstream 16:32 spur pair reverses and halves the wheel speed. The UI and CSV, JSON and PDF
+  report the result. The equations assume engagement. Backdrivability under load is unknown.
+- Assembly variation treats A-B as one reference. Each coaxial bearing seat contributes its
+  centre displacement to the fitted axis. Coplanar pads facing the same way contribute to an
+  area-weighted plane. The model propagates each member's displacement to the measurement
+  location, including points beyond the supporting seats. A STEP write/read test uses the example
+  gearbox shaft. The assembly measurement, contributor ranking and exported 3D chain agree with
+  the analytic interpolation and extrapolation results.
+- The AP242 reader and writer retain simple modifiers on individual datum reference elements.
+  In the NIST FTC-10 file, E, F and G each carry their own maximum material modifier. Such
+  conditions need an additional physical datum model and leave the requirement verdict open.
+- Checked PLAN §§8.20, 8.27 and 8.37 and the Roadmap. Among the remaining items are material
+  and projected zones on measured features, deformable form, bevel spiral angle and hand, and
+  component-specific friction and locking characteristics. Drawing comparison precedes
+  reconstruction from drawings, with remaining QIF work last.
+- All 264 affected tests passed. The overlapping 86-test mechanics and STEP integration selection
+  and the English UI translation check also passed.
 
 ### Ravigneaux gearsets and limited-slip differentials
 
@@ -65,8 +79,6 @@ reconstruction from drawings, with the remaining QIF work last.
   gives +200 rpm at the ring. In a synthetic three-bevel differential, STEP and STL independently
   give +1,000 rpm at the second side gear with the first held and the carrier at +500 rpm. Tests also
   cover two cascaded planetary sets, a symmetric four-gear cross and opposite signed axis conventions.
-- Worm pairs are considered by the
-  power-flow view. Operating speeds across a worm stage need a signed mesh relation.
 - Corrected the REXS planetary stage hierarchy. Both central shafts, each planet shaft and their
   actual meshes have separate roles. Confirmed tooth bands on one physical body keep a shared
   identity even when other coaxial wheels are assigned to independent shafts.

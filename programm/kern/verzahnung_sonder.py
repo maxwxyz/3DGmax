@@ -417,6 +417,15 @@ class Schneckenpaar:
     achsabstand: float
     achswinkel: float
 
+    def drehsinn(self, schneckenachse, radachse):
+        """Vorzeichen von n_Rad/n_Schnecke um die beiden positiven Wellenachsen."""
+        w, rad = self.a, self.b
+        # Der Kamm einer Rechtsschnecke wandert bei positiver Drehung axial nach hinten.
+        # Das Spatprodukt bestimmt die Eingriffsseite unabhaengig vom Achspunkt.
+        seite = np.cross(w.richtung, rad.richtung) @ (rad.punkt - w.punkt)
+        orientierung = (w.richtung @ schneckenachse) * (rad.richtung @ radachse)
+        return 1 if w.phase * seite * orientierung > 0 else -1
+
     def zeilen(self):
         return [(tr("Zuordnung"), tr("Mögliches Schneckenradpaar")),
                 (tr("Achswinkel"), f"{self.achswinkel:.2f}°"),

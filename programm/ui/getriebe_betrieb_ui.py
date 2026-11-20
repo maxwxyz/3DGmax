@@ -18,12 +18,12 @@ def _wert(zahl):
 class BetriebspunktSeite(QtWidgets.QWidget):
     achseGeaendert = QtCore.Signal()
 
-    def __init__(self, liste, paare, hat_schneckenstufe=False):
+    def __init__(self, liste, paare, schneckenpaare=None):
         super().__init__()
-        self.standardmodell = Betriebsmodell(liste, paare)
+        self.schneckenpaare = schneckenpaare
+        self.standardmodell = Betriebsmodell(liste, paare, schneckenpaare=schneckenpaare)
         self.modell = self.standardmodell
         self.paare = paare
-        self.hat_schneckenstufe = hat_schneckenstufe
         self.varianten = {}
         self.vorgaben = {}
         self.kopplungen = set()
@@ -52,10 +52,9 @@ class BetriebspunktSeite(QtWidgets.QWidget):
                                     "Das Vorzeichen gibt den Drehsinn um die jeweilige positive Achse an."))
         hilfe.setWordWrap(True)
         lay.addWidget(hilfe)
-        if self.hat_schneckenstufe:
-            grenze = QtWidgets.QLabel(self.grenze())
-            grenze.setWordWrap(True)
-            lay.addWidget(grenze)
+        self.schneckenhinweis = QtWidgets.QLabel()
+        self.schneckenhinweis.setWordWrap(True)
+        lay.addWidget(self.schneckenhinweis)
         self.sperren = SperrenEditor()
         self.sperren.geaendert.connect(self._rechnen)
         lay.addWidget(self.sperren)
@@ -85,7 +84,8 @@ class BetriebspunktSeite(QtWidgets.QWidget):
         return {k: w.currentData() for k, w in self.varianten.items() if w.currentData() is not None}
 
     def _wellen_wechseln(self, getrennt):
-        self.modell = (Betriebsmodell(self.standardmodell.liste, self.paare, getrennte_wellen=True)
+        self.modell = (Betriebsmodell(self.standardmodell.liste, self.paare, getrennte_wellen=True,
+                                      schneckenpaare=self.schneckenpaare)
                        if getrennt else self.standardmodell)
         self.vorgaben.clear()
         self.kopplungen.clear()
@@ -95,9 +95,17 @@ class BetriebspunktSeite(QtWidgets.QWidget):
         self.betrieb = self.modell.betrieb(self.achswahl())
         b = self.betrieb
         self.sperren.setze_betrieb(b)
+        self.schneckenhinweis.setVisible(bool(b.schneckenstufen))
+        if b.schneckenstufen:
+            self.schneckenhinweis.setText("\n".join(f"{titel} · {wert}" for titel, wert in self._schneckenzeilen()))
+            self.schneckenhinweis.setToolTip(self.grenze())
         # Nach einer Achswahl koennen Stege andere Indizes haben. Eingaben gehoeren zur konkreten Welle.
         self.schluessel = {i: ("welle", i) for i in b.ports}
         self.rollen = {i: {} for i in b.ports}
+        for stufe in b.schneckenstufen:
+            schnecke, rad = stufe["wellen"]
+            self.rollen[schnecke]["schnecke"] = tr("Schnecke")
+            self.rollen[rad]["schneckenrad"] = tr("Schneckenrad")
         for s in b.saetze:
             *zentral, steg = s["wellen"]
             if s["art"] == "ravigneaux":
@@ -189,7 +197,16 @@ class BetriebspunktSeite(QtWidgets.QWidget):
 
     @staticmethod
     def grenze():
-        return tr("Schneckenstufen sind im Kraftfluss enthalten. Der Betriebspunkt berechnet die Drehzahlen der übrigen Stufen.")
+        return tr("Die Drehzahlen setzen den Eingriff des erkannten Schneckenpaars voraus. "
+                  "Ob das Rad die Schnecke unter Last antreiben kann, hängt von der Reibung ab.")
+
+    def _schneckenzeilen(self):
+        zeilen = []
+        for stufe in self.betrieb.schneckenstufen:
+            a, b = stufe["wellen"]
+            zeilen.append((tr("Schneckenstufe W{} → W{}").format(a + 1, b + 1),
+                           f"n{b + 1}/n{a + 1} = {stufe['n_rad_durch_n_schnecke']:+.9g}"))
+        return zeilen
 
     def achse(self, i):
         return self.betrieb.positive_achse(i) + 0.0
@@ -211,10 +228,11 @@ class BetriebspunktSeite(QtWidgets.QWidget):
                   for w in self.ergebnis["wellen"]]
         return {**self.ergebnis, "wellen": wellen, "differentialachsen": achsen,
                 "getrennte_wellen": self.wellentrennung.isChecked(),
-                "schneckenstufen_ausgenommen": self.hat_schneckenstufe}
+                "schneckenstufen_ausgenommen": False}
 
     def bedingungen(self):
-        zeilen = [(tr("Berechnungsumfang"), self.grenze())] if self.hat_schneckenstufe else []
+        zeilen = [(tr("Berechnungsumfang"), self.grenze())] if self.betrieb.schneckenstufen else []
+        zeilen.extend(self._schneckenzeilen())
         if self.trennbar:
             annahme = (tr("Getrennte Wellen mit einzeln gewählten Kopplungen") if self.wellentrennung.isChecked()
                        else tr("Koaxiale Räder auf gemeinsamer Welle"))
