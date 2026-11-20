@@ -6,7 +6,7 @@ Stufe 2 (PLAN §8.16):
 - Inhalt als Vektorgrafik: Toleranzrahmen mit Feldern (Symbol, Wert, Bezuege), Bezugsdreieck mit Bezugskasten,
   Masstext mit Bezugslinie; Hinweislinie vom Element zum Rahmen. Texte stehen als Platzhalter je Feld in der Ebene.
 - Anordnung ohne Ueberdeckung: Rahmen ausserhalb des Modellquaders, gierig nach aussen verschoben, bis sich kein
-  Rechteck mit einem schon platzierten ueberschneidet.
+  Rechteck mit einem schon platzierten ueberschneidet, auch in gemeinsamen gespeicherten Ansichten.
 Stufe 3: Abstands- und Dickenmasse zwischen zwei parallelen Ebenen als Masslinie mit Masshilfslinien und Pfeilen
 ausserhalb des Modells (Schreibebene enthaelt die Massrichtung, Text ueber der Masslinie in Leserichtung); Hinweislinien
 enden mit Pfeil am naechsten Punkt der Flaeche statt am Flaechenschwerpunkt (bei Bohrungen sonst auf der Achse).
@@ -81,7 +81,10 @@ def modell_ebene(normale) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
 def ansicht_ebene(ansicht) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
     """Bildebene einer gespeicherten Ansicht: x nach rechts, y nach oben, n zum Betrachter."""
     n = -np.asarray(ansicht.richtung, float)
-    n = n / (np.linalg.norm(n) or 1.0)
+    laenge = np.linalg.norm(n)
+    if laenge < 1e-10:
+        return modell_ebene(ACHSEN[2])
+    n = n / laenge
     o = np.asarray(ansicht.oben, float)
     o = o - n * (o @ n)
     if np.linalg.norm(o) < 1e-9:
@@ -145,9 +148,84 @@ class _Rahmen:
             pos += b
 
 
-def _ueberlappt(a: np.ndarray, b: np.ndarray, abstand: float) -> bool:
-    """Achsparallele Quader zweier Punktmengen ueberschneiden sich (mit Mindestabstand)."""
-    return bool(np.all(a.min(axis=0) - abstand <= b.max(axis=0)) and np.all(b.min(axis=0) - abstand <= a.max(axis=0)))
+def _grenzen(punkte, bild):
+    proj = punkte @ bild
+    return np.stack([proj.min(axis=0), proj.max(axis=0)])
+
+
+class _Ansichtsplatz:
+    """Belegte Rechtecke je gespeicherter Ansicht in deren Bildkoordinaten."""
+
+    def __init__(self, ansichten, offen):
+        self.bilder = []
+        self.zu_pmi = {}
+        for a in ansichten:
+            ids = offen & a.pmi_ids
+            if not ids:
+                continue
+            bild = np.column_stack(ansicht_ebene(a)[:2])
+            eintrag = (bild, [])
+            self.bilder.append((a.pmi_ids, eintrag))
+            for eid in ids:
+                self.zu_pmi.setdefault(eid, []).append(eintrag)
+
+    def merke(self, ids, punkte):
+        for sichtbar, (bild, rechtecke) in self.bilder:
+            if ids & sichtbar:
+                rechtecke.append(_grenzen(punkte, bild))
+
+    def hindernisse(self, eid, h):
+        return [(bild, np.asarray(rechtecke), 0.4 * h) for bild, rechtecke in self.zu_pmi.get(eid, ())
+                if rechtecke]
+
+    def aus_grafik(self, grafik):
+        """Vorhandene Datei- und erzeugte Grafiken mit ihren sichtbaren Ansichten vorbelegen."""
+        erzeugt = []
+        for g in grafik.values():
+            if g.doppelt or not (g.erzeugt or any(g.pmi_ids & ids for ids, _ in self.bilder)):
+                continue
+            teile = [l for l in g.linien if len(l)] + [p for p, _ in g.dreiecke if len(p)]
+            for ph in g.platzhalter:
+                x, y = ph.x * ph.breite, ph.y * ph.hoehe
+                teile.append([ph.ursprung, ph.ursprung + x, ph.ursprung + y, ph.ursprung + x + y])
+            if teile:
+                punkte = np.vstack(teile)
+                self.merke(g.pmi_ids, punkte)
+                if g.erzeugt:
+                    erzeugt.append(punkte)
+        return erzeugt
+
+
+def _freier_weg(ecken, richtung, hindernisse, h):
+    """Erster freier Weg entlang der Richtung. Je Rechteck ist genau ein Wegintervall gesperrt."""
+    intervalle = []
+    for bild, rechtecke, rand in hindernisse:
+        if not len(rechtecke):
+            continue
+        unten, oben = _grenzen(ecken, bild)
+        von = rechtecke[:, 0] - rand - oben
+        bis = rechtecke[:, 1] + rand - unten
+        schritt = richtung @ bild
+        bewegt = np.abs(schritt) > 1e-10
+        # Bei stehendem Bild bleibt eine anfangs freie Achse immer frei.
+        moeglich = ((von[:, ~bewegt] <= 0) & (bis[:, ~bewegt] >= 0)).all(axis=1)
+        if not moeglich.any():
+            continue
+        if not bewegt.any():
+            return np.inf
+        t0 = von[moeglich][:, bewegt] / schritt[bewegt]
+        t1 = bis[moeglich][:, bewegt] / schritt[bewegt]
+        ein = np.minimum(t0, t1).max(axis=1)
+        aus = np.maximum(t0, t1).min(axis=1)
+        trifft = (ein <= aus) & (aus >= 0)
+        intervalle.extend(zip(ein[trifft], aus[trifft]))
+    weg = 0.0
+    for ein, aus in sorted(intervalle):
+        if ein > weg:
+            break
+        if aus >= weg:
+            weg = aus + 1e-6 * h
+    return weg
 
 
 def _bezugsdreieck(g: Grafik, anker, richtung, quer, h):
@@ -200,7 +278,7 @@ def _ebenen_paar(flaechen):
     return (a, e[0][1]), (b, e[1][1])
 
 
-def _masslinie(p, flaechen, quader, mitte, belegt, h, nr) -> Grafik | None:
+def _masslinie(p, flaechen, quader, mitte, belegt, bilder, h, nr) -> Grafik | None:
     """Abstandsmass zwischen zwei parallelen Ebenen: Masshilfslinien, Masslinie mit Pfeilen, Text darueber."""
     paar = _ebenen_paar(flaechen)
     if paar is None:
@@ -221,15 +299,20 @@ def _masslinie(p, flaechen, quader, mitte, belegt, h, nr) -> Grafik | None:
     u_text = u if float(np.cross(n, u) @ y_ref) >= 0 else -u  # Text von links nach rechts lesbar
     text = p.wert_text()
     breite = ZEICHENBREITE * h * len(text) + h
-    for k in range(40):  # Abstand nach aussen, bis keine schon platzierte Grafik ueberdeckt wird
-        hoehe = rand + (2.5 + 2.0 * k) * h
-        a, b = c1 + y * hoehe, c1 + u * d + y * hoehe
-        mitte_linie = (a + b) / 2
-        ecken = np.array([a, b, mitte_linie - u_text * breite / 2 + y * 1.6 * h,
-                          mitte_linie + u_text * breite / 2 + y * 1.6 * h])
-        m = np.column_stack([u, y])
-        if all(not _ueberlappt(ecken @ m, e @ m, 0.4 * h) for e in belegt):
-            break
+    hoehe = rand + 2.5 * h
+    a, b = c1 + y * hoehe, c1 + u * d + y * hoehe
+    mitte_linie = (a + b) / 2
+    yt = np.cross(n, u_text)
+    textanfang = mitte_linie - u_text * breite / 2
+    ecken = np.array([a, b, textanfang, textanfang + u_text * breite,
+                      textanfang + yt * 1.6 * h, textanfang + u_text * breite + yt * 1.6 * h])
+    m = np.column_stack([u, y])
+    hindernisse = [(m, np.asarray([_grenzen(e, m) for e in belegt]), 0.4 * h), *bilder]
+    weg = _freier_weg(ecken, y, hindernisse, h)
+    if not np.isfinite(weg):
+        return None  # In dieser Ansicht bleibt die Masslinie verdeckt: Text mit Hinweislinie platzieren.
+    versatz = weg * y
+    a, b, mitte_linie, ecken = a + versatz, b + versatz, mitte_linie + versatz, ecken + versatz
     g = Grafik(-nr, name=p.name or p.typ, fertig=True, pmi_ids={p.step_id}, erzeugt=True,
                ebene=(c1.copy(), u_text, np.cross(n, u_text), n))
     for fuss, ende in ((c1, a), (c2, b)):
@@ -238,7 +321,6 @@ def _masslinie(p, flaechen, quader, mitte, belegt, h, nr) -> Grafik | None:
     richtung = (b - a) / (np.linalg.norm(b - a) or 1.0)
     _pfeil(g, a, -richtung, h)
     _pfeil(g, b, richtung, h)
-    yt = np.cross(n, u_text)
     ort = mitte_linie - u_text * (breite / 2 - 0.5 * h) + yt * 0.3 * h
     g.platzhalter.append(Platzhalter(ort, u_text.copy(), yt, breite - h, h, text=text))
     belegt.append(ecken)
@@ -265,16 +347,19 @@ def ergaenze(pmi: list, grafik: dict, modell, ansichten: list | None = None) -> 
     h = diag / 70
     quader = np.array([[x, y, z] for x in (lo[0], hi[0]) for y in (lo[1], hi[1]) for z in (lo[2], hi[2])])
     welle = _wellenachse(hi - lo)
-    belegt: list[np.ndarray] = [np.array(g.grenzen()) for g in grafik.values() if g.erzeugt and g.grenzen()]
+    belegung = _Ansichtsplatz(ansichten or [], {p.step_id for p in offen})
+    belegt = belegung.aus_grafik(grafik)
     neu = {}
     for i, p in enumerate(offen, 1):
         flaechen = [modell.flaechen[j] for j in sorted(p.flaechen) if j < len(modell.flaechen)]
         anker = _schwerpunkt(flaechen)
         if anker is None:
             continue
+        bilder = belegung.hindernisse(p.step_id, h)
         if p.art == MASS and p.typ in ("Location_LinearDistance", "Size_Thickness"):
-            g = _masslinie(p, flaechen, quader, mitte, belegt, h, i)
+            g = _masslinie(p, flaechen, quader, mitte, belegt, bilder, h, i)
             if g is not None:
+                belegung.merke(g.pmi_ids, belegt[-1])
                 neu[-i] = g
                 continue
         ansicht = next((a for a in (ansichten or []) if p.step_id in a.pmi_ids and not a.eigen), None)
@@ -297,9 +382,10 @@ def ergaenze(pmi: list, grafik: dict, modell, ansichten: list | None = None) -> 
         ziel = anker + raus * 3.0 * h
         if p.art == BEZUG:
             ziel = _bezugsdreieck(g, anker, raus, np.cross(n, raus), h)
-        ursprung = _platz(rahmen, ziel, raus, x, y, quader, belegt, h)
+        ursprung = _platz(rahmen, ziel, raus, x, y, quader, belegt, bilder, h)
         e = rahmen.ecken(ursprung, x, y)
         belegt.append(e)
+        belegung.merke(g.pmi_ids, e)
         rahmen.grafik(g, ursprung, x, y)
         # Hinweislinie zum naechsten Punkt auf der Rahmenkante (Mitte links/rechts bzw. unten)
         andock = min((e[0] + e[3]) / 2, (e[1] + e[2]) / 2, (e[0] + e[1]) / 2, key=lambda q: np.linalg.norm(q - ziel))
@@ -322,32 +408,36 @@ def _wellenachse(groesse) -> int | None:
     return k if groesse[k] >= 2 * quer > 0 else None
 
 
-def _platz(rahmen: _Rahmen, start, raus, x, y, quader, belegt, h) -> np.ndarray:
+def _platz(rahmen: _Rahmen, start, raus, x, y, quader, belegt, bilder, h) -> np.ndarray:
     """Linke untere Ecke: in der Schreibebene ausserhalb des Modellumrisses (projizierter Modellquader), ohne
     Ueberschneidung mit schon platzierten Rahmen. Geprueft wird in der Ebene, weil eine Ebene schraeg aus dem
     Quader herausfuehren kann und der Rahmen im Bild dann trotzdem vor dem Modell laege."""
     m = np.column_stack([x, y])
-    modell = quader @ m
-    andere = [b @ m for b in belegt]
-    iso = ISO_BILD
-    andere_iso = [b @ iso for b in belegt]  # Rahmen anderer Ebenen: im ueblichen Gesamtbild nicht uebereinander
+    hindernisse = [(m, np.array([_grenzen(quader, m)]), 0.5 * h), *bilder]
+    if belegt:
+        for bild, rand in ((m, 0.4 * h), (ISO_BILD, 0.3 * h), (ACHSEN, 0.3 * h)):
+            hindernisse.append((bild, np.array([_grenzen(b, bild) for b in belegt]), rand))
     ursprung = start - x * (rahmen.breite / 2) - y * (rahmen.hoehe / 2)
-    for _ in range(400):
-        e = rahmen.ecken(ursprung, x, y)
-        e2, ei = e @ m, e @ iso
-        frei = not _ueberlappt(e2, modell, 0.5 * h) and all(not _ueberlappt(e2, b, 0.4 * h) for b in andere) and \
-            all(not _ueberlappt(ei, b, 0.3 * h) for b in andere_iso) and \
-            all(not _ueberlappt(e, b, 0.3 * h) for b in belegt)
-        if frei:
-            return ursprung
-        ursprung = ursprung + raus * 0.8 * h
-    return ursprung
+    e = rahmen.ecken(ursprung, x, y)
+    weg = _freier_weg(e, raus, hindernisse, h)
+    if weg <= 20 * h:
+        return ursprung + raus * weg
+    # Bei Blick entlang der Hinweislinie erreicht eine seitliche Richtung frueher einen freien Platz.
+    quer = np.cross(np.cross(x, y), raus)
+    beste, richtung = weg, raus
+    # Jede Bildprojektion kann hoechstens eine Richtung in der Schreibebene vollstaendig verdecken.
+    for seitlich in np.linspace(-1.0, 1.0, len(hindernisse) + 2):
+        r = (raus + seitlich * quer) / np.sqrt(1 + seitlich**2)
+        w = _freier_weg(e, r, hindernisse, h)
+        if w < beste:
+            beste, richtung = w, r
+    return ursprung + richtung * beste
 
 
 def _iso_bild() -> np.ndarray:
-    """Projektion ins isometrische Bild (Blick (-1,-1,-1), Z oben) als 3x2-Matrix."""
-    blick = -np.ones(3) / np.sqrt(3)
-    oben = np.array([0.0, 0.0, 1.0]) - blick * (-blick[2])
+    """Projektion in die Standard-Isoansicht des Viewers (Z oben)."""
+    blick = -BETRACHTER / np.linalg.norm(BETRACHTER)
+    oben = ACHSEN[2] - blick * blick[2]
     oben /= np.linalg.norm(oben)
     return np.column_stack([np.cross(blick, oben), oben])
 

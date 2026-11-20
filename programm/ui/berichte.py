@@ -277,6 +277,87 @@ def _vergleich_seiten(fenster, bericht, v, bilder):
             bericht.bild(fenster.ansicht.bild_qimage(), 0.7)
 
 
+def _flankenkarte(bericht, rad):
+    """Farbkarten mit gemeinsamer Skala und Messkreis-/Breitenkoordinaten."""
+    from ..kern.flankentopografie import karte
+    from ..kern.verzahnung_daten import profil
+    raster = karte(rad, profil(rad))
+    if raster is None:
+        return
+    skala = max((abs(w) for seite in ("links_mm", "rechts_mm") for reihe in raster[seite]
+                 for w in reihe if w is not None), default=0.)
+    bericht.neue_seite()
+    bericht.ueberschrift(rad.teil)
+    bericht.absatz(tr("Flankenabweichung im Stirnschnitt (mm)"))
+    bericht.absatz(tr("Über die Zähne gemittelt. Rot zeigt Materialrücknahme, Blau Materialüberstand, "
+                      "Weiß den Sollverlauf und Grau fehlende Messwerte. Farbgrenze ±{:.4f} mm.").format(skala))
+    p = bericht.p
+    m = bericht.maler
+    axial, radien = raster["axial_mm"], raster["radius_mm"]
+    h = p(10)
+    breite = min(bericht.breite - 2*p(RAND), p(560))
+    dx = (breite - p(75)) / len(radien)
+    for seite, name in (("links_mm", tr("Linke Flanke")), ("rechts_mm", tr("Rechte Flanke"))):
+        if bericht.platz() < (len(axial) + 6) * h:
+            bericht.neue_seite()
+        bericht.ueberschrift(name, 11)
+        bericht.absatz(tr("Axiallage / Radius (mm)"), 8)
+        bericht.schrift(7)
+        x0 = p(RAND + 50)
+        for i, radius in enumerate(radien):
+            if i % 3 == 0 or i == len(radien) - 1 and i % 3 != 1:
+                m.drawText(QtCore.QRectF(x0 + (i-.4)*dx, bericht.y, dx*1.8, h),
+                           QtCore.Qt.AlignmentFlag.AlignCenter, f"{radius:.2f}")
+        bericht.y += h
+        for s, reihe in zip(axial, raster[seite]):
+            m.drawText(QtCore.QRectF(p(RAND), bericht.y, p(42), h), QtCore.Qt.AlignmentFlag.AlignRight, f"{s:.2f}")
+            for i, wert in enumerate(reihe):
+                farbe = QtGui.QColor("#a2a2a2")
+                if wert is not None:
+                    anteil = abs(wert) / skala if skala else 0.
+                    ziel = (184, 48, 37) if wert > 0 else (40, 89, 161)
+                    farbe = QtGui.QColor(*(round(255 + anteil * (c - 255)) for c in ziel))
+                m.fillRect(QtCore.QRectF(x0 + i*dx, bericht.y, dx, h), farbe)
+            bericht.y += h
+        bericht.y += h
+
+
+def verzahnung_pdf(fenster, pfad: str) -> str:
+    """Datenblatt pro Teil, danach erkannte Paare, Getriebe und Auslegungsbefunde mit Quellen."""
+    from ..kern import verzahnung_daten as vd
+    bericht = PdfBericht(pfad, tr("Verzahnung"))
+    for i, teil in enumerate(fenster.liste):
+        if i:
+            bericht.neue_seite()
+        bericht.ueberschrift(teil.teil)
+        bericht.tabelle([(tr("Größe"), .34), (tr("Wert"), .26), (tr("Herkunft"), .40)], vd.rad_alle_zeilen(teil))
+        if isinstance(teil, vd.Verzahnung):
+            _flankenkarte(bericht, teil)
+    paar = fenster.paar_tabelle
+    for s in range(paar.columnCount()):
+        bericht.neue_seite()
+        bericht.ueberschrift(paar.horizontalHeaderItem(s).text())
+        zeilen = [(paar.verticalHeaderItem(r).text(), paar.item(r, s).text()) for r in range(paar.rowCount())]
+        bericht.tabelle([(tr("Größe"), .55), (tr("Wert"), .45)], zeilen)
+    gt = fenster.getriebe_tabelle
+    if gt.rowCount():
+        bericht.neue_seite()
+        bericht.ueberschrift(tr("Getriebe"))
+        bericht.absatz(tr("Gleichachsige Räder werden als drehfest verbunden angenommen. "
+                          "Jeder getrennte Getriebezug hat eine eigene Bezugswelle."))
+        bericht.tabelle([(tr("Größe"), .55), (tr("Wert"), .45)],
+                        [(gt.verticalHeaderItem(r).text(), gt.item(r, 0).text()) for r in range(gt.rowCount())])
+    bt = fenster.befund_tabelle
+    if bt.rowCount():
+        bericht.neue_seite()
+        bericht.ueberschrift(tr("Auslegungsbefunde"))
+        spalten = [(bt.horizontalHeaderItem(i).text(), w) for i, w in enumerate((.13, .14, .16, .36, .21))]
+        bericht.tabelle(spalten, [[bt.item(r, c).text() for c in range(len(spalten))] for r in range(bt.rowCount())])
+    if fenster.hinweise.text():
+        bericht.absatz(fenster.hinweise.text())
+    return bericht.fertig()
+
+
 def pmi_aenderungen_pdf(vergleich, pfad: str) -> str:
     """Tabelle der PMI-Aenderungen (alt/neu) fuer Lieferanten und Fertigung, ohne Bilder."""
     from .vergleich_ui import PRUEF_TEXT, STATUS_TEXT
@@ -464,6 +545,8 @@ def messgroessen_pdf(fenster, pfad: str) -> str:
         if m.punkt is not None:
             bericht.absatz(tr("Gemessen am Punkt ({:.2f}, {:.2f}, {:.2f}) des Teils {}").format(
                 *m.punkt, namen.get(m.teil_a, m.teil_a)), 9)
+        for hinweis in e.hinweise:
+            bericht.absatz(hinweis, 9)
         if e.unbestimmt:
             bericht.absatz(tr("Hängt von offenen Freiheitsgraden ab (in Nennlage gerechnet)."), 9)
         if e.proben is not None and len(e.proben) and e.wc_max > e.wc_min:

@@ -47,8 +47,8 @@ def _punkt(datei: P21Datei, ref, skala=1.0):
 def _laengen_skala(datei: P21Datei) -> float:
     """Faktor Datei-Laengeneinheit -> mm (aus dem ersten LENGTH_UNIT)."""
     from .pmi_step import einheit_mm
-    for e in datei.entities.values():
-        if e.is_a("LENGTH_UNIT") and (e.is_a("SI_UNIT") or e.is_a("CONVERSION_BASED_UNIT")):
+    for e in datei.of_type("LENGTH_UNIT"):
+        if e.is_a("SI_UNIT") or e.is_a("CONVERSION_BASED_UNIT"):
             return einheit_mm(datei, Ref(e.id))
     return 1.0
 

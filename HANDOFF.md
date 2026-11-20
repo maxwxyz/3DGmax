@@ -1,6 +1,68 @@
-# Handoff (2026-10-28, local Mac session, user away ~8 h – work continues autonomously)
+# Handoff
 
-## Current state
+## Current state, 2026-11-20
+
+- Reviewed the normal STEP import and viewer/comparison paths. The main bottleneck was a linear
+  OCCT label lookup for each face. The importer indexes transferred entities once. Part 21
+  parsing indexes entity types and respects STEP strings across comments and statement boundaries.
+  In the viewer, shared edges are drawn once and disabled thumbnails do no background work.
+  Exact comparison prunes by B-rep lower bounds and reuses placed triangulations.
+- Mac benchmarks against 295603f: a generated 6.91 MB STEP with 400 solids, 2,400 faces and
+  141,220 entities loaded in 1.58 s (previously 32.94 s). First display of the loaded model on
+  the same screen took 0.339 s (previously 0.376 s). CTC-01 vs. its changed variant took
+  2.17–2.26 s (previously 6.50 s). The face mappings, statuses and B-side deviations matched
+  the baseline checksum. The PMI-rich NIST FTC-09 file (6.11 MB, 64 PMI, 23 views) loaded in
+  1.48 s (previously 2.03 s). The STEP face, colour, PMI and view associations checked on CTC-01,
+  its variant and FTC-09 also matched. A second generated STEP (42.85 MB, 2,400 solids, 14,400
+  faces, 847,220 entities) loaded with every face assigned in 11.86 s on the revised path.
+- Fixed bootloader splash shutdown. PyInstaller 6.22.3 removes the connection variable when it
+  imports its splash module. The application reuses the connected module. With its actual RPC
+  implementation and a simulated socket the main-window path sent EOT and closed the connection.
+  A packaged interactive Windows startup still needs a visual check.
+- Integrated the earlier 1D/3D chain wiggle work. The 1D example follows four real faces. The 3D
+  chain can animate closure limits or individual links and carries the moving assembly instance.
+  Mating feature origins can lie far from the solid, and standalone templates have no model frame.
+  One-sided planar stops, measured-feature displacements and ranked datum frames now contribute to
+  assembly variation. The ranking, chain and report identify incomplete inputs. Combined
+  position/orientation zones on a cylindrical feature use an exact support bound for arbitrarily
+  directed sensitivities at its two ends. Remaining analytical limits include deformable form, common
+  multi-feature datums and projected or material-modified zones on measured features. Monte Carlo independently samples the projected feature contributions.
+- Gear analysis covers involute, parallel-sided and serrated shaft/hub profiles, repeated straight
+  tooth tip chamfers and cylindrical root fillets, plus conditional bevel and worm pairs. Known
+  parameterised shapes and STEP round trips check these branches. No manufacturer reference was
+  available. Cutting system, production fit and contact under load require independent evidence.
+  Cylindrical pairs require axial overlap, also used for the overlap contact ratio. Left and
+  right tooth-averaged flank maps export to CSV, JSON and PDF. PDF reports include sourced findings.
+- Gearbox reverse engineering has separate selection and whole-model commands. On the STL and OBJ
+  tests it recovers 14:20 and 16:24 stages on three shafts from one mesh object, and the inclined standalone
+  17-tooth helical gear. A stepped shaft with two axial tooth bands is measured per band, including
+  a 0.7 mm band found between the original sampling planes and tooth counts changing at a shoulder.
+  A general gear note on such a shaft remains unassigned. Stage ratios can use a chosen reference shaft. Checked reversed reference,
+  mixed spur/bevel stages, independent trains, branches and inconsistent cycles. Coaxial wheels imply a
+  rigid link unless the planetary calculation supplies a separate operating case.
+- Replacing a load, comparison, gear analysis or view preview now discards stale Qt signals and project actions.
+  Finished loader threads release their models. Windows can close during a native read and application
+  exit joins remaining workers.
+- Generated PMI frames account for file annotations and projected overlaps in every shared saved
+  orthographic view. Perspective placement and leader crossings remain open.
+
+### Verification
+
+`pixi run test` completed with 458 passing in 704 seconds. The eight display-dependent cases
+skipped in that run all passed on the physical Mac display (60 seconds). The English translation
+inventory is complete. The gear PDF was rendered and inspected, including the numerical data sheet,
+left/right flank maps and sourced findings. Windows bootloader IPC was checked separately as above.
+
+### Plan and roadmap check
+
+PLAN §§6, 8.1, 8.16, 8.20, 8.27/8.27a and 8.33 and the corresponding rows in
+`docs/Roadmap.md` reflect the implemented scope. The UI plan still awaits its user study.
+The new drawing comparison (§8.35) and reconstruction of geometry with dimensioned PMI (§8.36)
+remain planned, in that order. Remaining QIF work is the last milestone (§8.37). Other open
+items include large-assembly levels of detail and persistent mesh caching, STEP-XML, JT PMI/B-rep,
+advanced PRC/U3D, editable drawing dimensions in DXF and AP242 mechanism fixtures.
+
+## Historical handoff, 2026-10-28
 All work on `main`, pushed; no other branches. Version 0.2 released (tag v0.2). Full suite last green on
 the Mac (200 tests incl. the new ones, ~11 min); `pixi run test-schnell` skips the six `langsam` tests.
 
@@ -47,6 +109,24 @@ flight, `showEvent` refits the depth range. PLAN §8.31 notes, Roadmap ✅. Test
 `DG_BILDER=<dir>` saves a screenshot per step). Not reproduced literally: the "semi-transparent New" – likely the
 colour map shown in New after switching (now hidden without the switch) or a stale depth range after the hidden view
 was rebuilt (now refitted on show); user should re-check with the example.
+
+Side session 2026-10-29 (branch `claude/ketten-wiggle-7d70d7`, integrated 2026-11-20): user reports
+"3D chains: building, display and wiggle not clean" and "1D chain of the example cannot be wiggled". New
+`kern/kette3d_anzeige.py` (lines + wiggle of 3D chains: worst case of the closing quantity or link by link, 1:1 /
+×10 / ×100 / automatic, real value at the function point, assembly parts move with their link via `Glied3D.teil`);
+`ui/kette3d_ui.py` in three columns with ▶/⏸, art and exaggeration combos, view fitted only when switched on or for a
+new chain; `Hauptfenster._kette3d_teile` moves parts (`setze_teil_lagen`). Bug fixes: example 3D chain invisible
+(`OcctAnsicht._baue_szene_inhalt` now re-shows `hilfslinien`; base `zeige()` clears them for another model);
+"＋ Aus Zusammenbau" on rotated chain ends / chains with a base (`kette3d.ausrichtung`). 1D:
+`schluss_wiggle.schluss_oder_grund` walks the links along their faces – it fixed the gearbox example moving the
+wrong faces (19/22 → 18/23); play button disabled with the reason as tooltip (`ToleranzketteFenster.wiggle_grund`,
+`pruefe_wiggle`). Example "kette" is now a 4-face chain on FTC-10 (`beispiele.KETTE_FLAECHEN`, 55 ± 0.7) with chain
+picture and running wiggle. Tests: `test_kette3d` (2 new), `test_gui` (`test_beispiel_kette_wiggelt`,
+`test_3d_kette_wiggle`, wiggle test extended), screen test `test_3d_kette_sichtbar_und_wiggle`. PLAN §8.33 note,
+Roadmap ✅. Open: assembly link origins are the mating feature point (a plane's location point, possibly far from the
+part) – correct for the analysis but rotations swing the part in the wiggle; templates are drawn at the world origin
+inside a loaded model (no relation to it).
+
 
 Side session 2026-10-29 (branch `claude/beispiel-welle-abdfe0`, merged into main `db2cd0d`): user request –
 the example "Funktion → Tolerierung" now uses a generated gearbox shaft instead of NIST FTC-10 (PLAN §8.33 note,
@@ -409,7 +489,7 @@ Details: `docs/Roadmap.md`; future topics: PLAN.md §8 (8.5 tolerance zones, 8.6
 graphics only, 8.19 QIF graphics, 8.20 3D tolerance analysis,
 8.21 clash/band/intersection analysis, 8.22 plausibility check, 8.23 scan against PMI tolerances).
 
-## Next (in this order)
+## Historical priority list (October 2026)
 0. Evening order 2026-10-28 – items 1–7, UI stages 1–3 and the follow-up list are done and in main:
    materials in hand-built chains (`a4bda25`), live 3D preview for function → tolerancing and the unified panel order
    (`7692a6a`), datum shift in the assembly variation (merge `e5ac96e`), readable chain tables and one control height

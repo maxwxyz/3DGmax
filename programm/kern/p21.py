@@ -9,13 +9,14 @@ from __future__ import annotations
 
 import re
 from dataclasses import dataclass, field
+from functools import cached_property
 
 
 # Verknuepfung Semantik -> Annotation (mit Platzhalter ab AP242 e2)
 DMIA_PH = "DRAUGHTING_MODEL_ITEM_ASSOCIATION_WITH_PLACEHOLDER"
 
 
-@dataclass
+@dataclass(slots=True)
 class Ref:
     """Verweis auf eine Entitaet (#123)."""
     id: int
@@ -24,20 +25,20 @@ class Ref:
         return f"#{self.id}"
 
 
-@dataclass
+@dataclass(slots=True)
 class Enum:
     """Aufzaehlungswert (.T., .PARALLEL.)."""
     name: str
 
 
-@dataclass
+@dataclass(slots=True)
 class Typed:
     """Getypter Wert, z. B. LENGTH_MEASURE(12.5)."""
     typ: str
     args: list
 
 
-@dataclass
+@dataclass(slots=True)
 class Entity:
     id: int
     # Teiltypen; einfache Entitaet hat genau einen, komplexe mehrere
@@ -61,8 +62,21 @@ class P21Datei:
     schema: str
     entities: dict[int, Entity]
 
+    @cached_property
+    def _nach_typ(self) -> dict[str, list[Entity]]:
+        index = {}
+        for e in self.entities.values():
+            for name in e.parts:
+                index.setdefault(name, []).append(e)
+        return index
+
     def of_type(self, name: str) -> list[Entity]:
-        return [e for e in self.entities.values() if e.is_a(name)]
+        return list(self._nach_typ.get(name, ()))
+
+    def of_types_by_id(self, namen) -> list[Entity]:
+        """Mehrere Teiltypen in ID-Reihenfolge, auch komplexe Entitaeten nur einmal."""
+        treffer = {e.id: e for name in namen for e in self._nach_typ.get(name, ())}
+        return [treffer[i] for i in sorted(treffer)]
 
     def get(self, ref) -> Entity | None:
         if isinstance(ref, Ref):
@@ -126,7 +140,7 @@ def _parse_value(toks, i):
     if art == "enum":
         return Enum(tok[1:-1]), i + 1
     if art == "num":
-        return (float(tok) if any(c in tok for c in ".eE") else int(tok)), i + 1
+        return (float(tok) if "." in tok or "E" in tok or "e" in tok else int(tok)), i + 1
     if art == "kw":
         args, j = _parse_list(toks, i + 1)
         return Typed(tok, args), j
@@ -160,18 +174,23 @@ def _refs_in(val):
         yield from _refs_in(val.args)
 
 
+_TRENNER = re.compile(r"'(?:[^']++|'')*'|/\*.*?\*/|;", re.S)
+
+
 def _statements(text: str):
-    """Zerlegt den DATA-Abschnitt in Anweisungen, Semikolons in Texten bleiben erhalten."""
-    out, buf, in_str = [], [], False
-    for ch in text:
-        if ch == "'":
-            in_str = not in_str
-        if ch == ";" and not in_str:
-            out.append("".join(buf).strip())
-            buf = []
+    """Liefert je eine Anweisung; Texte koennen Semikolons und Kommentarzeichen enthalten."""
+    start, teile = 0, []
+    for m in _TRENNER.finditer(text):
+        zeichen = text[m.start()]
+        if zeichen == "'":
+            continue
+        if zeichen == "/":
+            teile.append(text[start:m.start()])
         else:
-            buf.append(ch)
-    return out
+            ende = text[start:m.start()]
+            yield (" ".join([*teile, ende]) if teile else ende).strip()
+            teile.clear()
+        start = m.end()
 
 
 _KOPF = re.compile(r"^#(\d+)\s*=\s*(.*)$", re.S)
@@ -186,19 +205,25 @@ def lese(pfad: str) -> P21Datei:
         text = roh.decode("utf-8")
     except UnicodeDecodeError:
         text = roh.decode("latin-1")
+    del roh
     return lese_text(text)
 
 
 def lese_text(text: str) -> P21Datei:
-    text = re.sub(r"/\*.*?\*/", "", text, flags=re.S)
     schema = ""
-    m = re.search(r"FILE_SCHEMA\s*\(\s*\(\s*'([^']*)'", text)
-    if m:
-        schema = m.group(1)
-    a = text.find("DATA;")
-    b = text.rfind("ENDSEC;")
+    in_daten = False
+    typnamen = {}
     entities: dict[int, Entity] = {}
-    for st in _statements(text[a + 5:b]):
+    for st in _statements(text):
+        if not in_daten:
+            m = re.match(r"FILE_SCHEMA\s*\(\s*\(\s*'([^']*)'", st)
+            if m and not schema:
+                schema = m.group(1)
+            in_daten = st == "DATA" or re.match(r"DATA\s*\(", st) is not None
+            continue
+        if st == "ENDSEC":
+            in_daten = False
+            continue
         m = _KOPF.match(st)
         if not m:
             continue
@@ -211,9 +236,10 @@ def lese_text(text: str) -> P21Datei:
             while toks[i][1] != ")":
                 name = toks[i][1]
                 args, i = _parse_list(toks, i + 1)
-                ent.parts[name] = args
+                ent.parts[typnamen.setdefault(name, name)] = args
         else:
             args, _ = _parse_list(toks, 1)
-            ent.parts[toks[0][1]] = args
+            name = toks[0][1]
+            ent.parts[typnamen.setdefault(name, name)] = args
         entities[eid] = ent
     return P21Datei(schema, entities)

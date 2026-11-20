@@ -23,6 +23,7 @@ from dataclasses import dataclass, field
 import numpy as np
 
 from ..i18n import tr
+from . import passverzahnung
 
 EINGRIFFSWINKEL = (20.0, 14.5, 15.0, 17.5, 22.5, 25.0, 30.0)
 NORMMODULE = (0.5, 0.6, 0.7, 0.8, 0.9, 1.0, 1.125, 1.25, 1.375, 1.5, 1.75, 2.0, 2.25, 2.5, 2.75, 3.0, 3.5, 4.0, 4.5,
@@ -64,6 +65,10 @@ class Verzahnung:
     # Stirnschnitt und je Schnitt entlang der Breite (Lage auf der Achse, r(theta))
     r_mitte: np.ndarray | None = field(default=None, repr=False)
     r_schnitte: list = field(default_factory=list, repr=False)
+    fussradius: float | None = None
+    kopffase: float | None = None  # radiale Hoehe im Stirnschnitt
+
+    koerper: str | None = None  # gemeinsamer Ursprung mehrerer nachgewiesener Zahnbaender
 
     def zeilen(self) -> list[tuple[str, str, str]]:
         """(Groesse, Wert, Herkunft) fuer Tabelle und Export."""
@@ -79,6 +84,7 @@ class Verzahnung:
                 (tr("Zahnbreite b"), g(self.b, 3), tr("gemessen")),
                 (tr("Schrägungswinkel β"), f"{g(self.beta, 3)}° {hand}", tr("Drehung entlang der Achse")),
                 (tr("Grundkreis db"), g(self.db, 3), tr("Evolventen-Fit")),
+                (tr("Fitfehler im Stirnschnitt (mm)"), g(self.fit_fehler, 5), tr("Evolventen-Fit")),
                 (tr("Normalmodul mn"), g(self.mn), tr("aus db, β und Normmodul")),
                 (tr("Eingriffswinkel αn"), f"{g(self.alpha_n, 2)}°", tr("aus db, β und Normmodul")),
                 (tr("Teilkreis d"), g(self.d, 3), "z · mn / cos β"),
@@ -86,10 +92,11 @@ class Verzahnung:
                 (tr("Zahnweite Wk"), f"W{self.k} = {g(self.wk, 3)}" if self.k else "–", tr("berechnet"))]
 
     def als_dict(self) -> dict:
-        return {"teil": self.teil, "innen": self.innen, "z": self.z, "da": self.da, "df": self.df, "b": self.b,
+        return {"teil": self.teil, "koerper": self.koerper, "innen": self.innen, "z": self.z, "da": self.da, "df": self.df, "b": self.b,
                 "beta": self.beta, "hand": self.hand, "welle": self.welle,
                 "db": self.db, "mn": self.mn, "alpha_n": self.alpha_n,
                 "d": self.d, "x": self.x, "k": self.k, "wk": self.wk, "fit_fehler": self.fit_fehler,
+                "fussrundungsradius": self.fussradius, "kopffase_radial": self.kopffase,
                 "achse": {"punkt": [float(v) for v in self.punkt], "richtung": [float(v) for v in self.richtung]},
                 "hinweise": list(self.hinweise)}
 
@@ -98,7 +105,7 @@ def _inv(a):
     return np.tan(a) - a
 
 
-def _achse(form):
+def _achse(form, stirnflaechen=False):
     """(Punkt, Richtung) der Drehachse: Hauptachse mit dem abweichenden Traegheitsmoment, Zylinderachse bevorzugt."""
     from OCC.Core.BRepGProp import brepgprop
     from OCC.Core.GProp import GProp_GProps
@@ -128,6 +135,9 @@ def _achse(form):
         q = punkt - start
         if abs(d @ richtung) > 0.999 and np.linalg.norm(q - d * (q @ d)) < 1e-3 * max(1.0, np.linalg.norm(q)):
             return start + d * ((punkt - start) @ d), d / np.linalg.norm(d)
+    if stirnflaechen:
+        from .verzahnung_sonder import stirnachse
+        richtung = stirnachse(flaechen, richtung)
     return punkt, richtung / np.linalg.norm(richtung)
 
 
@@ -142,38 +152,12 @@ class _Schnitte:
     """Feines Dreiecksnetz der Form (einmal) fuer schnelle Stirnschnitte; Konturen als Punktwolken je
     zusammenhaengendem Linienzug, 2D relativ zur Achse."""
 
-    def __init__(self, form, punkt, n):
-        from OCC.Core.Bnd import Bnd_Box
-        from OCC.Core.BRep import BRep_Tool
-        from OCC.Core.BRepBndLib import brepbndlib
-        from OCC.Core.BRepMesh import BRepMesh_IncrementalMesh
-        from OCC.Core.TopAbs import TopAbs_FACE
-        from OCC.Core.TopExp import TopExp_Explorer
-        from OCC.Core.TopLoc import TopLoc_Location
-        from OCC.Core.TopoDS import topods
-        box = Bnd_Box()
-        brepbndlib.Add(form, box)
-        x0, y0, z0, x1, y1, z1 = box.Get()
-        groesse = float(np.linalg.norm([x1 - x0, y1 - y0, z1 - z0])) or 1.0
-        BRepMesh_IncrementalMesh(form, groesse * 5e-5, False, 0.05, True)
-        a, b, c = [], [], []
-        ex = TopExp_Explorer(form, TopAbs_FACE)
-        while ex.More():
-            f = topods.Face(ex.Current())
-            ex.Next()
-            loc = TopLoc_Location()
-            tri = BRep_Tool.Triangulation(f, loc)
-            if tri is None:
-                continue
-            t = loc.Transformation()
-            p = np.array([(lambda q: (q.X(), q.Y(), q.Z()))(tri.Node(i).Transformed(t))
-                          for i in range(1, tri.NbNodes() + 1)])
-            ix = np.array([tri.Triangle(i).Get() for i in range(1, tri.NbTriangles() + 1)]) - 1
-            a.append(p[ix[:, 0]]); b.append(p[ix[:, 1]]); c.append(p[ix[:, 2]])
+    def __init__(self, dreiecke, punkt, n, min_amplitude=MIN_AMPLITUDE):
+        self.min_amplitude = min_amplitude
         u, v = _basis(n)
-        m = np.column_stack([u, v, n])
-        self.a, self.b, self.c = ((np.vstack(x) - punkt) @ m for x in (a, b, c))  # Achse = z
-        self.r_max = float(np.hypot(*np.vstack([self.a, self.b, self.c])[:, :2].T).max())
+        lokal = (dreiecke - punkt) @ np.column_stack([u, v, n])
+        self.a, self.b, self.c = lokal.transpose(1, 0, 2)
+        self.r_max = float(np.hypot(lokal[..., 0], lokal[..., 1]).max())
 
     def konturen(self, s: float) -> list[np.ndarray]:
         from scipy.sparse import coo_matrix
@@ -190,7 +174,8 @@ class _Schnitte:
             punkte.append(np.where(kreuzt[:, None], p + (q - p) * t[:, None], np.nan)[:, :2])
         punkte = np.stack(punkte, axis=1)  # Dreieck x Kante x 2 (nan: Kante nicht geschnitten)
         gut = ~np.isnan(punkte[..., 0])
-        stuecke = np.array([pp[g][:2] for pp, g in zip(punkte, gut) if g.sum() >= 2])
+        # Eine Ebene mit Halbintervall-Regel trifft zwei Kanten jedes ausgewaehlten Dreiecks.
+        stuecke = punkte[gut].reshape(-1, 2, 2)
         if not len(stuecke):
             return []
         # Linienstuecke ueber gemeinsame Endpunkte zu Konturen gruppieren
@@ -209,8 +194,9 @@ class _Schnitte:
                 continue
             laenge = np.linalg.norm(teil[:, 1] - teil[:, 0], axis=1)
             k = np.maximum(1, np.ceil(laenge / schritt)).astype(int)
-            t = np.concatenate([np.arange(kk) / kk for kk in k])
             j = np.repeat(np.arange(len(teil)), k)
+            anfang = np.cumsum(k) - k
+            t = (np.arange(len(j)) - anfang[j]) / k[j]
             out.append(teil[j, 0] + (teil[j, 1] - teil[j, 0]) * t[:, None])
         return out
 
@@ -243,7 +229,7 @@ def _verzahnt(schnitte: _Schnitte, s: float):
     for q in konturen:
         _, r = _r_theta(q)
         z, h, rel = _zahn_harmonische(r)
-        if rel >= MIN_AMPLITUDE and (beste is None or rel > beste[4]):
+        if rel >= schnitte.min_amplitude and (beste is None or rel > beste[4]):
             beste = (q, r, z, h, rel)
     if beste is None:
         return None
@@ -291,23 +277,74 @@ def _evolventen_fit(r: np.ndarray, z: int, r_lo: float, r_hi: float) -> tuple[fl
     return float(np.mean([e[0] for e in ergebnisse])), float(np.mean([e[1] for e in ergebnisse]))
 
 
-def _breite(schnitte: _Schnitte, s0, s1, schritte: int = 12):
-    """Achsbereich der verzahnten Schnitte [a, b] (Grenzen durch Halbieren) und die Schnitte dazwischen."""
-    werte = np.linspace(s0, s1, schritte + 2)[1:-1]
-    treffer = [(s, _verzahnt(schnitte, s)) for s in werte]
-    an = [s for s, t in treffer if t is not None]
-    if not an:
-        return None
-    grenzen = []
-    for innen_s, aussen_s in ((min(an), s0), (max(an), s1)):
-        for _ in range(10):
-            mitte = (innen_s + aussen_s) / 2
-            if _verzahnt(schnitte, mitte) is not None:
-                innen_s = mitte
-            else:
-                aussen_s = mitte
-        grenzen.append((innen_s + aussen_s) / 2)
-    return grenzen[0], grenzen[1], [(s, t) for s, t in treffer if t is not None]
+def _stirnlagen(netz):
+    """Echte Querflaechen liefern Abschnittsgrenzen auch fuer schmale Zahnbaender auf langer Welle."""
+    axial = np.column_stack((netz.a[:, 2], netz.b[:, 2], netz.c[:, 2]))
+    lo, hi = float(axial.min()), float(axial.max())
+    eps = max(1e-8, (hi - lo) * 2e-6, netz.r_max * 2e-6)
+    eben = np.ptp(axial, axis=1) <= eps
+    normale = np.cross(netz.b[eben] - netz.a[eben], netz.c[eben] - netz.a[eben])
+    quer = abs(normale[:, 2]) > .99999 * np.linalg.norm(normale, axis=1)
+    pos = axial[eben][quer].mean(axis=1)
+    gewichte = abs(normale[quer, 2])
+    sort = np.argsort(pos)
+    lagen = [lo]
+    for gruppe in np.split(sort, np.flatnonzero(np.diff(pos[sort]) > eps) + 1):
+        # Vereinzelte kleine, fast waagrechte Facetten auf gerundeten Oberflaechen ignorieren.
+        if gewichte[gruppe].sum() > 1e-5 * netz.r_max**2:
+            ort = float(np.average(pos[gruppe], weights=gewichte[gruppe]))
+            if lo + eps < ort < hi - eps:
+                lagen.append(ort)
+    return np.array([*lagen, hi])
+
+
+def _signatur(t):
+    return (t[2], t[4]) if t is not None else None
+
+
+def _bandgrenze(netz, innen, aussen, kennung, lagen):
+    """Bestaetigte Schulter bevorzugen, sonst den Signalwechsel zwischen zwei Schnitten einkreisen."""
+    lo, hi = sorted((innen, aussen))
+    zwischen = lagen[(lagen >= lo) & (lagen <= hi)]
+    for k in sorted(zwischen, key=lambda x: abs(x - innen)):
+        delta = min(abs(innen - k) / 4, max(1e-7, (hi - lo) * 1e-5))
+        innenprobe = k + np.sign(innen - k) * delta
+        if _signatur(_verzahnt(netz, innenprobe)) == kennung:
+            if k == aussen or _signatur(_verzahnt(netz, 2 * k - innenprobe)) != kennung:
+                return k
+    for _ in range(16):
+        m = (innen + aussen) / 2
+        if _signatur(_verzahnt(netz, m)) == kennung:
+            innen = m
+        else:
+            aussen = m
+    return (innen + aussen) / 2
+
+
+def _bandbreiten(netz, schritte=12):
+    """Zusammenhaengende Zahnbaender; je Band nur Schnitte derselben Zaehnezahl und Materialseite."""
+    from itertools import groupby
+    lagen = _stirnlagen(netz)
+    eps = max(1e-8, np.ptp(lagen) * 3e-6)
+    raster = np.linspace(lagen[0], lagen[-1], schritte + 2)[1:-1]
+    werte = []
+    for lo, hi in zip(lagen, lagen[1:]):
+        innen = raster[(raster > lo + eps) & (raster < hi - eps)]
+        werte.extend(innen if len(innen) else [(lo + hi) / 2])
+    proben = [(s, _verzahnt(netz, s)) for s in werte]
+    for kennung, gruppe in groupby(range(len(proben)), key=lambda i: _signatur(proben[i][1])):
+        if kennung is None:
+            continue
+        ind = list(gruppe)
+        i, j = ind[0], ind[-1]
+        a = _bandgrenze(netz, werte[i], werte[i - 1] if i else lagen[0], kennung, lagen)
+        b = _bandgrenze(netz, werte[j], werte[j + 1] if j + 1 < len(werte) else lagen[-1], kennung, lagen)
+        schnitte = proben[i:j + 1]
+        if len(schnitte) != schritte or i or j + 1 < len(werte):
+            schnitte = [(s, t) for s in np.linspace(a, b, schritte + 2)[1:-1]
+                        if _signatur(t := _verzahnt(netz, s)) == kennung]
+        if schnitte:
+            yield a, b, schnitte
 
 
 def _ableiten(v: Verzahnung, rb: float, q: np.ndarray, r_raster: np.ndarray):
@@ -353,7 +390,7 @@ def _drehung(schnitte_netz, s0: float, mitte, a: float, b: float, z: int, r: flo
     punkte = [(s0, p0)]
     for s_neu in (s0 + delta, s0 - delta):
         t = _verzahnt(schnitte_netz, s_neu) if a < s_neu < b else None
-        if t is not None:  # so nah, dass sich die Phase um weniger als pi/4 dreht: auf p0 legen
+        if _signatur(t) == _signatur(mitte):  # so nah, dass sich die Phase um weniger als pi/4 dreht: auf p0 legen
             dp = (float(np.angle(t[3])) - p0 + np.pi) % (2 * np.pi) - np.pi
             punkte.append((s_neu, p0 + dp))
     if len(punkte) < 2:
@@ -370,7 +407,7 @@ def _drehung(schnitte_netz, s0: float, mitte, a: float, b: float, z: int, r: flo
         if not a < s_neu < b or any(abs(s_neu - s) < 1e-9 for s, _ in punkte):
             continue
         t = _verzahnt(schnitte_netz, s_neu)
-        if t is None:
+        if _signatur(t) != _signatur(mitte):
             continue
         vorhersage = punkte[0][1] + steigung * (s_neu - s0)
         phase = float(np.angle(t[3]))
@@ -385,31 +422,95 @@ def _steigung(punkte) -> float:
     return float(np.polyfit([p[0] for p in punkte], [p[1] for p in punkte], 1)[0])
 
 
-def erkenne(form, teil: str = "") -> Verzahnung | None:
-    """Verzahnung eines Teils oder None (keine verzahnte Kontur gefunden)."""
+def erkenne(form, teil: str = "", *, steckprofile=False, sonderprofile=False):
+    """Ein eindeutiges Zahnprofil; bei mehreren liefert erkenne_koerper die getrennten Messungen."""
+    ergebnisse = erkenne_koerper(form, teil, steckprofile=steckprofile, sonderprofile=sonderprofile)
+    erstes = next(ergebnisse, None)
+    return erstes if next(ergebnisse, None) is None else None
+
+
+def _aus_form(form, teil, steckprofile, sonderprofile):
+    from . import verzahnung_netz
+    from .laden import _alle_flaechen
+    from OCC.Core.BRep import BRep_Tool
+    flaechen = _alle_flaechen(form)
+    if not flaechen:
+        return []
+    if all(BRep_Tool.Surface(f) is None for f in flaechen):
+        koerper = verzahnung_netz.komponenten(flaechen)
+        if len(koerper) != 1:
+            return []
+        return _aus_netz(koerper[0], teil, steckprofile, sonderprofile)
     from OCC.Core.Bnd import Bnd_Box
     from OCC.Core.BRepBndLib import brepbndlib
-    punkt, n = _achse(form)
+    from OCC.Core.BRepMesh import BRepMesh_IncrementalMesh
+    from .ausrichten import tesselliere
+    punkt, n = _achse(form, stirnflaechen=sonderprofile)
     box = Bnd_Box()
     brepbndlib.Add(form, box)
-    x0, y0, z0, x1, y1, z1 = box.Get()
-    ecken = np.array([[x, y, zz] for x in (x0, x1) for y in (y0, y1) for zz in (z0, z1)])
-    s = (ecken - punkt) @ n
-    schnitte_netz = _Schnitte(form, punkt, n)
-    breite = _breite(schnitte_netz, float(s.min()), float(s.max()))
-    if breite is None:
-        return None
-    a, b, schnitte = breite
+    groesse = np.linalg.norm(np.subtract(box.Get()[3:], box.Get()[:3])) or 1.0
+    BRepMesh_IncrementalMesh(form, groesse * 5e-5, False, 0.05, True)
+    dreiecke = [p[ix] for p, ix in tesselliere(flaechen) if len(ix)]
+    if not dreiecke:
+        return []
+    return _aus_schnitten(form, teil, punkt, n, np.vstack(dreiecke), steckprofile, sonderprofile)
+
+
+def erkenne_koerper(form, teil="", *, steckprofile=False, sonderprofile=False):
+    """Erkennergebnisse aller unabhaengigen Koerper eines Baumblatts in Modellkoordinaten."""
+    from . import verzahnung_netz
+    koerper = verzahnung_netz.koerper(form)
+    for i, k in enumerate(koerper, 1):
+        name = f"{teil} [{i}]" if len(koerper) > 1 else teil
+        if isinstance(k, np.ndarray):
+            yield from _aus_netz(k, name, steckprofile, sonderprofile)
+        else:
+            yield from _aus_form(k, name, steckprofile, sonderprofile)
+
+
+def _aus_netz(dreiecke, teil, steckprofile, sonderprofile):
+    from . import verzahnung_netz
+    punkt, n = verzahnung_netz.achse(dreiecke)
+    return _aus_schnitten(None, teil, punkt, n, dreiecke, steckprofile, sonderprofile)
+
+
+def _aus_schnitten(form, teil, punkt, n, dreiecke, steckprofile, sonderprofile):
+    schnitte_netz = _Schnitte(dreiecke, punkt, n, min_amplitude=0.025 if steckprofile else MIN_AMPLITUDE)
+    profile = []
+    band_gefunden = False
+    for a, b, schnitte in _bandbreiten(schnitte_netz):
+        band_gefunden = True
+        v = _aus_band(form, teil, punkt, n, schnitte_netz, steckprofile, sonderprofile, a, b, schnitte)
+        if v is not None:
+            profile.append(v)
+    if len(profile) > 1:
+        for i, v in enumerate(profile, 1):
+            v.teil = f"{teil} [{i}/{len(profile)}]"
+            v.koerper = teil
+    elif not band_gefunden and sonderprofile:
+        from .verzahnung_sonder import schraube
+        v = schraube(teil, punkt, n, schnitte_netz)
+        if v is not None:
+            profile.append(v)
+    return profile
+
+
+def _aus_band(form, teil, punkt, n, schnitte_netz, steckprofile, sonderprofile, a, b, schnitte):
+    if sonderprofile:
+        from .verzahnung_sonder import zahnkoerper
+        zahnprofil = zahnkoerper(teil, punkt, n, schnitte_netz, schnitte)
+        if zahnprofil is not None:
+            return zahnprofil
     mitte_s = (a + b) / 2
     mitte = _verzahnt(schnitte_netz, mitte_s)
-    if mitte is None:  # Mitte nicht verzahnt (z. B. Nut): der mittlere verzahnte Schnitt samt seiner Lage
+    if _signatur(mitte) != _signatur(schnitte[0][1]):  # Mitte nicht verzahnt (z. B. Nut): der mittlere verzahnte Schnitt samt seiner Lage
         mitte_s, mitte = schnitte[len(schnitte) // 2]
     q, r, z, _h, innen = mitte
     radien = np.hypot(q[:, 0], q[:, 1])
     rmin, rmax = float(radien.min()), float(radien.max())
     da, df = (2 * rmin, 2 * rmax) if innen else (2 * rmax, 2 * rmin)
-    v = Verzahnung(teil, punkt, n, innen, z, da, df, b - a)
-    v.r_mitte, v.r_schnitte = r, [(float(s), t[1]) for s, t in schnitte]
+    v = Verzahnung(teil, punkt + n * ((a + b) / 2), n, innen, z, da, df, b - a)
+    v.r_mitte, v.r_schnitte = r, [(float(s - mitte_s), t[1]) for s, t in schnitte]
     # Schraegung: Phase der Zahnharmonischen entlang der Achse, nachgefuehrt von der Mitte nach aussen
     dreh = _drehung(schnitte_netz, mitte_s, mitte, a, b, z, (rmin + rmax) / 2, schnitte)
     h = rmax - rmin
@@ -424,6 +525,10 @@ def erkenne(form, teil: str = "") -> Verzahnung | None:
         v.beta, v.hand = 0.0, ""
     else:
         v.hand = "rechts" if dreh > 0 else "links"
+    if steckprofile:
+        profil = passverzahnung.erkenne(v, v.punkt, q, r, _h, rb, fit)
+        if profil is not None:
+            return profil
     if rb > 0:
         _ableiten(v, rb, q, r)
         # beta mit dem endgueltigen Teilkreis
@@ -437,6 +542,11 @@ def erkenne(form, teil: str = "") -> Verzahnung | None:
         return None  # Zahnhoehe passt nicht zum Modul (z. B. Vielkant, Rändel)
     if fit > 0.01 * h:
         v.hinweise.append(tr("Flanken weichen von der Evolvente ab ({:.3f} mm)").format(fit))
+    if form is not None:
+        from . import verzahnung_kanten
+        v.fussradius, v.kopffase = verzahnung_kanten.erkenne(form, v, *_basis(n))
+    else:
+        v.hinweise.append(tr("Aus Dreiecksflächen gemessen. Die Netzauflösung begrenzt die Flankengenauigkeit."))
     return v
 
 
@@ -471,6 +581,12 @@ def _paar(a: Verzahnung, b: Verzahnung) -> Paar | None:
     if b.innen:
         a, b = b, a  # a: Hohlrad
     q = b.punkt - a.punkt
+    # Nur der gemeinsame axiale Zahnbereich traegt. Raeder auf benachbarten Stufen koennen
+    # denselben Achsabstand haben, ohne sich axial zu ueberdecken.
+    axial = float(q @ a.richtung)
+    breite = min(a.b / 2, axial + b.b / 2) - max(-a.b / 2, axial - b.b / 2)
+    if breite <= 1e-7:
+        return None
     abstand = float(np.linalg.norm(q - a.richtung * (q @ a.richtung)))
     innen = a.innen
     z1, z2 = (b.z, -a.z) if innen else (a.z, b.z)  # Hohlrad mit negativer Zaehnezahl (ISO 21771)
@@ -478,10 +594,12 @@ def _paar(a: Verzahnung, b: Verzahnung) -> Paar | None:
     soll0 = abs(a.d - b.d) / 2 if innen else (a.d + b.d) / 2
     if abs(abstand - soll0) > 0.2 * soll0:
         return None
-    if innen and abstand < 1e-6:
+    if innen and (abstand < 1e-6 or a.z <= b.z):
         return None
     if a.beta and b.beta and not innen and a.hand == b.hand:
         hinweis = [tr("Gleiche Steigungsrichtung bei Außenradpaar – kämmt nicht (gegenläufig nötig)")]
+    elif a.beta and b.beta and innen and a.hand != b.hand:
+        hinweis = [tr("Entgegengesetzte Steigungsrichtungen am Innenradpaar – gleicher Steigungssinn erforderlich")]
     else:
         hinweis = []
     cb = math.cos(math.radians(a.beta))
@@ -503,7 +621,6 @@ def _paar(a: Verzahnung, b: Verzahnung) -> Paar | None:
     else:
         g = strecke(a) + strecke(b) - abstand * math.sin(awt)
     eps_a = g / (math.pi * mt * math.cos(at))
-    breite = min(a.b, b.b)
     eps_b = breite * math.sin(math.radians(a.beta)) / (math.pi * a.mn)
     spiel = 2 * (abstand - a_soll) * math.sin(math.radians(a.alpha_n))
     if eps_a < 1.0:
@@ -513,6 +630,7 @@ def _paar(a: Verzahnung, b: Verzahnung) -> Paar | None:
 
 def paare(liste: list[Verzahnung]) -> list[Paar]:
     """Alle kaemmenden Radpaare einer Liste (Achsen parallel, Abstand passend)."""
+    liste = [v for v in liste if isinstance(v, Verzahnung)]
     out = []
     for i, a in enumerate(liste):
         for b in liste[i + 1:]:

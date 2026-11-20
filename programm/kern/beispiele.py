@@ -21,6 +21,9 @@ WELLE_ROLLEN = (("lagersitz", "zylinder", 62.0, 30.0), ("lagersitz", "zylinder",
                 ("dichtsitz", "zylinder", 44.75, 25.0), ("nabensitz", "zylinder", 18.5, 20.0),
                 ("nabensitz", "zylinder", 98.0, 36.0), ("passfedernut", "ebene", 18.0, (0, 0, 1)),
                 ("passfedernut", "ebene", 98.0, (0, 0, 1)))
+# Beispiel Toleranzkette: Flaechen der FTC-10 in Kettenreihenfolge (x, z der Flaechenmitte, Ebenen quer zu Z) -
+# oberer Senkungsboden, Oberseite, Unterseite, unterer Senkungsboden derselben Bohrung: Schlussmass = Wand dazwischen
+KETTE_FLAECHEN = ((-52.0, 27.5), (-15.0, 37.5), (0.0, -37.5), (-52.0, -27.5))
 
 
 @dataclass(frozen=True)
@@ -70,8 +73,9 @@ BEISPIELE = (
              "Erzeugter Scan mit Fase, Delle und Welligkeit: ausgerichtet, je PMI bewertet, Farbkarte über dem Modell",
              (CTC01, "ctc01_scan_fehler.ply")),
     Beispiel("kette", "Toleranzkette (1D)",
-             "NIST FTC-10: Längenmaße als Kettenglieder (Richtung je Glied umkehrbar), Worst Case, statistisch mit "
-             "Cp 1,33, Monte Carlo", (FTC10,)),
+             "NIST FTC-10: Wand zwischen den Senkungsböden einer Bohrung als Kette aus Modellflächen (Tiefen aus der "
+             "PMI, Höhe nach ISO 2768-m), Worst Case, statistisch mit Cp 1,33, Monte Carlo, Kette im 3D und Wiggle der "
+             "Schlussflächen", (FTC10,)),
     Beispiel("kette_getriebe", "Toleranzkette Getriebewelle mit Wärmeausdehnung",
              "Axialspiel zwischen Lager und Sicherungsring: Kette aus Datei, Richtungen aus dem Schlussmaß, "
              "Werkstoffe aus der STEP-Datei, −20 °C und 100 °C (Alu-Hülse), Anforderung 0,05 … 1,1 mm",
@@ -106,6 +110,23 @@ def welle_rollen(modell) -> list[tuple[int, str]]:
             if art == "zylinder" and abs(g["groesse"] - kennung) < 0.01 or \
                     art == "ebene" and abs(abs(float(g["richtung"] @ np.array(kennung))) - 1) < 1e-6:
                 out.append((i, rolle))
+    return out
+
+
+def kette_flaechen(modell) -> list[int]:
+    """Beispiel Toleranzkette: Flaechenindizes nach KETTE_FLAECHEN (leer, wenn eine fehlt)."""
+    import numpy as np
+    from . import funktion as fu
+    out = []
+    for x, z in KETTE_FLAECHEN:
+        for i, f in enumerate(modell.flaechen):
+            g = fu._geometrie(f)
+            if g is not None and g["art"] == "ebene" and abs(abs(float(g["richtung"] @ np.array((0, 0, 1)))) - 1) < 1e-6 \
+                    and abs(g["mitte"][0] - x) < 0.6 and abs(g["mitte"][2] - z) < 0.01:
+                out.append(i)
+                break
+        else:
+            return []
     return out
 
 

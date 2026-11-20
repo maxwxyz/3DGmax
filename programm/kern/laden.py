@@ -44,6 +44,7 @@ class StepModell:
     datei: p21.P21Datei | None = None
     ladezeit: float = 0.0
     netz_kanten: dict[int, list] = field(default_factory=dict)  # Flaechenindex -> Randkanten (Netzmodelle)
+    _transfer_index: dict[int, int] = field(default_factory=dict, init=False, repr=False, compare=False)
 
     def flaechen_index(self, face) -> int | None:
         """Index einer Flaeche (Lage wird ignoriert), None wenn unbekannt."""
@@ -51,11 +52,10 @@ class StepModell:
 
     def form_von_step(self, eid: int):
         """OCCT-Form, in die eine STEP-Entitaet uebertragen wurde (oder None)."""
-        ws = self._reader.ChangeReader().WS()
-        num = ws.NumberFromLabel(f"#{eid}")
-        if num <= 0:
+        pos = self._transfer_index.get(eid)
+        if pos is None:
             return None
-        sh = transferbrep.ShapeResult(ws.TransferReader().TransientProcess(), ws.Model().Value(num))
+        sh = transferbrep.ShapeResult(self._transfer, self._transfer.Mapped(pos))
         return None if sh is None or sh.IsNull() else sh
 
     def _baue_index(self):
@@ -103,14 +103,16 @@ def _alle_flaechen(form) -> list:
 def _step_flaechen(reader, datei: p21.P21Datei, modell: StepModell):
     """Verknuepft ADVANCED_FACE-#IDs der Datei mit den Flaechenindizes."""
     ws = reader.ChangeReader().WS()
-    model = ws.Model()
-    tp = ws.TransferReader().TransientProcess()
+    model = StepData_StepModel.DownCast(ws.Model())
+    tp = modell._transfer = ws.TransferReader().TransientProcess()
+    # NumberFromLabel durchsucht das Modell linear. Nur uebertragene Entitaeten koennen eine Form liefern.
+    for pos in range(1, tp.NbMapped() + 1):
+        eid = model.IdentLabel(tp.Mapped(pos))
+        if eid > 0:
+            modell._transfer_index[eid] = pos
     for ent in datei.of_type("ADVANCED_FACE") + datei.of_type("FACE_SURFACE"):
-        num = ws.NumberFromLabel(f"#{ent.id}")
-        if num <= 0:
-            continue
-        sh = transferbrep.ShapeResult(tp, model.Value(num))
-        if sh.IsNull():
+        sh = modell.form_von_step(ent.id)
+        if sh is None:
             continue
         idx = modell.flaechen_index(sh)
         if idx is not None:
@@ -404,14 +406,12 @@ def _lade_qif(pfad: str, doc, t0: float) -> StepModell:
     return modell
 
 
-def _entpacke_stepz(pfad: str) -> str:
-    """STEPZ (ZIP mit einer Part-21-Datei, oder gzip) in eine temporaere STEP-Datei entpacken; Pfad dorthin."""
+def _entpacke_stepz(pfad: str, ordner: str) -> str:
+    """STEPZ (ZIP oder gzip) in den temporaeren Ordner entpacken und den STEP-Pfad liefern."""
     import gzip
     import os
     import shutil
-    import tempfile
     import zipfile
-    ordner = tempfile.mkdtemp(prefix="3dgmax_stepz_")
     basis = os.path.basename(pfad)
     for e in ENDUNGEN_STEPZ:
         if basis.lower().endswith(e):
@@ -481,12 +481,9 @@ def lade_modell(pfad: str) -> StepModell:
     """Modell nach Endung laden: STEP (mit PMI), IGES, STL, OBJ, glTF/GLB, 3MF (Netze, ohne PMI). Laengen in mm."""
     import os
     if pfad.lower().endswith(ENDUNGEN_STEPZ):
-        entpackt = _entpacke_stepz(pfad)
-        try:
-            modell = lade_step(entpackt)
-        finally:
-            import shutil
-            shutil.rmtree(os.path.dirname(entpackt), ignore_errors=True)
+        import tempfile
+        with tempfile.TemporaryDirectory(prefix="3dgmax_stepz_") as ordner:
+            modell = lade_step(_entpacke_stepz(pfad, ordner))
         modell.pfad = pfad
         return modell
     endung = os.path.splitext(pfad)[1].lower()

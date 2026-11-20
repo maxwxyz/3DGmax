@@ -83,7 +83,23 @@ class _StarterBild:
             pass
 
     def finish(self, _fenster):
-        starter_bild_zu()
+        try:
+            self._m.close()
+        except OSError:
+            pass  # Das Starterfenster kann seine Verbindung bereits beendet haben.
+
+
+def _startermodul():
+    """pyi_splash entfernt beim ersten Import die IPC-Variable. Die Verbindung bleibt im Modul."""
+    if "pyi_splash" in sys.modules:
+        return sys.modules["pyi_splash"]
+    if "_PYI_SPLASH_IPC" in os.environ:
+        try:
+            import pyi_splash
+            return pyi_splash
+        except ImportError:
+            pass
+    return None
 
 
 def startbild(app):
@@ -93,11 +109,9 @@ def startbild(app):
     from .i18n import tr
     from .version import VERSION
     try:
-        if "_PYI_SPLASH_IPC" not in os.environ:  # kein Starterbild (macOS, nicht gebaut): pyi_splash meldet sonst laut
-            raise ImportError
-        import pyi_splash
-        if pyi_splash.is_alive():
-            s = _StarterBild(pyi_splash)
+        modul = _startermodul()
+        if modul is not None and modul.is_alive():
+            s = _StarterBild(modul)
             s.showMessage(tr("3D-Module werden geladen …"))
             return s
     except Exception:  # noqa: BLE001 - nicht gebaut oder Starter ohne Bildschirm
@@ -114,10 +128,9 @@ def startbild(app):
 def starter_bild_zu():
     """Startbild des PyInstaller-Starters (Windows/Linux, erscheint vor Python) schliessen."""
     try:
-        if "_PYI_SPLASH_IPC" not in os.environ:
-            return
-        import pyi_splash
-        pyi_splash.close()
+        modul = _startermodul()
+        if modul is not None:
+            modul.close()
     except Exception:  # noqa: BLE001 - nicht gebaut (ImportError) oder Starter ohne Bildschirm (KeyError)
         pass
 

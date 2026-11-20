@@ -22,6 +22,7 @@
 | View cube with axes (chamfered edges/corners, click aligns, drag rotates) | ✅ |
 | Wireframe: click through to hidden edges | ✅ |
 | Large assemblies: tessellation cache, levels of detail | ⬜ |
+| Indexed STEP geometry and PMI import, unique display edges, saved-view thumbnail generation only when enabled | ✅ |
 | Model properties: volume, area, mass (density), center of gravity, overall size, file header | ✅ |
 | Anti-aliasing, sans-serif labels, subtle view cube; window/panel/column layout remembered | ✅ |
 | Camera: perspective/orthographic, view back/forward | ✅ |
@@ -106,6 +107,8 @@
 | 2D chains: sliding contacts (kinematic adjustment, contact point slides – dependent variables solved by loop closure) | ✅ |
 | 3D chains: sliding contacts (closure of position and orientation, six dependent variables) | ✅ |
 | Stack-up: wiggle of the closing faces by the worst-case extremes | ✅ |
+| Stack-up: closing faces found by walking the links along their faces; wiggle greyed out with the reason when they cannot be determined; 1D example as a real face chain | ✅ |
+| 3D chains: wiggle (worst case of the closing quantity or link by link, 1:1 or exaggerated, function point with the real value, assembly parts move with their link); cleaner display in the model | ✅ |
 | Stack-up: median planes as chain ends, chains across assembly parts | ✅ |
 | Assembly: connections plane/plane and coaxial with snapping, satisfied check, open DOF per part, DOF wiggle, in the project | ✅ |
 | Assembly: point contact (sphere on plane), pin–slot (line on plane), ball joint | ✅ |
@@ -122,7 +125,7 @@
 | Assembly: add further files as parts ("Add model"; own tree node, placed next to the model, PMI kept, in the project) | ✅ |
 | Assembly: drag a part in 3D in its open DOF with live snapping (plane/plane, coaxial), release connects; also at the 3D handle | ✅ |
 | Assembly: STEP AP242 kinematics (joints, limits) as connections – researched, OCCT parses but does not transfer; needs a sample file | ⬜ |
-| Tolerance stack-up 3D (geometric tolerances, chain from the model, sensitivity) – PLAN §8.20: by hand ✅ (§8.33), automatically from the model 🟡 (connections + measured faces; full feature torsors open) | 🟡 |
+| Tolerance stack-up 3D (geometric tolerances, chain from the model, sensitivity) – PLAN §8.20: by hand ✅ (§8.33), automatically from the model 🟡 (connections + measured faces; measured planes/straight axes supported, compound datum and deformation cases open) | 🟡 |
 | Assemblies built in the project (mates on datum features), materials and thermal expansion in chains | ✅ |
 | Wiggle within tolerances (assembly connections, extreme positions, 1:1 or exaggerated); worst-case position scatter per part | ✅ |
 | Assembly variation: measures between parts (gap/flush), worst case and Monte Carlo over all connections, requirement with Cpk/share outside, contributor ranking, PDF, example | ✅ |
@@ -130,6 +133,9 @@
 | Assembly variation: measures on axes (axis to plane, axis distance) | ✅ |
 | Assembly variation: temperature (materials from STEP), traffic light per measure, measures at a clicked point (point to plane/axis), in the PDF | ✅ |
 | Assembly variation: datum shift (MMC/LMC bonus in connections) | ✅ |
+| Assembly variation: one-sided planar stops in worst case and Monte Carlo, explicit per connection | ✅ |
+| Assembly variation: measured planes and axes in their datum frame, lever arm at the measuring point, incomplete inputs indicated in the UI, PDF and chain | ✅ |
+| Assembly variation: deformable form, common multi-feature datums and additional material/projection modifiers on measured features | ⬜ |
 | 3D chain from an assembly measure (one link per part on the connection path, clearance limits per component) | ✅ |
 | Wiggle of the closing faces at the worst-case limits (exaggerated, coloured against the requirement) | ✅ |
 | Chain from faces: median planes as chain ends, chains across parts with joint links from assembly connections | ✅ |
@@ -162,6 +168,7 @@
 |---|---|
 | Alignment: same position, best fit (ICP), manual point pairs with snapping (UI) | ✅ |
 | Geometry: equal/changed/new/removed per face, exact (B-rep) with mesh preselection | ✅ |
+| Exact comparison acceleration: reject candidates by B-rep bounds and reuse the mesh of repeated instances | ✅ |
 | Semantic PMI comparison (field by field incl. name, datums, faces), "geometry under PMI changed" | ✅ |
 | Change list, review walk-through, comment, review report with SHA-256 | ✅ |
 | Export changes (CSV) | ✅ |
@@ -206,10 +213,20 @@
 | Gear analysis: full data sheet for cylindrical gears (ISO 21771 values, ball dimension, form diameters, tip relief, crowning, pair data, stages, planetary sets, CSV/JSON) | ✅ |
 | Gear analysis: export as REXS model (FVA exchange format 1.7) for gear design and rating programs | ✅ |
 | Gear design analysis (reverse engineering of design philosophies): cylindrical stages and planetary sets – PLAN §8.27a | ✅ |
-| Gear design analysis: splines shaft/hub, bevel gears (test geometry to clarify) – PLAN §8.27a | ⬜ |
+| Shaft/hub splines and serrations, measured clearance and centring indications, conditional design findings – PLAN §8.27a | ✅ |
+| Conical tooth geometry, tip/root cone angles and conditional pitch angles of a compatible pair, checked against known control geometry | ✅ |
+| Screw profiles: number of starts, lead, axial pitch and hand | ✅ |
+| Throated wheel and candidate worm pair from screw and wheel geometry, axis position, hand and pitch | ✅ |
+| Straight gears: repeated B-rep root fillet radius and radial tip chamfer height | ✅ |
+| Manufacturing system and production fit or quality class from additional specification/inspection data | ⬜ |
 | Fix: helix angle recognition for large angles, many teeth, wide gears | ✅ |
 | Fix: tolerance stack-up strip lower (hint as tooltip, buttons below the links, compact results) | ✅ |
-| Gear analysis: fitted and plug-in splines (ISO 4156 / DIN 5480, ISO 14; flank/diameter centred) – paused, worm gears; bevel gears dropped | ⬜ |
+| Gear analysis: involute, parallel-sided and serrated shaft/hub profiles, measured tooth and space widths | ✅ |
+| Gearbox reverse engineering for an individual gear, selected parts or all visible components, including disconnected wheels inside a single STL/OBJ mesh or CAD compound | ✅ |
+| Stepped gears: distinguish axial tooth bands on a single solid or connected mesh, including tooth-count changes across a shoulder | ✅ |
+| Multistage power flow with selectable reference shaft, branches, independent gear trains, cycle checks and mixed spur/bevel/worm stages | ✅ |
+| Cylindrical gear pairs: actual axial engagement and overlap contact ratio | ✅ |
+| Tooth-averaged left/right flank deviation maps, numeric CSV/JSON and illustrated gear PDF with sourced findings | ✅ |
 | Wiggle in the open degrees of freedom (kinematic) | ✅ |
 | Clash check at the tolerance limit positions (assembly) | ✅ |
 | Clash check over joint ranges (open DOF): free range per DOF up to the first collision | ✅ |
@@ -227,7 +244,8 @@
 | Generate graphical PMI from semantic PMI – stage 1: leader + label, stacked, own color (3D, drawings) | ✅ |
 | Generated PMI stage 2: annotation planes (saved view or model plane), frames/datum symbols as vector graphics, overlap-free layout outside the model, show/hide switch | ✅ |
 | Generated PMI stage 3: dimension lines with arrows and extension lines (distance/thickness), leader arrows | ✅ |
-| Generated PMI: overlap check in the projected view per saved view | ⬜ |
+| Generated PMI: projected frame and label overlap checks in shared orthographic views, including existing annotations | ✅ |
+| Generated PMI: perspective placement and leader crossings | ⬜ |
 | Drawing: sheet formats A4–A0 with frame, title block and standard scales | ✅ |
 | Drawing: dimensions/frames as DXF dimension entities | ⬜ |
 | Annotate: comments/questions/change proposals on faces and PMI, markers, status, project, CSV/PDF | ✅ |
@@ -239,7 +257,6 @@
 | QIF 3.0: exact B-rep and semantic PMI (validated against STEP for NIST CTC-01/FTC-06) | ✅ |
 | QIF: graphical PMI (PMIDisplaySet: texts with symbols, frames, leaders, witness lines, polylines, areas) and saved views (camera, visible PMI) | ✅ |
 | QIF: measurement results read, assigned to the characteristics and assessed | ✅ |
-| QIF: write measurement plan / characteristics (QIF Plans) | ⬜ |
 | IGES, STL, OBJ, glTF/GLB, 3MF, PLY (meshes: view, measure, analyze, compare against CAD) | ✅ |
 | JT 8–10 via TKJT converter jt2glb (mesh, structure, names, colours), build variant DG_MIT_JT=1; JT 10 via fork wwmayer/TKJT + own fixes (Move-to-Front, probability table, binary coordinates) | ✅ (NIST JT 10.5 end-to-end) |
 | PMI from JT, JT B-rep (XT) | ⬜ |
@@ -256,7 +273,7 @@
 | Manual DE/EN with generated screenshots (packaging/doc_screenshots.py), opened in the browser | ✅ |
 | German/English UI, F1 manual with generated menu reference (introduction wizard and in-app "what's new" removed) | ✅ |
 | Portable apps Windows/macOS/Linux, GitHub workflow with/without tests, self-test | ✅ (all three verified by the user) |
-| Start screen before the main window (PyInstaller splash on Windows/Linux, Qt splash) | ✅ |
+| Start screen closes when the main window opens, including after PyInstaller reads its Windows/Linux splash IPC variable | ✅ |
 | Release script: bump version, keep changelog DE/EN | ✅ |
 | Tests: core, offscreen UI, stress test, on-screen test | ✅ |
 | Examples for the main functions (File › Examples, free test data, no copies in the repository) – PLAN §8.24 | ✅ |
@@ -266,3 +283,16 @@
 | Readable PMI in both schemes (contrast ≥ 4.5:1 against the real 3D background, darker dark-scheme background, warning for a low-contrast own colour); legend of the shown tolerance zones in the 3D view | ✅ |
 | Status-bar progress with Cancel for all background jobs (load, compare, analysis, colour map, material, scan) | ✅ |
 | Closable tabs of stacked side panels; smooth side-panel resizing (batched 3D buffer resize) | ✅ |
+
+## Drawing comparison and reconstruction
+
+| Feature | Status |
+|---|---|
+| Compare model PMI and a corresponding 2D drawing, link equivalent, changed, missing, extra and ambiguous characteristics to both sources – PLAN §8.35 | ⬜ |
+| Generate a solid and dimensioned semantic PMI from orthographic drawing views and sections, resolve missing dimensions and verify by reprojection – PLAN §8.36 | ⬜ |
+
+## Final implementation stage
+
+| Feature | Status |
+|---|---|
+| Remaining QIF extensions, including QIF Plans measurement-plan export and schema validation – PLAN §8.37 | ⬜ |

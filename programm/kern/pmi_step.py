@@ -168,10 +168,6 @@ def _zonen_info(datei: P21Datei, p: Pmi, zonen: list[Entity]):
                 p.zone = "NonUniform"
 
 
-def _ist_toleranz(e: Entity) -> bool:
-    return e.is_a("GEOMETRIC_TOLERANCE") or any(t in TOL_ARTEN for t in e.parts)
-
-
 def _lies_rahmen(modell: StepModell, e: Entity, zonen: dict[int, list[Entity]]) -> Pmi:
     datei = modell.datei
     if e.is_a("GEOMETRIC_TOLERANCE"):
@@ -224,8 +220,8 @@ def _hat_praesentation(datei: P21Datei, eid: int) -> bool:
 def lies_toleranzen(modell: StepModell) -> list[Pmi]:
     datei = modell.datei
     zonen = _zonen(datei)
-    toleranzen = [e for e in datei.entities.values() if _ist_toleranz(e)]
-    return [_lies_rahmen(modell, e, zonen) for e in sorted(toleranzen, key=lambda e: e.id)]
+    toleranzen = datei.of_types_by_id(("GEOMETRIC_TOLERANCE", *TOL_ARTEN))
+    return [_lies_rahmen(modell, e, zonen) for e in toleranzen]
 
 
 # --- Masse ---
@@ -381,5 +377,4 @@ MASS_TYPEN = ("DIMENSIONAL_SIZE", "DIMENSIONAL_LOCATION", "ANGULAR_SIZE", "ANGUL
 
 
 def lies_masse(modell: StepModell) -> list[Pmi]:
-    masse = [e for e in modell.datei.entities.values() if any(e.is_a(t) for t in MASS_TYPEN)]
-    return [_lies_mass_step(modell, e) for e in sorted(masse, key=lambda e: e.id)]
+    return [_lies_mass_step(modell, e) for e in modell.datei.of_types_by_id(MASS_TYPEN)]

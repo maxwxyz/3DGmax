@@ -11,7 +11,7 @@ from ..i18n import tr
 from ..version import VERSION
 from . import ansicht3d, tabellen, thema
 from .groesse import SKALEN, skalierung
-from .lader import Lader
+from .lader import Lader, Modellauftrag
 from .messwerkzeug import MessPanel
 from .vergleich_ui import AbschlussDialog, AenderungenPanel, AusrichtPanel, VergleichDialog, VergleichsLader
 from .panels import AnsichtenPanel, BaumPanel, PmiPanel
@@ -163,7 +163,8 @@ class Hauptfenster(QtWidgets.QMainWindow):
         self.resize(1400, 860)
         self.ein = einstellungen()
         self.erg = None  # Ergebnis des Ladens
-        self._lader: Lader | None = None
+        self._lader: Modellauftrag | None = None
+        self._ladeabschluss = None
         self.aktionen: dict[str, QtGui.QAction] = {}
         self.thema = thema.wende_an(QtWidgets.QApplication.instance(), self.ein.value("thema", "auto"))
 
@@ -183,7 +184,11 @@ class Hauptfenster(QtWidgets.QMainWindow):
         self.pmi = PmiPanel()
         self.ansichten = AnsichtenPanel()
         self.ansichten.setze_vorschaugroesse(str(self.ein.value("vorschau", "klein")))
-        self.ansichten.vorschau_geaendert.connect(lambda v: self.ein.setValue("vorschau", v))
+        self.ansichten.vorschau_geaendert.connect(self._vorschaugroesse)
+        self._vorschau = None
+        self._vorschau_timer = QtCore.QTimer(self)
+        self._vorschau_timer.setSingleShot(True)
+        self._vorschau_timer.timeout.connect(self._starte_vorschau)
         self.baum_alt = BaumPanel()  # Nebeneinander: Struktur des alten Stands unter der des neuen
         self.baum_alt.hide()
         self._baum_titel = (QtWidgets.QLabel(tr("Neuer Stand")), QtWidgets.QLabel(tr("Alter Stand")))
@@ -258,6 +263,7 @@ class Hauptfenster(QtWidgets.QMainWindow):
         self.zusammenbau.zuruecksetzen.connect(self.zusammenbau_zuruecksetzen)
         self.zusammenbau.wiggle.connect(self._wiggle)
         self.zusammenbau.toleranz.connect(self._spielraum)
+        self.zusammenbau.kontakt.connect(self._kontakt)
         self.zusammenbau.umkehren.connect(lambda n: self._verbindung_aendern(self.baugruppe.umkehren, n))
         self.zusammenbau.teile.itemSelectionChanged.connect(self._frei_anzeigen)
         self.zusammenbau.masse.itemSelectionChanged.connect(self.messgroesse_zeigen)
@@ -290,7 +296,6 @@ class Hauptfenster(QtWidgets.QMainWindow):
         self.tabifyDockWidget(self.dock_pmi, self.dock_aenderungen)
         self.dock_aenderungen.hide()
         self.vergleich = None
-        self._vlader = None
         self.dock_pmi.raise_()
         self.resizeDocks([self.dock_pmi], [430], QtCore.Qt.Orientation.Horizontal)
 
@@ -302,6 +307,7 @@ class Hauptfenster(QtWidgets.QMainWindow):
         self.abbrechen.hide()
         self.abbrechen.clicked.connect(self.lade_abbrechen)
         self._aufgaben = []  # laufende Hintergrundrechnungen (Analyse, Farbkarte, Material, Scan)
+        self._verzahnung_lader = None
         self.vergleich_stand = QtWidgets.QLabel("")  # im Vergleich: welche zwei Staende geladen sind
         self.vergleich_stand.setObjectName("leise")
         self.vergleich_stand.setToolTip(tr("Im Vergleich geladene Stände: alt → neu"))
@@ -648,6 +654,8 @@ class Hauptfenster(QtWidgets.QMainWindow):
         A("verzahnung", tr("Verzahnung erkennen …"), lambda: self.erkenne_verzahnung(),
           tipp=tr("Zähnezahl, Modul, Eingriffswinkel, Schrägung, Profilverschiebung und Zahnweite der gewählten Teile "
                   "(ohne Auswahl: aller sichtbaren) aus der Geometrie – Export CSV/JSON"))
+        A("getriebe", tr("Getriebe analysieren …"), lambda: self.erkenne_verzahnung(alle_sichtbaren=True),
+          tipp=tr("Alle sichtbaren Teile auf Zahnräder, Wellen, Stufen und Gesamtübersetzungen untersuchen"))
         A("step_pmi_speichern", tr("STEP mit geänderten PMI speichern …"), lambda: self.speichere_step_pmi(),
           tipp=tr("Kopie der STEP-Datei: bearbeitete PMI-Werte ersetzt, eigene PMI als semantische AP242-PMI angehängt "
                   "– alles andere bleibt unverändert"))
@@ -943,6 +951,7 @@ class Hauptfenster(QtWidgets.QMainWindow):
         m.addAction(a["kollision"])
         m.addAction(a["scan_pruefen"])
         m.addAction(a["verzahnung"])
+        m.addAction(a["getriebe"])
         m.addAction(a["messergebnisse"])
         self.menue_fenster = mb.addMenu(tr("&Fenster"))
         for d in (self.dock_baum, self.dock_ansichten, self.dock_pmi, self.dock_messen, self.dock_analyse,
@@ -1149,26 +1158,44 @@ class Hauptfenster(QtWidgets.QMainWindow):
                 return
         self.lade(pfad)
 
-    def lade(self, pfad: str, warten: bool = False, zusaetze=()):
+    def lade(self, pfad: str, warten: bool = False, zusaetze=(), *, projekt=None, danach=None):
         """Laedt im Hintergrund; warten=True blockiert bis fertig (Tests, Selbsttest); zusaetze: weitere Dateien
         [(Pfad, Verschiebung)], die dazukommen (Projekt mit hinzugefuegten Modellen)."""
         if pfad.lower().endswith(".3dgmax"):
             return self.oeffne_projekt(pfad, warten)
         if pfad.lower().endswith(".3dgkette"):
             return self.oeffne_kette(pfad, warten)
+        self._starte_ladeauftrag(Lader(pfad, zusaetze=zusaetze), tr("Lade {} …").format(os.path.basename(pfad)),
+                                self.zeige_ergebnis, warten, projekt, danach)
+
+    def _starte_ladeauftrag(self, lader, text, uebernehmen, warten, projekt=None, danach=None):
+        def abschliessen(erg):
+            uebernehmen(erg)
+            if projekt:
+                self._projekt_messungen(projekt, warten)
+            if danach:
+                danach()
+
         self.lade_abbrechen()
-        self.statusBar().showMessage(tr("Lade {} …").format(os.path.basename(pfad)))
+        self._lader = lader
+        self._ladeabschluss = abschliessen
+        self.statusBar().showMessage(text)
+        self.fortschritt.setRange(0, 0)
         self.fortschritt.show()
         self.abbrechen.show()
-        self._lader = Lader(pfad, self, zusaetze)
-        self._lader.stand.connect(lambda t: self.statusBar().showMessage(t))
-        self._lader.fertig.connect(self._geladen)
-        self._lader.fehler.connect(self._ladefehler)
-        self._lader.start()
+        lader.stand.connect(self._ladestand)
+        lader.fertig.connect(self._geladen)
+        lader.fehler.connect(self._ladefehler)
+        lader.starte()
         if warten:
-            self._lader.wait()
+            lader.wait()
             QtWidgets.QApplication.processEvents()
             QtWidgets.QApplication.processEvents()
+
+    @QtCore.Slot(str)
+    def _ladestand(self, text):
+        if self._lader is not None and self.sender() is self._lader:
+            self.statusBar().showMessage(text)
 
     def _aufgabe(self, lader, text: str = ""):
         """Hintergrundrechnung in der Statuszeile anzeigen: Laufbalken (Prozent, wenn gemeldet), Abbrechen."""
@@ -1178,21 +1205,25 @@ class Hauptfenster(QtWidgets.QMainWindow):
         self.fortschritt.setRange(0, 0)
         self.fortschritt.show()
         self.abbrechen.show()
-        lader.finished.connect(lambda l=lader: self._aufgabe_ende(l))
+        lader.finished.connect(self._aufgabe_ende)
 
     def _prozent(self, p: int):
         self.fortschritt.setRange(0, 100)
         self.fortschritt.setValue(p)
 
-    def _aufgabe_ende(self, lader):
-        if lader in self._aufgaben:
-            self._aufgaben.remove(lader)
+    @QtCore.Slot()
+    def _aufgabe_ende(self):
+        lader = self.sender()
+        if lader not in self._aufgaben:
+            return
+        self._aufgaben.remove(lader)
+        if lader is self._verzahnung_lader:
+            self._verzahnung_lader = None
         self._laufbalken_pruefen()
 
     def _laufbalken_pruefen(self):
         """Laufbalken ausblenden, sobald nichts mehr im Hintergrund rechnet."""
-        laeuft = self._aufgaben or any(x is not None and x.isRunning()
-                                       for x in (self._lader, getattr(self, "_vlader", None)))
+        laeuft = self._aufgaben or self._lader is not None
         if not laeuft:
             self.fortschritt.hide()
             self.abbrechen.hide()
@@ -1205,31 +1236,32 @@ class Hauptfenster(QtWidgets.QMainWindow):
         da = bool(self._aufgaben)
         self._aufgaben = []
         self._karten_lader = None
+        self._verzahnung_lader = None
         self.analyse.start.setEnabled(True)
         self.kollision.start.setEnabled(True)
         return da
 
     def lade_abbrechen(self):
+        self._nach_laden = None
         if self._aufgaben_abbrechen():
             self.statusBar().showMessage(tr("Abgebrochen"), 4000)
-        if getattr(self, "_vlader", None) is not None and self._vlader.isRunning():
-            self._vlader.abgebrochen = True
-            self._vlader = None
-        if self._lader is not None and self._lader.isRunning():
+        if self._lader is not None:
             self._lader.abgebrochen = True
             self.statusBar().showMessage(tr("Laden abgebrochen"), 4000)
         self._lader = None
+        self._ladeabschluss = None
         self.fortschritt.hide()
         self.abbrechen.hide()
 
+    @QtCore.Slot(object)
     def _geladen(self, erg):
-        if self.sender() is not self._lader:
+        if self._lader is None or self.sender() is not self._lader:
             return
+        abschliessen = self._ladeabschluss
+        self._ladeabschluss = None
         self._lader = None
         self._laufbalken_pruefen()
-        self.zeige_ergebnis(erg)
-        self._projekt_messungen()
-        self._danach()
+        abschliessen(erg)
 
     def zeige_ergebnis(self, erg, vergleich=None, zuruecksetzen: bool | None = None):
         """Modell (bzw. neuen Stand eines Vergleichs) zeigen. zuruecksetzen: alles am vorigen Modell leeren -
@@ -1237,6 +1269,8 @@ class Hauptfenster(QtWidgets.QMainWindow):
         neu Ausrichten (gleicher neuer Stand) behalten den Stand."""
         if zuruecksetzen is None:
             zuruecksetzen = erg is not self.erg
+        if self.erg is not erg:
+            self._verzahnung_abbrechen()
         if zuruecksetzen and self.erg is not None:
             self._modellzustand_zuruecksetzen(erg.modell)
         self.scan_aus()  # die Scanpruefung gehoert zum vorigen Modell
@@ -1370,8 +1404,7 @@ class Hauptfenster(QtWidgets.QMainWindow):
         vergleich = {"alt": pfade[0], "neu": pfade[-1], "toleranz": 0.01, "suchweite": 2.0}
         if name in ("vergleich", "baugruppe"):
             schritte = [lambda: self._beispiel_farbkarte(warten)] if name == "vergleich" else []
-            self._nach_laden = zeigen(*schritte)
-            self.starte_vergleich(vergleich, warten)
+            self.starte_vergleich(vergleich, warten, danach=zeigen(*schritte))
             return True
         schritte = {
             "pmi": [lambda: self.ansichten.liste.setCurrentRow(1)],
@@ -1390,8 +1423,7 @@ class Hauptfenster(QtWidgets.QMainWindow):
             "merkmale": [lambda: self.aktionen["ballone"].isChecked() or self.aktionen["ballone"].trigger()],
             "kette3d": [self._beispiel_variation, lambda: self.messgroesse_als_kette3d(2)],
         }[name]
-        self._nach_laden = zeigen(*schritte)
-        self.lade(pfade[0], warten)
+        self.lade(pfade[0], warten, danach=zeigen(*schritte))
         return True
 
     def _beispiel_funktion(self):
@@ -1466,22 +1498,33 @@ class Hauptfenster(QtWidgets.QMainWindow):
         self.zusammenbau.masse.selectRow(1)
 
     def _beispiel_kette(self):
-        from ..kern import toleranzkette as tk
+        """FTC-10: Kette aus vier Modellflaechen in Kettenreihenfolge (Senkungsboden, Oberseite, Unterseite,
+        Senkungsboden) - Tiefen aus der PMI, die Hoehe ohne PMI nach ISO 2768-m; Schlussflaechen bestimmbar (Wiggle)."""
+        from ..kern import beispiele, toleranzkette as tk
         k = self.zeige_toleranzkette()
-        self.pmi.waehle(lambda p: p.art == "mass" and p.nennwert is not None and not tk.ist_winkel(p)
-                        and not any(t in (p.typ or "") for t in ("Diameter", "Radius")))
-        self._kette_uebernehmen(+1)
+        flaechen = beispiele.kette_flaechen(self.erg.modell)
+        glieder, _richtung, _hinweise = tk.kette_aus_flaechen(self.erg.modell, flaechen, self.erg.pmi, "m",
+                                                              k.lage.isChecked())
+        k.ergaenze(glieder)
         k.cp.setValue(1.33)
+        k.bild3d.setChecked(True)
+        k.wiggle.setChecked(True)
+        # Kette entlang Z: von vorne liegen alle Glieder in der Bildebene; einpassen, wenn die Leiste die Ansicht
+        # verkleinert hat
+        QtCore.QTimer.singleShot(150, lambda: self.ansicht.standard("vorne"))
 
+    @QtCore.Slot(str)
     def _ladefehler(self, text):
-        self._nach_laden = None
+        if self._lader is None or self.sender() is not self._lader:
+            return
         self._lader = None
-        self._vlader = None
+        self._ladeabschluss = None
         self._laufbalken_pruefen()
         self.statusBar().clearMessage()
         QtWidgets.QMessageBox.warning(self, tr("Laden fehlgeschlagen"), text)
 
     def schliesse_modell(self):
+        self.lade_abbrechen()
         self.beende_vergleich(neu_zeigen=False)
         if self.erg is not None:
             self._modellzustand_zuruecksetzen()
@@ -1490,6 +1533,7 @@ class Hauptfenster(QtWidgets.QMainWindow):
         self.baum.zeige(None)
         self.pmi.zeige([])
         self.ansichten.zeige([])
+        self._starte_vorschau()
         self.setWindowTitle(self._titel())
         self._modell_da(False)
 
@@ -2013,21 +2057,42 @@ class Hauptfenster(QtWidgets.QMainWindow):
             self.erg.ansichten.remove(a)
             self._ansichten_neu(None)
 
+    def _vorschaugroesse(self, groesse):
+        vorher = self.ein.value("vorschau", "klein")
+        self.ein.setValue("vorschau", groesse)
+        if (vorher == "aus") != (groesse == "aus"):
+            self._starte_vorschau()
+
+    @QtCore.Slot(int, str)
+    def _vorschau_fertig(self, i, svg):
+        if self.sender() is self._vorschau and self._vorschau is not None and not self._vorschau.abgebrochen:
+            self.ansichten.setze_vorschau(i, svg)
+
+    @QtCore.Slot()
+    def _vorschau_ende(self):
+        if self.sender() is self._vorschau:
+            self._vorschau = None
+
     def _starte_vorschau(self):
         """Vorschaubilder der gespeicherten Ansichten im Hintergrund zeichnen - erst wenn die 3D-Ansicht steht: die
         Kantenberechnung (HLR) haelt die Python-Sperre und wuerde sonst den Szenenaufbau um ein Vielfaches bremsen."""
+        self._vorschau_timer.stop()
+        gewuenscht = self.ansichten.vorschau != "aus" and self.erg is not None and self.erg.ansichten
+        if self._vorschau is not None:
+            self._vorschau.abgebrochen = True
+            if self._vorschau.isRunning():
+                if gewuenscht:
+                    self._vorschau_timer.start(200)
+                return
+            self._vorschau = None
+        if not gewuenscht:
+            return
         if getattr(self.ansicht, "_bereit", True) is False:
-            QtCore.QTimer.singleShot(200, self._starte_vorschau)
+            self._vorschau_timer.start(200)
             return
         from OCC.Core.BRep import BRep_Builder
         from OCC.Core.TopoDS import TopoDS_Compound
         from .panels import VorschauLader
-        alt = getattr(self, "_vorschau", None)
-        if alt is not None and alt.isRunning():
-            alt.abbrechen = True
-            alt.wait(2000)
-        if self.erg is None or not self.erg.ansichten:
-            return
         form = TopoDS_Compound()
         bb = BRep_Builder()
         bb.MakeCompound(form)
@@ -2036,10 +2101,11 @@ class Hauptfenster(QtWidgets.QMainWindow):
                 bb.Add(form, k.form)
         pmi_text = {p.step_id: p.wert_text() for p in self.erg.pmi if p.step_id}
         grafik = [self._grafik_fuer(a.pmi_ids) for a in self.erg.ansichten]
-        lader = VorschauLader(form, self.erg.ansichten, grafik, pmi_text, self)
-        lader.fertig.connect(self.ansichten.setze_vorschau)
+        lader = VorschauLader(form, self.erg.ansichten, grafik, pmi_text)
+        lader.fertig.connect(self._vorschau_fertig)
+        lader.finished.connect(self._vorschau_ende)
         self._vorschau = lader
-        lader.start()
+        lader.starte()
 
     def _ansichten_neu(self, waehlen):
         self.ansichten.zeige(self.erg.ansichten)
@@ -2118,35 +2184,21 @@ class Hauptfenster(QtWidgets.QMainWindow):
 
     # --- Vergleich ---
 
-    def starte_vergleich(self, werte: dict | None = None, warten: bool = False):
+    def starte_vergleich(self, werte: dict | None = None, warten: bool = False, *, projekt=None, danach=None):
         if werte is None:
             d = VergleichDialog(self.erg.pfad if self.erg else (self.zuletzt()[0] if self.zuletzt() else ""), self)
             if d.exec() != QtWidgets.QDialog.DialogCode.Accepted:
                 return
             werte = d.werte()
-        self.lade_abbrechen()
-        self.statusBar().showMessage(tr("Vergleiche …"))
-        self.fortschritt.show()
-        self.abbrechen.show()
-        self._vlader = VergleichsLader(werte, self.erg, self)
-        self._vlader.stand.connect(lambda t: self.statusBar().showMessage(t))
-        self._vlader.fertig.connect(self._vergleich_fertig)
-        self._vlader.fehler.connect(self._ladefehler)
-        self._vlader.start()
-        if warten:
-            self._vlader.wait()
-            QtWidgets.QApplication.processEvents()
-            QtWidgets.QApplication.processEvents()
+        self._starte_vergleichslader(VergleichsLader(werte, self.erg), warten, projekt, danach)
 
-    def _vergleich_fertig(self, v):
-        self._vlader = None
-        self._laufbalken_pruefen()
-        if getattr(self, "_projekt", None):
-            from ..kern import projekt
-            projekt.uebernimm_pruefstand(v, self._projekt.get("vergleich", {}).get("aenderungen", []))
-        self.zeige_vergleich(v)
-        self._projekt_messungen()
-        self._danach()
+    def _starte_vergleichslader(self, lader, warten, stand=None, danach=None):
+        def uebernehmen(v):
+            if stand:
+                from ..kern import projekt
+                projekt.uebernimm_pruefstand(v, stand.get("vergleich", {}).get("aenderungen", []))
+            self.zeige_vergleich(v)
+        self._starte_ladeauftrag(lader, tr("Vergleiche …"), uebernehmen, warten, stand, danach)
 
     def zeige_ordnervergleich(self):
         from .ordnervergleich_ui import OrdnerVergleich
@@ -2205,18 +2257,16 @@ class Hauptfenster(QtWidgets.QMainWindow):
     def oeffne_projekt(self, pfad: str, warten: bool = False):
         from ..kern import projekt
         try:
-            self._projekt = projekt.lade(pfad)
+            d = projekt.lade(pfad)
         except Exception as e:  # noqa: BLE001 - Fehler dem Nutzer zeigen
             QtWidgets.QMessageBox.warning(self, tr("Projekt öffnen"), str(e))
             return
-        d = self._projekt
-        self._projekt_warten = warten  # fuer Schritte nach dem Laden (Kollisionspruefung)
         if d["typ"] == "vergleich":
             v = d["vergleich"]
             self.starte_vergleich({"alt": d["pfade"]["alt"], "neu": d["pfade"]["neu"], "toleranz": v["toleranz"],
-                                   "suchweite": v["suchweite"]}, warten)
+                                   "suchweite": v["suchweite"]}, warten, projekt=d)
         else:
-            self.lade(d["pfade"]["modell"], warten, d.get("zusatz_pfade", []))
+            self.lade(d["pfade"]["modell"], warten, d.get("zusatz_pfade", []), projekt=d)
 
     # --- Modell hinzufuegen ---
 
@@ -2233,26 +2283,12 @@ class Hauptfenster(QtWidgets.QMainWindow):
                                                             DATEIFILTER.format(tr("Alle Modelle"), tr("Netze")))
             if not pfad:
                 return
-        self.lade_abbrechen()
-        self.statusBar().showMessage(tr("Füge {} hinzu …").format(os.path.basename(pfad)))
-        self.fortschritt.show()
-        self.abbrechen.show()
-        self._lader = Lader(self.erg.pfad, self, [(pfad, None)], basis=self.erg)
-        self._lader.stand.connect(lambda t: self.statusBar().showMessage(t))
-        self._lader.fertig.connect(self._hinzugefuegt)
-        self._lader.fehler.connect(self._ladefehler)
-        self._lader.start()
-        if warten:
-            self._lader.wait()
-            QtWidgets.QApplication.processEvents()
-            QtWidgets.QApplication.processEvents()
+        lader = Lader(self.erg.pfad, zusaetze=[(pfad, None)], basis=self.erg)
+        self._starte_ladeauftrag(lader, tr("Füge {} hinzu …").format(os.path.basename(pfad)),
+                                self._hinzugefuegt, warten)
 
     def _hinzugefuegt(self, erg):
         """Zusammengefuegtes Modell zeigen; Zusammenbau, Messungen und Kommentare bleiben (gleiche erste Datei)."""
-        if self.sender() is not self._lader:
-            return
-        self._lader = None
-        self._laufbalken_pruefen()
         self.zeige_ergebnis(erg, zuruecksetzen=False)
         self.ansicht.setze_teil_lagen(self.baugruppe.lagen)
         if self.dock_zusammenbau.isVisible():
@@ -2261,50 +2297,48 @@ class Hauptfenster(QtWidgets.QMainWindow):
         self.statusBar().showMessage(tr("{} hinzugefügt: {} Flächen, neben das Modell gelegt – im Zusammenbau "
                                         "verbinden").format(os.path.basename(z.pfad), z.flaechen), 8000)
 
-    def _projekt_messungen(self):
-        d = getattr(self, "_projekt", None)
-        if d and d.get("messungen"):
+    def _projekt_messungen(self, d, warten):
+        if d.get("messungen"):
             self.messen.messungen = list(d["messungen"])
             self.messen._fuelle()
             self.dock_messen.show()
-        if d and d.get("eigene_pmi") and self.erg is not None:
+        if d.get("eigene_pmi") and self.erg is not None:
             self.fuege_pmi_hinzu(d["eigene_pmi"])
-        if d and d.get("pmi_aenderungen") and self.erg is not None:
+        if d.get("pmi_aenderungen") and self.erg is not None:
             nach_id = {p.step_id: p for p in self.erg.pmi}
             for a in d["pmi_aenderungen"]:
                 if a.get("step_id") in nach_id:
                     self.bearbeite_pmi(nach_id[a["step_id"]], a.get("werte", {}))
-        if d and d.get("zusammenbau") and self.erg is not None:
+        if d.get("zusammenbau") and self.erg is not None:
             from ..kern.verbindung import flaeche_im_teil
             knoten = {k.nummer: k for k in self.erg.baum.blaetter()}
             self.baugruppe.lade(d["zusammenbau"], lambda t, i: flaeche_im_teil(knoten[t].form, i, self.erg.modell)
                                 if t in knoten else None)
             self.zeige_zusammenbau()
-        if d and d.get("kette") and self.erg is not None:
+        if d.get("kette") and self.erg is not None:
             k = self.zeige_toleranzkette(nur_anlegen=True)
             k.leeren()
             k.cp.setValue(d["kette"]["cp"])
             k.ergaenze(d["kette"]["glieder"])
             k.setze_freigabe(d["kette"].get("freigabe") or {})
-        if d and d.get("raumketten"):
+        if d.get("raumketten"):
             from ..kern import kette2d, kette3d
             if d["raumketten"].get("kette2d"):
                 self.zeige_kette2d(nur_anlegen=True).setze_kette(kette2d.von_dict(d["raumketten"]["kette2d"]))
             if d["raumketten"].get("kette3d"):
                 self.zeige_kette3d(nur_anlegen=True).setze_kette(kette3d.von_dict(d["raumketten"]["kette3d"]))
-        if d and d.get("funktion") and self.erg is not None:
+        if d.get("funktion") and self.erg is not None:
             self.zeige_funktion(nur_anlegen=True).setze_zustand(d["funktion"])
-        if d and d.get("kommentare"):
+        if d.get("kommentare"):
             self.kommentare.setze(d["kommentare"])
             self.dock_kommentare.show()
-        if d and d.get("kollision") and self.erg is not None:  # Pruefung neu, Status und Kommentare zurueck
+        if d.get("kollision") and self.erg is not None:  # Pruefung neu, Status und Kommentare zurueck
             gemerkt = d["kollision"]
             self._kollision_gemerkt = gemerkt.get("befunde", [])
-            self.starte_kollision(gemerkt.get("werte", {}), getattr(self, "_projekt_warten", False))
-        if d and d.get("ansichten") and self.erg is not None:
+            self.starte_kollision(gemerkt.get("werte", {}), warten)
+        if d.get("ansichten") and self.erg is not None:
             self.erg.ansichten.extend(d["ansichten"])
             self._ansichten_neu(None)
-        self._projekt = None
 
     def zeige_vergleich(self, v):
         self.vergleich = v
@@ -2631,21 +2665,11 @@ class Hauptfenster(QtWidgets.QMainWindow):
     def _neu_ausrichten(self, ausrichtung, warten: bool = False):
         """Vergleich mit der manuell bestimmten Ausrichtung neu rechnen (Pruefstand wird uebernommen)."""
         v = self.vergleich
-        self._projekt = {"vergleich": {"aenderungen": [{"nr": a.nummer, "titel": a.titel, "pruefstatus": a.pruefstatus,
-                                                         "kommentar": a.kommentar} for a in v.aenderungen]}}
+        stand = {"vergleich": {"aenderungen": [{"nr": a.nummer, "titel": a.titel, "pruefstatus": a.pruefstatus,
+                                                "kommentar": a.kommentar} for a in v.aenderungen]}}
         werte = {"alt": v.alt.pfad, "neu": v.neu.pfad, "toleranz": v.toleranz, "suchweite": v.suchweite}
-        self.statusBar().showMessage(tr("Vergleiche …"))
-        self.fortschritt.show()
-        self.abbrechen.show()
-        self._vlader = VergleichsLader(werte, v.alt, self, neu_geladen=v.neu, ausrichtung=ausrichtung)
-        self._vlader.stand.connect(lambda t: self.statusBar().showMessage(t))
-        self._vlader.fertig.connect(self._vergleich_fertig)
-        self._vlader.fehler.connect(self._ladefehler)
-        self._vlader.start()
-        if warten:
-            self._vlader.wait()
-            QtWidgets.QApplication.processEvents()
-            QtWidgets.QApplication.processEvents()
+        lader = VergleichsLader(werte, v.alt, neu_geladen=v.neu, ausrichtung=ausrichtung)
+        self._starte_vergleichslader(lader, warten, stand)
 
     def zeige_farbkarte(self, an: bool, grenze: float = 0.0, warten: bool = False):
         """Abweichungs-Farbkarte ein/aus; wird einmal je Vergleich im Hintergrund berechnet."""
@@ -3149,36 +3173,69 @@ class Hauptfenster(QtWidgets.QMainWindow):
         self._stueckliste = f
         return f
 
-    def erkenne_verzahnung(self, warten: bool = False):
+    def erkenne_verzahnung(self, warten: bool = False, *, alle_sichtbaren=False):
         """Verzahnungsdaten der gewaehlten (sonst aller sichtbaren) Teile im Hintergrund erkennen."""
         from OCC.Core.TopLoc import TopLoc_Location
         from .ansicht3d import gp_trsf
         from .verzahnung_ui import VerzahnungLader
         if self.erg is None:
             return None
-        gewaehlt = self.baum.gewaehlte_blaetter()
+        gewaehlt = set()
+        if not alle_sichtbaren:
+            gewaehlt = self.baum.gewaehlte_blaetter()
+            for form in self.ansicht.auswahl3d:
+                knoten = self._knoten_von(form)
+                if knoten is not None:
+                    gewaehlt.add(knoten.nummer)
         lagen = self.baugruppe.lagen
         teile = [(k.name, k.form.Moved(TopLoc_Location(gp_trsf(lagen[k.nummer]))) if k.nummer in lagen else k.form)
                  for k in self.erg.baum.blaetter() if not k.hilfsgeometrie and k.nummer not in self.ansicht.versteckt
                  and (not gewaehlt or k.nummer in gewaehlt)]
+        self._verzahnung_abbrechen()
         if not teile:
             return None
-        lader = VerzahnungLader(teile, self)
-        lader.stand.connect(self._prozent)
-        lader.fehler.connect(lambda t: QtWidgets.QMessageBox.warning(self, tr("Verzahnung"), t))
-        lader.fertig.connect(lambda liste, l=lader: l.abgebrochen or self._verzahnung_fertig(liste))
+        lader = VerzahnungLader(teile)
+        lader.stand.connect(self._verzahnung_stand)
+        lader.fehler.connect(self._verzahnung_fehler)
+        lader.fertig.connect(self._verzahnung_fertig)
+        self._verzahnung_getriebe = alle_sichtbaren
         self._verzahnung_lader = lader
         self._aufgabe(lader, tr("Verzahnung erkennen …"))
-        lader.start()
+        lader.starte()
         if warten:
             lader.wait()
             QtWidgets.QApplication.processEvents()
         return lader
 
+    def _verzahnung_abbrechen(self):
+        if self._verzahnung_lader is not None:
+            self._verzahnung_lader.abgebrochen = True
+            self._aufgaben.remove(self._verzahnung_lader)
+            self._verzahnung_lader = None
+            self._laufbalken_pruefen()
+
+    def _verzahnung_aktuell(self):
+        lader = self._verzahnung_lader
+        return lader is not None and self.sender() is lader and not lader.abgebrochen
+
+    @QtCore.Slot(int)
+    def _verzahnung_stand(self, p):
+        if self._verzahnung_aktuell():
+            self._prozent(p)
+
+    @QtCore.Slot(str)
+    def _verzahnung_fehler(self, text):
+        if self._verzahnung_aktuell():
+            QtWidgets.QMessageBox.warning(self, tr("Verzahnung"), text)
+
+    @QtCore.Slot(object)
     def _verzahnung_fertig(self, liste):
+        if not self._verzahnung_aktuell():
+            return
         from .verzahnung_ui import VerzahnungFenster
-        self._danach()
         self._verzahnung = VerzahnungFenster(liste, os.path.splitext(self.erg.pfad)[0], self)
+        if self._verzahnung_getriebe and self._verzahnung.getriebe_tabelle.rowCount():
+            self._verzahnung.reiter.setCurrentWidget(self._verzahnung.getriebeseite)
         self._verzahnung.show()
         self.statusBar().showMessage(tr("{} Verzahnung(en) erkannt").format(len(liste)), 8000)
 
@@ -3332,12 +3389,25 @@ class Hauptfenster(QtWidgets.QMainWindow):
             f.uebernehmen.connect(lambda gl, f=f: self._kette2d_uebernehmen(gl, f.kette.temperaturen,
                                                                             f.kette.anforderung))
             f.aus_teil.connect(self.kette3d_aus_teil)
-            f.zeigen.connect(lambda linien: self.ansicht.zeige_hilfslinien(linien or [], einpassen=bool(linien)))
+            f.zeigen.connect(lambda linien, einpassen: self.ansicht.zeige_hilfslinien(
+                linien or [], einpassen=einpassen and bool(linien)))
+            f.teile_bewegen.connect(self._kette3d_teile)
             self._kette3d = f
             self._als_leiste(f, tr("3D-Toleranzkette"), "kette3d")
         if not nur_anlegen:
             self._leiste_zeigen(f, "kette3d")
         return f
+
+    def _kette3d_teile(self, bewegungen):
+        """Wiggle der 3D-Kette: Teile des Zusammenbaus mit ihrem Glied bewegen; None: Lagen wie zusammengebaut."""
+        if self.erg is None:
+            return
+        lagen = dict(self.baugruppe.lagen)
+        teile = {k.nummer for k in self.erg.baum.blaetter()}
+        for teil, m in (bewegungen or {}).items():
+            if teil in teile:
+                lagen[teil] = m @ self.baugruppe.lage(teil)
+        self.ansicht.setze_teil_lagen(lagen)
 
     def _punkt_von_form(self, form):
         """Kennpunkt eines gewaehlten Elements: Punkt, Kreismitte bzw. Kantenmitte, Achspunkt eines Zylinders bzw.
@@ -3402,7 +3472,6 @@ class Hauptfenster(QtWidgets.QMainWindow):
 
     def kette3d_aus_teil(self) -> bool:
         """Glied fuer das gewaehlte Teil des Zusammenbaus an die 3D-Kette haengen (vom letzten Kettenpunkt aus)."""
-        import numpy as np
         from ..kern import kette3d as k3
         from ..kern.baugruppe_mass import Analyse
         w = self.zeige_kette3d()
@@ -3411,16 +3480,19 @@ class Hauptfenster(QtWidgets.QMainWindow):
             self.statusBar().showMessage(tr("Erst ein Teil des Zusammenbaus im Modell wählen"), 6000)
             return False
         k = w.kette
-        vorher = k3.lagen(k)[-1][1] if k.glieder and k.basis is None else np.zeros(3)
-        if k.basis is not None:
-            self.statusBar().showMessage(tr("Diese Kette liegt in einer eigenen Basis – Teile nur in Ketten in "
-                                            "Weltlage anhängen"), 6000)
-            return False
+        _r, vorher = k3.ende_welt(k)  # Kettenende im Modell (auch in einer eigenen Basis)
         neu = Analyse(self.baugruppe).glied_fuer_teil(teil, vorher, self._teil_namen().get(teil, str(teil)))
         if neu is None:
             self.statusBar().showMessage(tr("Das Teil ist fest oder hat keine Verbindung im Zusammenbau"), 6000)
             return False
-        w.neues_glied(neu[0])
+        g, ort = neu
+        # Grenzen des Teils gelten in Modellachsen: ist das Kettenende gedreht, erst ein Glied zurueck zu den Achsen
+        ausrichtung = k3.ausrichtung(k, ort, tr("Ausrichtung zu {}").format(g.name))
+        if ausrichtung is not None:
+            k.glieder.append(ausrichtung)
+            for c in ("x", "y", "z"):
+                g.werte[c].nenn = 0.0
+        w.neues_glied(g)
         return True
 
     def _kette2d_uebernehmen(self, glieder: list, temperaturen: tuple | None = None, anforderung: tuple | None = None):
@@ -3607,11 +3679,13 @@ class Hauptfenster(QtWidgets.QMainWindow):
             f.finished.connect(lambda _r: f.wiggle.setChecked(False))  # Leiste zu: Wiggle aus
             f.oeffnen.connect(lambda: self.oeffne_kette())
             f.teil_von = self._teil_von_flaechen
+            f.wiggle_grund = self._wiggle_grund
             self._kette = f
             self._als_leiste(f, tr("Toleranzkette"), "kette")
         if self.erg is not None and f.modell_pfad != self.erg.pfad:
             f.modell_pfad = self.erg.pfad
             self._werkstoffe_vorbelegen(f)
+            f.pruefe_wiggle()  # anderes Modell: Schlussflaechen neu bestimmen
         if not nur_anlegen:
             self._leiste_zeigen(f, "kette")
         return f
@@ -3658,8 +3732,7 @@ class Hauptfenster(QtWidgets.QMainWindow):
         anderes = k.modell and os.path.isfile(k.modell) and (
             self.erg is None or os.path.abspath(self.erg.pfad) != os.path.abspath(k.modell))
         if anderes:
-            self._nach_laden = lambda: self._kette_anwenden(k)
-            self.lade(k.modell, warten)
+            self.lade(k.modell, warten, danach=lambda: self._kette_anwenden(k))
         else:
             self._kette_anwenden(k)
         return k
@@ -3679,6 +3752,11 @@ class Hauptfenster(QtWidgets.QMainWindow):
         linien = tk.glied_pfeil(g, self.erg.modell) if g is not None and self.erg is not None else []
         self.ansicht.zeige_hilfslinien(linien)
 
+    def _wiggle_grund(self, glieder) -> str:
+        """Warum die Kette keinen Wiggle der Schlussflaechen hat ("" = Schlussflaechen bestimmbar)."""
+        from ..kern import schluss_wiggle as sw
+        return sw.schluss_oder_grund(glieder, self.erg.modell if self.erg is not None else None)[1]
+
     def schluss_wiggle(self, an: bool) -> bool:
         """Wiggle der Schlussflaechen (kern.schluss_wiggle): Endflaeche zwischen den Worst-Case-Grenzen, ueberhoeht,
         gruen in der Anforderung, rot ausserhalb; False, wenn die Kette keine Schlussflaechen im Modell hat."""
@@ -3689,13 +3767,13 @@ class Hauptfenster(QtWidgets.QMainWindow):
             uhr.setInterval(60)
             uhr.timeout.connect(self._schluss_wiggle_schritt)
         k = getattr(self, "_kette", None)
-        s = sw.schlussflaechen(k.glieder, self.erg.modell) if an and k is not None and self.erg is not None else None
+        s, grund = sw.schluss_oder_grund(k.glieder, self.erg.modell if self.erg is not None else None) \
+            if an and k is not None else (None, "")
         if s is None or getattr(k, "e", None) is None:
             uhr.stop()
             self.ansicht.zeige_schlussflaeche(None)
             if an:
-                self.statusBar().showMessage(tr("Wiggle braucht eine Kette aus Modellflächen in Kettenreihenfolge "
-                                                "(„Aus 3D-Auswahl“ oder „Richtungen aus Schlussmaß“)"), 8000)
+                self.statusBar().showMessage(grund, 8000)
                 k.wiggle.setChecked(False)
             return False
         self._schluss = [s, 0]
@@ -4212,13 +4290,27 @@ class Hauptfenster(QtWidgets.QMainWindow):
                 w = aus_datei.get(name) or aus_datei.get(name.split(" (")[0])
                 z.alpha[nr] = (werkstoffe.alpha_fuer(w) if w else None) or werkstoffe.BIBLIOTHEK["Stahl"]
 
+    def _massanalyse(self):
+        from functools import cache
+        from ..kern.baugruppe_mass import Analyse
+        from ..kern.verbindung import flaeche_im_teil
+        if self.erg is None:
+            return Analyse(self.baugruppe)
+        modell = self.erg.modell
+        teile = {k.nummer: k.form for k in self.erg.baum.blaetter()}
+
+        @cache
+        def form_fuer(teil, idx):
+            return flaeche_im_teil(teile[teil], idx, modell) if teil in teile else None
+
+        return Analyse(self.baugruppe, self.erg.pmi, form_fuer)
+
     def messgroessen_ergebnisse(self) -> dict:
         """Nummer der Messgroesse -> Ergebnis (Worst Case, Monte Carlo, Beitragende) ueber alle Verbindungen; mit
         Waermeausdehnung zusaetzlich die Verschiebung beim Temperaturfall."""
         if not self.baugruppe.masse:
             return {}
-        from ..kern.baugruppe_mass import Analyse
-        a = Analyse(self.baugruppe, self.erg.pmi if self.erg is not None else [])
+        a = self._massanalyse()
         out = {m.nummer: a.berechne(m, *self.baugruppe.mass_formen[m.nummer]) for m in self.baugruppe.masse}
         z = self.zusammenbau
         if z.waerme.isChecked():
@@ -4254,11 +4346,10 @@ class Hauptfenster(QtWidgets.QMainWindow):
 
     def messgroesse_als_kette3d(self, nummer: int):
         """Messgroesse des Zusammenbaus als 3D-Kette im Fenster 3D-Toleranzkette (im Modell gezeigt)."""
-        from ..kern.baugruppe_mass import Analyse
         m = next((x for x in self.baugruppe.masse if x.nummer == nummer), None)
         if m is None:
             return None
-        k = Analyse(self.baugruppe).als_kette3d(m, *self.baugruppe.mass_formen[nummer], self._teil_namen())
+        k = self._massanalyse().als_kette3d(m, *self.baugruppe.mass_formen[nummer], self._teil_namen())
         f = self.zeige_kette3d()
         f.setze_kette(k)
         f.im_modell.setChecked(True)
@@ -4605,6 +4696,13 @@ class Hauptfenster(QtWidgets.QMainWindow):
     def _verbindung_entfernen(self, nummer: int):
         self.baugruppe.entferne(nummer)
         self._zusammenbau_zeigen()
+
+    def _kontakt(self, nummer: int, an: bool):
+        from ..kern.verbindung import EBEN
+        v = self.baugruppe._verbindung(nummer)
+        if v is not None and (not an or (v.art == EBEN and v.versatz >= 0)):
+            v.einseitig = an
+            self._zusammenbau_zeigen()
 
     def zusammenbau_zuruecksetzen(self):
         self._wiggle(None)
@@ -4998,11 +5096,9 @@ class Hauptfenster(QtWidgets.QMainWindow):
         if self in FENSTER:
             FENSTER.remove(self)
         self._fenster_merken()
-        if getattr(self, "_vorschau", None) is not None and self._vorschau.isRunning():
-            self._vorschau.abbrechen = True
-            self._vorschau.wait(5000)
+        self._vorschau_timer.stop()
+        if self._vorschau is not None:
+            self._vorschau.abgebrochen = True
+            self._vorschau = None
         self.lade_abbrechen()
-        if self._vlader is not None and self._vlader.isRunning():
-            self._vlader.abgebrochen = True
-            self._vlader.wait(30000)
         super().closeEvent(ev)

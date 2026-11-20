@@ -87,8 +87,29 @@ def melder(lader, melde):
     return f
 
 
-class Lader(QtCore.QThread):
-    fertig = QtCore.Signal(object)  # Ergebnis
+class Modellauftrag(QtCore.QThread):
+    """Modellrechnungen duerfen einen Auftragswechsel oder das Schliessen ihres Fensters ueberleben."""
+
+    def __init__(self, parent=None):
+        super().__init__(parent)
+        self.abgebrochen = False
+
+    def starte(self):
+        app = QtCore.QCoreApplication.instance()
+        self.setParent(app)
+        app.aboutToQuit.connect(self._beenden)
+        self.finished.connect(self.deleteLater)
+        self.start()
+
+    @QtCore.Slot()
+    def _beenden(self):
+        # Native Lesephasen koennen erst beim naechsten Fortschrittsschritt abbrechen.
+        self.abgebrochen = True
+        self.wait()
+
+
+class Lader(Modellauftrag):
+    fertig = QtCore.Signal(object)
     fehler = QtCore.Signal(str)
     stand = QtCore.Signal(str)
 
@@ -99,17 +120,17 @@ class Lader(QtCore.QThread):
         self.pfad = pfad
         self.zusaetze = list(zusaetze)
         self.basis = basis
-        self.abgebrochen = False
 
     def run(self):
+        melde = melder(self, self.stand.emit)
         try:
             if self.basis is not None:
                 from ..kern.zusammenfuegen import fuege_hinzu
                 erg = self.basis
                 for zpfad, versatz in self.zusaetze:
-                    erg = fuege_hinzu(erg, lade_alles(zpfad, self.stand.emit), versatz)
+                    erg = fuege_hinzu(erg, lade_alles(zpfad, melde), versatz)
             else:
-                erg = lade_mit_zusaetzen(self.pfad, self.zusaetze, self.stand.emit)
+                erg = lade_mit_zusaetzen(self.pfad, self.zusaetze, melde)
         except Exception as e:  # noqa: BLE001 - Fehler dem Nutzer zeigen
             if not self.abgebrochen:
                 self.fehler.emit(f"{e}\n\n{traceback.format_exc(limit=3)}")

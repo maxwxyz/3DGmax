@@ -157,19 +157,32 @@ def paar_zeilen(p: Paar) -> list[tuple[str, str]]:
 
 # --- Wellen, Stufen, Planetensaetze ---
 
+def _achsmass(rad):
+    if hasattr(rad, "d"):
+        return rad.d
+    kopf = getattr(rad, "kopf", 0.)
+    return 2 * float(np.max(kopf))
+
+
 def _gleiche_achse(a: Verzahnung, b: Verzahnung, toleranz: float = 1e-3) -> bool:
     if abs(abs(float(a.richtung @ b.richtung)) - 1) > 1e-6:
         return False
     q = b.punkt - a.punkt
-    return float(np.linalg.norm(q - a.richtung * float(q @ a.richtung))) < toleranz * max(a.d, b.d, 1.0)
+    return float(np.linalg.norm(q - a.richtung * float(q @ a.richtung))) < toleranz * max(_achsmass(a), _achsmass(b), 1.0)
 
 
-def wellen(liste: list[Verzahnung]) -> list[list[int]]:
+def wellen(liste, planeten=()) -> list[list[int]]:
     """Gruppen gleichachsiger Raeder (Indizes) - Annahme: gleiche Achse = gleiche Welle (eine durchgehende Welle mit
     Lagern zwischen koaxialen Stufen laesst sich aus der Geometrie allein nicht unterscheiden)."""
+    # Sonne und Hohlrad desselben Satzes sind trotz gleicher Achse unabhaengig.
+    getrennt = {i for s in planeten for i in s if any(
+        j != i and _gleiche_achse(liste[i], liste[j]) for j in s)}
     gruppen: list[list[int]] = []
     for i, v in enumerate(liste):
-        g = next((g for g in gruppen if _gleiche_achse(liste[g[0]], v)), None)
+        if not hasattr(v, "richtung"):  # Steckprofile bilden keine drehzahlwandelnde Stufe.
+            continue
+        g = next((g for g in gruppen if i not in getrennt and g[0] not in getrennt and
+                  _gleiche_achse(liste[g[0]], v)), None)
         if g is None:
             gruppen.append([i])
         else:
@@ -242,75 +255,144 @@ def planetensaetze(liste: list[Verzahnung], paare: list[Paar]) -> list[Planetens
 
 @dataclass
 class Stufe:
-    antrieb: int  # Rad (Index) der treibenden Welle
+    antrieb: int
     abtrieb: int
-    u: float  # Uebersetzung z_abtrieb / z_antrieb
-    gegenlaeufig: bool
+    u: float
+    gegenlaeufig: bool | None
 
 
-def stufen(liste: list[Verzahnung], paare: list[Paar], planeten: list[Planetensatz]) -> tuple[list[Stufe], dict]:
-    """Stirnradstufen ohne Planetensaetze in Kraftflussreihenfolge ab der Welle des kleinsten Rads der ersten Stufe;
-    dazu je erreichbarer Welle die Gesamtuebersetzung und Drehrichtung bezogen auf die erste Welle."""
-    in_satz = {i for s in planeten for i in [s.sonne, s.hohlrad, *s.planeten]}
+@dataclass
+class Kraftfluss:
+    bezug: int  # Index der Bezugswelle
+    stufen: list[Stufe]
+    ergebnis: dict  # Welle -> (n_bezug / n_welle, Richtung bei parallelen Achsen)
+    widerspruch: bool
+
+
+def _kraftfluesse(liste, paare, planeten, bezugsrad=None):
+    """Festachsige Getriebezuege je Zusammenhang. Lose Raeder und Planeteneingriffe getrennt halten."""
+    from collections import defaultdict, deque
     idx = {id(v): i for i, v in enumerate(liste)}
-    gruppen = wellen(liste)
+    gruppen = wellen(liste, planeten)
     welle = {i: k for k, g in enumerate(gruppen) for i in g}
-    kanten = []
+    graph = defaultdict(list)
     for p in paare:
         i, j = idx[id(p.a)], idx[id(p.b)]
-        if i in in_satz and j in in_satz:
+        if any(i in s and j in s for s in planeten):
             continue
-        kanten.append((i, j, not p.a.innen and not p.b.innen))
-    if not kanten:
-        return [], {}
-    i, j, _ = kanten[0]
-    start_rad = i if abs(liste[i].z) <= abs(liste[j].z) else j  # Antrieb: Welle des kleineren Rads
-    ziel = {welle[start_rad]: (1.0, 1)}  # Welle -> (Uebersetzung n_start / n_welle, Richtung)
-    out, offen = [], list(kanten)
-    neu = True
-    while neu:  # Kraftfluss: jede Stufe, deren treibende Welle schon erreicht ist
-        neu = False
-        for k in list(offen):
-            i, j, aussen = k
-            for an, ab in ((i, j), (j, i)):
-                if welle[an] in ziel and welle[ab] not in ziel:
-                    u = abs(liste[ab].z) / abs(liste[an].z)
-                    i0, r0 = ziel[welle[an]]
-                    ziel[welle[ab]] = (i0 * u, -r0 if aussen else r0)
-                    out.append(Stufe(an, ab, u, aussen))
-                    offen.remove(k)
-                    neu = True
-                    break
-    return out, ziel
+        richtung = None
+        if isinstance(p, Paar):
+            if p.a.beta and p.b.beta and (p.a.hand == p.b.hand) != (p.a.innen or p.b.innen):
+                continue
+            if p.eps_alpha <= 0:
+                continue
+            richtung = 1 if p.a.innen or p.b.innen else -1
+        graph[welle[i]].append((i, j, richtung))
+        graph[welle[j]].append((j, i, richtung))
+    def rang(k):
+        # Endwelle mit kleinstem beteiligten Rad als nachvollziehbarer Standardbezug.
+        rad = min((liste[i] for i, _, _ in graph[k]), key=lambda r: (r.z, r.teil))
+        return (len(graph[k]) != 1, rad.z, rad.teil, tuple(rad.punkt))
+    offen = set(graph)
+    zuege = []
+    while offen:
+        start = welle.get(bezugsrad)
+        if start not in offen:
+            start = min(offen, key=rang)
+        werte = {start: (1., 1)}
+        stufen, widerspruch = [], False
+        queue = deque([start])
+        besucht = set()
+        while queue:
+            k = queue.popleft()
+            offen.discard(k)
+            faktor, vorzeichen = werte[k]
+            for i, j, sinn in graph[k]:
+                kante = tuple(sorted((i, j)))
+                if kante in besucht:
+                    continue
+                besucht.add(kante)
+                ab, u = welle[j], liste[j].z / liste[i].z
+                vor = None if sinn is None or vorzeichen is None else sinn * vorzeichen
+                stufen.append(Stufe(i, j, u, None if sinn is None else sinn < 0))
+                if ab in werte:
+                    bekannt, drehsinn = werte[ab]
+                    if not math.isclose(bekannt, faktor * u) or (vor and drehsinn and vor != drehsinn):
+                        widerspruch = True
+                else:
+                    werte[ab] = (faktor * u, vor)
+                    queue.append(ab)
+        zuege.append(Kraftfluss(start, stufen, werte, widerspruch))
+    return gruppen, zuege
 
 
-def getriebe_zeilen(liste: list[Verzahnung], paare: list[Paar]) -> list[tuple[str, str]]:
-    """Zusammenfassung: Stufen mit Gesamtuebersetzung je Welle und Planetensaetze."""
-    saetze = planetensaetze(liste, paare)
-    st, ziel = stufen(liste, paare, saetze)
+def _planeten_indizes(liste, paare):
+    raeder = [v for v in liste if isinstance(v, Verzahnung)]
+    saetze = planetensaetze(raeder, paare)
+    idx = {id(v): i for i, v in enumerate(liste)}
+    return saetze, [{idx[id(raeder[i])] for i in [s.sonne, s.hohlrad, *s.planeten]} for s in saetze]
+
+
+def _zuege(liste, paare, bezugsrad=None):
+    from .verzahnung_sonder import kegelpaar_kandidaten, schneckenpaar_kandidaten
+    saetze, mitglieder = _planeten_indizes(liste, paare)
+    paare = [*paare, *kegelpaar_kandidaten(liste), *schneckenpaar_kandidaten(liste)]
+    gruppen, zuege = _kraftfluesse(liste, paare, mitglieder, bezugsrad)
+    return gruppen, zuege, saetze
+
+
+def stufen(liste, paare, planeten, bezugsrad=None):
+    """Stirnradstufen und Wellenwerte. Bei mehreren Zuegen hat jeder seine eigene Bezugswelle."""
+    mitglieder = [{s.sonne, s.hohlrad, *s.planeten} for s in planeten]
+    _, zuege = _kraftfluesse(liste, paare, mitglieder, bezugsrad)
+    return ([s for z in zuege for s in z.stufen],
+            {k: v for z in zuege if not z.widerspruch for k, v in z.ergebnis.items()})
+
+
+def getriebe_zeilen(liste, paare, bezugsrad=None):
+    """Kraftfluss, Uebersetzungen und getrennt auswertbare Planeten-Betriebsfaelle."""
+    gruppen, zuege, saetze = _zuege(liste, paare, bezugsrad)
+    raeder = [v for v in liste if isinstance(v, Verzahnung)]
     zeilen = []
-    for n, s in enumerate(st, 1):
-        zeilen.append((tr("Stufe {}: {} → {}").format(n, liste[s.antrieb].teil, liste[s.abtrieb].teil),
-                       f"u = {_g(s.u, 4)}" + (" " + tr("(gegenläufig)") if s.gegenlaeufig else "")))
-    gruppen = wellen(liste)
-    for k, (i_ges, richtung) in ziel.items():
-        if i_ges == 1.0 and richtung == 1:
+    for nr, zug in enumerate(zuege, 1):
+        name = lambda k: " + ".join(liste[i].teil for i in gruppen[k])
+        zeilen.append((tr("Getriebezug {} · Bezugswelle").format(nr), name(zug.bezug)))
+        for n, s in enumerate(zug.stufen, 1):
+            wert = f"u = {_g(s.u, 4)}"
+            if s.gegenlaeufig is None:
+                wert += " " + tr("(mögliche Paarung)")
+            elif s.gegenlaeufig:
+                wert += " " + tr("(gegenläufig)")
+            zeilen.append((tr("Stufe {}: {} → {}").format(n, liste[s.antrieb].teil, liste[s.abtrieb].teil), wert))
+        if zug.widerspruch:
+            zeilen.append((tr("Kraftfluss"), tr("Widersprüchliche Übersetzungen oder Drehrichtungen im geschlossenen Zug")))
             continue
-        name = " + ".join(liste[i].teil for i in gruppen[k])
-        zeilen.append((tr("Gesamtübersetzung zur Welle {}").format(name),
-                       f"i = {_g(i_ges, 4)}, " + (tr("gleiche Drehrichtung") if richtung > 0 else
-                                                   tr("Gegendrehrichtung"))))
+        for k, (gesamt, vor) in zug.ergebnis.items():
+            if k == zug.bezug:
+                continue
+            wert = f"i = {_g(gesamt, 5)}"
+            if vor is not None:
+                wert += ", " + (tr("gleiche Drehrichtung") if vor > 0 else tr("Gegendrehrichtung"))
+            zeilen.append((tr("Gesamtübersetzung zur Welle {}").format(name(k)), wert))
     for n, s in enumerate(saetze, 1):
-        zeilen += [(tr("Planetensatz {}").format(n) + " – " + a, b) for a, b in s.zeilen(liste)]
+        zeilen += [(tr("Planetensatz {}").format(n) + " – " + a, b) for a, b in s.zeilen(raeder)]
         zeilen += [(tr("Planetensatz {}").format(n) + " – " + tr("Hinweis"), h) for h in s.hinweise]
     return zeilen
 
 
-def datenblatt(liste: list[Verzahnung], paare: list[Paar]) -> dict:
+def datenblatt(liste: list, paare: list[Paar], bezugsrad=None) -> dict:
     """Alles fuer den JSON-Export (Werte als Zahlen, mm und Grad)."""
+    from . import passverzahnung as pv
+    from .verzahnung_sonder import Sonderprofil, Taillenrad, kegelpaar_kandidaten, schneckenpaar_kandidaten
+    gruppen_alle, zuege, _ = _zuege(liste, paare, bezugsrad)
+    teile = [v.teil for v in liste]
+    bezug = liste[bezugsrad] if bezugsrad is not None else None
+    sonder = [v for v in liste if isinstance(v, (Sonderprofil, Taillenrad))]
+    profile = [v for v in liste if isinstance(v, pv.Steckprofil)]
+    liste = [v for v in liste if isinstance(v, Verzahnung)]
     saetze = planetensaetze(liste, paare)
-    st, ziel = stufen(liste, paare, saetze)
-    gruppen = wellen(liste)
+    st, ziel = stufen(liste, paare, saetze, next((i for i, v in enumerate(liste) if v is bezug), None))
+    gruppen = wellen(liste, [{s.sonne, s.hohlrad, *s.planeten} for s in saetze])
     raeder = []
     for v in liste:
         d = v.als_dict()
@@ -319,21 +401,35 @@ def datenblatt(liste: list[Verzahnung], paare: list[Paar]) -> dict:
         k = kugelmass(v)
         d["kugelmass"] = {"DM": k[0], "Md": k[1]} if k else None
         p = profil(v)
+        from .flankentopografie import karte
         cb = breitenballigkeit(v)
         d["mikrogeometrie"] = None if p is None else {
-            "dFf": p.dff, "dFa": p.dfa, "kopfruecknahme": p.ca or None, "kopfruecknahme_ab_d": p.dca if p.ca else None,
+            "dFf": p.dff, "dFa": p.dfa, "fussrundungsradius": v.fussradius, "kopffase_radial": v.kopffase,
+            "kopfruecknahme": p.ca or None, "kopfruecknahme_ab_d": p.dca if p.ca else None,
             "profilwinkelabweichung": p.fh_alpha if abs(p.fh_alpha) > p.toleranz else None,
-            "breitenballigkeit": cb if cb is not None and abs(cb) > p.toleranz else None, "schwelle": p.toleranz}
+            "breitenballigkeit": cb if cb is not None and abs(cb) > p.toleranz else None, "schwelle": p.toleranz,
+            "flankenkarte_stirnschnitt": karte(v, p)}
         raeder.append(d)
     idx = {id(v): i for i, v in enumerate(liste)}
     return {"einheiten": {"laenge": "mm", "winkel": "Grad"},
             "zahnraeder": raeder,
+            "steckprofile": [v.als_dict() for v in profile],
+            "sonderprofile": [v.als_dict() for v in sonder],
+            "kegelpaar_kandidaten": [p.als_dict() for p in kegelpaar_kandidaten(sonder)],
+            "schneckenpaar_kandidaten": [p.als_dict() for p in schneckenpaar_kandidaten(sonder)],
+            "steckpaare": [p.als_dict() for p in pv.paare(profile)],
             "paare": [{"a": p.a.teil, "b": p.b.teil, "abstand": p.abstand, "abstand_soll": p.abstand_soll,
                        "spiel": p.spiel,  # Schluessel wie in Version 1
                        "raeder": [idx[id(p.a)], idx[id(p.b)]], "achsabstand": p.abstand,
                        "achsabstand_spielfrei": p.abstand_soll, "alpha_wt": p.alpha_wt, "eps_alpha": p.eps_alpha,
                        "eps_beta": p.eps_beta, **{k: w for k, w in paar_werte(p).items() if k not in ("klein", "gross")}}
                       for p in paare],
+            "kraftfluss": {"annahme_koaxial_drehfest": True, "teile": teile, "wellen": gruppen_alle, "zuege": [
+                {"bezugswelle": zug.bezug, "widerspruch": zug.widerspruch,
+                 "stufen": [vars(s) for s in zug.stufen],
+                 "wellenwerte": {} if zug.widerspruch else {str(k): {"i": i, "richtung": r}
+                                                             for k, (i, r) in zug.ergebnis.items()}}
+                for zug in zuege]},
             "wellen": gruppen,
             "stufen": [{"antrieb": s.antrieb, "abtrieb": s.abtrieb, "u": s.u, "gegenlaeufig": s.gegenlaeufig}
                        for s in st],
@@ -341,12 +437,12 @@ def datenblatt(liste: list[Verzahnung], paare: list[Paar]) -> dict:
             "planetensaetze": [{"sonne": s.sonne, "hohlrad": s.hohlrad, "planeten": s.planeten, "z_sonne": s.z_sonne,
                                 "z_planet": s.z_planet, "z_hohlrad": s.z_hohlrad, "hinweise": s.hinweise}
                                for s in saetze],
-            "auslegungsbefunde": _befunde(liste, paare)}
+            "auslegungsbefunde": _befunde([*liste, *profile, *sonder], paare, bezug)}
 
 
-def _befunde(liste, paare) -> list[dict]:
+def _befunde(liste, paare, bezug=None) -> list[dict]:
     from . import verzahnung_auslegung as va
-    return va.als_dicts(va.alle(liste, paare))
+    return va.als_dicts(va.alle(liste, paare, bezug))
 
 
 # --- Formkreise und Mikrogeometrie aus der Zahndicke ueber dem Radius ---
@@ -368,6 +464,7 @@ class Profil:
     dca: float  # Beginn der Kopfruecknahme (Durchmesser)
     fh_alpha: float  # Profilwinkelabweichung ueber den Auswertebereich (mm, Steigung der Ausgleichsgeraden)
     toleranz: float  # Erkennungsschwelle (mm)
+    grundradius: float  # an den fusseitigen Flankenbereich angepasst
 
 
 def profil(v: Verzahnung, punkte: int = 120) -> Profil | None:
@@ -436,7 +533,9 @@ def profil(v: Verzahnung, punkte: int = 120) -> Profil | None:
     dfa = 2 * (radien[oben] if not ca else radien[-1] + rand)
     if v.innen:
         dff, dfa = 2 * radien[oben], 2 * radien[unten]  # Hohlrad: Fuss aussen, Kopf innen
-    return Profil(radien, abw, dff, dfa, ca, dca, fh, tol)
+    if v.kopffase is not None:
+        ca, dca = 0.0, 0.0  # Ruecknahme und ebene Fase sind sonst im Dickenverlauf nicht trennbar.
+    return Profil(radien, abw, dff, dfa, ca, dca, fh, tol, rb)
 
 
 def breitenballigkeit(v: Verzahnung) -> float | None:
@@ -461,7 +560,12 @@ def mikro_zeilen(v: Verzahnung) -> list[tuple[str, str, str]]:
     quelle = tr("Zahndicke über dem Radius (mittlerer Stirnschnitt)")
     zeilen = [(tr("Fußformkreis dFf"), _g(p.dff, 3), quelle),
               (tr("Kopfformkreis dFa"), _g(p.dfa, 3), quelle)]
-    if p.ca:
+    quelle_form = tr("Wiederholte B-Rep-Flächen am Zahnprofil")
+    zeilen += [(tr("Fußrundungsradius"), _g(v.fussradius, 4) if v.fussradius is not None else tr(NICHT), quelle_form),
+               (tr("Kopffase, radiale Höhe"), _g(v.kopffase, 4) if v.kopffase is not None else tr(NICHT), quelle_form)]
+    if v.kopffase is not None:
+        zeilen.append((tr("Kopfrücknahme Cαa"), tr(NICHT), quelle))
+    elif p.ca:
         zeilen.append((tr("Kopfrücknahme Cαa"), tr("{} ab d = {}").format(_g(p.ca, 4), _g(p.dca, 3)), quelle))
     else:
         zeilen.append((tr("Kopfrücknahme Cαa"), tr("keine modelliert"), quelle))
@@ -474,9 +578,9 @@ def mikro_zeilen(v: Verzahnung) -> list[tuple[str, str, str]]:
     return zeilen
 
 
-def rad_alle_zeilen(v: Verzahnung) -> list[tuple[str, str, str]]:
+def rad_alle_zeilen(v) -> list[tuple[str, str, str]]:
     """Alle Zeilen des Datenblatts eines Rads: gemessen, abgeleitet, Formkreise und Mikrogeometrie."""
-    return v.zeilen() + rad_zeilen(v) + mikro_zeilen(v)
+    return v.zeilen() + rad_zeilen(v) + mikro_zeilen(v) if isinstance(v, Verzahnung) else v.zeilen()
 
 
 def tabelle(zeilen_je_spalte: list[list[tuple]]) -> tuple[list[str], list[list[str]]]:
@@ -490,7 +594,7 @@ def tabelle(zeilen_je_spalte: list[list[tuple]]) -> tuple[list[str], list[list[s
     return namen, werte
 
 
-def als_csv(liste: list[Verzahnung], paare: list[Paar]) -> str:
+def als_csv(liste: list[Verzahnung], paare: list[Paar], bezugsrad=None) -> str:
     """Datenblatt als CSV (Semikolon): Raeder spaltenweise mit Herkunft, darunter Paare und Getriebe."""
     import csv
     import io
@@ -502,6 +606,16 @@ def als_csv(liste: list[Verzahnung], paare: list[Paar]) -> str:
     w.writerow([tr("Größe")] + [v.teil for v in liste] + [tr("Herkunft")])
     for i, n in enumerate(namen):
         w.writerow([n] + [s[i] for s in werte] + [herkunft.get(n, "")])
+    from . import passverzahnung as pv
+    for paar in pv.paare([v for v in liste if isinstance(v, pv.Steckprofil)]):
+        w.writerow([])
+        w.writerow([tr("Steckverbindung"), paar.welle.teil, paar.nabe.teil])
+        w.writerows(paar.zeilen())
+    from .verzahnung_sonder import kegelpaar_kandidaten, schneckenpaar_kandidaten
+    for paar in kegelpaar_kandidaten(liste) + schneckenpaar_kandidaten(liste):
+        w.writerow([])
+        w.writerow([tr("Radpaar"), paar.a.teil, paar.b.teil])
+        w.writerows(paar.zeilen())
     if paare:
         w.writerow([])
         pz = [p.zeilen() + paar_zeilen(p) for p in paare]
@@ -509,18 +623,27 @@ def als_csv(liste: list[Verzahnung], paare: list[Paar]) -> str:
         w.writerow([tr("Radpaar")] + [f"{p.a.teil} – {p.b.teil}" for p in paare])
         for i, n in enumerate(namen):
             w.writerow([n] + [s[i] for s in werte])
-        getriebe = getriebe_zeilen(liste, paare)
-        if getriebe:
-            w.writerow([])
-            w.writerow([tr("Getriebe")])
-            for a, b in getriebe:
-                w.writerow([a, b])
+    getriebe = getriebe_zeilen(liste, paare, bezugsrad)
+    if getriebe:
+        w.writerow([])
+        w.writerow([tr("Getriebe")])
+        w.writerows(getriebe)
     from . import verzahnung_auslegung as va
-    befunde = va.alle(liste, paare)
+    befunde = va.alle(liste, paare, liste[bezugsrad] if bezugsrad is not None else None)
     if befunde:
         w.writerow([])
         w.writerow([tr("Auslegungsbefunde")])
         w.writerow([tr(s) for s in va.SPALTEN])
         for b in befunde:
             w.writerow(list(b.zeile()))
+    from .flankentopografie import karte
+    for rad in (v for v in liste if isinstance(v, Verzahnung)):
+        raster = karte(rad, profil(rad))
+        if raster is None:
+            continue
+        for seite, name in (("links_mm", tr("Linke Flanke")), ("rechts_mm", tr("Rechte Flanke"))):
+            w.writerow([])
+            w.writerow([rad.teil, name, tr("Flankenabweichung im Stirnschnitt (mm)")])
+            w.writerow([tr("Axiallage / Radius (mm)"), *raster["radius_mm"]])
+            w.writerows([s, *reihe] for s, reihe in zip(raster["axial_mm"], raster[seite]))
     return puffer.getvalue()

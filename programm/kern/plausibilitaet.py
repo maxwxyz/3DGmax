@@ -383,16 +383,20 @@ def verzahnung_angaben(texte: str) -> dict:
 def verzahnung(pmi, modell) -> list:
     """Hinweise mit Verzahnungsdaten gegen die Geometrie (nur wenn ein Hinweis sie nennt: die Erkennung kostet)."""
     from . import verzahnung as vz
-    from .pmi_bericht import FEHLER, WARNUNG
+    from .pmi_bericht import FEHLER, INFO, WARNUNG
     hinweise = [p for p in pmi if p.art == "hinweis"]
     angaben = verzahnung_angaben(" ".join(p.nur_grafik_text or p.name or "" for p in hinweise))
     if not angaben or modell is None or getattr(modell, "form", None) is None:
         return []
     nummern = [p.nummer for p in hinweise]
-    v = vz.erkenne(modell.form)
+    profile = vz.erkenne_koerper(modell.form)
+    v = next(profile, None)
     if v is None:
         return [_befund(WARNUNG, "geometrie", tr("Hinweis nennt Verzahnungsdaten, im Modell ist keine "
                                                  "Evolventenverzahnung erkennbar"), nummern)]
+    if next(profile, None) is not None:
+        return [_befund(INFO, "geometrie", tr("Mehrere Zahnprofile im Modell. Die Zuordnung der "
+                                              "Hinweisangaben zu einem Zahnprofil ist offen."), nummern)]
     out = []
     for name, soll in angaben.items():
         ist = getattr(v, name)

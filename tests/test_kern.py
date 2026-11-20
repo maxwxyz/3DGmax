@@ -26,6 +26,32 @@ def test_p21_dekodiert_sonderzeichen():
     assert p21._dekodiere("a\\X\\E4b") == "aäb"
 
 
+def test_p21_text_kommentare_und_typindex():
+    d = p21.lese_text("""HEADER;FILE_DESCRIPTION(('DATA;'),'2;1');ENDSEC;
+        DATA; /* ' ; #1=FALSCH(); */ #90=A('x; it''s /* Text */');
+        #5=(A(/* ; */) B(#90)); ENDSEC;""")
+    assert d.entities[90].args() == ["x; it's /* Text */"]
+    assert [e.id for e in d.of_type("A")] == [90, 5]
+    assert [e.id for e in d.of_types_by_id(("A", "B"))] == [5, 90]
+    assert d.referrers() == {90: [5]}
+
+
+def test_step_transferindex_entspricht_occt(ctc01):
+    from OCC.Core.TransferBRep import transferbrep
+    ws = ctc01._reader.ChangeReader().WS()
+    prozess = ws.TransferReader().TransientProcess()
+    for typ in ("ADVANCED_FACE", "EDGE_CURVE", "MANIFOLD_SOLID_BREP", "PRODUCT"):
+        eid = ctc01.datei.of_type(typ)[0].id
+        nummer = ws.NumberFromLabel(f"#{eid}")
+        erwartet = transferbrep.ShapeResult(prozess, ws.Model().Value(nummer))
+        form = ctc01.form_von_step(eid)
+        if erwartet is None or erwartet.IsNull():
+            assert form is None
+        else:
+            assert form.IsSame(erwartet)
+    assert ctc01.form_von_step(-1) is None
+
+
 def test_alle_flaechen_zugeordnet(ctc01, ftc10):
     for m in (ctc01, ftc10):
         assert len(m.flaechen) == len(m.datei.of_type("ADVANCED_FACE"))
@@ -724,6 +750,17 @@ def test_stepz_zip_und_gzip(tmp_path):
     for p in (z, g):
         m = lade_modell(str(p))
         assert m.pfad == str(p) and len(m.flaechen) > 100 and m.datei is not None
+
+
+def test_stepz_entpackfehler_raeumt_auf(tmp_path, monkeypatch):
+    import tempfile
+    from programm.kern.laden import LadeFehler, lade_modell
+    monkeypatch.setattr(tempfile, "tempdir", str(tmp_path))
+    archiv = tmp_path / "defekt.stp.gz"
+    archiv.write_bytes(b"defekt")
+    with pytest.raises(LadeFehler):
+        lade_modell(str(archiv))
+    assert list(tmp_path.iterdir()) == [archiv]
 
 
 def test_pmi_aus_grafik_ableiten():

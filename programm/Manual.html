@@ -412,18 +412,28 @@ the part pairs.</li>
 <p>The computation runs in the background (progress bar with <b>Cancel</b> at the bottom). Tapped holes with screws at
 nominal size appear as clashes if the model does not cut out the thread – mark such findings as “accepted”.</p>
 
-<h2 id="gears">Recognise gears</h2>
-<p><b>Tools › Recognise gears</b> reads the gear data of the selected parts (without selection: all visible ones) from
-the geometry – cylindrical gears external and internal, spur and helical, also from meshes (STL …), and involute spline
-shafts and hubs (30°, ISO 4156 / DIN 5480). Measured are the
-number of teeth, tip and root diameters, face width, helix angle with hand and the base circle (involute fit of the
-flanks in a transverse section); derived per ISO 21771 are the normal module and pressure angle (the pair with the
-nearest standard module per ISO 54; ambiguities are reported), the reference diameter, the profile shift (from the tooth
-thickness at the reference circle) and the span measurement Wk. The table states the origin of each value; <b>CSV</b>
-and <b>JSON</b> export the values for gear and system design tools. Meshing <b>gear pairs</b> (parallel axes, also a
-pinion in a ring gear) are listed in a second table: measured and backlash-free centre distance, working pressure angle,
-transverse and overlap contact ratio and the normal backlash from the centre distance. Parts without involute flanks (hexagons, knurls) are
-not reported.</p>
+<h2 id="gears">Analyse gears and gearboxes</h2>
+<p><b>Tools › Recognise gears …</b> analyses the parts selected in the tree or 3D view. With an empty
+selection it analyses all visible parts. A single gear can be measured directly from its file.
+<b>Tools › Analyse gearbox …</b> analyses all visible parts in their installed positions and opens the
+<b>Power flow</b> tab when it finds stages.</p>
+<p><b>Data sheets</b> include tooth count, tip and root diameters, face width, helix angle and hand.
+For involute teeth the flank fit supplies the base circle. The module, pressure angle and profile shift
+are inferred using additional geometric assumptions. Each row states its source. Splines, conical teeth
+and screw profiles have their own measurements.</p>
+<p>The pairs tab lists mating candidates and measured parameters. <b>Power flow</b> groups stages by shaft and
+gives each stage ratio and the cumulative ratio relative to the chosen reference shaft. Each connected train
+defaults to the smallest gear on an end shaft. Coaxial gears are assumed to rotate together. Branches and
+separate trains are evaluated separately. Planetary ratios depend on the member held stationary. Bevel and
+worm pairings indicate geometric compatibility. A load rating requires additional data.</p>
+<p>STEP solids and triangle meshes such as STL and OBJ may contain several separate gears in one object.
+On a one-piece stepped shaft, each identifiable tooth band is reported separately with position, width and tooth count.
+Finer flank resolution improves the involute fit. The fit error is included in the data sheet. Very coarse meshes
+can contain too little information for identification. An explicit root fillet or tip chamfer measurement
+requires the corresponding CAD surfaces.</p>
+<p><b>CSV</b> and <b>JSON</b> export the measured values and the power flow. <b>PDF</b> includes data sheets,
+design findings and left/right flank maps for suitable cylindrical gears. Cylindrical stages can also be
+exported in <b>REXS</b> format.</p>
 
 <h2 id="scan">Meshes and scans</h2>
 <p>Meshes (STL, OBJ, PLY, glTF, 3MF) can be viewed and measured like CAD models and compared against a CAD model:

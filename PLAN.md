@@ -115,7 +115,11 @@ Throughout: tests (core, offscreen UI, stress test, on-screen test), `--selbstte
 
 1. **Real exports differ from NIST** (CATIA/NX/Creo write PMI differently) – put own anonymized models into tests early.
 2. **Face matching with heavy redesigns** (faces split/merged) – reported as *changed* via deviation, not mismatched.
-3. **Large assemblies** – background tessellation, cache, levels of detail, tessellate instances once.
+3. **Large assemblies.** STEP import now indexes entity types and reuses OCCT's transfer map for faces,
+   colours and PMI. The viewer draws shared edges once. Comparison reads each shared triangulation once
+   per extraction and applies its instance transforms. Checked with 2,400 solids and 14,400 faces in a
+   42.85 MB STEP file (11.86 s on the development Mac, all faces assigned). Persistent mesh caching and
+   levels of detail remain open.
 4. **JT with PMI** only via TKJT (GPL) or commercial SDK.
 
 ## 7. Decisions
@@ -128,6 +132,9 @@ Throughout: tests (core, offscreen UI, stress test, on-screen test), `--selbstte
 ## 8. Extensions
 
 ### 8.1 Comparison
+- Verified 2026-11-20 on NIST CTC-01 and its changed variant. Bounding-box distance supplies a lower
+  bound for exact B-rep queries. Import, colours and PMI associations were also checked on FTC-09.
+  The measured comparison retained the face assignments, classifications and deviation values.
 - Exact **and** approximate (fast) like CATIA Compare Products: added/removed material as volume, adjustable accuracy;
   deviation color map with scale and sign.
 - Detect **moved** elements (face/feature rigidly offset) and moved PMI placement.
@@ -586,6 +593,27 @@ sensitivity tan 30°, Monte Carlo σ as linear. **Done the same day in 3D:** `Ko
 close the chain in position (end at the base origin), six also in rotation (rotation vector of the end frame);
 `kette3d._schliesse` Newton with a numerical Jacobian (least squares step), per Monte Carlo sample; closing quantity
 "1./2./3. freie Komponente"; template "Keil" (same 23.094 result).
+**Done 2026-10-29 (user reports: 3D chains not clean, 1D example could not be wiggled):** `kern/kette3d_anzeige.py`
+draws the 3D chain (base with axis letters, link names at the middle of their segment or together at a shared axis
+cross, crosses scaled to the chain extent, function point as a star, target point / target and point direction) and
+wiggles it: the toleranced independent components swing as a sine between their limits, either all at once towards
+the limit that increases the closing quantity (worst-case combination; extremes = non-linear corners, equal to the
+linear worst case for linear chains) or link by link; display 1:1, ×10, ×100 or automatic (largest point motion ≈
+1/20 of the chain size), the label shows the real value, green/red against the requirement. `Glied3D.teil` remembers
+the assembly part of a link (`als_kette3d`, "＋ Aus Zusammenbau"); during the wiggle the part moves rigidly with its
+link frame, relative to the base (B-side parts reversed – a view from the base). "＋ Aus Zusammenbau" at a rotated
+chain end or in a chain with its own base first appends an untoleranced alignment link back to the model axes
+(`kette3d.ausrichtung`). Fixed: the example chain was invisible (the first scene build removed the helper lines –
+`OcctAnsicht` now re-shows them), every edit refitted the view, the window needed scrolling (three columns now).
+1D: `schluss_wiggle.schluss_oder_grund` walks the links along their faces (each starts where the previous ends;
+pattern faces at the same location count once) – the old rule (first face of the first link, last of the last) moved
+the wrong face in the gearbox example (bearing inner face / ring outer face instead of the 0.4 mm play faces); without
+determinable closing faces the play button is disabled with the reason as tooltip (faces missing – e.g. handed over
+from a 2D/3D chain –, links not in chain order). The 1D example ("kette") was a list of unrelated FTC-10 dimensions in
+X, Y and Z; it is now a chain of four model faces along Z (counterbore floor – top – bottom – counterbore floor, depths
+from the PMI, height 75 per ISO 2768-m, closing 55 ± 0.7) with chain picture and running wiggle. Open: the chain
+origin of assembly links is the mating feature point of the first connection (a plane's location point, possibly far
+from the part) – needed for the exact decoupling, but rotations about it swing the part visibly in the wiggle.
 
 **What a functional dimension chain is for** (answer for the user, background for the guide):
 - Analysis: does the function (gap, overlap, preload, alignment) hold for the given part tolerances – worst case or
@@ -796,7 +824,9 @@ print annotations. Today 3DGmax writes generated texts only into the placeholder
   Stage 3 done 2026-10-28: distance/thickness dimensions as dimension line with extension lines and arrows outside
   the model, leaders end with an arrow at the nearest point of the face. On a real GPU AIS_TextLabel draws in screen
   pixels (Xvfb/Mesa did not show it): texts in an annotation plane are now glyph faces in model space
-  (`Addons.text_to_brep`, `ansicht3d.text_flaechen`). Open: overlap check in the projected view, glyphs into DXF.
+  (`Addons.text_to_brep`, `ansicht3d.text_flaechen`). On 2026-11-20 generated frames gained projected overlap checks across all
+  shared saved parallel views, including visible file annotations. Perspective placement, leader crossings
+  and glyphs in DXF remain open.
 
 ### 8.17 More open formats (requested)
 - STEPZ (`.stpz`, `.stepz`, `.stp.gz`): ZIP or gzip around a Part 21 file – unpack to a temporary file, load as STEP
@@ -843,6 +873,18 @@ print annotations. Today 3DGmax writes generated texts only into the placeholder
   (`tests/conftest.testdatei`), never committed.
 
 ### 8.20 3D tolerance analysis of assemblies (requested 2026-10-27; reference: 3DCS)
+
+Current coverage (2026-11-20), superseding the earlier progress notes below:
+- A planar connection can have a one-sided stop. Worst case enforces the contact bound. Monte Carlo
+  follows each sampled displacement to first contact. Existing bilateral connections keep their behaviour.
+- Measured planes and straight axes contribute rigid feature displacements in the measurement direction.
+  The model accounts for datum precedence, zone offsets, tilt, lever arm and supported size deviations.
+  Per-feature worst-case bounds and independently sampled projected contributions appear in the ranking
+  and the exported 3D chain. Repeated instances have separate feature contributions. Combined
+  cylindrical position and orientation constraints support arbitrary measuring directions at the two ends.
+- Unknown or unsupported inputs follow the measure into the UI, PDF and chain. Incomplete measures
+  suppress the requirement verdict. Remaining cases include deformable form, common multi-feature datums,
+  projected zones and material-condition modifiers on measured features. Curved boundaries are sampled.
 Request: build assemblies, set up functional dimension chains ("Funktionsmaßketten", FMK – assumed meaning) from the
 PMI, recognize or assign materials, take temperatures and thermal expansion into account, compute stack-ups, and
 move parts within their tolerances (1:1 and exaggerated) in worst case or per tolerance / chain ("wiggle") to find
@@ -1230,6 +1272,35 @@ tools (the user names MASTA as an example of a tool that needs these inputs), an
   shape "linear", both flanks share the averaged modifications. Not exported: planet carrier (not determinable
   from gears), bearings and loads (not part of the analysis).
 
+- Update 2026-11-20. Shaft and hub profiles are recognised as involute, straight-sided or serrated.
+  Mating profiles can be assessed for measured tooth/space widths, diametral clearance and likely centring.
+  Production fits and effective widths need additional tolerance or inspection data.
+- Conical tooth bands provide tip and root cone angles, tooth count and flank twist. A compatible pair
+  yields conditional pitch angles from axis geometry and tooth counts. Low-start screw profiles provide
+  starts, lead and hand. Geometry alone cannot establish a cutting system or distinguish a screw from
+  a worm of identical shape. Validation uses known parameterised solids including a bevel-pair STEP round trip.
+- Explicit cylindrical root fillets and planar tooth-tip chamfers on straight teeth are reported when
+  their position and dimensions repeat around the tooth band. A 40-tooth B-rep control recovered
+  a 1.095274 mm fillet and a 0.320 mm radial chamfer. Noncircular roots and asymmetric evidence stay unresolved.
+- A throated wheel and a low-start screw can form a candidate worm pair. The check compares axis angle
+  and position, waist, pitch, hand and tooth trace. A 2-start/18-tooth control and incompatible placements
+  test the assignment. Conjugacy and load capacity require further data and verification.
+- Gearbox reverse engineering accepts a single gear, a selection of components or a complete visible
+  gearbox. The same analysis handles B-rep solids and disconnected bodies in a triangle mesh. Real
+  STL and OBJ imports were checked with an inclined helical gear and four gears on three shafts.
+  Sufficient flank resolution is required. Mesh data sheets show the fit residual. Explicit cylindrical
+  fillet measurements require an analytic surface. A continuous stepped shaft can have several
+  toothed bands. Each identified band keeps its own axial position, width and tooth count, as well
+  as a reference to the common body. A note without a unique band association is flagged as ambiguous.
+- The power-flow view traces cylindrical, candidate bevel and candidate worm stages through coaxial
+  wheels. Each disconnected train has its own reference shaft. The user can change the reference.
+  An inconsistent cycle suppresses cumulative ratios. Planetary sets retain explicit fixed-member cases.
+  Separate coaxial shafts and clutches can be geometrically indistinguishable from a rigid shaft.
+- Cylindrical pairs require axial overlap, used in the overlap ratio. Flank maps show sampled deviations on
+  both flanks over the working width and radius, averaged across teeth. CSV and JSON include the numerical
+  map. The PDF includes the data sheets, maps and sourced design findings. Individual-tooth scatter,
+  production quality grades and under-load contact require additional evidence.
+
 ### 8.27a Design analysis of gears – reverse engineering of design philosophies (requested 2026-11-03)
 Goal (user): from existing gear geometry (analysis only, no generators as a feature) recognise the design decisions
 and the philosophy behind them – for cylindrical gear stages, planetary sets, bevel gears, splines (shaft/hub, male/
@@ -1269,6 +1340,10 @@ intent; "nicht bestimmbar" where the geometry does not tell.
   angle/hand or no gear); "toothed" threshold per pitch (8 %) instead of per radius (2 %), which missed gears with many
   small teeth. Checked on test data: z 15–100, β 8–35°, b up to 120 mm all within 0.01°. Test-data helper: loft
   sections so the pattern turns at most 1/10 pitch per section (coarser lofts are no longer helical gears).
+
+- Update 2026-11-20. The design report now includes supported spline and conical-pair findings. Reported
+  inferences distinguish measured geometry from design intent and from properties that need a drawing,
+  actual tolerance class, manufacturing specification or load case.
 
 ### 8.28 Writing STEP AP242 with semantic PMI (research 2026-10-27, by experiment)
 Findings (pythonocc-core 8.0.1.2 and OCP 8.0.1.1, both on OCCT 8.0.1; scripts were throw-away):
@@ -1363,6 +1438,37 @@ Write `docs/UI_UX_Plan.md` (English) with:
   options (a)–(d), recommendation workspaces + command palette + task start page, stages 1–3 with acceptance,
   test protocol); stage 1 implemented: command search Ctrl/⌘+K (`ui/befehle_ui.py`, German and English text, menu
   path, shortcut, disabled commands greyed), start page with open / compare / examples and the format list, menu
-  cleanup. Open: play/pause toggles (stage 1 item 4), stage 2 workspaces, stage 3 inspector and guided flows, the
-  usability test.
+  cleanup. Subsequent work delivered the assembly play/pause control, workspaces, inspector and guided flows.
+  The usability test with the target users remains open.
+
+### 8.35 Compare 3D model PMI with a 2D drawing (planned)
+
+Compare the product definition of a 3D model with the corresponding drawing. Match drawing views,
+sections and leaders to model features, then compare nominal dimensions, units, limits and fits,
+geometric tolerances, modifiers and datum references. A repeated annotation in a detail view may
+describe the same feature. Review possible reuse of drawing extraction from ZGmax.
+
+Report equivalent, changed, drawing-only, model-only and unresolved characteristics. Each finding
+links the drawing sheet and annotation to the corresponding model face and PMI where available.
+Report equivalence only when the full comparison scope has been matched and checked. Verify with a
+matched pair and variants containing an omitted dimension, an extra datum, a changed tolerance
+and an ambiguous leader.
+
+### 8.36 Generate 3D geometry and dimensioned PMI from a 2D drawing (planned)
+
+Reconstruct a solid from dimensioned orthographic views and sections of one part. Start with
+prismatic and turned parts, including holes and pockets. Resolve view alignment, units and scale,
+and ask the user to resolve missing depths or contradictory dimensions. Attach dimensions,
+tolerances and datums as semantic PMI to the reconstructed features and export STEP AP242.
+
+Check a known part by reprojecting the solid into the drawing views and comparing its dimensions
+and PMI against the drawing using §8.35. An underdetermined drawing must identify the missing
+constraint and allow reconstruction to continue once it is supplied.
+
+### 8.37 QIF extensions (last in the implementation order)
+
+Finish the tolerance and gear analyses first. Schedule all outstanding QIF work after the other
+planned items, including §§8.35–8.36. For QIF Plans, export a measurement plan with its characteristics
+and validate it against the QIF 3 schemas. Existing QIF import and measurement-result assessment
+remain supported.
 

@@ -6,6 +6,7 @@ from PySide6 import QtCore, QtGui, QtWidgets
 
 from ..i18n import tr
 from ..kern.pmi import BEZUG, HINWEIS, MASS, MATERIAL, TOLERANZ
+from .lader import Modellauftrag
 from .tabellen import leer_hinweis, spalten_anpassen
 
 ART_TEXT = {MASS: "Maß", TOLERANZ: "Toleranz", BEZUG: "Bezug", HINWEIS: "Hinweis"}
@@ -729,7 +730,7 @@ class AnsichtenPanel(QtWidgets.QWidget):
                 return
 
 
-class VorschauLader(QtCore.QThread):
+class VorschauLader(Modellauftrag):
     """Vorschaubilder der gespeicherten Ansichten als Kantenzeichnung (HLR) im Hintergrund."""
 
     fertig = QtCore.Signal(int, str)  # Index der Ansicht, SVG
@@ -738,12 +739,11 @@ class VorschauLader(QtCore.QThread):
         super().__init__(parent)
         self.form, self.ansichten = form, list(ansichten)
         self.grafik_je_ansicht, self.pmi_text = grafik_je_ansicht, pmi_text
-        self.abbrechen = False
 
     def run(self):
         from ..kern import zeichnung
         for i, a in enumerate(self.ansichten):
-            if self.abbrechen:
+            if self.abgebrochen:
                 return
             try:
                 z = zeichnung.projiziere(self.form, a.richtung, a.oben, a.name, verdeckt=False, abweichung=0.5,

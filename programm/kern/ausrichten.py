@@ -17,6 +17,7 @@ import numpy as np
 from OCC.Core.BRep import BRep_Tool
 from OCC.Core.BRepMesh import BRepMesh_IncrementalMesh
 from OCC.Core.TopLoc import TopLoc_Location
+from OCC.Core.gp import gp_Translation
 
 
 @dataclass
@@ -39,8 +40,8 @@ class Ausrichtung:
 
 def tesselliere(flaechen, feinheit: float = 0.1):
     """Dreiecksnetz je Flaeche: Liste von (punkte (n,3), dreiecke (m,3)) in Modellkoordinaten."""
-    out = []
-    for f in flaechen:
+    out, instanzen = [], {}
+    for i, f in enumerate(flaechen):
         loc = TopLoc_Location()
         tri = BRep_Tool.Triangulation(f, loc)
         if tri is None:
@@ -49,15 +50,27 @@ def tesselliere(flaechen, feinheit: float = 0.1):
         if tri is None:
             out.append((np.zeros((0, 3)), np.zeros((0, 3), dtype=int)))
             continue
-        trsf = loc.Transformation()
-        pts = np.array([_xyz(tri.Node(i).Transformed(trsf)) for i in range(1, tri.NbNodes() + 1)])
-        dreiecke = np.array([tri.Triangle(i).Get() for i in range(1, tri.NbTriangles() + 1)], dtype=int) - 1
-        out.append((pts, dreiecke))
+        out.append(None)
+        instanzen.setdefault(tri, []).append((i, loc))
+    # OCCT teilt das lokale Netz platzierter Flaechen. Knoten und Indizes je Netz nur einmal auslesen.
+    for tri, lagen in instanzen.items():
+        lokal = tri.MapNodeArray().to_numpy_array() if tri.NbNodes() else np.empty((0, 3))
+        dreiecke = tri.MapTriangleArray().to_numpy_array() - 1 if tri.NbTriangles() else np.empty((0, 3), int)
+        for j, (i, loc) in enumerate(lagen):
+            if loc.IsIdentity():
+                punkte = lokal.copy() if j else lokal
+            else:
+                punkte = _netz_in_lage(lokal, loc.Transformation())
+            out[i] = (punkte, dreiecke.copy() if j else dreiecke)
     return out
 
 
-def _xyz(p):
-    return (p.X(), p.Y(), p.Z())
+def _netz_in_lage(punkte, trsf):
+    versatz = trsf.TranslationPart().Coord()
+    if trsf.Form() == gp_Translation:
+        return punkte + versatz
+    matrix = np.array([[trsf.Value(r, s) for s in (1, 2, 3)] for r in (1, 2, 3)])
+    return punkte @ matrix.T + versatz
 
 
 def abtasten(netze, anzahl: int = 6000, zufall: int = 1) -> tuple[np.ndarray, np.ndarray]:

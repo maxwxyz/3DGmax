@@ -47,6 +47,7 @@ class Glied3D:
     werte: dict = field(default_factory=lambda: {k: Komponente() for k in KOMPONENTEN})
     verteilung: str = "normal"
     werkstoff: str = ""  # eigener Werkstoff (leer: der der Kette)
+    teil: int | None = None  # Teil im Zusammenbau (Knotennummer), das mit diesem Glied wandert; None: keins
 
 
 @dataclass
@@ -61,6 +62,7 @@ class Kette3D:
     temperaturen: tuple | None = None  # zwei Grenztemperaturen (°C) fuer die Waermeausdehnung, None: ohne
     anforderung: tuple | None = None  # Grenzen der Schlussgroesse (unten, oben), None: ohne
     freigabe: dict = field(default_factory=dict)  # manuelle Freigabe {"geprueft", "name", "datum", "kommentar"}
+    hinweise: list[str] = field(default_factory=list)  # offene Angaben der Baugruppenmessung bei der Uebernahme
 
 
 def werkstoff(k: Kette3D, g: Glied3D) -> str:
@@ -100,6 +102,29 @@ def lagen(k: Kette3D, werte: dict | None = None) -> list[tuple[np.ndarray, np.nd
         r = r @ _drehung(w["rx"], w["ry"], w["rz"])
         out.append((r, t))
     return out
+
+
+def basis(k: Kette3D) -> np.ndarray:
+    """Lage der Basis im Modell (4x4); Einheitsmatrix fuer Ketten in Weltlage."""
+    return np.asarray(k.basis, float) if k.basis is not None else np.eye(4)
+
+
+def ende_welt(k: Kette3D) -> tuple[np.ndarray, np.ndarray]:
+    """(Drehung, Ursprung) des Kettenendes (letztes Glied, sonst die Basis) im Modell, Nennlage."""
+    r, t = lagen(k, _schliesse(k, {}))[-1] if k.glieder else (np.eye(3), np.zeros(3))
+    b = basis(k)
+    return b[:3, :3] @ r, b[:3, :3] @ t + b[:3, 3]
+
+
+def ausrichtung(k: Kette3D, ziel, name: str) -> Glied3D | None:
+    """Untoleriertes Glied vom Kettenende zum Modellpunkt ziel, danach achsparallel zum Modell - fuer ein folgendes
+    Glied in Modellachsen (z. B. ein Teil aus dem Zusammenbau, Grenzen in Weltachsen). None, wenn das Ende schon
+    achsparallel liegt (dann traegt das folgende Glied den Versatz selbst)."""
+    from .baugruppe_mass import _lage_komponenten
+    r, t = ende_welt(k)
+    if np.allclose(r, np.eye(3), atol=1e-9):
+        return None
+    return glied(name, **_lage_komponenten(r.T, r.T @ (np.asarray(ziel, float) - t)))
 
 
 def funktionspunkt(k: Kette3D, werte: dict | None = None) -> tuple[np.ndarray, np.ndarray]:
@@ -232,16 +257,18 @@ def als_dict(k: Kette3D) -> dict:
     return {"glieder": [asdict(g) for g in k.glieder], "punkt": list(k.punkt), "richtung": list(k.richtung),
             "schluss": k.schluss, "ziel": list(k.ziel), "basis": k.basis, "werkstoff": k.werkstoff,
             "temperaturen": list(k.temperaturen) if k.temperaturen else None,
-            "anforderung": list(k.anforderung) if k.anforderung else None, "freigabe": dict(k.freigabe)}
+            "anforderung": list(k.anforderung) if k.anforderung else None, "freigabe": dict(k.freigabe),
+            "hinweise": list(k.hinweise)}
 
 
 def von_dict(d: dict) -> Kette3D:
     glieder = [Glied3D(g["name"], {c: Komponente(**g["werte"][c]) for c in KOMPONENTEN}, g.get("verteilung", "normal"),
-                       g.get("werkstoff", "")) for g in d.get("glieder", [])]
+                       g.get("werkstoff", ""), g.get("teil")) for g in d.get("glieder", [])]
     return Kette3D(glieder, tuple(d.get("punkt", (0, 0, 0))), tuple(d.get("richtung", (0, 0, 1))),
                    d.get("schluss", "z"), tuple(d.get("ziel", (0, 0, 0))), d.get("basis"), d.get("werkstoff", ""),
                    tuple(d["temperaturen"]) if d.get("temperaturen") else None,
-                   tuple(d["anforderung"]) if d.get("anforderung") else None, dict(d.get("freigabe") or {}))
+                   tuple(d["anforderung"]) if d.get("anforderung") else None, dict(d.get("freigabe") or {}),
+                   list(d.get("hinweise") or []))
 
 
 def glied(name: str, werkstoff: str = "", **komponenten) -> Glied3D:

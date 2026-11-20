@@ -57,6 +57,7 @@ class Verbindung:
     eingriff: tuple = ()  # koaxial/Langloch: Eingriffsenden entlang der Achse (ab dem Achspunkt, siehe _eingriff)
     bonus: float = 0.0  # zusaetzlicher Spielraum (wie toleranz) aus Ⓜ/Ⓛ-Bonus und Bezugsverschiebung, voll genutzt
     bonus_quelle: str = ""
+    einseitig: bool = False  # ebene Auflage als Anschlag in der Messgroessenanalyse
 
 
 def _kugel(flaeche):
@@ -327,6 +328,47 @@ def _groesse(flaeche) -> float:
     return float(np.linalg.norm([x1 - x0, y1 - y0, z1 - z0])) or 1.0
 
 
+def _auflagepunkte(fa, fb, la, lb, abstand, normale):
+    """Projizierte gemeinsame Auflage. Bei geraden Raendern genuegen die Ecken, sonst die UV-Huelle je Teilflaeche."""
+    from OCC.Core.BRep import BRep_Tool
+    from OCC.Core.BRepAdaptor import BRepAdaptor_Curve, BRepAdaptor_Surface
+    from OCC.Core.BRepAlgoAPI import BRepAlgoAPI_Common
+    from OCC.Core.BRepTools import breptools
+    from OCC.Core.GeomAbs import GeomAbs_Line
+    from OCC.Core.TopAbs import TopAbs_EDGE, TopAbs_FACE, TopAbs_VERTEX
+    from OCC.Core.TopExp import TopExp_Explorer
+    from OCC.Core.TopLoc import TopLoc_Location
+    from OCC.Core.TopoDS import topods
+    from OCC.Core.gp import gp_Trsf
+
+    def platziere(f, m, weg):
+        t = gp_Trsf()
+        t.SetValues(*np.c_[m[:3, :3], m[:3, 3] + weg].ravel())
+        return f.Moved(TopLoc_Location(t))
+
+    schnitt = BRepAlgoAPI_Common(platziere(fa, la, -abstand * normale), platziere(fb, lb, 0.0))
+    if not schnitt.IsDone():
+        return []
+    punkte = set()
+    ex = TopExp_Explorer(schnitt.Shape(), TopAbs_FACE)
+    while ex.More():
+        f = topods.Face(ex.Current())
+        ex.Next()
+        kanten = TopExp_Explorer(f, TopAbs_EDGE)
+        while kanten.More() and BRepAdaptor_Curve(topods.Edge(kanten.Current())).GetType() == GeomAbs_Line:
+            kanten.Next()
+        if kanten.More():
+            u0, u1, v0, v1 = breptools.UVBounds(f)
+            ebene = BRepAdaptor_Surface(f)
+            punkte.update(tuple(ebene.Value(u, v).Coord()) for u in (u0, u1) for v in (v0, v1))
+        else:
+            ecken = TopExp_Explorer(f, TopAbs_VERTEX)
+            while ecken.More():
+                punkte.add(tuple(BRep_Tool.Pnt(topods.Vertex(ecken.Current())).Coord()))
+                ecken.Next()
+    return sorted(punkte)
+
+
 def bewegung_klein(x: np.ndarray, s: float = 1.0, mitte=None) -> np.ndarray:
     """4x4 einer kleinen Bewegung (w, v) mal s um den Punkt mitte: Drehung um w (Rodrigues), Verschiebung v."""
     w, v = np.asarray(x[:3], float) * s, np.asarray(x[3:], float) * s
@@ -373,6 +415,16 @@ class Baugruppe:
     def merkmale(self, v: Verbindung):
         fa, fb = self.formen[v.nummer]
         return merkmal(fa, self.lage(v.teil)), merkmal(fb, self.lage(v.gegen_teil))
+
+    def kontaktgrenzen(self, v: Verbindung):
+        """Relativbewegung an allen Auflagepunkten muss >= -Nennspalt bleiben (kleine Bewegungen um Weltursprung)."""
+        ma, mb = self.merkmale(v)
+        if v.art != EBEN or v.versatz < 0 or not erfuellt(v.art, ma, mb, v.versatz):
+            return []
+        _, q, n = mb
+        spalt = float((ma[1] - q) @ n)
+        punkte = _auflagepunkte(*self.formen[v.nummer], self.lage(v.teil), self.lage(v.gegen_teil), spalt, n)
+        return [(np.r_[np.cross(p, n), n], max(0.0, spalt)) for p in punkte]
 
     def verbinde(self, teil: int, flaeche, index: int, gegen_teil: int, gegen_flaeche, gegen_index: int,
                  versatz: float = 0.0) -> Verbindung | str:

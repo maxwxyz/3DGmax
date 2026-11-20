@@ -15,7 +15,9 @@ from dataclasses import dataclass, field
 
 import numpy as np
 
+from OCC.Core.Bnd import Bnd_Box
 from OCC.Core.BRep import BRep_Tool
+from OCC.Core.BRepBndLib import brepbndlib
 from OCC.Core.BRepBuilderAPI import BRepBuilderAPI_MakeVertex
 from OCC.Core.BRepExtrema import BRepExtrema_DistShapeShape
 from OCC.Core.Extrema import Extrema_ExtFlag_MIN
@@ -161,8 +163,6 @@ def bereite_vor(modell, anzahl: int = 8000, feinheit: float | None = None) -> Se
     """Abtastung; mehrfach verbaute Teile werden je Instanz abgetastet (Flaechenstatus fasst sie zusammen)."""
     flaechen, basis = _instanzen(modell)
     if feinheit is None:
-        from OCC.Core.Bnd import Bnd_Box
-        from OCC.Core.BRepBndLib import brepbndlib
         box = Bnd_Box()
         for f in flaechen:
             brepbndlib.Add(f, box)
@@ -180,16 +180,41 @@ def bereite_vor(modell, anzahl: int = 8000, feinheit: float | None = None) -> Se
     return Seite(flaechen, netze, NetzAbstand(netze), punkte, fi, nachbarn, feinheit, basis)
 
 
-def _exakt(punkt, kandidaten, flaechen, ganze_form=None) -> tuple[float, int]:
-    v = BRepBuilderAPI_MakeVertex(gp_Pnt(*punkt)).Vertex()
-    beste, beste_f = np.inf, -1
-    for fi in kandidaten:
-        if BRep_Tool.Surface(flaechen[fi]) is None:
-            continue  # Netzflaeche: nur Netzabstand
-        e = BRepExtrema_DistShapeShape(v, flaechen[fi], Extrema_ExtFlag_MIN)
-        if e.IsDone() and e.NbSolution() and e.Value() < beste:
-            beste, beste_f = e.Value(), fi
-    return beste, beste_f
+class _FlaechenAbstand:
+    """Exakter Abstand zu Kandidaten; die Box der B-Rep liefert eine untere Schranke."""
+
+    def __init__(self, flaechen):
+        self.flaechen = flaechen
+        self.boxen = {}
+
+    def _box(self, fi):
+        if fi not in self.boxen:
+            f = self.flaechen[fi]
+            box = None
+            if BRep_Tool.Surface(f) is not None:
+                box = Bnd_Box()
+                brepbndlib.Add(f, box, False)  # exakte Geometrie, auch bei grobem Netz
+            self.boxen[fi] = box
+        return self.boxen[fi]
+
+    def exakt(self, punkt, kandidaten) -> tuple[float, int]:
+        p = gp_Pnt(*punkt)
+        ort = Bnd_Box()
+        ort.Set(p)
+        schranken = []
+        for rang, fi in enumerate(kandidaten):
+            box = self._box(fi)
+            if box is not None:  # Netzflaechen haben nur den Netzabstand
+                schranken.append((0.0 if box.IsVoid() else ort.Distance(box), rang, fi))
+        v = BRepBuilderAPI_MakeVertex(p).Vertex()
+        beste, rang_beste, beste_f = np.inf, len(schranken), -1
+        for schranke, rang, fi in sorted(schranken):
+            if schranke > beste + 1e-7:
+                break
+            e = BRepExtrema_DistShapeShape(v, self.flaechen[fi], Extrema_ExtFlag_MIN)
+            if e.IsDone() and e.NbSolution() and (e.Value(), rang) < (beste, rang_beste):
+                beste, rang_beste, beste_f = e.Value(), rang, fi
+        return beste, beste_f
 
 
 def abstaende(punkte: np.ndarray, ziel: Seite, toleranz: float, exakt_alle: bool = False):
@@ -201,14 +226,15 @@ def abstaende(punkte: np.ndarray, ziel: Seite, toleranz: float, exakt_alle: bool
     d, _, f = ziel.netz.abfrage(punkte)
     grenze = max(toleranz - 2 * ziel.feinheit, 0.0)
     kritisch = np.arange(len(punkte)) if exakt_alle else np.where(d > grenze)[0]
+    abstand = _FlaechenAbstand(ziel.flaechen)
     for j in kritisch:
         kand = {int(f[j])} | ziel.nachbarn.get(int(f[j]), set())
-        dj, fj = _exakt(punkte[j], kand, ziel.flaechen)
+        dj, fj = abstand.exakt(punkte[j], kand)
         if dj > d[j] + 3 * ziel.feinheit or not np.isfinite(dj):
             # Netz hat vermutlich die falsche Wandseite gefunden: alle Flaechen in der Naehe pruefen
             _, nahe = ziel.netz.baum.query(punkte[j], k=min(64, len(ziel.netz.a)))
             kand2 = set(ziel.netz.flaeche[np.atleast_1d(nahe)].tolist()) - kand
-            d2, f2 = _exakt(punkte[j], kand2, ziel.flaechen) if kand2 else (np.inf, -1)
+            d2, f2 = abstand.exakt(punkte[j], kand2) if kand2 else (np.inf, -1)
             if d2 < dj:
                 dj, fj = d2, f2
         if np.isfinite(dj):
@@ -219,21 +245,30 @@ def abstaende(punkte: np.ndarray, ziel: Seite, toleranz: float, exakt_alle: bool
 def _status(abw: np.ndarray, flaeche: np.ndarray, anzahl: int, toleranz: float, fehlend: str,
             suchweite: float):
     """gleich: alle Punkte in Toleranz; geaendert: Gegenstueck innerhalb der Suchweite; sonst neu/entfernt."""
-    status, maxabw = {}, {}
+    anzahl_p = np.bincount(flaeche, minlength=anzahl)
+    innen = np.bincount(flaeche[abw <= toleranz], minlength=anzahl)
+    nahe = np.bincount(flaeche[abw <= suchweite], minlength=anzahl)
+    maxima = np.zeros(anzahl)
+    np.maximum.at(maxima, flaeche, abw)
+    status = {}
     for fi in range(anzahl):
-        sel = flaeche == fi
-        if not sel.any():
-            status[fi] = GLEICH  # zu klein zum Abtasten: als gleich werten
-            maxabw[fi] = 0.0
-            continue
-        innen = abw[sel] <= toleranz
-        nahe = abw[sel] <= suchweite
-        maxabw[fi] = float(abw[sel].max())
-        if innen.all():
-            status[fi] = GLEICH
+        n = int(anzahl_p[fi])
+        if innen[fi] == n:
+            status[fi] = GLEICH  # auch ohne Abtastpunkt
         else:
-            status[fi] = GEAENDERT if (innen.mean() >= 0.05 or nahe.mean() >= 0.5) else fehlend
-    return status, maxabw
+            status[fi] = GEAENDERT if innen[fi] * 20 >= n or nahe[fi] * 2 >= n else fehlend
+    return status, dict(enumerate(maxima.tolist()))
+
+
+def _zuordnung(flaechen, treffer, abw, suchweite):
+    """Haeufigste Gegenflaeche je Flaeche, bei Gleichstand gilt der erste Treffer."""
+    nah = abw <= suchweite
+    stimmen = {}
+    for fi, ziel in zip(flaechen[nah].tolist(), treffer[nah].tolist()):
+        if fi not in stimmen:
+            stimmen[fi] = Counter()
+        stimmen[fi][ziel] += 1
+    return {fi: stimmen[fi].most_common(1)[0][0] for fi in sorted(stimmen)}
 
 
 def vergleiche(modell_a, modell_b, ausrichtung: Ausrichtung | None = None, toleranz: float = 0.01,
@@ -254,16 +289,8 @@ def vergleiche(modell_a, modell_b, ausrichtung: Ausrichtung | None = None, toler
     n_b, n_a = len(modell_b.flaechen), len(modell_a.flaechen)
     status_b, max_b = _status(abw_b, flaeche_b, n_b, toleranz, NEU, suchweite)
     status_a, _ = _status(abw_a, flaeche_a, n_a, toleranz, ENTFERNT, suchweite)
-    zuordnung = {}
-    for fi in range(n_b):
-        sel = (flaeche_b == fi) & (abw_b <= suchweite)
-        if sel.any():
-            zuordnung[fi] = Counter(treffer_a[sel].tolist()).most_common(1)[0][0]
-    zuordnung_ab = {}
-    for fi in range(n_a):
-        sel = (flaeche_a == fi) & (abw_a <= suchweite)
-        if sel.any():
-            zuordnung_ab[fi] = Counter(treffer_b[sel].tolist()).most_common(1)[0][0]
+    zuordnung = _zuordnung(flaeche_b, treffer_a, abw_b, suchweite)
+    zuordnung_ab = _zuordnung(flaeche_a, treffer_b, abw_a, suchweite)
     zaehler = Counter(status_b.values())
     zaehler[ENTFERNT] = sum(1 for s in status_a.values() if s == ENTFERNT)
     erg = GeoErgebnis(status_b, status_a, zuordnung, zuordnung_ab, max_b, pb, abw_b, toleranz, ausrichtung,

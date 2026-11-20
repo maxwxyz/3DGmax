@@ -19,7 +19,7 @@ from OCC.Core.gp import gp_Pnt, gp_Vec
 from OCC.Core.TopAbs import TopAbs_REVERSED
 
 from .ausrichten import Ausrichtung, NetzAbstand, tesselliere
-from .vergleich_geo import _exakt
+from .vergleich_geo import _FlaechenAbstand
 
 
 @dataclass
@@ -223,6 +223,7 @@ def berechne(modell_alt, modell_neu, ausrichtung: Ausrichtung | None = None, fei
     m = np.eye(4) if ausrichtung is None else ausrichtung.matrix
     netze, werte = [], []
     flaechen: dict[int, _Flaeche] = {}
+    abstand = _FlaechenAbstand(alt_f)
     neu_netze = tesselliere(neu_f, feinheit)
     laenge = _diagonale(neu_netze) / teilung
     k = min(8, len(netz_alt.a))
@@ -252,7 +253,7 @@ def berechne(modell_alt, modell_neu, ausrichtung: Ausrichtung | None = None, fei
                     beste = zweite
             if beste is None or beste[1] > d[j] + 2 * feinheit:
                 # Fusspunkt auf Kante/Ecke: exakt gegen die nahen Flaechen
-                dj, fj = _exakt(p[j], kand, alt_f)
+                dj, fj = abstand.exakt(p[j], kand)
                 if fj >= 0:
                     if fj not in flaechen:
                         flaechen[fj] = _Flaeche(alt_f[fj], 2 * feinheit)

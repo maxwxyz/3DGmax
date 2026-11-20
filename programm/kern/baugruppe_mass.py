@@ -14,7 +14,8 @@ Am Punkt: statt des Flaechenschwerpunkts misst ein angeklickter Punkt auf A (bel
 - Monte Carlo: je Verbindung werden die Spielraeume gezogen (normalverteilt, Spielraum = 3 sigma, abgeschnitten;
   koaxial je Eingriffsende ein Punkt in der Kreisscheibe), die Teilbewegungen folgen als gewichteter Ausgleich (Gewicht
   1 / Spielraum je Zeile): bei Ueberbestimmung bestimmt die engere Verbindung die Lage, wie beim Fuegen; keine
-  Kontaktrechnung.
+  Kontaktrechnung mit Kraeften. Optionale ebene Anschlaege begrenzen im Worst Case den Spalt auf der gemeinsamen
+  Auflage. Monte Carlo faehrt die gezogene Bewegung zusammenhaengender Teile ab Nennlage bis zum ersten Anschlag.
 - Beitragende: Worst-Case-Bereich, wenn nur diese Verbindung streut (alle anderen in Nennlage), und Varianzanteil
   aus Monte Carlo (Verbindungen unabhaengig).
 - Ⓜ/Ⓛ-Bonus und Bezugsverschiebung einer Verbindung (Verbindung.bonus) sind ein eigener Beitragender auf denselben
@@ -63,6 +64,7 @@ class Beitrag:
     bonus: bool = False  # Ⓜ/Ⓛ-Bonus bzw. Bezugsverschiebung der Verbindung statt ihres Spielraums
     flaeche: int | None = None  # Toleranz einer gemessenen Flaeche (Lage/Profil zu ihren Bezuegen) statt Verbindung
     text: str = ""  # Toleranzangaben dieser Flaeche
+    teil: int | None = None  # Instanz des Merkmals
 
 
 @dataclass
@@ -81,6 +83,7 @@ class Ergebnis:
     waerme: float | None = None  # Aenderung durch Waermeausdehnung (mm) beim gewaehlten Temperaturfall
     beitraege: list[Beitrag] = field(default_factory=list)
     proben: np.ndarray | None = None
+    hinweise: list[str] = field(default_factory=list)
 
 
 def ebene(flaeche, lage: np.ndarray | None = None):
@@ -144,14 +147,24 @@ def _empfindlichkeit(punkt: np.ndarray, normale: np.ndarray) -> np.ndarray:
 class Analyse:
     """Lineares Modell aller Verbindungen einer Baugruppe fuer eine oder mehrere Messgroessen."""
 
-    def __init__(self, baugruppe, pmi: list | None = None):
+    def __init__(self, baugruppe, pmi: list | None = None, form_fuer=None):
         self.bg = baugruppe
+        self.form_fuer = form_fuer
         self.pmi = list(pmi or [])  # fuer die Toleranzen der gemessenen Flaechen
         self.teile = [t for t in baugruppe.teile() if not baugruppe.fest(t)]
         self._spalte = {t: 6 * i for i, t in enumerate(self.teile)}
         self.n = 6 * len(self.teile)
         lp, mc = [], []
+        self.kontakte, self.kontakt_hinweise = {}, []
         for v in baugruppe.verbindungen:
+            if v.einseitig:
+                grenzen = baugruppe.kontaktgrenzen(v)
+                if grenzen:
+                    self.kontakte[v.nummer] = [(self._relativ(v, z), spalt) for z, spalt in grenzen]
+                else:
+                    self.kontakt_hinweise.append(tr("Verbindung {}: Einseitiger Kontakt braucht zwei erfüllte "
+                                                    "Ebenen mit gemeinsamer Auflage und nichtnegativem Spalt.")
+                                                  .format(v.nummer))
             mit = baugruppe.zeilen(v)
             for (z, lo, hi), (_, _, o) in zip(baugruppe.zeilen(v, bonus=False), mit):
                 lp.append((v.nummer, self._relativ(v, z), lo, hi, o - hi))  # letzte Spalte: Bonus der Zeile
@@ -160,8 +173,8 @@ class Analyse:
                        baugruppe.mc_bonus(v)))
         self.lp = lp
         self.mc = mc
-        a = np.array([z for _, z, *_ in lp]).reshape(-1, self.n)
-        if len(a) and self.n:
+        if lp and self.n:
+            a = np.array([z for _, z, *_ in lp])
             _, s, vt = np.linalg.svd(a)
             rang = int((s > 1e-9 * max(1.0, float(s.max()))).sum())
             self.basis = vt[:rang]
@@ -175,6 +188,33 @@ class Analyse:
             if teil in self._spalte:
                 out[self._spalte[teil]:self._spalte[teil] + 6] += vz * zeile
         return out
+
+    def _verbunden(self, a, b):
+        offen, gesehen = [a], {a}
+        while offen:
+            teil = offen.pop()
+            if teil == b:
+                return True
+            for v in self.bg.verbindungen:
+                if teil in (v.teil, v.gegen_teil):
+                    nachbar = v.gegen_teil if teil == v.teil else v.teil
+                    if nachbar not in gesehen:
+                        gesehen.add(nachbar)
+                        offen.append(nachbar)
+        return False
+
+    def _kontaktgruppen(self):
+        """Verbindungen, deren bewegliche Teile gemeinsam bis zum ersten Anschlag fahren."""
+        teile = {v.nummer: {v.teil, v.gegen_teil}.intersection(self._spalte) for v in self.bg.verbindungen}
+        offen = set(self.kontakte)
+        while offen:
+            start = offen.pop()
+            gruppe, bewegt = {start}, set(teile[start])
+            while neu := {nr for nr, t in teile.items() if nr not in gruppe and t & bewegt}:
+                gruppe.update(neu)
+                bewegt.update(*(teile[nr] for nr in neu))
+            offen.difference_update(gruppe)
+            yield gruppe
 
     def _geometrie(self, m: Messgroesse, fa, fb):
         """Messpunkt p (Teil tp), Bezugspunkt q (Teil tq) und Messrichtung n in der Zusammenbaulage."""
@@ -310,7 +350,7 @@ class Analyse:
             o = self._kettenpunkt(teil)
             grenzen = self._torsor_grenzen(teil, o)
             g = k3.Glied3D(tr("{} (umgekehrt)").format(namen.get(teil, teil)) if vz < 0 else
-                           str(namen.get(teil, teil)))
+                           str(namen.get(teil, teil)), teil=teil)
             for i, c in enumerate(("rx", "ry", "rz", "x", "y", "z")):
                 lo, hi = grenzen[i]
                 lo, hi = (-hi, -lo) if vz < 0 else (lo, hi)
@@ -320,10 +360,21 @@ class Analyse:
                 g.werte[c] = k3.Komponente(nenn, hi, lo)
             glieder.append(g)
             ursprung = o
+        punkt, richtung = p - ursprung, np.array([0., 0., 1.])
+        eigene, hinweise = self._merkmalbeitraege(m, fa, fb)
+        if eigene:
+            # Erst am Messpunkt anfuegen: Eine lokale Merkmalsabweichung bewegt beim Wiggle kein ganzes Teil.
+            glieder.append(k3.glied(tr("Messpunkt"), **_lage_komponenten(r, punkt)))
+            punkt, richtung = np.zeros(3), r.T @ richtung
+            for w in eigene:
+                name = tr("Messrichtung an Teil {}, Fläche {} ({})").format(namen.get(w.teil, w.teil), w.flaeche, w.text)
+                g = k3.Glied3D(name)
+                g.werte["z"] = k3.Komponente(0., w.oben, w.unten)
+                glieder.append(g)
         basis = np.eye(4)
         basis[:3, :3], basis[:3, 3] = r, q
-        return k3.Kette3D(glieder, tuple(float(x) for x in p - ursprung), (0.0, 0.0, 1.0), "z",
-                          basis=basis.tolist())
+        return k3.Kette3D(glieder, tuple(punkt.tolist()), tuple(richtung.tolist()), "z",
+                          basis=basis.tolist(), hinweise=self.kontakt_hinweise + hinweise)
 
     def glied_fuer_teil(self, teil: int, vorher: np.ndarray, name: str = ""):
         """3D-Kettenglied eines Teils im Zusammenbau (wie in als_kette3d): Verschiebung vom vorigen Kettenpunkt zum
@@ -335,7 +386,7 @@ class Analyse:
             return None
         o = self._kettenpunkt(teil)
         grenzen = self._torsor_grenzen(teil, o)
-        g = k3.Glied3D(name or str(teil))
+        g = k3.Glied3D(name or str(teil), teil=teil)
         for i, c in enumerate(("rx", "ry", "rz", "x", "y", "z")):
             lo, hi = grenzen[i]
             if c.startswith("r"):
@@ -355,9 +406,13 @@ class Analyse:
                    for nr, _, u, o, b in self.lp]
         lo, hi = np.array([g[0] for g in grenzen]), np.array([g[1] for g in grenzen])
         cz = self.basis @ c
+        links, rechts = [a, -a], [hi, -lo]
+        for kontakt in self.kontakte.values():
+            links.append(-np.array([z for z, _ in kontakt]) @ self.basis.T)
+            rechts.append([spalt for _, spalt in kontakt])
         werte = []
         for vz in (1.0, -1.0):
-            r = linprog(-vz * cz, A_ub=np.vstack([a, -a]), b_ub=np.r_[hi, -lo], bounds=[(None, None)] * len(cz),
+            r = linprog(-vz * cz, A_ub=np.vstack(links), b_ub=np.concatenate(rechts), bounds=[(None, None)] * len(cz),
                         method="highs")
             werte.append(float(cz @ r.x) if r.status == 0 else 0.0)
         return werte[1], werte[0]
@@ -368,56 +423,97 @@ class Analyse:
         return [(nr, zeilen, grenzen, ziehen(rng, anzahl), None if bonus is None else bonus(rng, anzahl))
                 for nr, zeilen, grenzen, ziehen, bonus in self.mc]
 
+    def _anschlagfaktoren(self, stich, abbildung):
+        """Je Stichprobe der erste Anschlag auf der gezogenen Bewegung, je unabhaengiger Teilegruppe."""
+        y = np.hstack([werte if bonus is None else werte + bonus for _, _, _, werte, bonus in stich])
+        bewegungen = y @ abbildung.T
+        faktoren = {}
+        for gruppe in self._kontaktgruppen():
+            f = np.ones(len(y))
+            grenzen = [(-z, spalt) for nr in gruppe for z, spalt in self.kontakte.get(nr, ())]
+            # Auch bei ueberbestimmtem Ausgleich im WC-Spielraum der Gruppe bleiben.
+            for nr, z, lo, hi, b in self.lp:
+                if nr in gruppe:
+                    grenzen.extend(((z, hi + b), (-z, b - lo)))
+            for z, grenze in grenzen:
+                weg = bewegungen @ z
+                faktor = np.divide(grenze, weg, out=np.ones_like(weg), where=weg > grenze + 1e-10)
+                np.minimum(f, faktor, out=f)
+            faktoren.update(dict.fromkeys(gruppe, f))
+        return faktoren
+
+    def _verbindungsbeitraege(self, c, proben, zufall):
+        """Je Verbindung die Bewegung der Messgroesse und deren Anteil aus dem Bonus."""
+        stich = self._stichproben(proben, zufall)
+        if not stich or not self.n:
+            return []
+        gesamt = np.vstack([z for _, z, *_ in stich])
+        grenzen = np.concatenate([gr for _, _, gr, *_ in stich])
+        gewicht = 1.0 / np.maximum(grenzen, 1e-6 * max(1e-9, float(grenzen.max())))
+        abbildung = np.linalg.pinv(gesamt * gewicht[:, None]) * gewicht
+        g = c @ abbildung
+        faktoren = self._anschlagfaktoren(stich, abbildung) if self.kontakte else {}
+        teile, k = [], 0
+        for nr, zeilen, _, y, yb in stich:
+            einfluss = g[k:k + len(zeilen)]
+            f = faktoren.get(nr, 1.0)
+            teile.append(((nr, False), (y @ einfluss) * f))
+            if yb is not None:
+                teile.append(((nr, True), (yb @ einfluss) * f))
+            k += len(zeilen)
+        return teile
+
+    def _merkmalbeitraege(self, m, fa, fb):
+        from .merkmalstreuung import Messmerkmale
+        if not self.pmi:
+            return [], []
+        p, _, n, tp, _ = self._geometrie(m, fa, fb)
+        merkmale = Messmerkmale(self.bg, m, fa, fb, self.pmi, p, self.form_fuer)
+        plus = np.r_[np.zeros(3), n if tp == m.teil_a else -n]
+        merkmale.verfolge(m.teil_a, m.flaeche_a, plus)
+        merkmale.verfolge(m.teil_b, m.flaeche_b, -plus)
+        werte = merkmale.beitraege()
+        if m.punkt is not None:
+            werte += merkmale.groesse_am_punkt(m.teil_a, m.flaeche_a, plus[3:])
+        return werte, merkmale.hinweise
+
     def flaechen_toleranzen(self, m: Messgroesse) -> list[tuple[int, float, str]]:
-        """Toleranzen der beiden gemessenen Flaechen, die nicht schon im Spielraum einer Verbindung stecken: je
-        Flaeche (Index, halbe Zonenbreite h entlang der Messrichtung, Angaben) aus Lage-/Profiltoleranzen."""
-        from .verbindung import ORT_TYPEN
-        out = []
-        for teil, idx in ((m.teil_a, m.flaeche_a), (m.teil_b, m.flaeche_b)):
-            verbunden = any((v.teil == teil and v.flaeche == idx) or (v.gegen_teil == teil and v.gegen_flaeche == idx)
-                            for v in self.bg.verbindungen)
-            ort = [p for p in self.pmi if idx in p.flaechen and p.art == "toleranz" and p.typ in ORT_TYPEN and p.wert]
-            if ort and not verbunden:
-                out.append((idx, sum(float(p.wert) for p in ort) / 2, ", ".join(p.wert_text() for p in ort)))
-        return out
+        """Index, halbe wirksame Breite und PMI-Text der Merkmale einer gespeicherten Messung."""
+        if m.nummer not in self.bg.mass_formen:
+            return []
+        werte, _ = self._merkmalbeitraege(m, *self.bg.mass_formen[m.nummer])
+        return [(w.flaeche, (w.oben - w.unten) / 2, w.text) for w in werte]
 
     def berechne(self, m: Messgroesse, fa, fb, proben: int = 20_000, zufall: int = 1) -> Ergebnis:
         nenn, c = self.vektor(m, fa, fb)
         frei = c - self.basis.T @ (self.basis @ c) if len(self.basis) else c
-        unbestimmt = bool(np.linalg.norm(frei) > 1e-6 * max(1.0, float(np.linalg.norm(c))))
+        unbestimmt = not self._verbunden(m.teil_a, m.teil_b) or bool(
+            np.linalg.norm(frei) > 1e-6 * max(1.0, float(np.linalg.norm(c))))
         lo, hi = self._extrem(c)
-        stich = self._stichproben(proben, zufall)
-        teile = []  # ((Verbindung, Bonus?), Beitrag je Probe)
-        if stich and self.n:
-            gesamt = np.vstack([z for _, z, *_ in stich])
-            grenzen = np.concatenate([gr for _, _, gr, *_ in stich])
-            gewicht = 1.0 / np.maximum(grenzen, 1e-6 * max(1e-9, float(grenzen.max())))
-            g = c @ np.linalg.pinv(gesamt * gewicht[:, None]) * gewicht  # Messgroesse = g . y (gewichteter Ausgleich)
-            k = 0
-            for nr, zeilen, _, y, yb in stich:
-                teile.append(((nr, False), y @ g[k:k + len(zeilen)]))
-                if yb is not None:  # Bonus wirkt auf dieselben Zeilen (y + yb)
-                    teile.append(((nr, True), yb @ g[k:k + len(zeilen)]))
-                k += len(zeilen)
-        eigene = self.flaechen_toleranzen(m)  # Zone der gemessenen Flaeche verschiebt sie entlang der Messrichtung
+        teile = self._verbindungsbeitraege(c, proben, zufall)
+        eigene, hinweise = self._merkmalbeitraege(m, fa, fb)
         rng = np.random.default_rng(zufall + 7)
-        for idx, h, _ in eigene:
-            lo, hi = lo - h, hi + h
-            teile.append((("flaeche", idx), np.clip(rng.normal(0.0, h / 3, proben), -h, h)))
+        for i, w in enumerate(eigene):
+            lo, hi = lo + w.unten, hi + w.oben
+            mittel, sigma = (w.oben + w.unten) / 2, (w.oben - w.unten) / 6
+            teile.append((("flaeche", i), np.clip(rng.normal(mittel, sigma, proben), w.unten, w.oben)))
         werte = nenn + (np.sum([t for _, t in teile], axis=0) if teile else np.zeros(proben))
         var = {schluessel: float(np.var(t)) for schluessel, t in teile}
         summe_var = sum(var.values()) or 1.0
         bereiche = {(v.nummer, bonus): max(0.0, float(np.subtract(*self._extrem(c, v.nummer, bonus)[::-1])))
                     for v in self.bg.verbindungen for bonus in ((False, True) if v.bonus > 0 else (False,))}
-        summe_wc = (sum(bereiche.values()) + sum(2 * h for _, h, _ in eigene)) or 1.0
+        summe_wc = (sum(bereiche.values()) + sum(w.oben - w.unten for w in eigene)) or 1.0
         beitraege = [Beitrag(nr, b, b / summe_wc, var.get((nr, bonus), 0.0) / summe_var, bonus)
                      for (nr, bonus), b in bereiche.items()]
-        beitraege += [Beitrag(0, 2 * h, 2 * h / summe_wc, var.get(("flaeche", idx), 0.0) / summe_var, flaeche=idx,
-                              text=t) for idx, h, t in eigene]
+        for i, w in enumerate(eigene):
+            breite = w.oben - w.unten
+            beitraege.append(Beitrag(0, breite, breite / summe_wc, var[("flaeche", i)] / summe_var,
+                                     flaeche=w.flaeche, text=w.text, teil=w.teil))
         beitraege.sort(key=lambda x: (-x.anteil_var, -x.anteil_wc))
         q = np.quantile(werte, [0.00135, 0.99865])
         e = Ergebnis(nenn, nenn + lo, nenn + hi, float(werte.mean()), float(werte.std()), float(q[0]), float(q[1]),
-                     unbestimmt=unbestimmt, beitraege=beitraege, proben=werte)
+                     unbestimmt=unbestimmt or bool(self.kontakt_hinweise), beitraege=beitraege, proben=werte,
+                     hinweise=self.kontakt_hinweise + hinweise)
         _bewerte(e, m.soll_min, m.soll_max)
         return e
 
@@ -448,6 +544,8 @@ def bewertung(e: Ergebnis, m: Messgroesse) -> tuple[str, str]:
     """Ampel wie bei der Toleranzkette ("gruen" | "gelb" | "rot" | ""): gruen, wenn der Worst-Case-Bereich (samt
     Waermeausdehnung) im Soll liegt; gelb (knapp), wenn Monte Carlo hoechstens 0,27 % ausserhalb sieht; sonst rot."""
     from .toleranzkette import GRENZE_RISIKO
+    if e.hinweise or e.unbestimmt:
+        return "", tr("Auswertung unvollständig")
     if m.soll_min is None and m.soll_max is None:
         return "", ""
     d = e.waerme or 0.0
@@ -464,7 +562,7 @@ def bewertung(e: Ergebnis, m: Messgroesse) -> tuple[str, str]:
 
 def _bewerte(e: Ergebnis, smin: float | None, smax: float | None):
     """Anteil ausserhalb, Cp und Cpk gegen das Soll (einseitig, wenn nur eine Grenze)."""
-    if smin is None and smax is None:
+    if e.hinweise or e.unbestimmt or (smin is None and smax is None):
         return
     w = e.proben
     aus = np.zeros(len(w), bool)
@@ -486,6 +584,8 @@ def _bewerte(e: Ergebnis, smin: float | None, smax: float | None):
 def beitrag_art(b: Beitrag, arten: dict) -> str:
     """Art des Beitragenden: Verbindungsart, beim Bonus "Bonus Ⓜ/Ⓛ / Bezugsverschiebung (Art)"."""
     from .verbindung import ART_TEXT as VERBINDUNG_ART
+    if b.teil is not None:
+        return tr("Teil {}, Fläche {}: {}").format(b.teil, b.flaeche, b.text)
     if b.flaeche is not None:
         return tr("Toleranz der Messfläche {}: {}").format(b.flaeche, b.text)
     art = tr(VERBINDUNG_ART.get(arten.get(b.verbindung), ""))

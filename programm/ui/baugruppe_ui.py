@@ -33,6 +33,7 @@ class BaugruppePanel(QtWidgets.QWidget):
     zuruecksetzen = QtCore.Signal()
     wiggle = QtCore.Signal(object)  # Knotennummer oder None (aus)
     toleranz = QtCore.Signal(int, float)  # Nummer der Verbindung, neuer Spielraum (mm)
+    kontakt = QtCore.Signal(int, bool)
     umkehren = QtCore.Signal(int)  # Nummer der Verbindung
     frei_bewegen = QtCore.Signal(list)  # Werte je offenem Freiheitsgrad (mm bzw. Grad) fuer das gewaehlte Teil
     frei_zurueck = QtCore.Signal()
@@ -46,7 +47,8 @@ class BaugruppePanel(QtWidgets.QWidget):
     mass_kette = QtCore.Signal(int)  # Nummer der Messgroesse als 3D-Kette
     hinzufuegen = QtCore.Signal()  # weitere Datei ins Modell aufnehmen
 
-    VERBINDUNG_SPALTEN = ("Nr", "Teil", "Gegenteil", "Art", "Versatz", "Erfüllt", "Spielraum", "Herkunft")
+    VERBINDUNG_SPALTEN = ("Nr", "Teil", "Gegenteil", "Art", "Versatz", "Erfüllt", "Spielraum", "Herkunft",
+                          "Einseitiger Kontakt")
     TEIL_SPALTEN = ("Teil", "Freiheitsgrade", "Lagestreuung X/Y/Z", "Offene Bewegungen")
     WIGGLE_ART = (("frei", "Freie Freiheitsgrade"), ("toleranz", "Innerhalb der Toleranzen"))
     MASS_SPALTEN = ("Nr", "Messgröße", "Nennwert", "Worst Case", "Monte Carlo (99,73 %)", "Soll", "Außerhalb", "Cpk",
@@ -316,7 +318,7 @@ class BaugruppePanel(QtWidgets.QWidget):
             werte.append("" if e is None or e.waerme is None else f"{e.waerme:+.4f}")
             stufe, grund = bm.bewertung(e, m) if e is not None else ("", "")
             werte.append(({"gruen": "● " + tr("eingehalten"), "gelb": "● " + tr("knapp"),
-                           "rot": "● " + tr("nicht eingehalten")}.get(stufe, "") +
+                           "rot": "● " + tr("nicht eingehalten")}.get(stufe, grund) +
                           ("  ✔ " + tr("freigegeben") if m.freigabe.get("geprueft") else "")).strip())
             if m.freigabe.get("geprueft"):
                 grund = (grund + "\n" if grund else "") + tr("manuell freigegeben: {} {}").format(
@@ -411,6 +413,8 @@ class BaugruppePanel(QtWidgets.QWidget):
         spalten_anpassen(t, strecken=True)
         if e is None:
             self.mass_hinweis.setText("")
+        elif e.hinweise:
+            self.mass_hinweis.setText("\n".join(e.hinweise))
         elif e.unbestimmt:
             self.mass_hinweis.setText(tr("Die Messgröße hängt von offenen Freiheitsgraden ab: diese bleiben in "
                                          "Nennlage – erst die Teile vollständig verbinden."))
@@ -439,7 +443,7 @@ class BaugruppePanel(QtWidgets.QWidget):
                      tr(vb.ART_TEXT[v.art]), f"{v.versatz:g}" if v.art in vb.MIT_VERSATZ else "",
                      tr("nein") if v.nummer in verletzt else tr("ja"),
                      (f"±{v.toleranz:.4g}" if v.art in vb.MIT_VERSATZ else f"{v.toleranz:.4g}"),
-                     " ".join(x for x in (v.quelle, vb.bonus_text(v)) if x))
+                     " ".join(x for x in (v.quelle, vb.bonus_text(v)) if x), "")
             for s, w in enumerate(werte):
                 it = QtWidgets.QTableWidgetItem(w)
                 if s == 6 and v.bonus > 0:
@@ -449,6 +453,12 @@ class BaugruppePanel(QtWidgets.QWidget):
                     it.setFlags(it.flags() & ~QtCore.Qt.ItemFlag.ItemIsEditable)
                 if s == 5 and v.nummer in verletzt:
                     it.setForeground(QtGui.QBrush(QtGui.QColor("#c0392b")))
+                if s == 8 and v.art == vb.EBEN and (v.einseitig or (v.versatz >= 0 and v.nummer not in verletzt)):
+                    it.setFlags(it.flags() | QtCore.Qt.ItemFlag.ItemIsUserCheckable)
+                    it.setCheckState(QtCore.Qt.CheckState.Checked if v.einseitig else QtCore.Qt.CheckState.Unchecked)
+                    it.setToolTip(tr("Messgrößen bei Referenztemperatur: Der Spalt bleibt auf der gemeinsamen "
+                                     "Auflage nichtnegativ. Bei gekrümmtem Rand gilt das umschließende Rechteck. "
+                                     "Monte Carlo fährt die gezogene Bewegung bis zum ersten Anschlag."))
                 t.setItem(z, s, it)
         t.blockSignals(False)
         spalten_anpassen(t, strecken=True)
@@ -475,6 +485,9 @@ class BaugruppePanel(QtWidgets.QWidget):
         self.wiggle_an.setEnabled(bool(teile))
 
     def _spielraum_geaendert(self, it):
+        if it.column() == 8 and it.row() < len(self._nummern):
+            self.kontakt.emit(self._nummern[it.row()], it.checkState() == QtCore.Qt.CheckState.Checked)
+            return
         if it.column() != 6 or it.row() >= len(self._nummern):
             return
         try:

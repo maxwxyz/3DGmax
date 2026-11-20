@@ -97,6 +97,7 @@ class AnsichtBasis(QtWidgets.QWidget):
         self.schnitt_kette = False  # mehrere Ebenen schneiden nur den gemeinsamen Bereich weg
         self.ansicht_schnitt: list[list[tuple]] = []  # Schnitt der gespeicherten Ansicht (kern.ansichten)
         self.schlussflaeche = None  # Wiggle der Schlussflaechen: (Form, Farbe, Text, Ort)
+        self.hilfslinien = []
         self.letzte_ansicht = "iso"
         self.thema: dict = {}
         self.navigation = "catia"
@@ -139,6 +140,8 @@ class AnsichtBasis(QtWidgets.QWidget):
     # --- Schnittstelle (Unterklassen ergaenzen die Darstellung) ---
 
     def zeige(self, szene: Szene | None):
+        if szene is not self.szene:
+            self.hilfslinien = []
         self.szene = szene
         self.hervor, self.pmi_ids_hervor = set(), set()
         self.versteckt, self.transparent = set(), set()
@@ -1114,8 +1117,6 @@ class OcctAnsicht(AnsichtBasis):
             if self.vergleich_trsf is not None:
                 ais.SetLocalTransformation(self.vergleich_trsf)
             ctx.Display(ais, 1, -1, False)
-            ctx.Deactivate(ais)
-            ctx.Activate(ais, 4, False)  # 4 = Flaechen waehlbar
             # Kanten als eigene Ebene: Flaechen mit eigener Farbe zeichnen in OCCT keine Raender
             kanten = AIS_Shape(_kanten_von(k.form, sz.modell))
             kanten.SetColor(_farbe(t.get("kante", (0.15, 0.17, 0.2))))
@@ -1147,7 +1148,9 @@ class OcctAnsicht(AnsichtBasis):
         elif self.teil_lagen:
             self._lagen_anwenden()
         self._wende_darstellung_an()
-        self._wende_sichtbarkeit_an()
+        self._hilfs_ais = []  # RemoveAll hat auch die Hilfslinien entfernt
+        if self.hilfslinien:
+            self.zeige_hilfslinien(self.hilfslinien)
         self._drehpunkt = None
         self._szene_gebaut = sz
         self.setze_perspektive(self.perspektive)
@@ -2157,7 +2160,6 @@ class OcctAnsicht(AnsichtBasis):
         for ais in self._teile.values():
             ctx.SetDisplayMode(ais, 0 if self.modus == "draht" else 1, False)
         self._wende_sichtbarkeit_an()
-        self._aktiviere_auswahl()
 
     # --- Kamera ---
 
@@ -3323,17 +3325,17 @@ def _kanten_von(form, modell=None):
     """Kanten der Form; Netzflaechen ohne Kanten (PRC) bekommen ihre Randkanten aus modell.netz_kanten."""
     from OCC.Core.BRep import BRep_Builder
     from OCC.Core.TopAbs import TopAbs_EDGE
-    from OCC.Core.TopExp import TopExp_Explorer
+    from OCC.Core.TopExp import topexp
+    from OCC.Core.TopTools import TopTools_IndexedMapOfShape
     from OCC.Core.TopoDS import TopoDS_Compound
     bb = BRep_Builder()
     comp = TopoDS_Compound()
     bb.MakeCompound(comp)
-    ex = TopExp_Explorer(form, TopAbs_EDGE)
-    leer = not ex.More()
-    while ex.More():
-        bb.Add(comp, ex.Current())
-        ex.Next()
-    if leer and modell is not None and getattr(modell, "netz_kanten", None):
+    kanten = TopTools_IndexedMapOfShape()
+    topexp.MapShapes(form, TopAbs_EDGE, kanten)
+    for i in range(1, kanten.Size() + 1):
+        bb.Add(comp, kanten.FindKey(i))
+    if kanten.IsEmpty() and modell is not None and getattr(modell, "netz_kanten", None):
         _netz_kanten(bb, comp, form, modell)
     return comp
 

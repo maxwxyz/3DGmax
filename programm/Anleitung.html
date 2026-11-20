@@ -417,17 +417,29 @@ den Teilepaaren wieder zu.</li>
 Nennmaß erscheinen als Kollision, wenn das Modell das Gewinde nicht ausspart – solche Befunde als „akzeptiert“
 markieren.</p>
 
-<h2 id="verzahnung">Verzahnung erkennen</h2>
-<p><b>Werkzeuge › Verzahnung erkennen</b> liest die Verzahnungsdaten der gewählten Teile (ohne Auswahl: aller
-sichtbaren) aus der Geometrie – Stirnräder außen und innen, gerade und schräg, auch aus Netzen (STL …), sowie Zahnwellen und -naben mit
-Evolventenflanken (30°, ISO 4156 / DIN 5480). Gemessen werden
-Zähnezahl, Kopf- und Fußkreis, Zahnbreite, Schrägungswinkel mit Steigungsrichtung und der Grundkreis (Evolventen-Fit der
-Flanken im Stirnschnitt); daraus abgeleitet nach ISO 21771 Normalmodul und Eingriffswinkel (das Paar mit dem nächsten
-Normmodul nach ISO 54, Mehrdeutigkeiten werden gemeldet), Teilkreis, Profilverschiebung (aus der Zahndicke am
-Teilkreis) und die Zahnweite Wk. Die Tabelle nennt die Herkunft jedes Werts; <b>CSV</b> und <b>JSON</b> geben die Werte
-für Verzahnungs- und Systemprogramme aus. Kämmende <b>Radpaare</b> (parallele Achsen, auch Ritzel im Hohlrad) stehen
-in einer zweiten Tabelle: gemessener und spielfreier Achsabstand, Betriebseingriffswinkel, Profil- und
-Sprungüberdeckung und das Normalflankenspiel aus dem Achsabstand. Teile ohne Evolventenflanken (Sechskant, Rändel) werden nicht gemeldet.</p>
+<h2 id="verzahnung">Verzahnung und Getriebe analysieren</h2>
+<p><b>Werkzeuge › Verzahnung erkennen …</b> untersucht die im Strukturbaum oder in der 3D-Ansicht gewählten Teile.
+Ohne Auswahl werden alle sichtbaren Teile untersucht. Für ein einzelnes Rad genügt die Datei des Rads.
+<b>Werkzeuge › Getriebe analysieren …</b> untersucht alle sichtbaren Teile in ihrer Einbaulage und öffnet bei
+erkannten Stufen direkt den Reiter <b>Kraftfluss</b>.</p>
+<p>Im Reiter <b>Datenblätter</b> stehen unter anderem Zähnezahl, Kopf- und Fußdurchmesser, Zahnbreite,
+Schrägungswinkel und Steigungsrichtung. Bei Evolventenverzahnungen liefert die Flankenform den Grundkreis.
+Modul, Eingriffswinkel und Profilverschiebung werden daraus mit weiteren geometrischen Annahmen abgeleitet.
+Die Tabelle nennt die Herkunft. Sie unterstützt auch Steckprofile, konische Zähne und Schraubprofile.</p>
+<p>Unter <b>Radpaare und Steckverbindungen</b> stehen die erkannten Partner mit ihren Messwerten.
+<b>Kraftfluss</b> ordnet Stufen nach Wellen und zeigt die Einzel- und Gesamtübersetzungen relativ zur gewählten
+Bezugswelle. Als Vorgabe dient das kleinste Rad auf einer Endwelle jedes verbundenen Zugs. Gleichachsige
+Räder gelten dabei als drehfest verbunden. Bei getrennten Zügen oder Verzweigungen werden die Wege
+separat bewertet. Für Planetensätze sind die Übersetzungen je nach festgehaltenem Glied angegeben. Bei
+Kegel- und Schneckenpaaren ist die Zuordnung ein geometrischer Befund. Ein Lastnachweis erfordert weitere Daten.</p>
+<p>STEP-Körper und Dreiecksnetze wie STL und OBJ können auch mehrere getrennte Räder in einem Objekt enthalten.
+Bei einer einteiligen Stufenwelle werden erkennbare Zahnbänder einzeln mit ihrer Lage, Breite und Zähnezahl ausgewiesen.
+Je feiner die Flanken im Netz aufgelöst sind, desto genauer lässt sich die Evolvente anpassen. Der Fitfehler steht
+im Datenblatt. Sehr grobe Netze können für eine Identifikation zu wenig Information enthalten. Die B-Rep-Messung
+eines expliziten Fußradius oder einer Zahnkopffase setzt entsprechende CAD-Flächen voraus.</p>
+<p><b>CSV</b> und <b>JSON</b> enthalten die Messwerte und den Kraftfluss. <b>PDF</b> enthält Datenblätter,
+Auslegungsbefunde und bei geeigneten Stirnrädern die Abweichungskarten beider Flanken. Für Stirnradstufen
+ist zusätzlich der Export als <b>REXS</b> verfügbar.</p>
 
 <h2 id="scan">Netze und Scans</h2>
 <p>Netze (STL, OBJ, PLY, glTF, 3MF) lassen sich wie CAD-Modelle ansehen und messen und im Vergleich gegen ein CAD-Modell

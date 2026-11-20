@@ -9,12 +9,15 @@ import traceback
 from PySide6 import QtCore, QtWidgets
 
 from ..i18n import tr
+from ..kern import passverzahnung as pv
 from ..kern import verzahnung as vz
 from ..kern import verzahnung_daten as vd
+from ..kern.verzahnung_sonder import kegelpaar_kandidaten, schneckenpaar_kandidaten
+from .lader import Modellauftrag
 from .tabellen import spalten_anpassen
 
 
-class VerzahnungLader(QtCore.QThread):
+class VerzahnungLader(Modellauftrag):
     fertig = QtCore.Signal(object)  # Liste der Verzahnungen
     fehler = QtCore.Signal(str)
     stand = QtCore.Signal(int)
@@ -22,7 +25,6 @@ class VerzahnungLader(QtCore.QThread):
     def __init__(self, teile: list, parent=None):
         super().__init__(parent)
         self.teile = teile  # [(Name, Form)]
-        self.abgebrochen = False
 
     def run(self):
         from .lader import Abbruch, melder
@@ -32,11 +34,13 @@ class VerzahnungLader(QtCore.QThread):
             for i, (name, form) in enumerate(self.teile):
                 melde(i / max(len(self.teile), 1))
                 try:
-                    v = vz.erkenne(form, name)
+                    for v in vz.erkenne_koerper(form, name, steckprofile=True, sonderprofile=True):
+                        out.append(v)
+                        melde(i / len(self.teile))
+                except Abbruch:
+                    raise
                 except Exception:  # noqa: BLE001 - ein Teil darf die Suche nicht abbrechen
-                    v = None
-                if v is not None:
-                    out.append(v)
+                    continue
             melde(1.0)
         except Abbruch:
             return
@@ -49,34 +53,50 @@ class VerzahnungLader(QtCore.QThread):
 class VerzahnungFenster(QtWidgets.QDialog):
     def __init__(self, liste: list, basis: str, parent=None):
         super().__init__(parent)
-        self.setWindowTitle(tr("Verzahnung"))
+        self.setWindowTitle(tr("Verzahnung") if len(liste) == 1 else tr("Getriebeanalyse"))
         self.liste = list(liste)
+        self.raeder = [v for v in self.liste if isinstance(v, vz.Verzahnung)]
+        self.steckpaare = pv.paare([v for v in self.liste if isinstance(v, pv.Steckprofil)])
+        self.sonderpaare = kegelpaar_kandidaten(self.liste) + schneckenpaar_kandidaten(self.liste)
+        self.bezugsrad = None
         self.basis = basis  # Pfad ohne Endung fuer die Exporte
         lay = QtWidgets.QVBoxLayout(self)
-        lay.addWidget(QtWidgets.QLabel(tr("Aus der Geometrie erkannt (Stirnschnitte, Evolventen-Fit), abgeleitet nach "
-                                          "ISO 21771; Formkreise und Flankenkorrekturen aus der Zahndicke über dem "
-                                          "Radius. „nicht bestimmbar“ statt geschätzter Werte.")))
+        beschreibung = QtWidgets.QLabel(tr("Die Stirnschnitte liefern Zahnform und Abmessungen. Bei Steckverbindungen "
+                                           "zeigt die Tabelle die Nennspiele von Welle und Nabe."))
+        beschreibung.setWordWrap(True)
+        lay.addWidget(beschreibung)
+        self.reiter = QtWidgets.QTabWidget()
+        lay.addWidget(self.reiter, 1)
         self.tabelle = QtWidgets.QTableWidget()
         self.tabelle.setEditTriggers(QtWidgets.QAbstractItemView.EditTrigger.NoEditTriggers)
-        lay.addWidget(self.tabelle, 1)
+        self.reiter.addTab(self.tabelle, tr("Datenblätter"))
         self.paare = vz.paare(self.liste)
         self.paar_tabelle = QtWidgets.QTableWidget()
         self.paar_tabelle.setEditTriggers(QtWidgets.QAbstractItemView.EditTrigger.NoEditTriggers)
-        self.paar_titel = QtWidgets.QLabel(tr("<b>Radpaare</b> (parallele Achsen, Abstand passend)"))
-        lay.addWidget(self.paar_titel)
-        lay.addWidget(self.paar_tabelle)
+        self.reiter.addTab(self.paar_tabelle, tr("Radpaare und Steckverbindungen"))
         self.getriebe_tabelle = QtWidgets.QTableWidget()
         self.getriebe_tabelle.setEditTriggers(QtWidgets.QAbstractItemView.EditTrigger.NoEditTriggers)
-        self.getriebe_titel = QtWidgets.QLabel(tr("<b>Getriebe</b> (Stufen über gleichachsige Räder, Planetensätze)"))
-        lay.addWidget(self.getriebe_titel)
-        lay.addWidget(self.getriebe_tabelle)
+        self.getriebeseite = QtWidgets.QWidget()
+        self.reiter.addTab(self.getriebeseite, tr("Kraftfluss"))
+        getriebelayout = QtWidgets.QVBoxLayout(self.getriebeseite)
+        wahl = QtWidgets.QFormLayout()
+        self.bezugswelle = QtWidgets.QComboBox()
+        self.bezugswelle.addItem(tr("Automatisch (kleinstes Rad einer Endwelle)"), None)
+        gruppen, zuege, _ = vd._zuege(self.liste, self.paare)
+        for k in sorted({k for zug in zuege for k in zug.ergebnis}):
+            gruppe = gruppen[k]
+            self.bezugswelle.addItem(" + ".join(self.liste[i].teil for i in gruppe), gruppe[0])
+        wahl.addRow(tr("Bezugswelle für die Übersetzung"), self.bezugswelle)
+        getriebelayout.addLayout(wahl)
+        annahme = QtWidgets.QLabel(tr("Gleichachsige Räder werden als drehfest verbunden angenommen. "
+                                     "Jeder getrennte Getriebezug hat eine eigene Bezugswelle."))
+        annahme.setWordWrap(True)
+        getriebelayout.addWidget(annahme)
+        getriebelayout.addWidget(self.getriebe_tabelle, 1)
+        self.bezugswelle.currentIndexChanged.connect(self._bezug_geaendert)
         self.befund_tabelle = QtWidgets.QTableWidget()
         self.befund_tabelle.setEditTriggers(QtWidgets.QAbstractItemView.EditTrigger.NoEditTriggers)
-        self.befund_titel = QtWidgets.QLabel(tr("<b>Auslegungsbefunde</b> – welche Entscheidungen die Geometrie "
-                                                "zeigt, eingeordnet nach den üblichen Regeln (mit Quelle)"))
-        self.befund_titel.setWordWrap(True)
-        lay.addWidget(self.befund_titel)
-        lay.addWidget(self.befund_tabelle)
+        self.reiter.addTab(self.befund_tabelle, tr("Auslegungsbefunde"))
         self.hinweise = QtWidgets.QLabel("")
         self.hinweise.setWordWrap(True)
         lay.addWidget(self.hinweise)
@@ -90,9 +110,13 @@ class VerzahnungFenster(QtWidgets.QDialog):
         self.rexs.setToolTip(tr("Räder, Stufen, Wellen und Planetensätze als REXS-Modell (offenes Austauschformat für "
                                 "Getriebedaten der FVA, Version 1.7), z. B. für Auslegungs- und Nachrechenprogramme"))
         self.rexs.clicked.connect(lambda: self.speichere("rexs"))
+        self.pdf = QtWidgets.QPushButton(tr("PDF speichern …"))
+        self.pdf.setToolTip(tr("Datenblätter, Radpaare und Auslegungsbefunde mit Quellen als PDF speichern"))
+        self.pdf.clicked.connect(lambda: self.speichere("pdf"))
         reihe.addWidget(self.csv)
         reihe.addWidget(self.json)
         reihe.addWidget(self.rexs)
+        reihe.addWidget(self.pdf)
         reihe.addStretch(1)
         schliessen = QtWidgets.QPushButton(tr("Schließen"))
         schliessen.clicked.connect(self.close)
@@ -117,18 +141,34 @@ class VerzahnungFenster(QtWidgets.QDialog):
             t.setItem(r, len(self.liste), QtWidgets.QTableWidgetItem(herkunft.get(n, "")))
         spalten_anpassen(t)
         pt = self.paar_tabelle
-        namen, werte = vd.tabelle([p.zeilen() + vd.paar_zeilen(p) for p in self.paare])
+        paarzeilen = [p.zeilen() + vd.paar_zeilen(p) for p in self.paare] + [
+            p.zeilen() for p in self.steckpaare + self.sonderpaare]
+        namen, werte = vd.tabelle(paarzeilen)
         pt.setRowCount(len(namen))
-        pt.setColumnCount(len(self.paare))
-        pt.setHorizontalHeaderLabels([f"{p.a.teil} – {p.b.teil}" for p in self.paare])
+        pt.setColumnCount(len(paarzeilen))
+        pt.setHorizontalHeaderLabels([f"{p.a.teil} – {p.b.teil}" for p in self.paare] +
+                                     [f"{p.welle.teil} – {p.nabe.teil}" for p in self.steckpaare] +
+                                     [f"{p.a.teil} – {p.b.teil}" for p in self.sonderpaare])
         pt.setVerticalHeaderLabels(namen)
         for s, spalte in enumerate(werte):
             for r, wert in enumerate(spalte):
                 pt.setItem(r, s, QtWidgets.QTableWidgetItem(wert))
         spalten_anpassen(pt)
-        for w in (pt, self.paar_titel):
-            w.setVisible(bool(self.paare))
-        getriebe = vd.getriebe_zeilen(self.liste, self.paare) if self.paare else []
+        self._reiter_zeigen(pt, bool(paarzeilen))
+        self._bezug_geaendert()
+        texte = [f"{v.teil}: {h}" for v in self.raeder for h in v.hinweise]
+        texte += [f"{p.a.teil} – {p.b.teil}: {h}" for p in self.paare for h in p.hinweise]
+        self.hinweise.setText("\n".join(texte) if texte else ("" if self.liste else tr("Keine auswertbare Verzahnung gefunden. Bei Netzmodellen müssen die Zahnflanken durch genügend Dreiecke aufgelöst sein.")))
+        for k in (self.csv, self.json, self.pdf):
+            k.setEnabled(bool(self.liste))
+        self.rexs.setEnabled(bool(self.raeder))
+
+    def _reiter_zeigen(self, seite, sichtbar):
+        self.reiter.setTabVisible(self.reiter.indexOf(seite), sichtbar)
+
+    def _bezug_geaendert(self):
+        self.bezugsrad = self.bezugswelle.currentData()
+        getriebe = vd.getriebe_zeilen(self.liste, self.paare, self.bezugsrad)
         gt = self.getriebe_tabelle
         gt.setRowCount(len(getriebe))
         gt.setColumnCount(1)
@@ -137,10 +177,10 @@ class VerzahnungFenster(QtWidgets.QDialog):
         for r, (_a, b) in enumerate(getriebe):
             gt.setItem(r, 0, QtWidgets.QTableWidgetItem(b))
         spalten_anpassen(gt)
-        for w in (gt, self.getriebe_titel):
-            w.setVisible(bool(getriebe))
+        self._reiter_zeigen(self.getriebeseite, bool(getriebe))
+        self.bezugswelle.setEnabled(self.bezugswelle.count() > 1)
         from ..kern import verzahnung_auslegung as va
-        befunde = va.alle(self.liste, self.paare)
+        befunde = va.alle(self.liste, self.paare, self.liste[self.bezugsrad] if self.bezugsrad is not None else None)
         bt = self.befund_tabelle
         bt.setRowCount(len(befunde))
         bt.setColumnCount(len(va.SPALTEN))
@@ -152,30 +192,28 @@ class VerzahnungFenster(QtWidgets.QDialog):
                 it.setToolTip(text)
                 bt.setItem(r, s, it)
         spalten_anpassen(bt)
-        for w in (bt, self.befund_titel):
-            w.setVisible(bool(befunde))
-        texte = [f"{v.teil}: {h}" for v in self.liste for h in v.hinweise]
-        texte += [f"{p.a.teil} – {p.b.teil}: {h}" for p in self.paare for h in p.hinweise]
-        self.hinweise.setText("\n".join(texte) if texte else ("" if self.liste else tr("Keine Verzahnung gefunden.")))
-        for k in (self.csv, self.json, self.rexs):
-            k.setEnabled(bool(self.liste))
+        self._reiter_zeigen(bt, bool(befunde))
 
     def speichere(self, art: str, pfad: str = "") -> str | None:
-        endung = {"csv": ".csv", "json": ".json", "rexs": ".rexsj"}[art]
-        filter_ = {"csv": "CSV (*.csv)", "json": "JSON (*.json)", "rexs": tr("REXS-Modell (*.rexsj *.rexs.json)")}[art]
+        endung = {"csv": ".csv", "json": ".json", "rexs": ".rexsj", "pdf": ".pdf"}[art]
+        filter_ = {"csv": "CSV (*.csv)", "json": "JSON (*.json)", "pdf": "PDF (*.pdf)",
+                   "rexs": tr("REXS-Modell (*.rexsj *.rexs.json)")}[art]
         pfad = pfad or QtWidgets.QFileDialog.getSaveFileName(self, tr("Verzahnung speichern"),
                                                              self.basis + "_verzahnung" + endung, filter_)[0]
         if not pfad:
             return None
+        if art == "pdf":
+            from .berichte import verzahnung_pdf
+            return verzahnung_pdf(self, pfad)
         with open(pfad, "w", encoding="utf-8-sig" if art == "csv" else "utf-8") as f:
             if art == "csv":
-                f.write(vd.als_csv(self.liste, self.paare))
+                f.write(vd.als_csv(self.liste, self.paare, self.bezugsrad))
             elif art == "rexs":
                 from ..kern import rexs
                 from ..version import VERSION
-                json.dump(rexs.modell(self.liste, self.paare, os.path.basename(self.basis) or "3DGmax", VERSION), f,
+                json.dump(rexs.modell(self.raeder, self.paare, os.path.basename(self.basis) or "3DGmax", VERSION), f,
                           ensure_ascii=False, indent=1)
             else:
-                json.dump({"format": "3dgmax-verzahnung", "version": 2, **vd.datenblatt(self.liste, self.paare)}, f,
+                json.dump({"format": "3dgmax-verzahnung", "version": 2, **vd.datenblatt(self.liste, self.paare, self.bezugsrad)}, f,
                           ensure_ascii=False, indent=1)
         return pfad

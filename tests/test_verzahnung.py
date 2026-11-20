@@ -91,6 +91,14 @@ def test_radpaare():
     ritzel = vz.erkenne(an(zahnrad.zahnrad(16, 1.5, 12.0), 18.0), "Ritzel")
     p = vz.paare([ritzel, hohl])
     assert len(p) == 1 and p[0].a.teil == "Hohlrad" and abs(p[0].abstand_soll - 18.0) < 0.03
+    from dataclasses import replace
+    # Gleicher Achsabstand in benachbarten Stufen, aber kein gemeinsamer Zahnbereich.
+    assert not vz.paare([r1, replace(r2, punkt=r2.punkt + 20 * r1.richtung)])
+    a = replace(r1, beta=15.0, hand="links")
+    b = replace(r2, beta=15.0, hand="rechts", richtung=-r1.richtung)
+    ganz = vz.paare([a, b])[0].eps_beta
+    halb = vz.paare([a, replace(b, punkt=b.punkt + 5 * a.richtung)])[0].eps_beta
+    assert abs(halb / ganz - 0.5) < 0.001
     assert abs(p[0].spiel) < 0.02 and p[0].eps_alpha > 1.3
 
 
@@ -146,6 +154,21 @@ def test_datenblatt_rad_und_mikrogeometrie():
     assert any(n.startswith("Kopfrücknahme") or n.startswith("Tip relief") for n, *_ in vd.mikro_zeilen(rein))
     mit = vz.erkenne(zahnrad.zahnrad(23, 2.0, 20.0, ruecknahme=(0.02, 0.6)), "Rücknahme")
     p = vd.profil(mit)
+    from programm.kern.flankentopografie import karte
+    raster = karte(mit, p)
+    for seite in ("links_mm", "rechts_mm"):
+        for zeile in raster[seite]:
+            assert 0.012 < zeile[-1] < 0.023
+            assert abs(zeile[len(zeile)//3]) < .005
+    # Ein azimutal versetzter Stirnschnitt traegt auf den beiden Flanken entgegengesetzte Abweichungen.
+    import numpy as np
+    from dataclasses import replace
+    verschoben = replace(mit, r_schnitte=[(0., np.roll(mit.r_mitte, 2))])
+    feld = karte(verschoben, p)
+    delta = 2 * 2 * math.pi / len(mit.r_mitte) * p.grundradius
+    j = len(raster["radius_mm"]) // 2
+    assert abs(feld["links_mm"][0][j] - raster["links_mm"][0][j] - delta) < .001
+    assert abs(feld["rechts_mm"][0][j] - raster["rechts_mm"][0][j] + delta) < .001
     rb = 23 * 2.0 * math.cos(math.radians(20.0)) / 2
     beginn = 2 * math.hypot(rb, 0.6 * math.sqrt(25.0 ** 2 - rb ** 2))
     assert abs(p.ca - 0.02) < 0.003 and abs(p.dca - beginn) < 0.3
@@ -208,6 +231,10 @@ def test_verzahnungsfenster_datenblatt(tmp_path):
     assert d["version"] == 2 and d["paare"] and d["zahnraeder"][0]["kugelmass"]["DM"] == 3.5
     r = json.load(open(f.speichere("rexs", str(tmp_path / "g.rexsj")), encoding="utf-8"))
     assert r["model"]["applicationId"] == "3DGmax" and f.rexs.toolTip()
+    from pypdf import PdfReader
+    pdf = PdfReader(f.speichere("pdf", str(tmp_path / "g.pdf")))
+    text = " ".join(s.extract_text() for s in pdf.pages)
+    assert "Ritzel" in text and "ISO 21771" in text and len(pdf.pages) >= 3
 
 
 def test_rexs_export(tmp_path):

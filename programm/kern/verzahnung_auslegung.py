@@ -73,7 +73,10 @@ def rad_befunde(v: Verzahnung) -> list[Befund]:
                           tr("Unterschnitt zu erwarten – Fußform prüfen"), Q_DIN3992))
     p = vd.profil(v)
     if p is not None:
-        if p.ca:
+        if v.kopffase is not None:
+            out.append(Befund(v.teil, "Kopffase, radiale Höhe", f"{_g(v.kopffase, 4)} mm",
+                              tr("Gerader Kantenbruch auf beiden Zahnflanken"), tr("Stirnschnitt")))
+        elif p.ca:
             out.append(Befund(v.teil, "Kopfrücknahme", f"Cα = {_g(p.ca, 4)} mm = {_g(p.ca / v.mn, 4)} mn",
                               tr("Kopfrücknahme vorgesehen – mildert den Eingriffsstoß unter Last (Geräusch, "
                                  "Fressen); Betrag passt zu einer Auslegung für eine bestimmte Last"), Q_NIEMANN))
@@ -163,12 +166,19 @@ def stufen_befunde(p: Paar) -> list[Befund]:
     return out
 
 
-def getriebe_befunde(liste: list[Verzahnung], paare: list[Paar]) -> list[Befund]:
+def getriebe_befunde(liste: list[Verzahnung], paare: list[Paar], bezug=None) -> list[Befund]:
     """Stufenaufteilung mehrstufiger Getriebe und Befunde der Planetensaetze."""
     out = []
     saetze = vd.planetensaetze(liste, paare)
-    stufen, _ziel = vd.stufen(liste, paare, saetze)
-    if len(stufen) >= 2:
+    mitglieder = [{s.sonne, s.hohlrad, *s.planeten} for s in saetze]
+    bezugsrad = next((i for i, v in enumerate(liste) if v is bezug), None)
+    gruppen, zuege = vd._kraftfluesse(liste, paare, mitglieder, bezugsrad)
+    welle = {i: k for k, g in enumerate(gruppen) for i in g}
+    for zug in zuege:
+        stufen = zug.stufen
+        if (zug.widerspruch or len(stufen) < 2 or len(zug.ergebnis) != len(stufen) + 1 or
+                any(welle[a.abtrieb] != welle[b.antrieb] for a, b in zip(stufen, stufen[1:]))):
+            continue  # Ein Produkt aller Stufen beschreibt nur einen durchgehenden, unverzweigten Weg.
         us = [s.u for s in stufen]
         gesamt = math.prod(us)
         out.append(Befund(tr("Getriebe"), "Stufenaufteilung", " · ".join(_g(u, 2) for u in us) + f" = {_g(gesamt, 2)}",
@@ -199,10 +209,33 @@ def getriebe_befunde(liste: list[Verzahnung], paare: list[Paar]) -> list[Befund]
     return out
 
 
-def alle(liste: list[Verzahnung], paare: list[Paar]) -> list[Befund]:
-    out = [b for v in liste for b in rad_befunde(v)]
+def alle(liste: list, paare: list[Paar], bezug=None) -> list[Befund]:
+    from . import passverzahnung as pv
+    profile = [v for v in liste if isinstance(v, pv.Steckprofil)]
+    raeder = [v for v in liste if isinstance(v, Verzahnung)]
+    out = [b for v in raeder for b in rad_befunde(v)]
     out += [b for p in paare for b in stufen_befunde(p)]
-    return out + getriebe_befunde(liste, paare)
+    out += getriebe_befunde(raeder, paare, bezug)
+    for v in profile:
+        quelle = "ISO 4156-1:2021" if v.art == "evolvente" else tr("Stirnschnitt")
+        wert = f"db = {v.db:.3f} mm" if v.db is not None else f"{v.winkel:.2f}°"
+        out.append(Befund(v.teil, "Steckprofil", wert, pv._profiltext(v.art), quelle))
+    for p in pv.paare(profile):
+        wert = tr("außen {:+.3f}, innen {:+.3f}, Umfang {:+.3f} mm").format(p.aussen, p.innen, p.flanke)
+        out.append(Befund(f"{p.welle.teil} – {p.nabe.teil}", "Zentrierung aus Nennspielen", wert,
+                          pv._zentriertext(p.zentrierung), tr("Stirnschnitt")))
+    from .verzahnung_sonder import kegelpaar_kandidaten, schneckenpaar_kandidaten
+    for p in kegelpaar_kandidaten(liste):
+        wert = f"Σ = {p.achswinkel:.2f}°, δ₁ = {p.teil_a:.2f}°, δ₂ = {p.teil_b:.2f}°"
+        out.append(Befund(f"{p.a.teil} – {p.b.teil}", "Teilkegel", wert,
+                          tr("Die aus Achswinkel und Zähnezahlen berechneten Teilkegel liegen in beiden Zahnbändern."),
+                          "KHK, Bevel Gears, Fig. 8.1 (M. Kubota)"))
+    for p in schneckenpaar_kandidaten(liste):
+        wert = f"i = {p.b.z / p.a.z:g}, a = {p.achsabstand:.3f} mm"
+        out.append(Befund(f"{p.a.teil} – {p.b.teil}", "Schneckenradpaar", wert,
+                          tr("Kehlposition, Teilung und Zahnspur passen zu einer rechtwinkligen Schneckenstufe."),
+                          "KHK, Worm Gears, KWGDL/AGDL"))
+    return out
 
 
 SPALTEN = ("Bereich", "Thema", "Wert", "Einordnung", "Quelle")
@@ -210,7 +243,8 @@ THEMEN = (  # fuer die Uebersetzung (werkzeuge/tr_texte.py)
           "Achsabstand", "Aufteilung der Profilverschiebung", "Bezugsprofil", "Breitenballigkeit",
           "Breitenverhältnis", "Kopfrücknahme", "Kopfspiel", "Phasenlage der Planeten", "Planetenzahl",
           "Profilüberdeckung", "Schrägungswinkel", "Sprungüberdeckung", "Stufenaufteilung",
-          "Summe der Profilverschiebungen", "Unterschnitt", "Zähnezahlen", "Übersetzung")
+          "Summe der Profilverschiebungen", "Unterschnitt", "Zähnezahlen", "Übersetzung",
+          "Steckprofil", "Zentrierung aus Nennspielen", "Teilkegel", "Schneckenradpaar")
 
 
 def als_dicts(befunde: list[Befund]) -> list[dict]:

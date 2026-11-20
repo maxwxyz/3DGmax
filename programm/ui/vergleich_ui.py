@@ -9,6 +9,7 @@ from PySide6 import QtCore, QtGui, QtWidgets
 
 from ..i18n import tr
 from ..kern import pruefung
+from .lader import Modellauftrag
 from .panel_aufbau import zweck_zeile
 from .tabellen import spalten_anpassen
 
@@ -90,7 +91,7 @@ class VergleichDialog(QtWidgets.QDialog):
                 "suchweite": self.suchweite.value()}
 
 
-class VergleichsLader(QtCore.QThread):
+class VergleichsLader(Modellauftrag):
     fertig = QtCore.Signal(object)
     fehler = QtCore.Signal(str)
     stand = QtCore.Signal(str)
@@ -101,19 +102,19 @@ class VergleichsLader(QtCore.QThread):
         self.alt_geladen = alt_geladen
         self.neu_geladen = neu_geladen
         self.ausrichtung = ausrichtung
-        self.abgebrochen = False
 
     def run(self):
         from ..kern import vergleich
-        from .lader import lade_alles
+        from .lader import lade_alles, melder
+        melde = melder(self, self.stand.emit)
         try:
             w = self.werte
             alt = self.alt_geladen if self.alt_geladen is not None and \
-                os.path.samefile(self.alt_geladen.pfad, w["alt"]) else lade_alles(w["alt"], self.stand.emit)
-            self.stand.emit(tr("Neuen Stand laden …"))
-            neu = self.neu_geladen if self.neu_geladen is not None else lade_alles(w["neu"], self.stand.emit)
+                os.path.samefile(self.alt_geladen.pfad, w["alt"]) else lade_alles(w["alt"], melde)
+            melde(tr("Neuen Stand laden …"))
+            neu = self.neu_geladen if self.neu_geladen is not None else lade_alles(w["neu"], melde)
             v = vergleich.vergleiche(alt, neu, w["toleranz"], w["suchweite"], ausrichtung=self.ausrichtung,
-                                     fortschritt=lambda t: self.stand.emit(tr(t)))
+                                     fortschritt=melde)
         except Exception as e:  # noqa: BLE001 - Fehler dem Nutzer zeigen
             if not self.abgebrochen:
                 self.fehler.emit(f"{e}\n\n{traceback.format_exc(limit=3)}")
