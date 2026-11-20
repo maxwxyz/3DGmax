@@ -2,6 +2,21 @@
 
 ## Current state, 2026-11-21
 
+### Generated dimension and tolerance leaders on tessellated STEP faces
+
+- Checked PLAN §§8.16, 8.22, 8.35–8.37 and docs/Roadmap.md. A face can contain only triangles.
+  The geometric nominal checks now skip missing analytic planes or cylinders, including mixed
+  plane/mesh pairs. Generated leaders use the nearest point across the located triangles and
+  analytic faces in the selection. Mesh arrays are reused while placing annotations.
+- On the NIST FTC-08 AP242 tessellated example, all 273 faces have no analytic surface. Added a
+  dimension referencing two mesh faces, exported and reopened it. The new semantic record and
+  its stored presentation were both present. An independent barycentric check put the arrow tip
+  on an actual referenced triangle. A mixed planar B-rep and translated triangle also gave the
+  expected closest points in the triangle interior, on its boundary and on the analytic face.
+- All 41 affected tests and eight local macOS on-screen tests passed. The next drawing work
+  includes conical seats and drill points, rounded pockets, turned parts and cross-view
+  association. Whole-drawing completeness remains open. QIF stays last.
+
 ### Reconstruct cylindrical stepped bores from the top view
 
 - Checked PLAN §§8.35–8.37 and docs/Roadmap.md. Concentric vector rings with distinct ink contours

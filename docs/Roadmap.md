@@ -262,7 +262,7 @@
 | Folder comparison | ✅ |
 | Export views as drawings (HLR) PDF/SVG/DXF: standard views by projection method, current view, saved views with their PMI | ✅ |
 | Drawings and view thumbnails for mesh models (face borders, silhouettes, hidden edges via depth buffer) | ✅ |
-| Generate graphical PMI from semantic PMI – stage 1: leader + label, stacked, own color (3D, drawings) | ✅ |
+| Generate graphical PMI from semantic PMI – stage 1: leader + label, stacked, own color (3D, drawings), including attachment to located mesh triangles and mixed B-rep selections | ✅ |
 | Generated PMI stage 2: annotation planes (saved view or model plane), frames/datum symbols as vector graphics, overlap-free layout outside the model, show/hide switch | ✅ |
 | Generated PMI stage 3: dimension lines with arrows and extension lines (distance/thickness), leader arrows | ✅ |
 | Generated PMI: projected frame and label overlap checks in shared orthographic views, including existing annotations | ✅ |

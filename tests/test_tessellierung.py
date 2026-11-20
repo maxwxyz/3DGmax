@@ -120,3 +120,26 @@ def test_abtastung_mit_leeren_und_entarteten_flaechen():
     np.testing.assert_allclose(punkte[:, 0], s * (1 - r) * (1 + wahl))
     np.testing.assert_allclose(punkte[:, 1], s * r * (1 + wahl))
     assert abtasten([leer, entartet])[0].shape == (0, 3)
+
+
+def test_gemischte_pmi_hinweisflaechen_in_instanzlage():
+    from OCC.Core.BRep import BRep_Builder
+    from OCC.Core.BRepBuilderAPI import BRepBuilderAPI_MakeFace
+    from OCC.Core.TopoDS import TopoDS_Face
+    from OCC.Core.gp import gp_Pln
+    from programm.kern import pmi_erzeugen, plausibilitaet
+    from programm.kern.laden import _poly
+
+    ebene = BRepBuilderAPI_MakeFace(gp_Pln(gp_Pnt(0,0,0), gp_Dir(0,0,1)), -10.,10.,-10.,10.).Face()
+    netz = TopoDS_Face()
+    BRep_Builder().MakeFace(netz, _poly([[0,0,0],[4,0,0],[0,4,0]], [[0,1,2]]))
+    t = gp_Trsf()
+    t.SetTranslation(gp_Vec(10,0,4))
+    netz = topods.Face(netz.Moved(TopLoc_Location(t)))
+    flaechen = [ebene, netz]
+    assert plausibilitaet.ebene_zur_achse(flaechen) is None
+    assert plausibilitaet.ebene_zur_achse(flaechen[::-1]) is None
+    cache = {}
+    for ziel, erwartet in (([11,1,5],[11,1,4]), ([11,5,5],[10,4,4]), ([2,1,-1],[2,1,0])):
+        np.testing.assert_allclose(pmi_erzeugen._naechster_punkt(flaechen, np.array(ziel), cache), erwartet)
+    assert len(cache) == 1

@@ -34,8 +34,11 @@ def _befund(stufe, kategorie, text, nummern, flaechen=None):
 
 
 def _ebene(f):
+    from OCC.Core.BRep import BRep_Tool
     from OCC.Core.BRepAdaptor import BRepAdaptor_Surface
     from OCC.Core.GeomAbs import GeomAbs_Plane
+    if BRep_Tool.Surface(f) is None:
+        return None
     s = BRepAdaptor_Surface(f)
     if s.GetType() != GeomAbs_Plane:
         return None
@@ -47,6 +50,7 @@ def _ebene(f):
 
 def ebene_zur_achse(flaechen):
     """Index der Bezugsebene, Lotfuss, Achspunkt und Achsrichtung am Ende des Zylindermantels."""
+    from OCC.Core.BRep import BRep_Tool
     from OCC.Core.BRepAdaptor import BRepAdaptor_Surface
     from OCC.Core.GeomAbs import GeomAbs_Cylinder
     if len(flaechen) != 2:
@@ -55,6 +59,8 @@ def ebene_zur_achse(flaechen):
         ebene = _ebene(f)
         if ebene is None:
             continue
+        if BRep_Tool.Surface(flaechen[1-i]) is None:
+            return None
         s = BRepAdaptor_Surface(flaechen[1-i])
         if s.GetType() != GeomAbs_Cylinder:
             return None

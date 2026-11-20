@@ -47,12 +47,15 @@ def _richtung_element(flaechen) -> np.ndarray | None:
     """Normale einer ebenen Flaeche bzw. Achse eines Zylinders/Kegels (erste passende Flaeche)."""
     from OCC.Core.BRepAdaptor import BRepAdaptor_Surface
     from OCC.Core.GeomAbs import GeomAbs_Cone, GeomAbs_Cylinder, GeomAbs_Plane
+    from OCC.Core.BRep import BRep_Tool
     from OCC.Core.TopAbs import TopAbs_REVERSED
     for f in flaechen:
+        if BRep_Tool.Surface(f) is None:
+            continue
         try:
             s = BRepAdaptor_Surface(f)
             art = s.GetType()
-        except Exception:  # noqa: BLE001 - Netzflaechen ohne Geometrie
+        except Exception:  # noqa: BLE001 - unvollstaendige analytische Flaeche
             continue
         if art == GeomAbs_Plane:
             d = s.Plane().Axis().Direction()
@@ -247,23 +250,36 @@ def _pfeil(g: Grafik, spitze, richtung, h):
     g.dreiecke.append((np.array([spitze, fuss + quer * 0.3 * h, fuss - quer * 0.3 * h]), np.array([[0, 1, 2]])))
 
 
-def _naechster_punkt(flaechen, ziel) -> np.ndarray | None:
+def _naechster_punkt(flaechen, ziel, netze=None) -> np.ndarray | None:
     """Punkt der Flaechen, der dem Ziel am naechsten liegt (Ende der Hinweislinie)."""
-    from OCC.Core.BRep import BRep_Builder
+    from OCC.Core.BRep import BRep_Builder, BRep_Tool
     from OCC.Core.BRepBuilderAPI import BRepBuilderAPI_MakeVertex
     from OCC.Core.BRepExtrema import BRepExtrema_DistShapeShape
     from OCC.Core.TopoDS import TopoDS_Compound
     from OCC.Core.gp import gp_Pnt
-    c = TopoDS_Compound()
-    b = BRep_Builder()
-    b.MakeCompound(c)
+    from .ausrichten import tesselliere, _punkt_dreieck
+    analytisch = TopoDS_Compound()
+    builder = BRep_Builder()
+    builder.MakeCompound(analytisch)
+    if netze is None:
+        netze = {}
+    kandidaten = []
     for f in flaechen:
-        b.Add(c, f)
-    d = BRepExtrema_DistShapeShape(BRepBuilderAPI_MakeVertex(gp_Pnt(*map(float, ziel))).Vertex(), c)
-    if not d.IsDone() or d.NbSolution() == 0:
-        return None
-    q = d.PointOnShape2(1)
-    return np.array([q.X(), q.Y(), q.Z()])
+        if BRep_Tool.Surface(f) is not None:
+            builder.Add(analytisch, f)
+            continue
+        if f not in netze:
+            netze[f], = tesselliere([f])
+        punkte, indizes = netze[f]
+        for i in range(0, len(indizes), 8192):
+            a, b, c = punkte[indizes[i:i+8192]].transpose(1,0,2)
+            q = _punkt_dreieck(ziel, a, b, c)
+            kandidaten.append(q[np.argmin(np.linalg.norm(q-ziel, axis=1))].copy())
+    if analytisch.NbChildren():
+        d = BRepExtrema_DistShapeShape(BRepBuilderAPI_MakeVertex(gp_Pnt(*map(float, ziel))).Vertex(), analytisch)
+        if d.IsDone() and d.NbSolution():
+            kandidaten.append(np.array(d.PointOnShape2(1).Coord()))
+    return min(kandidaten, key=lambda p: np.linalg.norm(p-ziel), default=None)
 
 
 def _ebenen_paar(flaechen):
@@ -363,6 +379,7 @@ def ergaenze(pmi: list, grafik: dict, modell, ansichten: list | None = None) -> 
     belegung = _Ansichtsplatz(ansichten or [], {p.step_id for p in offen})
     belegt = belegung.aus_grafik(grafik)
     neu = {}
+    netze = {}
     for i, p in enumerate(offen, 1):
         flaechen = [modell.flaechen[j] for j in sorted(p.flaechen) if j < len(modell.flaechen)]
         anker = _schwerpunkt(flaechen)
@@ -405,7 +422,7 @@ def ergaenze(pmi: list, grafik: dict, modell, ansichten: list | None = None) -> 
         if p.art == BEZUG:
             g.linien.insert(0, np.array([ziel, andock]))
         else:  # Hinweislinie mit Pfeil am naechsten Punkt der Flaeche
-            spitze = _naechster_punkt(flaechen, andock)
+            spitze = _naechster_punkt(flaechen, andock, netze)
             spitze = anker if spitze is None else spitze
             g.linien.insert(0, np.array([spitze, andock]))
             if np.linalg.norm(andock - spitze) > h:

@@ -563,3 +563,37 @@ def test_unbekannter_modifikator_im_wertfach_wird_kein_bezug():
     (l, b), (r, t) = zeichen.min(0), zeichen.max(0)
     l_kontur = np.array([o + u*x + v*y for u, v in [(l, t), (l, b), (r, b)]])
     assert not lies_schrift(replace(g, linien=[*g.linien[:-1], l_kontur]))
+
+
+def test_abstandspmi_auf_tesselliertem_ap242_mit_pfeil_auf_dem_netz(tmp_path):
+    from OCC.Core.BRep import BRep_Tool
+    from programm.kern import plausibilitaet
+    from programm.kern.ausrichten import tesselliere
+    quelle = pfad("nist_ftc_08_asme1_ap242-e1-tg.stp.gz")
+    alt = lade_alles(quelle)
+    m = alt.modell
+    f = m.step_zu_flaeche[7581]
+    j = next(i for i in range(len(m.flaechen)) if i != f)
+    paar = {f, j}
+    assert all(BRep_Tool.Surface(m.flaechen[i]) is None for i in paar)
+    p = Pmi("mass", "Location_LinearDistance", nennwert=12., oben=.2, unten=-.2, flaechen=paar,
+            quelle="eigen", step_id=-1, nummer=61)
+    assert plausibilitaet.geometrie([p], m) == plausibilitaet.geschlossene_ketten([p], m) == []
+    ziel = str(tmp_path/"netzabstand.stp")
+    bericht = step_schreiben.schreibe(quelle, ziel, [p], m)
+    assert bericht.neu == bericht.dargestellt == [61]
+    neu = lade_alles(ziel)
+    mass, = [p for p in neu.pmi if p.semantisch]
+    assert mass.nennwert == 12. and mass.grafisch and len(mass.flaechen) == 2
+    grafik, = (g for g in neu.grafik.values() if mass.step_id in g.pmi_ids)
+    assert not grafik.erzeugt
+    # Der Pfeil liegt auf einem belegten Dreieck (Ebene und baryzentrische Koordinaten).
+    spitze = grafik.linien[0][0]
+    def auf_dreieck(abc):
+        a, b, c = abc
+        basis = np.array([b-a, c-a]).T
+        uv, _, rang, _ = np.linalg.lstsq(basis, spitze-a, rcond=None)
+        return (rang == 2 and np.linalg.norm(a+basis@uv-spitze) < 5e-5
+                and uv.min() >= -1e-5 and uv.sum() <= 1+1e-5)
+    assert any(auf_dreieck(d) for pkt, tri in tesselliere([neu.modell.flaechen[i] for i in mass.flaechen])
+               for d in pkt[tri])

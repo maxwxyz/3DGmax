@@ -845,6 +845,8 @@ print annotations. Today 3DGmax writes generated texts only into the placeholder
   (`Addons.text_to_brep`, `ansicht3d.text_flaechen`). On 2026-11-20 generated frames gained projected overlap checks across all
   shared saved parallel views, including visible file annotations. Perspective placement, leader crossings
   and glyphs in DXF remain open.
+  For tessellated STEP faces the dimension or tolerance leader uses the nearest point on the located triangles. Mixed
+  selections also consider the exact B-rep faces. Verified on a tessellation-only NIST FTC-08 export.
 
 ### 8.17 More open formats (requested)
 - STEPZ (`.stpz`, `.stepz`, `.stp.gz`): ZIP or gzip around a Part 21 file – unpack to a temporary file, load as STEP
