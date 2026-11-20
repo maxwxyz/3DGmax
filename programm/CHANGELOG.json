@@ -1,6 +1,7 @@
 {
  "unreleased": {
   "de": [
+   "Rechteckige Taschen mit flachem Grund lassen sich aus der PDF-Zeichnung rekonstruieren, auch zusammen mit Bohrungen. Der STEP-Export verknüpft beide Seitenmaße mit den gegenüberliegenden Taschenwänden und die Tiefe mit der Oberseite und dem jeweiligen Taschengrund.",
    "Die Plattenrekonstruktion unterstützt Sacklöcher mit flachem Grund und Durchgangsbohrungen im selben Bauteil. Die Tiefe lässt sich aus dem PDF übernehmen. STEP AP242 verknüpft das tolerierte Tiefenmaß mit der Eintrittsfläche und dem Boden der jeweiligen Bohrung.",
    "Platten lassen sich mit Durchgangsbohrungen aus der PDF-Zeichnung erzeugen. Mittelpunkt und Durchmesser werden gegen den Grundriss geprüft. STEP enthält die zylindrischen Bohrungen und das Durchmessermaß mit Toleranz oder Passung an der jeweiligen Mantelfläche.",
    "Unter Datei → Platte aus 2D-Zeichnung lassen sich rechteckige Platten ohne Innenkonturen als STEP AP242 erzeugen. Breite, Höhe und Dicke können aus dem PDF übernommen werden. Der Export verknüpft die drei Maße einschließlich Abmaßen mit den gegenüberliegenden Flächen und zeigt sie als grafische PMI. Auch OCCT liest beide exportierten Grenzmaße korrekt.",
@@ -139,6 +140,7 @@
    "Grafische PMI aus unterstützten AP203e2-Kurvenmodellen lassen sich als STEP AP242 Edition 3 ausgeben. Facettierte STEP-Modelle behalten ihre Flächenbezüge. Gepackte STEP-Dateien lassen sich als unkomprimierte STEP-Kopie speichern."
   ],
   "en": [
+   "Plate reconstruction now supports flat-bottom rectangular pockets alongside holes. STEP attaches the two side dimensions to opposite pocket walls and the depth to the plate top and the floor of each pocket.",
    "Plate reconstruction supports flat-bottom blind holes and through holes in the same part. Depths can be picked from the PDF. STEP AP242 attaches each toleranced depth to the entry face and the bottom of its own hole.",
    "Plates reconstructed from a drawing can include through holes. Each center and diameter is checked against the top view. STEP includes the cylindrical cuts and a diameter dimension with its tolerance or fit on each hole wall.",
    "File → Plate from 2D drawing creates a STEP AP242 solid from a plain rectangular plate drawing. Width, height and thickness can be picked from the PDF. The export attaches all three dimensions, including deviations, to opposite faces and includes their graphical presentations. OCCT also reads both exported size limits correctly.",

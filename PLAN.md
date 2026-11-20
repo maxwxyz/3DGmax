@@ -1633,7 +1633,7 @@ Check a known part by reprojecting the solid into the drawing views and comparin
 and PMI against the drawing using §8.35. An underdetermined drawing must identify the missing
 constraint and allow reconstruction to continue once it is supplied.
 
-**Implemented for rectangular plates, including cylindrical through holes and flat-bottom blind holes.** File → Plate from 2D drawing works with a PDF and
+**Implemented for rectangular plates, including cylindrical holes and flat-bottom rectangular pockets.** File → Plate from 2D drawing works with a PDF and
 no loaded model. Select one closed axis-aligned top outline. Pick or enter
 the width, height and thickness from the drawing. An optional rectangular front view checks the
 thickness, even at a different scale. Missing depth or units and inconsistent view proportions
@@ -1650,7 +1650,13 @@ A blind hole starts at the selected top face and requires a flat bottom and an e
 The nominal depth and its limits must preserve material below the hole even at minimum plate thickness.
 The AP242 depth dimension references the entry face and the particular bottom adjacent to its cylinder.
 A mixed three-hole drawing verifies both references independently for two same-depth, same-size
-blind holes with different depth tolerances. X/Y position PMI, drill points, stepped bores, pockets,
+blind holes with different depth tolerances.
+An enclosed, axis-aligned rectangular contour can be reviewed as a top-entry pocket with sharp
+corners. Its center, width, height and flat-bottom depth can be selected from the PDF or entered.
+The dimensions must agree with all four printed edges. A pocket must be clear of the plate boundary,
+holes and other pockets. The floor and its four adjacent walls identify the two side dimensions and
+the depth in STEP AP242. Verified on plates with two equal pockets, both alone and with a through hole.
+X/Y position PMI, drill points, stepped bores, rounded and through pocket profiles,
 nonrectangular profiles, automatic cross-view association and datum/GD&T transfer remain open.
 
 ### 8.37 QIF extensions (last in the implementation order)

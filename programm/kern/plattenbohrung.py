@@ -10,7 +10,8 @@ from scipy.spatial import cKDTree
 from ..i18n import tr
 from .zeichnungsabgleich import lese_angabe, musteranzahl
 from .zeichnungsansicht import Blattkreis
-from .zeichnungskoerper import Plattenbohrung, rechteckgrenzen
+from .zeichnungskoerper import Plattenbohrung, koordinaten, pruefe_tiefe, tiefenmass, tintenrechteck
+from .plattentasche import Taschenkontur
 
 
 @dataclass(frozen=True)
@@ -33,54 +34,53 @@ def _ist_ring(maske, kreis, x, y):
 
 
 def plattenumriss(bild, box, kreise):
-    if not kreise:
-        return None
     h, w = bild.shape[:2]
     l, t, r, b = np.rint(np.clip(box, 0., 1.)*[w, h, w, h]).astype(int)
-    raster = bild[t:b, l:r, :3].copy()
-    if not raster.size:
+    maske = bild[t:b, l:r, :3].min(axis=2) < 245
+    if not maske.any():
         return None
-    maske = raster.min(axis=2) < 245
     labels, _ = ndimage.label(maske)
-    ringe = []
-    zentren = cKDTree([(k.x, k.y) for k in kreise])
-    for i, (yy, xx) in enumerate(ndimage.find_objects(labels), 1):
-        x = l+(xx.start+xx.stop-1)/2
-        y = t+(yy.start+yy.stop-1)/2
-        radius = (xx.stop-xx.start+yy.stop-yy.start)/4
-        nahe = (kreise[j] for j in zentren.query_ball_point((x, y), 1.75))
-        kandidaten = [k for k in nahe if abs(radius-k.r) <= max(2., .10*k.r)]
-        if len(kandidaten) != 1:
-            continue
-        k = kandidaten[0]
-        teil = labels[yy, xx] == i
-        if _ist_ring(teil, k, l+xx.start, t+yy.start):
-            raster[yy, xx][teil] = 255
-            ringe.append(k)
-    grenzen = rechteckgrenzen(raster, (0, 0, 1, 1))
+    teile = ndimage.find_objects(labels)
+    ys, xs = np.nonzero(maske)
+    aussenbox = (slice(ys.min(), ys.max()+1), slice(xs.min(), xs.max()+1))
+    if aussenbox not in teile:
+        return None
+    aussen = teile.index(aussenbox)+1
+    grenzen = tintenrechteck(labels == aussen, l, t)
     if grenzen is None:
         return None
     links, oben, rechts, unten = grenzen
     breite, hoehe = rechts-links, unten-oben
-    bohrungen = [Plattenring(k, (k.x-l-links)/breite, (t+unten-k.y)/hoehe, k.r/breite) for k in ringe]
+    ringe, taschen = [], []
+    zentren = cKDTree([(k.x, k.y) for k in kreise]) if kreise else None
+    for i, (yy, xx) in enumerate(teile, 1):
+        if i == aussen:
+            continue
+        x = l+(xx.start+xx.stop-1)/2
+        y = t+(yy.start+yy.stop-1)/2
+        radius = (xx.stop-xx.start+yy.stop-yy.start)/4
+        nahe = (kreise[j] for j in zentren.query_ball_point((x,y), 1.75)) if zentren is not None else ()
+        kandidaten = [k for k in nahe if abs(radius-k.r) <= max(2., .10*k.r)]
+        teil = labels[yy, xx] == i
+        if len(kandidaten) == 1 and _ist_ring(teil, kandidaten[0], l+xx.start, t+yy.start):
+            ringe.append(kandidaten[0])
+            continue
+        rand = tintenrechteck(np.pad(teil, 1), l+xx.start-1, t+yy.start-1)
+        if rand is None:
+            return None
+        x1, y1, x2, y2 = rand
+        taschen.append(Taschenkontur((x1/w,y1/h,x2/w,y2/h), ((x1+x2)/2-links)/breite,
+                                    (unten-(y1+y2)/2)/hoehe, (x2-x1)/breite, (y2-y1)/hoehe))
+    bohrungen = [Plattenring(k, (k.x-links)/breite, (unten-k.y)/hoehe, k.r/breite) for k in ringe]
     if any(not (0 < q.x-q.r < q.x+q.r < 1 and 0 < q.y-q.r*breite/hoehe < q.y+q.r*breite/hoehe < 1)
            for q in bohrungen):
         return None
-    return (breite, hoehe), sorted(bohrungen, key=lambda q: (q.x, q.y))
-
-
-def tiefenmass(text, faktor):
-    wert = lese_angabe(text.strip().removeprefix("↧").strip(), faktor)
-    if wert and wert.typ == "Location_LinearDistance" and not wert.passung and "Hilfsmass" not in wert.modifikatoren:
-        return wert
-    return None
+    return (breite, hoehe), sorted(bohrungen, key=lambda q: (q.x, q.y)), sorted(taschen, key=lambda q: (q.x, q.y))
 
 
 def sollbohrungen(ringe, werte, masse, umfang, *, tiefen=None):
     breite, hoehe, _ = [p.nennwert for p in masse]
     bx, by = umfang
-    mindestdicke = masse[2].grenzen()[1]
-    grenze = min(masse[2].nennwert, mindestdicke) if mindestdicke is not None else masse[2].nennwert
     if tiefen is None:
         tiefen = [None] * len(ringe)
     bohrungen = []
@@ -94,11 +94,10 @@ def sollbohrungen(ringe, werte, masse, umfang, *, tiefen=None):
             raise ValueError(tr("Den Durchmesser von Bohrung {} angeben.").format(index))
         if any(g is not None and (not math.isfinite(g) or g <= 0) for g in pmi.grenzen()):
             raise ValueError(tr("Die Grenzmaße für Bohrung {} müssen positiv sein.").format(index))
-        koord = [lese_angabe(text, 1.) for text in (tx, ty)]
-        if any(not q or q.typ != "Location_LinearDistance" or q.nennwert is None or not math.isfinite(q.nennwert)
-               or q.oben is not None or q.unten is not None or q.passung or q.modifikatoren for q in koord):
+        mitte = koordinaten(tx, ty)
+        if not mitte:
             raise ValueError(tr("X und Y für Bohrung {} als Koordinaten angeben.").format(index))
-        x, y = (q.nennwert for q in koord)
+        x, y = mitte
         r = pmi.nennwert/2
         if not (r < x < breite-r and r < y < hoehe-r):
             raise ValueError(tr("Bohrung {} reicht über den Plattenrand.").format(index))
@@ -112,8 +111,6 @@ def sollbohrungen(ringe, werte, masse, umfang, *, tiefen=None):
             tiefe = tiefenmass(tiefentext, 1.)
             if tiefe is None or tiefe.nennwert is None:
                 raise ValueError(tr("Die Tiefe bis zum flachen Grund von Bohrung {} angeben.").format(index))
-            werte_z = [tiefe.nennwert, *(g for g in tiefe.grenzen() if g is not None)]
-            if not all(0 < g < grenze for g in werte_z):
-                raise ValueError(tr("Die Bohrtiefe muss mit ihren Grenzmaßen zwischen null und der kleinsten Plattendicke liegen."))
+            pruefe_tiefe(tiefe, masse[2])
         bohrungen.append(Plattenbohrung(x, y, pmi, tiefe))
     return bohrungen

@@ -20,16 +20,30 @@ class Plattenbohrung:
     tiefe: Pmi | None = None
 
 
+@dataclass(frozen=True)
+class Plattentasche:
+    x: float
+    y: float
+    breite: Pmi
+    hoehe: Pmi
+    tiefe: Pmi
+
+
 def rechteckgrenzen(bild, box):
     """Vollstaendige achsparallele Aussenkontur einer ungebohrten Platte im Blattausschnitt."""
     h, w = bild.shape[:2]
     l, t, r, b = np.rint(np.clip(box, 0., 1.) * [w, h, w, h]).astype(int)
     tinte = bild[t:b, l:r, :3].min(axis=2) < 245
+    return tintenrechteck(tinte, l, t)
+
+
+def tintenrechteck(tinte, l, t):
+    h, w = tinte.shape
     ys, xs = np.nonzero(tinte)
     if not xs.size:
         return None
     x1, x2, y1, y2 = xs.min(), xs.max(), ys.min(), ys.max()
-    if min(x1, y1, r-l-1-x2, b-t-1-y2) < 1 or min(x2-x1, y2-y1) < 12:
+    if min(x1, y1, w-1-x2, h-1-y2) < 1 or min(x2-x1, y2-y1) < 12:
         return None
     kontur = tinte[y1:y2+1, x1:x2+1]
     # Jede Kante muss durchlaufen. Innenlinien, Bohrungen und zusaetzliche Konturen bleiben offen.
@@ -59,6 +73,28 @@ def rechteckansicht(bild, box):
         return r-l, b-t
 
 
+def tiefenmass(text, faktor):
+    wert = lese_angabe(text.strip().removeprefix("↧").strip(), faktor)
+    if wert and wert.typ == "Location_LinearDistance" and not wert.passung and "Hilfsmass" not in wert.modifikatoren:
+        return wert
+    return None
+
+
+def pruefe_tiefe(tiefe, dicke):
+    minimum = dicke.grenzen()[1]
+    grenze = min(dicke.nennwert, minimum) if minimum is not None else dicke.nennwert
+    if not all(0 < g < grenze for g in (tiefe.nennwert, *tiefe.grenzen()) if g is not None):
+        raise ValueError(tr("Die Tiefe muss mit ihren Grenzmaßen zwischen null und der kleinsten Plattendicke liegen."))
+
+
+def koordinaten(tx, ty):
+    paar = [lese_angabe(text, 1.) for text in (tx, ty)]
+    if any(not p or p.typ != "Location_LinearDistance" or p.nennwert is None or not np.isfinite(p.nennwert)
+           or p.oben is not None or p.unten is not None or p.passung or p.modifikatoren for p in paar):
+        return None
+    return tuple(p.nennwert for p in paar)
+
+
 def plattenmasse(texte, faktor, grundriss, vorderansicht=None):
     if grundriss is None:
         raise ValueError(tr("Die rechteckige Außenkontur im Grundriss einrahmen."))
@@ -83,46 +119,51 @@ def plattenmasse(texte, faktor, grundriss, vorderansicht=None):
     return masse
 
 
-def _plattenform(masse, bohrungen):
+def _plattenform(masse, bohrungen, taschen):
     from OCC.Core.BRepPrimAPI import BRepPrimAPI_MakeBox, BRepPrimAPI_MakeCylinder
     from OCC.Core.BRepAlgoAPI import BRepAlgoAPI_Cut
     from OCC.Core.BRepCheck import BRepCheck_Analyzer
     from OCC.Core.TopTools import TopTools_ListOfShape
     from OCC.Core.gp import gp_Ax2, gp_Dir, gp_Pnt
     form = BRepPrimAPI_MakeBox(*(p.nennwert for p in masse)).Shape()
-    if not bohrungen:
+    if not bohrungen and not taschen:
         return form
-    platte, bohrer = TopTools_ListOfShape(), TopTools_ListOfShape()
+    platte, werkzeuge = TopTools_ListOfShape(), TopTools_ListOfShape()
     platte.Append(form)
     dicke = masse[2].nennwert
     zugabe = max(.01, dicke*.01)
     for bohrung in bohrungen:
         boden = dicke-bohrung.tiefe.nennwert if bohrung.tiefe else -zugabe
         achse = gp_Ax2(gp_Pnt(bohrung.x, bohrung.y, boden), gp_Dir(0, 0, 1))
-        bohrer.Append(BRepPrimAPI_MakeCylinder(achse, bohrung.durchmesser.nennwert/2, dicke+zugabe-boden).Shape())
+        werkzeuge.Append(BRepPrimAPI_MakeCylinder(achse, bohrung.durchmesser.nennwert/2, dicke+zugabe-boden).Shape())
+    for tasche in taschen:
+        x, y, z = tasche.breite.nennwert, tasche.hoehe.nennwert, tasche.tiefe.nennwert
+        ecke = gp_Pnt(tasche.x-x/2, tasche.y-y/2, dicke-z)
+        werkzeuge.Append(BRepPrimAPI_MakeBox(ecke, x, y, z+zugabe).Shape())
     schnitt = BRepAlgoAPI_Cut()
     schnitt.SetArguments(platte)
-    schnitt.SetTools(bohrer)
+    schnitt.SetTools(werkzeuge)
     schnitt.Build()
     if not schnitt.IsDone() or not BRepCheck_Analyzer(schnitt.Shape()).IsValid():
-        raise ValueError(tr("Die Bohrungen konnten nicht erzeugt werden."))
+        raise ValueError(tr("Die Innenkonturen konnten nicht ausgeschnitten werden."))
     return schnitt.Shape()
 
 
-def _flaechenmasse(modell, masse, bohrungen):
+def _flaechenmasse(modell, masse, bohrungen, taschen):
     from OCC.Core.BRepAdaptor import BRepAdaptor_Surface
     from OCC.Core.GeomAbs import GeomAbs_Plane, GeomAbs_Cylinder
     paare = [set() for _ in masse]
     waende = [set() for _ in bohrungen]
-    horizontal = {}
+    ebenen = [{}, {}, {}]
+    horizontal = ebenen[2]
     for i, flaeche in enumerate(modell.flaechen):
         s = BRepAdaptor_Surface(flaeche)
         if s.GetType() == GeomAbs_Plane:
             ebene = s.Plane()
             achse = int(np.argmax(np.abs(ebene.Axis().Direction().Coord())))
-            if achse == 2:
-                horizontal[i] = ebene.Location().Z()
-            else:
+            ort = ebene.Location().Coord()[achse]
+            ebenen[achse][i] = ort
+            if abs(ort) < 1e-7 or abs(ort-masse[achse].nennwert) < 1e-7:
                 paare[achse].add(i)
         elif s.GetType() == GeomAbs_Cylinder:
             z = s.Cylinder()
@@ -136,12 +177,11 @@ def _flaechenmasse(modell, masse, bohrungen):
         raise ValueError(tr("Die Bohrungsflächen sind nicht eindeutig."))
     dicke = masse[2].nennwert
     deckel = {i for i, z in horizontal.items() if abs(z-dicke) < 1e-7}
-    paare[2] = deckel | {i for i, z in horizontal.items() if abs(z) < 1e-7}
     if len(deckel) != 1 or any(len(paar) != 2 for paar in paare):
         raise ValueError(tr("Die gegenüberliegenden Plattenflächen sind nicht eindeutig."))
     alle = [*masse, *(b.durchmesser for b in bohrungen)]
     flaechen = paare + waende
-    if any(b.tiefe for b in bohrungen):
+    if taschen or any(b.tiefe for b in bohrungen):
         from .vergleich_geo import _nachbarn
         nachbarn = _nachbarn(modell.flaechen, modell.flaechen_index)
         for b, wand in zip(bohrungen, waende, strict=True):
@@ -154,11 +194,35 @@ def _flaechenmasse(modell, masse, bohrungen):
                 raise ValueError(tr("Eintrittsfläche und Bohrungsgrund sind nicht eindeutig."))
             alle.append(b.tiefe)
             flaechen.append(deckel | boden)
+        for tasche in taschen:
+            bezuege = _taschenflaechen(tasche, dicke, deckel, ebenen, nachbarn)
+            alle.extend((tasche.breite, tasche.hoehe, tasche.tiefe))
+            flaechen.extend(bezuege)
     return [replace(p, flaechen=f, quelle="eigen", nummer=i, step_id=-i)
             for i, (p, f) in enumerate(zip(alle, flaechen, strict=True), 1)]
 
 
-def schreibe_platte(ziel, masse, bohrungen=()):
+def _taschenflaechen(tasche, dicke, deckel, ebenen, nachbarn):
+    # Erst den Grund, dann seine vier direkt anschliessenden Waende und deren Eintritt pruefen.
+    ziel_z = dicke-tasche.tiefe.nennwert
+    kandidaten = []
+    for i, z in ebenen[2].items():
+        if abs(z-ziel_z) >= 1e-6:
+            continue
+        waende = nachbarn[i]
+        paare = []
+        for lagen, mitte, mass in zip(ebenen[:2], (tasche.x, tasche.y), (tasche.breite, tasche.hoehe)):
+            paar = {j for j in waende & lagen.keys() if abs(abs(lagen[j]-mitte)-mass.nennwert/2) < 1e-6}
+            paare.append(paar)
+        if (all(len(paar) == 2 for paar in paare) and waende == paare[0] | paare[1]
+                and all(deckel <= nachbarn[j] for j in waende)):
+            kandidaten.append((*paare, deckel | {i}))
+    if len(kandidaten) != 1:
+        raise ValueError(tr("Die vier Taschenwände und ihr Grund sind nicht eindeutig."))
+    return kandidaten[0]
+
+
+def schreibe_platte(ziel, masse, bohrungen=(), taschen=()):
     """Geometrie und flaechenbezogene Masse mit Darstellung als AP242 speichern."""
     from OCC.Core.DESTEP import DESTEP_Parameters
     from OCC.Core.IFSelect import IFSelect_RetDone
@@ -171,7 +235,7 @@ def schreibe_platte(ziel, masse, bohrungen=()):
     with TemporaryDirectory(dir=ziel.parent) as tmp:
         roh = str(Path(tmp) / "geometry.stp")
         fertig = Path(tmp) / "model.stp"
-        form = _plattenform(masse, bohrungen)
+        form = _plattenform(masse, bohrungen, taschen)
         writer = STEPControl_Writer()
         parameter = DESTEP_Parameters()
         parameter.WriteSchema = parameter.WriteMode_StepSchema_AP242DIS
@@ -181,7 +245,7 @@ def schreibe_platte(ziel, masse, bohrungen=()):
             modell = lade_step(roh)
         except LadeFehler as e:
             raise ValueError(str(e)) from e
-        merkmale = _flaechenmasse(modell, masse, bohrungen)
+        merkmale = _flaechenmasse(modell, masse, bohrungen, taschen)
         bericht = schreibe(roh, str(fertig), merkmale, modell)
         if len(bericht.neu) != len(merkmale) or len(bericht.dargestellt) != len(merkmale):
             raise ValueError(tr("Die Maßangaben konnten nicht vollständig als STEP-PMI geschrieben werden."))

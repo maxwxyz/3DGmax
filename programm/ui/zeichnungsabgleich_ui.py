@@ -51,6 +51,7 @@ class Blattansicht(QtWidgets.QGraphicsView):
         self.setTransformationAnchor(self.ViewportAnchor.AnchorUnderMouse)
         self.setDragMode(self.DragMode.RubberBandDrag)
         self.beginn = None
+        self.auswaehlbar = None
         self.marken = []
         self.kreismarken = []
 
@@ -68,7 +69,8 @@ class Blattansicht(QtWidgets.QGraphicsView):
     def einpassen(self):
         self.fitInView(self.sceneRect(), QtCore.Qt.AspectRatioMode.KeepAspectRatio)
 
-    def markiere(self, angaben, aktiv):
+    def markiere(self, angaben, aktiv, auswaehlbar=None):
+        self.auswaehlbar = None if auswaehlbar is None else set(auswaehlbar)
         for _, item in self.marken:
             self.scene().removeItem(item)
         self.marken.clear()
@@ -116,7 +118,7 @@ class Blattansicht(QtWidgets.QGraphicsView):
         start, self.beginn = self.beginn, None
         if (ende - start).manhattanLength() < 6:
             for a, item in reversed(self.marken):
-                if item.rect().contains(self.mapToScene(ende)):
+                if (self.auswaehlbar is None or a in self.auswaehlbar) and item.rect().contains(self.mapToScene(ende)):
                     self.gewaehlt.emit(a)
                     return
             pos = self.mapToScene(ende)

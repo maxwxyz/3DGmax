@@ -6,7 +6,7 @@ from programm.kern.zeichnungskoerper import plattenmasse, rechteckansicht
 from programm.ui.zeichnungskoerper_ui import Plattendialog
 
 
-def _blatt(pfad, bohrungen=(), innenlinie=False, tiefe=None):
+def _blatt(pfad, bohrungen=(), innenlinie=False, tiefe=None, taschen=()):
     pdf = QtGui.QPdfWriter(str(pfad))
     pdf.setResolution(72)
     pdf.setPageSize(QtGui.QPageSize(QtCore.QSizeF(400, 300), QtGui.QPageSize.Unit.Point))
@@ -15,6 +15,8 @@ def _blatt(pfad, bohrungen=(), innenlinie=False, tiefe=None):
         p.drawRect(40, 40, 150, 100)
         for x, y, r in bohrungen:
             p.drawEllipse(QtCore.QPointF(40+2.5*x, 140-2.5*y), 2.5*r, 2.5*r)
+        for x, y, breite, hoehe in taschen:
+            p.drawRect(QtCore.QRectF(40+2.5*(x-breite/2), 140-2.5*(y+hoehe/2), 2.5*breite, 2.5*hoehe))
         if innenlinie:
             p.drawLine(123, 80, 134, 88)
         p.drawRect(40, 185, 120, 16)
@@ -275,3 +277,106 @@ def test_sackloch_gemischte_platte_mit_getrennten_tiefenzielen(app, tmp_path, mo
         finally:
             d.blatt.schliesse()
             d.close()
+
+
+@pytest.mark.parametrize("mit_bohrung", [False, True])
+def test_rechtecktaschen_aus_pdf_mit_eindeutigen_wandpaaren(app, tmp_path, monkeypatch, mit_bohrung):
+    from pypdfium2 import PdfDocument
+    from OCC.Core.BRepAdaptor import BRepAdaptor_Surface
+    from OCC.Core.BRepGProp import brepgprop
+    from OCC.Core.GProp import GProp_GProps
+    from programm.kern.pmi_lesen import lies_pmi_xcaf
+    from programm.ui.lader import lade_alles
+    pdf, ziel = tmp_path/"Taschen.pdf", tmp_path/"Taschen.stp"
+    _blatt(pdf, [(30,32,2)] if mit_bohrung else [], tiefe="3 ±0.1", taschen=[(15,16,12,8),(45,16,12,8)])
+    monkeypatch.setattr(QtWidgets.QFileDialog, "getSaveFileName", lambda *args: (str(ziel), "STEP"))
+    with PdfDocument(pdf) as doc:
+        d = Plattendialog(doc, pdf)
+        try:
+            d.show()
+            d.einheit.setCurrentIndex(1)
+            for feld, text in zip(d.texte, ("60", "40", "8 ±0.1")):
+                feld.setText(text)
+            d.ansicht.bereich.emit((.08,.1,.51,.52))
+            assert len(d.taschen) == 2 and len(d.ringe) == int(mit_bohrung)
+            if mit_bohrung:
+                for j, text in enumerate(("30","32","4"), 1):
+                    d.bohrtabelle.item(0,j).setText(text)
+                d.durchgehend.click()
+            for i, x in enumerate((15,45)):
+                from PySide6.QtTest import QTest
+                app.processEvents()
+                d.ansicht.einpassen()
+                l,t,r,b = d.taschen[i].box
+                sz = d.ansicht.sceneRect()
+                punkt = d.ansicht.mapFromScene((l+r)*sz.width()/2, (t+b)*sz.height()/2)
+                QTest.mouseClick(d.ansicht.viewport(), QtCore.Qt.MouseButton.LeftButton, pos=punkt)
+                assert d.innen.currentIndex() == 1 and d.taschentabelle.currentRow() == i
+                for j, text in enumerate((str(x), "16", "12 ±0.05", "8"), 1):
+                    d.taschentabelle.item(i,j).setText(text)
+                d.auswahl.setCurrentIndex(d.auswahl.findData(5))
+                d.ansicht.bereich.emit((.52,.86,.8,.96))
+                assert d.taschentabelle.item(i,5).text() == "3 ±0.1"
+            assert d.speichern.isEnabled()
+            if mit_bohrung:
+                ring = d.ringe[0].kreis
+                punkt = d.ansicht.mapFromScene(ring.x+ring.r, ring.y)
+                QTest.mouseClick(d.ansicht.viewport(), QtCore.Qt.MouseButton.LeftButton, pos=punkt)
+                assert d.innen.currentIndex() == 0 and d.auswahl.currentIndex() == 5
+            for j, falsch in ((1,"42"), (3,"13"), (5,"8"), (5,"3 ±4")):
+                item = d.taschentabelle.item(1,j)
+                gut = item.text()
+                item.setText(falsch)
+                assert not d.speichern.isEnabled()
+                item.setText(gut)
+            d.speichern.click()
+            erg = lade_alles(str(ziel))
+            v = GProp_GProps()
+            brepgprop.VolumeProperties(erg.modell.form, v)
+            assert v.Mass() == pytest.approx(60*40*8-2*12*8*3-(32*np.pi if mit_bohrung else 0))
+            assert len(erg.pmi) == 9+int(mit_bohrung) and all(p.grafisch and p.semantisch for p in erg.pmi)
+            for quelle in (erg.pmi, lies_pmi_xcaf(erg.modell)):
+                breite = [p for p in quelle if p.nennwert == 12]
+                tiefen = [p for p in quelle if p.nennwert == 3]
+                hoehen = [p for p in quelle if p.nennwert == 8 and p.oben is None]
+                assert len(breite) == len(tiefen) == len(hoehen) == 2
+                xpaare = []
+                for p in breite:
+                    assert p.grenzen() == pytest.approx((12.05,11.95))
+                    xpaare.append(sorted(BRepAdaptor_Surface(erg.modell.flaechen[f]).Plane().Location().X() for f in p.flaechen))
+                np.testing.assert_allclose(sorted(xpaare), [[9,21],[39,51]], atol=1e-6)
+                for p in hoehen:
+                    assert sorted(BRepAdaptor_Surface(erg.modell.flaechen[f]).Plane().Location().Y() for f in p.flaechen) == pytest.approx([12,20])
+                mitten = []
+                for p in tiefen:
+                    assert p.grenzen() == pytest.approx((3.1,2.9))
+                    ebenen = sorted((BRepAdaptor_Surface(erg.modell.flaechen[f]).Plane().Location().Z(),f) for f in p.flaechen)
+                    assert [z for z,_ in ebenen] == pytest.approx([5,8])
+                    boden = GProp_GProps()
+                    brepgprop.SurfaceProperties(erg.modell.flaechen[ebenen[0][1]], boden)
+                    mitten.append(boden.CentreOfMass().Coord())
+                np.testing.assert_allclose(sorted(mitten), [(15,16,5),(45,16,5)], atol=1e-6)
+        finally:
+            d.blatt.schliesse()
+            d.close()
+
+
+def test_taschen_kollisionen_und_offene_konturen():
+    from programm.kern.plattenbohrung import plattenumriss
+    from programm.kern.plattentasche import Taschenkontur, solltaschen
+    from programm.kern.zeichnungsabgleich import lese_angabe
+    from programm.kern.zeichnungskoerper import Plattenbohrung
+    tex = ("30","20","12","8","3")
+    umriss = Taschenkontur((0,0,1,1), .5,.5,.2,.2)
+    masse = plattenmasse(["60","40","8"],1.,(600,400))
+    bohrung = Plattenbohrung(38,20,lese_angabe("Ø4",1.))
+    with pytest.raises(ValueError, match="Bohrung"):
+        solltaschen([umriss], [tex], masse, (600,400), [bohrung])
+    with pytest.raises(ValueError, match="andere Tasche"):
+        solltaschen([umriss]*2, [tex]*2, masse, (600,400), [])
+    bild = np.full((100,150,3), 255, np.uint8)
+    for l,t,r,b in ((5,5,145,95),(30,30,90,60)):
+        bild[t:b+1,l] = bild[t:b+1,r] = bild[t,l:r+1] = bild[b,l:r+1] = 0
+    assert len(plattenumriss(bild,(0,0,1,1),[])[2]) == 1
+    bild[30,40:46] = 255
+    assert plattenumriss(bild,(0,0,1,1),[]) is None

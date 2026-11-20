@@ -8,8 +8,9 @@ from ..i18n import tr
 from ..kern.zeichnungsabgleich import Blattangabe, lese_angabe
 from ..kern.zeichnungsblatt import Zeichnungsblatt
 from ..kern.zeichnungsansicht import Blattgeometrie
-from ..kern.plattenbohrung import plattenumriss, sollbohrungen, tiefenmass
-from ..kern.zeichnungskoerper import plattenmasse, rechteckansicht, schreibe_platte
+from ..kern.plattenbohrung import plattenumriss, sollbohrungen
+from ..kern.plattentasche import solltaschen
+from ..kern.zeichnungskoerper import plattenmasse, rechteckansicht, schreibe_platte, tiefenmass
 from .zeichnungsabgleich_ui import Blattansicht
 
 
@@ -22,6 +23,8 @@ class Plattendialog(QtWidgets.QDialog):
         self.marken = {}
         self.vorne_offen = False
         self.ringe = []
+        self.taschen = []
+        self.taschenmarken = []
         self.setWindowTitle(tr("Platte aus 2D-Zeichnung") + " – " + self.pfad.name)
         self.resize(1000, 700)
         layout = QtWidgets.QVBoxLayout(self)
@@ -49,7 +52,7 @@ class Plattendialog(QtWidgets.QDialog):
         self.ansicht = Blattansicht()
         fit.clicked.connect(self.ansicht.einpassen)
         layout.addWidget(self.ansicht, 1)
-        self.hinweis = QtWidgets.QLabel(tr("Die Außenkontur der rechteckigen Platte mit etwas Rand einrahmen. Bohrungen dürfen als einzelne Kreise sichtbar sein. "
+        self.hinweis = QtWidgets.QLabel(tr("Die Außenkontur der rechteckigen Platte mit etwas Rand einrahmen. Bohrungen und rechteckige Taschen dürfen als geschlossene Innenkonturen sichtbar sein. "
                                             "Maßzahlen einzeln einrahmen oder eingeben. Eine Vorderansicht ist optional."))
         self.hinweis.setWordWrap(True)
         layout.addWidget(self.hinweis)
@@ -76,8 +79,30 @@ class Plattendialog(QtWidgets.QDialog):
         inhalt.addWidget(self.bohrtabelle)
         self.durchgehend = QtWidgets.QCheckBox(tr("Alle aufgeführten Bohrungen sind Durchgangsbohrungen"))
         inhalt.addWidget(self.durchgehend)
-        layout.addWidget(self.bohrfeld)
-        self.bohrfeld.hide()
+        self.innen = QtWidgets.QTabWidget()
+        self.innen.addTab(self.bohrfeld, tr("Bohrungen"))
+        taschenfeld = QtWidgets.QWidget()
+        tl = QtWidgets.QVBoxLayout(taschenfeld)
+        tip = QtWidgets.QLabel(tr("Taschen mit flachem Grund von oben. X und Y bezeichnen die Taschenmitte ab der linken unteren Plattenecke. "
+                                 "Die Maße und die Tiefe aus der Zeichnung übernehmen."))
+        tip.setWordWrap(True)
+        tl.addWidget(tip)
+        self.taschentabelle = QtWidgets.QTableWidget(0, 6)
+        self.taschenfelder = [tr("X-Maß der gewählten Tasche"), tr("Y-Maß der gewählten Tasche"),
+                              tr("Breite der gewählten Tasche"), tr("Höhe der gewählten Tasche"), tr("Tiefe der gewählten Tasche")]
+        self.taschentabelle.setHorizontalHeaderLabels([tr("Geschätzt (X / Y / B / H, mm)"), tr("X (mm)"), tr("Y (mm)"),
+                                                       tr("Breite (mm)"), tr("Höhe (mm)"), tr("Tiefe (mm)")])
+        self.taschentabelle.setSelectionBehavior(QtWidgets.QAbstractItemView.SelectionBehavior.SelectRows)
+        self.taschentabelle.horizontalHeader().setSectionResizeMode(QtWidgets.QHeaderView.ResizeMode.Stretch)
+        self.taschentabelle.setMaximumHeight(140)
+        tl.addWidget(self.taschentabelle)
+        self.innen.addTab(taschenfeld, tr("Taschen"))
+        layout.addWidget(self.innen)
+        self.innen.hide()
+        self.taschentabelle.cellChanged.connect(self._pruefen)
+        self.taschentabelle.currentCellChanged.connect(self._markieren)
+        self.innen.currentChanged.connect(self._innentab)
+        self.ansicht.gewaehlt.connect(self._tasche_waehlen)
         self.bohrtabelle.cellChanged.connect(self._pruefen)
         self.bohrtabelle.currentCellChanged.connect(self._markieren)
         self.durchgehend.toggled.connect(self._alle_durch)
@@ -93,7 +118,7 @@ class Plattendialog(QtWidgets.QDialog):
         self.speichern.clicked.connect(self._export)
         self.ansicht.bereich.connect(self._bereich)
         self.seite.valueChanged.connect(self._seite)
-        self.auswahl.currentIndexChanged.connect(self._markieren)
+        self.auswahl.currentIndexChanged.connect(self._werkzeug)
         self.einheit.currentIndexChanged.connect(self._pruefen)
         for feld in self.texte:
             feld.textChanged.connect(self._pruefen)
@@ -124,31 +149,62 @@ class Plattendialog(QtWidgets.QDialog):
 
     def _markieren(self):
         sichtbar = [a for a in self.marken.values() if a.seite == self.blatt.nummer]
-        self.ansicht.markiere(sichtbar, self.marken.get(self._markenschluessel()))
+        taschen = [a for a in self.taschenmarken if a.seite == self.blatt.nummer]
+        aktiv = self.marken.get(self._markenschluessel())
+        j = self.taschentabelle.currentRow()
+        if self.innen.currentIndex() == 1 and 0 <= j < len(taschen):
+            aktiv = taschen[j]
+        self.ansicht.markiere(sichtbar+taschen, aktiv, auswaehlbar=taschen)
         grundriss = self.marken.get(0)
         kreise = [q.kreis for q in self.ringe] if grundriss and grundriss.seite == self.blatt.nummer else []
         i = self.bohrtabelle.currentRow()
-        self.ansicht.zeige_kreise(kreise, kreise[i] if 0 <= i < len(kreise) else None)
+        self.ansicht.zeige_kreise(kreise, kreise[i] if self.innen.currentIndex() == 0 and 0 <= i < len(kreise) else None)
 
     def _markenschluessel(self):
+        if (spalte := self.auswahl.currentData()) is not None:
+            return ("tasche", self.taschentabelle.currentRow(), spalte)
         feld = self.auswahl.currentIndex()
         return feld if feld < 5 else (self.bohrtabelle.currentRow(), feld)
+
+    def _innentab(self, index):
+        if self.auswahl.currentIndex() >= 5:
+            if index == 0 and self.auswahl.currentData() is not None:
+                self.auswahl.setCurrentIndex(5)
+            elif index == 1 and self.auswahl.currentData() is None:
+                self.auswahl.setCurrentIndex(self.auswahl.findData(1))
+        self._markieren()
+
+    def _werkzeug(self):
+        if self.auswahl.currentData() is not None:
+            self.innen.setCurrentIndex(1)
+        elif self.auswahl.currentIndex() >= 5:
+            self.innen.setCurrentIndex(0)
+        self._markieren()
+
+    def _tasche_waehlen(self, marke):
+        for i, a in enumerate(self.taschenmarken):
+            if a is marke:
+                self.innen.setCurrentIndex(1)
+                self.taschentabelle.setCurrentCell(i, 1)
+                break
 
     def _bohrung_waehlen(self, kreis):
         for i, ring in enumerate(self.ringe):
             if ring.kreis == kreis:
+                self.innen.setCurrentIndex(0)
                 self.bohrtabelle.setCurrentCell(i, 1)
                 break
 
     def _grundriss(self, box):
         umfang = rechteckansicht(self.blatt.bild, box)
         self.ringe = []
+        self.taschen = []
         if not umfang:
             if self.geometrie is None:
                 self.geometrie = Blattgeometrie(self.blatt)
             ergebnis = plattenumriss(self.blatt.bild, box, self.geometrie.im_bereich(box))
             if ergebnis is not None:
-                umfang, self.ringe = ergebnis
+                umfang, self.ringe, self.taschen = ergebnis
         with QtCore.QSignalBlocker(self.bohrtabelle), QtCore.QSignalBlocker(self.durchgehend):
             self.durchgehend.setChecked(False)
             self.bohrtabelle.setRowCount(0)
@@ -168,6 +224,18 @@ class Plattendialog(QtWidgets.QDialog):
             self.durchgehend.setEnabled(True)
             if self.ringe:
                 self.bohrtabelle.setCurrentCell(0, 1)
+        self.taschenmarken = [Blattangabe(self.blatt.nummer, q.box, tr("Tasche")) for q in self.taschen]
+        with QtCore.QSignalBlocker(self.taschentabelle):
+            self.taschentabelle.setRowCount(0)
+            self.taschentabelle.setRowCount(len(self.taschen))
+            for i in range(len(self.taschen)):
+                for j in range(6):
+                    item = QtWidgets.QTableWidgetItem()
+                    if j == 0:
+                        item.setFlags(item.flags() & ~QtCore.Qt.ItemFlag.ItemIsEditable)
+                    self.taschentabelle.setItem(i, j, item)
+            if self.taschen:
+                self.taschentabelle.setCurrentCell(0, 1)
         self.marken = {k: v for k, v in self.marken.items() if isinstance(k, int)}
         with QtCore.QSignalBlocker(self.auswahl):
             while self.auswahl.count() > 5:
@@ -175,7 +243,13 @@ class Plattendialog(QtWidgets.QDialog):
             if self.ringe:
                 self.auswahl.addItems([tr("X-Maß der gewählten Bohrung"), tr("Y-Maß der gewählten Bohrung"),
                                        tr("Durchmesser der gewählten Bohrung"), tr("Tiefe der gewählten Bohrung")])
-        self.bohrfeld.setVisible(bool(self.ringe))
+            if self.taschen:
+                for j, text in enumerate(self.taschenfelder, 1):
+                    self.auswahl.addItem(text, j)
+        self.innen.setTabVisible(0, bool(self.ringe))
+        self.innen.setTabVisible(1, bool(self.taschen))
+        self.innen.tabBar().setVisible(bool(self.ringe and self.taschen))
+        self.innen.setVisible(bool(self.ringe or self.taschen))
         return umfang
 
     def _alle_durch(self, aktiv):
@@ -214,27 +288,30 @@ class Plattendialog(QtWidgets.QDialog):
             wert = self.blatt.lies(box)
             self.texte[i-2].setText(wert)
         else:
-            zeile = self.bohrtabelle.currentRow()
+            taschenspalte = self.auswahl.currentData()
+            tabelle = self.taschentabelle if taschenspalte is not None else self.bohrtabelle
+            zeile = tabelle.currentRow()
             if zeile < 0:
                 return
-            if i == 8 and self.bohrtabelle.cellWidget(zeile, 4).currentIndex() != 2:
+            if taschenspalte is None and i == 8 and self.bohrtabelle.cellWidget(zeile, 4).currentIndex() != 2:
                 self.status.setText(tr("Für ein Tiefenmaß zuerst eine Bohrung mit flachem Grund wählen."))
                 return
             wert = self.blatt.lies(box)
-            lesen = tiefenmass if i == 8 else lese_angabe
+            spalte = taschenspalte if taschenspalte is not None else 5 if i == 8 else i-4
+            lesen = tiefenmass if spalte == 5 else lese_angabe
             faktor = self.einheit.currentData()
             if lesen(wert, faktor) is None:
                 wert = ""
             elif faktor == 25.4 and lesen(wert, None) is None:
                 # Die Bohrungstabelle verwendet mm, eine gedruckte Zollangabe eindeutig erhalten.
                 wert += " in"
-            self.bohrtabelle.item(zeile, 5 if i == 8 else i-4).setText(wert)
+            tabelle.item(zeile, spalte).setText(wert)
         if wert:
             self.marken[schluessel] = Blattangabe(self.blatt.nummer, box, self.auswahl.currentText())
         self._markieren()
         self._pruefen()
         if not wert:
-            self.status.setText(tr("Die Auswahl muss eine geschlossene Rechteckkontur enthalten. Im Grundriss sind einzelne Bohrkreise zulässig.") if i < 2
+            self.status.setText(tr("Die Auswahl muss eine geschlossene Rechteckkontur enthalten. Im Grundriss sind einzelne Bohrkreise und Rechtecktaschen zulässig.") if i < 2
                                 else tr("Maßzahl nicht eindeutig lesbar. Den Wert aus der Zeichnung eingeben."))
 
     def _ohne_vorderansicht(self):
@@ -261,6 +338,12 @@ class Plattendialog(QtWidgets.QDialog):
         werte = [[self.bohrtabelle.item(i, j).text() for j in (1, 2, 3)] for i in range(len(self.ringe))]
         return sollbohrungen(self.ringe, werte, masse, self.konturen[0], tiefen=tiefen)
 
+    def _innenkonturen(self, masse):
+        bohrungen = self._bohrungen(masse)
+        zeilen = [[self.taschentabelle.item(i,j).text() for j in range(1,6)] for i in range(len(self.taschen))]
+        taschen = solltaschen(self.taschen, zeilen, masse, self.konturen[0], bohrungen)
+        return bohrungen, taschen
+
     def _pruefen(self):
         self.vorne_entfernen.setEnabled(self.vorne_offen or self.konturen[1] is not None)
         try:
@@ -269,6 +352,9 @@ class Plattendialog(QtWidgets.QDialog):
             with QtCore.QSignalBlocker(self.bohrtabelle):
                 for i in range(len(self.ringe)):
                     self.bohrtabelle.item(i, 0).setText("")
+            with QtCore.QSignalBlocker(self.taschentabelle):
+                for i in range(len(self.taschen)):
+                    self.taschentabelle.item(i, 0).setText("")
             self.status.setText(str(e))
             self.speichern.setEnabled(False)
             return
@@ -276,8 +362,13 @@ class Plattendialog(QtWidgets.QDialog):
             for i, q in enumerate(self.ringe):
                 x, y = masse[0].nennwert, masse[1].nennwert
                 self.bohrtabelle.item(i, 0).setText(f"{q.x*x:.2f} / {q.y*y:.2f} / ⌀{2*q.r*x:.2f}")
+        with QtCore.QSignalBlocker(self.taschentabelle):
+            x, y = masse[0].nennwert, masse[1].nennwert
+            for i, q in enumerate(self.taschen):
+                werte = (q.x*x, q.y*y, q.breite*x, q.hoehe*y)
+                self.taschentabelle.item(i, 0).setText(" / ".join(f"{v:.2f}" for v in werte))
         try:
-            self._bohrungen(masse)
+            self._innenkonturen(masse)
         except ValueError as e:
             self.status.setText(str(e))
             self.speichern.setEnabled(False)
@@ -294,8 +385,8 @@ class Plattendialog(QtWidgets.QDialog):
             if Path(ziel).resolve() == self.pfad.resolve():
                 raise ValueError(tr("Für das STEP-Modell eine eigene Zieldatei wählen."))
             masse = self._masse()
-            bohrungen = self._bohrungen(masse)
-            anzahl = schreibe_platte(ziel, masse, bohrungen)
+            bohrungen, taschen = self._innenkonturen(masse)
+            anzahl = schreibe_platte(ziel, masse, bohrungen, taschen)
         except (OSError, ValueError, RuntimeError) as e:
             QtWidgets.QMessageBox.warning(self, tr("Platte aus 2D-Zeichnung"), str(e))
             return

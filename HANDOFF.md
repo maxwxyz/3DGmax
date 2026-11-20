@@ -2,6 +2,22 @@
 
 ## Current state, 2026-11-20
 
+### Reconstruct rectangular pockets and their dimensions
+
+- Checked PLAN §§8.35–8.37 and docs/Roadmap.md. A selected rectangular plate can contain closed
+  rectangular pockets alongside cylindrical holes. Each profile must be separate and closed.
+  The table lists estimates and accepts the drawing center, two side dimensions and flat-bottom
+  depth. All four projected edges must agree. Boundary contact, overlapping cuts and open
+  contours prevent export. Clicking inside a pocket or on a bore rim selects the matching row.
+- Verified through the PDF dialog on two equal 12 × 8 mm pockets at different X positions with
+  depth 3 ±0.1 mm, both with and without a through hole. Reload checks the cut volume, graphical
+  and semantic values and both pairs of opposite walls. Independent XCAF inspection checks the
+  depth reference at each distinct floor. The affected suite passed 44 tests and the combined
+  drawing/reconstruction/translation run passed 65.
+- Under §8.36 center-location PMI, stepped bores, rounded profiles, turned parts and cross-view
+  association still need implementation. Under §8.35, section and non-circular feature matching
+  and whole-drawing completeness remain open. QIF is last.
+
 ### Reconstruct flat-bottom blind holes with depth PMI
 
 - Checked PLAN §§8.35–8.37 and docs/Roadmap.md. Each printed ring now has an explicit end
