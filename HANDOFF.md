@@ -2,6 +2,22 @@
 
 ## Current state, 2026-11-20
 
+### Compare a repeated drawing callout with separate STEP dimensions
+
+- Checked PLAN §8.35 and docs/Roadmap.md. In individual-PMI mode each selected hole has a model
+  record, an open decision or an explicitly confirmed drawing-only finding. Only dimensions whose
+  faces belong to that hole are offered. Changing the active hole highlights its circle and model
+  PMI. Multiple candidates on a hole need a choice. Removed model records reopen their findings.
+- The CSV emits one row per reviewed hole with its source ID, sheet coordinates, local finding and
+  whole-pattern finding. A group with an unresolved hole stays open. A partly missing or changed
+  pattern is marked changed. Verification used a newly written and reimported AP242 solid with
+  separate 4.0 and 4.1 mm model dimensions against a PDF calling for two 4.0 mm holes. It identified
+  the correct hole in each case. The dialog test also removes and restores a record, confirms a
+  missing dimension, checks competing dimensions on one hole and reviews a second sheet region.
+- All 28 affected tests passed and the focused drawing and translation run passed 36 tests.
+  Compound leaders, sections, non-circular targets and whole-drawing verification remain open.
+  Reconstruction follows in §8.36 and QIF stays last in §8.37.
+
 ### Verify repeated diameter callouts against a grouped model dimension
 
 - Checked PLAN §8.35 and docs/Roadmap.md. Native and supported plotted diameter rows retain their

@@ -22,7 +22,7 @@ def _teil():
     for x, y, r in ((8, 7, 2), (29, 9, 2), (13, 29, 3), (40, 25, 4)):
         bohrer = BRepPrimAPI_MakeCylinder(gp_Ax2(gp_Pnt(x, y, -1), gp_Dir(0, 0, 1)), r, 11).Shape()
         form = BRepAlgoAPI_Cut(form, bohrer).Shape()
-    return SimpleNamespace(flaechen=_alle_flaechen(form))
+    return SimpleNamespace(form=form, flaechen=_alle_flaechen(form))
 
 
 def _blatt(pfad, verzweigt=False, text="Ø4.1", fremdkreis=False):
@@ -411,6 +411,93 @@ def test_mengenmass_im_dialog_mit_vollstaendiger_flaechenzuordnung(app, tmp_path
             d.text.setPlainText("3X Ø4")
             d.bestaetigen.click()
             assert za.befund(a, 1.) == "offen"
+        finally:
+            d.blatt.schliesse()
+            d.close()
+
+def test_einzel_pmi_aus_ap242_pro_bohrung_pruefen_und_exportieren(app, tmp_path, monkeypatch):
+    import pypdfium2 as pdf
+    from OCC.Core.IFSelect import IFSelect_RetDone
+    from OCC.Core.Interface import Interface_Static
+    from OCC.Core.STEPControl import STEPControl_AsIs, STEPControl_Writer
+    from programm.kern.step_schreiben import schreibe
+    from programm.ui.lader import lade_alles
+    from programm.ui.zeichnungsabgleich_ui import Zeichnungsabgleich
+
+    quelle, ziel = (str(tmp_path / name) for name in ("Bohrungen.stp", "Einzelmasse.stp"))
+    writer = STEPControl_Writer()
+    schema = Interface_Static.CVal("write.step.schema")
+    try:
+        assert Interface_Static.SetCVal("write.step.schema", "AP242DIS")
+        assert writer.Transfer(_teil().form, STEPControl_AsIs) == IFSelect_RetDone
+        assert writer.Write(quelle) == IFSelect_RetDone
+    finally:
+        Interface_Static.SetCVal("write.step.schema", schema)
+    teil = lade_alles(quelle).modell
+    gruppe, = modellkreise(teil)
+    ringe = sorted((k for k in gruppe if k.r == 2), key=lambda k: k.x)
+    masse = [Pmi("mass", "Size_Diameter", nennwert=4.+i*.1, flaechen=set(k.flaechen),
+                 quelle="eigen", nummer=901+i, step_id=-901-i) for i,k in enumerate(ringe)]
+    assert schreibe(quelle, ziel, masse, teil).neu == [901, 902]
+    erg = lade_alles(ziel)
+    assert len(erg.pmi) == 2 and erg.modell.datei.schema.startswith("AP242")
+    pfad = tmp_path / "Bohrbild.pdf"
+    _blatt(pfad, text="2X Ø4")
+    markiert = []
+    with pdf.PdfDocument(pfad) as doc:
+        d = Zeichnungsabgleich(doc, erg.pmi, markiert.append, (str(pfad), ziel), einzelteil=erg.modell)
+        try:
+            d.einheit.setCurrentIndex(1)
+            a = next(a for a in d.seiten[0] if a.text.startswith("2X"))
+            d.waehle(a)
+            d.registrieren.click()
+            d.ansicht.bereich.emit((.12, .11, .46, .3))
+            assert d.auftrag.wait(10000)
+            app.processEvents()
+            assert d.zuordnung.currentData() == -2 and not d.einzel.isHidden()
+            for i,z in enumerate(d.einzel.ziele):
+                d.einzel.bohrung.setCurrentIndex(i)
+                assert markiert[-1] is z.modell and z.modell.flaechen <= z.flaechen
+            d.bestaetigen.click()
+            assert a.modell is None and za.befund(a, 1.) == "geaendert"
+            assert {m.step_id for m in a.zugeordnete_pmi()} == {m.step_id for m in erg.pmi}
+            datei = tmp_path / "Einzel.csv"
+            monkeypatch.setattr(QtWidgets.QFileDialog, "getSaveFileName", lambda *args: (str(datei), "CSV"))
+            d._export()
+            with datei.open(encoding="utf-8-sig") as f:
+                zeilen = list(csv.DictReader(f, delimiter=";"))
+            assert len(zeilen) == 2
+            for i,(zeile,z) in enumerate(zip(zeilen,a.musterziele), 1):
+                assert zeile["Bohrung im Muster"] == f"{i}/2" and zeile["Gesamtbefund des Bohrbilds"] == "Abweichend"
+                assert int(zeile["Quell-ID der Modell-PMI"]) == z.modell.step_id
+                assert zeile["Befund"] == ("Abweichend" if z.modell.nennwert > 4 else "Werte gleich")
+                assert tuple(map(float,zeile["Bohrbild (x/Breite, y/Höhe, Radius/Breite je Bohrung)"].split())) == pytest.approx(z.ort, abs=1.e-6)
+
+            d.registrieren.click()
+            d.ansicht.bereich.emit((.8, .8, .95, .95))
+            assert d.auftrag.wait(10000)
+            app.processEvents()
+            assert za.befund(a, 1.) == "geaendert"
+            bleibt = next(m for m in erg.pmi if m.nennwert == 4)
+            d.setze_modell([bleibt])
+            assert za.befund(a, 1.) == "offen"
+            offen = next(i for i,z in enumerate(d.einzel.ziele) if z.modell is None)
+            d.einzel.bohrung.setCurrentIndex(offen)
+            assert d.einzel.mass.count() == 2
+            d.einzel.mass.setCurrentIndex(1)
+            d.bestaetigen.click()
+            assert a.musterziele[offen].nur_zeichnung and za.befund(a, 1.) == "geaendert"
+            d.setze_modell(erg.pmi)
+            assert not a.musterziele[offen].nur_zeichnung and za.befund(a, 1.) == "offen"
+            # Eine zweite PMI auf derselben Bohrung darf der Zahlenwert nicht aufloesen.
+            richtig = next(m for m in erg.pmi if m is not bleibt)
+            doppelt = replace(richtig, nennwert=4., nummer=77, step_id=-77)
+            d.setze_modell([*erg.pmi, doppelt])
+            d.einzel.bohrung.setCurrentIndex(offen)
+            assert d.einzel.mass.count() == 4 and d.einzel.mass.currentIndex() == 0
+            d.einzel.mass.setCurrentIndex(d.einzel.mass.findText(f"#77  {doppelt.wert_text()}"))
+            d.bestaetigen.click()
+            assert za.befund(a, 1.) == "gleich" and a.musterziele[offen].modell is doppelt
         finally:
             d.blatt.schliesse()
             d.close()

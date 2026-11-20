@@ -1,4 +1,8 @@
 {
+"Bohrung {} von {}": "Hole {} of {}",
+"Einzel-PMI je Bohrung": "Individual PMI per hole",
+"Bohrung im Muster": "Hole in pattern",
+"Gesamtbefund des Bohrbilds": "Overall pattern finding",
 "{} von {} Bohrungen gewählt. Erste Bohrung anklicken, weitere mit Umschalt+Klick wählen.": "{} of {} holes selected. Click the first hole, then Shift-click the others.",
 "Die gewählte Modell-PMI deckt das markierte Bohrbild nicht vollständig und ausschließlich ab.": "The selected model PMI must cover exactly the marked holes.",
 "Bohrbild (x/Breite, y/Höhe, Radius/Breite je Bohrung)": "Hole pattern (x/width, y/height, radius/width per hole)",

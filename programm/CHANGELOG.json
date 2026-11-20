@@ -1,6 +1,7 @@
 {
  "unreleased": {
   "de": [
+   "Ein Mengenmaß der Zeichnung lässt sich mit einzelnen Modell-PMI je Bohrung vergleichen. Auswahl, Abweichungen und fehlende Angaben sind je Bohrung prüfbar. Die CSV enthält Einzel- und Gesamtbefund.",
    "Durchmesser mit Mengenangaben wie „2X“ lassen sich für das ganze Bohrbild mit einer gemeinsamen Modell-PMI vergleichen. Der Abgleich liest auch geplottete Grenzmaße über einem Toleranzrahmen und exportiert die Blattposition jeder gewählten Bohrung.",
    "Der Zeichnungsabgleich ordnet Bohrbilder auf geneigten Flächen zu, wenn die Zeichnung entlang der Bohrungsachsen blickt. Geteilte Kreisränder von Stufenbohrungen werden über die gemeinsame Zylinderachse erkannt.",
    "Bohrbilder lassen sich auch in beliebig gedrehten oder gespiegelten Hauptansichten mit dem Modell abgleichen. Gleich gut passende Bohrungen bleiben zur Prüfung offen.",
@@ -131,6 +132,7 @@
    "Grafische PMI aus unterstützten AP203e2-Kurvenmodellen lassen sich als STEP AP242 Edition 3 ausgeben. Facettierte STEP-Modelle behalten ihre Flächenbezüge. Gepackte STEP-Dateien lassen sich als unkomprimierte STEP-Kopie speichern."
   ],
   "en": [
+   "Repeated drawing diameters can be compared with individual model PMI per hole. Review each model record, difference or missing dimension. The CSV reports each hole and the overall pattern finding.",
    "Diameter callouts such as “2X” can be compared with a grouped model PMI across the entire hole pattern. The review also reads plotted diameter limits above a control frame and exports the sheet location of each selected hole.",
    "Drawing comparison matches patterns of inclined holes when the drawing looks along their axes. Split circular rims of stepped holes are recognized using the common cylinder axis.",
    "Hole patterns can be matched to the model in principal views rotated by any angle on the sheet, including mirrored views. Equally plausible hole associations remain open for review.",

@@ -309,7 +309,7 @@
 
 | Feature | Status |
 |---|---|
-| Compare model PMI with PDF drawing annotations, read inclined dimension text in selected regions and export reviewed matches, differences, one-sided and open findings with sheet and face references. Views along parallel hole axes can be rotated on the sheet or mirrored, including auxiliary views of inclined holes. They support hole-pattern registration, filled or outlined arrowheads, and a control frame sharing the diameter row’s leader. Repeated diameter dimensions retain their quantity, individual sheet locations and grouped model PMI. General view/leader registration and whole-drawing verification remain open – PLAN §8.35 | 🟡 |
+| Compare model PMI with PDF drawing annotations, read inclined dimension text in selected regions and export reviewed matches, differences, one-sided and open findings with sheet and face references. Views along parallel hole axes can be rotated on the sheet or mirrored, including auxiliary views of inclined holes. They support hole-pattern registration, filled or outlined arrowheads, and a control frame sharing the diameter row’s leader. Repeated diameter dimensions retain their quantity, individual sheet locations and either a grouped dimension or individually reviewed model PMI per hole. General view/leader registration and whole-drawing verification remain open – PLAN §8.35 | 🟡 |
 | Generate a solid and dimensioned semantic PMI from orthographic drawing views and sections, resolve missing dimensions and verify by reprojection – PLAN §8.36 | ⬜ |
 
 ## Final implementation stage

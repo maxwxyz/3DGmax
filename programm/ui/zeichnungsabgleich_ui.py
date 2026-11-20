@@ -1,5 +1,6 @@
 """Blattbezogener Abgleich von Modell-PMI mit nativer und grafischer PDF-Beschriftung."""
 
+from dataclasses import replace
 import math
 from pathlib import Path
 
@@ -129,6 +130,68 @@ class Blattansicht(QtWidgets.QGraphicsView):
                 self.bereich.emit((box.left()/w, box.top()/h, box.right()/w, box.bottom()/h))
 
 
+class Einzelmasse(QtWidgets.QWidget):
+    """Je Blattkreis eine Entscheidung mit eigenem Modellbezug."""
+    geaendert = QtCore.Signal()
+
+    def __init__(self):
+        super().__init__()
+        self.ziele = []
+        self.kandidaten = []
+        self.bohrung = QtWidgets.QComboBox()
+        self.mass = QtWidgets.QComboBox()
+        reihe = QtWidgets.QHBoxLayout(self)
+        reihe.setContentsMargins(0, 0, 0, 0)
+        reihe.addWidget(self.bohrung)
+        reihe.addWidget(self.mass, 1)
+        self.bohrung.currentIndexChanged.connect(self._bohrung)
+        self.mass.currentIndexChanged.connect(self._mass)
+        self.hide()
+
+    def setze(self, ziele, modelle, bestaetigt):
+        self.ziele = list(ziele)
+        self.kandidaten = [[] for _ in ziele]
+        reserviert = {z.flaechen: z for z in bestaetigt}
+        index = {f: i for i, z in enumerate(ziele) for f in z.flaechen}
+        for m in modelle:
+            if m.flaechen:
+                i = index.get(next(iter(m.flaechen)))
+                if i is not None and m.flaechen <= ziele[i].flaechen:
+                    self.kandidaten[i].append(m)
+        with QtCore.QSignalBlocker(self.bohrung):
+            self.bohrung.clear()
+            for i, (z, auswahl) in enumerate(zip(ziele, self.kandidaten)):
+                alt = reserviert.get(z.flaechen)
+                if alt is not None:
+                    m = next((m for m in auswahl if m is alt.modell), None)
+                    self.ziele[i] = replace(z, modell=m, nur_zeichnung=alt.nur_zeichnung)
+                elif len(auswahl) == 1:
+                    self.ziele[i] = replace(z, modell=auswahl[0])
+                self.bohrung.addItem(tr("Bohrung {} von {}").format(i+1, len(ziele)))
+        self._bohrung(self.bohrung.currentIndex())
+
+    def _bohrung(self, i):
+        with QtCore.QSignalBlocker(self.mass):
+            self.mass.clear()
+            if i >= 0:
+                z = self.ziele[i]
+                self.mass.addItems([tr("Zuordnung offen"), tr("Nur in Zeichnung")])
+                idx = int(z.nur_zeichnung)
+                for j, m in enumerate(self.kandidaten[i], start=2):
+                    self.mass.addItem(f"#{m.nummer}  {m.wert_text()}")
+                    if m is z.modell:
+                        idx = j
+                self.mass.setCurrentIndex(idx)
+        self.geaendert.emit()
+
+    def _mass(self, idx):
+        i = self.bohrung.currentIndex()
+        if i >= 0:
+            m = self.kandidaten[i][idx-2] if idx >= 2 else None
+            self.ziele[i] = replace(self.ziele[i], modell=m, nur_zeichnung=idx == 1)
+            self.geaendert.emit()
+
+
 class Zeichnungsabgleich(QtWidgets.QDialog):
     def __init__(self, doc, modell_pmi, zeige_modell, quellen, parent=None, *, einzelteil=None):
         super().__init__(parent)
@@ -200,6 +263,8 @@ class Zeichnungsabgleich(QtWidgets.QDialog):
         panel.addWidget(self.grundmass)
         self.zuordnung = QtWidgets.QComboBox()
         panel.addWidget(self.zuordnung)
+        self.einzel = Einzelmasse()
+        panel.addWidget(self.einzel)
         self.detail = QtWidgets.QLabel()
         self.detail.setWordWrap(True)
         panel.addWidget(self.detail)
@@ -227,6 +292,7 @@ class Zeichnungsabgleich(QtWidgets.QDialog):
         self.ansicht.gewaehlt.connect(self.waehle)
         self.tabelle.currentCellChanged.connect(self._auswahl)
         self.zuordnung.currentIndexChanged.connect(self._vorschau)
+        self.einzel.geaendert.connect(self._vorschau)
         self.zuordnung.activated.connect(self._manuelle_wahl)
         self.text.textChanged.connect(self._vorschau)
         self.grundmass.toggled.connect(self._vorschau)
@@ -236,11 +302,18 @@ class Zeichnungsabgleich(QtWidgets.QDialog):
         self.blatt_zeigen(0)
 
     def setze_modell(self, pmi):
+        vorher = getattr(self, "modellindex", {})
         self.modell = [p for p in pmi if p.semantisch and p.art in (MASS, BEZUG, TOLERANZ)]
         self.modellindex = {id(p): i for i, p in enumerate(self.modell)}
         self.nur_modell.intersection_update(self.modellindex)
         for angaben in self.seiten.values():
             for a in angaben:
+                if a.einzelpruefung:
+                    neu = [m for m in self.modell if id(m) not in vorher and m.typ == "Size_Diameter" and m.flaechen]
+                    a.musterziele = tuple(replace(z, modell=None, nur_zeichnung=False)
+                                          if (z.modell is not None and id(z.modell) not in self.modellindex)
+                                          or (z.nur_zeichnung and any(m.flaechen <= z.flaechen for m in neu))
+                                          else z for z in a.musterziele)
                 if a.modell is not None and id(a.modell) not in self.modellindex:
                     a.modell = None
                     a.blattziel = None
@@ -276,7 +349,7 @@ class Zeichnungsabgleich(QtWidgets.QDialog):
 
     def _liste(self, wahl=None):
         self.zeilen = list(self.seiten[self.blatt.nummer])
-        zugeordnet = {id(a.modell) for angaben in self.seiten.values() for a in angaben if a.modell is not None}
+        zugeordnet = {id(m) for angaben in self.seiten.values() for a in angaben for m in a.zugeordnete_pmi()}
         self.zeilen.extend(p for p in self.modell if id(p) not in zugeordnet)
         befunde = self._befunde()
         with QtCore.QSignalBlocker(self.tabelle):
@@ -353,10 +426,10 @@ class Zeichnungsabgleich(QtWidgets.QDialog):
             k = self._hinweisziel(a)
             self.zielvorschlaege[a] = k
             anzahl = za.musteranzahl(a.text)
-            if anzahl and a.modell is not None:
+            if anzahl and (a.modell is not None or a.einzelpruefung):
                 ziele = self._muster(a, anzahl)
                 if k or not self._anderer_bereich(a):
-                    a.zielkonflikt = (not za.muster_deckt(anzahl, ziele, a.modell)
+                    a.zielkonflikt = ((not a.einzelpruefung and not za.muster_deckt(anzahl, ziele, a.modell))
                                       or {z.flaechen for z in ziele} != {z.flaechen for z in a.musterziele})
             elif k and a.modell is not None:
                 a.zielkonflikt = not bool(k.flaechen & a.modell.flaechen)
@@ -365,7 +438,7 @@ class Zeichnungsabgleich(QtWidgets.QDialog):
                 a.zielkonflikt = any(m.flaechen & k.flaechen for m in za.kandidaten(p, self.modell))
         for i, a in enumerate(self.seiten[nr]):
             self.tabelle.item(i, 2).setText(self._befunde()[za.befund(a, self.einheit.currentData())])
-        if isinstance(self.aktiv, za.Blattangabe) and self.manuelle_wahl:
+        if isinstance(self.aktiv, za.Blattangabe) and self.manuelle_wahl and self.zuordnung.currentData() != -2:
             muster = self._muster(self.aktiv, za.musteranzahl(self.text.toPlainText()))
             self.ansicht.zeige_kreise(arbeit.treffer, self.zielvorschlaege.get(self.aktiv), muster)
         else:
@@ -396,6 +469,10 @@ class Zeichnungsabgleich(QtWidgets.QDialog):
                          for z in a.musterziele)
         return ansichtsabgleich.muster_am_ziel(anker, anzahl,
                                                self.sichtkreise.get(a.seite, []), self.kreise.get(a.seite, []))
+
+    def _blattziele(self, muster):
+        h, w = self.blatt.bild.shape[:2]
+        return tuple(za.Musterziel((q.x/w, q.y/h, q.r/w), q.flaechen) for q in muster)
 
     def _musterkreis_waehlen(self, k):
         a = self.aktiv
@@ -430,6 +507,7 @@ class Zeichnungsabgleich(QtWidgets.QDialog):
         self.manuelle_wahl = True
 
     def _auswahl(self, i, *_, neues_ziel=False, entwurf=False):
+        alt = self.aktiv
         self.aktiv = a = self.zeilen[i] if i >= 0 else None
         zeichnung = isinstance(a, za.Blattangabe)
         self.manuelle_wahl = False
@@ -467,6 +545,14 @@ class Zeichnungsabgleich(QtWidgets.QDialog):
                 am_ziel = [m for m in bevorzugt if kreis and m.flaechen & kreis.flaechen]
                 if anzahl:
                     am_ziel = [m for m in am_ziel if za.muster_deckt(anzahl, muster, m)]
+                einzelmodus = anzahl > 1 and len(muster) == anzahl and p is not None
+                if einzelmodus:
+                    altziele = a.musterziele if a.einzelpruefung else ()
+                    if alt is a and behalten and not self.einzel.isHidden():
+                        altziele = self.einzel.ziele
+                    with QtCore.QSignalBlocker(self.einzel):
+                        self.einzel.setze(self._blattziele(muster), bevorzugt, altziele)
+                    self.zuordnung.addItem(tr("Einzel-PMI je Bohrung"), -2)
                 vorn = {id(m) for m in bevorzugt}
                 sortiert = sorted(bevorzugt, key=lambda m: not (kreis and m.flaechen & kreis.flaechen))
                 sortiert += [m for m in self.modell if id(m) not in vorn]
@@ -475,6 +561,13 @@ class Zeichnungsabgleich(QtWidgets.QDialog):
                 if vorschlag is None and (neues_ziel or a.zielkonflikt or not a.nur_zeichnung) and len(moeglich) == 1:
                     vorschlag = moeglich[0]
                 ziel = 1 if a.nur_zeichnung and not neues_ziel and not a.zielkonflikt else 0
+                if einzelmodus and not a.nur_zeichnung:
+                    alle_einzeln = all(self.einzel.kandidaten)
+                    if (a.einzelpruefung or (alt is a and behalten and not self.einzel.isHidden())
+                            or (a.modell is None and not am_ziel and any(self.einzel.kandidaten))):
+                        ziel, vorschlag = 2, None
+                    elif a.modell is None and alle_einzeln and am_ziel:
+                        vorschlag = None
                 for m in sortiert:
                     self.zuordnung.addItem(f"#{m.nummer}  {m.wert_text()}", self.modellindex[id(m)])
                     if m is vorschlag:
@@ -492,6 +585,9 @@ class Zeichnungsabgleich(QtWidgets.QDialog):
     def _vorschau(self):
         a = self.aktiv
         self.detail.clear()
+        einzelmodus = isinstance(a, za.Blattangabe) and self.zuordnung.currentData() == -2
+        vorher_einzeln = not self.einzel.isHidden()
+        self.einzel.setVisible(einzelmodus)
         if a is None:
             return
         if not isinstance(a, za.Blattangabe):
@@ -499,10 +595,27 @@ class Zeichnungsabgleich(QtWidgets.QDialog):
             return
         idx = self.zuordnung.currentData()
         m = self.modell[idx] if idx is not None and idx >= 0 else None
-        self.zeige_modell(m)
         p = za.lese_angabe(self.text.toPlainText(), self.einheit.currentData(), self.grundmass.isChecked())
         anzahl = za.musteranzahl(self.text.toPlainText())
         muster = self._muster(a, anzahl)
+        if einzelmodus:
+            if not anzahl or len(muster) != anzahl or len(self.einzel.ziele) != anzahl:
+                self.zeige_modell(None)
+                self.detail.setText(tr("{} von {} Bohrungen gewählt. Erste Bohrung anklicken, weitere mit Umschalt+Klick wählen.").format(len(muster), anzahl))
+                return
+            i = self.einzel.bohrung.currentIndex()
+            if i >= 0 and i < len(muster):
+                z = self.einzel.ziele[i]
+                self.zeige_modell(z.modell)
+                self.ansicht.zeige_kreise(self.kreise.get(a.seite, []), muster[i], (muster[i],))
+                if z.modell is not None and p is not None:
+                    self.detail.setText(self._wertdetails(p, z.modell))
+                else:
+                    self.detail.setText(self._befunde()[za.einzelbefund(p, z)])
+            return
+        self.zeige_modell(m)
+        if vorher_einzeln:
+            self.ansicht.zeige_kreise(self.kreise.get(a.seite, []), self.zielvorschlaege.get(a), muster)
         if anzahl and len(muster) != anzahl:
             self.detail.setText(tr("{} von {} Bohrungen gewählt. Erste Bohrung anklicken, weitere mit Umschalt+Klick wählen.").format(len(muster), anzahl))
         elif anzahl and m is not None and not za.muster_deckt(anzahl, muster, m):
@@ -516,13 +629,17 @@ class Zeichnungsabgleich(QtWidgets.QDialog):
             if k and not k.flaechen & m.flaechen:
                 self.detail.setText(tr("Die gewählte Modell-PMI gehört zu einer anderen Fläche als das erkannte Hinweisziel."))
                 return
-            if za.grenzen_vertauscht(m):
-                self.detail.setText(tr("Das Mindestmaß im Modell liegt über dem Höchstmaß."))
-                return
-            felder = za.unterschiede(p, m)
-            namen = dict(FELD_TEXT, typ=tr("Typ"), art=tr("Art"), minimum=tr("Mindestmaß"), maximum=tr("Höchstmaß"))
-            self.detail.setText(tr("Abweichende Felder: {}").format(", ".join(tr(namen[k]) for k in felder))
-                                if felder else tr("Angegebene Werte stimmen überein."))
+            self.detail.setText(self._wertdetails(p, m))
+
+    @staticmethod
+    def _wertdetails(p, m):
+        if za.grenzen_vertauscht(m):
+            return tr("Das Mindestmaß im Modell liegt über dem Höchstmaß.")
+        felder = za.unterschiede(p, m)
+        namen = dict(FELD_TEXT, typ=tr("Typ"), art=tr("Art"), minimum=tr("Mindestmaß"), maximum=tr("Höchstmaß"))
+        if felder:
+            return tr("Abweichende Felder: {}").format(", ".join(tr(namen[k]) for k in felder))
+        return tr("Angegebene Werte stimmen überein.")
 
     def uebernehmen(self):
         a = self.aktiv
@@ -537,13 +654,15 @@ class Zeichnungsabgleich(QtWidgets.QDialog):
             h, w = self.blatt.bild.shape[:2]
             anzahl = za.musteranzahl(a.text)
             muster = self._muster(a, anzahl)
-            a.musterziele = tuple(za.Musterziel((q.x/w, q.y/h, q.r/w), q.flaechen) for q in muster) if anzahl else ()
+            a.einzelpruefung = (idx == -2 and anzahl > 1 and len(muster) == anzahl
+                                and [z.flaechen for z in self.einzel.ziele] == [k.flaechen for k in muster])
+            a.musterziele = tuple(self.einzel.ziele) if a.einzelpruefung else self._blattziele(muster)
+            self.nur_modell.difference_update(id(m) for m in a.zugeordnete_pmi())
             if k and (anzahl or (a.modell and k.flaechen & a.modell.flaechen)):
                 a.blattziel = (k.x/w, k.y/h, k.r/w)
             elif not (anzahl and muster and self._anderer_bereich(a)):
                 if a.modell is None or a.modell is not vorher or k or anzahl:
                     a.blattziel = None
-            self.nur_modell.discard(id(a.modell))
         elif a is not None:
             if self.zuordnung.currentIndex() == 1:
                 self.nur_modell.add(id(a))
@@ -580,24 +699,35 @@ class Zeichnungsabgleich(QtWidgets.QDialog):
                             tr("Zeichnungseinheit"), tr("Befund"), tr("Modell-PMI"), tr("Modellwert"), tr("Flächen"),
                             tr("Eingerahmtes theoretisch genaues Maß"), tr("Quell-ID der Modell-PMI"),
                             tr("Hinweisziel (x/Breite, y/Höhe, Radius/Breite)"),
-                            tr("Bohrbild (x/Breite, y/Höhe, Radius/Breite je Bohrung)")])
+                            tr("Bohrbild (x/Breite, y/Höhe, Radius/Breite je Bohrung)"),
+                            tr("Bohrung im Muster"), tr("Gesamtbefund des Bohrbilds")])
                 verbunden = set()
                 for nr, angaben in sorted(self.seiten.items()):
                     for a in angaben:
-                        m = a.modell
-                        verbunden.add(id(m))
-                        w.writerow([*self.quellen, nr+1, " ".join(f"{v:.6f}" for v in a.box), a.text, self.einheit.currentText(),
-                                    self._befunde()[za.befund(a, self.einheit.currentData())], m.nummer if m else "",
-                                    m.wert_text() if m else "", sorted(m.flaechen) if m else "", int(a.grundmass),
-                                    m.step_id if m and m.step_id > 0 else "",
-                                    " ".join(f"{v:.6f}" for v in a.blattziel) if a.blattziel else "",
-                                    " | ".join(" ".join(f"{v:.6f}" for v in z.ort) for z in a.musterziele)])
+                        faktor = self.einheit.currentData()
+                        gesamt = self._befunde()[za.befund(a, faktor)]
+                        prefix = [*self.quellen, nr+1, " ".join(f"{v:.6f}" for v in a.box), a.text, self.einheit.currentText()]
+                        ziele = a.musterziele
+                        if a.einzelpruefung:
+                            p = za.lese_angabe(a.text, faktor, a.grundmass)
+                            zeilen = [(z.modell, self._befunde()["offen" if a.zielkonflikt else za.einzelbefund(p, z)],
+                                       (z,), f"{i}/{len(ziele)}") for i,z in enumerate(ziele, 1)]
+                        else:
+                            zeilen = [(a.modell, gesamt, ziele, "")]
+                        for m, befund, orte, nummer in zeilen:
+                            verbunden.add(id(m))
+                            w.writerow([*prefix, befund, m.nummer if m else "", m.wert_text() if m else "",
+                                        sorted(m.flaechen) if m else "", int(a.grundmass),
+                                        m.step_id if m and m.step_id > 0 else "",
+                                        " ".join(f"{v:.6f}" for v in a.blattziel) if a.blattziel else "",
+                                        " | ".join(" ".join(f"{v:.6f}" for v in z.ort) for z in orte),
+                                        nummer, gesamt if a.einzelpruefung else ""])
                 for m in self.modell:
                     if id(m) not in verbunden:
                         w.writerow([*self.quellen, "", "", "", "", tr("Nur im Modell") if id(m) in self.nur_modell else
-                                    tr("Modell-PMI offen"), m.nummer, m.wert_text(), sorted(m.flaechen), "", m.step_id if m.step_id > 0 else "", "", ""])
+                                    tr("Modell-PMI offen"), m.nummer, m.wert_text(), sorted(m.flaechen), "", m.step_id if m.step_id > 0 else "", "", "", "", ""])
                 for nr in sorted(set(range(len(self.doc))) - self.seiten.keys()):
-                    w.writerow([*self.quellen, nr+1, "", "", "", tr("Blatt ungeprüft"), "", "", "", "", "", "", ""])
+                    w.writerow([*self.quellen, nr+1, "", "", "", tr("Blatt ungeprüft"), "", "", "", "", "", "", "", "", ""])
         except OSError as e:
             QtWidgets.QMessageBox.warning(self, tr("Prüfliste speichern"), str(e))
 

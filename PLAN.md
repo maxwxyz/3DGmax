@@ -1598,8 +1598,11 @@ as its own annotation. Native PDF text and supported plotted rows (including a r
 retain the printed count and limits. An arrow or manual selection identifies the first hole. The
 review proposes the remaining visible rings only when the size and count agree and all are
 registered. The user can select a subset explicitly. One grouped model PMI must cover every marked
-hole and have no faces outside the group. The CSV records the individual circle coordinates. Repeated callouts represented by one separate
-model characteristic per hole still need a combined review.
+hole and have no faces outside the group. The CSV records the individual circle coordinates. When the model contains a separate diameter
+characteristic for each hole, the reviewer can step through the individual targets, resolve
+competing records and confirm a missing characteristic for one hole. Each CSV row identifies the
+target, model record, source ID, local finding and overall pattern finding. An unresolved hole
+leaves the pattern open. A partly missing or different pattern is reported as changed.
 The reviewer can also click a matched ring. The CSV stores the accepted circle in sheet coordinates.
 
 Remaining work includes views in which holes project as ellipses, sections, non-circular features and compound leaders, automatically

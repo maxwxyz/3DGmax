@@ -12,6 +12,8 @@ from .pmi import BEZUG, MASS, Pmi
 class Musterziel:
     ort: tuple
     flaechen: frozenset
+    modell: Pmi | None = None
+    nur_zeichnung: bool = False
 
 
 @dataclass(eq=False)
@@ -25,6 +27,12 @@ class Blattangabe:
     zielkonflikt: bool = False
     blattziel: tuple | None = None  # bestaetigter Kreis: x/Breite, y/Hoehe, Radius/Breite
     musterziele: tuple[Musterziel, ...] = ()
+    einzelpruefung: bool = False
+
+    def zugeordnete_pmi(self):
+        if self.einzelpruefung:
+            return [z.modell for z in self.musterziele if z.modell is not None]
+        return [self.modell] if self.modell is not None else []
 
 
 _MENGE = re.compile(r"^\s*([1-9][0-9]{0,3})\s*[xX×]\s*(?=[Ø∅⌀])")
@@ -125,19 +133,45 @@ def grenzen_vertauscht(p):
     return oben is not None and unten is not None and unten > oben
 
 
+def wertebefund(p, modell):
+    if p is None or modell is None or grenzen_vertauscht(modell):
+        return "offen"
+    if unterschiede(p, modell):
+        return "geaendert"
+    if p.zone == "Projected":
+        return "offen"  # Projektionsursprung auf dem Blatt noch nicht geometrisch zugeordnet.
+    return "gleich"
+
+
+def einzelbefund(p, ziel):
+    if p is None:
+        return "offen"
+    if ziel.nur_zeichnung and ziel.modell is None:
+        return "zeichnung"
+    m = ziel.modell
+    if m is None or m.art != p.art or m.typ != p.typ or not m.flaechen or not m.flaechen <= ziel.flaechen:
+        return "offen"
+    return wertebefund(p, m)
+
+
 def befund(angabe, faktor):
     p = lese_angabe(angabe.text, faktor, angabe.grundmass)
     if p is None or angabe.zielkonflikt:
         return "offen"
     if angabe.nur_zeichnung:
         return "zeichnung"
-    if angabe.modell is None or grenzen_vertauscht(angabe.modell):
-        return "offen"
     anzahl = musteranzahl(angabe.text)
+    if angabe.einzelpruefung:
+        ziele = angabe.musterziele
+        if not anzahl or len(ziele) != anzahl or len({z.flaechen for z in ziele}) != anzahl:
+            return "offen"
+        modelle = angabe.zugeordnete_pmi()
+        if len({id(m) for m in modelle}) != len(modelle):
+            return "offen"
+        befunde = {einzelbefund(p, z) for z in ziele}
+        if "offen" in befunde:
+            return "offen"
+        return befunde.pop() if len(befunde) == 1 else "geaendert"
     if anzahl and not muster_deckt(anzahl, angabe.musterziele, angabe.modell):
         return "offen"
-    if unterschiede(p, angabe.modell):
-        return "geaendert"
-    if p.zone == "Projected":
-        return "offen"  # Projektionsursprung auf dem Blatt noch nicht geometrisch zugeordnet.
-    return "gleich"
+    return wertebefund(p, angabe.modell)
