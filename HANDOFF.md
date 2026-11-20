@@ -2,6 +2,27 @@
 
 ## Current state, 2026-11-20
 
+### Reconstruct a dimensioned rectangular plate from a drawing
+
+- Checked PLAN §§8.35–8.37 and docs/Roadmap.md. File → Plate from 2D drawing is available
+  without a model. Select the plain top contour, pick the dimensions on the PDF or enter them, and
+  optionally select a front contour from a different sheet or scale. The dialog requires a positive
+  width, height and thickness in known units and checks both view proportions. An invalid optional
+  view must be corrected or removed. Interior marks and open or cropped contours block reconstruction.
+- The export uses a local OCCT AP242 writer configuration. It attaches three dimensions and their
+  graphical presentations to the corresponding opposite faces. The destination is replaced only
+  after all three have been written. A 60 × 40 × 8 mm PDF round trip checks the volume, measured
+  face distances, all three semantic associations and the 60 ±0.1 mm width in both 3DGmax and XCAF.
+  Exporting the nominal first also preserves the two limits in OCCT's independent reader. Tested
+  with a 1.50–1.52 inch width and a 0.125 ±0.002 inch thickness. All 156 affected tests passed.
+  The full suite run passed 713 tests with eight skipped. The affected run includes the additional
+  export-failure and inch-limit regressions added after collection of the full suite.
+- Next in §8.36: through-holes in the top outline. Local experiments identified the two printed
+  rings of a 60 × 40 mm plate and checked their supplied centers and diameters against the view.
+  A separate OCCT cut/STEP experiment retained the volume and five face-linked dimensions (three
+  outer dimensions and two diameters). The shipped dialog currently accepts plain plates.
+  Pockets, turned profiles and GD&T transfer remain open. QIF stays last.
+
 ### Read standalone graphical diameters in all four sheet orientations
 
 - Checked PLAN §8.35 and docs/Roadmap.md. The selected view is searched for free horizontal and

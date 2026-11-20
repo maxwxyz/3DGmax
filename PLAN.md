@@ -1622,7 +1622,7 @@ Remaining work includes views in which holes project as ellipses, sections, non-
 finding other unframed and oblique graphical annotations, interpreting composite controls and establishing
 the scope required for a verified whole-drawing verdict. Confirmed matches currently apply to individual characteristics.
 
-### 8.36 Generate 3D geometry and dimensioned PMI from a 2D drawing (planned)
+### 8.36 Generate 3D geometry and dimensioned PMI from a 2D drawing (partially implemented)
 
 Reconstruct a solid from dimensioned orthographic views and sections of one part. Start with
 prismatic and turned parts, including holes and pockets. Resolve view alignment, units and scale,
@@ -1632,6 +1632,15 @@ tolerances and datums as semantic PMI to the reconstructed features and export S
 Check a known part by reprojecting the solid into the drawing views and comparing its dimensions
 and PMI against the drawing using §8.35. An underdetermined drawing must identify the missing
 constraint and allow reconstruction to continue once it is supplied.
+
+**Implemented for plain rectangular plates.** File → Plate from 2D drawing works with a PDF and
+no loaded model. Select one closed axis-aligned top outline with an empty interior. Pick or enter
+the width, height and thickness from the drawing. An optional rectangular front view checks the
+thickness, even at a different scale. Missing depth or units and inconsistent view proportions
+leave export unavailable. The AP242 file contains a solid and three dimensions associated with
+opposite faces, including their graphical presentations. A portable 60 × 40 × 8 mm drawing verifies
+the exported volume, opposite-face distances and the width tolerance after reload. Holes, pockets,
+nonrectangular profiles, automatic cross-view association and datum/GD&T transfer remain open.
 
 ### 8.37 QIF extensions (last in the implementation order)
 

@@ -1,6 +1,7 @@
 {
  "unreleased": {
   "de": [
+   "Unter Datei → Platte aus 2D-Zeichnung lassen sich rechteckige Platten ohne Innenkonturen als STEP AP242 erzeugen. Breite, Höhe und Dicke können aus dem PDF übernommen werden. Der Export verknüpft die drei Maße einschließlich Abmaßen mit den gegenüberliegenden Flächen und zeigt sie als grafische PMI. Auch OCCT liest beide exportierten Grenzmaße korrekt.",
    "Die automatische Suche im Bohrbild liest frei stehende grafische Durchmessermaße auch senkrecht und auf dem Kopf. Der Hinweispfeil bleibt mit der Bohrung verknüpft.",
    "Der Zeichnungsabgleich kann das gemeinsame Durchmessermaß symmetrischer Bohrungen prüfen. Gestrichelte Kreise kennzeichnen Bohrungen, die nur als Gruppe eindeutig zugeordnet sind. Die CSV hält diese Zuordnung fest.",
    "Beim Zuordnen eines Bohrbilds findet der Zeichnungsabgleich auch frei stehende grafische Durchmesserangaben an waagerechten Hinweispfeilen. Die Prüfliste übernimmt eindeutig gelesene Maßzeilen einschließlich Anzahl und Grenzmaßen.",
@@ -136,6 +137,7 @@
    "Grafische PMI aus unterstützten AP203e2-Kurvenmodellen lassen sich als STEP AP242 Edition 3 ausgeben. Facettierte STEP-Modelle behalten ihre Flächenbezüge. Gepackte STEP-Dateien lassen sich als unkomprimierte STEP-Kopie speichern."
   ],
   "en": [
+   "File → Plate from 2D drawing creates a STEP AP242 solid from a plain rectangular plate drawing. Width, height and thickness can be picked from the PDF. The export attaches all three dimensions, including deviations, to opposite faces and includes their graphical presentations. OCCT also reads both exported size limits correctly.",
    "Hole-pattern review now discovers standalone graphical diameter dimensions printed vertically or upside down and follows their leaders to the indicated holes.",
    "Drawing comparison can check a shared diameter dimension on a symmetric hole pattern. Dashed circles mark holes that can only be matched as a group. The CSV records this group association.",
    "Selecting a hole pattern also finds standalone graphical diameter callouts with horizontal leader ends. The review list adds consistently read dimension rows, including quantities and limits.",

@@ -404,7 +404,8 @@ def _schreibe_mass(a: _Anhang, p) -> str | None:
     winkel = p.typ in ("Size_Angular", "Location_Angular")
     masse = [("nominal value", abs(p.nennwert))]
     if p.grenzmass:
-        masse = [("lower limit", p.unten), *masse, ("upper limit", p.oben)]
+        # XCAF uebernimmt das Nennmass sonst je nach Reihenfolge als untere Grenze.
+        masse.extend([("lower limit", p.unten), ("upper limit", p.oben)])
     items = []
     for name, mass in masse:
         if winkel:
