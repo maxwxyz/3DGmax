@@ -1633,7 +1633,7 @@ Check a known part by reprojecting the solid into the drawing views and comparin
 and PMI against the drawing using §8.35. An underdetermined drawing must identify the missing
 constraint and allow reconstruction to continue once it is supplied.
 
-**Implemented for rectangular plates, including cylindrical holes and flat-bottom rectangular pockets.** File → Plate from 2D drawing works with a PDF and
+**Implemented for rectangular plates, including cylindrical holes, rectangular pockets and rectangular through openings.** File → Plate from 2D drawing works with a PDF and
 no loaded model. Select one closed axis-aligned top outline. Pick or enter
 the width, height and thickness from the drawing. An optional rectangular front view checks the
 thickness, even at a different scale. Missing depth or units and inconsistent view proportions
@@ -1659,7 +1659,10 @@ the depth in STEP AP242. Verified on plates with two equal pockets, both alone a
 Bore X/Y coordinates are exported with graphical and semantic outer-to-center distances. The left
 or bottom plate face is the first reference and the bore wall supplies the axis. Reload through
 both readers verifies the two references and the coordinate tolerance.
-Pocket center-position PMI, drill points, stepped bores, rounded and through pocket profiles,
+A confirmed rectangular opening can also pass through the plate. Its four connected walls must meet
+both plate faces, and the export attaches the side dimensions to opposite wall pairs. A through
+opening has no floor or depth PMI. Through openings and pockets can be mixed within a single plate.
+Pocket center-position PMI, drill points, stepped bores, rounded pocket profiles,
 nonrectangular profiles, automatic cross-view association and datum/GD&T transfer remain open.
 
 ### 8.37 QIF extensions (last in the implementation order)

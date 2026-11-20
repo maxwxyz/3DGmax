@@ -1,6 +1,7 @@
 {
  "unreleased": {
   "de": [
+   "Rechteckige Durchbrüche lassen sich zusammen mit Taschen und Bohrungen aus einer PDF-Zeichnung rekonstruieren. STEP enthält Breite und Höhe an den gegenüberliegenden Wänden jedes Durchbruchs.",
    "Die Plattenrekonstruktion schreibt X und Y jeder Bohrungsmitte als grafische und semantische STEP-Maße. Abmaße und Grenzmaße bleiben mit der zugehörigen Bohrung und der linken oder unteren Plattenseite verknüpft.",
    "Rechteckige Taschen mit flachem Grund lassen sich aus der PDF-Zeichnung rekonstruieren, auch zusammen mit Bohrungen. Der STEP-Export verknüpft beide Seitenmaße mit den gegenüberliegenden Taschenwänden und die Tiefe mit der Oberseite und dem jeweiligen Taschengrund.",
    "Die Plattenrekonstruktion unterstützt Sacklöcher mit flachem Grund und Durchgangsbohrungen im selben Bauteil. Die Tiefe lässt sich aus dem PDF übernehmen. STEP AP242 verknüpft das tolerierte Tiefenmaß mit der Eintrittsfläche und dem Boden der jeweiligen Bohrung.",
@@ -141,6 +142,7 @@
    "Grafische PMI aus unterstützten AP203e2-Kurvenmodellen lassen sich als STEP AP242 Edition 3 ausgeben. Facettierte STEP-Modelle behalten ihre Flächenbezüge. Gepackte STEP-Dateien lassen sich als unkomprimierte STEP-Kopie speichern."
   ],
   "en": [
+   "Rectangular through openings can be reconstructed alongside pockets and holes from a PDF drawing. STEP links the width and height of each opening to its opposite walls.",
    "Plate reconstruction exports graphical and semantic X and Y dimensions for each hole center. Deviations and limits stay attached to the individual bore and its left or lower plate reference face.",
    "Plate reconstruction now supports flat-bottom rectangular pockets alongside holes. STEP attaches the two side dimensions to opposite pocket walls and the depth to the plate top and the floor of each pocket.",
    "Plate reconstruction supports flat-bottom blind holes and through holes in the same part. Depths can be picked from the PDF. STEP AP242 attaches each toleranced depth to the entry face and the bottom of its own hole.",

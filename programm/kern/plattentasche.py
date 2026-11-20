@@ -32,10 +32,12 @@ def solltaschen(konturen, zeilen, masse, umfang, bohrungen):
             if (not p or p.typ != "Location_LinearDistance" or p.nennwert is None or "Hilfsmass" in p.modifikatoren
                     or not all(math.isfinite(g) and g > 0 for g in (p.nennwert, *p.grenzen()) if g is not None)):
                 raise ValueError(tr("Für Tasche {} beide positiven Seitenmaße angeben.").format(i))
-        tiefe = tiefenmass(tt, 1.)
-        if tiefe is None or tiefe.nennwert is None:
-            raise ValueError(tr("Die Tiefe zum flachen Grund von Tasche {} angeben.").format(i))
-        pruefe_tiefe(tiefe, masse[2])
+        tiefe = None
+        if tt is not None:
+            tiefe = tiefenmass(tt, 1.)
+            if tiefe is None or tiefe.nennwert is None:
+                raise ValueError(tr("Die Tiefe zum flachen Grund von Tasche {} angeben.").format(i))
+            pruefe_tiefe(tiefe, masse[2])
         a, b = breite.nennwert/2, hoehe.nennwert/2
         if not (a < x < sx-a and b < y < sy-b):
             raise ValueError(tr("Tasche {} erreicht den Plattenrand.").format(i))

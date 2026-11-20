@@ -83,15 +83,15 @@ class Plattendialog(QtWidgets.QDialog):
         self.innen.addTab(self.bohrfeld, tr("Bohrungen"))
         taschenfeld = QtWidgets.QWidget()
         tl = QtWidgets.QVBoxLayout(taschenfeld)
-        tip = QtWidgets.QLabel(tr("Taschen mit flachem Grund von oben. X und Y bezeichnen die Taschenmitte ab der linken unteren Plattenecke. "
-                                 "Die Maße und die Tiefe aus der Zeichnung übernehmen."))
+        tip = QtWidgets.QLabel(tr("X und Y bezeichnen die Mitte ab der linken unteren Plattenecke. "
+                                 "Für einen rechteckigen Durchbruch „Durchgang“ wählen, für eine Tasche die Tiefe von oben angeben."))
         tip.setWordWrap(True)
         tl.addWidget(tip)
-        self.taschentabelle = QtWidgets.QTableWidget(0, 6)
+        self.taschentabelle = QtWidgets.QTableWidget(0, 7)
         self.taschenfelder = [tr("X-Maß der gewählten Tasche"), tr("Y-Maß der gewählten Tasche"),
                               tr("Breite der gewählten Tasche"), tr("Höhe der gewählten Tasche"), tr("Tiefe der gewählten Tasche")]
         self.taschentabelle.setHorizontalHeaderLabels([tr("Geschätzt (X / Y / B / H, mm)"), tr("X (mm)"), tr("Y (mm)"),
-                                                       tr("Breite (mm)"), tr("Höhe (mm)"), tr("Tiefe (mm)")])
+                                                       tr("Breite (mm)"), tr("Höhe (mm)"), tr("Tiefe (mm)"), tr("Ausführung")])
         self.taschentabelle.setSelectionBehavior(QtWidgets.QAbstractItemView.SelectionBehavior.SelectRows)
         self.taschentabelle.horizontalHeader().setSectionResizeMode(QtWidgets.QHeaderView.ResizeMode.Stretch)
         self.taschentabelle.setMaximumHeight(140)
@@ -234,6 +234,11 @@ class Plattendialog(QtWidgets.QDialog):
                     if j == 0:
                         item.setFlags(item.flags() & ~QtCore.Qt.ItemFlag.ItemIsEditable)
                     self.taschentabelle.setItem(i, j, item)
+                art = QtWidgets.QComboBox()
+                art.addItems([tr("Flachboden von oben"), tr("Durchgang")])
+                self.taschentabelle.setCellWidget(i, 6, art)
+                art.currentIndexChanged.connect(lambda index, zeile=i: self._tiefenfeld(
+                    self.taschentabelle, zeile, index == 0, ("tasche", zeile, 5)))
             if self.taschen:
                 self.taschentabelle.setCurrentCell(0, 1)
         self.marken = {k: v for k, v in self.marken.items() if isinstance(k, int)}
@@ -264,14 +269,17 @@ class Plattendialog(QtWidgets.QDialog):
         with QtCore.QSignalBlocker(self.durchgehend):
             self.durchgehend.setChecked(all(a == 1 for a in arten))
             self.durchgehend.setEnabled(2 not in arten)
-        item = self.bohrtabelle.item(zeile, 5)
-        with QtCore.QSignalBlocker(self.bohrtabelle):
-            if arten[zeile] == 2:
+        self._tiefenfeld(self.bohrtabelle, zeile, arten[zeile] == 2, (zeile, 8))
+
+    def _tiefenfeld(self, tabelle, zeile, aktiv, schluessel):
+        item = tabelle.item(zeile, 5)
+        with QtCore.QSignalBlocker(tabelle):
+            if aktiv:
                 item.setFlags(QtCore.Qt.ItemFlag.ItemIsEnabled | QtCore.Qt.ItemFlag.ItemIsEditable | QtCore.Qt.ItemFlag.ItemIsSelectable)
             else:
                 item.setText("")
                 item.setFlags(QtCore.Qt.ItemFlag.NoItemFlags)
-                self.marken.pop((zeile, 8), None)
+                self.marken.pop(schluessel, None)
         self._markieren()
         self._pruefen()
 
@@ -295,6 +303,9 @@ class Plattendialog(QtWidgets.QDialog):
                 return
             if taschenspalte is None and i == 8 and self.bohrtabelle.cellWidget(zeile, 4).currentIndex() != 2:
                 self.status.setText(tr("Für ein Tiefenmaß zuerst eine Bohrung mit flachem Grund wählen."))
+                return
+            if taschenspalte == 5 and self.taschentabelle.cellWidget(zeile, 6).currentIndex() == 1:
+                self.status.setText(tr("Ein Durchbruch hat kein Tiefenmaß."))
                 return
             wert = self.blatt.lies(box)
             spalte = taschenspalte if taschenspalte is not None else 5 if i == 8 else i-4
@@ -341,6 +352,9 @@ class Plattendialog(QtWidgets.QDialog):
     def _innenkonturen(self, masse):
         bohrungen = self._bohrungen(masse)
         zeilen = [[self.taschentabelle.item(i,j).text() for j in range(1,6)] for i in range(len(self.taschen))]
+        for i, zeile in enumerate(zeilen):
+            if self.taschentabelle.cellWidget(i, 6).currentIndex() == 1:
+                zeile[-1] = None
         taschen = solltaschen(self.taschen, zeilen, masse, self.konturen[0], bohrungen)
         return bohrungen, taschen
 

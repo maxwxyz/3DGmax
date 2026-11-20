@@ -2,6 +2,20 @@
 
 ## Current state, 2026-11-21
 
+### Rectangular through openings alongside pockets and bores
+
+- Checked PLAN §§8.35–8.37 and docs/Roadmap.md. Each rectangular interior contour can be a
+  flat-bottom pocket with a reviewed depth or an explicitly selected through opening. Switching
+  to through clears the depth and its PDF selection. Switching back requires a new depth.
+- A through opening has four connected walls shared by the top and bottom plate faces. STEP
+  links width and height to the respective opposite walls. Both the native and OCCT/XCAF readers
+  recovered each wall pair for two identical, aligned openings. The mixed case includes one
+  through opening, one blind pocket and a drilled hole on the same plate. Solid volume and the
+  absence of a depth dimension on the through opening were checked. All 18 affected tests and the 66-test drawing comparison and reconstruction run passed.
+- Next §8.36 candidates are stepped bores and rounded pocket profiles. The reviewer still supplies
+  the end condition from the drawing. Automatic cross-view association and whole-drawing
+  completeness remain open. QIF stays last.
+
 ### Hole-center dimensions in reconstructed plates
 
 - Checked PLAN §§8.35–8.37 and docs/Roadmap.md. The PDF plate dialog accepts bilateral deviations

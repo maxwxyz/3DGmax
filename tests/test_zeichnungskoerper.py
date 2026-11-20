@@ -307,8 +307,8 @@ def test_sackloch_gemischte_platte_mit_getrennten_tiefenzielen(app, tmp_path, mo
             d.close()
 
 
-@pytest.mark.parametrize("mit_bohrung", [False, True])
-def test_rechtecktaschen_aus_pdf_mit_eindeutigen_wandpaaren(app, tmp_path, monkeypatch, mit_bohrung):
+@pytest.mark.parametrize(("mit_bohrung", "durchbrueche"), [(False,0), (True,0), (True,1), (False,2)])
+def test_rechtecktaschen_aus_pdf_mit_eindeutigen_wandpaaren(app, tmp_path, monkeypatch, mit_bohrung, durchbrueche):
     from pypdfium2 import PdfDocument
     from OCC.Core.BRepAdaptor import BRepAdaptor_Surface
     from OCC.Core.BRepGProp import brepgprop
@@ -357,24 +357,43 @@ def test_rechtecktaschen_aus_pdf_mit_eindeutigen_wandpaaren(app, tmp_path, monke
                 item.setText(falsch)
                 assert not d.speichern.isEnabled()
                 item.setText(gut)
+            for zeile in range(durchbrueche):
+                art = d.taschentabelle.cellWidget(zeile, 6)
+                d.auswahl.setCurrentIndex(d.auswahl.findData(5))
+                d.taschentabelle.setCurrentCell(zeile, 1)
+                art.setCurrentIndex(1)
+                d.ansicht.bereich.emit((.52,.86,.8,.96))
+                assert d.taschentabelle.item(zeile,5).text() == "" and ("tasche",zeile,5) not in d.marken
+                assert d.speichern.isEnabled()
+                art.setCurrentIndex(0)
+                assert not d.speichern.isEnabled()
+                art.setCurrentIndex(1)
             d.speichern.click()
             erg = lade_alles(str(ziel))
             v = GProp_GProps()
             brepgprop.VolumeProperties(erg.modell.form, v)
-            assert v.Mass() == pytest.approx(60*40*8-2*12*8*3-(32*np.pi if mit_bohrung else 0))
-            assert len(erg.pmi) == 9+3*int(mit_bohrung) and all(p.grafisch and p.semantisch for p in erg.pmi)
+            assert v.Mass() == pytest.approx(60*40*8-12*8*(6+5*durchbrueche)-(32*np.pi if mit_bohrung else 0))
+            assert len(erg.pmi) == 9-durchbrueche+3*int(mit_bohrung) and all(p.grafisch and p.semantisch for p in erg.pmi)
             for quelle in (erg.pmi, lies_pmi_xcaf(erg.modell)):
                 breite = [p for p in quelle if p.nennwert == 12]
                 tiefen = [p for p in quelle if p.nennwert == 3]
                 hoehen = [p for p in quelle if p.nennwert == 8 and p.oben is None]
-                assert len(breite) == len(tiefen) == len(hoehen) == 2
+                assert len(breite) == len(hoehen) == 2 and len(tiefen) == 2-durchbrueche
                 xpaare = []
                 for p in breite:
                     assert p.grenzen() == pytest.approx((12.05,11.95))
                     xpaare.append(sorted(BRepAdaptor_Surface(erg.modell.flaechen[f]).Plane().Location().X() for f in p.flaechen))
                 np.testing.assert_allclose(sorted(xpaare), [[9,21],[39,51]], atol=1e-6)
+                wandmitten = []
                 for p in hoehen:
+                    xs = []
+                    for f in p.flaechen:
+                        props = GProp_GProps()
+                        brepgprop.SurfaceProperties(erg.modell.flaechen[f], props)
+                        xs.append(props.CentreOfMass().X())
+                    wandmitten.append(sorted(xs))
                     assert sorted(BRepAdaptor_Surface(erg.modell.flaechen[f]).Plane().Location().Y() for f in p.flaechen) == pytest.approx([12,20])
+                np.testing.assert_allclose(sorted(wandmitten), [[15,15],[45,45]], atol=1e-6)
                 mitten = []
                 for p in tiefen:
                     assert p.grenzen() == pytest.approx((3.1,2.9))
@@ -383,7 +402,7 @@ def test_rechtecktaschen_aus_pdf_mit_eindeutigen_wandpaaren(app, tmp_path, monke
                     boden = GProp_GProps()
                     brepgprop.SurfaceProperties(erg.modell.flaechen[ebenen[0][1]], boden)
                     mitten.append(boden.CentreOfMass().Coord())
-                np.testing.assert_allclose(sorted(mitten), [(15,16,5),(45,16,5)], atol=1e-6)
+                np.testing.assert_allclose(sorted(mitten), [(15,16,5),(45,16,5)][durchbrueche:], atol=1e-6)
         finally:
             d.blatt.schliesse()
             d.close()

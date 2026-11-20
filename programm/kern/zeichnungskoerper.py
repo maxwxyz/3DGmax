@@ -27,7 +27,7 @@ class Plattentasche:
     y: float
     breite: Pmi
     hoehe: Pmi
-    tiefe: Pmi
+    tiefe: Pmi | None
 
 
 def rechteckgrenzen(bild, box):
@@ -150,9 +150,10 @@ def _plattenform(masse, bohrungen, taschen):
         achse = gp_Ax2(gp_Pnt(bohrung.x, bohrung.y, boden), gp_Dir(0, 0, 1))
         werkzeuge.Append(BRepPrimAPI_MakeCylinder(achse, bohrung.durchmesser.nennwert/2, dicke+zugabe-boden).Shape())
     for tasche in taschen:
-        x, y, z = tasche.breite.nennwert, tasche.hoehe.nennwert, tasche.tiefe.nennwert
-        ecke = gp_Pnt(tasche.x-x/2, tasche.y-y/2, dicke-z)
-        werkzeuge.Append(BRepPrimAPI_MakeBox(ecke, x, y, z+zugabe).Shape())
+        x, y = tasche.breite.nennwert, tasche.hoehe.nennwert
+        boden = dicke-tasche.tiefe.nennwert if tasche.tiefe else -zugabe
+        ecke = gp_Pnt(tasche.x-x/2, tasche.y-y/2, boden)
+        werkzeuge.Append(BRepPrimAPI_MakeBox(ecke, x, y, dicke+zugabe-boden).Shape())
     schnitt = BRepAlgoAPI_Cut()
     schnitt.SetArguments(platte)
     schnitt.SetTools(werkzeuge)
@@ -215,29 +216,41 @@ def _flaechenmasse(modell, masse, bohrungen, taschen):
             flaechen.append(deckel | boden)
         for tasche in taschen:
             bezuege = _taschenflaechen(tasche, dicke, deckel, ebenen, nachbarn)
-            alle.extend((tasche.breite, tasche.hoehe, tasche.tiefe))
+            alle.extend((tasche.breite, tasche.hoehe))
+            if tasche.tiefe:
+                alle.append(tasche.tiefe)
             flaechen.extend(bezuege)
     return [replace(p, flaechen=f, quelle="eigen", nummer=i, step_id=-i)
             for i, (p, f) in enumerate(zip(alle, flaechen, strict=True), 1)]
 
 
 def _taschenflaechen(tasche, dicke, deckel, ebenen, nachbarn):
-    # Erst den Grund, dann seine vier direkt anschliessenden Waende und deren Eintritt pruefen.
-    ziel_z = dicke-tasche.tiefe.nennwert
+    ziel_z = dicke-tasche.tiefe.nennwert if tasche.tiefe else 0.
     kandidaten = []
     for i, z in ebenen[2].items():
         if abs(z-ziel_z) >= 1e-6:
             continue
-        waende = nachbarn[i]
-        paare = []
+        # Beim Durchbruch grenzt die Unterseite auch an Waende anderer Ausschnitte.
+        if tasche.tiefe and len(nachbarn[i]) != 4:
+            continue
+        waende = {j for j in nachbarn[i] if deckel <= nachbarn[j]}
+        seiten = []
         for lagen, mitte, mass in zip(ebenen[:2], (tasche.x, tasche.y), (tasche.breite, tasche.hoehe)):
-            paar = {j for j in waende & lagen.keys() if abs(abs(lagen[j]-mitte)-mass.nennwert/2) < 1e-6}
-            paare.append(paar)
-        if (all(len(paar) == 2 for paar in paare) and waende == paare[0] | paare[1]
-                and all(deckel <= nachbarn[j] for j in waende)):
-            kandidaten.append((*paare, deckel | {i}))
+            for ort in (mitte-mass.nennwert/2, mitte+mass.nennwert/2):
+                seiten.append({j for j in waende & lagen.keys() if abs(lagen[j]-ort) < 1e-6})
+        # Alle vier Waende muessen zu demselben geschlossenen Rechteck gehoeren.
+        for links in seiten[0]:
+            oben = nachbarn[links] & seiten[2]
+            unten = nachbarn[links] & seiten[3]
+            if len(oben) != 1 or len(unten) != 1:
+                continue
+            quer = oben | unten
+            for rechts in seiten[1]:
+                if quer <= nachbarn[rechts]:
+                    paare = ({links, rechts}, quer)
+                    kandidaten.append((*paare, deckel | {i}) if tasche.tiefe else paare)
     if len(kandidaten) != 1:
-        raise ValueError(tr("Die vier Taschenwände und ihr Grund sind nicht eindeutig."))
+        raise ValueError(tr("Die vier zusammenhängenden Wände der Innenkontur sind nicht eindeutig."))
     return kandidaten[0]
 
 
