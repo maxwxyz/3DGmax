@@ -205,6 +205,7 @@ class PmiPanel(QtWidgets.QWidget):
 
     def __init__(self, parent=None):
         super().__init__(parent)
+        self.reparierbare_pmi = lambda auswahl: []
         lay = QtWidgets.QVBoxLayout(self)
         lay.setContentsMargins(6, 6, 6, 6)
         oben = QtWidgets.QHBoxLayout()
@@ -466,8 +467,7 @@ class PmiPanel(QtWidgets.QWidget):
         a_bearb.setEnabled(len(auswahl) == 1 and auswahl[0].art in (MASS, TOLERANZ))
         a_sem = m.addAction(tr("Semantisch machen …"))
         a_sem.setToolTip(tr("Nur grafische PMI prüfen und mit Art, Werten und Flächen als Semantik übernehmen"))
-        a_sem.setEnabled(len(auswahl) == 1 and not auswahl[0].semantisch and auswahl[0].quelle != "eigen"
-                         and auswahl[0].step_id > 0)
+        a_sem.setEnabled(bool(self.reparierbare_pmi(auswahl)))
         a_weg = m.addAction(tr("Eigene PMI löschen"))
         a_weg.setEnabled(bool(auswahl) and all(p.quelle == "eigen" for p in auswahl))
         a_kopie = m.addAction(tr("Kopieren"))
@@ -493,7 +493,7 @@ class PmiPanel(QtWidgets.QWidget):
         elif gewaehlt is a_weg:
             self.befehl.emit("loeschen", auswahl)
         elif gewaehlt is a_sem:
-            self.befehl.emit("semantisch", auswahl[0])
+            self.befehl.emit("semantisch", auswahl[0] if len(auswahl) == 1 else auswahl)
         elif gewaehlt.data():
             self.befehl.emit("ansicht", gewaehlt.data())
 

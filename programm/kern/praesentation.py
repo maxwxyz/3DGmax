@@ -17,7 +17,7 @@ import numpy as np
 
 from .p21 import DMIA_PH, Entity, P21Datei, Ref
 
-ANNOTATIONEN = ("TESSELLATED_ANNOTATION_OCCURRENCE", "ANNOTATION_CURVE_OCCURRENCE",
+ANNOTATIONEN = ("TESSELLATED_ANNOTATION_OCCURRENCE", "ANNOTATION_CURVE_OCCURRENCE", "ANNOTATION_TEXT_OCCURRENCE",
                 "ANNOTATION_PLACEHOLDER_OCCURRENCE_WITH_LEADER_LINE", "ANNOTATION_PLACEHOLDER_OCCURRENCE",
                 "ANNOTATION_OCCURRENCE")
 
@@ -50,6 +50,7 @@ class Grafik:
     pmi_ids: set[int] = field(default_factory=set)
     markup: tuple | None = None  # PRC: (Markup-Art, Unterart) fuer nur grafische PMI
     kontext: int | None = None  # Darstellungskontext des DRAUGHTING_MODEL (Koordinatensystem des Teils)
+    textfaktor: float | None = 1.0  # Laengeneinheit des Beschriftungstextes in mm
 
     def leer(self) -> bool:
         return not (self.linien or self.dreiecke or self.platzhalter)
@@ -83,7 +84,8 @@ class _Leser:
     def platzierung(self, ref):
         """AXIS2_PLACEMENT_3D -> (ursprung, x, y, z)."""
         e = self.d.get(ref)
-        ort, achse, refx = _eig(e, "AXIS2_PLACEMENT_3D")[:3]
+        args = _eig(e, "AXIS2_PLACEMENT_3D")
+        ort, achse, refx = (e.args("PLACEMENT") + args if e.is_a("PLACEMENT") else args)[:3]
         z = self.richtung(achse, (0, 0, 1))
         x = self.richtung(refx, (1, 0, 0))
         x = x - z * float(x @ z)
@@ -177,6 +179,38 @@ class _Leser:
                 if len(pts) > 1:
                     g.hinweislinien.append(np.array(pts))
 
+    def textliteral(self, e: Entity, g: Grafik):
+        """Lesbaren STEP-Text samt Schreibebene uebernehmen; ohne Ausdehnung mit Ersatz-Schrifthoehe."""
+        typ = "TEXT_LITERAL" if e.is_a("TEXT_LITERAL") else "TEXT_LITERAL_WITH_EXTENT"
+        args = _eig(e, typ)
+        if len(args) < 2 or not isinstance(args[0], str) or not args[0].strip():
+            return
+        text, ort = args[:2]
+        achsen = self.d.get(ort)
+        if achsen is None:
+            return
+        if achsen.is_a("AXIS2_PLACEMENT_3D"):
+            o, x, y, z = self.platzierung(ort)
+        elif achsen.is_a("AXIS2_PLACEMENT_2D"):
+            args = _eig(achsen, "AXIS2_PLACEMENT_2D")
+            punkt, refx = achsen.args("PLACEMENT") + args if achsen.is_a("PLACEMENT") else args
+            o = np.append(self.punkt(punkt), 0.)
+            x = np.append(self.richtung(refx, (1., 0.)), 0.)
+            z = np.array([0., 0., 1.])
+            y = np.cross(z, x)
+        else:
+            return
+        h = 2.5
+        b = h * .6 * len(text)
+        if e.is_a("TEXT_LITERAL_WITH_EXTENT"):
+            box = self.d.get(e.args("TEXT_LITERAL_WITH_EXTENT")[-1])
+            if box is not None and box.is_a("PLANAR_EXTENT"):
+                b, h = (float(w) * self.skala for w in _eig(box, "PLANAR_EXTENT")[:2])
+        g.platzhalter.append(Platzhalter(o, x, y, b, h, text=text))
+        g.textfaktor = self.skala
+        if g.ebene is None:
+            g.ebene = (o, x, y, z)
+
     def stilfarbe(self, ref, tiefe=0):
         """Erste Farbe in einem Darstellungsstil (Kurven- oder Flaechenstil)."""
         from .farben import VORDEFINIERT
@@ -202,14 +236,19 @@ class _Leser:
         teil = next((t for t in ANNOTATIONEN if e.is_a(t)), None)
         if teil is None:
             return
+        args = _eig(e, "STYLED_ITEM") if e.is_a("STYLED_ITEM") else _eig(e, teil)
         if g.farbe is None:
-            stile = e.args("STYLED_ITEM")[1] if e.is_a("STYLED_ITEM") else e.args(teil)[1]
+            stile = args[0]
             for st in stile or []:
                 g.farbe = g.farbe or self.stilfarbe(st)
         if teil.startswith("ANNOTATION_PLACEHOLDER"):
             self.platzhalter(e, g, teil)
         else:
-            item = e.args("STYLED_ITEM")[2] if e.is_a("STYLED_ITEM") else e.args(teil)[2]
+            item = args[1]
+            ziel = self.d.get(item)
+            if ziel is not None and (ziel.is_a("TEXT_LITERAL") or ziel.is_a("TEXT_LITERAL_WITH_EXTENT")):
+                self.textliteral(ziel, g)
+                return
             self.menge(item, g)
             g.fertig = True
 
@@ -230,11 +269,28 @@ def _trafo(pts: np.ndarray, trafo) -> np.ndarray:
     return o + pts[:, :1] * x + pts[:, 1:2] * y + pts[:, 2:3] * z
 
 
+def eigenstaendige_annotation(datei: P21Datei, e: Entity) -> bool:
+    """Aeltere STEP-PMI liegt oft direkt in der Zeichnungsebene, ohne DRAUGHTING_CALLOUT."""
+    if not e.parts.keys() & set(ANNOTATIONEN):
+        return False
+    eltern = [datei.entities[r] for r in datei.referrers().get(e.id, ())]
+    return (not any(r.is_a("DRAUGHTING_CALLOUT") for r in eltern)
+            and any(r.is_a("DRAUGHTING_MODEL") or r.is_a("ANNOTATION_PLANE")
+                    or r.is_a("DRAUGHTING_MODEL_ITEM_ASSOCIATION") or r.is_a(DMIA_PH) for r in eltern))
+
+
 def lies_grafik(datei: P21Datei, skala: float = 1.0) -> dict[int, Grafik]:
     """Callout-ID -> Grafik (mit verknuepften PMI-#IDs)."""
     from .ansichten import _semantik_von
     leser = _Leser(datei, skala)
     out: dict[int, Grafik] = {}
+    for e in datei.of_types_by_id(ANNOTATIONEN):
+        if eigenstaendige_annotation(datei, e):
+            name = e.args("REPRESENTATION_ITEM")[0] if e.is_a("REPRESENTATION_ITEM") else e.args()[0]
+            g = Grafik(e.id, name or "")
+            leser.annotation(Ref(e.id), g)
+            g.linien.extend(g.hinweislinien)
+            out[e.id] = g
     for c in datei.of_type("DRAUGHTING_CALLOUT"):
         name, teile = c.args("DRAUGHTING_CALLOUT")[:2]
         g = Grafik(c.id, name or "")
@@ -242,7 +298,7 @@ def lies_grafik(datei: P21Datei, skala: float = 1.0) -> dict[int, Grafik]:
             leser.annotation(r, g)
         # Platzhalter nur, wenn es keine fertige Grafik gibt (NIST liefert oft beides)
         if g.fertig:
-            g.platzhalter, g.hinweislinien = [], []
+            g.platzhalter, g.hinweislinien = [ph for ph in g.platzhalter if ph.text], []
         else:
             g.linien += g.hinweislinien
         out[c.id] = g
@@ -266,8 +322,40 @@ def _kontext(datei: P21Datei, ref) -> int | None:
     return args[2].id if len(args) > 2 and isinstance(args[2], Ref) else None
 
 
+def netz_darstellungen(datei: P21Datei, flaeche_step: int) -> set[int]:
+    """Nur direkte Geometrie-Mitgliedschaften verfolgen, ohne Stile, PMI oder Verwendungsinstanzen."""
+    gruppen = {"TESSELLATED_SOLID", "TESSELLATED_SHELL", "TESSELLATED_GEOMETRIC_SET"}
+    darstellungen = {"TESSELLATED_SHAPE_REPRESENTATION", "SHAPE_REPRESENTATION"}
+    offen, gesehen, treffer = [flaeche_step], {flaeche_step}, set()
+    while offen:
+        x = offen.pop()
+        for r in datei.referrers().get(x, ()):
+            if r in gesehen:
+                continue
+            e = datei.entities[r]
+            if e.parts.keys() & darstellungen:
+                args = e.parts.get("REPRESENTATION", e.args())
+                if len(args) > 1 and isinstance(args[1], list) and Ref(x) in args[1]:
+                    treffer.add(r)
+            elif typen := e.parts.keys() & gruppen:
+                args = _eig(e, next(iter(typen)))
+                if args and isinstance(args[0], list) and Ref(x) in args[0]:
+                    offen.append(r)
+                    gesehen.add(r)
+    return treffer
+
+
+def eindeutige_netzdarstellung(datei: P21Datei, kandidaten: set[int]) -> int | None:
+    netz = {r for r in kandidaten if datei.entities[r].is_a("TESSELLATED_SHAPE_REPRESENTATION")}
+    treffer = netz or kandidaten
+    return next(iter(treffer)) if len(treffer) == 1 else None
+
+
 def darstellung_der_flaeche(datei: P21Datei, flaeche_step: int) -> int | None:
     """Formdarstellung (REPRESENTATION), in der eine Flaeche liegt: aufwaerts ueber die Verweise."""
+    from .laden import NETZFLAECHEN
+    if (e := datei.get(flaeche_step)) and e.parts.keys() & NETZFLAECHEN:
+        return eindeutige_netzdarstellung(datei, netz_darstellungen(datei, flaeche_step))
     offen, gesehen = [flaeche_step], set()
     verweise = datei.referrers()
     while offen:

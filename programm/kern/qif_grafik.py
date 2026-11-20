@@ -125,6 +125,12 @@ def _rahmen(g: Grafik, eb: _Ebene, e):
 def grafik(dok) -> dict[int, Grafik]:
     """PMIDisplay -> Grafik (Callout-ID: laufende Nummer ab 1, PMI-IDs: Reference)."""
     ansichten = {v.get("id"): v for v in dok.wurzel.iter(NS + "AnnotationView")}
+    pmi_einheit = dok.wurzel.find(_p("FileUnits/PrimaryUnits/PMILinearUnit"))
+    textfaktor = dok.faktor
+    if pmi_einheit is not None:
+        from .qif import EINHEITEN
+        faktor = pmi_einheit.findtext(_p("UnitConversion/Factor"))
+        textfaktor = 1000 * float(faktor) if faktor else EINHEITEN.get((pmi_einheit.findtext(_p("UnitName")) or "").lower())
     out: dict[int, Grafik] = {}
     for nr, d in enumerate(dok.wurzel.iter(NS + "PMIDisplay"), 1):
         ebene = d.find(_p("Plane"))
@@ -135,7 +141,7 @@ def grafik(dok) -> dict[int, Grafik]:
         x = ebene.findtext(_p("Direction")) or (av.findtext(_p("Direction")) if av is not None else None)
         x = np.array(_zahlen(x)) if x else np.array([1.0, 0, 0])
         eb = _Ebene(_zahlen(ebene.findtext(_p("Origin")) or "0 0 0"), x, n, dok.faktor)
-        g = Grafik(-1000000 - nr, fertig=True, ebene=(eb.o, eb.x, eb.y, eb.n))
+        g = Grafik(-1000000 - nr, fertig=True, ebene=(eb.o, eb.x, eb.y, eb.n), textfaktor=textfaktor)
         farbe = _zahlen(d.findtext(_p("Color")) or "")
         g.farbe = tuple(c / 255 for c in farbe[:3]) if len(farbe) >= 3 else None
         g.pmi_ids = {int(i.text) for i in d.iterfind(_p("Reference/Id")) if i.text and i.text.strip().isdigit()}

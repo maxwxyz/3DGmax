@@ -2,6 +2,33 @@
 
 ## Current state, 2026-11-20
 
+### Graphical PMI to semantic PMI and native STEP export
+
+- The Tools command reviews a complete source model. The PMI list can start the same review on a selection.
+  The reviewer confirms each characteristic and its faces while looking at the original annotation.
+  STEP text literals and QIF text supply machine-readable values. PRC markup types and names can suggest a kind.
+  Clear geometric size proposals are identified as measurements. Stroked lettering still needs human reading.
+- The writer appends a confirmed characteristic to the original callout, preserves absolute limits, and
+  reports missing or occupied callouts before appending any entities. Removing a repair restores its source entry.
+  PRC and QIF conversions are project data. Native STEP is the verified combined interchange format.
+- A reference test removes all semantic PMI from NIST CTC-01, drives the review from the Tools menu and saves
+  a STEP copy. Using the reference for the review, all eight measured dimensions, six tolerances and three
+  datums match on reimport. All original STEP entities and all 23 callouts in MBD_0 survive. OCCT also reads
+  the new associations. A separate text-literal example derives the value directly from the STEP presentation.
+  Packed STEP inputs (ZIP and gzip) and Part 21 files use the same writer and export a plain STEP copy.
+- Two original graphical-only NIST models are included as compressed regression fixtures. CTC-01 AP203e2
+  supplies 21 curve annotations and 19 explicit face associations. Its radial dimension on face #605 was
+  confirmed as a diameter and reopened as 20 mm in an AP242 Edition 3 copy. The supported AP203e2
+  mapping was also tried on CTC-03 and CTC-05. Other protocol identifiers and unmapped structures are reported.
+  The NIST source files have pre-existing OCCT warnings about annotation-plane fill styles.
+- FTC-08 exposes 273 tessellated faces through the OCCT transfer map. Confirming one flatness tolerance on
+  face #7581 leaves the other 59 annotations graphical and preserves all four views on STEP reimport.
+- Checked PLAN §§8.18 and 8.28 against docs/Roadmap.md. Stroked-text OCR remains open. The drawing comparison,
+  drawing reconstruction and QIF work retain their order at the end of the plan.
+- Verification covered all 638 collected cases on the Mac. The full off-screen run passed 621 and deferred its
+  eight display tests, which passed on screen. All nine separately collected AP203 conversion cases passed.
+  The affected-test run passed 308 cases. Two menu-to-export workflows also passed in a real Cocoa window.
+
 ### Bevel tooth traces and material-dependent or projected feature tolerances
 
 - The tooth centreline is measured from the two flank intersections at successive cross-sections.

@@ -176,6 +176,7 @@ def lies_ansichten(modell: StepModell, pmi: list[Pmi] | None = None) -> list[Ans
         if isinstance(args[2], Ref) and isinstance(args[4], Ref):
             zu_pmi.setdefault(args[4].id, set()).add(_semantik_von(datei, args[2].id))
     ansichten = []
+    grafische_ids = {p.step_id for p in pmi or () if not p.semantisch}
     for m in datei.of_type("DRAUGHTING_MODEL"):
         items = [r.id for r in _items(datei, m) if isinstance(r, Ref)]
         kameras = [datei.entities[i] for i in items if any(datei.entities[i].is_a(t) for t in KAMERA_TYPEN)]
@@ -186,7 +187,10 @@ def lies_ansichten(modell: StepModell, pmi: list[Pmi] | None = None) -> list[Ans
             for i in items:
                 # Callouts ohne Semantik (Hinweise) stehen mit ihrer eigenen #ID in der Liste
                 ohne = {i} if datei.entities[i].is_a("DRAUGHTING_CALLOUT") else set()
-                a.pmi_ids |= zu_pmi.get(i) or ohne
+                if i in grafische_ids:
+                    a.pmi_ids.add(i)
+                else:
+                    a.pmi_ids |= zu_pmi.get(i) or ohne
             ansichten.append(a)
     if pmi is not None:
         nr = {p.step_id: p.nummer for p in pmi if p.step_id}

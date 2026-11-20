@@ -14,6 +14,7 @@ Vorschlag:
 
 from __future__ import annotations
 
+from copy import deepcopy
 import re
 
 import numpy as np
@@ -33,19 +34,21 @@ NAMEN = [
     (r"angularity", TOLERANZ, "Angularity"), (r"position", TOLERANZ, "Position"),
     (r"concentricity", TOLERANZ, "Concentricity"), (r"coaxiality", TOLERANZ, "Coaxiality"),
     (r"symmetry", TOLERANZ, "Symmetry"),
+    (r"fcf|feature control frame", TOLERANZ, ""),
     (r"datum target", BEZUG, "DatumTarget"), (r"datum", BEZUG, "Datum"),
     (r"angular size", MASS, "Size_Angular"), (r"angular|angle", MASS, "Location_Angular"),
     (r"diameter", MASS, "Size_Diameter"), (r"radius", MASS, "Size_Radius"),
+    (r"radial dimension", MASS, ""),
     (r"linear size|size", MASS, ""),  # Groesse: Art aus den Flaechen
     (r"distance|linear dimension|dimension", MASS, "Location_LinearDistance"),
 ]
 FELDER = ("nennwert", "oben", "unten", "grenzmass", "passung", "wert", "zone", "zonen_wert", "material",
-          "modifikatoren", "bezuege")
+          "modifikatoren", "bezuege", "maximum_toleranz", "projektionsversatz", "projektionsflaechen")
 
 
 def reparierbar(p, grafik: dict) -> bool:
     """Nur grafische PMI aus der Datei mit eigener Grafik (Callout)."""
-    return (not p.semantisch and p.quelle != "eigen" and p.step_id > 0 and p.step_id in grafik
+    return (not p.semantisch and p.quelle != "eigen" and p.step_id != 0 and p.step_id in grafik
             and not grafik[p.step_id].erzeugt)
 
 
@@ -59,67 +62,139 @@ def aus_name(name: str) -> tuple[str, str] | None:
 
 def _form(flaechen, modell) -> str:
     """Groessenmass nach den Flaechen: Zylinder -> Durchmesser, zwei Ebenen -> Dicke bzw. Abstand."""
-    from .toleranzzone import _achsen
-    fl = [modell.flaechen[i] for i in sorted(flaechen) if i < len(modell.flaechen)]
-    if fl and _achsen(fl[:1]):
+    from OCC.Core.BRep import BRep_Tool
+    from OCC.Core.BRepAdaptor import BRepAdaptor_Surface
+    from OCC.Core.GeomAbs import GeomAbs_Cylinder, GeomAbs_Plane
+    fl = [modell.flaechen[i] for i in sorted(flaechen) if 0 <= i < len(modell.flaechen)]
+    arten = [BRepAdaptor_Surface(f).GetType() for f in fl if BRep_Tool.Surface(f) is not None]
+    if len(fl) == 1 and arten == [GeomAbs_Cylinder]:
         return "Size_Diameter"
-    return "Size_Thickness" if len(fl) == 2 else "Location_LinearDistance"
+    if arten == [GeomAbs_Plane, GeomAbs_Plane] and geometrie_nennmass("Size_Thickness", flaechen, modell) is not None:
+        return "Size_Thickness"
+    return ""
+
+
+def geometrie_nennmass(typ, flaechen, modell):
+    """Geometrischer Messwert in mm fuer eine eindeutige Auswahl (ohne Annahme zur Toleranz)."""
+    from OCC.Core.BRep import BRep_Tool
+    from OCC.Core.BRepAdaptor import BRepAdaptor_Surface
+    from OCC.Core.GeomAbs import GeomAbs_Cylinder, GeomAbs_Sphere
+    from .baugruppe_mass import ebene
+    fl = [modell.flaechen[i] for i in sorted(flaechen) if 0 <= i < len(modell.flaechen)]
+    if any(BRep_Tool.Surface(f) is None for f in fl):
+        return None
+    if len(fl) == 2 and typ in ("Size_Thickness", "Location_LinearDistance"):
+        a, b = (ebene(f) for f in fl)
+        if a is not None and b is not None and np.linalg.norm(np.cross(a[1], b[1])) < 1e-8:
+            return float(abs((a[0] - b[0]) @ a[1]))
+    if len(fl) == 1:
+        sf = BRepAdaptor_Surface(fl[0])
+        if sf.GetType() == GeomAbs_Cylinder and typ in ("Size_Radius", "Size_Diameter"):
+            return sf.Cylinder().Radius() * (2 if typ == "Size_Diameter" else 1)
+        if sf.GetType() == GeomAbs_Sphere and typ in ("Size_SphericalRadius", "Size_SphericalDiameter"):
+            return sf.Sphere().Radius() * (2 if typ == "Size_SphericalDiameter" else 1)
+    return None
 
 
 def vorschlag(p, g, modell) -> Pmi:
     """Eigene PMI als Startwert fuer die Pruefung: Art, Werte (soweit lesbar), Flaechen, Verweis auf den Callout."""
-    art, typ = (p.art, p.typ) if p.art != HINWEIS and p.typ else (aus_name(p.name or (g.name if g else "")) or
-                                                                  (TOLERANZ, ""))
-    neu = Pmi(art, typ=typ, name=p.name if art == BEZUG and re.fullmatch(r"[A-Z]{1,2}", p.name or "") else "")
+    art, typ = (p.art, p.typ) if p.art != HINWEIS else (aus_name(p.name or (g.name if g else "")) or (TOLERANZ, ""))
+    neu = Pmi(art, typ=typ, norm=p.norm, name=p.name if art == BEZUG and re.fullmatch(r"[A-Z]{1,2}", p.name or "") else "")
     for k in FELDER:
         if p.art == art and getattr(p, k, None) not in (None, "", []):
-            setattr(neu, k, getattr(p, k))
-    neu.flaechen = flaechen_vorschlag(g, modell) if g is not None else set()
-    if art == MASS and not typ:
+            setattr(neu, k, deepcopy(getattr(p, k)))
+    neu.flaechen = {i for i in p.flaechen if 0 <= i < len(modell.flaechen)}
+    if not neu.flaechen and g is not None and getattr(modell, "datei", None) is not None:
+        from .pmi_lesen import flaechen_von_aspekt
+        for eid in g.pmi_ids:
+            aspekt = modell.datei.get(eid)
+            if aspekt is not None and (aspekt.is_a("SHAPE_ASPECT") or aspekt.is_a("DATUM_FEATURE")):
+                neu.flaechen.update(flaechen_von_aspekt(modell.datei, modell, eid))
+    if not neu.flaechen and g is not None:
+        neu.flaechen = flaechen_vorschlag(g, modell)
+    if art == MASS and not typ and re.search(r"\bsize\b", g.name if g else p.name, re.I):
         neu.typ = _form(neu.flaechen, modell)
-    neu.callout, neu.nur_grafik_text = p.step_id, p.nur_grafik_text or p.name
+    neu.nennwert_aus_geometrie = False
+    if art == MASS and neu.nennwert is None:
+        neu.nennwert = geometrie_nennmass(neu.typ, neu.flaechen, modell)
+        neu.nennwert_aus_geometrie = neu.nennwert is not None
+    texte = [ph.text for ph in g.platzhalter if ph.text] if g is not None else []
+    neu.callout, neu.nur_grafik_text = p.step_id, "\n".join(texte) or p.nur_grafik_text or p.name
     return neu
 
 
 def _punkte(g) -> np.ndarray:
     """Kandidaten fuer Beruehrpunkte: Enden der Linienzuege, Ecken gefuellter Dreiecke (Pfeile, Bezugsdreieck)."""
-    pts = [l[i] for l in g.linien if len(l) > 1 for i in (0, -1)]
-    pts += [q for p, _ in g.dreiecke for q in np.asarray(p)]
-    return np.array(pts, float).reshape(-1, 3)
+    enden = [q for linie in g.linien if len(linie) > 1 for q in (linie[0], linie[-1])]
+    teile = [np.asarray(enden, dtype=float).reshape(-1, 3)]
+    teile.extend(p for p, _ in g.dreiecke if len(p))
+    return np.concatenate(teile)
+
+
+class _Flaechenindex:
+    """Modellgrenzen und Flaechenquader fuer alle Callouts desselben geladenen Modells."""
+    def __init__(self, modell):
+        from OCC.Core.Bnd import Bnd_Box
+        from OCC.Core.BRepBndLib import brepbndlib
+        self.form, self.flaechen = modell.form, modell.flaechen
+        self.boxen = np.full((len(self.flaechen), 6), np.nan)
+        self.netze = {}
+        for i, f in enumerate(self.flaechen):
+            b = Bnd_Box()
+            brepbndlib.Add(f, b)
+            if not b.IsVoid():
+                self.boxen[i] = b.Get()
+        box = Bnd_Box()
+        brepbndlib.Add(self.form, box)
+        self.grenzen = np.array(box.Get()) if not box.IsVoid() else None
 
 
 def flaechen_vorschlag(g, modell, max_punkte: int = 400) -> set[int]:
-    """Flaechen, auf denen Pfeilspitzen, Hinweislinien oder das Bezugsdreieck enden (Abstand < 0,2 % der
-    Modelldiagonale)."""
-    from OCC.Core.Bnd import Bnd_Box
-    from OCC.Core.BRepBndLib import brepbndlib
+    """Nur eindeutige Flaechentreffer bei Pfeilspitzen oder Linienenden innerhalb der Modellgrenzen."""
+    from OCC.Core.BRep import BRep_Tool
     from OCC.Core.BRepBuilderAPI import BRepBuilderAPI_MakeVertex
     from OCC.Core.BRepExtrema import BRepExtrema_DistShapeShape
     from OCC.Core.gp import gp_Pnt
-    box = Bnd_Box()
-    brepbndlib.Add(modell.form, box)
-    lo, hi = np.array(box.Get()[:3]), np.array(box.Get()[3:])
-    tol = 2e-3 * (float(np.linalg.norm(hi - lo)) or 1.0)
+    from .ausrichten import _punkt_dreieck, tesselliere
     pts = _punkte(g)
-    pts = pts[np.all((pts >= lo - tol) & (pts <= hi + tol), axis=1)][:max_punkte]
-    if not len(pts):
+    if not len(pts) or not modell.flaechen:
         return set()
-    grenzen = []
-    for f in modell.flaechen:
-        b = Bnd_Box()
-        brepbndlib.Add(f, b)
-        grenzen.append(np.array(b.Get()) if not b.IsVoid() else None)
+    index = getattr(modell, "_reparatur_index", None)
+    if (index is None or index.form is not modell.form or index.flaechen is not modell.flaechen or
+            len(index.boxen) != len(modell.flaechen)):
+        index = modell._reparatur_index = _Flaechenindex(modell)
+    if index.grenzen is None:
+        return set()
+    lo, hi = index.grenzen[:3], index.grenzen[3:]
+    tol = 2e-3 * (float(np.linalg.norm(hi - lo)) or 1.0)
+    pts = pts[np.all((pts >= lo - tol) & (pts <= hi + tol), axis=1)]
+    # Duplikate von Pfeil- oder Schriftpunkten duerfen das Probenbudget nicht verbrauchen.
+    _, erste = np.unique(np.round(pts, 7), axis=0, return_index=True)
+    pts = pts[np.sort(erste)]
+    if len(pts) > max_punkte:
+        pts = pts[np.linspace(0, len(pts) - 1, max_punkte, dtype=int)]
     out = set()
-    for q in np.unique(np.round(pts, 6), axis=0):
-        nah = [i for i, b in enumerate(grenzen) if b is not None and np.all(q >= b[:3] - tol) and np.all(q <= b[3:] + tol)]
-        if not nah:
+    for q in pts:
+        nah = np.flatnonzero(np.all((q >= index.boxen[:, :3] - tol) & (q <= index.boxen[:, 3:] + tol), axis=1))
+        if not len(nah):
             continue
         v = BRepBuilderAPI_MakeVertex(gp_Pnt(*map(float, q))).Vertex()
         abst = []
         for i in nah:
-            d = BRepExtrema_DistShapeShape(v, modell.flaechen[i])
-            if d.IsDone() and d.NbSolution() > 0:
-                abst.append((d.Value(), i))
-        if abst and min(abst)[0] < tol:
-            out.add(min(abst)[1])
+            f = modell.flaechen[i]
+            if BRep_Tool.Surface(f) is None:
+                if i not in index.netze:
+                    p, tri = tesselliere([f])[0]
+                    index.netze[i] = p[tri]
+                tri = index.netze[i]
+                if len(tri):
+                    punkt = _punkt_dreieck(np.broadcast_to(q, tri[:, 0].shape), *tri.transpose(1, 0, 2))
+                    abst.append((np.min(np.linalg.norm(punkt - q, axis=1)), int(i)))
+            else:
+                d = BRepExtrema_DistShapeShape(v, f)
+                if d.IsDone() and d.NbSolution() > 0:
+                    abst.append((d.Value(), int(i)))
+        abst.sort()
+        if abst and abst[0][0] < tol and (len(abst) == 1 or abst[1][0] - abst[0][0] > 1e-7):
+            out.add(abst[0][1])
     return out

@@ -182,6 +182,8 @@ class Hauptfenster(QtWidgets.QMainWindow):
 
         self.baum = BaumPanel()
         self.pmi = PmiPanel()
+        from .semantik_ui import kandidaten
+        self.pmi.reparierbare_pmi = lambda auswahl: kandidaten(self.erg, auswahl) if self._lader is None else []
         self.ansichten = AnsichtenPanel()
         self.ansichten.setze_vorschaugroesse(str(self.ein.value("vorschau", "klein")))
         self.ansichten.vorschau_geaendert.connect(self._vorschaugroesse)
@@ -659,6 +661,8 @@ class Hauptfenster(QtWidgets.QMainWindow):
         A("step_pmi_speichern", tr("STEP mit geänderten PMI speichern …"), lambda: self.speichere_step_pmi(),
           tipp=tr("Kopie der STEP-Datei: bearbeitete PMI-Werte ersetzt, eigene PMI als semantische AP242-PMI angehängt "
                   "– alles andere bleibt unverändert"))
+        A("pmi_semantisieren", tr("Grafische PMI semantisch machen …"), lambda: self._pmi_befehl("semantisch", None),
+          tipp=tr("Grafische PMI im gesamten Modell einzeln prüfen und als semantische PMI übernehmen"))
         A("messergebnisse", tr("Messergebnisse (QIF) einlesen …"), lambda: self.lies_messergebnisse(),
           tipp=tr("QIF-Messergebnisse den Merkmalen zuordnen (Kennung = Ballonnummer, sonst Name) und bewerten – "
                   "die Merkmalsliste übernimmt die Messwerte"))
@@ -944,6 +948,7 @@ class Hauptfenster(QtWidgets.QMainWindow):
         m.addAction(a["pmi_suche"])
         m.addAction(a["pmi_pruefen"])
         m = mb.addMenu(tr("&Werkzeuge"))
+        m.addAction(a["pmi_semantisieren"])
         m.addAction(a["messen"])
         m.addAction(a["messen_ende"])
         m.addSeparator()
@@ -1112,6 +1117,7 @@ class Hauptfenster(QtWidgets.QMainWindow):
         for a in self.aktionen.values():
             if a.property("braucht_modell"):
                 a.setEnabled(da)
+        self._semantik_aktion()
         self.schnitt_knopf.setEnabled(da)
         self.schnitt_regler.setEnabled(da and self._schnitt_achse is not None)
         self.schnitt_regler_aktion.setVisible(da and self._schnitt_achse is not None)
@@ -1127,6 +1133,14 @@ class Hauptfenster(QtWidgets.QMainWindow):
             self.aktionen[n].setEnabled(da and self.vergleich is not None)
 
     # --- Laden ---
+
+    def _semantik_aktion(self):
+        self.aktionen["pmi_semantisieren"].setEnabled(bool(self.pmi.reparierbare_pmi(None)))
+
+    def _semantik_beenden(self):
+        d = getattr(self, "_semantik_dialog", None)
+        if d is not None:
+            d.reject()
 
     def zuletzt(self) -> list[str]:
         werte = self.ein.value("zuletzt", []) or []
@@ -1176,8 +1190,10 @@ class Hauptfenster(QtWidgets.QMainWindow):
             if danach:
                 danach()
 
+        self._semantik_beenden()
         self.lade_abbrechen()
         self._lader = lader
+        self._semantik_aktion()
         self._ladeabschluss = abschliessen
         self.statusBar().showMessage(text)
         self.fortschritt.setRange(0, 0)
@@ -1247,8 +1263,9 @@ class Hauptfenster(QtWidgets.QMainWindow):
             self.statusBar().showMessage(tr("Abgebrochen"), 4000)
         if self._lader is not None:
             self._lader.abgebrochen = True
+            self._lader = None
+            self._semantik_aktion()
             self.statusBar().showMessage(tr("Laden abgebrochen"), 4000)
-        self._lader = None
         self._ladeabschluss = None
         self.fortschritt.hide()
         self.abbrechen.hide()
@@ -1270,6 +1287,7 @@ class Hauptfenster(QtWidgets.QMainWindow):
         if zuruecksetzen is None:
             zuruecksetzen = erg is not self.erg
         if self.erg is not erg:
+            self._semantik_beenden()
             self._verzahnung_abbrechen()
         if zuruecksetzen and self.erg is not None:
             self._modellzustand_zuruecksetzen(erg.modell)
@@ -1521,9 +1539,11 @@ class Hauptfenster(QtWidgets.QMainWindow):
         self._ladeabschluss = None
         self._laufbalken_pruefen()
         self.statusBar().clearMessage()
+        self._semantik_aktion()
         QtWidgets.QMessageBox.warning(self, tr("Laden fehlgeschlagen"), text)
 
     def schliesse_modell(self):
+        self._semantik_beenden()
         self.lade_abbrechen()
         self.beende_vergleich(neu_zeigen=False)
         if self.erg is not None:
@@ -2303,7 +2323,13 @@ class Hauptfenster(QtWidgets.QMainWindow):
             self.messen._fuelle()
             self.dock_messen.show()
         if d.get("eigene_pmi") and self.erg is not None:
+            gespeichert = [(p.step_id, p.nummer, p) for p in d["eigene_pmi"]]
             self.fuege_pmi_hinzu(d["eigene_pmi"])
+            ids = {i: p.step_id for i, _, p in gespeichert}
+            nummern = {n: p.nummer for _, n, p in gespeichert}
+            for a in d.get("ansichten", []):
+                a.pmi_ids = {ids.get(i, i) for i in a.pmi_ids}
+                a.pmi_nummern = [nummern.get(n, n) for n in a.pmi_nummern]
         if d.get("pmi_aenderungen") and self.erg is not None:
             nach_id = {p.step_id: p for p in self.erg.pmi}
             for a in d["pmi_aenderungen"]:
@@ -3320,14 +3346,16 @@ class Hauptfenster(QtWidgets.QMainWindow):
     def speichere_step_pmi(self, pfad: str = "", melden: bool = True):
         """Bearbeitete PMI-Werte in eine Kopie der STEP-Datei schreiben (kern.step_schreiben) und berichten."""
         from ..kern import step_schreiben
-        if self.erg is None or not self.erg.pfad.lower().endswith((".stp", ".step")):
+        from ..kern.laden import ENDUNGEN_STEP, ENDUNGEN_STEPZ, LadeFehler
+        if self.erg is None or not self.erg.pfad.lower().endswith(ENDUNGEN_STEP + ENDUNGEN_STEPZ):
             self.statusBar().showMessage(tr("Nur für STEP-Dateien"), 5000)
             return None
         if not any((p.bearbeitet and p.original and p.quelle != "eigen") or p.quelle == "eigen" for p in self.erg.pmi):
             self.statusBar().showMessage(tr("Keine bearbeiteten oder eigenen PMI"), 5000)
             return None
-        basis, endung = os.path.splitext(self.erg.pfad)
-        pfad = pfad or self._speicherpfad(tr("STEP speichern"), basis + "_geaendert" + endung, "STEP (*.stp *.step)")
+        endung = next(e for e in ENDUNGEN_STEP + ENDUNGEN_STEPZ if self.erg.pfad.lower().endswith(e))
+        basis = self.erg.pfad[:-len(endung)]
+        pfad = pfad or self._speicherpfad(tr("STEP speichern"), basis + "_geaendert.stp", "STEP (*.stp *.step)")
         if not pfad:
             return None
         if os.path.abspath(pfad) == os.path.abspath(self.erg.pfad):
@@ -3335,12 +3363,22 @@ class Hauptfenster(QtWidgets.QMainWindow):
                                                                          "Originaldatei bleibt unverändert."))
             return None
         from ..kern.zusammenfuegen import pmi_der_ersten_datei
-        b = step_schreiben.schreibe(self.erg.pfad, pfad, pmi_der_ersten_datei(self.erg), self.erg.modell)
+        try:
+            b = step_schreiben.schreibe(self.erg.pfad, pfad, pmi_der_ersten_datei(self.erg), self.erg.modell)
+        except (OSError, ValueError, LadeFehler) as exc:
+            self.statusBar().showMessage(str(exc), 8000)
+            if melden:
+                QtWidgets.QMessageBox.warning(self, tr("STEP speichern"), str(exc))
+            return None
         felder = {"neu": tr("(eigene PMI)"), "nennwert": tr("Nennmaß"), "oben": tr("Oberes Abmaß"), "unten": tr("Unteres Abmaß"),
                   "wert": tr("Toleranzwert"), "passung": tr("Toleranzklasse"), "material": tr("Materialbedingung")}
         zeilen = [tr("{} Werte geschrieben.").format(len(b.geschrieben))]
+        if b.ap242_kopie:
+            zeilen.append(tr("Die STEP-Kopie verwendet AP242 Edition 3."))
         if b.neu:
             zeilen.append(tr("{} eigene PMI neu angelegt: {}").format(len(b.neu), ", ".join(map(str, b.neu))))
+        if b.repariert:
+            zeilen.append(tr("{} PMI mit der Originalgrafik verknüpft.").format(len(b.repariert)))
         zeilen += [tr("Nicht geschrieben: PMI {} {} – {}").format(n, felder.get(f, f), grund)
                    for n, f, grund in b.uebersprungen]
         if b.grafik_veraltet:
@@ -3357,12 +3395,21 @@ class Hauptfenster(QtWidgets.QMainWindow):
         if not weg:
             return
         ids = {p.step_id for p in liste if id(p) in weg}
-        self.erg.pmi = [p for p in self.erg.pmi if id(p) not in weg]
+        behalten = []
+        for p in self.erg.pmi:
+            if id(p) not in weg:
+                behalten.append(p)
+            elif (quelle := getattr(p, "_grafikquelle", None)) is not None:
+                behalten.append(quelle)
+                self.erg.grafik[p.callout].pmi_ids.discard(p.step_id)
+                self._ansichts_pmi_ersetzen(p.step_id, quelle.step_id)
+        self.erg.pmi = behalten
         # erst die Ansicht: ihre Szene teilt sich das Grafik-Woerterbuch mit erg - danach faende sie nichts mehr
         self.ansicht.entferne_grafik(ids)
         for cid in [c for c, g in self.erg.grafik.items() if g.pmi_ids & ids]:
             del self.erg.grafik[cid]
         self.pmi.zeige(self.erg.pmi, self.erg.ansichten)
+        self._semantik_aktion()
         self.statusBar().showMessage(tr("{} eigene PMI gelöscht").format(len(weg)), 5000)
 
     def zeige_kette2d(self, nur_anlegen: bool = False):
@@ -3635,6 +3682,12 @@ class Hauptfenster(QtWidgets.QMainWindow):
             return self.fuege_pmi_hinzu(d.gewaehlte())
         return self.fuege_pmi_hinzu([v.pmi for v in vorschlaege])
 
+    def _ansichts_pmi_ersetzen(self, alt, neu):
+        for ids in [*(a.pmi_ids for a in self.erg.ansichten), getattr(self, "_ansicht_pmi_ids", None)]:
+            if ids is not None and alt in ids:
+                ids.remove(alt)
+                ids.add(neu)
+
     def fuege_pmi_hinzu(self, neue: list) -> list:
         """Eigene PMI ins Modell: Nummer, Kennung, Norm, erzeugte Darstellung, Liste aktualisieren."""
         from ..kern import pmi_erzeugen
@@ -3643,20 +3696,27 @@ class Hauptfenster(QtWidgets.QMainWindow):
         start = max((p.nummer for p in self.erg.pmi), default=0)
         kleinste = min([p.step_id for p in self.erg.pmi if p.step_id < 0] + [-1000])
         norm = self.erg.pmi[0].norm if self.erg.pmi else "iso"
+        original = {p.step_id: p for p in self.erg.pmi if not p.semantisch}
+        ersatz = {}
         for i, p in enumerate(neue, 1):
             p.nummer, p.step_id, p.quelle, p.norm = start + i, kleinste - i, "eigen", norm
             p.semantisch, p.grafisch = True, bool(p.callout)  # semantisch gemachte Grafik der Datei behaelt sie
             if not p.name:
                 p.name = f"{tr(p.merkmal())}.{p.nummer}" if p.art != "bezug" else p.name
-        ersetzt = {p.callout for p in neue if p.callout}  # der nur grafische Eintrag weicht der eigenen PMI
-        self.erg.pmi = [q for q in self.erg.pmi if q.quelle == "eigen" or q.step_id not in ersetzt]
-        self.erg.pmi.extend(neue)
+            if p.callout and (quelle := original.get(p.callout)) is not None:
+                p._grafikquelle = quelle  # beim erneuten Projektladen wieder aus der Quelldatei
+                p.nummer = quelle.nummer
+                ersatz[p.callout] = p
+                self._ansichts_pmi_ersetzen(quelle.step_id, p.step_id)
+        self.erg.pmi = [ersatz.get(q.step_id, q) for q in self.erg.pmi]
+        self.erg.pmi.extend(p for p in neue if p.callout not in ersatz)
         grafik = pmi_erzeugen.ergaenze(neue, self.erg.grafik, self.erg.modell, self.erg.ansichten)
         frei = min(list(self.erg.grafik) + [0]) - 1
         grafik = {frei - i: g for i, g in enumerate(grafik.values())}
         self.erg.grafik.update(grafik)
         self.ansicht.ergaenze_grafik(grafik, neue)
         self.pmi.zeige(self.erg.pmi, self.erg.ansichten)
+        self._semantik_aktion()
         self.pmi.waehle(lambda p: p in neue)
         self.statusBar().showMessage(tr("{} PMI angelegt (eigene, werden im Projekt gespeichert)").format(len(neue)), 6000)
         return neue
@@ -5093,6 +5153,7 @@ class Hauptfenster(QtWidgets.QMainWindow):
             uhr.stop()
 
     def closeEvent(self, ev):
+        self._semantik_beenden()
         if self in FENSTER:
             FENSTER.remove(self)
         self._fenster_merken()

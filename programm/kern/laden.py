@@ -27,6 +27,8 @@ from OCC.Core.XCAFDoc import XCAFDoc_DocumentTool
 
 from . import p21
 
+NETZFLAECHEN = ("TESSELLATED_FACE", "TRIANGULATED_FACE", "COMPLEX_TRIANGULATED_FACE", "CUBIC_BEZIER_TRIANGULATED_FACE")
+
 
 class LadeFehler(Exception):
     pass
@@ -101,7 +103,7 @@ def _alle_flaechen(form) -> list:
 
 
 def _step_flaechen(reader, datei: p21.P21Datei, modell: StepModell):
-    """Verknuepft ADVANCED_FACE-#IDs der Datei mit den Flaechenindizes."""
+    """Verknuepft exakte und tessellierte Flaechen ueber das Transferergebnis ihrer STEP-Entitaet."""
     ws = reader.ChangeReader().WS()
     model = StepData_StepModel.DownCast(ws.Model())
     tp = modell._transfer = ws.TransferReader().TransientProcess()
@@ -110,14 +112,24 @@ def _step_flaechen(reader, datei: p21.P21Datei, modell: StepModell):
         eid = model.IdentLabel(tp.Mapped(pos))
         if eid > 0:
             modell._transfer_index[eid] = pos
-    for ent in datei.of_type("ADVANCED_FACE") + datei.of_type("FACE_SURFACE"):
-        sh = modell.form_von_step(ent.id)
-        if sh is None:
-            continue
-        idx = modell.flaechen_index(sh)
-        if idx is not None:
-            modell.step_zu_flaeche[ent.id] = idx
-            modell.flaeche_zu_step.setdefault(idx, ent.id)
+    # In Hybriddateien hat die exakte Quelle Vorrang. Gleichrangige Mehrfachtreffer sind nur lesbar.
+    mehrdeutig = set()
+    for typen in (("ADVANCED_FACE", "FACE_SURFACE"), NETZFLAECHEN):
+        quellen = {}
+        for typ in typen:
+            for ent in datei.of_type(typ):
+                sh = modell.form_von_step(ent.id)
+                if sh is None or sh.ShapeType() != TopAbs_FACE:
+                    continue
+                idx = modell.flaechen_index(sh)
+                if idx is None or not modell.flaechen[idx].IsPartner(sh):
+                    continue
+                modell.step_zu_flaeche[ent.id] = idx
+                if quellen.setdefault(idx, ent.id) != ent.id:
+                    mehrdeutig.add(idx)
+        for idx, eid in quellen.items():
+            if idx not in mehrdeutig:
+                modell.flaeche_zu_step.setdefault(idx, eid)
 
 
 def lade_step(pfad: str) -> StepModell:

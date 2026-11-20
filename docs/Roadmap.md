@@ -56,6 +56,8 @@
 | Make graphical PMI searchable (OCR on rendered annotations) | 💡 |
 | Graphical-only PMI evaluated in the table (kind from PRC markup type/name, values/deviations/zone/Ⓜ/datums from text), marked as derived | ✅ |
 | Make graphical-only PMI semantic (repair): kind from the callout name, faces from leader/arrow tips, checked in a dialog; STEP gets the semantics linked to the existing callout – PLAN §8.18 | ✅ |
+| Review graphical PMI across the source model or a selection, read native STEP text literals, confirm or skip each entry, and export the reviewed dimensions, tolerances and datums alongside their original STEP graphics and saved views – PLAN §§8.18, 8.28 | ✅ |
+| Convert supported AP203e2 curve annotations to AP242 Edition 3 and retain the original face references of native tessellated STEP PMI – checked on NIST CTC-01 and FTC-08 | ✅ |
 | Graphical PMI with stroked text (PRC, STEP tessellated): values via OCR | 💡 |
 | Semantic-only PMI: optional generated display in the view (see generated PMI stage 2) | ✅ |
 | Show tolerance zones as envelope surfaces (offsets ±t/2, ⌀ zone cylinder, exaggeration) | ✅ |

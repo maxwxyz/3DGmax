@@ -859,8 +859,20 @@ print annotations. Today 3DGmax writes generated texts only into the placeholder
   also when a project is reopened), and saving STEP appends only the semantics plus a DMIA 'PMI representation to
   presentation link' to the existing callout and its DRAUGHTING_MODEL (§8.28). Verified on CTC-01 with the semantics of
   "Flatness.1" removed: the proposed face equals the removed one; after writing our reader shows semantic Flatness on
-  the original callout and OCCT no longer lists the callout as a presentation-only dimension. Open: OCR for stroked
-  values (user enters them), batch repair of many PMI.
+  the original callout and OCCT no longer lists the callout as a presentation-only dimension.
+  **Done (2026-11-20): model-wide conversion and combined STEP export.** The Tools command reviews the graphical
+  entries of the source model in sequence. The PMI list also supports a selection. Each review shows the original
+  annotation and suggested faces. It reads explicit STEP text literals and recognises dimension limits, deviations
+  and datum modifiers where the text is unambiguous. A nominal measured from the geometry is labelled as such.
+  The reviewer confirms values and faces or skips the entry. Removing a conversion restores the graphical entry.
+  Saving a native STEP copy links each confirmed characteristic to its existing callout. The export report counts
+  successful links and identifies conflicts. Verified with a graphical-only derivative of NIST CTC-01:
+  eight dimensions, six tolerances and three datums match the reference after review and export. All 23 callouts and
+  their saved view survive. The native writer also accepts packed STEP inputs and uses the transferred face
+  identity for tessellated STEP shapes. Tested on the original NIST FTC-08 tessellated file with 273 faces, 60
+  graphics and four saved views. For AP203e2 curve PMI the writer maps the verified source constructs to AP242e3
+  before adding semantics. NIST CTC-01, CTC-03 and CTC-05 exercise that mapping. Other legacy constructs require
+  further mappings. PRC and QIF reviews are stored in the project. OCR of stroked lettering remains open.
 
 ### 8.19 QIF graphics and views (done 2026-10-27)
 - `kern/qif_grafik.py`: PMIDisplay → Grafik in the annotation plane (AnnotationView normal + direction, plane origin

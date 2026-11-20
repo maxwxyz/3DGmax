@@ -148,7 +148,9 @@ class Pmi:
     def _rahmen_text(self) -> str:
         teile = [TOL_SYMBOL.get(self.typ, self.typ)]
         zone = ""
-        if "Diameter" in self.modifikatoren or self.zone == "Diameter":
+        if "SphericalDiameter" in self.modifikatoren or self.zone == "SphericalDiameter":
+            zone = "S⌀"
+        elif "Diameter" in self.modifikatoren or self.zone == "Diameter":
             zone = "⌀"
         wert = f"{zone}{_zahl(self.wert)}" if self.wert is not None else "?"
         wert += MAT_SYMBOL.get(self.material, "")
@@ -222,11 +224,13 @@ class Pmi:
 
     def zonen_text(self) -> str:
         teile = []
-        if "Diameter" in self.modifikatoren or self.zone == "Diameter":
+        if "SphericalDiameter" in self.modifikatoren or self.zone == "SphericalDiameter":
+            teile.append("S⌀")
+        elif "Diameter" in self.modifikatoren or self.zone == "Diameter":
             teile.append("⌀")
         if self.zone == "Projected":
             teile.append("Ⓟ" + (f" {_zahl(self.zonen_wert)}" if self.zonen_wert else ""))
-        elif self.zone and self.zone != "Diameter":
+        elif self.zone and self.zone not in ("Diameter", "SphericalDiameter"):
             teile.append(self.zone + (f" {_zahl(self.zonen_wert)}" if self.zonen_wert else ""))
         return " ".join(teile)
 

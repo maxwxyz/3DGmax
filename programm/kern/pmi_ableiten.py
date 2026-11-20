@@ -7,6 +7,7 @@ der Liste als "aus der Grafik abgeleitet - bitte pruefen" gekennzeichnet.
 
 from __future__ import annotations
 
+import math
 import re
 
 from .pmi import BEZUG, MASS, TOL_SYMBOL, TOLERANZ, BezugsRef
@@ -15,72 +16,134 @@ ABGELEITET = "abgeleitet"
 SYMBOL_ZU_TYP: dict[str, str] = {}
 for _typ, _sym in TOL_SYMBOL.items():
     SYMBOL_ZU_TYP.setdefault(_sym, _typ)
-_ZAHL = re.compile(r"[-+±]?\s*\d*[.,]?\d+")
-_BEZUG = re.compile(r"^[A-Z]{1,2}(-[A-Z]{1,2})?[ⓂⓁ]?$")
-_RADIUS = re.compile(r"^(\d+X\s*)?(S?R|CR)\s*[.\d]")
+_ZAHL = r"(?:\d+(?:[.,]\d+)?|[.,]\d+)"
+_MATERIAL = {"Ⓜ": "MaximumMaterialRequirement", "Ⓛ": "LeastMaterialRequirement"}
+_GLIED = r"[A-Z]{1,2}[ⓂⓁ]?"
+_RAHMENWERT = re.compile(rf"(?P<zone>S?⌀)?\s*(?P<wert>{_ZAHL})(?P<mods>(?:\s*[ⓂⓁⓉⒻ])*)"
+                        rf"(?:\s+MAX\s+(?P<maximum>{_ZAHL}))?"
+                        rf"(?:\s*Ⓟ\s*(?P<hoehe>{_ZAHL}))?")
+_EINHEIT = re.compile(r'(?<=[\d])\s*(mm|inch|in|"|°)(?![A-Za-z])', re.I)
+_FAKTOREN = {"mm": 1., "inch": 25.4, "in": 25.4, '"': 25.4, "°": 1.}
 
 
-def _zahl(text: str) -> float | None:
-    m = _ZAHL.search(text)
-    if m is None:
-        return None
-    t = m.group(0).replace(" ", "").replace(",", ".").replace("±", "")
-    try:
-        return float(t)
-    except ValueError:
-        return None
+def _zahl(text):
+    return float(text.replace(",", ".").replace(" ", ""))
 
 
-def aus_text(zeilen: list[str]) -> dict | None:
-    """Felder einer PMI aus ihren Textzeilen (Toleranzrahmen, Bezug, Mass); None, wenn nichts erkennbar ist."""
-    teile = [t.strip() for z in zeilen for t in z.split() if t.strip()]
-    if not teile:
+def bezugsreferenz(text, stelle):
+    """Ein Fach mit getrennten Materialmodifikatoren am einzelnen Mitglied oder an der ganzen Gruppe."""
+    if re.fullmatch(rf"\({_GLIED}(?:-{_GLIED})+\)[ⓂⓁ]", text):
+        gruppe, mods = text[1:-2], [_MATERIAL[text[-1]]]
+    else:
+        gruppe, mods = text, []
+    if not re.fullmatch(rf"{_GLIED}(?:-{_GLIED})*", gruppe):
         return None
-    for i, t in enumerate(teile):
-        typ = SYMBOL_ZU_TYP.get(t[:1])
-        if typ is None:
-            continue
-        rest = teile[i + 1:] if len(t) == 1 else [t[1:]] + teile[i + 1:]
-        werte = [r for r in rest if _zahl(r) is not None]
-        if not werte:
-            return {"art": TOLERANZ, "typ": typ}
-        w = werte[0]
-        felder = {"art": TOLERANZ, "typ": typ, "wert": abs(_zahl(w)), "modifikatoren": [], "material": ""}
-        if "⌀" in w or "Ø" in w:
-            felder["modifikatoren"].append("Diameter")
-        if "Ⓜ" in w:
-            felder["material"] = "M"
-        elif "Ⓛ" in w:
-            felder["material"] = "L"
-        bezuege = [r for r in rest[rest.index(w) + 1:] if _BEZUG.match(r)]
-        felder["bezuege"] = [BezugsRef(b.rstrip("ⓂⓁ"), k, ["MaximumMaterialRequirement"] if b.endswith("Ⓜ") else
-                                       ["LeastMaterialRequirement"] if b.endswith("Ⓛ") else [])
-                             for k, b in enumerate(bezuege[:3], 1)]
-        return felder
-    if len(teile) == 1 and _BEZUG.match(teile[0].strip("[]")):
-        return {"art": BEZUG, "typ": "Datum", "name": teile[0].strip("[]").rstrip("ⓂⓁ")}
-    text = " ".join(teile)
-    zahlen = [m.group(0) for m in _ZAHL.finditer(text)]
-    if not zahlen:
-        return None
-    felder = {"art": MASS, "typ": "Location_LinearDistance", "nennwert": abs(_zahl(zahlen[0]))}
-    if "S⌀" in text or "SØ" in text:
-        felder["typ"] = "Size_SphericalDiameter"
-    elif "⌀" in text or "Ø" in text:
-        felder["typ"] = "Size_Diameter"
-    elif _RADIUS.match(text):
-        felder["typ"] = "Size_Radius"
-    elif "°" in text:
-        felder["typ"] = "Size_Angular"
-    if "±" in text and len(zahlen) > 1:
-        t = abs(_zahl(zahlen[1]))
-        felder["oben"], felder["unten"] = t, -t
-    elif len(zahlen) > 2 and zahlen[1].lstrip().startswith(("+", "-")):
-        felder["oben"], felder["unten"] = _zahl(zahlen[1]), _zahl(zahlen[2])
-    elif len(zahlen) == 2 and not zahlen[1].lstrip().startswith(("+", "-")):  # Grenzmass 35.20 / 34.80
-        a, b = abs(_zahl(zahlen[0])), abs(_zahl(zahlen[1]))
-        felder.update(oben=max(a, b), unten=min(a, b), grenzmass=True, nennwert=(a + b) / 2)
+    namen, elemente = [], {}
+    for element in gruppe.split("-"):
+        name = element.rstrip("ⓂⓁ")
+        if name in namen:
+            return None
+        namen.append(name)
+        if element != name:
+            elemente[name] = [_MATERIAL[element[-1]]]
+    if len(namen) == 1:
+        mods = elemente.pop(namen[0], [])
+    return BezugsRef("-".join(namen), stelle, mods, elemente)
+
+
+def _toleranz(text, typ, faktor):
+    art = {"art": TOLERANZ, "typ": typ}
+    # Ein zusammengesetzter Rahmen braucht mehrere Toleranzen; keine Einzelzeile als Gesamtergebnis ausgeben.
+    m = _RAHMENWERT.match(text)
+    if m is None or faktor is None or text[m.end():].lstrip().startswith(("/", "°")):
+        return art
+    namen = re.findall(r"\S+", re.sub(r"\s*([ⓂⓁ])", r"\1", text[m.end():]))
+    if len(namen) > 3:
+        return art
+    refs = [bezugsreferenz(n, k) for k, n in enumerate(namen, 1)]
+    mods = "".join(m["mods"].split())
+    if any(b is None for b in refs) or len(set(mods)) != len(mods) or ("Ⓜ" in mods and "Ⓛ" in mods):
+        return art
+    modifikatoren = {"⌀": ["Diameter"], "S⌀": ["SphericalDiameter"]}.get(m["zone"], [])
+    modifikatoren.extend({"Ⓣ": "Tangent_Plane", "Ⓕ": "Free_State"}[m] for m in mods if m in "ⓉⒻ")
+    felder = dict(art, wert=faktor * _zahl(m["wert"]), bezuege=refs, modifikatoren=modifikatoren,
+                  material="M" if "Ⓜ" in mods else "L" if "Ⓛ" in mods else "")
+    if m["hoehe"]:
+        felder.update(zone="Projected", zonen_wert=faktor * _zahl(m["hoehe"]))
+    if m["maximum"]:
+        if not felder["material"] or _zahl(m["maximum"]) <= _zahl(m["wert"]):
+            return art
+        felder["maximum_toleranz"] = faktor * _zahl(m["maximum"])
     return felder
+
+
+def _mass(text, faktor, winkel, gestapelt):
+    hilfsmass = text.startswith("(") and text.endswith(")")
+    if hilfsmass:
+        text = text[1:-1].strip()
+    modifikatoren = ["Hilfsmass"] if hilfsmass else []
+    for ende, mod in (("⟨ST⟩", "StatisticalTolerance"), ("Ⓔ", "Envelope"),
+                      ("controlled radius", "ControlledRadius")):
+        if text.lower().endswith(ende.lower()):
+            modifikatoren.append(mod)
+            text = text[:-len(ende)].strip()
+    text = re.sub(r"^\d+\s*[xX×]\s*(?=(?:S?[⌀R]|CR))", "", text)
+    m = re.match(rf"^(S⌀|⌀|SR|R|CR)?\s*([+-]?{_ZAHL})", text)
+    if not m or faktor is None:
+        return None
+    # Ziffern in Artikelnummern, Notizen, Gewindebezeichnungen oder weiteren Massen nicht als Mass uebernehmen.
+    art = {"⌀": "Size_Diameter", "S⌀": "Size_SphericalDiameter", "R": "Size_Radius",
+           "SR": "Size_SphericalRadius", "CR": "Size_Radius"}.get(m[1], "Size_Angular" if winkel else "Location_LinearDistance")
+    nenn = _zahl(m[2]) * faktor
+    if nenn < 0 and art.startswith("Size_"):
+        return None
+    rest = text[m.end():].strip()
+    felder = {"art": MASS, "typ": art, "nennwert": nenn}
+    if m[1] == "CR" and "ControlledRadius" not in modifikatoren:
+        modifikatoren.append("ControlledRadius")
+    if modifikatoren:
+        felder["modifikatoren"] = modifikatoren
+    if not rest:
+        return felder
+    if (v := re.fullmatch(rf"±\s*({_ZAHL})", rest)):
+        t = faktor * _zahl(v[1])
+        return dict(felder, oben=t, unten=-t)
+    if (v := re.fullmatch(rf"([+-]\s*{_ZAHL}|0(?:[.,]0+)?)\s*[/\s]\s*([+-]\s*{_ZAHL}|0(?:[.,]0+)?)", rest)):
+        o, u = (faktor * _zahl(w) for w in v.groups())
+        if o >= u:
+            return dict(felder, oben=o, unten=u)
+        return None
+    if (gestapelt or rest.startswith(("/", "–"))) and (v := re.fullmatch(rf"[/–]?\s*({_ZAHL})", rest)):
+        grenze = faktor * _zahl(v[1])
+        return dict(felder, oben=max(nenn, grenze), unten=min(nenn, grenze), grenzmass=True, nennwert=(nenn + grenze) / 2)
+    if re.fullmatch(r"(?:[A-HJKM-NPRSTUVXYZ]|JS|Z[ABC]|[a-hjkm-nprstuvxyz]|js|z[abc])(?:0[01]|[1-9]|1[0-8])", rest):
+        return dict(felder, passung=rest)
+    return None
+
+
+def aus_text(zeilen: list[str], faktor: float = 1.) -> dict | None:
+    """Eindeutige Angaben in mm bzw. Grad; die explizite Texteinheit geht der Datei-PMI-Einheit vor."""
+    roh = "\n".join(zeilen).translate(str.maketrans({"Ø": "⌀", "∅": "⌀", "−": "-", "|": " "}))
+    text = " ".join(roh.split())
+    if not text:
+        return None
+    einheiten = {m.lower() for m in _EINHEIT.findall(text)}
+    faktoren = {_FAKTOREN[e] for e in einheiten}
+    if len(faktoren) > 1 or ("°" in einheiten and len(einheiten) > 1):
+        return None
+    if faktoren:
+        faktor = faktoren.pop()
+        text = _EINHEIT.sub("", text).strip()
+    if any(not math.isfinite(_zahl(n)) for n in re.findall(_ZAHL, text)):
+        return None
+    typ = SYMBOL_ZU_TYP.get(text[0])
+    if typ:
+        return _toleranz(text[1:].strip(), typ, None if "°" in einheiten else faktor)
+    buchstabe = re.fullmatch(r"(?:\[([A-Z]{1,2})\]|([A-Z]{1,2}))", text)
+    if buchstabe:
+        return {"art": BEZUG, "typ": "Datum", "name": buchstabe[1] or buchstabe[2]}
+    gestapelt = bool(re.search(r"\d[ \t]*\n\s*(?:\d|[.,]\d)", _EINHEIT.sub("", roh)))
+    return _mass(text, faktor, "°" in einheiten, gestapelt)
 
 
 # PRC-Markup-Arten (KEPRCMarkupType) und Unterarten der Masse (KEPRCMarkupSubType_Dimension_*)
@@ -104,8 +167,8 @@ def aus_markup(art: str, unterart: int, name: str) -> dict | None:
         return {"art": TOLERANZ, "typ": ""}
     if art == "Dimension":
         typ = _MASS_UNTERART.get(unterart, "Location_LinearDistance")
-        if "Radial" in name and typ == "Location_LinearDistance":
-            typ = "Size_Radius"
+        if "radial" in name.lower() and typ == "Location_LinearDistance":
+            typ = ""
         return {"art": MASS, "typ": typ}
     if art == "Datum":
         m = re.search(r"\b([A-Z]{1,2})\s*(\(\d+\))?\s*$", name)
@@ -116,10 +179,25 @@ def aus_markup(art: str, unterart: int, name: str) -> dict | None:
 def ableiten(grafik) -> dict | None:
     """Felder fuer eine Grafik ohne Semantik: zuerst aus ihren Texten, sonst aus der Markup-Art."""
     texte = [ph.text for ph in grafik.platzhalter if ph.text]
-    felder = aus_text(texte) if texte else None
+    faktor = getattr(grafik, "textfaktor", 1.)
+    felder = aus_text(texte, faktor) if texte else None
     markup = getattr(grafik, "markup", None)
-    if markup is not None:
-        art = aus_markup(*markup, grafik.name)
-        if felder is None or (art is not None and felder["art"] != art["art"] and not texte):
-            felder = art
+    art = aus_markup(*markup, grafik.name) if markup is not None else None
+    if texte and (not art or re.fullmatch(r".+\.\d+", grafik.name or "")):
+        from .pmi_reparieren import aus_name
+        kennung = aus_name(grafik.name)
+        if kennung:
+            art = {"art": kennung[0], "typ": kennung[1]}
+    if art is None:
+        return felder
+    # Bei CAD-Text plus gezeichnetem Rahmensymbol stammt der Merkmalstyp oft allein aus dem Callout-Namen.
+    symbol = TOL_SYMBOL.get(art.get("typ"))
+    if symbol and texte and (felder is None or felder["art"] == MASS):
+        return aus_text([symbol, *texte], faktor)
+    if felder is None or felder["art"] != art["art"]:
+        return art
+    if art["art"] == MASS and felder["typ"] == "Location_LinearDistance":
+        if art["typ"] in ("Size_Angular", "Location_Angular"):
+            return art  # Winkel ohne lesbare Einheit nicht als Laenge umrechnen.
+        felder["typ"] = art["typ"]
     return felder

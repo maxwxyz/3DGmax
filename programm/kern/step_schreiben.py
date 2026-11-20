@@ -49,6 +49,7 @@ class Bericht:
     neu: list[int] = field(default_factory=list)  # eigene PMI, als neue Entitaeten angehaengt
     dargestellt: list[int] = field(default_factory=list)  # eigene PMI mit geschriebener Darstellung (Callout)
     repariert: list[int] = field(default_factory=list)  # nur grafische PMI, jetzt mit Semantik am vorhandenen Callout
+    ap242_kopie: bool = False  # Quelldaten fuer diese Kopie von AP203 auf AP242 uebertragen
 
 
 def _messwert(datei, ref) -> int | None:
@@ -68,25 +69,21 @@ def ziele(datei: p21.P21Datei, p) -> dict[str, int]:
         return out
     if p.art != "mass":
         return out
+    from .pmi_step import mass_item_name, mass_items, messwert_roh
     namen = {"nominal value": "nennwert", "upper limit": "oben", "lower limit": "unten"}
     for rid in datei.referrers().get(p.step_id, []):
         r = datei.entities[rid]
         if r.is_a("DIMENSIONAL_CHARACTERISTIC_REPRESENTATION"):
             darst = datei.get(r.args()[1])
-            items = list(darst.args(next(iter(darst.parts)))[1] or []) if darst is not None else []
-            while items:
-                it = items.pop()
-                ie = datei.get(it)
-                if ie is None:
+            if darst is None:
+                continue
+            for ie in mass_items(datei, darst):
+                if messwert_roh(datei, Ref(ie.id))[0] is None:
                     continue
-                if ie.is_a("COMPOUND_REPRESENTATION_ITEM"):
-                    teil = ie.args("COMPOUND_REPRESENTATION_ITEM")[0]
-                    items += list(getattr(teil, "args", [teil])[0] or [])
-                    continue
-                name = ie.args("REPRESENTATION_ITEM")[0] if ie.is_a("REPRESENTATION_ITEM") else ""
+                name = mass_item_name(ie)
                 feld = namen.get(name or "nominal value")
                 if feld == "nennwert" or (feld and p.grenzmass):
-                    out.setdefault(feld, it.id)
+                    out.setdefault(feld, ie.id)
         elif r.is_a("PLUS_MINUS_TOLERANCE") and not p.grenzmass:
             bereich = datei.get(r.args("PLUS_MINUS_TOLERANCE")[0])
             if bereich is not None and bereich.is_a("TOLERANCE_VALUE"):
@@ -99,11 +96,10 @@ def ziele(datei: p21.P21Datei, p) -> dict[str, int]:
 
 def _faktor(datei, mess_id: int) -> float:
     """Dateiwert * Faktor = Wert in 3DGmax (mm bzw. Grad)."""
-    from .pmi_step import einheit_mm, messwert_roh
+    from .pmi_step import einheit_mm, ist_winkelmass, messwert_roh
     _, einheit = messwert_roh(datei, Ref(mess_id))
     e = datei.get(einheit) if isinstance(einheit, Ref) else None
-    text = " ".join(datei.entities[mess_id].parts)
-    if "PLANE_ANGLE" in text:
+    if ist_winkelmass(datei.entities[mess_id]):
         return 57.29577951308232 if e is not None and e.is_a("SI_UNIT") else 1.0
     return einheit_mm(datei, einheit)
 
@@ -149,14 +145,17 @@ class _Anhang:
         self.datei, self.modell = datei, modell
         self.naechste = max(datei.entities) + 1
         self.zeilen: list[str] = []
-        self.flaeche_zu_step = {i: eid for eid, i in getattr(modell, "step_zu_flaeche", {}).items()}
+        self.flaeche_zu_step = modell.flaeche_zu_step
         self.pds = self.darst = self.kontext = self.einheit_laenge = self.einheit_winkel = None
         self.semantik = None  # Entitaet der zuletzt geschriebenen PMI (Ziel der Darstellung)
         self.bezuege = {(e.args("DATUM")[2].id if isinstance(e.args("DATUM")[2], Ref) else None, e.args("DATUM")[4]):
                         e.id for e in datei.of_type("DATUM")}
-        self._sdr = {e.args("SHAPE_DEFINITION_REPRESENTATION")[1].id: e.args("SHAPE_DEFINITION_REPRESENTATION")[0].id
-                     for e in datei.of_type("SHAPE_DEFINITION_REPRESENTATION")
-                     if all(isinstance(x, Ref) for x in e.args("SHAPE_DEFINITION_REPRESENTATION")[:2])}
+        self._sdr = {}
+        for e in datei.of_type("SHAPE_DEFINITION_REPRESENTATION"):
+            pds, rep = e.args("SHAPE_DEFINITION_REPRESENTATION")[:2]
+            form = datei.get(pds) if isinstance(pds, Ref) else None
+            if isinstance(rep, Ref) and form is not None and form.is_a("PRODUCT_DEFINITION_SHAPE"):
+                self._sdr.setdefault(rep.id, set()).add(pds.id)
 
     def neu(self, text: str) -> int:
         eid = self.naechste
@@ -167,17 +166,18 @@ class _Anhang:
     def bezug(self, name: str) -> int | None:
         return self.bezuege.get((self.pds, name))
 
-    def _pds_von(self, darst: int) -> int | None:
+    def _produktformen(self, darst: int) -> set[int]:
         """Produktform zur Darstellung: direkt ueber SHAPE_DEFINITION_REPRESENTATION oder ueber verknuepfte
         Darstellungen (SHAPE_REPRESENTATION_RELATIONSHIP)."""
-        offen, gesehen = [darst], {darst}
+        offen, gesehen, produktformen = [darst], {darst}, set()
         verweise = self.datei.referrers()
         while offen:
-            x = offen.pop(0)
-            if x in self._sdr and self.datei.entities[self._sdr[x]].is_a("PRODUCT_DEFINITION_SHAPE"):
-                return self._sdr[x]
+            x = offen.pop()
+            produktformen.update(self._sdr.get(x, ()))
             for r in verweise.get(x, []):
                 e = self.datei.entities[r]
+                if e.is_a("REPRESENTATION_RELATIONSHIP_WITH_TRANSFORMATION"):
+                    continue  # keine Teilgrenze in eine Verwendungsinstanz ueberschreiten
                 if e.is_a("SHAPE_REPRESENTATION_RELATIONSHIP") or e.is_a("REPRESENTATION_RELATIONSHIP"):
                     teil = "REPRESENTATION_RELATIONSHIP" if "REPRESENTATION_RELATIONSHIP" in e.parts else \
                         next(iter(e.parts))
@@ -185,7 +185,7 @@ class _Anhang:
                         if isinstance(y, Ref) and y.id not in gesehen:
                             gesehen.add(y.id)
                             offen.append(y.id)
-        return None
+        return produktformen
 
     def _einheiten(self, kontext: int):
         laenge = winkel = None
@@ -201,7 +201,14 @@ class _Anhang:
 
     def darstellung(self, flaeche_step: int) -> int | None:
         """Formdarstellung (REPRESENTATION), in der die Flaeche liegt."""
-        from .praesentation import darstellung_der_flaeche
+        from .laden import NETZFLAECHEN
+        from .praesentation import darstellung_der_flaeche, eindeutige_netzdarstellung, netz_darstellungen
+        if self.datei.entities[flaeche_step].parts.keys() & NETZFLAECHEN:
+            treffer = netz_darstellungen(self.datei, flaeche_step)
+            paare = {(r, p) for r in treffer for p in self._produktformen(r)}
+            if len({p for r, p in paare}) != 1:
+                return None
+            return eindeutige_netzdarstellung(self.datei, {r for r, p in paare})
         return darstellung_der_flaeche(self.datei, flaeche_step)
 
     def waehle(self, flaechen) -> str | None:
@@ -213,7 +220,8 @@ class _Anhang:
         if len(darst) != 1 or None in darst:
             return tr("Flächen aus mehreren Teilen")
         self.darst = darst.pop()
-        self.pds = self._pds_von(self.darst)
+        formen = self._produktformen(self.darst)
+        self.pds = next(iter(formen)) if len(formen) == 1 else None
         rep = self.datei.entities[self.darst]
         teil = "REPRESENTATION" if "REPRESENTATION" in rep.parts else next(iter(rep.parts))
         args = rep.args(teil)
@@ -264,7 +272,8 @@ def _schreibe_bezug(a: _Anhang, p) -> str | None:
     df = a.aspekt(p.flaechen, "DATUM_FEATURE")
     if df is None:
         return tr("Flächen ohne Entsprechung in der Datei")
-    d = a.neu(f"DATUM('',$,#{a.pds},.F.,'{p.name}')")
+    name = p.name.replace("'", "''")
+    d = a.neu(f"DATUM('',$,#{a.pds},.F.,'{name}')")
     a.neu(f"SHAPE_ASPECT_RELATIONSHIP('',$,#{df},#{d})")
     a.bezuege[(a.pds, p.name)] = d
     a.semantik = df  # wie in den NIST-Dateien: Darstellung am Bezugsmerkmal
@@ -292,7 +301,7 @@ def _bezug_basis(a: _Anhang, b) -> str:
 
 
 def _schreibe_toleranz(a: _Anhang, p) -> str | None:
-    from .pmi_step import BEZUG_MODS, TOL_ARTEN
+    from .pmi_step import BEZUG_MODS, TOL_ARTEN, TOL_MODS
     entitaet = {v: k for k, v in TOL_ARTEN.items()}.get(p.typ)
     if entitaet is None or p.wert is None:
         return tr("Toleranzart nicht schreibbar")
@@ -327,19 +336,22 @@ def _schreibe_toleranz(a: _Anhang, p) -> str | None:
                    for b in sorted(p.bezuege, key=lambda b: b.stelle)]
         system = a.neu(f"DATUM_SYSTEM('',$,#{a.pds},.F.,({','.join(f'#{x}' for x in abteile)}))")
         teile["GEOMETRIC_TOLERANCE_WITH_DATUM_REFERENCE"] = f"((#{system}))"
-    mods = {"M": "MAXIMUM_MATERIAL_REQUIREMENT", "L": "LEAST_MATERIAL_REQUIREMENT"}.get(p.material)
+    mods = [enum for enum, name in TOL_MODS.items() if name in p.modifikatoren and enum not in MATERIAL_ENUM.values()]
+    if p.material in MATERIAL_ENUM:
+        mods.append(MATERIAL_ENUM[p.material])
     if mods:
-        teile["GEOMETRIC_TOLERANCE_WITH_MODIFIERS"] = f"((.{mods}.))"
+        teile["GEOMETRIC_TOLERANCE_WITH_MODIFIERS"] = "((" + ",".join(f".{m}." for m in mods) + "))"
     if p.maximum_toleranz is not None:
         teile["GEOMETRIC_TOLERANCE_WITH_MAXIMUM_TOLERANCE"] = f"(#{a.mass(p.maximum_toleranz)})"
-    name = p.name or p.typ
+    name = (p.name or p.typ).replace("'", "''")
     if len(teile) == 1:
         tol = a.neu(f"{entitaet}('{name}','',#{betrag},#{sa})")
     else:
         teile["GEOMETRIC_TOLERANCE"] = f"('{name}','',#{betrag},#{sa})"
         tol = a.neu("( " + " ".join(f"{k}{teile[k]}" for k in sorted(teile)) + " )")
-    if "Diameter" in p.modifikatoren or p.zone == "Projected":
-        zonenform = "cylindrical or circular" if "Diameter" in p.modifikatoren else ""
+    zonenform = ("spherical" if "SphericalDiameter" in p.modifikatoren else
+                 "cylindrical or circular" if "Diameter" in p.modifikatoren else "")
+    if zonenform or p.zone == "Projected":
         form = a.neu(f"TOLERANCE_ZONE_FORM('{zonenform}')")
         zone = a.neu(f"TOLERANCE_ZONE('',$,#{a.pds},.F.,(#{tol}),#{form})")
         if p.zone == "Projected":
@@ -354,8 +366,15 @@ def _schreibe_toleranz(a: _Anhang, p) -> str | None:
 
 
 def _schreibe_mass(a: _Anhang, p) -> str | None:
+    from .pmi_step import MASS_TYP1, MASS_TYP2
     if p.nennwert is None:
         return tr("Maß ohne Wert")
+    if p.grenzmass and (p.unten is None or p.oben is None or p.unten > p.oben):
+        return tr("Grenzmaße unvollständig oder vertauscht")
+    mods = set(p.modifikatoren)
+    erlaubt = {*MASS_TYP1.values(), *MASS_TYP2.values(), "Envelope", "E"}
+    if mods - erlaubt or len(mods.intersection(MASS_TYP1.values())) > 1:
+        return tr("Maßmodifikatoren nicht schreibbar oder widersprüchlich")
     fehler = a.waehle(p.flaechen)
     if fehler:
         return fehler
@@ -383,14 +402,34 @@ def _schreibe_mass(a: _Anhang, p) -> str | None:
     else:
         return tr("Maßart nicht schreibbar")
     winkel = p.typ in ("Size_Angular", "Location_Angular")
-    if winkel:
-        wert = a.neu(f"( MEASURE_REPRESENTATION_ITEM() MEASURE_WITH_UNIT(PLANE_ANGLE_MEASURE("
-                     f"{_real(a.winkel_dateiwert(abs(p.nennwert)))}),#{a.einheit_winkel}) PLANE_ANGLE_MEASURE_WITH_UNIT() "
-                     f"REPRESENTATION_ITEM('nominal value') )")
-    else:
-        wert = a.neu(f"( LENGTH_MEASURE_WITH_UNIT() MEASURE_REPRESENTATION_ITEM() MEASURE_WITH_UNIT("
-                     f"LENGTH_MEASURE({_real(a.laengen_dateiwert(abs(p.nennwert)))}),#{a.einheit_laenge}) REPRESENTATION_ITEM('nominal value') )")
-    darst = a.neu(f"SHAPE_DIMENSION_REPRESENTATION('',(#{wert}),#{a.kontext})")
+    masse = [("nominal value", abs(p.nennwert))]
+    if p.grenzmass:
+        masse = [("lower limit", p.unten), *masse, ("upper limit", p.oben)]
+    items = []
+    for name, mass in masse:
+        if winkel:
+            item = a.neu(f"( MEASURE_REPRESENTATION_ITEM() MEASURE_WITH_UNIT(PLANE_ANGLE_MEASURE("
+                         f"{_real(a.winkel_dateiwert(mass))}),#{a.einheit_winkel}) PLANE_ANGLE_MEASURE_WITH_UNIT() "
+                         f"REPRESENTATION_ITEM('{name}') )")
+        else:
+            item = a.neu(f"( LENGTH_MEASURE_WITH_UNIT() MEASURE_REPRESENTATION_ITEM() MEASURE_WITH_UNIT("
+                         f"LENGTH_MEASURE({_real(a.laengen_dateiwert(mass))}),#{a.einheit_laenge}) "
+                         f"REPRESENTATION_ITEM('{name}') )")
+        items.append(f"#{item}")
+    for name, mod in MASS_TYP1.items():
+        if mod in mods:
+            item = a.neu(f"DESCRIPTIVE_REPRESENTATION_ITEM('dimensional note','{name}')")
+            items.append(f"#{item}")
+    gruppe = []
+    for name, mod in MASS_TYP2.items():
+        if mod in mods:
+            item = a.neu(f"DESCRIPTIVE_REPRESENTATION_ITEM('dimensional note','{name}')")
+            gruppe.append(f"#{item}")
+    if gruppe:
+        item = a.neu(f"COMPOUND_REPRESENTATION_ITEM('modifiers',LIST_REPRESENTATION_ITEM(({','.join(gruppe)})))")
+        items.append(f"#{item}")
+    name = "envelope requirement" if mods.intersection({"Envelope", "E"}) else ""
+    darst = a.neu(f"SHAPE_DIMENSION_REPRESENTATION('{name}',({','.join(items)}),#{a.kontext})")
     a.neu(f"DIMENSIONAL_CHARACTERISTIC_REPRESENTATION(#{dim},#{darst})")
     if p.oben is not None and p.unten is not None and not p.grenzmass:
         tv = a.neu(f"TOLERANCE_VALUE(#{a.mass(p.unten, winkel)},#{a.mass(p.oben, winkel)})")
@@ -425,13 +464,24 @@ def _grafiken(eigene, modell, grafik) -> dict:
 
 def _haenge_an(text: str, datei, modell, pmi, bericht: Bericht, grafik=None, schrift=None) -> str:
     from .pmi_darstellung import Praesentation
+    from .praesentation import eigenstaendige_annotation
     eigene = [p for p in pmi if p.quelle == "eigen" and p.art in ("mass", "toleranz", "bezug")]
     if not eigene:
         return text
     a = _Anhang(datei, modell)
     darst, grafiken = Praesentation(a, modell, schrift), _grafiken(eigene, modell, grafik)
+    belegt = _semantische_callouts(datei) if any(p.callout for p in eigene) else set()
     # Bezuege zuerst: Toleranzen verweisen auf sie
     for p in sorted(eigene, key=lambda p: p.art != "bezug"):
+        if p.callout:
+            grafikziel = datei.entities.get(p.callout)
+            if grafikziel is None or not (grafikziel.is_a("DRAUGHTING_CALLOUT") or
+                                          eigenstaendige_annotation(datei, grafikziel)):
+                bericht.uebersprungen.append((p.nummer, "neu", tr("Originalgrafik in der STEP-Datei fehlt")))
+                continue
+            if p.callout in belegt:
+                bericht.uebersprungen.append((p.nummer, "neu", tr("Originalgrafik bereits mit Semantik verknüpft")))
+                continue
         vorher = (len(a.zeilen), a.naechste)
         schreiber = {"bezug": _schreibe_bezug, "toleranz": _schreibe_toleranz, "mass": _schreibe_mass}[p.art]
         grund = schreiber(a, p)
@@ -441,15 +491,32 @@ def _haenge_an(text: str, datei, modell, pmi, bericht: Bericht, grafik=None, sch
             bericht.uebersprungen.append((p.nummer, "neu", grund))
             continue
         bericht.neu.append(p.nummer)
-        if p.callout and darst.verknuepfe(p.callout, a.semantik):
+        if p.callout:
+            darst.verknuepfe(p.callout, a.semantik)
+            belegt.add(p.callout)
             bericht.repariert.append(p.nummer)
-        elif not p.callout and darst.callout(grafiken.get(p.step_id), a.semantik, p.flaechen):
+        elif darst.callout(grafiken.get(p.step_id), a.semantik, p.flaechen):
             bericht.dargestellt.append(p.nummer)
     darst.abschliessen()
     if not a.zeilen:
         return text
     ende = text.rfind("ENDSEC;", 0, text.find("END-ISO-10303-21"))
     return text[:ende] + "\n".join(a.zeilen) + "\n" + text[ende:]
+
+
+def _semantische_callouts(datei) -> set[int]:
+    """Bereits an Mass, Toleranz oder Bezug gebundene Grafik. Ein reiner Formaspekt erlaubt die Reparatur."""
+    from .pmi_step import MASS_TYPEN, TOL_ARTEN
+    typen = {"DATUM", "DATUM_FEATURE", "DATUM_TARGET", "PLACED_DATUM_TARGET_FEATURE",
+             "GEOMETRIC_TOLERANCE", *MASS_TYPEN, *TOL_ARTEN}
+    out = set()
+    for link in datei.of_types_by_id(("DRAUGHTING_MODEL_ITEM_ASSOCIATION", p21.DMIA_PH)):
+        args = link.args()
+        if len(args) >= 5 and isinstance(args[2], Ref) and isinstance(args[4], Ref):
+            ziel = datei.get(args[2])
+            if ziel is not None and typen.intersection(ziel.parts):
+                out.add(args[4].id)
+    return out
 
 
 def _passung_id(datei, p) -> int | None:
@@ -545,6 +612,11 @@ def schreibe(quelle: str, ziel: str, pmi: list, modell=None, grafik: dict | None
              schrift: str | None = None) -> Bericht:
     """Kopie von 'quelle' mit den bearbeiteten Werten der PMI nach 'ziel'; mit modell auch die eigenen PMI samt
     Darstellung (grafik: Grafiken der Ansicht, damit die Datei zeigt, was man sieht; sonst neu erzeugt)."""
+    from .laden import ENDUNGEN_STEPZ, _entpacke_stepz
+    if str(quelle).lower().endswith(ENDUNGEN_STEPZ):
+        import tempfile
+        with tempfile.TemporaryDirectory(prefix="3dgmax_stepz_") as ordner:
+            return schreibe(_entpacke_stepz(quelle, ordner), ziel, pmi, modell, grafik, schrift)
     with open(quelle, "rb") as f:
         roh = f.read()
     try:
@@ -553,6 +625,11 @@ def schreibe(quelle: str, ziel: str, pmi: list, modell=None, grafik: dict | None
         text, kodierung = roh.decode("latin-1"), "latin-1"
     datei = p21.lese_text(text)
     bericht = Bericht()
+    if modell is not None and any(p.quelle == "eigen" and p.callout for p in pmi) and not datei.schema.upper().startswith("AP242"):
+        from .step_ap242 import aus_ap203
+        text = aus_ap203(text, datei)
+        datei = p21.lese_text(text)
+        bericht.ap242_kopie = True
     verweise = datei.referrers()
     for p in pmi:
         if not p.bearbeitet or not p.original or p.quelle == "eigen":

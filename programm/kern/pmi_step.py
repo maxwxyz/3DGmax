@@ -81,6 +81,9 @@ def messwert_roh(datei: P21Datei, ref):
     e = datei.get(ref) if isinstance(ref, Ref) else None
     if e is None:
         return (ref.args[0], None) if isinstance(ref, Typed) else (None, None)
+    if len(item := e.parts.get("MEASURE_REPRESENTATION_ITEM", [])) == 3:
+        _, wert, einheit = item
+        return (wert.args[0] if isinstance(wert, Typed) else wert), einheit
     for teil in ("MEASURE_WITH_UNIT", "LENGTH_MEASURE_WITH_UNIT", "PLANE_ANGLE_MEASURE_WITH_UNIT"):
         if e.is_a(teil) and len(e.args(teil)) >= 2:
             wert, einheit = e.args(teil)[:2]
@@ -322,6 +325,10 @@ LAGEN = {
     "linear distance inner inner": "Location_LinearDistance_FromInnerToInner",
 }
 
+# CAx-IF PMI RP 5.3: Typ 1 direkt an der Darstellung, Typ 2 als Gruppe.
+MASS_TYP1 = {"auxiliary": "Hilfsmass", "theoretical": "Theoretisch"}
+MASS_TYP2 = {"controlled radius": "ControlledRadius", "statistical": "StatisticalTolerance"}
+
 
 def winkel_grad(datei: P21Datei, ref) -> float | None:
     wert, einheit = messwert_roh(datei, ref)
@@ -333,24 +340,50 @@ def winkel_grad(datei: P21Datei, ref) -> float | None:
     return float(wert)  # 'degree' als CONVERSION_BASED_UNIT
 
 
-def _ist_winkel(datei: P21Datei, ref) -> bool:
-    e = datei.get(ref) if isinstance(ref, Ref) else None
-    return e is not None and (e.is_a("PLANE_ANGLE_MEASURE_WITH_UNIT") or any(
-        isinstance(a, Typed) and a.typ == "PLANE_ANGLE_MEASURE"
-        for a in e.args("MEASURE_WITH_UNIT")[:1]) if e.is_a("MEASURE_WITH_UNIT") else False)
+def ist_winkelmass(e: Entity) -> bool:
+    if e.is_a("PLANE_ANGLE_MEASURE_WITH_UNIT"):
+        return True
+    wert = e.parts.get("MEASURE_WITH_UNIT", [])[:1] or e.parts.get("MEASURE_REPRESENTATION_ITEM", [])[1:2]
+    return bool(wert and isinstance(wert[0], Typed)
+                and wert[0].typ in ("PLANE_ANGLE_MEASURE", "POSITIVE_PLANE_ANGLE_MEASURE"))
 
 
-def _wert(datei: P21Datei, ref) -> float | None:
-    return winkel_grad(datei, ref) if _ist_winkel(datei, ref) else laenge_mm(datei, ref)
+def _wert(datei: P21Datei, e: Entity) -> float | None:
+    return (winkel_grad if ist_winkelmass(e) else laenge_mm)(datei, Ref(e.id))
 
 
-def _item_name(e: Entity) -> str:
-    return e.args("REPRESENTATION_ITEM")[0] if e.is_a("REPRESENTATION_ITEM") else ""
+def mass_item_name(e: Entity) -> str:
+    a = e.parts.get("REPRESENTATION_ITEM", e.parts.get("MEASURE_REPRESENTATION_ITEM", []))
+    return a[0] if a else ""
 
 
-def _werte_der_darstellung(datei: P21Datei, dim_id: int) -> dict[str, float]:
+def mass_items(datei: P21Datei, darst: Entity):
+    """Blaetter der Massdarstellung in Dateireihenfolge, auch bei gruppierten Werten und Notizen."""
+    basis = darst.parts.get("REPRESENTATION", darst.args())
+    offen = list(reversed(basis[1])) if len(basis) >= 2 and isinstance(basis[1], list) else []
+    besucht = set()
+    while offen:
+        ref = offen.pop()
+        if not isinstance(ref, Ref) or ref.id in besucht:
+            continue
+        besucht.add(ref.id)
+        e = datei.get(ref)
+        if e is None:
+            continue
+        gruppe = e.parts.get("COMPOUND_REPRESENTATION_ITEM", e.parts.get("VALUE_RANGE"))
+        if gruppe is None:
+            yield e
+        elif gruppe:
+            kinder = gruppe[-1]
+            if isinstance(kinder, Typed) and kinder.args:
+                kinder = kinder.args[0]
+            if isinstance(kinder, list):
+                offen.extend(reversed(kinder))
+
+
+def _werte_der_darstellung(datei: P21Datei, dim_id: int) -> dict:
     """'nominal value', 'upper limit', 'lower limit' einer Masseintragung."""
-    out: dict[str, float] = {}
+    out = {}
     for rid in datei.referrers().get(dim_id, []):
         r = datei.entities[rid]
         if not r.is_a("DIMENSIONAL_CHARACTERISTIC_REPRESENTATION"):
@@ -358,23 +391,16 @@ def _werte_der_darstellung(datei: P21Datei, dim_id: int) -> dict[str, float]:
         darst = datei.get(r.args()[1])
         if darst is None:
             continue
-        items = darst.args(next(iter(darst.parts)))[1]
-        for it in items:
-            ie = datei.get(it)
-            if ie is None:
-                continue
-            if ie.is_a("VALUE_RANGE") or ie.is_a("COMPOUND_REPRESENTATION_ITEM"):
-                teil = ie.args("COMPOUND_REPRESENTATION_ITEM")[0] if ie.is_a(
-                    "COMPOUND_REPRESENTATION_ITEM") else []
-                for sub in (teil.args[0] if isinstance(teil, Typed) else teil) or []:
-                    se = datei.get(sub)
-                    if se is not None:
-                        out[_item_name(se)] = _wert(datei, sub)
-            elif ie.is_a("DESCRIPTIVE_REPRESENTATION_ITEM"):
-                name, text = ie.args("DESCRIPTIVE_REPRESENTATION_ITEM")[:2]
-                out.setdefault("_notizen", []).append(text)
-            else:
-                out[_item_name(ie) or "nominal value"] = _wert(datei, it)
+        basis = darst.parts.get("REPRESENTATION", darst.args())
+        if basis and basis[0] == "envelope requirement":
+            out["_huelle"] = True
+        for ie in mass_items(datei, darst):
+            if ie.is_a("DESCRIPTIVE_REPRESENTATION_ITEM"):
+                inhalt = ie.args("DESCRIPTIVE_REPRESENTATION_ITEM")
+                if inhalt and isinstance(inhalt[-1], str):
+                    out.setdefault("_notizen", []).append(inhalt[-1])
+            elif (wert := _wert(datei, ie)) is not None:
+                out[mass_item_name(ie) or "nominal value"] = wert
                 _qualifikatoren(datei, ie, out)
     return out
 
@@ -429,7 +455,11 @@ def _lies_mass_step(modell: StepModell, e: Entity) -> Pmi:
     p = Pmi(MASS, typ=typ, name=name or "", quelle="step", step_id=e.id)
     werte = _werte_der_darstellung(datei, e.id)
     for notiz in werte.get("_notizen", []):
-        p.modifikatoren.append({"theoretical": "Theoretisch", "auxiliary": "Hilfsmass"}.get(notiz, notiz))
+        mod = MASS_TYP1.get(notiz, MASS_TYP2.get(notiz, notiz))
+        if mod not in p.modifikatoren:
+            p.modifikatoren.append(mod)
+    if werte.get("_huelle"):
+        p.modifikatoren.append("Envelope")
     p.dezimalen = werte.get("_dezimalen")
     if werte.get("_qualifikator"):
         p.modifikatoren.append(werte["_qualifikator"].upper())

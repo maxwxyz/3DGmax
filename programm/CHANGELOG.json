@@ -110,7 +110,9 @@
    "Der Getriebe-Betriebspunkt berechnet Drehzahl und Drehrichtung über eingreifende Schneckenstufen und ihre Nachbarstufen. Die Vorzeichen beziehen sich auf die angezeigten Wellenachsen.",
    "Die 3D-Toleranzanalyse berücksichtigt gemeinsame Bezugsachsen aus koaxialen Lagersitzen und gemeinsame Bezugsebenen aus koplanaren Auflagen. Die Beiträge der einzelnen Flächen bleiben sichtbar. Bei STEP-Bezügen bleiben Materialmodifikatoren den einzelnen Mitgliedern zugeordnet.",
    "Die Kegelradanalyse bestimmt die Verzahnungsrichtung aus beiden Zahnflanken und bei bekanntem Teilkegel den mittleren Spiralwinkel. Einzelrad, Paarbericht und Exporte kennzeichnen die aus der Geometrie bestimmbaren Werte.",
-   "Die 3D-Toleranzanalyse koppelt den Bonus bei Maximum- und Minimum-Materialbedingung an das Istmaß von Bohrung oder Zapfen. Projizierte Achszonen verwenden die Austrittsfläche, Länge und den Versatz der STEP-PMI. Unvollständige Angaben lassen die Sollbewertung offen."
+   "Die 3D-Toleranzanalyse koppelt den Bonus bei Maximum- und Minimum-Materialbedingung an das Istmaß von Bohrung oder Zapfen. Projizierte Achszonen verwenden die Austrittsfläche, Länge und den Versatz der STEP-PMI. Unvollständige Angaben lassen die Sollbewertung offen.",
+   "Unter Werkzeuge lassen sich grafische PMI eines Modells nacheinander prüfen, in Maße, Toleranzen und Bezüge umwandeln und mit den Originalgrafiken in einer STEP-Kopie speichern. Lesbare Beschriftungen liefern Wertvorschläge, aus der Geometrie gemessene Nennmaße sind gekennzeichnet. Grenzmaße und Bezugsmodifikatoren bleiben beim Export erhalten.",
+   "Grafische PMI aus unterstützten AP203e2-Kurvenmodellen lassen sich als STEP AP242 Edition 3 ausgeben. Facettierte STEP-Modelle behalten ihre Flächenbezüge. Gepackte STEP-Dateien lassen sich als unkomprimierte STEP-Kopie speichern."
   ],
   "en": [
    "Assembly: drag parts in 3D with the left mouse button (classic navigation: with Alt) – only along the open degrees of freedom; close to a matching plane or axis the part snaps live (faces highlighted), releasing creates the connection; the 3D handle snaps the same way.",
@@ -222,7 +224,9 @@
    "The gearbox operating point calculates signed speeds through meshing worm stages and connected stages. Speed signs refer to the displayed shaft axes.",
    "3D tolerance analysis supports common datum axes from coaxial bearing seats and common datum planes from coplanar pads. Each face retains its contribution. STEP datum modifiers remain associated with their individual members.",
    "Bevel gear analysis identifies tooth hand from both flanks and measures the mean spiral angle when the pitch cone is known. Single-gear and pair reports and exports show which properties the geometry establishes.",
-   "3D tolerance analysis couples the maximum- or least-material bonus to the actual bore or pin size. Projected axis zones use the exit face, length and offset from the STEP PMI. Incomplete inputs leave the requirement verdict open."
+   "3D tolerance analysis couples the maximum- or least-material bonus to the actual bore or pin size. Projected axis zones use the exit face, length and offset from the STEP PMI. Incomplete inputs leave the requirement verdict open.",
+   "The Tools menu can review a model’s graphical PMI in sequence, convert them to dimensions, tolerances and datums, and save them with their original graphics in a STEP copy. Readable labels supply proposed values. Nominals measured from geometry are identified as such. The export preserves dimension limits and datum modifiers.",
+   "Supported AP203e2 curve annotations can be exported to STEP AP242 edition 3. Tessellated STEP models retain their source face associations. Packed STEP files can be saved as a plain STEP copy."
   ]
  },
  "releases": [
