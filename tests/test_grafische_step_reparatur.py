@@ -326,6 +326,7 @@ def test_nist_ftc08_netzflaeche_und_vier_ansichten_beim_rundlauf(tmp_path):
         assert m.flaeche_zu_step[idx] == eid and m.form_von_step(eid).IsPartner(m.flaechen[idx])
     p = vorschlag(next(p for p in alt.pmi if p.step_id == nr), alt.grafik[nr], m)
     assert p.typ == "Flatness" and {m.flaeche_zu_step[i] for i in p.flaechen} == {7581}
+    assert p.wert == pytest.approx(.762) and p.modifikatoren == ["Free_State"] and not p.material
     p.quelle, p.step_id, p.nummer, p.wert = "eigen", -1, 61, .123
     ziel = str(tmp_path / "ftc08_eine_ebenheit.stp")
     bericht = step_schreiben.schreibe(quelle, ziel, [p], m)
@@ -338,7 +339,8 @@ def test_nist_ftc08_netzflaeche_und_vier_ansichten_beim_rundlauf(tmp_path):
     assert {neu.modell.flaeche_zu_step[i] for i in g.flaechen} == {7581} and g.step_id in neu.grafik[nr].pmi_ids
     d = neu.modell.datei
     assert all(d.entities[i] == e for i, e in m.datei.entities.items())
-    aspekt = d.entities[g.step_id].args()[3]
+    assert g.modifikatoren == ["Free_State"] and not g.material
+    aspekt = d.entities[g.step_id].args("GEOMETRIC_TOLERANCE")[3]
     assert d.get(aspekt).args()[2] == p21.Ref(56)
     gisu, = [e for e in d.of_type("GEOMETRIC_ITEM_SPECIFIC_USAGE") if e.args()[2] == aspekt]
     assert gisu.args()[3:] == [p21.Ref(106), p21.Ref(7581)]
@@ -548,3 +550,16 @@ def test_suche_nach_originaltext_einer_freitextnotiz(app):
     panel.zeige([p])
     panel.suche.setText("Entgraten")
     assert panel.sichtbare() == [p] and p.name == "Text.1" and not p.semantisch
+
+
+def test_unbekannter_modifikator_im_wertfach_wird_kein_bezug():
+    from dataclasses import replace
+    from programm.kern.pmi_strichschrift import lies_schrift
+    erg = lade_alles(pfad("nist_ftc_08_asme1_ap242-e1-tg.stp.gz"))
+    g = erg.grafik[25921]
+    # Letzten Buchstaben F durch ein L ersetzen; der Kreis und alle anderen Striche stammen aus der Datei.
+    o, x, y, _ = g.ebene
+    zeichen = (g.linien[-1] - o) @ np.column_stack((x, y))
+    (l, b), (r, t) = zeichen.min(0), zeichen.max(0)
+    l_kontur = np.array([o + u*x + v*y for u, v in [(l, t), (l, b), (r, b)]])
+    assert not lies_schrift(replace(g, linien=[*g.linien[:-1], l_kontur]))

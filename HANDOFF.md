@@ -2,6 +2,26 @@
 
 ## Current state, 2026-11-20
 
+### Tolerance frames without a supplied writing plane
+
+- Checked PLAN §§8.4, 8.15 and 8.18 and docs/Roadmap.md. Planar multi-cell frames can establish their own axes.
+  The reader rejects conflicting interpretations and nonplanar annotations. Eight NIST STC-06 PRC tolerances
+  match the separate semantic AP242 reference, including Ø0.381 mm with E, A and B and Ø0.635 mm at maximum
+  material with A, B and C. The PRC review is stored in the project. Combined native STEP export remains
+  available for STEP inputs.
+- NIST FTC-08's flatness frame reads 0.762 mm in free state. The independent AP242 reference specifies the
+  same modifier. The inner letter distinguishes it from maximum material and the cell boundary prevents a
+  damaged or unknown modifier in the value cell from being interpreted as a datum. The retained modifier and
+  face association were checked after native STEP export. All 62 affected cases passed for the inferred frames
+  and compartment checks.
+- Across the preceding search/stacked-dimension change, the full suite passed 639 cases off screen, with
+  eight display cases separately exercised on screen. The affected selection passed 239 cases. The real-window
+  selection passed all eleven cases, including cancelling a graphical search during a model change.
+- A separate experiment for the large-assembly tessellation item in the Roadmap found that requesting 0.01 mm
+  from an already coarse-meshed 12 mm sphere still returned 58 triangles with 1.755 mm deflection. Explicit
+  OCCT remeshing produced 11,936 triangles with 0.00761 mm deflection. Carry this comparison accuracy case into
+  the next package, including mesh-only faces and reuse of finer triangulations.
+
 ### Search graphical lettering before semantic review
 
 - Native text also stays searchable under its original wording. The PRC parser previously retained text codes
@@ -29,7 +49,8 @@
 - An independent single-stroke drawing on an oblique plane reads 27. The AP203e2 reference supplies a 25 mm
   diameter with ±0.15 deviations and a position frame with A, B and C. A profile with an additional indication
   outside its frame is left for manual review. Unknown letterforms, stacked deviations, freeform notes and
-  composite frames still require review. All 23 affected regression tests passed. Next under §8.4 is searching recognised callouts before acceptance.
+  composite frames required review at that stage. All 23 affected regression tests passed. The later search and
+  stacked-dimension changes are recorded above.
 
 ### Graphical PMI to semantic PMI and native STEP export
 

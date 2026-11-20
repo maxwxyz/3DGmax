@@ -245,3 +245,44 @@ def test_prc_textliteral_im_modell_und_semantikvorschlag():
     p, = ergaenze_hinweise([], grafik)
     assert p.typ == "Size_Diameter" and not p.semantisch
     assert (p.nennwert, p.unten, p.oben) == pytest.approx((12.7, -.254, .254))
+
+
+def test_stc06_ohne_schreibebene_an_unabhaengigen_massen(stc06):
+    from programm.kern.pmi_reparieren import vorschlag
+    from programm.ui.lader import lade_alles
+
+    # Sollwerte aus den gleichnamigen Rahmen im semantischen NIST STC-06 AP242e3.
+    erg = lade_alles(stc06)
+    soll = {269: ("Position", .635, "M", ["A", "B", "C"]),
+            271: ("Flatness", .254, "", []),
+            274: ("Position", .381, "", ["C", "A", "B"]),
+            275: ("ProfileOfSurface", .508, "", ["A", "B", "C"]),
+            278: ("Position", .381, "", ["E", "A", "B"]),
+            288: ("Flatness", .254, "", []),
+            296: ("ProfileOfSurface", 1.016, "", ["A", "B", "C"]),
+            299: ("Flatness", .254, "", [])}
+    for nr, (typ, wert, material, bezuege) in soll.items():
+        p = next(p for p in erg.pmi if p.step_id == nr)
+        g = erg.grafik[nr]
+        assert g.ebene is None and not g.platzhalter and not p.semantisch and p.wert is None
+        neu = vorschlag(p, g, erg.modell)
+        assert neu.ocr_text and neu.typ == typ and neu.wert == pytest.approx(wert)
+        assert neu.material == material and [b.name for b in neu.bezuege] == bezuege
+    p = next(p for p in erg.pmi if p.step_id == 298)
+    assert not vorschlag(p, erg.grafik[298], erg.modell).ocr_text  # zusammengesetzter Profilrahmen
+
+
+def test_ocr_schreibebene_gedrehter_rahmen_und_raeumliche_grafik():
+    from dataclasses import replace
+    from scipy.spatial.transform import Rotation
+    from programm.kern.pmi_strichschrift import lies_schrift
+    from programm.ui.lader import lade_alles
+    from tests.conftest import pfad
+
+    erg = lade_alles(pfad("nist_ctc_01_asme1_ap203.stp.gz"))
+    g = erg.grafik[3415]
+    d = Rotation.from_rotvec([.4, -.6, .8]).as_matrix()
+    grafik = replace(g, ebene=None, linien=[p @ d.T + [315., -73., 104.] for p in g.linien])
+    assert lies_schrift(grafik) == "⌖ 0.75 A B C"
+    grafik.linien[0][0] += [10., 37., -43.]
+    assert not lies_schrift(grafik)

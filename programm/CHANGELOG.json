@@ -1,6 +1,7 @@
 {
  "unreleased": {
   "de": [
+   "Die PMI-Erkennung liest ebene Toleranzrahmen auch ohne gespeicherte Schreibebene, etwa in 3D-PDF. Sie prüft Bezugsfächer einzeln und unterscheidet freien Zustand Ⓕ und Maximum-Material-Bedingung Ⓜ.",
    "PMI-Text in PRC und 3D-PDF bleibt beim Laden erhalten, einschließlich Position und Ausrichtung. Die Suche findet auch den Wortlaut grafischer Textnotizen.",
    "Die PMI-Suche findet automatisch erkannte grafische Beschriftungen vor der Übernahme, auch nach Wert, Merkmal und Bezug. Die Erkennung läuft während der Inhaltssuche im Hintergrund. Auch übereinanderstehende Abmaße und Grenzmaße, Winkel und geklammerte Hilfsmaße werden unterstützt.",
    "Grafische PMI semantisch machen: Die Texterkennung liest unterstützte Maße, Toleranzrahmen und Bezüge aus Strichen, Konturen und gefüllten Dreiecken. Bestätigte Angaben werden mit der Originalgrafik als STEP gespeichert.",
@@ -118,6 +119,7 @@
    "Grafische PMI aus unterstützten AP203e2-Kurvenmodellen lassen sich als STEP AP242 Edition 3 ausgeben. Facettierte STEP-Modelle behalten ihre Flächenbezüge. Gepackte STEP-Dateien lassen sich als unkomprimierte STEP-Kopie speichern."
   ],
   "en": [
+   "PMI recognition reads planar tolerance frames without stored writing axes, including in 3D PDF. It checks individual datum compartments and distinguishes free state Ⓕ from maximum material Ⓜ.",
    "Native PMI text in PRC and 3D PDF retains its position and orientation on import. Search also finds original wording in graphical text notes.",
    "PMI search finds automatically recognised graphical lettering before review, including by value, characteristic and datum. Recognition runs in the background during a content search. Supported lettering includes stacked deviations and limits, angles and parenthesised reference dimensions.",
    "Convert graphical PMI to semantic PMI: character recognition reads supported dimensions, tolerance frames and datums from strokes, outlines and filled triangles. Confirmed entries retain their original graphics in the STEP copy.",

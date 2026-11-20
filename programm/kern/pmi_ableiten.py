@@ -51,6 +51,13 @@ def bezugsreferenz(text, stelle):
     return BezugsRef("-".join(namen), stelle, mods, elemente)
 
 
+def gueltige_rahmenzellen(teile):
+    """Wert und jeder Bezug muessen genau in ihr eigenes gezeichnetes Fach passen."""
+    return (2 <= len(teile) <= 5 and teile[0] in SYMBOL_ZU_TYP
+            and _RAHMENWERT.fullmatch(teile[1]) is not None
+            and all(bezugsreferenz(t, i) is not None for i, t in enumerate(teile[2:], 1)))
+
+
 def _toleranz(text, typ, faktor):
     art = {"art": TOLERANZ, "typ": typ}
     # Ein zusammengesetzter Rahmen braucht mehrere Toleranzen; keine Einzelzeile als Gesamtergebnis ausgeben.

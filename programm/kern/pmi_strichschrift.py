@@ -9,13 +9,8 @@ from PySide6 import QtCore, QtGui
 from scipy import ndimage
 
 
-def _pfade(g):
-    if g.ebene is None or len(g.linien) + len(g.dreiecke) > 1200:
-        return []
-    # Begrenzter Aufwand je interaktiver Pruefung, auch bei dichten Tessellationen.
-    if sum(len(l) for l in g.linien) + sum(len(p) + len(t) for p, t in g.dreiecke) > 40000:
-        return []
-    o, x, y, _ = g.ebene
+def _pfade(g, ebene):
+    o, x, y, _ = ebene
     achsen = np.column_stack((x, y))
     pfade = [((l - o) @ achsen, False) for l in g.linien if len(l) >= 2]
     for p, t in g.dreiecke:
@@ -160,6 +155,10 @@ def _vorlagen():
     return [(z, b, ndimage.distance_transform_edt(~b)) for z, b in muster]
 
 
+_Y, _X = np.ogrid[:32, :32]
+_KREIS_INNEN = (_Y - 15.5)**2 + (_X - 15.5)**2 <= 9**2
+
+
 def _lies_zeile(zeichen):
     if not 1 <= len(zeichen) <= 48:
         return ""
@@ -180,6 +179,11 @@ def _lies_zeile(zeichen):
                 continue
             if z not in ".°±-" and (h < .46 or not y < (oben + unten) / 2 < u):
                 continue
+            if z in "ⓂⒻ":
+                # Der gemeinsame Aussenkreis sagt nichts ueber die Materialbedingung aus.
+                innen = np.r_[dist[vorlage & _KREIS_INNEN], abstand[bitmap & _KREIS_INNEN]]
+                if not innen.size or np.quantile(innen, .9) > 1.7:
+                    continue
             fehler = (dist[vorlage].mean() + abstand[bitmap].mean()) / 2
             je_zeichen[z] = min(je_zeichen.get(z, np.inf), fehler)
         sortiert = sorted(je_zeichen, key=je_zeichen.get)
@@ -198,7 +202,7 @@ def _gesamtbild(pfade, skala):
 
 
 def _rahmentext(pfade, zellen):
-    from .pmi import TOL_SYMBOL
+    from .pmi_ableiten import gueltige_rahmenzellen
 
     links, unten, _, oben = zellen[0]
     rechts = zellen[-1][2]
@@ -229,7 +233,7 @@ def _rahmentext(pfade, zellen):
         return ""
     if len(teile) == 1:
         return f"[{teile[0]}]" if teile[0].isalpha() else ""
-    if teile[0] not in TOL_SYMBOL.values():
+    if not gueltige_rahmenzellen(teile):
         return ""
     return " ".join(teile)
 
@@ -295,15 +299,82 @@ def _freitext(pfade):
     return _lies_zeile(_bildzeichen(mask)) or _gestapelt(mask)
 
 
+def _zellen(pfade):
+    rahmen = _rahmen(pfade)
+    if not rahmen:
+        return []
+    h = max(b[3] - b[1] for b in rahmen)
+    return [b for b in rahmen if b[3] - b[1] > .85 * h]
+
+
+def _rahmenrichtungen(g):
+    """Moegliche Schreibachsen aus der Ebene und den laengsten geraden Kanten."""
+    kanten = [np.diff(l, axis=0) for l in g.linien if 2 <= len(l) <= 6]
+    if not kanten:
+        return
+    punkte = np.vstack([*g.linien, *(p for p, _ in g.dreiecke)])
+    if not np.isfinite(punkte).all():
+        return
+    o = punkte.mean(axis=0)
+    lokal = punkte - o
+    werte, achsen = np.linalg.eigh(lokal.T @ lokal)
+    if werte[1] <= werte[2] * 1e-10 or abs(werte[0]) > werte[1] * 1e-9:
+        return
+    z = achsen[:, 0]
+    kanten = np.vstack(kanten)
+    laengen = np.linalg.norm(kanten, axis=1)
+    versucht = []
+    for i in np.argsort(laengen)[-14:][::-1]:
+        v = kanten[i] - z * (kanten[i] @ z)
+        laenge = np.linalg.norm(v)
+        if laenge <= 1e-10:
+            continue
+        x = v / laenge
+        y = np.cross(z, x)
+        if any(max(abs(x @ achse), abs(y @ achse)) > .999999 for achse in versucht):
+            continue
+        versucht.append(x)
+        yield o, x, y, z
+        yield o, y, x, -z
+
+
+def _ohne_schreibebene(g):
+    """Nur mehrzellige Rahmen: alle lesbaren Orientierungen muessen dieselbe Toleranz ergeben."""
+    from .pmi_ableiten import aus_text
+
+    ergebnis = ""
+    for ebene in _rahmenrichtungen(g):
+        pfade = _pfade(g, ebene)
+        zellen = _zellen(pfade)
+        if not 2 <= len(zellen) <= 6:
+            continue
+        for x, y in ((1, 1), (1, -1), (-1, 1), (-1, -1)):
+            achsen = np.array([x, y])
+            ausgerichtet = [(p * achsen, voll) for p, voll in pfade]
+            boxen = sorted((min(x*l, x*r), min(y*b, y*t), max(x*l, x*r), max(y*b, y*t))
+                           for l, b, r, t in zellen)
+            text = _rahmentext(ausgerichtet, boxen)
+            if text and "wert" in (aus_text([text], g.textfaktor) or {}):
+                if ergebnis and ergebnis != text:
+                    return ""
+                ergebnis = text
+    return ergebnis
+
+
 def lies_schrift(g):
     """Vollstaendig erkannte Rahmen oder einzelne Schriftzeile, sonst leer."""
-    pfade = _pfade(g)
+    if len(g.linien) + len(g.dreiecke) > 1200:
+        return ""
+    if sum(len(l) for l in g.linien) + sum(len(p) + len(t) for p, t in g.dreiecke) > 40000:
+        return ""
+    if g.ebene is None:
+        return _ohne_schreibebene(g)
+    pfade = _pfade(g, g.ebene)
     if not pfade:
         return ""
-    rahmen = _rahmen(pfade)
-    if rahmen:
-        h = max(b[3] - b[1] for b in rahmen)
-        zellen = [b for b in rahmen if b[3] - b[1] > .85 * h]
-        if len(zellen) <= 6 and any(_zeichen(pfade, b) for b in zellen):
-            return _rahmentext(pfade, zellen)
+    zellen = _zellen(pfade)
+    if len(zellen) > 6:
+        return ""
+    if any(_zeichen(pfade, b) for b in zellen):
+        return _rahmentext(pfade, zellen)
     return _freitext(pfade)

@@ -61,6 +61,7 @@
 | Convert supported AP203e2 curve annotations to AP242 Edition 3 and retain the original face references of native tessellated STEP PMI – checked on NIST CTC-01 and FTC-08 | ✅ |
 | Read supported STEP dimension strings, datum letters and tolerance frames from single strokes, curves or filled triangle glyphs in the conversion dialog; export confirmed semantics with the original presentation | ✅ |
 | Read stacked positive/negative deviations, unilateral deviations with zero, paired absolute limits, angles and parenthesised dimensions from supported graphical lettering | ✅ |
+| Read planar tolerance frames without supplied writing axes, including original NIST 3D PDF/PRC; distinguish circled free-state and maximum-material symbols from their inner glyph | ✅ |
 | Read additional lettering and composite frames from graphical PMI | 💡 |
 | Semantic-only PMI: optional generated display in the view (see generated PMI stage 2) | ✅ |
 | Show tolerance zones as envelope surfaces (offsets ±t/2, ⌀ zone cylinder, exaggeration) | ✅ |

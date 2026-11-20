@@ -166,7 +166,12 @@ Throughout: tests (core, offscreen UI, stress test, on-screen test), `--selbstte
   The recogniser separates stacked upper/lower limits from signed deviations alongside a nominal dimension.
   It also reads supported angular and parenthesised reference dimensions. Four stacked CTC-01 dimensions
   with opposite, unilateral and absolute limits retain their interpretation on STEP reimport.
-  Open: additional fonts, composite controls and dimensions with ambiguous leader or text placement.
+  A planar tolerance frame can also supply its writing axes. Long frame edges give candidate directions.
+  The reader tests both faces and reading directions, accepts a single complete interpretation and checks the
+  value and each datum in their original cell. Eight real PRC frames in NIST STC-06 match the independent
+  semantic STEP reference, including Ø0.025 inch at maximum material. FTC-08 distinguishes free state from
+  maximum material within the drawn circle. Open: additional fonts, composite controls and dimensions with
+  ambiguous leader or text placement.
 - Convert to semantic PMI: evaluate recognized text + frame structure; mark result as "derived (check)", never as
   genuine semantics.
 
