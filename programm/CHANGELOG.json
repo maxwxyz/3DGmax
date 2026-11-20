@@ -1,6 +1,7 @@
 {
  "unreleased": {
   "de": [
+   "Der Zeichnungsabgleich erkennt Bohrbilder in Hauptansichten von Einzelteilen. Er folgt eindeutigen Pfeilen zur zugehörigen Zylinderfläche und schlägt die Modell-PMI auch bei abweichendem Maß vor. Das bestätigte Hinweisziel steht in der CSV-Prüfliste.",
    "Der Zeichnungsabgleich liest auch schräg gedruckte Maßzahlen aus einem markierten PDF-Ausschnitt. Bei mehreren möglichen Lesarten bleibt die Angabe zur Prüfung offen.",
    "Maße, Toleranzrahmen und Bezüge einer PDF-Zeichnung lassen sich mit den Modell-PMI vergleichen. Die Prüfliste verknüpft Blattstellen mit Modellflächen und exportiert gleiche, abweichende, fehlende oder offene Angaben als CSV.",
    "Die 3D-Toleranzanalyse kombiniert unterschiedlich große Positions- und Richtungszonen auf mehreren Abschnitten derselben Achse. Worst Case, Monte Carlo und gespeicherte 3D-Ketten berücksichtigen die Projektionslänge, den Versatz und die Materialbedingung jeder Angabe.",
@@ -126,6 +127,7 @@
    "Grafische PMI aus unterstützten AP203e2-Kurvenmodellen lassen sich als STEP AP242 Edition 3 ausgeben. Facettierte STEP-Modelle behalten ihre Flächenbezüge. Gepackte STEP-Dateien lassen sich als unkomprimierte STEP-Kopie speichern."
   ],
   "en": [
+   "The drawing comparison matches hole patterns in principal views of individual parts. It follows unambiguous leaders to cylindrical faces and suggests the associated model PMI even when the dimension differs. The CSV records the confirmed leader target.",
    "The drawing comparison reads inclined dimensions in a selected PDF region. Multiple plausible readings leave the annotation open for review.",
    "Compare dimensions, tolerance frames and datums in a PDF drawing with model PMI. The review links sheet locations to model faces and exports matching, different, missing or unresolved characteristics to CSV.",
    "3D tolerance analysis combines position and orientation zones of different diameters on separate intervals of one axis. Worst case, Monte Carlo and saved 3D chains account for each control’s projection length, offset and material condition.",

@@ -1581,7 +1581,15 @@ model characteristic and two equal candidates on different faces. A cropped rast
 in the regular suite. A second test uses the local original PDF and STEP together. General page OCR in
 ZGmax uses a separate OpenCV/ONNX process. This stage reuses the 3DGmax GD&T parser and CAD glyphs.
 
-Remaining work includes registering views, sections and leaders with model features, automatically
+**Principal views of individual parts** can be registered by selecting the printed hole pattern.
+Complete circular paths and printed annuli are matched to full circular boundaries on cylindrical faces.
+The geometric fit checks a common scale, translation, quarter turns and reflections in the three
+principal planes. At least three non-collinear centers must agree. Only face associations common to
+all best fits are proposed. Coaxial blind holes at separate depths remain ambiguous. A direct or
+bent, unbranched leader with a filled triangular arrowhead can suggest the PMI on its target ring.
+The reviewer can also click a matched ring. The CSV stores the accepted circle in sheet coordinates.
+
+Remaining work includes other view orientations, sections, non-circular features and compound leaders, automatically
 finding unframed and oblique graphical annotations, interpreting composite controls and establishing
 the scope required for a verified whole-drawing verdict. Confirmed matches currently apply to individual characteristics.
 

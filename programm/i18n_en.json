@@ -1,4 +1,13 @@
 {
+"Die gewählte Modell-PMI gehört zu einer anderen Fläche als das erkannte Hinweisziel.": "The selected model PMI belongs to a different face from the detected leader target.",
+"Bohrbild wird mit dem Modell verglichen …": "Matching the hole pattern to the model …",
+"Bohrbild zuordnen": "Match hole pattern",
+"Ein Rechteck um das Bohrbild einer einzelnen Zeichnungsansicht ziehen.": "Draw a rectangle around the hole pattern in one drawing view.",
+"Eine Hauptansicht eines Einzelteils mit mindestens drei verteilten Kreismittelpunkten einrahmen.": "Select a principal view of one part with at least three well-separated, non-collinear circle centers.",
+"Hinweisziel (x/Breite, y/Höhe, Radius/Breite)": "Leader target (x/width, y/height, radius/width)",
+"Hinweisziel gefunden. Die zugehörige Modell-PMI ist noch offen.": "Leader target found. The corresponding model PMI still needs review.",
+"Keine eindeutige Zuordnung. Eine Hauptansicht mit weiteren Kreisen einrahmen.": "No unique match. Select a principal view containing additional circles.",
+"{} Kreise zugeordnet. Eine Angabe wählen und den Kreis am Hinweisziel anklicken.": "{} circles matched. Select an annotation and click the circle at the leader target.",
 "Quell-ID der Modell-PMI": "Model PMI source ID",
 "Das Mindestmaß im Modell liegt über dem Höchstmaß.": "The model minimum exceeds the maximum.",
 "Zeichnungsdatei": "Drawing file",

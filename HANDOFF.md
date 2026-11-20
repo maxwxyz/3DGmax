@@ -2,6 +2,23 @@
 
 ## Current state, 2026-11-20
 
+### Register hole patterns and follow leaders on PDF drawings
+
+- Checked PLAN §8.35 against docs/Roadmap.md. The review registers a selected principal view
+  against the exact cylindrical boundaries of a single part. A straight or bent unbranched leader
+  with a filled triangular arrowhead can identify the model PMI even when a different feature has
+  the exact printed value. The reviewer can select the target ring directly and confirm it in the CSV.
+- On sheet 2 of D2MI 904 the selected main view returned ten matched circles. The hole at sheet
+  pixel (384.35, 296.65) maps to both half-cylinder faces at model (6.35, 25.4) mm, radius
+  2.38125 mm. The reference sheet needed manual target selection. Constructed PDF/solid pairs
+  separately verify automatic leader tracing, changed values, branching, rotation, symmetry,
+  separate blind holes at the same projected location, and cancellation on a page change. A conflict
+  with an earlier approved value-only match reopens the finding. All 15 affected tests and all 22
+  drawing comparison and registration cases passed.
+- Next in §8.35 are compound leaders, oblique views, sections and non-circular features. Raster-only
+  annotations can still be read and reviewed. Feature registration currently requires vector circles.
+  Whole-drawing completeness and §8.36 reconstruction remain open, with QIF last.
+
 ### Inclined dimension text in a selected drawing region
 
 - Checked PLAN §8.35 and docs/Roadmap.md. Dragging a region around a single graphical dimension

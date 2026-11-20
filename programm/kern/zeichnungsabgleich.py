@@ -16,6 +16,8 @@ class Blattangabe:
     grundmass: bool = False
     modell: Pmi | None = None
     nur_zeichnung: bool = False
+    zielkonflikt: bool = False
+    blattziel: tuple | None = None  # bestaetigter Kreis: x/Breite, y/Hoehe, Radius/Breite
 
 
 def lese_angabe(text, faktor, grundmass=False):
@@ -92,7 +94,7 @@ def grenzen_vertauscht(p):
 
 def befund(angabe, faktor):
     p = lese_angabe(angabe.text, faktor, angabe.grundmass)
-    if p is None:
+    if p is None or angabe.zielkonflikt:
         return "offen"
     if angabe.nur_zeichnung:
         return "zeichnung"
