@@ -111,7 +111,7 @@ class Pmi:
     projektionsversatz: float | None = 0.0  # Abstand vom Projektionsursprung in mm
     maximum_toleranz: float | None = None  # Obergrenze der Gesamttoleranz bei Materialbedingung
 
-    kreisrand: int | None = None  # STEP-Kante fuer ein am Kreisrand erzeugtes Durchmessermass
+    massziel_step: int | None = None  # STEP-Kante oder -Punkt als Ziel eines erzeugten Masses
 
     # --- Darstellung ---
 

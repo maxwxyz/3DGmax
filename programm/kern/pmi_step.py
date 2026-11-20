@@ -472,11 +472,13 @@ def _lies_mass_step(modell: StepModell, e: Entity) -> Pmi:
     _toleranz_des_masses(datei, e.id, p, typ in ("Size_Angular", "Location_Angular"))
     for a in aspekte:
         if isinstance(a, Ref):
-            p.flaechen |= flaechen_von_aspekt(datei, modell, a.id)
-    if not p.flaechen and p.typ == "Size_Diameter":
-        p.teilformen = [form for a in aspekte if isinstance(a, Ref)
-                        for form in teilformen_von_aspekt(datei, modell, a.id)]
-        p.kanten = len(p.teilformen)
+            flaechen = flaechen_von_aspekt(datei, modell, a.id)
+            p.flaechen |= flaechen
+            if not flaechen and p.typ in ("Size_Diameter", "Location_LinearDistance"):
+                formen = teilformen_von_aspekt(datei, modell, a.id)
+                if formen:
+                    p.teilformen = getattr(p, "teilformen", []) + formen
+                    p.kanten = len(p.teilformen)
     p.grafisch = _hat_praesentation(datei, e.id)
     return p
 

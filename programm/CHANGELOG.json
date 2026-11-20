@@ -1,6 +1,7 @@
 {
  "unreleased": {
   "de": [
+   "Sacklöcher können eine kegelige Bohrspitze erhalten. Je nach Zeichnung verweist das Tiefenmaß im STEP auf den Kreis am Zylinderende oder den Scheitelpunkt. Der Spitzenwinkel bleibt als toleriertes Winkelmaß am Kegel erhalten.",
    "Die Rekonstruktion aus PDF unterstützt Kegelsenkungen über einfachen und gestuften Bohrungen. STEP verknüpft den tolerierten Senkwinkel mit dem Kegelmantel und den Eintrittsdurchmesser mit der oberen Kreiskante.",
    "Erzeugte Hinweispfeile von Maßen und Toleranzen treffen bei Dreiecksnetzen die ausgewählte Oberfläche, auch bei verschobenen Netzen und gemischten STEP-Modellen. Die Plausibilitätsprüfung berücksichtigt, welche Flächen eine analytische Geometrie besitzen.",
    "Aus konzentrischen Kreisen einer PDF-Zeichnung lassen sich mehrstufige zylindrische Bohrungen mit durchgehendem oder blindem Kern erzeugen. Im STEP sind die Durchmesser mit ihren Zylinderwänden und die Tiefen mit den jeweiligen Absätzen verknüpft.",
@@ -145,6 +146,7 @@
    "Grafische PMI aus unterstützten AP203e2-Kurvenmodellen lassen sich als STEP AP242 Edition 3 ausgeben. Facettierte STEP-Modelle behalten ihre Flächenbezüge. Gepackte STEP-Dateien lassen sich als unkomprimierte STEP-Kopie speichern."
   ],
   "en": [
+   "Blind holes can include a conical drill point. The exported STEP depth references the circle at the cylindrical end or the apex according to the drawing. The included point angle remains a toleranced dimension on the cone.",
    "PDF reconstruction supports countersinks above plain or stepped bores. STEP links the toleranced included angle to the cone and the entry diameter to the circular edge at the plate surface.",
    "Generated dimension and tolerance leaders attach to the selected mesh surface, including placed meshes and mixed STEP models. Plausibility checks distinguish mesh-only faces from analytic geometry.",
    "Concentric rings in a PDF drawing can be reconstructed as multistep cylindrical bores with a through or blind core. STEP associates each diameter with its cylinder and each depth with its shoulder.",

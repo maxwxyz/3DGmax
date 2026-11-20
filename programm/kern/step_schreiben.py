@@ -150,6 +150,15 @@ def randkanten(datei, flaeche):
     return kanten
 
 
+def randpunkte(datei, kanten):
+    return {ref.id for k in kanten for ref in datei.entities[k].args("EDGE_CURVE")[1:3]}
+
+
+def _enthaelt_massziel(datei, flaeche, ziel):
+    kanten = randkanten(datei, flaeche)
+    return ziel in kanten or ziel in randpunkte(datei, kanten)
+
+
 class _Anhang:
     """Neue Entitaeten mit fortlaufenden Ids ab der hoechsten Id der Datei; Teil-Kontext (Produktform, Darstellung,
     Einheiten) je PMI aus ihren Flaechen - auch in Baugruppen."""
@@ -246,15 +255,15 @@ class _Anhang:
         self._stepf = stepf
         return None
 
-    def aspekt(self, flaechen, art: str = "SHAPE_ASPECT", *, kante=None) -> int | None:
+    def aspekt(self, flaechen, art: str = "SHAPE_ASPECT", *, ziel=None) -> int | None:
         """Formaspekt der Flaechen im gewaehlten Teil (waehle vorher)."""
         stepf = [self.flaeche_zu_step.get(i) for i in sorted(flaechen)]
         if not stepf or None in stepf:
             return None
-        if kante is not None:
-            if not any(kante in randkanten(self.datei, f) for f in stepf):
+        if ziel is not None:
+            if not any(_enthaelt_massziel(self.datei, f, ziel) for f in stepf):
                 return None
-            stepf = [kante]
+            stepf = [ziel]
         sa = self.neu(f"{art}('','',#{self.pds},.T.)" if art == "SHAPE_ASPECT" else f"{art}('',$,#{self.pds},.T.)")
         for f in stepf:
             self.neu(f"GEOMETRIC_ITEM_SPECIFIC_USAGE('','',#{sa},#{self.darst},#{f})")
@@ -396,7 +405,7 @@ def _schreibe_mass(a: _Anhang, p) -> str | None:
     if fehler:
         return fehler
     if p.typ in GROESSE_NAME:
-        sa = a.aspekt(p.flaechen, kante=p.kreisrand)
+        sa = a.aspekt(p.flaechen, ziel=p.massziel_step)
         if sa is None:
             return tr("Flächen ohne Entsprechung in der Datei")
         dim = a.neu(f"DIMENSIONAL_SIZE(#{sa},'{GROESSE_NAME[p.typ]}')")
@@ -420,7 +429,13 @@ def _schreibe_mass(a: _Anhang, p) -> str | None:
             if paar[0] == 1:
                 f1, f2 = f2, f1
             name = "linear distance outer centre"
-        s1, s2 = a.aspekt({f1}), a.aspekt({f2})
+        if p.massziel_step is not None:
+            wand = [i for i in (f1,f2) if _enthaelt_massziel(a.datei, a.flaeche_zu_step[i], p.massziel_step)]
+            if len(wand) != 1 or p.typ != "Location_LinearDistance":
+                return tr("Flächen ohne Entsprechung in der Datei")
+            f2, = wand
+            f1, = p.flaechen-{f2}
+        s1, s2 = a.aspekt({f1}), a.aspekt({f2}, ziel=p.massziel_step)
         if s1 is None or s2 is None:
             return tr("Flächen ohne Entsprechung in der Datei")
         dim = a.neu(f"DIMENSIONAL_LOCATION('{name}','',#{s1},#{s2})" if p.typ != "Location_Angular"

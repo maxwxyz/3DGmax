@@ -1672,7 +1672,11 @@ The outermost ring can also define a top-entry countersink. Its entry and inner 
 the included angle determine the taper depth. Tolerance extremes must leave a cylindrical inner
 segment. The angular size references the conical face and the entry diameter references its
 circular edge at the top of the plate, including the graphical arrow tip.
-Pocket center-position PMI, drill points, rounded pocket profiles,
+A blind hole may have a conical drill point with a reviewed included angle. The depth can end at
+the cylindrical wall or the apex. STEP references the plate face and the corresponding circular
+edge or vertex. The point angle references the actual cone. Diameter, depth and angle limits must
+leave material below the apex and preserve the cylindrical segment under a possible countersink.
+Pocket center-position PMI, rounded pocket profiles,
 nonrectangular profiles, automatic cross-view association and datum/GD&T transfer remain open.
 
 ### 8.37 QIF extensions (last in the implementation order)

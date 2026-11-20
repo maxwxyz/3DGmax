@@ -423,7 +423,7 @@ def ergaenze(pmi: list, grafik: dict, modell, ansichten: list | None = None) -> 
         if p.art == BEZUG:
             g.linien.insert(0, np.array([ziel, andock]))
         else:  # Hinweislinie mit Pfeil am naechsten Punkt der Flaeche
-            rand = modell.form_von_step(p.kreisrand) if p.kreisrand is not None else None
+            rand = modell.form_von_step(p.massziel_step) if p.massziel_step is not None else None
             spitze = _naechster_punkt([rand] if rand is not None else flaechen, andock, netze)
             spitze = anker if spitze is None else spitze
             g.linien.insert(0, np.array([spitze, andock]))

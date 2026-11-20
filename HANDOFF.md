@@ -2,6 +2,27 @@
 
 ## Current state, 2026-11-21
 
+### Reconstruct drill points with both drawing depth conventions
+
+- Checked PLAN §§8.16, 8.28, 8.35–8.37 and docs/Roadmap.md. A blind bore accepts an explicit
+  included point angle and a depth to either the cylindrical end or the apex. The PDF picker and
+  the table support both. The first depth references the top plane and the cylinder’s lower
+  circular edge. The second references the top plane and the cone’s apex vertex. The angle is
+  a separate angular size on the cone. Checks use diameter, angle, depth and plate thickness
+  limits, including the remaining cylindrical segment under a countersink.
+- Verified a two-bore PDF with Ø4 holes and 118 ±1° and 90 ±2° point angles. One bore also has a
+  120° countersink. Under both depth conventions the native STEP reader and OCCT/XCAF recover
+  the depth references, the point angles and their tolerances. Independent volume and cone
+  endpoint checks confirm the amount removed. For a 5 mm total depth the apex and the graphical
+  depth arrow both land at (42, 20, 3) mm on an 8 mm plate. All 202 affected tests, 71 drawing
+  comparison/reconstruction tests and eight macOS screen tests passed. The final dialog run
+  passed all 18 reconstruction tests.
+- Remaining §8.36 work includes rounded pockets, turned parts, cross-view association and datum
+  transfer. A local PDF probe of a 60 × 40 rectangle with 8-unit corner radii exposes two nested
+  38-point contours for the pen stroke. Their measured radii bracket the centerline radius.
+  Filleting four vertical tool edges with OCCT also produced the expected volume for a
+  60 × 40 × 3 mm pocket with R8 corners. Rounded-pocket reconstruction still needs an integrated implementation. QIF stays last.
+
 ### Reconstruct conical seats and dimension their entry circle
 
 - Checked PLAN §§8.16, 8.28, 8.35–8.37 and docs/Roadmap.md. The outermost concentric ring can be

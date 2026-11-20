@@ -117,7 +117,7 @@ def _massbereich(p):
     return min(werte), max(werte)
 
 
-def senkwinkelmass(text, _faktor=1.):
+def kegelwinkelmass(text, _faktor=1.):
     p = lese_angabe(text.strip().removeprefix("⌵").strip(), 1.)
     if not p or p.typ != "Size_Angular" or p.nennwert is None or p.modifikatoren or p.passung:
         return None
@@ -127,13 +127,28 @@ def senkwinkelmass(text, _faktor=1.):
     return p if all(0 < g < 180 for g in (p.nennwert, oben, unten) if g is not None) else None
 
 
-def sollbohrungen(ringe, werte, masse, umfang, *, tiefen=None, senkwinkel=None):
+def _zylindertiefe(tiefe, radius_max, spitze, gesamt, dicke):
+    """Kleinste zylindrische Tiefe, auch unter einer anschliessenden Senkung."""
+    zusatz = radius_max/math.tan(math.radians(_massbereich(spitze)[0])/2)
+    minimum, maximum = _massbereich(tiefe)
+    if gesamt:
+        minimum -= zusatz
+        if minimum <= 0:
+            raise ValueError(tr("Die Gesamttiefe lässt mit ihren Grenzmaßen keinen zylindrischen Abschnitt übrig."))
+    elif maximum+zusatz >= _massbereich(dicke)[0]:
+        raise ValueError(tr("Die Bohrspitze erreicht mit ihren Grenzmaßen die Plattenunterseite."))
+    return minimum
+
+
+def sollbohrungen(ringe, werte, masse, umfang, *, tiefen=None, senkwinkel=None, spitzenwinkel=None, bis_spitze=()):
     breite, hoehe, _ = [p.nennwert for p in masse]
     bx, by = umfang
     if tiefen is None:
         tiefen = [None] * len(ringe)
     senkwinkel = senkwinkel or {}
+    spitzenwinkel = spitzenwinkel or {}
     bohrungen = []
+    letzte_zylindertiefe = None
     for index, (ring, zeile, tiefentext) in enumerate(zip(ringe, werte, tiefen, strict=True), 1):
         tx, ty, td = zeile
         pmi = lese_angabe(td, 1.)
@@ -165,11 +180,13 @@ def sollbohrungen(ringe, werte, masse, umfang, *, tiefen=None, senkwinkel=None):
         if tiefentext is not None:
             tiefe = tiefenmass(tiefentext, 1.)
             if tiefe is None or tiefe.nennwert is None:
+                if index-1 in spitzenwinkel:
+                    raise ValueError(tr("Die Bohrtiefe für Bohrung {} angeben.").format(index))
                 raise ValueError(tr("Die Tiefe bis zum flachen Grund von Bohrung {} angeben.").format(index))
             pruefe_tiefe(tiefe, masse[2])
         winkel = None
         if index-1 in senkwinkel:
-            winkel = senkwinkelmass(senkwinkel[index-1])
+            winkel = kegelwinkelmass(senkwinkel[index-1])
             if winkel is None:
                 raise ValueError(tr("Den eingeschlossenen Senkwinkel mit Gradzeichen angeben (größer als 0° und kleiner als 180°)."))
             if ring.kern is None or (index < len(ringe) and ringe[index].kern == ring.kern) or tiefe is not None:
@@ -183,7 +200,16 @@ def sollbohrungen(ringe, werte, masse, umfang, *, tiefen=None, senkwinkel=None):
                 tiefste = differenz/(2*math.tan(math.radians(_massbereich(winkel)[0])/2))
             else:
                 tiefste = _massbereich(tiefe)[1]
-            if tiefste >= _massbereich(innen.tiefe or masse[2])[0]:
+            if tiefste >= letzte_zylindertiefe:
                 raise ValueError(tr("Die äußere Stufe muss auch mit Toleranz flacher als die innere Bohrung sein."))
-        bohrungen.append(Plattenbohrung(x, y, pmi, tiefe, mitte if ring.kern is None else None, ring.kern, winkel))
+        gesamt = index-1 in bis_spitze
+        spitze = None
+        letzte_zylindertiefe = _massbereich(tiefe or masse[2])[0]
+        if index-1 in spitzenwinkel:
+            spitze = kegelwinkelmass(spitzenwinkel[index-1])
+            if ring.kern is not None or tiefe is None or spitze is None:
+                raise ValueError(tr("Für eine Bohrspitze die Bohrtiefe und den eingeschlossenen Spitzenwinkel mit Gradzeichen angeben."))
+            letzte_zylindertiefe = _zylindertiefe(tiefe, radius_max, spitze, gesamt, masse[2])
+        bohrungen.append(Plattenbohrung(x, y, pmi, tiefe, mitte if ring.kern is None else None, ring.kern,
+                                        winkel, spitze, gesamt))
     return bohrungen

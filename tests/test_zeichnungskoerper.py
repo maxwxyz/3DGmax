@@ -605,3 +605,103 @@ def test_kegelsenkungen_aus_pdf_mit_eintrittskreis_und_winkel(app, tmp_path, mon
         finally:
             d.blatt.schliesse()
             d.close()
+
+
+@pytest.mark.parametrize("gesamt", [False, True])
+def test_bohrspitzen_mit_zylinder_oder_gesamttiefe(app, tmp_path, monkeypatch, gesamt):
+    from OCC.Core.BRep import BRep_Tool
+    from OCC.Core.TopAbs import TopAbs_VERTEX
+    from pypdfium2 import PdfDocument
+    from OCC.Core.BRepAdaptor import BRepAdaptor_Curve, BRepAdaptor_Surface
+    from OCC.Core.BRepGProp import brepgprop
+    from OCC.Core.GProp import GProp_GProps
+    from OCC.Core.TopoDS import topods
+    from programm.kern.pmi_lesen import lies_pmi_xcaf
+    from programm.ui.lader import lade_alles
+    pdf, ziel = tmp_path/"Bohrspitzen.pdf", tmp_path/"Bohrspitzen.stp"
+    _blatt(pdf, [(16,20,2),(42,20,2),(42,20,4)], tiefe="118° ±1°")
+    monkeypatch.setattr(QtWidgets.QFileDialog, "getSaveFileName", lambda *args: (str(ziel), "STEP"))
+    with PdfDocument(pdf) as doc:
+        d = Plattendialog(doc, pdf)
+        try:
+            d.show()
+            d.einheit.setCurrentIndex(1)
+            for feld, wert in zip(d.texte, ("60","40","8 ±0.1")):
+                feld.setText(wert)
+            d.ansicht.bereich.emit((.08,.1,.51,.52))
+            t = d.bohrtabelle
+            assert t.isColumnHidden(6)
+            for i, x in enumerate((16,42)):
+                t.item(i,1).setText(str(x))
+                t.item(i,2).setText("20")
+                t.item(i,3).setText("Ø4 ±0.1")
+                art = t.cellWidget(i,4)
+                art.setCurrentIndex(art.findData(5 if gesamt and i == 1 else 4))
+                t.item(i,5).setText("5 ±0.1")
+                assert not t.isColumnHidden(6)
+                t.item(i,6).setText("118° ±1°" if i == 0 else "90° ±2°")
+            t.item(2,3).setText("8")
+            art = t.cellWidget(2,4)
+            art.setCurrentIndex(art.findData(3))
+            t.item(2,5).setText("120°")
+            assert d.speichern.isEnabled()
+            if gesamt:
+                for tiefe in ("1.8", "3 ±0.1", "8 ±0.1"):
+                    t.item(1,5).setText(tiefe)
+                    assert not d.speichern.isEnabled()
+                t.item(1,5).setText("5 ±0.1")
+            for winkel in ("118", "0°", "5°", "180°"):
+                t.item(0,6).setText(winkel)
+                assert not d.speichern.isEnabled()
+            d.ansicht.kreis_gewaehlt.emit(d.ringe[0].kreis)
+            d.auswahl.setCurrentIndex(9)
+            d.ansicht.bereich.emit((.52,.86,.8,.96))
+            assert d.speichern.isEnabled()
+            t.item(0,5).setText("6.6 ±0.2")
+            assert not d.speichern.isEnabled()
+            t.item(0,5).setText("5 ±0.1")
+            d.speichern.click()
+            erg = lade_alles(str(ziel))
+            assert len(erg.pmi) == 15 and all(p.grafisch and p.semantisch for p in erg.pmi)
+            props = GProp_GProps()
+            brepgprop.VolumeProperties(erg.modell.form, props)
+            spitzen = sum(4*2/np.tan(np.deg2rad(w/2))/3 for w in (118,90))
+            sitz = (16+8-8)*2/np.tan(np.deg2rad(60))/3
+            assert props.Mass() == pytest.approx(60*40*8-np.pi*(2*4*5-8*gesamt+spitzen+sitz))
+            for quelle in (erg.pmi, lies_pmi_xcaf(erg.modell)):
+                tiefen = [p for p in quelle if p.nennwert == 5]
+                assert len(tiefen) == 2
+                for p in tiefen:
+                    deckel, = p.flaechen
+                    assert BRepAdaptor_Surface(erg.modell.flaechen[deckel]).Plane().Location().Z() == pytest.approx(8)
+                    assert p.kanten == 1 and p.grenzen() == pytest.approx((5.1,4.9))
+                winkel = sorted((q for q in quelle if q.typ == "Size_Angular" and q.nennwert < 119),
+                                key=lambda q:q.nennwert)
+                for p, (soll,tol) in zip(winkel, ((90,2),(118,1)), strict=True):
+                    assert p.grenzen() == pytest.approx((soll+tol,soll-tol))
+                    f, = p.flaechen
+                    s = BRepAdaptor_Surface(erg.modell.flaechen[f])
+                    alpha = round(p.nennwert)
+                    assert alpha in (90,118) and np.rad2deg(abs(s.Cone().SemiAngle())*2) == pytest.approx(alpha)
+                    zs = sorted(s.Value(0,v).Z() for v in (s.FirstVParameter(),s.LastVParameter()))
+                    ende = 5 if gesamt and alpha == 90 else 3
+                    assert zs == pytest.approx([ende-2/np.tan(np.deg2rad(alpha/2)),ende])
+            xwerte = []
+            for p in (q for q in erg.pmi if q.nennwert == 5):
+                form, = p.teilformen
+                if form.ShapeType() == TopAbs_VERTEX:
+                    assert gesamt
+                    punkt = BRep_Tool.Pnt(topods.Vertex(form)).Coord()
+                    assert punkt == pytest.approx((42,20,3))
+                    g, = (g for g in erg.grafik.values() if p.step_id in g.pmi_ids)
+                    np.testing.assert_allclose(g.linien[0][0], punkt, atol=1e-6)
+                    xwerte.append(punkt[0])
+                    continue
+                kreis = BRepAdaptor_Curve(topods.Edge(form)).Circle()
+                x,y,z = kreis.Location().Coord()
+                assert (y,z,kreis.Radius()) == pytest.approx((20,3,2))
+                xwerte.append(x)
+            assert sorted(xwerte) == pytest.approx([16,42])
+        finally:
+            d.blatt.schliesse()
+            d.close()
