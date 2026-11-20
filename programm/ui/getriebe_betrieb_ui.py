@@ -95,7 +95,7 @@ class BetriebspunktSeite(QtWidgets.QWidget):
         self.rollen = {i: {} for i in b.ports}
         for s in b.saetze:
             a, seite_b, steg = s["wellen"]
-            if s["art"] == "planet":
+            if s["art"] in ("planet", "stufenplanet"):
                 self.rollen[a]["sonne"] = tr("Sonne")
                 self.rollen[seite_b]["hohlrad"] = tr("Hohlrad")
             else:

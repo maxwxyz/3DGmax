@@ -134,7 +134,7 @@ def modell(liste: list[Verzahnung], paare: list[Paar], name: str = "3DGmax",
     ids = [_rad(m, v) for v in liste]
     paare = [p for p in paare if vd.eingriff_moeglich(p)]
     saetze = vd.planetensaetze(liste, paare)
-    mitglieder = [{s.sonne, s.hohlrad, *s.planeten} for s in saetze]
+    mitglieder = [{s.sonne, s.hohlrad, *s.umlaufraeder} for s in saetze]
     welle_von = {}
     for gruppe in vd.wellen(liste, mitglieder):
         welle = m.komponente("shaft", " + ".join(liste[i].teil for i in gruppe), {})
@@ -142,16 +142,17 @@ def modell(liste: list[Verzahnung], paare: list[Paar], name: str = "3DGmax",
             m.relation("assembly", assembly=welle, part=ids[i])
             welle_von[i] = welle
     satz_eingriffe = {}
-    umlaufwellen = {welle_von[i] for s in saetze for i in s.planeten}
+    umlaufwellen = {welle_von[i] for s in saetze for i in s.umlaufraeder}
     for n, s in enumerate(saetze, 1):
         satz = m.komponente("planetary_stage", f"Planetensatz {n}", {})
         m.relation("assembly", assembly=einheit, part=satz)
         for welle in dict.fromkeys(welle_von[i] for i in (s.sonne, s.hohlrad)):
             m.relation("central_shaft", planetary_stage=satz, shaft=welle)
-        for i in s.planeten:
+        # Pro Bolzen eine Planetenwelle. Der Ringeingriff kann am zweiten Zahnkranz desselben Koerpers liegen.
+        for i, j in zip(s.planeten, s.planeten_ring or s.planeten, strict=True):
             m.relation("planet_shaft", planetary_stage=satz, shaft=welle_von[i])
-            for j in (s.sonne, s.hohlrad):
-                satz_eingriffe.setdefault(frozenset((i, j)), []).append(satz)
+            for paar in ((i, s.sonne), (j, s.hohlrad)):
+                satz_eingriffe.setdefault(frozenset(paar), []).append(satz)
     index = {id(v): i for i, v in enumerate(liste)}
     for p in paare:
         a, b = index[id(p.a)], index[id(p.b)]
@@ -167,10 +168,10 @@ def modell(liste: list[Verzahnung], paare: list[Paar], name: str = "3DGmax",
         for gruppe in baugruppen or [einheit]:
             m.relation("assembly", assembly=gruppe, part=stufe)
         m.relation("stage", stage=stufe, gear_1=ids[a], gear_2=ids[b])
-        klein_ist_a = w["klein"] == p.a.teil
+        ritzel, _ = vd.ritzel_und_rad(p)
         gleiten = w["gleiten"] or (None, None)
         for i, v in ((a, p.a), (b, p.b)):
-            klein = (v is p.a) == klein_ist_a
+            klein = v is ritzel
             daten = m.komponente("cylindrical_stage_gear_data", f"{p.a.teil} – {p.b.teil}: {v.teil}", {
                 "tip_clearance": w["c_klein"] if not klein else w["c_gross"],  # Kopf des anderen Rads am eigenen Fuss
                 "operating_pressure_angle_in_the_transverse_section": p.alpha_wt,

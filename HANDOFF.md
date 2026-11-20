@@ -2,6 +2,24 @@
 
 ## Current state, 2026-11-20
 
+### Stepped planetary gearsets
+
+- PLAN §8.27 now covers one-piece planets with two tooth bands. Recognition matches each band to
+  its sun or ring mesh using the identity of the imported body, including repeated component names.
+  Two distinct pin axes and consistent tooth counts are required. The calculated speeds assume both
+  meshes engage. Relative tooth phase and assembly feasibility remain unresolved.
+- The operating point combines these sets with other stages. The power-flow table, JSON, CSV and PDF use
+  the compound ratio. REXS attaches the sun-side and ring-side mesh to their corresponding gear bands
+  on the same planet shaft. Tip clearances also retain their gear assignment when the order is reversed
+  or two gear names match.
+- A generated 18/14/20/52-tooth assembly produced the same results after STEP and STL import. With the
+  ring fixed, 1,360 rpm at the sun gave 450 rpm at the carrier. With the carrier fixed, 910 rpm at
+  the sun gave −450 rpm at the ring. The UI export test couples the carrier to a second stage and
+  recovers 112.5 rpm. Splitting each planet into two loose bodies preserves the four candidate meshes
+  and removes the compound-set assignment. All 35 affected tests passed.
+- Checked PLAN and the Roadmap. Ravigneaux sets and locking or torque-biasing differentials remain open.
+  Drawing comparison (§8.35), reconstruction (§8.36) and QIF (§8.37) retain their order.
+
 ### Multistage gearbox reverse engineering
 
 - The **Operating point** tab under **Tools › Analyse gearbox** combines fixed cylindrical and
@@ -20,8 +38,7 @@
   gives +200 rpm at the ring. In a synthetic three-bevel differential, STEP and STL independently
   give +1,000 rpm at the second side gear with the first held and the carrier at +500 rpm. Tests also
   cover two cascaded planetary sets, a symmetric four-gear cross and opposite signed axis conventions.
-- PLAN §8.27 and the Roadmap distinguish these families from compound planets, Ravigneaux sets,
-  and torque-biasing or locking mechanisms, which remain open. Worm pairs are considered by the
+- Worm pairs are considered by the
   power-flow view. Operating speeds across a worm stage need a signed mesh relation.
 - Corrected the REXS planetary stage hierarchy. Both central shafts, each planet shaft and their
   actual meshes have separate roles. Confirmed tooth bands on one physical body keep a shared

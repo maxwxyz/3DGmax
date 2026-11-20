@@ -23,13 +23,15 @@ class Dreiwelle:
     a: int
     b: int
     umlauf: tuple[int, ...]
+    koeffizienten: tuple[int, int]
 
     @property
     def teile(self):
         return {self.a, self.b, *self.umlauf}
 
     def name(self, liste):
-        art = tr("Kegelraddifferential") if self.art == "kegel" else tr("Planetensatz")
+        art = {"kegel": tr("Kegelraddifferential"), "planet": tr("Planetensatz"),
+               "stufenplanet": tr("Stufenplanetensatz")}[self.art]
         return f"{art} · {liste[self.a].teil} / {liste[self.b].teil}"
 
 
@@ -52,7 +54,7 @@ def differentialgruppen(liste, kegelpaare):
         plan = tuple(k for k in sorted(nachbarn[i] & nachbarn[j]) if abs(a.richtung @ liste[k].richtung) < .001)
         if not plan:
             continue
-        satz = Dreiwelle("kegel", i, j, plan)
+        satz = Dreiwelle("kegel", i, j, plan, (a.z, b.z))
         kanten = {tuple(sorted((ende, k))) for ende in (i, j) for k in plan}
         passend = [g for g in gruppen if g[0] & kanten]
         varianten = [satz]
@@ -150,7 +152,8 @@ class Betriebsmodell:
         raeder = [v for v in liste if isinstance(v, Verzahnung)]
         idx = {id(v): i for i, v in enumerate(liste)}
         ri = [idx[id(v)] for v in raeder]
-        self.planeten = [Dreiwelle("planet", ri[s.sonne], ri[s.hohlrad], tuple(ri[i] for i in s.planeten))
+        self.planeten = [Dreiwelle("stufenplanet" if s.gestuft else "planet", ri[s.sonne], ri[s.hohlrad],
+                                   tuple(ri[i] for i in s.umlaufraeder), s.koeffizienten)
                          for s in vd.planetensaetze(raeder, paare)]
         kegel = kegelpaar_kandidaten(liste)
         self.differentiale = differentialgruppen(liste, kegel)
@@ -205,7 +208,7 @@ class Betriebsmodell:
         for s in saetze:
             steg = len(namen)
             a, b = self.welle[s.a], self.welle[s.b]
-            za, zb = self.liste[s.a].z, self.liste[s.b].z
+            za, zb = s.koeffizienten
             ec = _positive_achse(self.liste[s.a].richtung)
             ea = _positive_achse(self.liste[achsen[a]].richtung)
             eb = _positive_achse(self.liste[achsen[b]].richtung)

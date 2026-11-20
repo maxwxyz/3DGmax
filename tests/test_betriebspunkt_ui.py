@@ -118,3 +118,36 @@ def test_rueckkehrender_stirnradzug_getrennte_wellen(app, tmp_path):
     seite.wellentrennung.setChecked(True)
     assert not seite.daten()["kupplungen"] and all(w["vorgabe"] is None for w in seite.daten()["wellen"])
     f.close()
+
+
+def test_stufenplanetensatz_treibt_zweiten_planetensatz(app, tmp_path):
+    from tests.test_getriebe_betrieb import _planetensatz
+    from tests.test_stufenplaneten import _radliste
+
+    teile = _radliste() + _planetensatz("Abtrieb", 18, axial=50.)
+    f = VerzahnungFenster(teile, str(tmp_path / "Getriebe"))
+    seite = f.betriebspunkt
+    saetze = {s["art"]: s for s in seite.ergebnis["saetze"]}
+    a, ring, steg = saetze["stufenplanet"]["wellen"]
+    b, ring2, steg2 = saetze["planet"]["wellen"]
+    assert "Stufenplanetensatz" in seite._wellenname(steg)
+    _vorgabe(seite, a, 1360)
+    _vorgabe(seite, ring, 0)
+    _vorgabe(seite, ring2, 0)
+    kopplung = next(seite.kupplungen.item(i) for i in range(seite.kupplungen.count())
+                    if set(seite.kupplungen.item(i).data(QtCore.Qt.ItemDataRole.UserRole)) == {steg, b})
+    kopplung.setCheckState(QtCore.Qt.CheckState.Checked)
+
+    pfad = tmp_path / "getriebe.json"
+    f.speichere("json", str(pfad))
+    daten = json.loads(pfad.read_text())["betriebspunkt"]
+    wellen = {w["id"]: w for w in daten["wellen"]}
+    assert wellen[a]["rollen"] == ["sonne"] and wellen[ring]["rollen"] == ["hohlrad"]
+    assert [wellen[i]["drehzahl"] for i in (steg, b, steg2)] == [450., 450., 112.5]
+    for art in ("csv", "pdf"):
+        pfad = tmp_path / f"getriebe.{art}"
+        f.speichere(art, str(pfad))
+        text = (pfad.read_text(encoding="utf-8-sig") if art == "csv"
+                else " ".join(s.extract_text() for s in PdfReader(pfad).pages))
+        assert "Stufenplanetensatz" in text and "112.5" in text
+    f.close()

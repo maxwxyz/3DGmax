@@ -108,12 +108,18 @@ def rad_zeilen(v: Verzahnung) -> list[tuple[str, str, str]]:
     return zeilen
 
 
+def ritzel_und_rad(p: Paar):
+    """Ritzel und Gegenrad als Objekte, auch bei gleichen Anzeigenamen."""
+    a, b = p.a, p.b
+    return (b, a) if a.innen or abs(a.z) > abs(b.z) else (a, b)
+
+
 def paar_werte(p: Paar) -> dict:
     """Weitere Groessen eines Radpaars: Uebersetzung, Gesamtueberdeckung, Kopfspiele, Flankenspiele, spezifisches
     Gleiten (nur Aussenradpaar), Summe der Profilverschiebungen, Drehrichtung."""
     a, b = p.a, p.b
     innen = a.innen  # a ist beim Hohlradpaar das Hohlrad
-    klein, gross = (b, a) if innen or abs(a.z) > abs(b.z) else (a, b)
+    klein, gross = ritzel_und_rad(p)
     u = abs(gross.z) / abs(klein.z)
     cb = math.cos(math.radians(a.beta))
     awt = math.radians(p.alpha_wt)
@@ -124,8 +130,8 @@ def paar_werte(p: Paar) -> dict:
         c_gegen = a.da / 2 - p.abstand - b.df / 2  # Kopf des Hohlrads zum Fuss des Ritzels
         gleiten = None
     else:
-        c_ritzel = p.abstand - a.da / 2 - b.df / 2
-        c_gegen = p.abstand - b.da / 2 - a.df / 2
+        c_ritzel = p.abstand - klein.da / 2 - gross.df / 2
+        c_gegen = p.abstand - gross.da / 2 - klein.df / 2
         rho = lambda v: math.sqrt(max((v.da / 2) ** 2 - (v.db / 2) ** 2, 0.0))  # noqa: E731
         strecke = p.abstand * math.sin(awt)
         # Fuss des kleinen Rads: Eingriffsbeginn am Kopf des grossen Rads (und umgekehrt)
@@ -171,13 +177,17 @@ def _gleiche_achse(a: Verzahnung, b: Verzahnung, toleranz: float = 1e-3) -> bool
     return float(np.linalg.norm(q - a.richtung * float(q @ a.richtung))) < toleranz * max(_achsmass(a), _achsmass(b), 1.0)
 
 
+def _koerperkennung(rad, i):
+    kennung = getattr(rad, "koerper_id", None)
+    return ("band", i) if kennung is None else ("koerper", kennung)
+
+
 def wellen(liste, planeten=(), *, getrennte_wellen=False) -> list[list[int]]:
     """Bestaetigte Koerper bleiben drehfest. Sonstige gleichachsige Raeder optional zusammenfassen."""
     koerper = {}
     for i, rad in enumerate(liste):
         if hasattr(rad, "richtung"):
-            kennung = getattr(rad, "koerper_id", None)
-            koerper.setdefault(i if kennung is None else kennung, []).append(i)
+            koerper.setdefault(_koerperkennung(rad, i), []).append(i)
     if getrennte_wellen:
         return list(koerper.values())
     unabhaengig = {i for s in planeten for i in s}
@@ -204,9 +214,29 @@ class Planetensatz:
     z_hohlrad: int
     hinweise: list[str] = field(default_factory=list)
 
+    planeten_ring: list[int] = field(default_factory=list)  # je Bolzen das hohlradseitige Band
+    z_planet_ring: int | None = None
+
+    @property
+    def gestuft(self):
+        return bool(self.planeten_ring)
+
+    @property
+    def umlaufraeder(self):
+        return [*self.planeten, *self.planeten_ring]
+
+    @property
+    def koeffizienten(self):
+        if self.gestuft:
+            return self.z_sonne * self.z_planet_ring, self.z_hohlrad * self.z_planet
+        return self.z_sonne, self.z_hohlrad
+
+    def titel(self, nr):
+        return (tr("Stufenplanetensatz {}") if self.gestuft else tr("Planetensatz {}")).format(nr)
+
     def betriebsfaelle(self):
         """Drehzahlverhaeltnisse fuer vorgegebene Rollen; Geometrie allein legt sie nicht fest."""
-        zs, zr = self.z_sonne, self.z_hohlrad
+        zs, zr = self.koeffizienten
         return [{"art": "planet", "fest": "hohlrad", "antrieb": "sonne", "abtrieb": "steg", "i": 1 + zr / zs},
                 {"art": "planet", "fest": "sonne", "antrieb": "hohlrad", "abtrieb": "steg", "i": 1 + zs / zr},
                 {"art": "stern", "fest": "steg", "antrieb": "sonne", "abtrieb": "hohlrad", "i": -zr / zs},
@@ -214,21 +244,40 @@ class Planetensatz:
 
     def zeilen(self, liste: list[Verzahnung]) -> list[tuple[str, str]]:
         zs, zp, zr, n = self.z_sonne, self.z_planet, self.z_hohlrad, len(self.planeten)
-        montage = (zs + zr) / n
-        return [(tr("Sonne / Planeten / Hohlrad"), f"{zs} / {zp} / {zr}"),
-                (tr("Sonne / Hohlrad"), f"{liste[self.sonne].teil} / {liste[self.hohlrad].teil}"),
-                (tr("Umlaufräder"), ", ".join(liste[i].teil for i in self.planeten)),
-                (tr("Anzahl Planeten"), str(n)),
-                (tr("Standübersetzung i0 (Steg fest)"), _g(-zr / zs, 4)),
-                (tr("Übersetzung Sonne → Steg (Hohlrad fest)"), _g(1 + zr / zs, 4)),
-                (tr("Übersetzung Hohlrad → Steg (Sonne fest)"), _g(1 + zs / zr, 4)),
-                (tr("Montagebedingung (zs + zr) / n"),
-                 f"{_g(montage, 3)} – " + (tr("erfüllt") if abs(montage - round(montage)) < 1e-9 else
-                                           tr("nicht ganzzahlig: gleich verteilte Planeten nicht montierbar"))),
-                (tr("Teilung der Planeten"), self._teilung(liste)),
-                (tr("Sternbetrieb (Steg fest)"), f"nS / nR = {_g(-zr / zs)}"),
-                (tr("Dreiwellenbetrieb (kein Glied fest)"), f"{zs} nS + {zr} nR = {zs + zr} nC"),
+        ks, kr = self.koeffizienten
+        if self.gestuft:
+            zaehne = (tr("Sonne / Sonnenband / Hohlradband / Hohlrad"), f"{zs} / {zp} / {self.z_planet_ring} / {zr}")
+            namen = [f"{liste[a].teil} / {liste[b].teil}" for a, b in zip(self.planeten, self.planeten_ring)]
+            montage = (tr("Montage der Stufenplaneten"), tr("Bandphasen und gleichzeitiger Eingriff sind ungeprüft."))
+        else:
+            zaehne = (tr("Sonne / Planeten / Hohlrad"), f"{zs} / {zp} / {zr}")
+            namen = [liste[i].teil for i in self.planeten]
+            wert = (zs + zr) / n
+            montage = (tr("Montagebedingung (zs + zr) / n"),
+                       f"{_g(wert, 3)} – " + (tr("erfüllt") if abs(wert - round(wert)) < 1e-9 else
+                                              tr("nicht ganzzahlig: gleich verteilte Planeten nicht montierbar")))
+        return [zaehne, (tr("Sonne / Hohlrad"), f"{liste[self.sonne].teil} / {liste[self.hohlrad].teil}"),
+                (tr("Umlaufräder"), ", ".join(namen)), (tr("Anzahl Planeten"), str(n)),
+                (tr("Standübersetzung i0 (Steg fest)"), _g(-kr / ks, 4)),
+                (tr("Übersetzung Sonne → Steg (Hohlrad fest)"), _g(1 + kr / ks, 4)),
+                (tr("Übersetzung Hohlrad → Steg (Sonne fest)"), _g(1 + ks / kr, 4)),
+                montage, (tr("Teilung der Planeten"), self._teilung(liste)),
+                (tr("Sternbetrieb (Steg fest)"), f"nS / nR = {_g(-kr / ks)}"),
+                (tr("Dreiwellenbetrieb (kein Glied fest)"), f"{ks} nS + {kr} nR = {ks + kr} nC"),
                 (tr("Drehzahlrollen"), tr("nS: Sonne, nR: Hohlrad, nC: Steg"))]
+
+    def als_dict(self):
+        ks, kr = self.koeffizienten
+        return {"sonne": self.sonne, "hohlrad": self.hohlrad, "planeten": self.planeten,
+                "gestuft": self.gestuft, "planeten_ring": self.planeten_ring, "umlaufraeder": self.umlaufraeder,
+                "z_sonne": self.z_sonne, "z_planet": self.z_planet, "z_planet_ring": self.z_planet_ring,
+                "z_hohlrad": self.z_hohlrad, "hinweise": self.hinweise, "rollen": ["sonne", "hohlrad", "steg"],
+                "koeffizienten": [ks, kr, -(ks + kr)],
+                "gleichung": "zS zP2 nS + zR zP1 nR = (zS zP2 + zR zP1) nC" if self.gestuft else
+                             "zS nS + zR nR = (zS + zR) nC",
+                "betriebsfaelle": self.betriebsfaelle(),
+                **({"bandphasen_geprueft": False, "montierbarkeit": "unbestimmt",
+                    "kinematik_voraussetzung": "gleichzeitiger_eingriff"} if self.gestuft else {})}
 
     def _teilung(self, liste: list[Verzahnung]) -> str:
         s = liste[self.sonne]
@@ -248,8 +297,40 @@ def eingriff_moeglich(p: Paar) -> bool:
     return p.eps_alpha > 0 and (not (a.beta and b.beta) or (a.hand == b.hand) == (a.innen or b.innen))
 
 
+def _bandgruppen(liste, nachbarn):
+    gruppen = {}
+    for i in sorted(nachbarn):
+        if not liste[i].innen:
+            gruppen.setdefault(_koerperkennung(liste[i], i), []).append(i)
+    return gruppen
+
+
+def _planetenbaender(liste, sonnenseite, ringseite):
+    """Je gemeinsamem Bolzen genau ein Band pro Eingriff. Koaxialitaet allein koppelt keine Planeten."""
+    links = _bandgruppen(liste, sonnenseite)
+    rechts = _bandgruppen(liste, ringseite)
+    paare = []
+    for koerper in links:
+        if koerper not in rechts:
+            continue
+        if len(links[koerper]) != 1 or len(rechts[koerper]) != 1:
+            return [], []  # Die Zuordnung der Baender auf diesem Koerper ist mehrdeutig.
+        a, b = links[koerper][0], rechts[koerper][0]
+        if not _gleiche_achse(liste[a], liste[b]) or any(_gleiche_achse(liste[a], liste[i]) for i, _ in paare):
+            return [], []
+        paare.append((a, b))
+    if len(paare) < 2:
+        return [], []
+    a, b = map(list, zip(*paare))
+    if a == b:
+        return a, []
+    if any(i == j for i, j in paare) or len({(liste[i].z, liste[j].z) for i, j in paare}) != 1:
+        return [], []  # Kein einheitliches Stufenplanetenprofil auf allen Bolzen.
+    return a, b
+
+
 def planetensaetze(liste: list[Verzahnung], paare: list[Paar]) -> list[Planetensatz]:
-    """Hohlrad und gleichachsige Sonne mit mindestens zwei Planeten, die mit beiden kaemmen."""
+    """Zentralraeder und mindestens zwei verschiedene Bolzen mit einfachen oder einteiligen Stufenplaneten."""
     idx = {id(v): i for i, v in enumerate(liste)}
     nachbarn: dict[int, set[int]] = {}
     for p in paare:
@@ -265,14 +346,17 @@ def planetensaetze(liste: list[Verzahnung], paare: list[Paar]) -> list[Planetens
         for s, sonne in enumerate(liste):
             if sonne.innen or s == r or not _gleiche_achse(sonne, hohl):
                 continue
-            planeten = sorted(nachbarn.get(r, set()) & nachbarn.get(s, set()))
-            if len(planeten) < 2:
+            planeten, ringbaender = _planetenbaender(liste, nachbarn.get(s, ()), nachbarn.get(r, ()))
+            if not planeten:
                 continue
             zp = {liste[i].z for i in planeten}
-            satz = Planetensatz(s, r, planeten, sonne.z, min(zp), hohl.z)
-            if len(zp) > 1:
+            satz = Planetensatz(s, r, planeten, sonne.z, min(zp), hohl.z, planeten_ring=ringbaender,
+                                z_planet_ring=liste[ringbaender[0]].z if ringbaender else None)
+            if satz.gestuft:
+                satz.hinweise.append(tr("Drehzahlen gelten bei gleichzeitigem Eingriff beider Planetenbänder."))
+            elif len(zp) > 1:
                 satz.hinweise.append(tr("Planeten mit verschiedenen Zähnezahlen: {}").format(sorted(zp)))
-            if hohl.z != sonne.z + 2 * min(zp):
+            if not satz.gestuft and hohl.z != sonne.z + 2 * min(zp):
                 satz.hinweise.append(tr("zr ≠ zs + 2 zp – Profilverschiebung oder Planeten mit Stufen"))
             out.append(satz)
     return out
@@ -359,7 +443,7 @@ def _planeten_indizes(liste, paare):
     raeder = [v for v in liste if isinstance(v, Verzahnung)]
     saetze = planetensaetze(raeder, paare)
     idx = {id(v): i for i, v in enumerate(liste)}
-    return saetze, [{idx[id(raeder[i])] for i in [s.sonne, s.hohlrad, *s.planeten]} for s in saetze]
+    return saetze, [{idx[id(raeder[i])] for i in [s.sonne, s.hohlrad, *s.umlaufraeder]} for s in saetze]
 
 
 def _achswahl(varianten, nr, wahl):
@@ -403,7 +487,7 @@ def stufen(liste, paare, planeten, bezugsrad=None, achswahl=None):
     from .verzahnung_sonder import kegelpaar_kandidaten
     saetze = planeten or _planeten_indizes(liste, [p for p in paare if isinstance(p, Paar)])[0]
     raeder = [i for i, v in enumerate(liste) if isinstance(v, Verzahnung)]
-    mitglieder = [{raeder[i] for i in [s.sonne, s.hohlrad, *s.planeten]} for s in saetze]
+    mitglieder = [{raeder[i] for i in [s.sonne, s.hohlrad, *s.umlaufraeder]} for s in saetze]
     weitere, umlauf = _umlaufgruppen(differentialgruppen(liste, kegelpaar_kandidaten(liste)), achswahl)
     _, zuege = _kraftfluesse(liste, paare, mitglieder + weitere, bezugsrad, umlauf)
     return ([s for z in zuege for s in z.stufen],
@@ -469,8 +553,9 @@ def getriebe_zeilen(liste, paare, bezugsrad=None, achswahl=None):
                 wert += ", " + (tr("gleiche Drehrichtung") if vor > 0 else tr("Gegendrehrichtung"))
             zeilen.append((tr("Gesamtübersetzung zur Welle {}").format(name(k)), wert))
     for n, s in enumerate(saetze, 1):
-        zeilen += [(tr("Planetensatz {}").format(n) + " – " + a, b) for a, b in s.zeilen(raeder)]
-        zeilen += [(tr("Planetensatz {}").format(n) + " – " + tr("Hinweis"), h) for h in s.hinweise]
+        titel = s.titel(n)
+        zeilen += [(titel + " – " + a, b) for a, b in s.zeilen(raeder)]
+        zeilen += [(titel + " – " + tr("Hinweis"), h) for h in s.hinweise]
     return zeilen + _differential_zeilen(liste, diff, achswahl)
 
 
@@ -486,7 +571,7 @@ def datenblatt(liste: list, paare: list[Paar], bezugsrad=None, achswahl=None) ->
     profile = [v for v in liste if isinstance(v, pv.Steckprofil)]
     liste = [v for v in liste if isinstance(v, Verzahnung)]
     st, ziel = stufen(liste, paare, saetze, next((i for i, v in enumerate(liste) if v is bezug), None))
-    gruppen = wellen(liste, [{s.sonne, s.hohlrad, *s.planeten} for s in saetze])
+    gruppen = wellen(liste, [{s.sonne, s.hohlrad, *s.umlaufraeder} for s in saetze])
     raeder = []
     for v in liste:
         d = v.als_dict()
@@ -529,13 +614,7 @@ def datenblatt(liste: list, paare: list[Paar], bezugsrad=None, achswahl=None) ->
                        for s in st],
             "uebersetzung_je_welle": {str(k): {"i": i, "richtung": r} for k, (i, r) in ziel.items()},
             "differentialgruppen": differentiale,
-            "planetensaetze": [{"sonne": s.sonne, "hohlrad": s.hohlrad, "planeten": s.planeten, "z_sonne": s.z_sonne,
-                                "z_planet": s.z_planet, "z_hohlrad": s.z_hohlrad, "hinweise": s.hinweise,
-                                "rollen": ["sonne", "hohlrad", "steg"],
-                                "koeffizienten": [s.z_sonne, s.z_hohlrad, -(s.z_sonne + s.z_hohlrad)],
-                                "gleichung": "zS nS + zR nR = (zS + zR) nC",
-                                "betriebsfaelle": s.betriebsfaelle()}
-                               for s in saetze],
+            "planetensaetze": [s.als_dict() for s in saetze],
             "auslegungsbefunde": _befunde([*liste, *profile, *sonder], paare, bezug)}
 
 

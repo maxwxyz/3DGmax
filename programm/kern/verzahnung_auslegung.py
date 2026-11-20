@@ -170,7 +170,7 @@ def getriebe_befunde(liste: list[Verzahnung], paare: list[Paar], bezug=None) -> 
     """Stufenaufteilung mehrstufiger Getriebe und Befunde der Planetensaetze."""
     out = []
     saetze = vd.planetensaetze(liste, paare)
-    mitglieder = [{s.sonne, s.hohlrad, *s.planeten} for s in saetze]
+    mitglieder = [{s.sonne, s.hohlrad, *s.umlaufraeder} for s in saetze]
     bezugsrad = next((i for i, v in enumerate(liste) if v is bezug), None)
     gruppen, zuege = vd._kraftfluesse(liste, paare, mitglieder, bezugsrad)
     welle = {i: k for k, g in enumerate(gruppen) for i in g}
@@ -187,9 +187,18 @@ def getriebe_befunde(liste: list[Verzahnung], paare: list[Paar], bezug=None) -> 
                           tr("spätere Stufe mit größerer Übersetzung – eher auf Tauchschmierung bzw. "
                              "Drehmomentverlauf ausgelegt"), Q_NIEMANN))
     for n, s in enumerate(saetze, 1):
-        name = tr("Planetensatz {}").format(n)
+        name = s.titel(n)
         anz = len(s.planeten)
         zs, zr = s.z_sonne, s.z_hohlrad
+        if s.gestuft:
+            ks, kr = s.koeffizienten
+            out.append(Befund(name, "Planetenzahl", str(anz),
+                              tr("Planeten mit je zwei drehfest verbundenen Zahnbändern"), tr("Stirnschnitte")))
+            out.append(Befund(name, "Zähnezahlen", f"{zs} / {s.z_planet} / {s.z_planet_ring} / {zr}",
+                              tr("Sonne / Sonnenband / Hohlradband / Hohlrad"), tr("Stirnschnitte")))
+            out.append(Befund(name, "Übersetzung", f"i = {_g(1 + kr / ks, 3)}",
+                              tr("Sonne treibt den Steg bei festem Hohlrad"), tr("Willis-Gleichung")))
+            continue
         out.append(Befund(name, "Planetenzahl", str(anz),
                           tr("Montagebedingung erfüllt: gleich verteilte Planeten") if (zs + zr) % anz == 0 else
                           tr("Montagebedingung nicht erfüllt – ungleiche Teilung nötig"), Q_NIEMANN))

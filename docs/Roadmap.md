@@ -228,7 +228,8 @@
 | Stepped gears: distinguish axial tooth bands on a single solid or connected mesh, including tooth-count changes across a shoulder | ✅ |
 | Multistage power flow with selectable reference shaft, branches, independent gear trains, cycle checks and mixed spur/bevel/worm stages | ✅ |
 | Operating speeds across coupled spur, bevel and simple planetary stages, reverted trains with separate coaxial input/output shafts, star operation with a fixed carrier, and symmetric open bevel differentials with selectable carrier axis | ✅ |
-| Compound planets on a common pin, Ravigneaux gearsets and locking or torque-biasing differentials | ⬜ |
+| Stepped planetary sets with two tooth bands on each one-piece planet: sun-side and ring-side mesh assignment, carrier ratio, operating speeds and REXS planet shafts | ✅ |
+| Ravigneaux gearsets and locking or torque-biasing differentials | ⬜ |
 | Cylindrical gear pairs: actual axial engagement and overlap contact ratio | ✅ |
 | Tooth-averaged left/right flank deviation maps, numeric CSV/JSON and illustrated gear PDF with sourced findings | ✅ |
 | Wiggle in the open degrees of freedom (kinematic) | ✅ |

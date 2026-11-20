@@ -1308,8 +1308,13 @@ tools (the user names MASTA as an example of a tool that needs these inputs), an
   and the [symmetric differential relation](https://mechanics.ju.se/MachineElements/transmissions.html).
   The REXS export uses separate sun and ring shaft relations and attaches planetary meshes to their
   planetary stage according to the [REXS 1.7 planetary stage model](https://spec.rexs.info/1.7/en/root-modeling-planetary-stages.html).
-- Further gearbox families need their own evidence and regression models, including stepped planets
-  on a common pin, Ravigneaux sets and locking or torque-biasing differentials. Gear positions alone
+- Stepped planetary sets use two measured tooth bands on each one-piece planet. One band meshes with
+  the sun and the other with the ring. At least two distinct planet pins must support the same assignment.
+  In the carrier frame the two bands rotate together. For tooth counts S, P1, P2 and R this gives
+  `S·P2·(nS − nC) + R·P1·(nR − nC) = 0`. Shaft speeds and exports use both mesh ratios.
+  Assembly phasing remains unresolved from tooth counts alone. [Compound planetary gear equations](https://www.mathworks.com/help/sdl/ref/compoundplanetarygear.html)
+- Further gearbox families need their own evidence and regression models, including Ravigneaux sets
+  and locking or torque-biasing differentials. Gear positions alone
   do not establish which clutch or brake is engaged. Worm pairs currently contribute ratios to the
   power-flow view only.
 - Cylindrical pairs require axial overlap, used in the overlap ratio. Flank maps show sampled deviations on

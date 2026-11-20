@@ -2334,5 +2334,14 @@
 "Koppeln Sie drehfest verbundene Wellen anschließend paarweise. Ein Wechsel setzt die Drehzahlvorgaben und Kopplungen zurück.": "Then couple the shafts that rotate together in pairs. Changing this option resets the speed inputs and couplings.",
 "Getrennte Wellen mit einzeln gewählten Kopplungen": "Separate shafts with individually selected couplings",
 "Koaxiale Räder auf gemeinsamer Welle": "Coaxial gears on a common shaft",
-"Wellenzuordnung im Betriebspunkt": "Operating-point shaft assignment"
+"Wellenzuordnung im Betriebspunkt": "Operating-point shaft assignment",
+"Stufenplanetensatz": "Stepped planetary gearset",
+"Bandphasen und gleichzeitiger Eingriff sind ungeprüft.": "Relative tooth phase and simultaneous mesh have not been verified.",
+"Drehzahlen gelten bei gleichzeitigem Eingriff beider Planetenbänder.": "Speeds assume simultaneous engagement of both planet tooth bands.",
+"Montage der Stufenplaneten": "Stepped planet assembly",
+"Planeten mit je zwei drehfest verbundenen Zahnbändern": "Planets with two rigidly connected tooth bands each",
+"Sonne / Sonnenband / Hohlradband / Hohlrad": "Sun / sun-side planet band / ring-side planet band / ring",
+"Sonne treibt den Steg bei festem Hohlrad": "Sun drives the carrier with the ring fixed",
+"Willis-Gleichung": "Willis equation",
+"Stufenplanetensatz {}": "Stepped planetary gearset {}"
 }
