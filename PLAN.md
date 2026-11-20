@@ -1656,7 +1656,10 @@ corners. Its center, width, height and flat-bottom depth can be selected from th
 The dimensions must agree with all four printed edges. A pocket must be clear of the plate boundary,
 holes and other pockets. The floor and its four adjacent walls identify the two side dimensions and
 the depth in STEP AP242. Verified on plates with two equal pockets, both alone and with a through hole.
-X/Y position PMI, drill points, stepped bores, rounded and through pocket profiles,
+Bore X/Y coordinates are exported with graphical and semantic outer-to-center distances. The left
+or bottom plate face is the first reference and the bore wall supplies the axis. Reload through
+both readers verifies the two references and the coordinate tolerance.
+Pocket center-position PMI, drill points, stepped bores, rounded and through pocket profiles,
 nonrectangular profiles, automatic cross-view association and datum/GD&T transfer remain open.
 
 ### 8.37 QIF extensions (last in the implementation order)

@@ -1,6 +1,19 @@
 # Handoff
 
-## Current state, 2026-11-20
+## Current state, 2026-11-21
+
+### Hole-center dimensions in reconstructed plates
+
+- Checked PLAN §§8.35–8.37 and docs/Roadmap.md. The PDF plate dialog accepts bilateral deviations
+  and limits for X and Y from the lower left. Each exported distance references the corresponding
+  zero-coordinate plane first and the individual bore wall second. Dimension lines run from that
+  plane to the axis in the top view. Plate edges must clear the entire diameter and location range.
+- Reopened a two-hole AP242 export in the native reader and OCCT/XCAF. Both retained the four
+  location dimensions on the correct bore and plate face, including X = 20 ±0.1 mm and Y limits
+  of 27.9–28.1 mm. The regression also checks the STEP aspect order and the graphical dimension
+  line lengths at the top surface. The affected suite passed 45 tests.
+- Pocket center references, through and rounded pockets, stepped holes, turned parts and automatic
+  cross-view association remain open in §8.36. Drawing-wide completeness is open in §8.35. QIF is last.
 
 ### Reconstruct rectangular pockets and their dimensions
 

@@ -143,6 +143,7 @@ def test_bohrungen_im_plattendialog_mit_ap242_wandbezug(app, tmp_path, monkeypat
     from pypdfium2 import PdfDocument
     from OCC.Core.BRepAdaptor import BRepAdaptor_Surface
     from OCC.Core.BRepGProp import brepgprop
+    from OCC.Core.GeomAbs import GeomAbs_Plane, GeomAbs_Cylinder
     from OCC.Core.GProp import GProp_GProps
     from programm.kern.pmi_lesen import lies_pmi_xcaf
     from programm.ui.lader import lade_alles
@@ -163,7 +164,7 @@ def test_bohrungen_im_plattendialog_mit_ap242_wandbezug(app, tmp_path, monkeypat
             assert d.bohrtabelle.rowCount() == len(d.ansicht.kreismarken) == 2
             d.ansicht.kreis_gewaehlt.emit(d.ringe[1].kreis)
             assert d.bohrtabelle.currentRow() == 1
-            for i, werte in enumerate((("20","16","Ø10 ±0.05"), ("48","28","Ø8 H7"))):
+            for i, werte in enumerate((("20","16","Ø10 ±0.05"), ("48","27.9–28.1","Ø8 H7"))):
                 for j, text in enumerate(werte, 1):
                     d.bohrtabelle.item(i,j).setText(text)
             d.bohrtabelle.setCurrentCell(0, 3)
@@ -179,24 +180,51 @@ def test_bohrungen_im_plattendialog_mit_ap242_wandbezug(app, tmp_path, monkeypat
             assert not d.speichern.isEnabled()
             d.durchgehend.setChecked(True)
             assert d.speichern.isEnabled()
-            for falsch in ("25", "20 ±0.1", "20°"):
+            for falsch in ("25", "20 H7", "20 ±16", "20°"):
                 d.bohrtabelle.item(0,1).setText(falsch)
                 assert not d.speichern.isEnabled()
-            d.bohrtabelle.item(0,1).setText("20")
+            d.bohrtabelle.item(0,1).setText("20 ±0.1")
             monkeypatch.setattr(QtWidgets.QFileDialog, "getSaveFileName", lambda *args: (str(ziel), "STEP"))
             d.speichern.click()
             erg = lade_alles(str(ziel))
-            assert len(erg.pmi) == 5 and all(p.grafisch and p.semantisch for p in erg.pmi)
+            assert len(erg.pmi) == 9 and all(p.grafisch and p.semantisch for p in erg.pmi)
             volumen = GProp_GProps()
             brepgprop.VolumeProperties(erg.modell.form, volumen)
             assert volumen.Mass() == pytest.approx(8*(60*40-np.pi*(25+16)))
             for quelle in (erg.pmi, lies_pmi_xcaf(erg.modell)):
+                lage = sorted((p for p in quelle if p.typ == "Location_LinearDistance_FromOuterToCenter"),
+                              key=lambda p: p.nennwert)
+                for p, (wert, achse, xy) in zip(lage, ((16,1,(20,16)), (20,0,(20,16)),
+                                                        (28,1,(48,28)), (48,0,(48,28))), strict=True):
+                    assert p.nennwert == wert
+                    if wert == 20:
+                        assert p.grenzen() == pytest.approx((20.1,19.9))
+                    if wert == 28:
+                        assert p.grenzmass and p.grenzen() == pytest.approx((28.1,27.9))
+                    fl = [BRepAdaptor_Surface(erg.modell.flaechen[i]) for i in p.flaechen]
+                    ebene, = (f.Plane() for f in fl if f.GetType() == GeomAbs_Plane)
+                    zylinder, = (f.Cylinder() for f in fl if f.GetType() == GeomAbs_Cylinder)
+                    assert abs(ebene.Axis().Direction().Coord()[achse]) == pytest.approx(1)
+                    assert ebene.Location().Coord()[achse] == pytest.approx(0)
+                    assert zylinder.Location().Coord()[:2] == pytest.approx(xy)
                 zyl = sorted((p for p in quelle if p.typ == "Size_Diameter"), key=lambda p: -p.nennwert)
                 assert len(zyl) == 2 and zyl[0].grenzen() == pytest.approx((10.05,9.95))
                 for p, (x, y, r) in zip(zyl, ((20,16,5),(48,28,4)), strict=True):
                     f, = p.flaechen
                     z = BRepAdaptor_Surface(erg.modell.flaechen[f]).Cylinder()
                     assert (z.Location().X(), z.Location().Y(), z.Radius()) == pytest.approx((x,y,r))
+            datei = erg.modell.datei
+            aspekte = {e.args("GEOMETRIC_ITEM_SPECIFIC_USAGE")[2].id: e.args("GEOMETRIC_ITEM_SPECIFIC_USAGE")[4].id
+                       for e in datei.of_type("GEOMETRIC_ITEM_SPECIFIC_USAGE")}
+            for p in (q for q in erg.pmi if q.typ == "Location_LinearDistance_FromOuterToCenter"):
+                ebene, wand = datei.entities[p.step_id].args("DIMENSIONAL_LOCATION")[2:]
+                referenzen = [erg.modell.step_zu_flaeche[aspekte[ref.id]] for ref in (ebene, wand)]
+                assert [BRepAdaptor_Surface(erg.modell.flaechen[i]).GetType() for i in referenzen] == [
+                    GeomAbs_Plane, GeomAbs_Cylinder]
+                grafik, = (g for g in erg.grafik.values() if p.step_id in g.pmi_ids)
+                linie = grafik.linien[2]
+                np.testing.assert_allclose(linie[:,2], [8,8], atol=1e-6)
+                assert np.linalg.norm(linie[1]-linie[0]) == pytest.approx(p.nennwert)
             assert any(p.passung == "H7" for p in erg.pmi)
             d.ansicht.bereich.emit((.08,.1,.51,.52))
             assert not d.durchgehend.isChecked() and not d.speichern.isEnabled()
@@ -256,11 +284,11 @@ def test_sackloch_gemischte_platte_mit_getrennten_tiefenzielen(app, tmp_path, mo
             assert d.speichern.isEnabled()
             d.speichern.click()
             erg = lade_alles(str(ziel))
-            assert "8" in d.status.text()
+            assert "14" in d.status.text()
             v = GProp_GProps()
             brepgprop.VolumeProperties(erg.modell.form, v)
             assert v.Mass() == pytest.approx(60*40*8 - np.pi*(9*8+2*16*4))
-            assert len(erg.pmi) == 8 and all(p.grafisch and p.semantisch for p in erg.pmi)
+            assert len(erg.pmi) == 14 and all(p.grafisch and p.semantisch for p in erg.pmi)
             for quelle in (erg.pmi, lies_pmi_xcaf(erg.modell)):
                 tiefen = sorted((p for p in quelle if p.nennwert == 4), key=lambda p: p.oben)
                 assert len(tiefen) == 2
@@ -334,7 +362,7 @@ def test_rechtecktaschen_aus_pdf_mit_eindeutigen_wandpaaren(app, tmp_path, monke
             v = GProp_GProps()
             brepgprop.VolumeProperties(erg.modell.form, v)
             assert v.Mass() == pytest.approx(60*40*8-2*12*8*3-(32*np.pi if mit_bohrung else 0))
-            assert len(erg.pmi) == 9+int(mit_bohrung) and all(p.grafisch and p.semantisch for p in erg.pmi)
+            assert len(erg.pmi) == 9+3*int(mit_bohrung) and all(p.grafisch and p.semantisch for p in erg.pmi)
             for quelle in (erg.pmi, lies_pmi_xcaf(erg.modell)):
                 breite = [p for p in quelle if p.nennwert == 12]
                 tiefen = [p for p in quelle if p.nennwert == 3]

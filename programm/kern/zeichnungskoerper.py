@@ -18,6 +18,7 @@ class Plattenbohrung:
     y: float
     durchmesser: Pmi
     tiefe: Pmi | None = None
+    lagemasse: tuple[Pmi, Pmi] | None = None
 
 
 @dataclass(frozen=True)
@@ -87,12 +88,24 @@ def pruefe_tiefe(tiefe, dicke):
         raise ValueError(tr("Die Tiefe muss mit ihren Grenzmaßen zwischen null und der kleinsten Plattendicke liegen."))
 
 
+def koordinatenmasse(tx, ty):
+    paar = tuple(lese_angabe(text, 1.) for text in (tx, ty))
+    for p in paar:
+        if not p or p.typ != "Location_LinearDistance" or p.nennwert is None or p.passung or p.modifikatoren:
+            return None
+        oben, unten = p.grenzen()
+        if not all(np.isfinite(g) for g in (p.nennwert, oben, unten) if g is not None):
+            return None
+        if oben is not None and unten is not None and oben < unten:
+            return None
+    return paar
+
+
 def koordinaten(tx, ty):
-    paar = [lese_angabe(text, 1.) for text in (tx, ty)]
-    if any(not p or p.typ != "Location_LinearDistance" or p.nennwert is None or not np.isfinite(p.nennwert)
-           or p.oben is not None or p.unten is not None or p.passung or p.modifikatoren for p in paar):
-        return None
-    return tuple(p.nennwert for p in paar)
+    paar = koordinatenmasse(tx, ty)
+    if paar and all(p.oben is None and p.unten is None for p in paar):
+        return tuple(p.nennwert for p in paar)
+    return None
 
 
 def plattenmasse(texte, faktor, grundriss, vorderansicht=None):
@@ -181,6 +194,12 @@ def _flaechenmasse(modell, masse, bohrungen, taschen):
         raise ValueError(tr("Die gegenüberliegenden Plattenflächen sind nicht eindeutig."))
     alle = [*masse, *(b.durchmesser for b in bohrungen)]
     flaechen = paare + waende
+    for bohrung, wand in zip(bohrungen, waende, strict=True):
+        if bohrung.lagemasse:
+            for achse, mass in enumerate(bohrung.lagemasse):
+                ursprung = {i for i in paare[achse] if abs(ebenen[achse][i]) < 1e-7}
+                alle.append(replace(mass, typ="Location_LinearDistance_FromOuterToCenter"))
+                flaechen.append(ursprung | wand)
     if taschen or any(b.tiefe for b in bohrungen):
         from .vergleich_geo import _nachbarn
         nachbarn = _nachbarn(modell.flaechen, modell.flaechen_index)

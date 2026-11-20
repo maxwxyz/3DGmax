@@ -280,15 +280,28 @@ def _ebenen_paar(flaechen):
 
 def _masslinie(p, flaechen, quader, mitte, belegt, bilder, h, nr) -> Grafik | None:
     """Abstandsmass zwischen zwei parallelen Ebenen: Masshilfslinien, Masslinie mit Pfeilen, Text darueber."""
-    paar = _ebenen_paar(flaechen)
-    if paar is None:
-        return None
-    (c1, u), (c2, _) = paar
-    u = u / np.linalg.norm(u)
-    kandidaten = [a * (1.0 if a @ BETRACHTER >= 0 else -1.0) for a in ACHSEN if abs(a @ u) < 1e-3]
-    if not kandidaten:
-        return None  # Massrichtung schraeg zu allen Modellebenen: Hinweislinie wie bisher
-    n = max(kandidaten, key=lambda a: abs(a @ BETRACHTER))
+    if p.typ == "Location_LinearDistance_FromOuterToCenter":
+        from .plausibilitaet import ebene_zur_achse
+        lage = ebene_zur_achse(flaechen)
+        if lage is None:
+            return None
+        _, c1, c2, n = lage
+        u = c2-c1
+        if np.linalg.norm(u) < 1e-8:
+            return None
+        u /= np.linalg.norm(u)
+        if n @ BETRACHTER < 0:
+            n = -n
+    else:
+        paar = _ebenen_paar(flaechen)
+        if paar is None:
+            return None
+        (c1, u), (c2, _) = paar
+        u = u / np.linalg.norm(u)
+        kandidaten = [a * (1.0 if a @ BETRACHTER >= 0 else -1.0) for a in ACHSEN if abs(a @ u) < 1e-3]
+        if not kandidaten:
+            return None
+        n = max(kandidaten, key=lambda a: abs(a @ BETRACHTER))
     c2 = c2 - n * float((c2 - c1) @ n)  # in die Schreibebene durch c1
     d = float((c2 - c1) @ u)
     y = np.cross(n, u)
@@ -356,7 +369,7 @@ def ergaenze(pmi: list, grafik: dict, modell, ansichten: list | None = None) -> 
         if anker is None:
             continue
         bilder = belegung.hindernisse(p.step_id, h)
-        if p.art == MASS and p.typ in ("Location_LinearDistance", "Size_Thickness"):
+        if p.art == MASS and p.typ in ("Location_LinearDistance", "Location_LinearDistance_FromOuterToCenter", "Size_Thickness"):
             g = _masslinie(p, flaechen, quader, mitte, belegt, bilder, h, i)
             if g is not None:
                 belegung.merke(g.pmi_ids, belegt[-1])

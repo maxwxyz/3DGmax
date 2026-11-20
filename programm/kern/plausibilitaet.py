@@ -45,6 +45,29 @@ def _ebene(f):
     return np.array([o.X(), o.Y(), o.Z()]), np.array([n.X(), n.Y(), n.Z()])
 
 
+def ebene_zur_achse(flaechen):
+    """Index der Bezugsebene, Lotfuss, Achspunkt und Achsrichtung am Ende des Zylindermantels."""
+    from OCC.Core.BRepAdaptor import BRepAdaptor_Surface
+    from OCC.Core.GeomAbs import GeomAbs_Cylinder
+    if len(flaechen) != 2:
+        return None
+    for i, f in enumerate(flaechen):
+        ebene = _ebene(f)
+        if ebene is None:
+            continue
+        s = BRepAdaptor_Surface(flaechen[1-i])
+        if s.GetType() != GeomAbs_Cylinder:
+            return None
+        ax = s.Cylinder().Axis()
+        richtung = np.array(ax.Direction().Coord())
+        ort, normale = ebene
+        if abs(richtung @ normale) > 1e-7:
+            return None
+        mitte = np.array(ax.Location().Coord()) + richtung*s.LastVParameter()
+        return i, mitte - normale*((mitte-ort) @ normale), mitte, richtung
+    return None
+
+
 def hierarchie(pmi, modell) -> list:
     from .pmi_bericht import WARNUNG
     out = []
@@ -262,6 +285,10 @@ def geometrie(pmi, modell) -> list:
             e1, e2 = _ebene(flaechen[0]), _ebene(flaechen[1])
             if e1 and e2 and abs(e1[1] @ e2[1]) > 0.9999:
                 ist = abs((e2[0] - e1[0]) @ e1[1])
+        elif p.typ == "Location_LinearDistance_FromOuterToCenter":
+            paar = ebene_zur_achse(flaechen)
+            if paar is not None:
+                ist = np.linalg.norm(paar[2] - paar[1])
         if ist is not None and abs(ist - abs(p.nennwert)) > GEOMETRIE_TOLERANZ:
             out.append(_befund(WARNUNG, "geometrie", tr("Nennmaß {:.4g} passt nicht zum Modell ({:.4f})").format(
                 abs(p.nennwert), ist), [p.nummer], p.flaechen))

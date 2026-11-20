@@ -390,14 +390,23 @@ def _schreibe_mass(a: _Anhang, p) -> str | None:
         if sa is None:
             return tr("Flächen ohne Entsprechung in der Datei")
         dim = a.neu(f"ANGULAR_SIZE(#{sa},'',.EQUAL.)")
-    elif p.typ in ("Location_LinearDistance", "Location_Angular") and len(p.flaechen) == 2:
+    elif p.typ in ("Location_LinearDistance", "Location_LinearDistance_FromOuterToCenter", "Location_Angular") and len(p.flaechen) == 2:
         if p.typ == "Location_Angular" and a.einheit_winkel is None:
             return tr("Keine Winkeleinheit in der Datei")
         f1, f2 = sorted(p.flaechen)
+        name = "linear distance"
+        if p.typ == "Location_LinearDistance_FromOuterToCenter":
+            from .plausibilitaet import ebene_zur_achse
+            paar = ebene_zur_achse([a.modell.flaechen[i] for i in (f1, f2)])
+            if paar is None:
+                return tr("Maßart nicht schreibbar")
+            if paar[0] == 1:
+                f1, f2 = f2, f1
+            name = "linear distance outer centre"
         s1, s2 = a.aspekt({f1}), a.aspekt({f2})
         if s1 is None or s2 is None:
             return tr("Flächen ohne Entsprechung in der Datei")
-        dim = a.neu(f"DIMENSIONAL_LOCATION('linear distance','',#{s1},#{s2})" if p.typ == "Location_LinearDistance"
+        dim = a.neu(f"DIMENSIONAL_LOCATION('{name}','',#{s1},#{s2})" if p.typ != "Location_Angular"
                     else f"ANGULAR_LOCATION('angular location','',#{s1},#{s2},.EQUAL.)")
     else:
         return tr("Maßart nicht schreibbar")

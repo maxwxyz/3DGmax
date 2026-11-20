@@ -10,7 +10,7 @@ from scipy.spatial import cKDTree
 from ..i18n import tr
 from .zeichnungsabgleich import lese_angabe, musteranzahl
 from .zeichnungsansicht import Blattkreis
-from .zeichnungskoerper import Plattenbohrung, koordinaten, pruefe_tiefe, tiefenmass, tintenrechteck
+from .zeichnungskoerper import Plattenbohrung, koordinatenmasse, pruefe_tiefe, tiefenmass, tintenrechteck
 from .plattentasche import Taschenkontur
 
 
@@ -94,13 +94,17 @@ def sollbohrungen(ringe, werte, masse, umfang, *, tiefen=None):
             raise ValueError(tr("Den Durchmesser von Bohrung {} angeben.").format(index))
         if any(g is not None and (not math.isfinite(g) or g <= 0) for g in pmi.grenzen()):
             raise ValueError(tr("Die Grenzmaße für Bohrung {} müssen positiv sein.").format(index))
-        mitte = koordinaten(tx, ty)
+        mitte = koordinatenmasse(tx, ty)
         if not mitte:
             raise ValueError(tr("X und Y für Bohrung {} als Koordinaten angeben.").format(index))
-        x, y = mitte
+        x, y = (p.nennwert for p in mitte)
         r = pmi.nennwert/2
-        if not (r < x < breite-r and r < y < hoehe-r):
-            raise ValueError(tr("Bohrung {} reicht über den Plattenrand.").format(index))
+        # Auch am Toleranzrand muss der vollstaendige Ring innerhalb der Platte liegen.
+        radius_max = max(g for g in (pmi.nennwert, *pmi.grenzen()) if g is not None)/2
+        for lage, seite in zip(mitte, masse[:2], strict=True):
+            rand = min(v for v in (seite.nennwert, *seite.grenzen()) if v is not None)
+            if any(not radius_max < g < rand-radius_max for g in (lage.nennwert, *lage.grenzen()) if g is not None):
+                raise ValueError(tr("Bohrung {} reicht über den Plattenrand.").format(index))
         if any(math.hypot(x-b.x, y-b.y) <= r+b.durchmesser.nennwert/2 for b in bohrungen):
             raise ValueError(tr("Bohrung {} berührt oder schneidet eine andere Bohrung.").format(index))
         if (math.hypot((x/breite-ring.x)*bx, (y/hoehe-ring.y)*by) > 2.
@@ -112,5 +116,5 @@ def sollbohrungen(ringe, werte, masse, umfang, *, tiefen=None):
             if tiefe is None or tiefe.nennwert is None:
                 raise ValueError(tr("Die Tiefe bis zum flachen Grund von Bohrung {} angeben.").format(index))
             pruefe_tiefe(tiefe, masse[2])
-        bohrungen.append(Plattenbohrung(x, y, pmi, tiefe))
+        bohrungen.append(Plattenbohrung(x, y, pmi, tiefe, mitte))
     return bohrungen
