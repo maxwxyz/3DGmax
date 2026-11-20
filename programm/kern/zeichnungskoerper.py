@@ -32,6 +32,7 @@ class Plattentasche:
     breite: Pmi
     hoehe: Pmi
     tiefe: Pmi | None
+    radius: Pmi | None = None
 
 
 def rechteckgrenzen(bild, box):
@@ -172,7 +173,10 @@ def _plattenform(masse, bohrungen, taschen):
         x, y = tasche.breite.nennwert, tasche.hoehe.nennwert
         boden = dicke-tasche.tiefe.nennwert if tasche.tiefe else -zugabe
         ecke = gp_Pnt(tasche.x-x/2, tasche.y-y/2, boden)
-        werkzeuge.Append(BRepPrimAPI_MakeBox(ecke, x, y, dicke+zugabe-boden).Shape())
+        werkzeug = BRepPrimAPI_MakeBox(ecke, x, y, dicke+zugabe-boden).Shape()
+        if tasche.radius:
+            werkzeug = _runde_senkrechte_kanten(werkzeug, tasche.radius.nennwert)
+        werkzeuge.Append(werkzeug)
     schnitt = BRepAlgoAPI_Cut()
     schnitt.SetArguments(platte)
     schnitt.SetTools(werkzeuge)
@@ -180,6 +184,26 @@ def _plattenform(masse, bohrungen, taschen):
     if not schnitt.IsDone() or not BRepCheck_Analyzer(schnitt.Shape()).IsValid():
         raise ValueError(tr("Die Innenkonturen konnten nicht ausgeschnitten werden."))
     return schnitt.Shape()
+
+
+def _runde_senkrechte_kanten(form, radius):
+    from OCC.Core.BRepAdaptor import BRepAdaptor_Curve
+    from OCC.Core.BRepFilletAPI import BRepFilletAPI_MakeFillet
+    from OCC.Core.TopAbs import TopAbs_EDGE
+    from OCC.Core.TopExp import topexp
+    from OCC.Core.TopTools import TopTools_IndexedMapOfShape
+    from OCC.Core.TopoDS import topods
+    kanten = TopTools_IndexedMapOfShape()
+    topexp.MapShapes(form, TopAbs_EDGE, kanten)
+    rundung = BRepFilletAPI_MakeFillet(form)
+    for i in range(1,kanten.Size()+1):
+        k = topods.Edge(kanten.FindKey(i))
+        if abs(BRepAdaptor_Curve(k).Line().Direction().Z()) > .999999:
+            rundung.Add(radius, k)
+    rundung.Build()
+    if not rundung.IsDone():
+        raise ValueError(tr("Die Taschenrundungen konnten nicht erzeugt werden."))
+    return rundung.Shape()
 
 
 def _flaechenmasse(modell, masse, bohrungen, taschen):
@@ -190,6 +214,7 @@ def _flaechenmasse(modell, masse, bohrungen, taschen):
     spitzen = [set() for _ in bohrungen]
     ebenen = [{}, {}, {}]
     horizontal = ebenen[2]
+    viertelkreise = {}
     for i, flaeche in enumerate(modell.flaechen):
         s = BRepAdaptor_Surface(flaeche)
         if s.GetType() == GeomAbs_Plane:
@@ -209,6 +234,9 @@ def _flaechenmasse(modell, masse, bohrungen, taschen):
             else:
                 z = s.Cylinder()
                 ort, rad = z.Location(), z.Radius()
+                if abs(s.LastUParameter()-s.FirstUParameter()-np.pi/2) < 1e-6:
+                    viertelkreise[i] = (ort.X(), ort.Y(), rad)
+                    continue
             treffer = [j for j, b in enumerate(bohrungen) if abs(ort.X()-b.x) < 1e-6
                        and abs(ort.Y()-b.y) < 1e-6 and (kegel == bool(b.senkwinkel) or (kegel and b.spitzenwinkel))
                        and abs(rad-b.durchmesser.nennwert/2) < 1e-6]
@@ -266,8 +294,10 @@ def _flaechenmasse(modell, masse, bohrungen, taschen):
                     flaechen.append(deckel | boden)
                 eintritt = boden
         for tasche in taschen:
-            bezuege = _taschenflaechen(tasche, dicke, deckel, ebenen, nachbarn)
+            bezuege = _taschenflaechen(tasche, dicke, deckel, ebenen, nachbarn, viertelkreise)
             alle.extend((tasche.breite, tasche.hoehe))
+            if tasche.radius:
+                alle.append(tasche.radius)
             if tasche.tiefe:
                 alle.append(tasche.tiefe)
             flaechen.extend(bezuege)
@@ -299,20 +329,25 @@ def _spitzenziel(modell, wand, spitze, gesamt):
     return punkte.pop(), spitze
 
 
-def _taschenflaechen(tasche, dicke, deckel, ebenen, nachbarn):
+def _taschenflaechen(tasche, dicke, deckel, ebenen, nachbarn, viertelkreise):
     ziel_z = dicke-tasche.tiefe.nennwert if tasche.tiefe else 0.
     kandidaten = []
     for i, z in ebenen[2].items():
         if abs(z-ziel_z) >= 1e-6:
             continue
         # Beim Durchbruch grenzt die Unterseite auch an Waende anderer Ausschnitte.
-        if tasche.tiefe and len(nachbarn[i]) != 4:
+        if tasche.tiefe and len(nachbarn[i]) != (8 if tasche.radius else 4):
             continue
         waende = {j for j in nachbarn[i] if deckel <= nachbarn[j]}
         seiten = []
         for lagen, mitte, mass in zip(ebenen[:2], (tasche.x, tasche.y), (tasche.breite, tasche.hoehe)):
             for ort in (mitte-mass.nennwert/2, mitte+mass.nennwert/2):
                 seiten.append({j for j in waende & lagen.keys() if abs(lagen[j]-ort) < 1e-6})
+        if tasche.radius:
+            paare = _gerundete_waende(tasche, seiten, waende, nachbarn, viertelkreise)
+            if paare:
+                kandidaten.append((*paare, deckel | {i}) if tasche.tiefe else paare)
+            continue
         # Alle vier Waende muessen zu demselben geschlossenen Rechteck gehoeren.
         for links in seiten[0]:
             oben = nachbarn[links] & seiten[2]
@@ -327,6 +362,29 @@ def _taschenflaechen(tasche, dicke, deckel, ebenen, nachbarn):
     if len(kandidaten) != 1:
         raise ValueError(tr("Die vier zusammenhängenden Wände der Innenkontur sind nicht eindeutig."))
     return kandidaten[0]
+
+
+def _gerundete_waende(tasche, seiten, waende, nachbarn, viertelkreise):
+    radius = tasche.radius.nennwert
+    halbx, halby = tasche.breite.nennwert/2-radius, tasche.hoehe.nennwert/2-radius
+    ecken = set()
+    seitenwaende = [set() for _ in seiten]
+    for i, sx in enumerate((-1,1)):
+        for j, sy in enumerate((-1,1), 2):
+            ziel = np.array([tasche.x+sx*halbx, tasche.y+sy*halby, radius])
+            ecke = [k for k in waende & viertelkreise.keys()
+                    if np.max(np.abs(ziel-viertelkreise[k])) < 1e-6]
+            if len(ecke) != 1:
+                return None
+            k, = ecke
+            ecken.add(k)
+            for n in (i,j):
+                wand = nachbarn[k] & seiten[n]
+                if len(wand) != 1:
+                    return None
+                seitenwaende[n].update(wand)
+    if len(ecken) == 4 and all(len(w) == 1 for w in seitenwaende):
+        return seitenwaende[0] | seitenwaende[1], seitenwaende[2] | seitenwaende[3], ecken
 
 
 def schreibe_platte(ziel, masse, bohrungen=(), taschen=()):

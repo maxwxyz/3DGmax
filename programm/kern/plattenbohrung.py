@@ -12,6 +12,7 @@ from .zeichnungsabgleich import lese_angabe, musteranzahl
 from .zeichnungsansicht import Blattkreis
 from .zeichnungskoerper import Plattenbohrung, koordinatenmasse, pruefe_tiefe, tiefenmass, tintenrechteck
 from .plattentasche import Taschenkontur
+from .rundkontur import passende_rundung
 
 
 @dataclass(frozen=True)
@@ -58,7 +59,7 @@ def _ringgruppen(ringe, links, unten, breite, hoehe):
     return bohrungen
 
 
-def plattenumriss(bild, box, kreise):
+def plattenumriss(bild, box, kreise, rundungen=()):
     h, w = bild.shape[:2]
     l, t, r, b = np.rint(np.clip(box, 0., 1.)*[w, h, w, h]).astype(int)
     maske = bild[t:b, l:r, :3].min(axis=2) < 245
@@ -78,6 +79,7 @@ def plattenumriss(bild, box, kreise):
     breite, hoehe = rechts-links, unten-oben
     ringe, taschen = [], []
     zentren = cKDTree([(k.x, k.y) for k in kreise]) if kreise else None
+    rundmitten = cKDTree([(q[:2]+q[2:4])/2 for q in rundungen]) if len(rundungen) else None
     for i, (yy, xx) in enumerate(teile, 1):
         if i == aussen:
             continue
@@ -97,12 +99,20 @@ def plattenumriss(bild, box, kreise):
         if len(kandidaten) == 1 and _ist_ring(teil, kandidaten[0], l+xx.start, t+yy.start):
             ringe.append(kandidaten[0])
             continue
-        rand = tintenrechteck(np.pad(teil, 1), l+xx.start-1, t+yy.start-1)
-        if rand is None:
-            return None
+        rund = None
+        if rundmitten is not None:
+            nachbarn = rundmitten.query_ball_point((x, y), 3., p=np.inf)
+            rund = passende_rundung(teil, l+xx.start, t+yy.start, (rundungen[j] for j in nachbarn))
+        if rund is None:
+            rand = tintenrechteck(np.pad(teil, 1), l+xx.start-1, t+yy.start-1)
+            if rand is None:
+                return None
+            radius = 0.
+        else:
+            rand, radius = rund[:4], rund[4]/breite
         x1, y1, x2, y2 = rand
         taschen.append(Taschenkontur((x1/w,y1/h,x2/w,y2/h), ((x1+x2)/2-links)/breite,
-                                    (unten-(y1+y2)/2)/hoehe, (x2-x1)/breite, (y2-y1)/hoehe))
+                                    (unten-(y1+y2)/2)/hoehe, (x2-x1)/breite, (y2-y1)/hoehe, radius))
     bohrungen = _ringgruppen(ringe, links, unten, breite, hoehe)
     if bohrungen is None:
         return None

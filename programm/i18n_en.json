@@ -1,4 +1,11 @@
 {
+"Den gemeinsamen Eckradius der Tasche mit R angeben.": "Enter the common pocket corner radius with R.",
+"Der Eckradius muss mit seinen Grenzmaßen vier gerade Seiten übrig lassen.": "The corner radius must leave four straight sides at both tolerance limits.",
+"Der Eckradius widerspricht den Rundungen im Grundriss.": "The corner radius does not match the arcs in the top view.",
+"Die Taschenrundungen konnten nicht erzeugt werden.": "Could not create the rounded pocket corners.",
+"Eckradius (mm)": "Corner radius (mm)",
+"Eckradius der gewählten Tasche": "Corner radius of selected pocket",
+"Für einen Eckradius eine gerundete Tasche wählen.": "Select a rounded pocket before picking a corner radius.",
 "Die Bohrtiefe für Bohrung {} angeben.": "Enter the depth of hole {}.",
 "Der Scheitelpunkt der Bohrspitze ist nicht eindeutig.": "Could not identify the drill point apex.",
 "Die Gesamttiefe lässt mit ihren Grenzmaßen keinen zylindrischen Abschnitt übrig.": "At its limits, the total depth leaves no cylindrical segment.",

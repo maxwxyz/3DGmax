@@ -405,7 +405,14 @@ def _schreibe_mass(a: _Anhang, p) -> str | None:
     if fehler:
         return fehler
     if p.typ in GROESSE_NAME:
-        sa = a.aspekt(p.flaechen, ziel=p.massziel_step)
+        if p.massziel_step is None and len(p.flaechen) > 1:
+            # Einzelne Formaspekte im Verbund erhalten alle Massziele auch in XCAF.
+            sa = a.neu(f"COMPOSITE_SHAPE_ASPECT('','DIMENSION',#{a.pds},.F.)")
+            for f in sorted(p.flaechen):
+                teil = a.aspekt({f})
+                a.neu(f"SHAPE_ASPECT_RELATIONSHIP('','',#{sa},#{teil})")
+        else:
+            sa = a.aspekt(p.flaechen, ziel=p.massziel_step)
         if sa is None:
             return tr("Flächen ohne Entsprechung in der Datei")
         dim = a.neu(f"DIMENSIONAL_SIZE(#{sa},'{GROESSE_NAME[p.typ]}')")

@@ -122,7 +122,7 @@ def _sichtbar(mask, p):
 
 
 class Blattgeometrie:
-    def __init__(self, blatt):
+    def __init__(self, blatt, *, mit_rundungen=False):
         import ctypes as ct
         from pypdfium2 import raw
         h, w = blatt.bild.shape[:2]
@@ -133,6 +133,9 @@ class Blattgeometrie:
         basis = np.array([(ks.to_page(w, 0)-o)/w, (ks.to_page(0, h)-o)/h])
         zur_ansicht = np.linalg.inv(basis)
         kreise, linien, pfeile, konturen = {}, [], [], []
+        self.rundungen = []
+        if mit_rundungen:
+            from .rundkontur import rundrechteck, druckrand
         for obj in blatt.seite.get_objects(filter=[raw.FPDF_PAGEOBJ_PATH]):
             fuellung, strich = ct.c_int(), ct.c_int()
             if not raw.FPDFPath_GetDrawMode(obj, fuellung, strich):
@@ -145,7 +148,7 @@ class Blattgeometrie:
             a, b, c, d, ex, ey = matrix.get()
             abbildung = np.array([(a, b), (c, d)]) @ zur_ansicht
             verschiebung = (np.array([ex, ey]) - o) @ zur_ansicht
-            ringraender = []
+            ringraender, rundraender = [], []
             for pfad in _teilpfade(obj):
                 p = np.asarray(pfad) @ abbildung + verschiebung
                 if len(p) >= 12:
@@ -156,6 +159,12 @@ class Blattgeometrie:
                         elif fuellung.value:
                             x, y = p.T
                             ringraender.append((k, np.sign(x @ np.roll(y, 1) - y @ np.roll(x, 1))))
+                    elif mit_rundungen and (q := rundrechteck(p)) is not None and _sichtbar(mask, p):
+                        if strich.value:
+                            self.rundungen.append(q)
+                        elif fuellung.value:
+                            x, y = p.T
+                            rundraender.append((q, np.sign(x @ np.roll(y,1)-y @ np.roll(x,1))))
                 elif strich.value and 2 <= len(p) <= 4 and np.linalg.norm(p[0]-p[-1]) >= 3:
                     for start, ende in zip(p, p[1:]):
                         if np.linalg.norm(start-ende) >= 3 and _sichtbar(mask, np.linspace(start, ende, 9)):
@@ -171,6 +180,10 @@ class Blattgeometrie:
                             pfeile.append(pfeil)
                         elif strich.value and _sichtbar(mask, p):
                             konturen.append((p[0], p[-1], pfeil))
+            if rundraender:
+                q = druckrand(rundraender, fuellung.value == raw.FPDF_FILLMODE_ALTERNATE)
+                if q is not None:
+                    self.rundungen.append(q)
             if len(ringraender) == 2:
                 (k, sinn), (j, sinn2) = ringraender
                 if (math.hypot(k.x-j.x, k.y-j.y) < .15 and abs(k.r-j.r) < min(4., .18*k.r)

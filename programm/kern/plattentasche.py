@@ -2,6 +2,7 @@
 
 from dataclasses import dataclass
 import math
+import re
 
 from ..i18n import tr
 from .zeichnungsabgleich import lese_angabe
@@ -15,6 +16,35 @@ class Taschenkontur:
     y: float
     breite: float
     hoehe: float
+    radius: float = 0.  # Anteil der Plattenbreite
+
+
+def eckradiusmass(text, faktor):
+    text = re.sub(r"^\s*4\s*[xX×]\s*(?=R)", "", text, flags=re.I)
+    p = lese_angabe(text, faktor)
+    if (p and p.typ == "Size_Radius" and not p.passung and not p.modifikatoren
+            and p.nennwert is not None and math.isfinite(p.nennwert)):
+        return p
+    return None
+
+
+def _eckradius(text, kontur, breite, hoehe, sx, bx):
+    if not kontur.radius:
+        return None
+    p = eckradiusmass(text, 1.)
+    if p is None:
+        raise ValueError(tr("Den gemeinsamen Eckradius der Tasche mit R angeben."))
+    kleinste_seite = min(g for m in (breite, hoehe) for g in (m.nennwert,*m.grenzen()) if g is not None)
+    if not all(0 < g < kleinste_seite/2 for g in (p.nennwert,*p.grenzen()) if g is not None):
+        raise ValueError(tr("Der Eckradius muss mit seinen Grenzmaßen vier gerade Seiten übrig lassen."))
+    if abs(p.nennwert/sx-kontur.radius)*bx > 2:
+        raise ValueError(tr("Der Eckradius widerspricht den Rundungen im Grundriss."))
+    return p
+
+
+def _beruehrt(dx, dy, a, b, radien):
+    # Abstand der beiden inneren Rechtecke; bei einem Kreis ist das innere Rechteck ein Punkt.
+    return math.hypot(max(abs(dx)-a,0.), max(abs(dy)-b,0.)) <= radien
 
 
 def solltaschen(konturen, zeilen, masse, umfang, bohrungen):
@@ -22,7 +52,7 @@ def solltaschen(konturen, zeilen, masse, umfang, bohrungen):
     bx, by = umfang
     taschen = []
     for i, (kontur, zeile) in enumerate(zip(konturen, zeilen, strict=True), 1):
-        tx, ty, tb, th, tt = zeile
+        tx, ty, tb, th, tt = zeile[:5]
         mitte = koordinaten(tx, ty)
         if not mitte:
             raise ValueError(tr("Den Mittelpunkt X und Y für Tasche {} angeben.").format(i))
@@ -38,18 +68,21 @@ def solltaschen(konturen, zeilen, masse, umfang, bohrungen):
             if tiefe is None or tiefe.nennwert is None:
                 raise ValueError(tr("Die Tiefe zum flachen Grund von Tasche {} angeben.").format(i))
             pruefe_tiefe(tiefe, masse[2])
+        radius = _eckradius(zeile[5] if len(zeile) > 5 else "", kontur, breite, hoehe, sx, bx)
+        r = radius.nennwert if radius else 0.
         a, b = breite.nennwert/2, hoehe.nennwert/2
         if not (a < x < sx-a and b < y < sy-b):
             raise ValueError(tr("Tasche {} erreicht den Plattenrand.").format(i))
-        if any(abs(x-t.x) <= a+t.breite.nennwert/2 and abs(y-t.y) <= b+t.hoehe.nennwert/2 for t in taschen):
-            raise ValueError(tr("Tasche {} berührt oder schneidet eine andere Tasche.").format(i))
+        for t in taschen:
+            rt = t.radius.nennwert if t.radius else 0.
+            if _beruehrt(x-t.x, y-t.y, a-r+t.breite.nennwert/2-rt, b-r+t.hoehe.nennwert/2-rt, r+rt):
+                raise ValueError(tr("Tasche {} berührt oder schneidet eine andere Tasche.").format(i))
         for bohrung in bohrungen:
-            dx, dy = max(0., abs(x-bohrung.x)-a), max(0., abs(y-bohrung.y)-b)
-            if math.hypot(dx, dy) <= bohrung.durchmesser.nennwert/2:
+            if _beruehrt(x-bohrung.x, y-bohrung.y, a-r, b-r, r+bohrung.durchmesser.nennwert/2):
                 raise ValueError(tr("Tasche {} berührt oder schneidet eine Bohrung.").format(i))
         # Beide gegenueberliegenden Kanten jeder Richtung muessen zum Druckbild passen.
         if (bx*(abs(x/sx-kontur.x)+abs(a/sx-kontur.breite/2)) > 2
                 or by*(abs(y/sy-kontur.y)+abs(b/sy-kontur.hoehe/2)) > 2):
             raise ValueError(tr("Lage oder Seitenmaße von Tasche {} widersprechen dem Grundriss.").format(i))
-        taschen.append(Plattentasche(x, y, breite, hoehe, tiefe))
+        taschen.append(Plattentasche(x, y, breite, hoehe, tiefe, radius))
     return taschen

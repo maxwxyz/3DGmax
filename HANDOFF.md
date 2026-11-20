@@ -2,6 +2,23 @@
 
 ## Current state, 2026-11-21
 
+### Four equal corner fillets in reconstructed pockets and through openings
+
+- Checked PLAN §§8.16, 8.28, 8.35–8.37 and docs/Roadmap.md. A closed vector contour can define
+  four equal quarter-circle corners when it agrees with the top-view ink. The drawing can supply
+  the common radius as R3 or 4× R3 with limits or deviations. Its limits must leave four straight
+  walls. Contact checks use the rounded outline, including clearance around a bore near a corner.
+- Reconstructed a blind pocket and a through opening of the same size and radius with distinct
+  tolerances on a plate with a through hole. Verified the volume, the 13 graphical and semantic
+  dimensions, and face identity through both the native reader and OCCT/XCAF. With one shape aspect
+  and four geometric usages XCAF recovered only one corner. A composite shape aspect referencing
+  four individual face aspects preserves the entire group in both readers.
+- All 48 affected tests, 74 drawing comparison/reconstruction tests, eight STEP writer/translation
+  tests and eight macOS screen tests passed. Obround slots, unequal corner radii, turned parts,
+  automatic cross-view association and datum transfer remain open. For the next slot stage, a
+  local OCCT probe extruded two straight edges and two semicircles. A 16 × 6 × 4 mm tool yielded
+  two R3 half-cylinder faces and the expected volume of 353.097335529 mm³. QIF stays last.
+
 ### Reconstruct drill points with both drawing depth conventions
 
 - Checked PLAN §§8.16, 8.28, 8.35–8.37 and docs/Roadmap.md. A blind bore accepts an explicit

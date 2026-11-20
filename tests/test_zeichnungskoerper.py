@@ -15,8 +15,12 @@ def _blatt(pfad, bohrungen=(), innenlinie=False, tiefe=None, taschen=()):
         p.drawRect(40, 40, 150, 100)
         for x, y, r in bohrungen:
             p.drawEllipse(QtCore.QPointF(40+2.5*x, 140-2.5*y), 2.5*r, 2.5*r)
-        for x, y, breite, hoehe in taschen:
-            p.drawRect(QtCore.QRectF(40+2.5*(x-breite/2), 140-2.5*(y+hoehe/2), 2.5*breite, 2.5*hoehe))
+        for x, y, breite, hoehe, *r in taschen:
+            rechteck = QtCore.QRectF(40+2.5*(x-breite/2), 140-2.5*(y+hoehe/2), 2.5*breite, 2.5*hoehe)
+            if r:
+                p.drawRoundedRect(rechteck, 2.5*r[0], 2.5*r[0])
+            else:
+                p.drawRect(rechteck)
         if innenlinie:
             p.drawLine(123, 80, 134, 88)
         p.drawRect(40, 185, 120, 16)
@@ -705,3 +709,118 @@ def test_bohrspitzen_mit_zylinder_oder_gesamttiefe(app, tmp_path, monkeypatch, g
         finally:
             d.blatt.schliesse()
             d.close()
+
+def test_gerundete_taschen_aus_pdf_mit_radius_und_flaechenbezug(app, tmp_path, monkeypatch):
+    from pypdfium2 import PdfDocument
+    from OCC.Core.BRepAdaptor import BRepAdaptor_Surface
+    from OCC.Core.BRepGProp import brepgprop
+    from OCC.Core.GProp import GProp_GProps
+    from programm.kern.pmi_lesen import lies_pmi_xcaf
+    from programm.ui.lader import lade_alles
+    pdf, ziel = tmp_path/"Rundung.pdf", tmp_path/"Rundung.stp"
+    _blatt(pdf, [(30,32,2)], tiefe="4× R3 ±0.1", taschen=[(15,16,16,10,3),(45,16,16,10,3)])
+    monkeypatch.setattr(QtWidgets.QFileDialog, "getSaveFileName", lambda *args: (str(ziel), "STEP"))
+    with PdfDocument(pdf) as doc:
+        d = Plattendialog(doc, pdf)
+        try:
+            d.show()
+            d.einheit.setCurrentIndex(1)
+            for feld, text in zip(d.texte, ("60","40","8")):
+                feld.setText(text)
+            d.ansicht.bereich.emit((.08,.1,.51,.52))
+            assert len(d.taschen) == 2 and len(d.ringe) == 1
+            for j, wert in enumerate(("30","32","4"), 1):
+                d.bohrtabelle.item(0,j).setText(wert)
+            d.durchgehend.click()
+            t = d.taschentabelle
+            assert not t.isColumnHidden(7)
+            for i, x in enumerate((15,45)):
+                for j, wert in enumerate((str(x),"16","16","10"), 1):
+                    t.item(i,j).setText(wert)
+                t.setCurrentCell(i,1)
+                if i == 0:
+                    t.item(i,5).setText("4")
+                    d.auswahl.setCurrentIndex(d.auswahl.findData(7))
+                    d.ansicht.bereich.emit((.52,.86,.8,.96))
+                    assert t.item(i,7).text() == "4× R3 ±0.1"
+                else:
+                    t.cellWidget(i,6).setCurrentIndex(1)
+                    for falsch in ("","Ø3","2× R3","R1","R3 ±2"):
+                        t.item(i,7).setText(falsch)
+                        assert not d.speichern.isEnabled()
+                    t.item(i,7).setText("R3 ±0.2")
+            assert d.speichern.isEnabled()
+            d.speichern.click()
+            erg = lade_alles(str(ziel))
+            v = GProp_GProps()
+            brepgprop.VolumeProperties(erg.modell.form, v)
+            assert v.Mass() == pytest.approx(60*40*8-(16*10-(4-np.pi)*9)*12-32*np.pi)
+            assert len(erg.pmi) == 13 and all(p.grafisch and p.semantisch for p in erg.pmi)
+            for quelle in (erg.pmi, lies_pmi_xcaf(erg.modell)):
+                radien = sorted((p for p in quelle if p.typ == "Size_Radius"), key=lambda p:p.oben)
+                for p, (x,z,tol) in zip(radien, ((15,4,.1),(45,0,.2)), strict=True):
+                    assert p.grenzen() == pytest.approx((3+tol,3-tol))
+                    ecken = []
+                    for f in p.flaechen:
+                        s = BRepAdaptor_Surface(erg.modell.flaechen[f])
+                        ort = s.Cylinder().Location()
+                        assert s.Cylinder().Radius() == pytest.approx(3)
+                        assert sorted(s.Value(0,v).Z() for v in (s.FirstVParameter(),s.LastVParameter())) == pytest.approx([z,8])
+                        ecken.append((round(ort.X(),6),round(ort.Y(),6)))
+                    assert sorted(ecken) == [(x-5,14),(x-5,18),(x+5,14),(x+5,18)]
+                breiten = [p for p in quelle if p.nennwert == 16 and p.typ == "Location_LinearDistance"]
+                assert sorted(sorted(round(BRepAdaptor_Surface(erg.modell.flaechen[i]).Plane().Location().X(),6)
+                                     for i in p.flaechen) for p in breiten) == [[7,23],[37,53]]
+                tiefe, = (p for p in quelle if p.nennwert == 4 and p.typ == "Location_LinearDistance")
+                boden = min(tiefe.flaechen, key=lambda i:BRepAdaptor_Surface(erg.modell.flaechen[i]).Plane().Location().Z())
+                brepgprop.SurfaceProperties(erg.modell.flaechen[boden], v)
+                assert v.CentreOfMass().Coord() == pytest.approx((15,16,4))
+        finally:
+            d.blatt.schliesse()
+            d.close()
+
+
+def test_rundkontur_verlangt_vier_gleiche_boegen_und_geschlossenen_druckrand():
+    from programm.kern.rundkontur import druckrand, passende_rundung, rundrechteck
+
+    def pfad(radien, stuetzstellen=9):
+        ecken = []
+        for i, r in enumerate(radien):
+            x = r if i in (0,3) else 60-r
+            y = r if i in (0,1) else 40-r
+            winkel = np.linspace(np.pi*(1+i/2), np.pi*(1.5+i/2), stuetzstellen)
+            ecken.extend(np.column_stack((x+r*np.cos(winkel), y+r*np.sin(winkel))))
+        return np.array([*ecken, ecken[0]])
+
+    p = pfad([8]*4)
+    q = rundrechteck(p)
+    assert q == pytest.approx([0,0,60,40,8])
+    assert rundrechteck(p[:-1]) is None
+    assert rundrechteck(pfad([8,8,5,8])) is None
+    assert rundrechteck(pfad([8]*4, 2)) is None
+    assert rundrechteck(pfad([20]*4)) is None
+    versatz = np.array([-1,-1,1,1,1])
+    assert druckrand([(q-versatz,1),(q+versatz,-1)], False) == pytest.approx(q)
+    assert druckrand([(q-versatz,1),(q+versatz,1)], False) is None
+    assert druckrand([(q-versatz,1),(q+versatz,1)], True) == pytest.approx(q)
+    y, x = np.mgrid[:41,:61]
+    dx, dy = abs(x-30)-22, abs(y-20)-12
+    d = np.hypot(dx.clip(0), dy.clip(0))+np.minimum(np.maximum(dx,dy),0)-8
+    ring = abs(d) <= 1
+    assert passende_rundung(ring,0,0,[q]) == pytest.approx(q)
+    assert passende_rundung(d <= 1,0,0,[q]) is None
+    ring[:5,30] = False
+    assert passende_rundung(ring,0,0,[q]) is None
+
+
+def test_bohrung_neben_gerundeter_taschenecke():
+    from programm.kern.plattentasche import Taschenkontur, solltaschen
+    from programm.kern.zeichnungsabgleich import lese_angabe
+    from programm.kern.zeichnungskoerper import Plattenbohrung
+    masse = [lese_angabe(s,1.) for s in ("60","40","8")]
+    kontur = Taschenkontur((), .5, .5, 20/60, 16/40, 5/60)
+    zeile = ("30","20","20","16","4","4X R5")
+    durchmesser = lese_angabe("Ø2",1.)
+    assert solltaschen([kontur],[zeile],masse,(600,400),[Plattenbohrung(20,12,durchmesser)])
+    with pytest.raises(ValueError, match="Bohrung"):
+        solltaschen([kontur],[zeile],masse,(600,400),[Plattenbohrung(21,13,durchmesser)])

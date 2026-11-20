@@ -1676,8 +1676,11 @@ A blind hole may have a conical drill point with a reviewed included angle. The 
 the cylindrical wall or the apex. STEP references the plate face and the corresponding circular
 edge or vertex. The point angle references the actual cone. Diameter, depth and angle limits must
 leave material below the apex and preserve the cylindrical segment under a possible countersink.
-Pocket center-position PMI, rounded pocket profiles,
-nonrectangular profiles, automatic cross-view association and datum/GD&T transfer remain open.
+Pockets and through openings can have four tangent quarter-circle corners with one reviewed radius.
+The top view must contain a closed vector outline that matches the printed contour. Width and height
+reference opposite planar walls. One toleranced radius references all four corner cylinders through a
+composite shape aspect. Round trips through the native reader and XCAF distinguish two equal pockets.
+Pocket center-position PMI, obround slots, unequal corner radii, other nonrectangular profiles, automatic cross-view association and datum/GD&T transfer remain open.
 
 ### 8.37 QIF extensions (last in the implementation order)
 
