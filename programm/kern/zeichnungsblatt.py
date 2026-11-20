@@ -307,10 +307,13 @@ class Zeichnungsblatt:
                 grundmass = True
             yield Blattangabe(self.nummer, box, text, grundmass)
 
-    def _schriftboxen(self, ort, sinn):
+    def _schriftboxen(self, ort, sinn, achse):
         # Die Streifenhoehe variiert mit Blattmassstab und Schriftgrad. Schrift darf oben und
         # unten nicht angeschnitten sein. Von rechts kommende Hinweise in Leserichtung zurueckrechnen.
-        h, w = self.bild.shape[:2]
+        bild = np.rot90(self.bild, achse)
+        h, w = bild.shape[:2]
+        if achse:
+            ort = (ort[1], h-1-ort[0])
         x = int(np.ceil(ort[0]))+2 if sinn > 0 else int(np.floor(ort[0]))-2
         for halbe in (7, 9, 12, 16, 22, 30):
             y = round(ort[1])-halbe
@@ -319,7 +322,7 @@ class Zeichnungsblatt:
             l, r = (x, min(w, x+38*halbe)) if sinn > 0 else (max(0, x-38*halbe), x)
             if not 0 <= l < r <= w:
                 continue
-            mask = self.bild[y:y+2*halbe+1, l:r].min(axis=2) < 245
+            mask = bild[y:y+2*halbe+1, l:r].min(axis=2) < 245
             if sinn < 0:
                 mask = mask[:, ::-1]
             gruppen = list(schrift._gruppen(mask))
@@ -337,29 +340,39 @@ class Zeichnungsblatt:
             if oben < 1 or unten >= mask.shape[0] or unten-oben < 5:
                 continue
             x1, x2 = (l+von, l+bis) if sinn > 0 else (r-bis, r-von)
-            yield (max(0,x1-1)/w, (y+oben-1)/h, min(w,x2+1)/w, (y+unten+1)/h)
+            box = (max(0,x1-1)/w, (y+oben-1)/h, min(w,x2+1)/w, (y+unten+1)/h)
+            yield _gedreht(box, -achse % 4, 1, 1)
 
-    def freie_masszeile(self, ort, sinn, belegt):
-        boxen = list(self._schriftboxen(ort, sinn))
+    def freie_masszeile(self, ort, sinn, achse, belegt):
+        boxen = list(self._schriftboxen(ort, sinn, achse))
         if not boxen:
             return None
         # Nur die vollstaendige Zeile lesen. Ein schmalerer Ausschnitt kann einen Zusatz verlieren.
-        box = max(boxen, key=lambda q: q[2]-q[0])
+        box = max(boxen, key=lambda q: q[achse+2]-q[achse])
         x, y = (box[0]+box[2])/2, (box[1]+box[3])/2
         if any(l <= x <= r and t <= y <= b for l,t,r,b in belegt):
             return None
         h, w = self.bild.shape[:2]
         if any(l <= x*w <= r and t <= y*h <= b for l,t,r,b in self.zellen):
             return None
-        stimmen = {}
+        richtungen = ({}, {})
         for hoehe in (72, 60, 64):
-            wort = self._bildtext(box, False, 0, hoehe)
-            if wort:
-                stimmen[wort] = stimmen.get(wort, 0)+1
+            mask = self._mask(box, achse, hoehe)
+            if mask is None or not mask.any():
+                continue
+            for lesarten, lage in zip(richtungen, (mask, mask[::-1, ::-1])):
+                wort = _zeile(lage) or schrift._gestapelt(lage)
+                if wort:
+                    lesarten[wort] = lesarten.get(wort, 0)+1
+        stimmen = {}
+        for lesarten in richtungen:
+            for wort, anzahl in lesarten.items():
+                p = lese_angabe(wort, 1.)
+                if p is not None and p.typ == "Size_Diameter":
+                    stimmen[wort] = stimmen.get(wort, False) or (len(lesarten) == 1 and anzahl >= 2)
         if len(stimmen) == 1:
-            wort, anzahl = next(iter(stimmen.items()))
-            p = lese_angabe(wort, 1.)
-            if anzahl >= 2 and p is not None and p.typ == "Size_Diameter":
+            wort, sicher = next(iter(stimmen.items()))
+            if sicher:
                 return Blattangabe(self.nummer, box, wort)
         return None
 

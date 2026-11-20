@@ -1612,8 +1612,8 @@ characteristic for each hole, the reviewer can step through the individual targe
 competing records and confirm a missing characteristic for one hole. Each CSV row identifies the
 target, model record, source ID, local finding and overall pattern finding. An unresolved hole
 leaves the pattern open. A partly missing or different pattern is reported as changed.
-Selecting a hole pattern also searches both sides of free horizontal leader stubs for standalone
-plotted diameter labels. It follows the arrows to printed rings inside the selection, reads the full
+Selecting a hole pattern also searches free horizontal and vertical leader ends for standalone
+plotted diameter labels in all four orthogonal reading directions. It follows the arrows to printed rings inside the selection, reads the full
 adjacent row at multiple resolutions and adds a finding when the readings agree. This can recover
 text even when the view cannot be registered uniquely. Manually removed findings stay removed.
 The reviewer can also click a matched ring. The CSV stores the accepted circle in sheet coordinates.

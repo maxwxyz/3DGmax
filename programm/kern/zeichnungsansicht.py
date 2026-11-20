@@ -237,18 +237,20 @@ class Blattgeometrie:
         return tuple(sorted(ziele, key=lambda k: (k.y, k.x)))
 
     def schriftenden(self, kreise, pruefe=lambda: None):
-        """Freie Enden waagerechter Hinweisstriche mit Pfeilziel im gewaehlten Bohrbild."""
+        """Freie Enden achsparalleler Hinweisstriche mit Pfeilziel im gewaehlten Bohrbild."""
         if not kreise or not self.pfeile:
             return []
         orte = []
         delta = self.linien[:, 1]-self.linien[:, 0]
-        for nr, i in enumerate(np.flatnonzero((abs(delta[:, 1]) <= .55) & (abs(delta[:, 0]) >= 5))):
-            if nr % 32 == 0:
-                pruefe()
-            for k in (0, 1):
-                start, ende = self.linien[i, [k, 1-k]]
-                if len(self.enden.query_ball_point(start, 1.5)) == 1 and self._verfolge([2*i+k], kreise, len(kreise)):
-                    orte.append((start, 1 if start[0] > ende[0] else -1))
+        for achse in (0, 1):
+            parallel = (abs(delta[:, 1-achse]) <= .55) & (abs(delta[:, achse]) >= 5)
+            for nr, i in enumerate(np.flatnonzero(parallel)):
+                if nr % 32 == 0:
+                    pruefe()
+                for k in (0, 1):
+                    start, ende = self.linien[i, [k, 1-k]]
+                    if len(self.enden.query_ball_point(start, 1.5)) == 1 and self._verfolge([2*i+k], kreise, len(kreise)):
+                        orte.append((start, 1 if start[achse] > ende[achse] else -1, achse))
         return orte
 
     def _starts(self, box, durchmesseranfang, musterzeile):
@@ -262,14 +264,18 @@ class Blattgeometrie:
                 if weg @ aussen > .25*np.linalg.norm(weg):
                     starts.append(index)
         if not starts and musterzeile:
-            # Zwischen dem waagerechten Hinweisstrich und der ersten Ziffer bleibt Schriftabstand.
-            h = b-t
-            for rand, sinn in ((l, -1), (r, 1)):
-                for j in self.enden.query_ball_point((rand, (t+b)/2), .85*h):
+            # Den Schriftabstand in Laengsrichtung der gedruckten Masszeile ueberbruecken.
+            achse = int(b-t > r-l)
+            haltepunkte = seiten[2:] if achse else seiten[:2]
+            h = r-l if achse else b-t
+            for ort, sinn in zip(haltepunkte, (-1, 1)):
+                for j in self.enden.query_ball_point(ort, .85*h):
                     i, k = divmod(j, 2)
-                    (x, y), weiter = self.linien[i, [k, 1-k]]
-                    if (0 <= sinn*(x-rand) <= .8*h and abs(y-(t+b)/2) <= .2*h and sinn*(weiter[0]-x) >= .45*h
-                            and abs(y-weiter[1]) <= .5 and len(self.enden.query_ball_point((x,y), 1.5)) == 1):
+                    start, weiter = self.linien[i, [k, 1-k]]
+                    weg = weiter-start
+                    if (0 <= sinn*(start[achse]-ort[achse]) <= .8*h and abs(start[1-achse]-ort[1-achse]) <= .2*h
+                            and sinn*weg[achse] >= .45*h and abs(weg[1-achse]) <= .5
+                            and len(self.enden.query_ball_point(start, 1.5)) == 1):
                         starts.append(j)
         if not starts and durchmesseranfang is not None and r-l > 2*(b-t):
             starts = self._anschluss_am_mass(l, t, b-t, durchmesseranfang)

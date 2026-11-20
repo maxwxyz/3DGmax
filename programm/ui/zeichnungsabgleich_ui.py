@@ -420,8 +420,8 @@ class Zeichnungsabgleich(QtWidgets.QDialog):
         belegt = [a.box for a in angaben] + self.entfernte_bereiche.get(nr, [])
         belegt.extend(box for box, _ in self.blatt.textbereiche)
         neu = []
-        for ort, sinn in schriftenden:
-            a = self.blatt.freie_masszeile(ort, sinn, belegt)
+        for ort, sinn, achse in schriftenden:
+            a = self.blatt.freie_masszeile(ort, sinn, achse, belegt)
             if a is not None:
                 belegt.append(a.box)
                 neu.append(a)

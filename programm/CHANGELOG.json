@@ -1,6 +1,7 @@
 {
  "unreleased": {
   "de": [
+   "Die automatische Suche im Bohrbild liest frei stehende grafische Durchmessermaße auch senkrecht und auf dem Kopf. Der Hinweispfeil bleibt mit der Bohrung verknüpft.",
    "Der Zeichnungsabgleich kann das gemeinsame Durchmessermaß symmetrischer Bohrungen prüfen. Gestrichelte Kreise kennzeichnen Bohrungen, die nur als Gruppe eindeutig zugeordnet sind. Die CSV hält diese Zuordnung fest.",
    "Beim Zuordnen eines Bohrbilds findet der Zeichnungsabgleich auch frei stehende grafische Durchmesserangaben an waagerechten Hinweispfeilen. Die Prüfliste übernimmt eindeutig gelesene Maßzeilen einschließlich Anzahl und Grenzmaßen.",
    "Der Zeichnungsabgleich folgt verzweigten Hinweispfeilen zu mehreren Bohrungen. Auch bei weiteren gleich großen Kreisen markiert er genau die bezeichnete Gruppe, wenn alle Pfeilziele und die gedruckte Anzahl übereinstimmen.",
@@ -135,6 +136,7 @@
    "Grafische PMI aus unterstützten AP203e2-Kurvenmodellen lassen sich als STEP AP242 Edition 3 ausgeben. Facettierte STEP-Modelle behalten ihre Flächenbezüge. Gepackte STEP-Dateien lassen sich als unkomprimierte STEP-Kopie speichern."
   ],
   "en": [
+   "Hole-pattern review now discovers standalone graphical diameter dimensions printed vertically or upside down and follows their leaders to the indicated holes.",
    "Drawing comparison can check a shared diameter dimension on a symmetric hole pattern. Dashed circles mark holes that can only be matched as a group. The CSV records this group association.",
    "Selecting a hole pattern also finds standalone graphical diameter callouts with horizontal leader ends. The review list adds consistently read dimension rows, including quantities and limits.",
    "Drawing comparison follows branched leaders to multiple holes. Even with extra circles of the same size, it selects the indicated group when every arrow target and the printed quantity agree.",

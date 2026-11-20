@@ -2,6 +2,20 @@
 
 ## Current state, 2026-11-20
 
+### Read standalone graphical diameters in all four sheet orientations
+
+- Checked PLAN §8.35 and docs/Roadmap.md. The selected view is searched for free horizontal and
+  vertical leader ends. The local strip and ray are expressed in the reading direction, then the
+  crop is mapped back to sheet coordinates. Both reading directions share one render at each
+  resolution. A diameter still needs a consistent full-row reading and an arrow to a printed ring.
+- The original D2MI 904 sheet 3 rotated by 90 degrees produced the same callout, STEP #103256
+  and open numerical finding as the upright drawing. The portable PDF covers all four rotations,
+  removal and re-registration, and rejection of an unknown suffix both horizontally and vertically.
+  All 53 focused drawing tests and 55 affected tests passed.
+- Arbitrarily angled standalone rows, sections and non-circular targets remain in §8.35.
+  The next reconstruction milestone in §8.36 is a dimensioned prismatic plate from a selected
+  orthographic view, with explicit depth and checks on the recovered geometry. QIF remains last.
+
 ### Match symmetric hole patterns as a group
 
 - Checked PLAN §8.35 and docs/Roadmap.md. Where every equally good registration permutes the

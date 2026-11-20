@@ -574,8 +574,8 @@ def test_gegabelte_hinweislinie_im_zeichnungsabgleich(app, tmp_path, gabel):
             d.close()
 
 
-@pytest.mark.parametrize("zusatz", [False, True])
-def test_freie_grafische_masszeile_beim_zuordnen_des_bohrbilds(app, tmp_path, zusatz):
+@pytest.mark.parametrize(("zusatz", "drehung"), [(False,0), (False,90), (False,180), (False,270), (True,0), (True,90)])
+def test_freie_grafische_masszeile_beim_zuordnen_des_bohrbilds(app, tmp_path, zusatz, drehung):
     from pypdfium2 import PdfDocument
     from programm.ui.zeichnungsabgleich_ui import Zeichnungsabgleich
     pfad = tmp_path / "Freie Zeile.pdf"
@@ -602,12 +602,15 @@ def test_freie_grafische_masszeile_beim_zuordnen_des_bohrbilds(app, tmp_path, zu
         maler.drawPolygon(QtGui.QPolygonF([QtCore.QPointF(*tip), QtCore.QPointF(*(tip+10*v+2*n)),
                                            QtCore.QPointF(*(tip+10*v-2*n))]))
     with PdfDocument(pfad) as doc:
+        doc[0].set_rotation(drehung)
         d = Zeichnungsabgleich(doc, [], lambda _: None, (str(pfad), ""), einzelteil=_teil())
         try:
             assert not d.blatt.textbereiche and not d.seiten[0]
             def registrieren():
                 d.registrieren.click()
-                d.ansicht.bereich.emit((.14,.38,.29,.56))
+                bereich = {0: (.14,.38,.29,.56), 90: (.44,.14,.62,.29),
+                           180: (.71,.44,.86,.62), 270: (.38,.71,.56,.86)}
+                d.ansicht.bereich.emit(bereich[drehung])
                 assert d.auftrag.wait(10000)
                 app.processEvents()
             registrieren()
