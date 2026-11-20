@@ -8,6 +8,11 @@ from dataclasses import dataclass, field
 import numpy as np
 
 from ..i18n import tr
+from .kegel_zahnspur import Kegelspur
+
+
+def _handtext(hand):
+    return {"rechts": tr("rechts"), "links": tr("links"), "gerade": tr("gerade")}.get(hand, tr("nicht bestimmbar"))
 
 
 def stirnachse(flaechen, hauptachse):
@@ -46,6 +51,8 @@ class Sonderprofil:
     koerper: str | None = None
     bandgrenzen: tuple[float, float] | None = None  # belegte Stirnenden relativ zum Achspunkt
     koerper_id: object | None = field(default=None, repr=False, compare=False)
+    spur: Kegelspur | None = field(default=None, repr=False, compare=False)
+    zahnrichtung: str | None = None
 
     def als_dict(self):
         return {"teil": self.teil, "koerper": self.koerper, "art": self.art, "anzahl": self.z, "messlaenge": self.breite,
@@ -56,7 +63,9 @@ class Sonderprofil:
     def _werte(self):
         if self.art == "konisch":
             return {"kopfkegelwinkel": math.degrees(math.atan((self.kopf[1] - self.kopf[0]) / self.breite)),
-                    "fusskegelwinkel": math.degrees(math.atan((self.fuss[1] - self.fuss[0]) / self.breite))}
+                    "fusskegelwinkel": math.degrees(math.atan((self.fuss[1] - self.fuss[0]) / self.breite)),
+                    "verzahnungsrichtung": self.zahnrichtung,
+                    "spiralwinkel_mitte_grad": 0. if self.zahnrichtung == "gerade" else None}
         hub = 2 * math.pi * self.breite / abs(self.phase)
         return {"vorschub": hub, "axialteilung": hub / self.z, "hand": "rechts" if self.phase > 0 else "links"}
 
@@ -68,13 +77,19 @@ class Sonderprofil:
         if self.art == "konisch":
             spur, versatz = tr("nicht bestimmbar"), tr("nicht bestimmbar")
             if self.phase is not None:
-                spur = tr("gerade") if abs(self.phase) * self.z < .08 else tr("mit Umfangsversatz")
                 versatz = f"{math.degrees(self.phase):+.2f}°"
+                if self.zahnrichtung == "gerade":
+                    spur = tr("gerade")
+                elif abs(self.phase) * self.z >= .08:
+                    spur = tr("mit Umfangsversatz")
             return zeilen + [(tr("Zähnezahl z"), str(self.z), quelle),
                              (tr("Kopfkegel-Halbwinkel"), f"{d['kopfkegelwinkel']:.2f}°", quelle),
                              (tr("Fußkegel-Halbwinkel"), f"{d['fusskegelwinkel']:.2f}°", quelle),
                              (tr("Zahnspur"), spur, quelle),
                              (tr("Zahnspurversatz"), versatz, quelle),
+                             (tr("Verzahnungsrichtung"), _handtext(self.zahnrichtung), quelle),
+                             (tr("Mittlerer Spiralwinkel βm"), "0°" if self.zahnrichtung == "gerade" else
+                              tr("nicht bestimmbar"), tr("Einzelteil")),
                              (tr("Teilkegel und Herstellverfahren"), tr("nicht bestimmbar"), tr("Einzelteil"))]
         return zeilen + [(tr("Gangzahl"), str(self.z), quelle),
                          (tr("Vorschub je Umdrehung"), f"{d['vorschub']:.3f} mm", quelle),
@@ -83,24 +98,43 @@ class Sonderprofil:
                          (tr("Schnecke oder Gewinde"), tr("nicht bestimmbar"), tr("Einzelteil"))]
 
 
-def _zahnspur(netz, schnitte, z):
-    """Versetzte Zwischenschnitte pruefen die Phasenentfaltung; wechselnde Drehrichtung bleibt unbestimmt."""
+def _spurphasen(netz, schnitte, z):
+    """Versetzte Zwischenschnitte pruefen die Phasenentfaltung."""
     from .verzahnung import _verzahnt
-    phasen = -np.unwrap(np.angle([t[3] for _, t in schnitte]))
-    delta = np.diff(phasen)
-    if np.max(abs(delta)) > .8 * math.pi:
-        return None
-    for (a, t), (b, _), dp in zip(schnitte, schnitte[1:], delta):
-        pos = a + (b - a) * .367
+    def abschnitt(a, ha, b, hb, stufe):
+        anteil = .367
+        pos = a + (b - a) * anteil
         probe = _verzahnt(netz, pos)
         if probe is None or probe[2] != z or probe[4]:
             return None
-        abweichung = np.angle(probe[3] / t[3] * np.exp(1j * dp * .367))
-        if abs(abweichung) > .12:
+        dp = -np.angle(hb / ha)
+        if abs(dp) < .8 * math.pi and abs(np.angle(probe[3] / ha * np.exp(1j * dp * anteil))) < .12:
+            return dp
+        # Bei vielen Zaehnen oder starker Schraegung kann der Grobschnitt ganze Teilungen ueberspringen.
+        if stufe == 5:
             return None
-    if max(phasen) - min(phasen) >= .08 and np.any(delta < -.04) and np.any(delta > .04):
+        links = abschnitt(a, ha, pos, probe[3], stufe + 1)
+        if links is None:
+            return None
+        rechts = abschnitt(pos, probe[3], b, hb, stufe + 1)
+        return links + rechts if rechts is not None else None
+
+    phasen = [-np.angle(schnitte[0][1][3])]
+    for (a, t), (b, u) in zip(schnitte, schnitte[1:]):
+        delta = abschnitt(a, t[3], b, u[3], 0)
+        if delta is None:
+            return None
+        phasen.append(phasen[-1] + delta)
+    return np.asarray(phasen) / z
+
+
+def _phasenweg(phasen, z):
+    if phasen is None:
         return None
-    return float((phasen[-1] - phasen[0]) / z)
+    delta = np.diff(phasen) * z
+    if np.ptp(phasen) * z >= .08 and np.any(delta < -.04) and np.any(delta > .04):
+        return None
+    return float(phasen[-1] - phasen[0])
 
 
 @dataclass
@@ -150,7 +184,7 @@ def _taillenrad(teil, punkt, n, netz, schnitte, s, r, h, z):
     probe = _verzahnt(netz, mitte)
     if probe is None or probe[2] != z or probe[4]:
         return None
-    winkel = _zahnspur(netz, schnitte[i-1:i+2], z)
+    winkel = _phasenweg(_spurphasen(netz, schnitte[i-1:i+2], z), z)
     if winkel is None:
         return None
     return Taillenrad(teil, z, punkt + mitte * n, n, float(s[-1] - s[0]), float(probe[1].max()),
@@ -200,20 +234,28 @@ def zahnkoerper(teil, punkt, richtung, netz, schnitte, band):
     if np.max(abs(r - (start + np.outer(s - s[0], steigung)))) > .05 * h:
         return None
     ende = start + steigung * breit
-    weg = _zahnspur(netz, schnitte, z)
+    phasen = _spurphasen(netz, schnitte, z)
+    weg = _phasenweg(phasen, z)
     unten, oben = band
     grenzen = None
     if all(_stirnende(netz, ort, vorzeichen, z, *(start + (ort - s[0]) * steigung), oben - unten)
            for ort, vorzeichen in ((unten, 1), (oben, -1))):
         grenzen = ((s[-1] - oben, s[-1] - unten) if steigung[0] < 0 else
                    (unten - s[0], oben - s[0]))
-    if steigung[0] < 0:
+    achssinn = -1 if steigung[0] < 0 else 1
+    spur = None
+    if phasen is not None:
+        stationen = s - s[0] if achssinn > 0 else s[-1] - s
+        konturen = [t[1].astype(np.float32) for _, t in schnitte]
+        spur = Kegelspur(stationen[::achssinn], konturen[::achssinn], phasen[::achssinn], achssinn, z)
+    if achssinn < 0:
         start, ende = ende, start
         punkt, richtung = punkt + s[-1] * richtung, -richtung
     else:
         punkt = punkt + s[0] * richtung
     return Sonderprofil(teil, "konisch", z, punkt, richtung, breit, (float(start[0]), float(ende[0])),
-                        (float(start[1]), float(ende[1])), weg, bandgrenzen=grenzen)
+                        (float(start[1]), float(ende[1])), weg, bandgrenzen=grenzen,
+                        spur=spur, zahnrichtung=spur.richtung() if spur else None)
 
 
 def _schraubschnitt(netz, s):
@@ -306,6 +348,8 @@ class Teilkegelband:
     aussen: float
     modul_aussen: float
     modul_mitte: float
+    spiralwinkel: float | None = None  # Betrag an der Mitte der bestaetigten Zahnlaenge
+    hand: str | None = None
 
     @property
     def breite(self):
@@ -314,7 +358,8 @@ class Teilkegelband:
     def als_dict(self):
         return {"kegellaenge_innen": self.innen, "kegellaenge_aussen": self.aussen,
                 "zahnbreite": self.breite, "b_durch_re": self.breite / self.aussen,
-                "stirnmodul_aussen": self.modul_aussen, "stirnmodul_mitte": self.modul_mitte}
+                "stirnmodul_aussen": self.modul_aussen, "stirnmodul_mitte": self.modul_mitte,
+                "spiralwinkel_mitte_grad": self.spiralwinkel, "verzahnungsrichtung": self.hand}
 
 
 @dataclass
@@ -346,6 +391,11 @@ class Kegelpaar:
                                    (tr("Mittlerer Stirnmodul (mm)"), "stirnmodul_mitte")):
             werte = [f"{band[feld]:.4f}" if band else tr("nicht bestimmbar") for band in daten]
             zeilen.append((beschriftung + " 1 / 2", " / ".join(werte)))
+        winkel = [f"{band.spiralwinkel:.2f}°" if band and band.spiralwinkel is not None else tr("nicht bestimmbar")
+                  for band in self.baender]
+        zeilen.append((tr("Mittlerer Spiralwinkel βm") + " 1 / 2", " / ".join(winkel)))
+        zeilen.append((tr("Verzahnungsrichtung") + " 1 / 2", " / ".join(
+            _handtext(band.hand if band else None) for band in self.baender)))
         b = self.gemeinsame_breite
         zeilen.append((tr("Gemeinsame Zahnbreite am Teilkegel (mm)"),
                        f"{b:.4f}" if b is not None else tr("nicht bestimmbar")))
@@ -369,8 +419,14 @@ def _teilkegelband(rad, delta, spitze):
     if radius[0] <= 0 or np.any(radius < fuss) or np.any(radius > kopf):
         return None
     innen, aussen = (pos - spitze) / math.cos(delta)
+    winkel = rad.spur.spiralwinkel(spitze, delta, float(pos.mean())) if rad.spur else None
+    hand = rad.zahnrichtung
+    if winkel is not None and abs(winkel) > .5:
+        hand = "rechts" if winkel > 0 else "links"
+    if winkel is not None and hand == "gerade" and abs(winkel) < .02:
+        winkel = 0.
     return Teilkegelband(float(innen), float(aussen), float(2 * radius[1] / rad.z),
-                         float((radius[0] + radius[1]) / rad.z))
+                         float((radius[0] + radius[1]) / rad.z), abs(winkel) if winkel is not None else None, hand)
 
 
 def _kegelpaar(a, b):
@@ -398,8 +454,16 @@ def _kegelpaar(a, b):
         band = _teilkegelband(rad, delta, s)
         bereiche.append((band.innen, band.aussen) if band else axial / math.cos(delta))
         baender.append(band)
-    if min(w[1] for w in bereiche) - max(w[0] for w in bereiche) <= 1e-7:
+    innen, aussen = max(w[0] for w in bereiche), min(w[1] for w in bereiche)
+    if aussen - innen <= 1e-7:
         return None
+    if a.spur and b.spur:
+        # Aussenpaar: Tangenten auf derselben Kegelentfernung muessen gegenhaendig sein.
+        mitte = (innen + aussen) / 2
+        w1 = a.spur.spiralwinkel(sa, da, sa + mitte * math.cos(da))
+        w2 = b.spur.spiralwinkel(sb, db, sb + mitte * math.cos(db))
+        if w1 is not None and w2 is not None and min(abs(w1), abs(w2)) > 1 and w1 * w2 > 0:
+            return None
     return Kegelpaar(a, b, math.degrees(achswinkel), math.degrees(da), math.degrees(db), tuple(baender))
 
 

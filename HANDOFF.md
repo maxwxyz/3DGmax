@@ -2,6 +2,31 @@
 
 ## Current state, 2026-11-20
 
+### Bevel tooth traces and material-dependent or projected feature tolerances
+
+- The tooth centreline is measured from the two flank intersections at successive cross-sections.
+  With a compatible mate, a supported pitch cone and confirmed tooth-band ends, the local tangent
+  at mid-face gives the mean spiral angle. The 12/24-tooth reference with a specified angle of 28°
+  gave 28.009° right-hand and 28.006° left-hand on the B-rep. STEP and STL tests cover both members
+  and both hands. An individual gear can establish hand and, for a confirmed straight trace, 0°.
+  Numerical angles for single spiral gears with unknown pitch cones remain unresolved.
+- For measured rigid bores and pins, one actual size drives both the material bonus and the surface
+  displacement. Worst case respects a geometric tolerance cap and Monte Carlo samples inside the
+  corresponding zone. The exported 3D chain keeps this dependence when reopened. For a 6 ±0.2 mm
+  pin with diametral position 0.2 mm at maximum material, the positive surface point can move
+  −0.4 to +0.2 mm. Reversing to a bore gives −0.2 to +0.4 mm.
+- Projected intervals use the PMI exit face, height and offset. The original FTC-07 STEP file
+  specifies 10.795 mm from the exit at Y=12.700 mm. The assembly solver checks the shared edge.
+  Separate controls check projection from the opposite end, lever arms, and combined position and
+  orientation tolerances. The displayed construction threads in FTC-10 use their stated exit plane.
+  A millimetre-to-inch STEP round trip preserves the zone, location, material limit and tolerance cap.
+- Checked PLAN §§8.20, 8.27 and 8.27a and the Roadmap. Material-boundary datum simulators, deformable
+  features, simultaneous controls on different projection intervals and manufacturing-system
+  identification still require further work. Drawing comparison, drawing reconstruction and QIF
+  retain their order under §§8.35–8.37.
+- All 192 affected tests and all eight on-screen checks passed. A separate overlapping run of the
+  nine gear, tolerance and STEP integration test modules passed all 105 cases.
+
 ### Worm stage speeds and common datums in assembly variation
 
 - The operating point resolves rotation about each displayed shaft axis from the worm hand,
@@ -18,8 +43,7 @@
 - The AP242 reader and writer retain simple modifiers on individual datum reference elements.
   In the NIST FTC-10 file, E, F and G each carry their own maximum material modifier. Such
   conditions need an additional physical datum model and leave the requirement verdict open.
-- Checked PLAN §§8.20, 8.27 and 8.37 and the Roadmap. Among the remaining items are material
-  and projected zones on measured features, deformable form, bevel spiral angle and hand, and
+- Checked PLAN §§8.20, 8.27 and 8.37 and the Roadmap. Further work includes
   component-specific friction and locking characteristics. Drawing comparison precedes
   reconstruction from drawings, with remaining QIF work last.
 - All 264 affected tests passed. The overlapping 86-test mechanics and STEP integration selection

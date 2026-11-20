@@ -239,12 +239,18 @@ def alle(liste: list, paare: list[Paar], bezug=None) -> list[Befund]:
         wert = tr("außen {:+.3f}, innen {:+.3f}, Umfang {:+.3f} mm").format(p.aussen, p.innen, p.flanke)
         out.append(Befund(f"{p.welle.teil} – {p.nabe.teil}", "Zentrierung aus Nennspielen", wert,
                           pv._zentriertext(p.zentrierung), tr("Stirnschnitt")))
-    from .verzahnung_sonder import kegelpaar_kandidaten, schneckenpaar_kandidaten
+    from .verzahnung_sonder import _handtext, kegelpaar_kandidaten, schneckenpaar_kandidaten
     for p in kegelpaar_kandidaten(liste):
         wert = f"Σ = {p.achswinkel:.2f}°, δ₁ = {p.teil_a:.2f}°, δ₂ = {p.teil_b:.2f}°"
         out.append(Befund(f"{p.a.teil} – {p.b.teil}", "Teilkegel", wert,
                           tr("Die aus Achswinkel und Zähnezahlen berechneten Teilkegel liegen in beiden Zahnbändern."),
                           "KHK, Bevel Gears, Fig. 8.1 (M. Kubota)"))
+        for rad, band in zip((p.a, p.b), p.baender, strict=True):
+            if band and band.spiralwinkel is not None:
+                out.append(Befund(rad.teil, "Mittlerer Spiralwinkel βm",
+                                  f"{_g(band.spiralwinkel, 2)}° ({_handtext(band.hand)})",
+                                  tr("Tangente der Zahnmittellinie am mittleren Kegelabstand."),
+                                  "ISO 23509; KHK, Bevel Gears"))
     for p in schneckenpaar_kandidaten(liste):
         wert = f"i = {p.b.z / p.a.z:g}, a = {p.achsabstand:.3f} mm"
         out.append(Befund(f"{p.a.teil} – {p.b.teil}", "Schneckenradpaar", wert,
@@ -259,7 +265,7 @@ THEMEN = (  # fuer die Uebersetzung (werkzeuge/tr_texte.py)
           "Breitenverhältnis", "Kopfrücknahme", "Kopfspiel", "Phasenlage der Planeten", "Planetenzahl",
           "Profilüberdeckung", "Schrägungswinkel", "Sprungüberdeckung", "Stufenaufteilung",
           "Summe der Profilverschiebungen", "Unterschnitt", "Zähnezahlen", "Übersetzung",
-          "Steckprofil", "Zentrierung aus Nennspielen", "Teilkegel", "Schneckenradpaar")
+          "Steckprofil", "Zentrierung aus Nennspielen", "Teilkegel", "Mittlerer Spiralwinkel βm", "Schneckenradpaar")
 
 
 def als_dicts(befunde: list[Befund]) -> list[dict]:

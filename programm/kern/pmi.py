@@ -107,6 +107,9 @@ class Pmi:
     bearbeitet: bool = False  # Werte in 3DGmax geaendert
     original: dict | None = None  # Werte laut Datei vor der Bearbeitung
     callout: int = 0  # eigene PMI aus einer nur grafischen (Reparieren): deren Callout (#ID) in der Datei
+    projektionsflaechen: list[int] = field(default_factory=list)  # Ursprung laut PROJECTED_ZONE_DEFINITION
+    projektionsversatz: float | None = 0.0  # Abstand vom Projektionsursprung in mm
+    maximum_toleranz: float | None = None  # Obergrenze der Gesamttoleranz bei Materialbedingung
 
     # --- Darstellung ---
 
@@ -149,8 +152,12 @@ class Pmi:
             zone = "⌀"
         wert = f"{zone}{_zahl(self.wert)}" if self.wert is not None else "?"
         wert += MAT_SYMBOL.get(self.material, "")
+        if self.maximum_toleranz is not None:
+            wert += f" MAX {_zahl(self.maximum_toleranz)}"
         if self.zone == "Projected":
             wert += " Ⓟ" + (f"{_zahl(self.zonen_wert)}" if self.zonen_wert else "")
+            if self.projektionsversatz:
+                wert += f" ({_vz(self.projektionsversatz)})"
         teile.append(wert)
         for b in sorted(self.bezuege, key=lambda b: b.stelle):
             teile.append(b.text())

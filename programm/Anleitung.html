@@ -390,6 +390,14 @@ im selben Rang aus. Bei zwei koaxialen Lagersitzen verläuft die Bezugsachse dur
 Bei weiteren Sitzen zählen alle Mitten gleich. Koplanare, gleichgerichtete Auflagen ergeben eine
 flächengewichtete Ausgleichsebene. Die Tabelle zeigt den Beitrag jeder Fläche am Messort.
 Diese Rechnung beschreibt starre Merkmale. Bei ungeklärter Bezugsgeometrie bleibt die Sollbewertung offen.</li>
+<li>Bei <b>Ⓜ oder Ⓛ am tolerierten Zylinder</b> benötigt die Analyse zugeordnete Größenmaße mit
+Grenzwerten. Je nach Istmaß ändern sich der zulässige Durchmesser der Toleranzzone und die Lage
+des Mantels. Worst Case und Monte Carlo berücksichtigen beides zusammen. Eine angegebene
+Höchsttoleranz begrenzt den Bonus.</li>
+<li>Bei einer <b>projizierten Achstoleranz Ⓟ</b> beginnt der tolerierte Abschnitt an der angegebenen
+Austrittsfläche, gegebenenfalls mit Versatz. Innerhalb dieses Abschnitts gilt die Toleranz. Außerhalb
+kann dieselbe Kippung am Messpunkt eine größere Abweichung ergeben. Ohne eindeutige Austrittsseite
+bleibt die Auswertung unvollständig.</li>
 <li>Hängt die Messgröße von offenen Freiheitsgraden ab, steht ein Hinweis darunter: die Teile erst vollständig
 verbinden. <b>Als PDF …</b> speichert Verbindungen, Ergebnisse und Beitragende. Beispiel: <b>Datei › Beispiele ›
 Baugruppenvariation</b>.</li>
@@ -439,6 +447,11 @@ separat bewertet. Für Planetensätze sind die Übersetzungen je nach festgehalt
 Kegel- und Schneckenpaaren ist die Zuordnung ein geometrischer Befund. Die Paartabelle zeigt äußeren und mittleren Stirnmodul für Rad 1 und Rad 2, wenn sich die ebenen Enden des
 jeweiligen Zahnbands bestätigen lassen. Die gemeinsame Zahnbreite ist der Überlapp entlang der Teilkegel.
 Ein Lastnachweis erfordert weitere Daten.</p>
+<p>Am <b>Kegelrad</b> bestimmt die Analyse die Verzahnungsrichtung aus dem Verlauf der Zahnmitte.
+Vom kleinen Ende aus betrachtet verläuft ein rechter Zahn zum großen Ende im Uhrzeigersinn.
+Bei einem passenden Radpaar wird der mittlere Spiralwinkel βm auf dem Teilkegel in der Mitte
+der Zahnbreite gemessen. Am einzelnen gewendelten Rad kann die Richtung bereits bestimmbar sein,
+während der Teilkegel und damit der Zahlenwert für βm noch offen sind.</p>
 <p>Im Reiter <b>Betriebspunkt</b> aktivieren Sie die Wellen mit bekannten Drehzahlen und geben die Werte in U/min ein.
 Für ein festgehaltenes Glied geben Sie 0 ein. Bei einem einfachen Planetensatz ergibt ein fester Steg
 ein Sterngetriebe. Bei festem Hohlrad und angetriebener Sonne ist der Steg der Abtrieb. Bei einem offenen

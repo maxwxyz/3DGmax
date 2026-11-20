@@ -136,7 +136,8 @@
 | Assembly variation: one-sided planar stops in worst case and Monte Carlo, explicit per connection | ✅ |
 | Assembly variation: measured planes and axes in their datum frame, lever arm at the measuring point, incomplete inputs indicated in the UI, PDF and chain | ✅ |
 | Assembly variation: common datum axis from separate coaxial bearing seats, common plane from coplanar pads, individual member contributions | ✅ |
-| Assembly variation: deformable form, other common datum geometries, datum simulator contact and additional material/projection modifiers | ⬜ |
+| Assembly variation: size-dependent Ⓜ/Ⓛ bonus on measured cylindrical features, coupled surface displacement, maximum geometric tolerance, projected axis zones with explicit start and offset | ✅ |
+| Assembly variation: deformable form, other common datum geometries, material-boundary datum simulator contact, thread construction geometry and simultaneous axis zones with different projected intervals | ⬜ |
 | 3D chain from an assembly measure (one link per part on the connection path, clearance limits per component) | ✅ |
 | Wiggle of the closing faces at the worst-case limits (exaggerated, coloured against the requirement) | ✅ |
 | Chain from faces: median planes as chain ends, chains across parts with joint links from assembly connections | ✅ |
@@ -217,7 +218,8 @@
 | Shaft/hub splines and serrations, measured clearance and centring indications, conditional design findings – PLAN §8.27a | ✅ |
 | Conical tooth geometry, tip/root cone angles and conditional pitch angles of a compatible pair, checked against known control geometry | ✅ |
 | Bevel-pair dimensions from confirmed tooth-band ends: outer/mean transverse module, cone distance, face width, width ratio and shared width (STEP and STL controls) | ✅ |
-| Bevel gears: spiral angle and hand at the pitch surface, manufacturing-system identification where independently supported | ⬜ |
+| Bevel gears: tooth hand on an individual gear and mean spiral angle on the pitch cone of a compatible pair, tested with STEP and STL | ✅ |
+| Bevel gears: manufacturing-system identification from independent evidence | ⬜ |
 | Screw profiles: number of starts, lead, axial pitch and hand | ✅ |
 | Throated wheel and candidate worm pair from screw and wheel geometry, axis position, hand and pitch | ✅ |
 | Straight gears: repeated B-rep root fillet radius and radial tip chamfer height | ✅ |

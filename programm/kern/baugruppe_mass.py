@@ -368,7 +368,7 @@ class Analyse:
             punkt, richtung = np.zeros(3), r.T @ richtung
             for w in eigene:
                 name = tr("Messrichtung an Teil {}, Fläche {} ({})").format(namen.get(w.teil, w.teil), w.flaeche, w.text)
-                g = k3.Glied3D(name)
+                g = k3.Glied3D(name, material_z=w.material)
                 g.werte["z"] = k3.Komponente(0., w.oben, w.unten)
                 glieder.append(g)
         basis = np.eye(4)
@@ -472,10 +472,10 @@ class Analyse:
         plus = np.r_[np.zeros(3), n if tp == m.teil_a else -n]
         merkmale.verfolge(m.teil_a, m.flaeche_a, plus)
         merkmale.verfolge(m.teil_b, m.flaeche_b, -plus)
-        werte = merkmale.beitraege()
+        groessen = []
         if m.punkt is not None:
-            werte += merkmale.groesse_am_punkt(m.teil_a, m.flaeche_a, plus[3:])
-        return werte, merkmale.hinweise
+            groessen = merkmale.groesse_am_punkt(m.teil_a, m.flaeche_a, plus[3:])
+        return merkmale.beitraege() + groessen, merkmale.hinweise
 
     def flaechen_toleranzen(self, m: Messgroesse) -> list[tuple[int, float, str]]:
         """Index, halbe wirksame Breite und PMI-Text der Merkmale einer gespeicherten Messung."""
@@ -495,8 +495,7 @@ class Analyse:
         rng = np.random.default_rng(zufall + 7)
         for i, w in enumerate(eigene):
             lo, hi = lo + w.unten, hi + w.oben
-            mittel, sigma = (w.oben + w.unten) / 2, (w.oben - w.unten) / 6
-            teile.append((("flaeche", i), np.clip(rng.normal(mittel, sigma, proben), w.unten, w.oben)))
+            teile.append((("flaeche", i), w.ziehe(rng, proben)))
         werte = nenn + (np.sum([t for _, t in teile], axis=0) if teile else np.zeros(proben))
         var = {schluessel: float(np.var(t)) for schluessel, t in teile}
         summe_var = sum(var.values()) or 1.0

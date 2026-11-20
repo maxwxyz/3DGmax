@@ -108,7 +108,9 @@
    "Die Getriebeanalyse erkennt klassische Ravigneaux-Sätze aus STEP- und Mesh-Baugruppen. Sie berechnet Drehzahlen für beide Sonnen, Hohlrad und gemeinsamen Steg und übernimmt die tatsächlichen Eingriffe in den REXS-Export.",
    "Für symmetrische Kegelrad- und paarweise kämmende Schrägraddifferentiale lassen sich offener Betrieb, starre Sperre, Torque Bias Ratio und Lamellenkupplung vorgeben. Der Betriebspunkt zeigt die daraus bestimmbaren Drehzahlen und Momentengrenzen auch in CSV, JSON und PDF.",
    "Der Getriebe-Betriebspunkt berechnet Drehzahl und Drehrichtung über eingreifende Schneckenstufen und ihre Nachbarstufen. Die Vorzeichen beziehen sich auf die angezeigten Wellenachsen.",
-   "Die 3D-Toleranzanalyse berücksichtigt gemeinsame Bezugsachsen aus koaxialen Lagersitzen und gemeinsame Bezugsebenen aus koplanaren Auflagen. Die Beiträge der einzelnen Flächen bleiben sichtbar. Bei STEP-Bezügen bleiben Materialmodifikatoren den einzelnen Mitgliedern zugeordnet."
+   "Die 3D-Toleranzanalyse berücksichtigt gemeinsame Bezugsachsen aus koaxialen Lagersitzen und gemeinsame Bezugsebenen aus koplanaren Auflagen. Die Beiträge der einzelnen Flächen bleiben sichtbar. Bei STEP-Bezügen bleiben Materialmodifikatoren den einzelnen Mitgliedern zugeordnet.",
+   "Die Kegelradanalyse bestimmt die Verzahnungsrichtung aus beiden Zahnflanken und bei bekanntem Teilkegel den mittleren Spiralwinkel. Einzelrad, Paarbericht und Exporte kennzeichnen die aus der Geometrie bestimmbaren Werte.",
+   "Die 3D-Toleranzanalyse koppelt den Bonus bei Maximum- und Minimum-Materialbedingung an das Istmaß von Bohrung oder Zapfen. Projizierte Achszonen verwenden die Austrittsfläche, Länge und den Versatz der STEP-PMI. Unvollständige Angaben lassen die Sollbewertung offen."
   ],
   "en": [
    "Assembly: drag parts in 3D with the left mouse button (classic navigation: with Alt) – only along the open degrees of freedom; close to a matching plane or axis the part snaps live (faces highlighted), releasing creates the connection; the 3D handle snaps the same way.",
@@ -218,7 +220,9 @@
    "Gearbox analysis recognises classic Ravigneaux sets in STEP and mesh assemblies. It calculates speeds for both suns, the ring and the common carrier and exports their actual meshes to REXS.",
    "Symmetric bevel and paired-pinion helical differentials support open, rigidly locked, torque bias ratio and plate-clutch operating modes. The operating point shows the resulting speeds and torque bounds in the dialog and in CSV, JSON and PDF.",
    "The gearbox operating point calculates signed speeds through meshing worm stages and connected stages. Speed signs refer to the displayed shaft axes.",
-   "3D tolerance analysis supports common datum axes from coaxial bearing seats and common datum planes from coplanar pads. Each face retains its contribution. STEP datum modifiers remain associated with their individual members."
+   "3D tolerance analysis supports common datum axes from coaxial bearing seats and common datum planes from coplanar pads. Each face retains its contribution. STEP datum modifiers remain associated with their individual members.",
+   "Bevel gear analysis identifies tooth hand from both flanks and measures the mean spiral angle when the pitch cone is known. Single-gear and pair reports and exports show which properties the geometry establishes.",
+   "3D tolerance analysis couples the maximum- or least-material bonus to the actual bore or pin size. Projected axis zones use the exit face, length and offset from the STEP PMI. Incomplete inputs leave the requirement verdict open."
   ]
  },
  "releases": [

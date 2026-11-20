@@ -887,10 +887,16 @@ Current coverage (2026-11-20), superseding the earlier progress notes below:
   weight per seat. For coplanar pads facing the same way it fits a plane weighted by surface area.
   Each member retains its own tolerance contribution at the measurement location. This model
   describes nominal rigid feature variation. Physical datum simulator contact needs a separate model.
-- Unknown or unsupported inputs follow the measure into the UI, PDF and chain. Incomplete measures
-  suppress the requirement verdict. Remaining cases include deformable form, other common datum
-  geometries, projected zones and material-condition modifiers. STEP modifiers on individual
-  common datum members retain their member assignment. Curved boundaries are sampled.
+- For measured cylindrical features with Ⓜ or Ⓛ, worst case and Monte Carlo use one actual size for
+  the surface displacement and the size-dependent bonus. A stated maximum geometric tolerance
+  caps the combined zone diameter. Each Monte Carlo sample draws the actual diameter inside the
+  specified size limits before drawing a deviation inside its associated zone.
+- Projected cylindrical axis tolerances use the specified origin face, height and offset. The
+  rigid axis is constrained over that interval and can be extrapolated to a measurement point.
+  The loaded FTC-07 bore has a projection from 12.700 to 23.495 mm in Y. [CAx-IF AP242 PMI recommended practice, §6.9](https://www.mbx-if.org/home/wp-content/uploads/2024/06/rec_pracs_pmi_v41.pdf)
+- Incomplete measures suppress the requirement verdict. Remaining cases include deformable form,
+  other common datum geometries, physical datum simulators under material boundary conditions,
+  and simultaneous controls with differing projection intervals. Curved boundaries are sampled.
 Request: build assemblies, set up functional dimension chains ("Funktionsmaßketten", FMK – assumed meaning) from the
 PMI, recognize or assign materials, take temperatures and thermal expansion into account, compute stack-ups, and
 move parts within their tolerances (1:1 and exaggerated) in worst case or per tolerance / chain ("wiggle") to find
@@ -1394,7 +1400,11 @@ intent; "nicht bestimmbar" where the geometry does not tell.
   axial end face at both ends and tooth contours consistent with the cone. Without these checks
   the affected dimensions remain unresolved. The pair table and CSV, JSON and PDF use the same values.
   STEP and STL round trips of a 12/24-tooth reference with offset bands cover this distinction.
-  Spiral angle and hand at the pitch surface and manufacturing-system identification remain open.
+  Tooth hand follows the centreline between the two flanks at successive sections. For a confirmed
+  tooth band and supported pitch cone the local tangent gives the mean spiral angle. A generated
+  12/24-tooth pair with logarithmic spirals of nominal 28° was checked through STEP and STL.
+  A single spiral gear can establish hand without establishing its pitch cone. Identifying a
+  manufacturing system still requires independent evidence.
   Pitch-cone geometry follows [KHK, Bevel Gears, Fig. 8.1](https://khkgears.net/product-category/bevel-gears/).
 
 ### 8.28 Writing STEP AP242 with semantic PMI (research 2026-10-27, by experiment)

@@ -21,7 +21,7 @@ def _referenz(z, radius, tiefe, laenge, drehung, kegel=0.0, lagen=7, kerbe=False
     loft.CheckCompatibility(False)
     for s in np.linspace(0, laenge, lagen):
         r = radius + kegel * s + kehle * (s - laenge / 2) ** 2 - (tiefe + tiefenzuwachs * s) * profil
-        phi = winkel + drehung * s
+        phi = winkel + (drehung(s) if callable(drehung) else drehung * s)
         linie = BRepBuilderAPI_MakePolygon()
         for x, y in zip(r * np.cos(phi), r * np.sin(phi)):
             linie.Add(gp_Pnt(x, y, s))
@@ -33,7 +33,7 @@ def _referenz(z, radius, tiefe, laenge, drehung, kegel=0.0, lagen=7, kerbe=False
     return form
 
 
-@pytest.mark.parametrize("rate", [0., .008])
+@pytest.mark.parametrize("rate", [0., .008, -.008])
 def test_kegelprofil(rate):
     form = _referenz(14, 9., 1.7, 8., rate, kegel=.55, tiefenzuwachs=.06)
     v = vz.erkenne(form, "Testkegel", sonderprofile=True)
@@ -42,6 +42,8 @@ def test_kegelprofil(rate):
     assert daten["kopfkegelwinkel"] == pytest.approx(math.degrees(math.atan(.55)), abs=.2)
     assert daten["fusskegelwinkel"] == pytest.approx(math.degrees(math.atan(.49)), abs=.2)
     assert abs(v.phase / v.breite) == pytest.approx(abs(rate), abs=.0004)
+    assert daten["verzahnungsrichtung"] == ("gerade" if not rate else "links" if rate < 0 else "rechts")
+    assert daten["spiralwinkel_mitte_grad"] == (None if rate else 0.)
 
 
 @pytest.mark.parametrize("z,hand", [(2, 1), (3, -1), (1, 1), (4, -1)])
@@ -70,7 +72,10 @@ def test_kegelstufe_aus_schnittachsen_und_zahnband(tmp_path, app, format_):
     def rad(z, delta, quer):
         innen, breite = (20., 6.) if quer else (18., 7.)
         start = innen * math.cos(delta)
-        form = _referenz(z, innen * math.sin(delta) + .9, 1.8, breite * math.cos(delta), 0., kegel=math.tan(delta))
+        # Logarithmische Spirale mit konstant 28 Grad auf dem abgewickelten Teilkegel.
+        faktor = (-1 if quer else 1) * math.tan(math.radians(28)) / math.sin(delta)
+        form = _referenz(z, innen * math.sin(delta) + .9, 1.8, breite * math.cos(delta),
+                        lambda s: faktor * math.log1p(s / start), kegel=math.tan(delta), lagen=17)
         t = gp_Trsf()
         if quer:
             t.SetRotation(gp_Ax1(gp_Pnt(), gp_Dir(0, 1, 0)), math.pi / 2)
@@ -101,6 +106,8 @@ def test_kegelstufe_aus_schnittachsen_und_zahnband(tmp_path, app, format_):
         assert band.aussen == pytest.approx(aussen, abs=.002)
         assert band.modul_aussen == pytest.approx(2 * aussen * math.sin(delta) / z, abs=.0002)
         assert band.modul_mitte == pytest.approx((innen + aussen) * math.sin(delta) / z, abs=.0002)
+        assert band.spiralwinkel == pytest.approx(28., abs=.25)
+        assert band.hand == ("rechts" if z == 12 else "links")
     daten = vd.datenblatt([a, b], [])
     assert daten["kegelpaar_kandidaten"][0]["z2_durch_z1"] == 2 and not daten["zahnraeder"]
     assert any(b["thema"] == "Teilkegel" for b in daten["auslegungsbefunde"])
@@ -110,14 +117,19 @@ def test_kegelstufe_aus_schnittachsen_und_zahnband(tmp_path, app, format_):
     from pypdf import PdfReader
     pdf_text = " ".join(seite.extract_text() for seite in PdfReader(w.speichere("pdf", str(tmp_path / "paar.pdf"))).pages)
     assert "Gemeinsame Zahnbreite" in pdf_text and "5.0000" in pdf_text
+    assert "Spiralwinkel" in pdf_text and "Verzahnungsrichtung" in pdf_text
+    assert export["kegelpaar_kandidaten"][0]["teilkegelbaender"][0]["spiralwinkel_mitte_grad"] == pytest.approx(28, abs=.25)
     assert export["kegelpaar_kandidaten"][0]["teilkegelbaender"][0]["b_durch_re"] == pytest.approx(7/25, abs=.0002)
     assert "5.0000" in vd.als_csv([a, b], [])
     assert "Mögliches äußeres Kegelradpaar" in vd.als_csv([a, b], [])
+    assert "rechts / links" in vd.als_csv([a, b], [])
     w.close()
     from dataclasses import replace
     ohne_rand, = kegelpaar_kandidaten([replace(a, bandgrenzen=None), b])
     assert ohne_rand.baender[0] is None and ohne_rand.baender[1] is not None
     assert ohne_rand.als_dict()["gemeinsame_zahnbreite"] is None
+    gespiegelt = replace(b.spur, achssinn=-b.spur.achssinn)
+    assert not kegelpaar_kandidaten([a, replace(b, spur=gespiegelt, zahnrichtung=a.zahnrichtung)])
     b.punkt[1] += 1.   # windschiefe Achsen
     assert not kegelpaar_kandidaten([a, b])
 
@@ -133,6 +145,52 @@ def test_offener_kegelmantel_belegt_keine_zahnbreite():
     offen = dreiecke[~np.all(np.isclose(dreiecke[:, :, 2], 8.), axis=1)]
     rad, = vz._aus_schnitten(None, "Kegel", np.zeros(3), np.array([0., 0., 1.]), offen, False, True)
     assert rad.art == "konisch" and rad.bandgrenzen is None
+
+
+def test_spiralwinkel_an_den_teilkreisflanken_und_in_bandmitte():
+    from programm.kern.kegel_zahnspur import Kegelspur
+    z, delta, spitze = 14, math.radians(30), -15.
+    stationen = np.linspace(.3, 8.7, 12)
+    mitte = 4.5
+    r_m = (mitte - spitze) * math.tan(delta)
+    rate = math.tan(math.radians(23)) / (r_m * math.cos(delta))
+    th = np.linspace(-np.pi, np.pi, 8192, endpoint=False)
+    profil = np.cos(z * th)
+    radien, phasen = [], []
+    for s in stationen:
+        x = s - mitte
+        # Die Spur dreht sich an den Bandenden schneller. Kopf und Fuss wandern zudem
+        # gegenueber den Flanken am Teilkreis: die Phase des Gesamtprofils ist kein Ersatz.
+        phi = rate * x + .012 * np.sign(x) * max(abs(x) - 2., 0.)**2
+        azimut = th + phi + .012 * x * profil**2
+        r = (s - spitze) * math.tan(delta) + np.interp(th, azimut, profil, period=2*np.pi)
+        radien.append(r)
+        phasen.append(np.angle(np.fft.rfft(r)[z]))
+    spur = Kegelspur(stationen, radien, -np.unwrap(phasen) / z, 1, z)
+    assert spur.spiralwinkel(spitze, delta, mitte) == pytest.approx(23., abs=.05)
+    # Ein fehlender Zahn am Teilkreis verhindert die Zuordnung der beiden Flanken.
+    radien[5][:1000] = radien[5].min()
+    assert spur.spiralwinkel(spitze, delta, mitte) is None
+
+
+def test_zahnrichtung_unabhaengig_vom_sinn_der_schnittachse():
+    from OCC.Core.BRepMesh import BRepMesh_IncrementalMesh
+    from programm.kern.ausrichten import tesselliere
+    from programm.kern.laden import _alle_flaechen
+    form = _referenz(14, 9., 1.7, 8., -.035, kegel=.55, lagen=12)
+    BRepMesh_IncrementalMesh(form, .001)
+    dreiecke = np.vstack([p[ix] for p, ix in tesselliere(_alle_flaechen(form)) if len(ix)])
+    for achse in (1., -1.):
+        rad, = vz._aus_schnitten(None, "Kegel", np.zeros(3), np.array([0., 0., achse]), dreiecke, False, True)
+        assert rad.zahnrichtung == "links"
+        assert rad.richtung[2] == 1.
+
+
+def test_kegelspur_mit_mehr_als_halber_teilung_zwischen_zwei_grobschnitten():
+    form = _referenz(24, 10., 1.6, 8., .24, kegel=.45, lagen=35)
+    rad = vz.erkenne(form, "Steiles Ritzel", sonderprofile=True)
+    assert rad.art == "konisch" and rad.z == 24 and rad.zahnrichtung == "rechts"
+    assert rad.phase / rad.breite == pytest.approx(.24, abs=.001)
 
 
 def test_gleichfoermige_und_ungerillte_teile_sind_keine_sonderprofile():

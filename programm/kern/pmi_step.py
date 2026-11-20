@@ -7,6 +7,8 @@ Werte werden in mm umgerechnet (wie OCCT die Geometrie liefert).
 
 from __future__ import annotations
 
+import math
+
 from .laden import StepModell
 from .p21 import DMIA_PH, Entity, Enum, P21Datei, Ref, Typed
 from .pmi import TOLERANZ, BezugsRef, Pmi
@@ -46,21 +48,32 @@ BEZUG_MODS = {
 
 # --- Masse und Einheiten ---
 
-def einheit_mm(datei: P21Datei, ref) -> float:
-    """Faktor einer Laengeneinheit nach mm (1.0 wenn unbekannt)."""
+def _laengenfaktor(datei: P21Datei, ref, besucht=()) -> float | None:
     e = datei.get(ref) if isinstance(ref, Ref) else None
-    if e is None:
-        return 1.0
+    if e is None or e.id in besucht:
+        return None
     if e.is_a("SI_UNIT"):
         vorsatz, name = e.args("SI_UNIT")[:2]
-        basis = {"METRE": 1000.0}.get(name.name if isinstance(name, Enum) else "", 1.0)
-        faktor = {"MILLI": 1e-3, "CENTI": 1e-2, "DECI": 1e-1, "MICRO": 1e-6, "KILO": 1e3}
-        return basis * faktor.get(vorsatz.name, 1.0) if isinstance(vorsatz, Enum) else basis
+        if not isinstance(name, Enum) or name.name != "METRE":
+            return None
+        if vorsatz is None:
+            return 1000.0
+        potenz = {"EXA": 18, "PETA": 15, "TERA": 12, "GIGA": 9, "MEGA": 6, "KILO": 3, "HECTO": 2,
+                  "DECA": 1, "DECI": -1, "CENTI": -2, "MILLI": -3, "MICRO": -6, "NANO": -9,
+                  "PICO": -12, "FEMTO": -15, "ATTO": -18}.get(getattr(vorsatz, "name", None))
+        return 10. ** (3 + potenz) if potenz is not None else None
     if e.is_a("CONVERSION_BASED_UNIT"):
         _, mass = e.args("CONVERSION_BASED_UNIT")[:2]
         wert, einheit = messwert_roh(datei, mass)
-        return (wert or 1.0) * einheit_mm(datei, einheit)
-    return 1.0
+        faktor = _laengenfaktor(datei, einheit, (*besucht, e.id))
+        if faktor is not None and isinstance(wert, (int, float)) and math.isfinite(wert) and wert > 0:
+            return wert * faktor
+    return None
+
+
+def einheit_mm(datei: P21Datei, ref) -> float:
+    """Faktor einer Laengeneinheit nach mm (1.0 wenn unbekannt)."""
+    return _laengenfaktor(datei, ref) or 1.0
 
 
 def messwert_roh(datei: P21Datei, ref):
@@ -80,6 +93,14 @@ def laenge_mm(datei: P21Datei, ref) -> float | None:
     if wert is None:
         return None
     return float(wert) * einheit_mm(datei, einheit)
+
+
+def _gesicherte_laenge(datei, ref):
+    wert, einheit = messwert_roh(datei, ref)
+    faktor = _laengenfaktor(datei, einheit)
+    if faktor is not None and isinstance(wert, (int, float)) and math.isfinite(wert):
+        return wert * faktor
+    return None
 
 
 # --- Bezugssystem ---
@@ -169,7 +190,28 @@ def _zonen(datei: P21Datei) -> dict[int, list[Entity]]:
     return out
 
 
-def _zonen_info(datei: P21Datei, p: Pmi, zonen: list[Entity]):
+def _projektionsdaten(p, modell, definition):
+    """Projektionsursprung, Laenge und ggf. Versatz (einfache oder komplexe STEP-Instanz)."""
+    mit_versatz = "PROJECTED_ZONE_DEFINITION_WITH_OFFSET"
+    basis = "PROJECTED_ZONE_DEFINITION"
+    args = definition.args(mit_versatz) if definition.is_a(mit_versatz) else definition.args(basis)
+    if definition.is_a("TOLERANCE_ZONE_DEFINITION") and definition.is_a(basis):
+        args = definition.args("TOLERANCE_ZONE_DEFINITION") + definition.args(basis)
+        if definition.is_a(mit_versatz):
+            args += definition.args(mit_versatz)
+    if len(args) != (5 if definition.is_a(mit_versatz) else 4):
+        return
+    _, grenzen, ende, hoehe, *versatz = args
+    if grenzen or not isinstance(ende, Ref):
+        return
+    p.projektionsflaechen = sorted(flaechen_von_aspekt(modell.datei, modell, ende.id))
+    p.zonen_wert = _gesicherte_laenge(modell.datei, hoehe)
+    p.projektionsversatz = _gesicherte_laenge(modell.datei, versatz[0]) if versatz else 0.
+
+
+def _zonen_info(modell: StepModell, p: Pmi, zonen: list[Entity]):
+    datei = modell.datei
+    projektionen = []
     for z in zonen:
         form = datei.get(z.args("TOLERANCE_ZONE")[5])
         if form is not None and "cylindrical" in str(form.args("TOLERANCE_ZONE_FORM")[0]).lower():
@@ -178,13 +220,17 @@ def _zonen_info(datei: P21Datei, p: Pmi, zonen: list[Entity]):
             p.modifikatoren.append("SphericalDiameter")
         for rid in datei.referrers().get(z.id, []):
             pz = datei.entities[rid]
-            if pz.is_a("PROJECTED_ZONE_DEFINITION"):
-                p.zone = "Projected"
-                p.zonen_wert = laenge_mm(datei, pz.args("PROJECTED_ZONE_DEFINITION")[3])
+            if pz.is_a("PROJECTED_ZONE_DEFINITION") or pz.is_a("PROJECTED_ZONE_DEFINITION_WITH_OFFSET"):
+                projektionen.append(pz)
             elif pz.is_a("RUNOUT_ZONE_DEFINITION"):
                 p.zone = "Runout"
             elif pz.is_a("NON_UNIFORM_ZONE_DEFINITION"):
                 p.zone = "NonUniform"
+    if projektionen:
+        eindeutig = len(projektionen) == len(zonen) == 1 and not p.zone
+        p.zone = "Projected"
+        if eindeutig:
+            _projektionsdaten(p, modell, projektionen[0])
 
 
 def _lies_rahmen(modell: StepModell, e: Entity, zonen: dict[int, list[Entity]]) -> Pmi:
@@ -203,11 +249,20 @@ def _lies_rahmen(modell: StepModell, e: Entity, zonen: dict[int, list[Entity]]) 
     p.wert = laenge_mm(datei, betrag)
     if bezug_refs:
         p.bezuege = _bezugssystem(datei, bezug_refs)
-    for teil in ("GEOMETRIC_TOLERANCE_WITH_MODIFIERS", "GEOMETRIC_TOLERANCE_WITH_MAXIMUM_TOLERANCE"):
-        if e.is_a(teil):
-            for m in e.args(teil)[0] or []:
-                if isinstance(m, Enum):
-                    p.modifikatoren.append(TOL_MODS.get(m.name, m.name))
+    if e.is_a("GEOMETRIC_TOLERANCE_WITH_MODIFIERS"):
+        for m in e.args("GEOMETRIC_TOLERANCE_WITH_MODIFIERS")[0] or []:
+            if isinstance(m, Enum):
+                p.modifikatoren.append(TOL_MODS.get(m.name, m.name))
+    if e.is_a("MODIFIED_GEOMETRIC_TOLERANCE"):
+        m = e.args("MODIFIED_GEOMETRIC_TOLERANCE")[-1]
+        if isinstance(m, Enum) and m.name != "REGARDLESS_OF_FEATURE_SIZE":
+            p.modifikatoren.append({"MAXIMUM_MATERIAL_CONDITION": "Maximum_Material_Requirement",
+                                    "LEAST_MATERIAL_CONDITION": "Least_Material_Requirement"}.get(m.name, m.name))
+    if e.is_a("GEOMETRIC_TOLERANCE_WITH_MAXIMUM_TOLERANCE"):
+        args = e.args("GEOMETRIC_TOLERANCE_WITH_MAXIMUM_TOLERANCE")
+        p.maximum_toleranz = _gesicherte_laenge(datei, args[0]) if args else None
+        if p.maximum_toleranz is None:
+            p.modifikatoren.append("Maximum_Tolerance")
     if "Maximum_Material_Requirement" in p.modifikatoren:
         p.material = "M"
     elif "Least_Material_Requirement" in p.modifikatoren:
@@ -216,7 +271,9 @@ def _lies_rahmen(modell: StepModell, e: Entity, zonen: dict[int, list[Entity]]) 
         p.modifikatoren.append(f"UZ {laenge_mm(datei, e.args('UNEQUALLY_DISPOSED_GEOMETRIC_TOLERANCE')[0])}")
     if e.is_a("GEOMETRIC_TOLERANCE_WITH_DEFINED_UNIT"):
         p.modifikatoren.append(f"je {laenge_mm(datei, e.args('GEOMETRIC_TOLERANCE_WITH_DEFINED_UNIT')[0])}")
-    _zonen_info(datei, p, zonen.get(e.id, []))
+    _zonen_info(modell, p, zonen.get(e.id, []))
+    if p.material or p.zone == "Projected":
+        p.wert = _gesicherte_laenge(datei, betrag)
     if isinstance(aspekt, Ref):
         p.flaechen = flaechen_von_aspekt(datei, modell, aspekt.id)
         ziel = datei.get(aspekt)

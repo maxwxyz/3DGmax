@@ -23,6 +23,7 @@ import numpy as np
 
 from ..i18n import tr
 from .toleranzkette import Glied
+from .merkmal_material import Materialstreuung
 
 KOMPONENTEN = ("x", "y", "z", "rx", "ry", "rz")
 KOMPONENTEN_TEXT = {"x": "Verschiebung X", "y": "Verschiebung Y", "z": "Verschiebung Z", "rx": "Drehung um X",
@@ -48,6 +49,7 @@ class Glied3D:
     verteilung: str = "normal"
     werkstoff: str = ""  # eigener Werkstoff (leer: der der Kette)
     teil: int | None = None  # Teil im Zusammenbau (Knotennummer), das mit diesem Glied wandert; None: keins
+    material_z: Materialstreuung | None = None  # Gekoppeltes Istmass und Achszone in Messrichtung
 
 
 @dataclass
@@ -244,6 +246,11 @@ def monte_carlo(k: Kette3D, proben: int = 20_000, cp: float = 1.0, zufall: int =
     for i, c in _parameter(k):
         g = k.glieder[i]
         w = g.werte[c]
+        if c == "z" and g.material_z is not None and g.verteilung == "normal":
+            # Von Hand geaenderte Grenzen und Verteilungen verwenden die Eingaben der Kette.
+            if np.allclose((w.unten, w.oben), g.material_z.grenzen(), rtol=1e-10, atol=1e-12):
+                ziehungen[i, c] = w.nenn + g.material_z.ziehe(rng, proben, cp)
+                continue
         gl = Glied("", w.nenn, w.nenn + w.oben, w.nenn + w.unten, verteilung=g.verteilung)
         ziehungen[(i, c)] = gl.ziehe(rng, proben, cp) if gl.toleranz > 0 else None
     out = np.empty(proben)
@@ -263,7 +270,9 @@ def als_dict(k: Kette3D) -> dict:
 
 def von_dict(d: dict) -> Kette3D:
     glieder = [Glied3D(g["name"], {c: Komponente(**g["werte"][c]) for c in KOMPONENTEN}, g.get("verteilung", "normal"),
-                       g.get("werkstoff", ""), g.get("teil")) for g in d.get("glieder", [])]
+                       g.get("werkstoff", ""), g.get("teil"),
+                       Materialstreuung.von_dict(g["material_z"]) if g.get("material_z") else None)
+               for g in d.get("glieder", [])]
     return Kette3D(glieder, tuple(d.get("punkt", (0, 0, 0))), tuple(d.get("richtung", (0, 0, 1))),
                    d.get("schluss", "z"), tuple(d.get("ziel", (0, 0, 0))), d.get("basis"), d.get("werkstoff", ""),
                    tuple(d["temperaturen"]) if d.get("temperaturen") else None,

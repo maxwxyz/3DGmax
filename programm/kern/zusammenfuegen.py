@@ -105,9 +105,12 @@ def _grafik_umrechnen(g, id_versatz: int, v: np.ndarray):
     return g
 
 
-def _pmi_umrechnen(pmi: list, flaechen_versatz: int, id_versatz: int, nummer_versatz: int):
+def _pmi_umrechnen(pmi: list, flaechen_versatz: int, id_versatz: int, nummer_versatz: int, lage):
     for p in pmi:
         p.flaechen = {i + flaechen_versatz for i in p.flaechen}
+        p.projektionsflaechen = [i + flaechen_versatz for i in p.projektionsflaechen]
+        if getattr(p, "teilformen", None):
+            p.teilformen = [form.Moved(lage) for form in p.teilformen]
         p.step_id = _id(p.step_id, id_versatz)
         p.nummer += nummer_versatz
         if getattr(p, "callout", 0):  # Verweis auf die Grafik der Datei (falls vorhanden)
@@ -160,7 +163,7 @@ def fuege_hinzu(erg, neu, versatz=None):
     oben.kinder = [_knoten_umrechnen(k, nummer_versatz, lage) for k in neu.baum.kinder]
     wurzel = dataclasses.replace(erg.baum, form=modell.form, kinder=list(erg.baum.kinder) + [oben])
 
-    pmi = list(erg.pmi) + _pmi_umrechnen(list(neu.pmi), n_flaechen, id_versatz, pmi_versatz)
+    pmi = list(erg.pmi) + _pmi_umrechnen(list(neu.pmi), n_flaechen, id_versatz, pmi_versatz, lage)
     grafik = dict(erg.grafik)
     for g in neu.grafik.values():
         g = _grafik_umrechnen(g, id_versatz, v)

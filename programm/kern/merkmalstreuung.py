@@ -14,7 +14,8 @@ from dataclasses import dataclass
 import numpy as np
 
 from ..i18n import tr
-from . import gemeinsamer_bezug
+from . import gemeinsamer_bezug, projektionszone
+from . import merkmal_material as mm
 from . import toleranzzone as tz
 from .verbindung import ORT_TYPEN, _senkrechte
 
@@ -28,6 +29,13 @@ class Anteil:
     unten: float
     oben: float
     text: str
+    material: mm.Materialstreuung | None = None
+
+    def ziehe(self, rng, proben):
+        if self.material is not None:
+            return self.material.ziehe(rng, proben)
+        mittel, sigma = (self.oben + self.unten) / 2, (self.oben - self.unten) / 6
+        return np.clip(rng.normal(mittel, sigma, proben), self.unten, self.oben)
 
 
 def _randpunkte(f, lage):
@@ -76,48 +84,13 @@ def _planar(f, lage, zentrum, d, kraft, moment, lagezonen, neigung):
     return tuple(werte)
 
 
-def _achsenden_maximum(a, b, summe, sehne):
-    """Maximiere a*x + b*y fuer zwei Punkte im Einheitskreis mit Abstand <= sehne."""
-    na, nb = np.linalg.norm(a), np.linalg.norm(b)
-    if na == 0 or nb == 0 or sehne >= 2:
-        return na + nb
-    ua, ub = a / na, b / nb
-    if np.linalg.norm(ua - ub) <= sehne:
-        return na + nb
-
-    ns = np.linalg.norm(summe)
-    if ns == 0:
-        return sehne * na
-    # Nur ein Ende auf dem Kreis: y = Richtung(summe), x = y + sehne * ua (bzw. umgekehrt).
-    richtung = summe / ns
-    for u, n in ((ua, na), (ub, nb)):
-        if richtung @ u <= -sehne / 2:
-            return ns + sehne * n
-
-    # Beide Enden auf dem Kreis, ihr Abstand ist aktiv. Die halbe Sehne liegt
-    # senkrecht zur Mitte. Beide Drehsinne pruefen und gemeinsam optimal drehen.
-    sinus = sehne / 2
-    cosinus = np.sqrt((1 - sinus) * (1 + sinus))
-    differenz = a - b
-    return np.sqrt((cosinus * ns)**2 + (sinus * np.linalg.norm(differenz))**2
-                   + 2 * cosinus * sinus * np.linalg.norm(np.cross(summe, differenz)))
-
-
 def _zylindrisch(d, laenge, kraft, moment, lagezonen, neigung):
     """Die radiale Bewegung beider Achsenden liegt je in einer Kreisscheibe. Nur Kippen: Mitte fest."""
     if laenge <= 1e-9:
         return None
     rad = kraft - d * (kraft @ d)
     winkel = np.cross(moment, d) / laenge
-    if not lagezonen:
-        h = min(neigung) * np.linalg.norm(winkel)
-    else:
-        h = min(o for _, o in lagezonen)
-        if h == 0:
-            return 0., 0.
-        a, b = rad / 2 - winkel, rad / 2 + winkel
-        sehne = min(neigung) / h if neigung else 2.
-        h *= _achsenden_maximum(a, b, rad, sehne)
+    h = mm.achsenhub(rad, winkel, lagezonen, neigung)
     return -h, h
 
 
@@ -166,15 +139,23 @@ def _bezuege(p):
                  for b in refs)
 
 
-def _angaben(pmi, art):
+def _angaben(pmi, art, einzelachse):
     lage, neigung, gueltig, fehlt = [], [], [], []
     for p in pmi:
         mods = getattr(p, "modifikatoren", ())
         zone = getattr(p, "zone", "")
-        if (p.wert is None or p.wert <= 0 or not getattr(p, "semantisch", True) or len(p.flaechen) != 1 or
-                getattr(p, "material", "") or any(b.modifikatoren or getattr(b, "element_modifikatoren", {})
-                                                   for b in getattr(p, "bezuege", ())) or
-                any(x not in ("Diameter",) and not x.startswith("UZ ") for x in mods) or zone not in ("", "Diameter")):
+        mat = getattr(p, "material", "")
+        matmod = {"M": "Maximum_Material_Requirement", "L": "Least_Material_Requirement"}.get(mat)
+        if getattr(p, "bearbeitet", False) and "material" in (getattr(p, "original", None) or {}):
+            mods = [m for m in mods if m not in ("Maximum_Material_Requirement", "Least_Material_Requirement")]
+        deckel = getattr(p, "maximum_toleranz", None)
+        if (p.wert is None or not np.isfinite(p.wert) or p.wert < 0 or (not p.wert and not mat) or
+                not getattr(p, "semantisch", True) or not einzelachse(p) or
+                (mat and (not matmod or art != "achse" or p.typ not in {"Position"} | ORIENTIERUNG)) or
+                (deckel is not None and (not mat or not np.isfinite(deckel) or deckel <= p.wert)) or
+                any(b.modifikatoren or getattr(b, "element_modifikatoren", {}) for b in getattr(p, "bezuege", ())) or
+                any(x not in ("Diameter", matmod) and not x.startswith("UZ ") for x in mods) or
+                zone not in ("", "Diameter", "Projected") or (zone == "Projected" and art != "achse")):
             fehlt.append(p)
         elif p.typ not in ORT_TYPEN | ORIENTIERUNG or (hasattr(p, "bezuege") and not p.bezuege):
             fehlt.append(p)  # Form allein bindet das starre Merkmal nicht an ein Bezugssystem.
@@ -218,6 +199,7 @@ class Messmerkmale:
         self.zonen, self.hinweise = {}, []
         self.bezugsmodelle = defaultdict(set)
         self.kraefte = defaultdict(lambda: np.zeros(6))
+        self.masse, self.schluessel, self.durchmesserfaktoren = {}, {}, {}
 
     def _form(self, teil, idx):
         key = (teil, idx)
@@ -276,7 +258,13 @@ class Messmerkmale:
             self._unvollstaendig(teil, idx, tr("Geometrie der Toleranzzone"))
             return
         art, o, d, _ = merkmal
-        lage, neigung, angaben, fehlt = _angaben(self.pmi[idx], art)
+        def form_fuer(i):
+            return self._form(teil, i)
+
+        def einzelachse(p):
+            return len(p.flaechen) == 1 or projektionszone.einzelachse(p, form, form_fuer)
+
+        lage, neigung, angaben, fehlt = _angaben(self.pmi[idx], art, einzelachse)
         if fehlt:
             self._unvollstaendig(teil, idx, ", ".join(p.wert_text() for p in fehlt))
         if not angaben:
@@ -288,8 +276,29 @@ class Messmerkmale:
         if len(systeme) != 1:
             self._unvollstaendig(teil, idx, tr("Verschiedene Bezugssysteme"))
             return
-        self.zonen[teil, idx] = (merkmal, lage, neigung, angaben)
-        self.kraefte[teil, idx] += kraft
+        formen = {frozenset(p.flaechen) for p in angaben}
+        if len(formen) != 1:
+            self._unvollstaendig(teil, idx, tr("Verschiedene tolerierte Flächen"))
+            return
+        gruppe = next(iter(formen))
+        if any((teil, i) in self.verbunden for i in gruppe):
+            return
+        key = (teil, min(gruppe))
+        merkmal, hinweis = projektionszone.messmerkmal(angaben, form, merkmal, self.bg.lage(teil), form_fuer)
+        if hinweis:
+            self._unvollstaendig(teil, idx, hinweis)
+            return
+        art, o, d, _ = merkmal
+        if any(getattr(p, "material", "") for p in angaben):
+            masse = {id(p): p for i in gruppe for p in self.groessen[i]}
+            mass = mm.zylindermass(form, masse.values(), einzelachse)
+            if mass is None:
+                self._unvollstaendig(teil, idx, tr("Größenmaße für die Materialbedingung"))
+                return
+            self.masse[key] = mass
+        self.schluessel.update({(teil, i): key for i in gruppe})
+        self.zonen[key] = (merkmal, lage, neigung, angaben)
+        self.kraefte[key] += kraft
         if not lage:
             anteil = kraft[3:] @ d if art == "ebene" else np.linalg.norm(np.cross(kraft[3:], d))
             if abs(anteil) > 1e-9:
@@ -297,7 +306,7 @@ class Messmerkmale:
         refs = next(iter(systeme))
         if not refs:
             return
-        merkmale, abbildungen = self._bezugssystem(teil, idx, refs)
+        merkmale, abbildungen = self._bezugssystem(teil, key[1], refs)
         if not merkmale:
             return
         # Nur die von der Zone gebundenen Bewegungen ihres zugeordneten Bezugsrahmens weitergeben.
@@ -318,7 +327,8 @@ class Messmerkmale:
         from OCC.Core.BRepAdaptor import BRepAdaptor_Surface
         from OCC.Core.GeomAbs import GeomAbs_Cylinder
         from OCC.Core.TopoDS import topods
-        if not self.groessen[idx]:
+        key = self.schluessel.get((teil, idx), (teil, idx))
+        if not self.groessen[idx] and key not in self.masse:
             return []
         if (teil, idx) in self.verbunden:
             self._unvollstaendig(teil, idx, tr("Größenstreuung am Kontaktpunkt"))
@@ -326,12 +336,17 @@ class Messmerkmale:
         form = self._form(teil, idx)
         if form is None or BRepAdaptor_Surface(topods.Face(form)).GetType() != GeomAbs_Cylinder:
             return []
-        _, o, d, _ = _merkmal(form, self.bg.lage(teil))
+        _, o, d, laenge = _merkmal(form, self.bg.lage(teil))
         radial = self.punkt - o
-        radial -= d * (radial @ d)
-        if np.linalg.norm(radial) < 1e-9:
+        axial = radial @ d
+        radial -= d * axial
+        radius = BRepAdaptor_Surface(topods.Face(form)).Cylinder().Radius()
+        if abs(axial) > laenge / 2 + 1e-6 or not np.isclose(np.linalg.norm(radial), radius, atol=1e-6, rtol=1e-7):
             return []
         faktor = float(radial @ kraft) / np.linalg.norm(radial)
+        if key in self.masse:
+            self.durchmesserfaktoren[key] = faktor / 2
+            return []
         grenzen, texte = [], []
         for p in self.groessen[idx]:
             oben, unten = p.abmasse()
@@ -358,13 +373,28 @@ class Messmerkmale:
             art, o, d, laenge = merkmal
             k = self.kraefte[teil, idx]
             moment = k[:3] + np.cross(self.punkt - o, k[3:])
+            material = None
             if art == "ebene":
                 grenzen = _planar(self._form(teil, idx), self.bg.lage(teil), o, d, k[3:], moment, lage, neigung)
+            elif (teil, idx) in self.masse:
+                material = self._materialstreuung(teil, idx, d, laenge, k[3:], moment, angaben)
+                grenzen = material.grenzen()
             else:
                 grenzen = _zylindrisch(d, laenge, k[3:], moment, lage, neigung)
             if grenzen is None:
                 self._unvollstaendig(teil, idx, tr("Geometrie der Toleranzzone"))
             elif max(abs(w) for w in grenzen) > 1e-12:
                 texte = [p.wert_text() for p in angaben] + sorted(self.bezugsmodelle[teil, idx])
-                out.append(Anteil(teil, idx, *grenzen, ", ".join(texte)))
+                if material is not None:
+                    mass = material.mass
+                    texte.append(tr("Istmaß ⌀{:.4g} bis {:.4g} mm mit gekoppeltem Bonus").format(mass.klein, mass.gross))
+                out.append(Anteil(teil, idx, *grenzen, ", ".join(texte), material))
         return out
+
+    def _materialstreuung(self, teil, idx, d, laenge, kraft, moment, angaben):
+        radial = kraft - d * (kraft @ d)
+        winkel = np.cross(moment, d) / laenge
+        zonen = [(p.wert, getattr(p, "material", ""), getattr(p, "maximum_toleranz", None),
+                  p.typ in ORIENTIERUNG) for p in angaben]
+        return mm.Materialstreuung(self.masse[teil, idx], self.durchmesserfaktoren.get((teil, idx), 0.),
+                                   tuple(radial), tuple(winkel), zonen)

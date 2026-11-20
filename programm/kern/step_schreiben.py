@@ -28,6 +28,7 @@ tessellierte AP242-Praesentation, verknuepft mit der Semantik (kern.pmi_darstell
 
 from __future__ import annotations
 
+import math
 import re
 from dataclasses import dataclass, field
 
@@ -241,9 +242,13 @@ class _Anhang:
 
     def mass(self, wert: float, winkel: bool = False, art: str = "LENGTH_MEASURE") -> int:
         einheit = self.einheit_winkel if winkel else self.einheit_laenge
-        wert = self.winkel_dateiwert(wert) if winkel else wert
+        wert = self.winkel_dateiwert(wert) if winkel else self.laengen_dateiwert(wert)
         return self.neu(f"{'PLANE_ANGLE' if winkel else 'LENGTH'}_MEASURE_WITH_UNIT("
                         f"{'PLANE_ANGLE_MEASURE' if winkel else art}({_real(wert)}),#{einheit})")
+
+    def laengen_dateiwert(self, mm: float) -> float:
+        from .pmi_step import einheit_mm
+        return mm / einheit_mm(self.datei, Ref(self.einheit_laenge))
 
 
 GROESSE_NAME = {"Size_Diameter": "diameter", "Size_Radius": "radius", "Size_Thickness": "thickness",
@@ -291,7 +296,16 @@ def _schreibe_toleranz(a: _Anhang, p) -> str | None:
     entitaet = {v: k for k, v in TOL_ARTEN.items()}.get(p.typ)
     if entitaet is None or p.wert is None:
         return tr("Toleranzart nicht schreibbar")
-    fehler = a.waehle(p.flaechen)
+    flaechen = set(p.flaechen)
+    if p.zone == "Projected":
+        if (len(p.projektionsflaechen) != 1 or p.zonen_wert is None or not math.isfinite(p.zonen_wert)
+                or p.zonen_wert <= 0 or p.projektionsversatz is None or not math.isfinite(p.projektionsversatz)):
+            return tr("Projektionsursprung, Länge oder Versatz nicht eindeutig")
+        flaechen.update(p.projektionsflaechen)
+    if ("Maximum_Tolerance" in p.modifikatoren or p.maximum_toleranz is not None and
+            (p.material not in ("M", "L") or not math.isfinite(p.maximum_toleranz) or p.maximum_toleranz <= p.wert)):
+        return tr("Höchstwert der geometrischen Toleranz nicht gültig")
+    fehler = a.waehle(flaechen)
     if fehler:
         return fehler
     fehlend = [n for b in p.bezuege for n in b.name.split("-") if a.bezug(n) is None]
@@ -316,15 +330,25 @@ def _schreibe_toleranz(a: _Anhang, p) -> str | None:
     mods = {"M": "MAXIMUM_MATERIAL_REQUIREMENT", "L": "LEAST_MATERIAL_REQUIREMENT"}.get(p.material)
     if mods:
         teile["GEOMETRIC_TOLERANCE_WITH_MODIFIERS"] = f"((.{mods}.))"
+    if p.maximum_toleranz is not None:
+        teile["GEOMETRIC_TOLERANCE_WITH_MAXIMUM_TOLERANCE"] = f"(#{a.mass(p.maximum_toleranz)})"
     name = p.name or p.typ
     if len(teile) == 1:
         tol = a.neu(f"{entitaet}('{name}','',#{betrag},#{sa})")
     else:
         teile["GEOMETRIC_TOLERANCE"] = f"('{name}','',#{betrag},#{sa})"
         tol = a.neu("( " + " ".join(f"{k}{teile[k]}" for k in sorted(teile)) + " )")
-    if "Diameter" in p.modifikatoren:
-        form = a.neu("TOLERANCE_ZONE_FORM('cylindrical or circular')")
-        a.neu(f"TOLERANCE_ZONE('',$,#{a.pds},.F.,(#{tol}),#{form})")
+    if "Diameter" in p.modifikatoren or p.zone == "Projected":
+        zonenform = "cylindrical or circular" if "Diameter" in p.modifikatoren else ""
+        form = a.neu(f"TOLERANCE_ZONE_FORM('{zonenform}')")
+        zone = a.neu(f"TOLERANCE_ZONE('',$,#{a.pds},.F.,(#{tol}),#{form})")
+        if p.zone == "Projected":
+            ende = a.aspekt(p.projektionsflaechen)
+            args = f"#{zone},(),#{ende},#{a.mass(p.zonen_wert)}"
+            if p.projektionsversatz:
+                a.neu(f"PROJECTED_ZONE_DEFINITION_WITH_OFFSET({args},#{a.mass(p.projektionsversatz)})")
+            else:
+                a.neu(f"PROJECTED_ZONE_DEFINITION({args})")
     a.semantik = tol
     return None
 
@@ -365,7 +389,7 @@ def _schreibe_mass(a: _Anhang, p) -> str | None:
                      f"REPRESENTATION_ITEM('nominal value') )")
     else:
         wert = a.neu(f"( LENGTH_MEASURE_WITH_UNIT() MEASURE_REPRESENTATION_ITEM() MEASURE_WITH_UNIT("
-                     f"LENGTH_MEASURE({_real(abs(p.nennwert))}),#{a.einheit_laenge}) REPRESENTATION_ITEM('nominal value') )")
+                     f"LENGTH_MEASURE({_real(a.laengen_dateiwert(abs(p.nennwert)))}),#{a.einheit_laenge}) REPRESENTATION_ITEM('nominal value') )")
     darst = a.neu(f"SHAPE_DIMENSION_REPRESENTATION('',(#{wert}),#{a.kontext})")
     a.neu(f"DIMENSIONAL_CHARACTERISTIC_REPRESENTATION(#{dim},#{darst})")
     if p.oben is not None and p.unten is not None and not p.grenzmass:
@@ -460,6 +484,13 @@ def _schreibe_material(text: str, datei, p) -> str | None:
     a, b = _anweisung(text, p.step_id)
     stueck = text[a:b]
     neu_enum = MATERIAL_ENUM.get(p.material)
+    if e.is_a("MODIFIED_GEOMETRIC_TOLERANCE") and not e.is_a("GEOMETRIC_TOLERANCE_WITH_MODIFIERS"):
+        enum = {"M": "MAXIMUM_MATERIAL_CONDITION", "L": "LEAST_MATERIAL_CONDITION", "": "REGARDLESS_OF_FEATURE_SIZE"}
+        if p.material not in enum:
+            return None
+        neu, n = _re.subn(r"(MODIFIED_GEOMETRIC_TOLERANCE\s*\(\s*)\.[A-Z_]+\.",
+                          lambda m: m[1] + "." + enum[p.material] + ".", stueck, count=1)
+        return text[:a] + neu + text[b:] if n else None
     if e.is_a("GEOMETRIC_TOLERANCE_WITH_MODIFIERS"):
         def ersetze(m):
             enums = [x for x in _re.findall(r"\.([A-Z_]+)\.", m.group(2)) if x not in MATERIAL_ENUM.values()]
@@ -530,6 +561,11 @@ def schreibe(quelle: str, ziel: str, pmi: list, modell=None, grafik: dict | None
         for feld, alt in p.original.items():
             neu = getattr(p, feld, None)
             if neu == alt:
+                continue
+            if feld in ("material", "wert") and (
+                    "Maximum_Tolerance" in p.modifikatoren or p.maximum_toleranz is not None and
+                    (p.material not in MATERIAL_ENUM or p.wert is None or p.wert >= p.maximum_toleranz)):
+                bericht.uebersprungen.append((p.nummer, feld, tr("Höchstwert der geometrischen Toleranz nicht gültig")))
                 continue
             if feld in ("passung", "material"):
                 neu_text = (_schreibe_passung if feld == "passung" else _schreibe_material)(text, datei, p)

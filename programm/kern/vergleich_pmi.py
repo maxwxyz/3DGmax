@@ -15,9 +15,12 @@ from .pmi import Pmi
 
 GLEICH, GEAENDERT, NEU, ENTFALLEN = "gleich", "geaendert", "neu", "entfallen"
 GEOMETRIE = "geometrie"  # PMI unveraendert, aber Geometrie der zugeordneten Flaechen geaendert
-FELDER = ("nennwert", "oben", "unten", "passung", "wert", "zone", "zonen_wert", "material")
+FELDER = ("nennwert", "oben", "unten", "passung", "wert", "zone", "zonen_wert", "projektionsversatz",
+          "maximum_toleranz", "material")
 FELD_TEXT = {"nennwert": "Nennwert", "oben": "oberes Abmaß/Höchstmaß", "unten": "unteres Abmaß/Mindestmaß",
              "passung": "Passung", "wert": "Toleranzwert", "zone": "Zone", "zonen_wert": "Zonenwert",
+             "projektionsversatz": "Projektionsversatz", "projektionsflaechen": "Projektionsursprung",
+             "maximum_toleranz": "Höchstwert der geometrischen Toleranz",
              "material": "Materialbedingung", "modifikatoren": "Modifikatoren", "bezuege": "Bezüge",
              "flaechen": "zugeordnete Flächen", "name": "Name", "geometrie": "Geometrie", "text": "Text"}
 
@@ -105,7 +108,7 @@ def vergleiche_pmi(alt: list[Pmi], neu: list[Pmi], zuordnung: dict[int, int] | N
     """zuordnung: Flaeche neu -> Flaeche alt (aus dem Geometrievergleich), zuordnung_ab die Gegenrichtung;
     ohne: gleiche Indizes."""
     if zuordnung is None:
-        zuordnung = {f: f for p in neu for f in p.flaechen}
+        zuordnung = {f: f for p in neu for f in (*p.flaechen, *p.projektionsflaechen)}
     paare = []
     for i, a in enumerate(alt):
         for j, b in enumerate(neu):
@@ -131,6 +134,10 @@ def _vergleiche_felder(a: Pmi, b: Pmi, zuordnung, zuordnung_ab=None, geo_status=
         va, vb = getattr(a, f), getattr(b, f)
         if not _gleich(va, vb):
             felder.append((f, _zahl(va), _zahl(vb)))
+    alt, neu = set(a.projektionsflaechen), set(b.projektionsflaechen)
+    if (alt or neu) and ({zuordnung.get(i) for i in neu} != alt):
+        felder.append(("projektionsflaechen", ", ".join(map(str, sorted(alt))) or "–",
+                       ", ".join(map(str, sorted(neu))) or "–"))
     if sorted(a.modifikatoren) != sorted(b.modifikatoren):
         felder.append(("modifikatoren", ", ".join(a.modifikatoren) or "–", ", ".join(b.modifikatoren) or "–"))
     if a.bezug_text() != b.bezug_text():

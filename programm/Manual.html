@@ -386,6 +386,13 @@ For two coaxial bearing seats, the datum axis passes through their displaced cen
 seats have equal weight in the line fit. Coplanar pads facing the same way define an area-weighted
 fitted plane. The table shows each face's contribution at the measuring point. This calculation
 models rigid features. Unresolved datum geometry leaves the requirement verdict open.</li>
+<li>For <b>Ⓜ or Ⓛ on a toleranced cylinder</b>, the analysis needs associated size limits. Actual
+size determines both the available zone diameter and the position of the cylindrical surface.
+Worst case and Monte Carlo use the same size for both effects. A specified maximum geometric
+tolerance limits the bonus.</li>
+<li>For a <b>projected axis tolerance Ⓟ</b>, the controlled interval starts at the specified exit
+face plus any offset. The tolerance applies within that interval. The same tilt can produce a
+larger deviation at a measuring point outside it. An ambiguous exit side leaves the assessment open.</li>
 <li>If the measure depends on open degrees of freedom, a note says so: connect the parts completely first.
 <b>As PDF …</b> saves connections, results and contributors. Example: <b>File › Examples › Assembly variation</b>.</li>
 </ul>
@@ -433,6 +440,10 @@ separate trains are evaluated separately. Planetary ratios depend on the member 
 worm pairings indicate geometric compatibility. The pair table gives the outer and mean transverse modules of gears 1 and 2 when both ends of the
 respective tooth band are confirmed by planar end faces. The shared face width is the overlap along the pitch cones.
 A load rating requires additional data.</p>
+<p>For a <b>bevel gear</b>, hand follows the measured tooth centreline. Viewed from the small end,
+a right-hand tooth runs clockwise towards the large end. For compatible pairs the mean spiral
+angle βm is measured on the pitch cone at mid-face. An individual spiral gear may establish its
+hand while its pitch cone and numerical βm remain unresolved.</p>
 <p>In the <b>Operating point</b> tab, tick the shafts with known speeds and enter their values in rpm.
 Enter 0 for a stationary member and leave unknown speeds unticked. A simple planetary set operates as a star train when the carrier is fixed.
 With the ring held and the sun driven, the carrier is the output. For a symmetric open bevel differential,

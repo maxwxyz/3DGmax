@@ -383,6 +383,27 @@ def _kreisachsen(formen) -> list[tuple]:
     return out
 
 
+def _projektionsabschnitt(z, p, modell, start, d, laenge, form=None):
+    from . import projektionszone
+    flaechen = getattr(modell, "flaechen", ())
+    def flaeche(i):
+        return flaechen[i] if 0 <= i < len(flaechen) else None
+    mitte = start + d * laenge / 2
+    if form is None:
+        abschnitt, hinweis = projektionszone.sichtintervall(p, mitte, d, laenge, flaeche, np.eye(4))
+    else:
+        abschnitt, hinweis = projektionszone.messmerkmal([p], form, ("achse", mitte, d, laenge), np.eye(4), flaeche)
+    if abschnitt is None:
+        if hinweis not in z.hinweise:
+            z.hinweise.append(hinweis)
+        return start, d, 0.
+    _, o, n, h = abschnitt
+    text = tr("Projizierte Zone {:.4g} mm ab der angegebenen Austrittsseite").format(h)
+    if text not in z.hinweise:
+        z.hinweise.append(text)
+    return o - n * h / 2, n, h
+
+
 def _teilform_zone(p, t: float, faktor: float, modell=None) -> "Zone | None":
     """Toleranz an Konstruktionsgeometrie, Kanten oder Punkten (ohne Flaechen): Achszone um einen Gewinde- bzw.
     Konstruktionszylinder (mit projizierter Zone Ⓟ ausserhalb des Materials), sonst Rohr Ø t um jede Kante und Kugel
@@ -393,13 +414,9 @@ def _teilform_zone(p, t: float, faktor: float, modell=None) -> "Zone | None":
         z = Zone(breite=t, faktor=faktor, art="zylinder")
         for start, d, laenge in achsen:
             z.dazu(_zylinder(start, d, t / 2 * faktor, max(laenge, t)))
-            if p.zone == "Projected" and p.zonen_wert:
-                ende = start + d * laenge
-                aussen_am_ende = modell is not None and not _im_material(modell, ende + d * 0.1)
-                basis, richtung = (ende, d) if aussen_am_ende else (start, -d)
-                z.dazu(_zylinder(basis, richtung, t / 2 * faktor, float(p.zonen_wert)), BONUS)
-        if p.zone == "Projected" and p.zonen_wert:
-            z.hinweise.append(tr("projizierte Zone {:.4g} mm außerhalb des Materials").format(p.zonen_wert))
+            if p.zone == "Projected":
+                basis, richtung, hoehe = _projektionsabschnitt(z, p, modell, start, d, laenge)
+                z.dazu(_zylinder(basis, richtung, t / 2 * faktor, hoehe), BONUS)
         z.hinweise.append(tr("Zone um die Achse der Konstruktionsgeometrie (z. B. Gewinde), Ø {:.4g}").format(t))
         return z
     from OCC.Core.BRep import BRep_Tool
@@ -557,12 +574,11 @@ def _achszone(p, modell, flaechen, t: float, faktor: float, alle_pmi) -> Zone | 
             name, "Ⓜ" if mat == "M" else "Ⓛ", v))
     if len(achsen) > 1:
         z.hinweise.append(tr("{} Elemente").format(len(achsen)))
-    if p.zone == "Projected" and p.zonen_wert:
-        z.hinweise.append(tr("projizierte Zone {:.4g} mm außerhalb des Elements").format(p.zonen_wert))
     if t_max > t + 1e-12:
         z.hinweise.append(tr("Zone ⌀{:.4g} bei {}, bis ⌀{:.4g} mit Bonus").format(
             t, "MMC" if p.material == "M" else "LMC", t_max))
-    z.hinweise.append(tr("Fläche zwischen ⌀{:.4g} und ⌀{:.4g}").format(2 * innen_r, 2 * aussen_r))
+    if p.zone != "Projected":
+        z.hinweise.append(tr("Fläche zwischen ⌀{:.4g} und ⌀{:.4g}").format(2 * innen_r, 2 * aussen_r))
     return z if z.formen else None
 
 
@@ -588,16 +604,13 @@ def _eine_achse(z: Zone, p, modell, achse, t: float, faktor: float, alle_pmi, be
     innen = _ist_innen(erste, start, d)
     dmin, dmax = _groesse(p, alle_pmi, 2 * r)
     # Lagetoleranz je Istmass; Huellen der Flaeche ueber beide Grenzmasse (linear, Endpunkte genuegen)
-    toleranzen = {dd: t + _bonus(p.material, innen, dd, dmin, dmax) for dd in (dmin, dmax)}
+    deckel = getattr(p, "maximum_toleranz", None)
+    toleranzen = {dd: min(t + _bonus(p.material, innen, dd, dmin, dmax), deckel if deckel is not None else np.inf)
+                  for dd in (dmin, dmax)}
     t_max = max(toleranzen.values())
     fuss, richtung, hoehe = start, d, laenge
-    if p.zone == "Projected" and p.zonen_wert:
-        ende_plus = start + d * laenge
-        if not _im_material(modell, ende_plus + d * laenge * 1e-3):
-            fuss, richtung = ende_plus, d
-        else:
-            fuss, richtung = start, -d
-        hoehe = float(p.zonen_wert)
+    if p.zone == "Projected":
+        fuss, richtung, hoehe = _projektionsabschnitt(z, p, modell, start, d, laenge, erste)
     elif bezug is not None:  # Koaxialitaet: Zone auf der Bezugsachse, ueber die Laenge des Elements
         b_start, b_d = bezug[0], bezug[1] * (1.0 if bezug[1] @ d >= 0 else -1.0)
         fuss, richtung = b_start + b_d * ((start - b_start) @ b_d), b_d
@@ -609,6 +622,8 @@ def _eine_achse(z: Zone, p, modell, achse, t: float, faktor: float, alle_pmi, be
     # Raum, in dem die Zylinderflaeche liegen kann (Mass + Lage); Abweichungen ueberhoeht wie die Zone
     innen_r = min(dd / 2 - tol / 2 for dd, tol in toleranzen.items())
     aussen_r = max(dd / 2 + tol / 2 for dd, tol in toleranzen.items())
+    if p.zone == "Projected":
+        return t_max, innen_r, aussen_r
     teile = _auf_achse(flaechen, start, d) if flaechen else []
     for rr in (innen_r, aussen_r):
         dr = (rr - r) * faktor  # Radiusaenderung
@@ -931,6 +946,8 @@ def _zone(p, modell, sichtbar_mindest: float = 0.0, alle_pmi=None, faktor: float
         z = _linienzone(p, flaechen, t, faktor, laengs=LE in p.modifikatoren or "ALS" in p.modifikatoren)
     if z is None and durchmesser and (p.typ in ACHSZONE or p.typ in ACHSE_MIT_DURCHMESSER):
         z = _achszone(p, modell, flaechen, t, faktor, alle_pmi)
+    if p.zone == "Projected" and z is None:
+        return None
     if z is None and not durchmesser and p.typ in MITTELEBENE and _mittelebene_gemeint(p, alle_pmi):
         z = _mittelebenenzone(p, flaechen, t, faktor)
     if z is None and p.typ in LAUF:
