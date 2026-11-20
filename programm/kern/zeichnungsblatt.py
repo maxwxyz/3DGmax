@@ -8,7 +8,7 @@ from scipy import ndimage
 
 from . import pmi_strichschrift as schrift
 from .pmi import MASS, TOL_SYMBOL
-from .zeichnungsabgleich import Blattangabe, lese_angabe
+from .zeichnungsabgleich import Blattangabe, lese_angabe, musteranzahl
 
 
 @lru_cache(maxsize=1)
@@ -307,6 +307,40 @@ class Zeichnungsblatt:
                 grundmass = True
             yield Blattangabe(self.nummer, box, text, grundmass)
 
+    def _muster_am_rahmen(self, rahmen):
+        # Die Mengenangabe gehoert zur eigenen Durchmesserzeile ueber dem Rahmen.
+        h, w = self.bild.shape[:2]
+        raster = np.array([w, h, w, h])
+        l, t, r, b = np.rint(rahmen.box*raster).astype(int)
+        hoehe = b-t
+        if r-l < 2*hoehe or hoehe < 5 or t < hoehe+2:
+            return None
+        x, y = max(0, l-2*hoehe), max(0, t-round(1.42*hoehe))
+        streifen = self.bild[y:t-2, x:min(w, r+3*hoehe)].min(axis=2) < 185
+        gruppen = list(schrift._gruppen(streifen))
+        if len(gruppen) < 5:
+            return None
+        links, ende = gruppen[0]
+        # Vor der Beschriftung muss ein waagerechtes Stueck der Hinweislinie liegen.
+        stueck = max(3, round(.5*hoehe))
+        if ende-links < stueck or abs(ende+x-l) > 1.6*hoehe:
+            return None
+        strich = streifen[:, ende-stueck:ende]
+        if not strich.all(axis=1).any() or strich.any(axis=1).sum() > 3:
+            return None
+        links, rechts = gruppen[1][0], gruppen[-1][1]
+        if rechts+2 >= streifen.shape[1] or links-ende < 2 or links-ende > hoehe:
+            return None
+        ys = np.nonzero(streifen[:, links:rechts])[0]
+        box = tuple(np.clip(np.array([x+links-1, y+ys.min()-1, x+rechts+1, y+ys.max()+2])/raster, 0., 1.))
+        texte = {self._bildtext(box, False, 0, aufloesung) for aufloesung in (72, 60)}
+        texte.discard("")
+        if len(texte) == 1:
+            text = texte.pop()
+            if musteranzahl(text) and lese_angabe(text, 1.) is not None:
+                return Blattangabe(self.nummer, box, text)
+        return None
+
     def fundstellen(self):
         h, w = self.bild.shape[:2]
         zellen = _zellen(self.bild.min(axis=2) < 195)
@@ -330,4 +364,10 @@ class Zeichnungsblatt:
         for box, text in self.textbereiche:
             if not innerhalb(box) and lese_angabe(text, 1.) is not None:
                 rahmen[box] = Blattangabe(self.nummer, box, text)
+        for a in list(rahmen.values()):
+            if "|" in a.text and (m := self._muster_am_rahmen(a)) is not None:
+                if not any(musteranzahl(ortsangabe.text) and
+                           m.box[0] <= (ortsangabe.box[0]+ortsangabe.box[2])/2 <= m.box[2] and
+                           m.box[1] <= (ortsangabe.box[1]+ortsangabe.box[3])/2 <= m.box[3] for ortsangabe in rahmen.values()):
+                    rahmen[m.box] = m
         return sorted(rahmen.values(), key=lambda a: (a.box[1], a.box[0]))

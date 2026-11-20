@@ -8,7 +8,7 @@ import pytest
 from PySide6 import QtCore, QtGui, QtWidgets
 
 from programm.kern import zeichnungsabgleich as za
-from programm.kern.zeichnungsansicht import Blattgeometrie, Blattkreis, modellkreise, zuordnen
+from programm.kern.zeichnungsansicht import Blattgeometrie, Blattkreis, modellkreise, muster_am_ziel, zuordnen
 from programm.kern.zeichnungsblatt import Zeichnungsblatt
 from programm.kern.pmi import Pmi
 
@@ -25,14 +25,15 @@ def _teil():
     return SimpleNamespace(flaechen=_alle_flaechen(form))
 
 
-def _blatt(pfad, verzweigt=False):
+def _blatt(pfad, verzweigt=False, text="Ø4.1", fremdkreis=False):
     pdf = QtGui.QPdfWriter(str(pfad))
     pdf.setResolution(72)
     with QtGui.QPainter(pdf) as maler:
         for x, y, r in ((8, 7, 2), (29, 9, 2), (13, 29, 3), (40, 25, 4)):
             maler.drawEllipse(QtCore.QPointF(100+3*x, 200-3*y), 3*r, 3*r)
         # Gleicher Druckwert an der falschen Flaeche. Der zweigliedrige Pfeil zeigt auf die erste Bohrung.
-        text = "Ø4.1"
+        if fremdkreis:
+            maler.drawEllipse(QtCore.QPointF(169, 144), 6, 6)
         maler.setFont(QtGui.QFont("Helvetica", 14))
         maler.drawText(20, 160, text)
         rand = QtGui.QFontMetricsF(maler.font(), maler.device()).tightBoundingRect(text).translated(20, 160)
@@ -141,7 +142,15 @@ def test_d2mi_904_einzelbohrung_in_hauptansicht(app):
                         assert zylinder.Location().Coord()[:2] == pytest.approx(achse)
                         radien.add(round(zylinder.Radius(), 6))
             assert {3.175, 4.7625} <= radien
-        rahmen = [a for a in blatt.fundstellen() if a.text.startswith("⌖")]
+        angaben = blatt.fundstellen()
+        m, = [a for a in angaben if a.text == "2X⌀.370-.380"]
+        anker = geo.hinweisziel(m.box, treffer, musterzeile=True)
+        ringe = muster_am_ziel(anker, 2, geo.im_bereich((.17, .09, .395, .36)), treffer)
+        kandidat, = [p for p in erg.pmi if p.typ == "Size_Diameter" and za.muster_deckt(2, ringe, p)]
+        assert len(ringe) == 2 and kandidat.step_id == 38471
+        assert kandidat.grenzen() == pytest.approx((9.398, 9.652))
+        assert za.lese_angabe(m.text, 25.4).grenzen() == pytest.approx((9.652, 9.398))
+        rahmen = [a for a in angaben if a.text.startswith("⌖")]
         zugeordnet = [(a, k) for a in rahmen if (k := geo.hinweisziel(a.box, treffer, blatt.durchmesseranfang))]
         assert len(zugeordnet) == 1
         a, ziel = zugeordnet[0]
@@ -338,3 +347,70 @@ def test_geneigte_bohrgruppe_und_zweite_ansichtsrichtung(app):
     # Die gleiche Gruppe auf einer anderen Flaeche ist auf dem Blatt nicht unterscheidbar.
     beide = modellkreise(SimpleNamespace(flaechen=[*teil.flaechen, *geneigt]))
     assert len(beide) == 2 and not zuordnen(blatt, beide)
+
+
+@pytest.mark.parametrize("fremdkreis", [False, True])
+def test_mengenmass_im_dialog_mit_vollstaendiger_flaechenzuordnung(app, tmp_path, monkeypatch, fremdkreis):
+    import pypdfium2 as pdf
+    from programm.ui.zeichnungsabgleich_ui import Zeichnungsabgleich
+    teil = _teil()
+    gruppe, = modellkreise(teil)
+    zielringe = [k for k in gruppe if k.r == 2]
+    beide = set.union(*(set(k.flaechen) for k in zielringe))
+    gut = Pmi("mass", "Size_Diameter", nennwert=4., flaechen=beide, nummer=1)
+    einzeln = replace(gut, flaechen=set(zielringe[0].flaechen), nummer=2)
+    extra = replace(gut, flaechen=beide | {999}, nummer=3)
+    pfad = tmp_path / "Muster.pdf"
+    _blatt(pfad, text="2X Ø4", fremdkreis=fremdkreis)
+    with pdf.PdfDocument(pfad) as doc:
+        d = Zeichnungsabgleich(doc, [einzeln, extra, gut], lambda _: None, (str(pfad), ""), einzelteil=teil)
+        try:
+            d.einheit.setCurrentIndex(1)
+            a = next(a for a in d.seiten[0] if a.text.startswith("2X"))
+            d.waehle(a)
+            assert d.zuordnung.currentData() is None
+            d.registrieren.click()
+            d.ansicht.bereich.emit((.12, .11, .46, .3))
+            assert d.auftrag.wait(10000)
+            app.processEvents()
+            anker = d.zielvorschlaege[a]
+            assert anker is not None
+            if fremdkreis:
+                assert d.zuordnung.currentData() is None
+                d.zuordnung.setCurrentIndex(d.zuordnung.findData(d.modellindex[id(gut)]))
+                d.bestaetigen.click()
+                assert za.befund(a, 1.) == "offen"
+                anderer = next(k for k in d.kreise[0] if k.flaechen <= beide and k != anker)
+                d.ansicht.musterkreis_gewaehlt.emit(anderer)
+            assert d.zuordnung.currentData() == d.modellindex[id(gut)]
+            d.bestaetigen.click()
+            assert za.befund(a, 1.) == "gleich" and len(a.musterziele) == 2
+            datei = tmp_path / "Bohrbild.csv"
+            monkeypatch.setattr(QtWidgets.QFileDialog, "getSaveFileName", lambda *args: (str(datei), "CSV"))
+            d._export()
+            with datei.open(encoding="utf-8-sig") as f:
+                zeile = next(z for z in csv.DictReader(f, delimiter=";") if z["Angabe"].startswith("2X"))
+            orte = zeile["Bohrbild (x/Breite, y/Höhe, Radius/Breite je Bohrung)"].split(" | ")
+            assert len(orte) == 2 and zeile["Befund"] == "Werte gleich"
+            for wort, ziel in zip(orte, a.musterziele):
+                assert tuple(map(float, wort.split())) == pytest.approx(ziel.ort, abs=1.e-6)
+            # Die Pruefung einer anderen Ansicht auf demselben Blatt behaelt den bestaetigten Befund.
+            d.registrieren.click()
+            d.ansicht.bereich.emit((.8, .8, .95, .95))
+            assert d.auftrag.wait(10000)
+            app.processEvents()
+            assert za.befund(a, 1.) == "gleich" and len(d._muster(a, 2)) == 2
+            for falsch in (einzeln, extra):
+                d.zuordnung.setCurrentIndex(d.zuordnung.findData(d.modellindex[id(falsch)]))
+                d.bestaetigen.click()
+                assert za.befund(a, 1.) == "offen"
+            d.zuordnung.setCurrentIndex(d.zuordnung.findData(d.modellindex[id(gut)]))
+            d.text.setPlainText("2× Ø4.1")
+            d.bestaetigen.click()
+            assert za.befund(a, 1.) == "geaendert"
+            d.text.setPlainText("3X Ø4")
+            d.bestaetigen.click()
+            assert za.befund(a, 1.) == "offen"
+        finally:
+            d.blatt.schliesse()
+            d.close()

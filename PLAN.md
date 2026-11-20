@@ -1593,7 +1593,13 @@ all best fits are proposed. Coaxial blind holes at separate depths remain ambigu
 bent, unbranched leader can suggest the PMI on its target ring. Arrowheads may be filled, hatched or
 outlined in separate strokes. For a control frame below a diameter annotation, the review follows
 the upper row’s leader when it begins with a diameter symbol and a number. A quantity prefix or an
-open arrowhead leaves this association unresolved.
+open arrowhead leaves the frame’s association unresolved. A repeated diameter dimension is reviewed
+as its own annotation. Native PDF text and supported plotted rows (including a row above a frame)
+retain the printed count and limits. An arrow or manual selection identifies the first hole. The
+review proposes the remaining visible rings only when the size and count agree and all are
+registered. The user can select a subset explicitly. One grouped model PMI must cover every marked
+hole and have no faces outside the group. The CSV records the individual circle coordinates. Repeated callouts represented by one separate
+model characteristic per hole still need a combined review.
 The reviewer can also click a matched ring. The CSV stores the accepted circle in sheet coordinates.
 
 Remaining work includes views in which holes project as ellipses, sections, non-circular features and compound leaders, automatically

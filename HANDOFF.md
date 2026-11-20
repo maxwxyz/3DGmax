@@ -2,6 +2,25 @@
 
 ## Current state, 2026-11-20
 
+### Verify repeated diameter callouts against a grouped model dimension
+
+- Checked PLAN §8.35 and docs/Roadmap.md. Native and supported plotted diameter rows retain their
+  quantity. A leader or a manual click identifies the first hole. The selected view supplies the
+  other same-radius circles, including unmatched rings when counting potential targets. Extra
+  circles require explicit selection with Shift-click. Equal values require the selected model PMI
+  to cover exactly the marked holes. The PDF view highlights them and the CSV keeps each coordinate.
+- In the review dialog, D2MI 904 sheet 2 independently identified the plotted 2X diameter above the
+  least-material position frame. Its printed limits are 0.370 and 0.380 inch. The leader and the
+  second ring identify both holes of STEP dimension #38471. Its tolerance entity #38491 supplies
+  +0.005 inch as the lower deviation and −0.005 as the upper. The app preserves the source order
+  and reports an open value check. The adjacent position control remains separate.
+- Confirmed the dialog and CSV with equal and changed values, a missing or extra model face and an
+  additional unmatched printed circle. Registering a second view preserved the first reviewed pattern.
+  All 39 affected tests passed. The focused drawing and
+  translation run passed 35 tests. Still open are repeated callouts encoded as separate model
+  characteristics per hole, compound leaders, sections and whole-drawing verification. Reconstruction
+  remains in §8.36 and QIF stays last in §8.37.
+
 ### Register auxiliary views along inclined hole axes
 
 - Checked PLAN §8.35 against docs/Roadmap.md. The model now groups analytic cylinders by their

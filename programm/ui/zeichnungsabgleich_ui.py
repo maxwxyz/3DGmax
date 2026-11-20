@@ -15,9 +15,10 @@ from ..kern.vergleich_pmi import FELD_TEXT
 
 
 class Ansichtsauftrag(Modellauftrag):
-    def __init__(self, einzelteil, modellkreise, kreise):
+    def __init__(self, einzelteil, modellkreise, kreise, bereich):
         super().__init__()
         self.einzelteil, self.modellkreise, self.kreise = einzelteil, modellkreise, kreise
+        self.bereich = bereich
         self.treffer, self.fehler = [], ""
 
     def _pruefe(self):
@@ -39,6 +40,7 @@ class Blattansicht(QtWidgets.QGraphicsView):
     bereich = QtCore.Signal(tuple)
     gewaehlt = QtCore.Signal(object)
     kreis_gewaehlt = QtCore.Signal(object)
+    musterkreis_gewaehlt = QtCore.Signal(object)
 
     def __init__(self):
         super().__init__()
@@ -75,12 +77,14 @@ class Blattansicht(QtWidgets.QGraphicsView):
             item = self.scene().addRect(l*w, t*h, (r-l)*w, (b-t)*h, stift)
             self.marken.append((a, item))
 
-    def zeige_kreise(self, kreise, ziel):
+    def zeige_kreise(self, kreise, ziel, muster=()):
         for _, item in self.kreismarken:
             self.scene().removeItem(item)
         self.kreismarken.clear()
-        for k in kreise:
-            stift = QtGui.QPen(QtGui.QColor("#cc5300" if k == ziel else "#167748"), 2 if k == ziel else 1)
+        marken = set(muster)
+        for k in dict.fromkeys((*kreise, *muster)):
+            markiert = k == ziel or k in marken
+            stift = QtGui.QPen(QtGui.QColor("#cc5300" if markiert else "#167748"), 2 if markiert else 1)
             stift.setCosmetic(True)
             item = self.scene().addEllipse(k.x-k.r, k.y-k.r, 2*k.r, 2*k.r, stift)
             self.kreismarken.append((k, item))
@@ -116,7 +120,8 @@ class Blattansicht(QtWidgets.QGraphicsView):
             skala = self.transform().m11()
             if (treffer and treffer[0][0]*skala < 5
                     and (len(treffer) == 1 or (treffer[1][0]-treffer[0][0])*skala > 1)):
-                self.kreis_gewaehlt.emit(treffer[0][1])
+                signal = self.musterkreis_gewaehlt if e.modifiers() & QtCore.Qt.KeyboardModifier.ShiftModifier else self.kreis_gewaehlt
+                signal.emit(treffer[0][1])
         else:
             box = QtCore.QRectF(self.mapToScene(start), self.mapToScene(ende)).normalized().intersected(self.sceneRect())
             w, h = self.sceneRect().width(), self.sceneRect().height()
@@ -135,6 +140,9 @@ class Zeichnungsabgleich(QtWidgets.QDialog):
         self.einzelteil = einzelteil
         self.modellkreise = self.blattgeometrie = None
         self.kreise = {}
+        self.sichtkreise = {}
+        self.bereiche = {}
+        self.musterwahl = {}
         self.geometrien = {}
         self.zielvorschlaege = {}
         self.nur_modell = set()
@@ -215,6 +223,7 @@ class Zeichnungsabgleich(QtWidgets.QDialog):
         self.finished.connect(self._abbrechen)
         self.ansicht.bereich.connect(self._bereich)
         self.ansicht.kreis_gewaehlt.connect(self._kreis_waehlen)
+        self.ansicht.musterkreis_gewaehlt.connect(self._musterkreis_waehlen)
         self.ansicht.gewaehlt.connect(self.waehle)
         self.tabelle.currentCellChanged.connect(self._auswahl)
         self.zuordnung.currentIndexChanged.connect(self._vorschau)
@@ -235,6 +244,7 @@ class Zeichnungsabgleich(QtWidgets.QDialog):
                 if a.modell is not None and id(a.modell) not in self.modellindex:
                     a.modell = None
                     a.blattziel = None
+                    a.musterziele = ()
         if self.blatt is not None:
             self._liste(self.aktiv)
 
@@ -314,7 +324,7 @@ class Zeichnungsabgleich(QtWidgets.QDialog):
             QtWidgets.QMessageBox.warning(self, tr("Bohrbild zuordnen"), str(e))
             return
         kreise = self.blattgeometrie.im_bereich(box)
-        self.auftrag = Ansichtsauftrag(self.einzelteil, self.modellkreise, kreise)
+        self.auftrag = Ansichtsauftrag(self.einzelteil, self.modellkreise, kreise, box)
         self.auftrag.finished.connect(self._zugeordnet)
         self.auftrag.starte()
         self._status()
@@ -336,10 +346,19 @@ class Zeichnungsabgleich(QtWidgets.QDialog):
         self.modellkreise = arbeit.modellkreise
         nr = self.blatt.nummer
         self.kreise[nr] = arbeit.treffer
+        self.sichtkreise[nr] = arbeit.kreise
+        self.bereiche[nr] = arbeit.bereich
         for a in self.seiten[nr]:
+            self.musterwahl.pop(a, None)
             k = self._hinweisziel(a)
             self.zielvorschlaege[a] = k
-            if k and a.modell is not None:
+            anzahl = za.musteranzahl(a.text)
+            if anzahl and a.modell is not None:
+                ziele = self._muster(a, anzahl)
+                if k or not self._anderer_bereich(a):
+                    a.zielkonflikt = (not za.muster_deckt(anzahl, ziele, a.modell)
+                                      or {z.flaechen for z in ziele} != {z.flaechen for z in a.musterziele})
+            elif k and a.modell is not None:
                 a.zielkonflikt = not bool(k.flaechen & a.modell.flaechen)
             elif k and a.nur_zeichnung:
                 p = za.lese_angabe(a.text, self.einheit.currentData(), a.grundmass)
@@ -347,17 +366,56 @@ class Zeichnungsabgleich(QtWidgets.QDialog):
         for i, a in enumerate(self.seiten[nr]):
             self.tabelle.item(i, 2).setText(self._befunde()[za.befund(a, self.einheit.currentData())])
         if isinstance(self.aktiv, za.Blattangabe) and self.manuelle_wahl:
-            self.ansicht.zeige_kreise(arbeit.treffer, self.zielvorschlaege.get(self.aktiv))
+            muster = self._muster(self.aktiv, za.musteranzahl(self.text.toPlainText()))
+            self.ansicht.zeige_kreise(arbeit.treffer, self.zielvorschlaege.get(self.aktiv), muster)
         else:
             self._auswahl(self.tabelle.currentRow(), entwurf=True)
         self._status()
 
     def _hinweisziel(self, a):
         pruefe = self.blatt.durchmesseranfang if "|" in a.text else None
-        return self.blattgeometrie.hinweisziel(a.box, self.kreise.get(a.seite, []), pruefe)
+        return self.blattgeometrie.hinweisziel(a.box, self.kreise.get(a.seite, []), pruefe,
+                                               musterzeile=bool(za.musteranzahl(a.text)))
+
+    def _anderer_bereich(self, a):
+        if not a.blattziel or a.seite not in self.bereiche:
+            return False
+        x, y, _ = a.blattziel
+        l, t, r, b = self.bereiche[a.seite]
+        return not (l <= x <= r and t <= y <= b)
+
+    def _muster(self, a, anzahl):
+        if not anzahl:
+            return ()
+        if a in self.musterwahl:
+            return self.musterwahl[a]
+        anker = self.zielvorschlaege.get(a)
+        if not anker and a.musterziele and self._anderer_bereich(a):
+            h, w = self.blatt.bild.shape[:2]
+            return tuple(ansichtsabgleich.Blattkreis(z.ort[0]*w, z.ort[1]*h, z.ort[2]*w, z.flaechen)
+                         for z in a.musterziele)
+        return ansichtsabgleich.muster_am_ziel(anker, anzahl,
+                                               self.sichtkreise.get(a.seite, []), self.kreise.get(a.seite, []))
+
+    def _musterkreis_waehlen(self, k):
+        a = self.aktiv
+        anzahl = za.musteranzahl(self.text.toPlainText())
+        if not isinstance(a, za.Blattangabe) or not anzahl or not self.zielvorschlaege.get(a):
+            return self._kreis_waehlen(k)
+        anker = self.zielvorschlaege[a]
+        if k == anker or abs(k.r-anker.r) > .75:
+            return
+        auswahl = list(self._muster(a, anzahl))
+        if k in auswahl:
+            auswahl.remove(k)
+        elif all(math.hypot(k.x-q.x, k.y-q.y) > 1.5 for q in auswahl):
+            auswahl.append(k)
+        self.musterwahl[a] = tuple(auswahl)
+        self._auswahl(self.tabelle.currentRow(), neues_ziel=True)
 
     def _kreis_waehlen(self, k):
         if isinstance(self.aktiv, za.Blattangabe):
+            self.musterwahl.pop(self.aktiv, None)
             self.zielvorschlaege[self.aktiv] = k
             self._auswahl(self.tabelle.currentRow(), neues_ziel=True)
 
@@ -380,7 +438,9 @@ class Zeichnungsabgleich(QtWidgets.QDialog):
         grundmass = self.grundmass.isChecked() if behalten else zeichnung and a.grundmass
         self.ansicht.markiere(self.seiten[self.blatt.nummer], a)
         kreis = self.zielvorschlaege.get(a) if zeichnung else None
-        self.ansicht.zeige_kreise(self.kreise.get(self.blatt.nummer, []), kreis)
+        anzahl = za.musteranzahl(text)
+        muster = self._muster(a, anzahl)
+        self.ansicht.zeige_kreise(self.kreise.get(self.blatt.nummer, []), kreis, muster)
         self.ausschnitt.clear()
         self.ausschnitt.setVisible(zeichnung)
         if zeichnung:
@@ -405,10 +465,12 @@ class Zeichnungsabgleich(QtWidgets.QDialog):
                 p = za.lese_angabe(text, self.einheit.currentData(), grundmass)
                 bevorzugt = za.kandidaten(p, self.modell)
                 am_ziel = [m for m in bevorzugt if kreis and m.flaechen & kreis.flaechen]
+                if anzahl:
+                    am_ziel = [m for m in am_ziel if za.muster_deckt(anzahl, muster, m)]
                 vorn = {id(m) for m in bevorzugt}
                 sortiert = sorted(bevorzugt, key=lambda m: not (kreis and m.flaechen & kreis.flaechen))
                 sortiert += [m for m in self.modell if id(m) not in vorn]
-                moeglich = am_ziel if self.blatt.nummer in self.kreise else [m for m in bevorzugt if not za.unterschiede(p, m)]
+                moeglich = am_ziel if anzahl or self.blatt.nummer in self.kreise else [m for m in bevorzugt if not za.unterschiede(p, m)]
                 vorschlag = None if neues_ziel or a.zielkonflikt else a.modell
                 if vorschlag is None and (neues_ziel or a.zielkonflikt or not a.nur_zeichnung) and len(moeglich) == 1:
                     vorschlag = moeglich[0]
@@ -439,7 +501,13 @@ class Zeichnungsabgleich(QtWidgets.QDialog):
         m = self.modell[idx] if idx is not None and idx >= 0 else None
         self.zeige_modell(m)
         p = za.lese_angabe(self.text.toPlainText(), self.einheit.currentData(), self.grundmass.isChecked())
-        if p is None:
+        anzahl = za.musteranzahl(self.text.toPlainText())
+        muster = self._muster(a, anzahl)
+        if anzahl and len(muster) != anzahl:
+            self.detail.setText(tr("{} von {} Bohrungen gewählt. Erste Bohrung anklicken, weitere mit Umschalt+Klick wählen.").format(len(muster), anzahl))
+        elif anzahl and m is not None and not za.muster_deckt(anzahl, muster, m):
+            self.detail.setText(tr("Die gewählte Modell-PMI deckt das markierte Bohrbild nicht vollständig und ausschließlich ab."))
+        elif p is None:
             self.detail.setText(tr("Angabe oder Zeichnungseinheit ungeklärt"))
         elif m is None and self.zielvorschlaege.get(a):
             self.detail.setText(tr("Hinweisziel gefunden. Die zugehörige Modell-PMI ist noch offen."))
@@ -464,13 +532,17 @@ class Zeichnungsabgleich(QtWidgets.QDialog):
             vorher = a.modell
             a.modell = self.modell[idx] if idx is not None and idx >= 0 else None
             a.nur_zeichnung = idx == -1
-            a.zielkonflikt = False
             k = self.zielvorschlaege.get(a)
+            a.zielkonflikt = bool(k and a.modell and not k.flaechen & a.modell.flaechen)
             h, w = self.blatt.bild.shape[:2]
-            if k and a.modell and k.flaechen & a.modell.flaechen:
+            anzahl = za.musteranzahl(a.text)
+            muster = self._muster(a, anzahl)
+            a.musterziele = tuple(za.Musterziel((q.x/w, q.y/h, q.r/w), q.flaechen) for q in muster) if anzahl else ()
+            if k and (anzahl or (a.modell and k.flaechen & a.modell.flaechen)):
                 a.blattziel = (k.x/w, k.y/h, k.r/w)
-            elif a.modell is None or a.modell is not vorher or k:
-                a.blattziel = None
+            elif not (anzahl and muster and self._anderer_bereich(a)):
+                if a.modell is None or a.modell is not vorher or k or anzahl:
+                    a.blattziel = None
             self.nur_modell.discard(id(a.modell))
         elif a is not None:
             if self.zuordnung.currentIndex() == 1:
@@ -487,6 +559,7 @@ class Zeichnungsabgleich(QtWidgets.QDialog):
         self._liste(a)
 
     def _entferne(self):
+        self.musterwahl.pop(self.aktiv, None)
         self.zielvorschlaege.pop(self.aktiv, None)
         self.seiten[self.blatt.nummer] = [a for a in self.seiten[self.blatt.nummer] if a is not self.aktiv]
         self._liste()
@@ -506,7 +579,8 @@ class Zeichnungsabgleich(QtWidgets.QDialog):
                             tr("Blattbereich (links, oben, rechts, unten relativ)"), tr("Angabe"),
                             tr("Zeichnungseinheit"), tr("Befund"), tr("Modell-PMI"), tr("Modellwert"), tr("Flächen"),
                             tr("Eingerahmtes theoretisch genaues Maß"), tr("Quell-ID der Modell-PMI"),
-                            tr("Hinweisziel (x/Breite, y/Höhe, Radius/Breite)")])
+                            tr("Hinweisziel (x/Breite, y/Höhe, Radius/Breite)"),
+                            tr("Bohrbild (x/Breite, y/Höhe, Radius/Breite je Bohrung)")])
                 verbunden = set()
                 for nr, angaben in sorted(self.seiten.items()):
                     for a in angaben:
@@ -516,13 +590,14 @@ class Zeichnungsabgleich(QtWidgets.QDialog):
                                     self._befunde()[za.befund(a, self.einheit.currentData())], m.nummer if m else "",
                                     m.wert_text() if m else "", sorted(m.flaechen) if m else "", int(a.grundmass),
                                     m.step_id if m and m.step_id > 0 else "",
-                                    " ".join(f"{v:.6f}" for v in a.blattziel) if a.blattziel else ""])
+                                    " ".join(f"{v:.6f}" for v in a.blattziel) if a.blattziel else "",
+                                    " | ".join(" ".join(f"{v:.6f}" for v in z.ort) for z in a.musterziele)])
                 for m in self.modell:
                     if id(m) not in verbunden:
                         w.writerow([*self.quellen, "", "", "", "", tr("Nur im Modell") if id(m) in self.nur_modell else
-                                    tr("Modell-PMI offen"), m.nummer, m.wert_text(), sorted(m.flaechen), "", m.step_id if m.step_id > 0 else "", ""])
+                                    tr("Modell-PMI offen"), m.nummer, m.wert_text(), sorted(m.flaechen), "", m.step_id if m.step_id > 0 else "", "", ""])
                 for nr in sorted(set(range(len(self.doc))) - self.seiten.keys()):
-                    w.writerow([*self.quellen, nr+1, "", "", "", tr("Blatt ungeprüft"), "", "", "", "", "", ""])
+                    w.writerow([*self.quellen, nr+1, "", "", "", tr("Blatt ungeprüft"), "", "", "", "", "", "", ""])
         except OSError as e:
             QtWidgets.QMessageBox.warning(self, tr("Prüfliste speichern"), str(e))
 

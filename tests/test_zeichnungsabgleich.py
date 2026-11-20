@@ -38,7 +38,9 @@ def test_semantische_felder_einheiten_grenzen_und_offene_zuordnung():
     a.modell = replace(a.modell, oben=-.1, unten=.2)
     assert za.befund(a, 1.) == "offen"
     assert za.lese_angabe("⌀10 H7", 1.).passung == "H7"
-    assert za.lese_angabe("3X ⌀10", 1.) is None
+    assert za.musteranzahl("3X ⌀10") == 3 and za.lese_angabe("3X ⌀10", 1.).nennwert == 10
+    assert za.lese_angabe("3X R10", 1.) is None and za.lese_angabe("0X ⌀10", 1.) is None
+    assert za.lese_angabe("2x Ø.370-.380 in", None).grenzen() == pytest.approx((9.652, 9.398))
     assert za.lese_angabe("⌖ | ⌀.005 A | B", 25.4) is None
     assert za.lese_angabe("⌖ | Ø.005 in | A", None).wert == pytest.approx(.127)
     assert "bezuege" in za.unterschiede(p, replace(p, bezuege=[BezugsRef("A", 2)]))

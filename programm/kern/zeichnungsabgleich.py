@@ -8,6 +8,12 @@ from . import pmi_ableiten
 from .pmi import BEZUG, MASS, Pmi
 
 
+@dataclass(frozen=True)
+class Musterziel:
+    ort: tuple
+    flaechen: frozenset
+
+
 @dataclass(eq=False)
 class Blattangabe:
     seite: int
@@ -18,11 +24,38 @@ class Blattangabe:
     nur_zeichnung: bool = False
     zielkonflikt: bool = False
     blattziel: tuple | None = None  # bestaetigter Kreis: x/Breite, y/Hoehe, Radius/Breite
+    musterziele: tuple[Musterziel, ...] = ()
+
+
+_MENGE = re.compile(r"^\s*([1-9][0-9]{0,3})\s*[xX×]\s*(?=[Ø∅⌀])")
+
+
+def musteranzahl(text):
+    m = _MENGE.match(text)
+    return int(m[1]) if m else 0
+
+
+def muster_deckt(anzahl, ziele, modell):
+    if len(ziele) != anzahl or modell is None or not ziele:
+        return False
+    erfasst = set()
+    for k in ziele:
+        anteil = k.flaechen & modell.flaechen
+        if not anteil or anteil & erfasst:
+            return False
+        erfasst.update(anteil)
+    return erfasst == modell.flaechen
 
 
 def lese_angabe(text, faktor, grundmass=False):
-    # Eine Anzahl gehoert zur Anforderung und braucht eine gesonderte Musterzuordnung.
-    if re.match(r"\s*\d+\s*[xX×]", text):
+    if m := _MENGE.match(text):
+        text = text[m.end():]
+        # Bei zwei aufsteigenden Durchmessergrenzen kann der Plotter einen Bindestrich ausgeben.
+        zahl = r"(?:[0-9]+(?:[.,][0-9]+)?|[.,][0-9]+)"
+        grenzen = re.fullmatch(rf'([⌀Ø∅]\s*)({zahl})\s*-\s*({zahl})(\s*(?:mm|in|inch|")?)\s*', text, re.I)
+        if grenzen and float(grenzen[2].replace(",", ".")) < float(grenzen[3].replace(",", ".")):
+            text = f"{grenzen[1]}{grenzen[2]}–{grenzen[3]}{grenzen[4]}"
+    elif re.match(r"\s*\d+\s*[xX×]", text):
         return None
     if "|" in text:
         teile = [t.strip().translate(str.maketrans({"Ø": "⌀", "∅": "⌀"})) for t in text.split("|")]
@@ -99,6 +132,9 @@ def befund(angabe, faktor):
     if angabe.nur_zeichnung:
         return "zeichnung"
     if angabe.modell is None or grenzen_vertauscht(angabe.modell):
+        return "offen"
+    anzahl = musteranzahl(angabe.text)
+    if anzahl and not muster_deckt(anzahl, angabe.musterziele, angabe.modell):
         return "offen"
     if unterschiede(p, angabe.modell):
         return "geaendert"

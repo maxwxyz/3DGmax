@@ -206,7 +206,7 @@ class Blattgeometrie:
         l, t, r, b = (np.array(box).reshape(2,2) * self.groesse).ravel()
         return [k for k in self.kreise if l <= k.x-k.r and k.x+k.r <= r and t <= k.y-k.r and k.y+k.r <= b]
 
-    def hinweisziel(self, box, kreise, durchmesseranfang=None):
+    def hinweisziel(self, box, kreise, durchmesseranfang=None, musterzeile=False):
         """Ein einzelner unverzweigter Linienzug vom Beschriftungsrand zur Dreiecksspitze."""
         if not self.pfeile or not kreise:
             return None
@@ -219,6 +219,16 @@ class Blattgeometrie:
                 weg = self.linien[i,1-k] - self.linien[i,k]
                 if weg @ aussen > .25*np.linalg.norm(weg):
                     starts.append(index)
+        if not starts and musterzeile:
+            # Zwischen dem waagerechten Hinweisstrich und der ersten Ziffer bleibt Schriftabstand.
+            h = b-t
+            for rand, sinn in ((l, -1), (r, 1)):
+                for j in self.enden.query_ball_point((rand, (t+b)/2), .85*h):
+                    i, k = divmod(j, 2)
+                    (x, y), weiter = self.linien[i, [k, 1-k]]
+                    if (0 <= sinn*(x-rand) <= .8*h and abs(y-(t+b)/2) <= .2*h and sinn*(weiter[0]-x) >= .45*h
+                            and abs(y-weiter[1]) <= .5 and len(self.enden.query_ball_point((x,y), 1.5)) == 1):
+                        starts.append(j)
         if not starts and durchmesseranfang is not None and r-l > 2*(b-t):
             starts = self._anschluss_am_mass(l, t, b-t, durchmesseranfang)
         if len(starts) != 1:
@@ -510,3 +520,15 @@ def zuordnen(kreise, ansichten, pruefe=lambda: None):
             else:
                 beste, sicher = rang, neu
     return [Blattkreis(kreise[j].x, kreise[j].y, kreise[j].r, ids) for j, ids in sorted(sicher.items()) if ids]
+
+def muster_am_ziel(anker, anzahl, sichtbar, zugeordnet):
+    """Alle gleich grossen sichtbaren Kreise der Auswahl muessen einzeln zugeordnet sein."""
+    if anker is None:
+        return ()
+    ringe = [k for k in sichtbar if abs(k.r-anker.r) <= .75]
+    passend = tuple(k for k in zugeordnet if abs(k.r-anker.r) <= .75)
+    if len(ringe) != anzahl or len(passend) != anzahl:
+        return (anker,)
+    if any(math.hypot(k.x-q.x, k.y-q.y) < 1.5 for i,k in enumerate(passend) for q in passend[:i]):
+        return (anker,)
+    return passend
