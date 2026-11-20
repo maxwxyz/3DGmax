@@ -473,6 +473,10 @@ def _lies_mass_step(modell: StepModell, e: Entity) -> Pmi:
     for a in aspekte:
         if isinstance(a, Ref):
             p.flaechen |= flaechen_von_aspekt(datei, modell, a.id)
+    if not p.flaechen and p.typ == "Size_Diameter":
+        p.teilformen = [form for a in aspekte if isinstance(a, Ref)
+                        for form in teilformen_von_aspekt(datei, modell, a.id)]
+        p.kanten = len(p.teilformen)
     p.grafisch = _hat_praesentation(datei, e.id)
     return p
 

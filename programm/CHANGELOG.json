@@ -1,6 +1,7 @@
 {
  "unreleased": {
   "de": [
+   "Die Rekonstruktion aus PDF unterstützt Kegelsenkungen über einfachen und gestuften Bohrungen. STEP verknüpft den tolerierten Senkwinkel mit dem Kegelmantel und den Eintrittsdurchmesser mit der oberen Kreiskante.",
    "Erzeugte Hinweispfeile von Maßen und Toleranzen treffen bei Dreiecksnetzen die ausgewählte Oberfläche, auch bei verschobenen Netzen und gemischten STEP-Modellen. Die Plausibilitätsprüfung berücksichtigt, welche Flächen eine analytische Geometrie besitzen.",
    "Aus konzentrischen Kreisen einer PDF-Zeichnung lassen sich mehrstufige zylindrische Bohrungen mit durchgehendem oder blindem Kern erzeugen. Im STEP sind die Durchmesser mit ihren Zylinderwänden und die Tiefen mit den jeweiligen Absätzen verknüpft.",
    "Rechteckige Durchbrüche lassen sich zusammen mit Taschen und Bohrungen aus einer PDF-Zeichnung rekonstruieren. STEP enthält Breite und Höhe an den gegenüberliegenden Wänden jedes Durchbruchs.",
@@ -144,6 +145,7 @@
    "Grafische PMI aus unterstützten AP203e2-Kurvenmodellen lassen sich als STEP AP242 Edition 3 ausgeben. Facettierte STEP-Modelle behalten ihre Flächenbezüge. Gepackte STEP-Dateien lassen sich als unkomprimierte STEP-Kopie speichern."
   ],
   "en": [
+   "PDF reconstruction supports countersinks above plain or stepped bores. STEP links the toleranced included angle to the cone and the entry diameter to the circular edge at the plate surface.",
    "Generated dimension and tolerance leaders attach to the selected mesh surface, including placed meshes and mixed STEP models. Plausibility checks distinguish mesh-only faces from analytic geometry.",
    "Concentric rings in a PDF drawing can be reconstructed as multistep cylindrical bores with a through or blind core. STEP associates each diameter with its cylinder and each depth with its shoulder.",
    "Rectangular through openings can be reconstructed alongside pockets and holes from a PDF drawing. STEP links the width and height of each opening to its opposite walls.",

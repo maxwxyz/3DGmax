@@ -8,7 +8,7 @@ from ..i18n import tr
 from ..kern.zeichnungsabgleich import Blattangabe, lese_angabe
 from ..kern.zeichnungsblatt import Zeichnungsblatt
 from ..kern.zeichnungsansicht import Blattgeometrie
-from ..kern.plattenbohrung import plattenumriss, sollbohrungen
+from ..kern.plattenbohrung import plattenumriss, senkwinkelmass, sollbohrungen
 from ..kern.plattentasche import solltaschen
 from ..kern.zeichnungskoerper import plattenmasse, rechteckansicht, schreibe_platte, tiefenmass
 from .zeichnungsabgleich_ui import Blattansicht
@@ -72,7 +72,7 @@ class Plattendialog(QtWidgets.QDialog):
         inhalt.addWidget(hinweis)
         self.bohrtabelle = QtWidgets.QTableWidget(0, 6)
         self.bohrtabelle.setHorizontalHeaderLabels([tr("Geschätzt (X / Y / ⌀, mm)"), tr("X (mm)"), tr("Y (mm)"), tr("Durchmesser (mm)"),
-                                                 tr("Bohrungsende"), tr("Tiefe (mm)")])
+                                                 tr("Bohrungsende"), tr("Tiefe (mm) / Senkwinkel (°)")])
         self.bohrtabelle.horizontalHeader().setSectionResizeMode(QtWidgets.QHeaderView.ResizeMode.Stretch)
         self.bohrtabelle.setSelectionBehavior(QtWidgets.QAbstractItemView.SelectionBehavior.SelectRows)
         self.bohrtabelle.setMaximumHeight(140)
@@ -227,6 +227,8 @@ class Plattendialog(QtWidgets.QDialog):
                     art.addItem(tr("Flachboden von oben"), 2)
                 else:
                     art.addItem(tr("Zylindrische Stufe von oben"), 2)
+                    if i+1 == len(self.ringe) or self.ringe[i+1].kern != ring.kern:
+                        art.addItem(tr("Kegelsenkung von oben"), 3)
                 self.bohrtabelle.setCellWidget(i, 4, art)
                 art.currentIndexChanged.connect(lambda _, zeile=i: self._bohrart(zeile))
             self.durchgehend.setEnabled(all(r.kern is None for r in self.ringe))
@@ -255,7 +257,7 @@ class Plattendialog(QtWidgets.QDialog):
                 self.auswahl.removeItem(5)
             if self.ringe:
                 self.auswahl.addItems([tr("X-Maß der gewählten Bohrung"), tr("Y-Maß der gewählten Bohrung"),
-                                       tr("Durchmesser der gewählten Bohrung"), tr("Tiefe der gewählten Bohrung")])
+                                       tr("Durchmesser der gewählten Bohrung"), tr("Tiefe oder Senkwinkel der gewählten Bohrung")])
             if self.taschen:
                 for j, text in enumerate(self.taschenfelder, 1):
                     self.auswahl.addItem(text, j)
@@ -277,17 +279,17 @@ class Plattendialog(QtWidgets.QDialog):
         with QtCore.QSignalBlocker(self.durchgehend):
             self.durchgehend.setChecked(all(a == 1 for a in arten))
             self.durchgehend.setEnabled(2 not in arten and all(r.kern is None for r in self.ringe))
-        self._tiefenfeld(self.bohrtabelle, zeile, arten[zeile] == 2, (zeile, 8))
+        self._tiefenfeld(self.bohrtabelle, zeile, arten[zeile] in (2, 3), (zeile, 8))
 
     def _tiefenfeld(self, tabelle, zeile, aktiv, schluessel):
         item = tabelle.item(zeile, 5)
         with QtCore.QSignalBlocker(tabelle):
+            item.setText("")
+            self.marken.pop(schluessel, None)
             if aktiv:
                 item.setFlags(QtCore.Qt.ItemFlag.ItemIsEnabled | QtCore.Qt.ItemFlag.ItemIsEditable | QtCore.Qt.ItemFlag.ItemIsSelectable)
             else:
-                item.setText("")
                 item.setFlags(QtCore.Qt.ItemFlag.NoItemFlags)
-                self.marken.pop(schluessel, None)
         self._markieren()
         self._pruefen()
 
@@ -309,8 +311,8 @@ class Plattendialog(QtWidgets.QDialog):
             zeile = tabelle.currentRow()
             if zeile < 0:
                 return
-            if taschenspalte is None and i == 8 and self.bohrtabelle.cellWidget(zeile, 4).currentData() != 2:
-                self.status.setText(tr("Für ein Tiefenmaß zuerst eine Bohrung mit flachem Grund wählen."))
+            if taschenspalte is None and i == 8 and self.bohrtabelle.cellWidget(zeile, 4).currentData() not in (2, 3):
+                self.status.setText(tr("Zuerst die Bohrungsausführung für Tiefe oder Senkwinkel wählen."))
                 return
             if taschenspalte == 5 and self.taschentabelle.cellWidget(zeile, 6).currentIndex() == 1:
                 self.status.setText(tr("Ein Durchbruch hat kein Tiefenmaß."))
@@ -321,6 +323,8 @@ class Plattendialog(QtWidgets.QDialog):
             wert = self.blatt.lies(box)
             spalte = taschenspalte if taschenspalte is not None else 5 if i == 8 else i-4
             lesen = tiefenmass if spalte == 5 else lese_angabe
+            if taschenspalte is None and i == 8 and tabelle.cellWidget(zeile, 4).currentData() == 3:
+                lesen = senkwinkelmass
             faktor = self.einheit.currentData()
             if lesen(wert, faktor) is None:
                 wert = ""
@@ -351,14 +355,17 @@ class Plattendialog(QtWidgets.QDialog):
     def _bohrungen(self, masse):
         if not self.ringe:
             return []
-        tiefen = []
+        tiefen, winkel = [], {}
         for i in range(len(self.ringe)):
             art = self.bohrtabelle.cellWidget(i, 4).currentData()
             if art == 0:
                 raise ValueError(tr("Für Bohrung {} das Bohrungsende anhand der Zeichnung wählen.").format(i+1))
-            tiefen.append(self.bohrtabelle.item(i, 5).text() if art == 2 else None)
+            text = self.bohrtabelle.item(i, 5).text()
+            tiefen.append(text if art == 2 else None)
+            if art == 3:
+                winkel[i] = text
         werte = [[self.bohrtabelle.item(i, j).text() for j in (1, 2, 3)] for i in range(len(self.ringe))]
-        return sollbohrungen(self.ringe, werte, masse, self.konturen[0], tiefen=tiefen)
+        return sollbohrungen(self.ringe, werte, masse, self.konturen[0], tiefen=tiefen, senkwinkel=winkel)
 
     def _innenkonturen(self, masse):
         bohrungen = self._bohrungen(masse)

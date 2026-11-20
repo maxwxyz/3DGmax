@@ -137,6 +137,19 @@ def _ersetze_zahl(text: str, eid: int, wert: float) -> str:
     return text[:a] + neu + text[b:]
 
 
+def randkanten(datei, flaeche):
+    """EDGE_CURVE-Ids aller Raender einer ADVANCED_FACE."""
+    face = datei.entities[flaeche]
+    if not face.is_a("ADVANCED_FACE"):
+        return set()
+    kanten = set()
+    for rand in face.args("ADVANCED_FACE")[1]:
+        schleife = datei.get(datei.get(rand).args()[1])
+        if schleife.is_a("EDGE_LOOP"):
+            kanten.update(datei.get(ref).args("ORIENTED_EDGE")[3].id for ref in schleife.args("EDGE_LOOP")[1])
+    return kanten
+
+
 class _Anhang:
     """Neue Entitaeten mit fortlaufenden Ids ab der hoechsten Id der Datei; Teil-Kontext (Produktform, Darstellung,
     Einheiten) je PMI aus ihren Flaechen - auch in Baugruppen."""
@@ -233,11 +246,15 @@ class _Anhang:
         self._stepf = stepf
         return None
 
-    def aspekt(self, flaechen, art: str = "SHAPE_ASPECT") -> int | None:
+    def aspekt(self, flaechen, art: str = "SHAPE_ASPECT", *, kante=None) -> int | None:
         """Formaspekt der Flaechen im gewaehlten Teil (waehle vorher)."""
         stepf = [self.flaeche_zu_step.get(i) for i in sorted(flaechen)]
         if not stepf or None in stepf:
             return None
+        if kante is not None:
+            if not any(kante in randkanten(self.datei, f) for f in stepf):
+                return None
+            stepf = [kante]
         sa = self.neu(f"{art}('','',#{self.pds},.T.)" if art == "SHAPE_ASPECT" else f"{art}('',$,#{self.pds},.T.)")
         for f in stepf:
             self.neu(f"GEOMETRIC_ITEM_SPECIFIC_USAGE('','',#{sa},#{self.darst},#{f})")
@@ -379,7 +396,7 @@ def _schreibe_mass(a: _Anhang, p) -> str | None:
     if fehler:
         return fehler
     if p.typ in GROESSE_NAME:
-        sa = a.aspekt(p.flaechen)
+        sa = a.aspekt(p.flaechen, kante=p.kreisrand)
         if sa is None:
             return tr("Flächen ohne Entsprechung in der Datei")
         dim = a.neu(f"DIMENSIONAL_SIZE(#{sa},'{GROESSE_NAME[p.typ]}')")

@@ -527,3 +527,81 @@ def test_nahe_ringradien_und_exzentrische_ringe(app):
                 sollbohrungen(ringe, werte, masse, umfang, tiefen=[None,"3"])
         else:
             assert len(sollbohrungen(ringe, werte, masse, umfang, tiefen=[None,"3"])) == 2
+
+
+def test_kegelsenkungen_aus_pdf_mit_eintrittskreis_und_winkel(app, tmp_path, monkeypatch):
+    from pypdfium2 import PdfDocument
+    from OCC.Core.BRepAdaptor import BRepAdaptor_Curve, BRepAdaptor_Surface
+    from OCC.Core.BRepGProp import brepgprop
+    from OCC.Core.GProp import GProp_GProps
+    from OCC.Core.TopoDS import topods
+    from programm.kern.pmi_lesen import lies_pmi_xcaf
+    from programm.ui.lader import lade_alles
+
+    pdf, ziel = tmp_path/"Senkung.pdf", tmp_path/"Senkung.stp"
+    _blatt(pdf, [(16,20,2),(16,20,6),(42,20,2),(42,20,4),(42,20,6)], tiefe="90° ±1°")
+    monkeypatch.setattr(QtWidgets.QFileDialog, "getSaveFileName", lambda *args: (str(ziel), "STEP"))
+    with PdfDocument(pdf) as doc:
+        d = Plattendialog(doc, pdf)
+        try:
+            d.show()
+            d.einheit.setCurrentIndex(1)
+            for feld, wert in zip(d.texte, ("60","40","8")):
+                feld.setText(wert)
+            d.ansicht.bereich.emit((.08,.1,.51,.52))
+            t = d.bohrtabelle
+            for i, (x, dm, art, wert) in enumerate(((16,"4",1,None),(None,"12 ±0.1",3,"90° ±1°"),
+                                                    (42,"4",2,"7"),(None,"8",2,"4"),(None,"12 ±0.2",3,"120° ±2°"))):
+                if x:
+                    t.item(i,1).setText(str(x))
+                    t.item(i,2).setText("20")
+                t.item(i,3).setText(dm)
+                auswahl = t.cellWidget(i,4)
+                auswahl.setCurrentIndex(auswahl.findData(art))
+                if wert:
+                    t.item(i,5).setText(wert)
+            assert t.cellWidget(3,4).findData(3) == -1 and d.speichern.isEnabled()
+            for falsch in ("", "90", "90 mm", "180°", "1°", "90° ±91°"):
+                t.item(1,5).setText(falsch)
+                assert not d.speichern.isEnabled()
+            d.ansicht.kreis_gewaehlt.emit(d.ringe[1].kreis)
+            d.auswahl.setCurrentIndex(8)
+            d.ansicht.bereich.emit((.52,.86,.8,.96))
+            assert "".join(t.item(1,5).text().split()) == "90°±1°" and d.speichern.isEnabled()
+            art = t.cellWidget(1,4)
+            art.setCurrentIndex(art.findData(2))
+            assert t.item(1,5).text() == "" and not d.speichern.isEnabled()
+            art.setCurrentIndex(art.findData(3))
+            t.item(1,5).setText("90° ±1°")
+            d.speichern.click()
+            erg = lade_alles(str(ziel))
+            assert len(erg.pmi) == 16 and all(p.grafisch and p.semantisch for p in erg.pmi)
+            props = GProp_GProps()
+            brepgprop.VolumeProperties(erg.modell.form, props)
+            def ringkegel(r, R, alpha):
+                h = (R-r)/np.tan(np.deg2rad(alpha/2))
+                return np.pi*h*(R*R+R*r-2*r*r)/3
+            material = 60*40*8-np.pi*(4*8+4*7+12*4)-ringkegel(2,6,90)-ringkegel(4,6,120)
+            assert props.Mass() == pytest.approx(material)
+            for quelle in (erg.pmi, lies_pmi_xcaf(erg.modell)):
+                winkel = sorted((p for p in quelle if p.typ == "Size_Angular"), key=lambda p:p.nennwert)
+                for p, (x,w,tol) in zip(winkel, ((16,90,1),(42,120,2)), strict=True):
+                    f, = p.flaechen
+                    kegel = BRepAdaptor_Surface(erg.modell.flaechen[f]).Cone()
+                    assert p.grenzen() == pytest.approx((w+tol,w-tol))
+                    assert np.rad2deg(2*abs(kegel.SemiAngle())) == pytest.approx(w)
+                    assert kegel.Location().X() == pytest.approx(x)
+                rand = sorted((p for p in quelle if p.typ == "Size_Diameter" and p.nennwert == 12), key=lambda p:p.oben)
+                assert len(rand) == 2 and all(p.kanten == 1 for p in rand)
+            for p, x in zip(sorted((p for p in erg.pmi if p.kanten), key=lambda p:p.oben), (16,42), strict=True):
+                form, = p.teilformen
+                kreis = BRepAdaptor_Curve(topods.Edge(form)).Circle()
+                assert kreis.Location().Coord() == pytest.approx((x,20,8))
+                assert kreis.Radius() == pytest.approx(6)
+                g, = (g for g in erg.grafik.values() if p.step_id in g.pmi_ids)
+                spitze = g.linien[0][0]
+                assert spitze[2] == pytest.approx(8)
+                assert np.hypot(spitze[0]-x,spitze[1]-20) == pytest.approx(6)
+        finally:
+            d.blatt.schliesse()
+            d.close()

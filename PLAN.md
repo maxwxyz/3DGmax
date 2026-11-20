@@ -1668,7 +1668,11 @@ Concentric rings can be reviewed as coaxial cylindrical steps cut from the top. 
 diameter needs its own depth from the plate surface. Diameter and depth limits must keep the
 shoulders distinct. The inner bore can pass through or end at a flat bottom. The export
 associates each diameter with its cylindrical wall and each depth with its own shoulder or floor.
-Pocket center-position PMI, drill points, conical seats, rounded pocket profiles,
+The outermost ring can also define a top-entry countersink. Its entry and inner diameter and
+the included angle determine the taper depth. Tolerance extremes must leave a cylindrical inner
+segment. The angular size references the conical face and the entry diameter references its
+circular edge at the top of the plate, including the graphical arrow tip.
+Pocket center-position PMI, drill points, rounded pocket profiles,
 nonrectangular profiles, automatic cross-view association and datum/GD&T transfer remain open.
 
 ### 8.37 QIF extensions (last in the implementation order)

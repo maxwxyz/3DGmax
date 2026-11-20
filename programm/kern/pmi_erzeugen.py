@@ -256,6 +256,7 @@ def _naechster_punkt(flaechen, ziel, netze=None) -> np.ndarray | None:
     from OCC.Core.BRepBuilderAPI import BRepBuilderAPI_MakeVertex
     from OCC.Core.BRepExtrema import BRepExtrema_DistShapeShape
     from OCC.Core.TopoDS import TopoDS_Compound
+    from OCC.Core.TopAbs import TopAbs_FACE
     from OCC.Core.gp import gp_Pnt
     from .ausrichten import tesselliere, _punkt_dreieck
     analytisch = TopoDS_Compound()
@@ -265,7 +266,7 @@ def _naechster_punkt(flaechen, ziel, netze=None) -> np.ndarray | None:
         netze = {}
     kandidaten = []
     for f in flaechen:
-        if BRep_Tool.Surface(f) is not None:
+        if f.ShapeType() != TopAbs_FACE or BRep_Tool.Surface(f) is not None:
             builder.Add(analytisch, f)
             continue
         if f not in netze:
@@ -422,7 +423,8 @@ def ergaenze(pmi: list, grafik: dict, modell, ansichten: list | None = None) -> 
         if p.art == BEZUG:
             g.linien.insert(0, np.array([ziel, andock]))
         else:  # Hinweislinie mit Pfeil am naechsten Punkt der Flaeche
-            spitze = _naechster_punkt(flaechen, andock, netze)
+            rand = modell.form_von_step(p.kreisrand) if p.kreisrand is not None else None
+            spitze = _naechster_punkt([rand] if rand is not None else flaechen, andock, netze)
             spitze = anker if spitze is None else spitze
             g.linien.insert(0, np.array([spitze, andock]))
             if np.linalg.norm(andock - spitze) > h:

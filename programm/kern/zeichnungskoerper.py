@@ -20,6 +20,7 @@ class Plattenbohrung:
     tiefe: Pmi | None = None
     lagemasse: tuple[Pmi, Pmi] | None = None
     kern: int | None = None
+    senkwinkel: Pmi | None = None
 
 
 @dataclass(frozen=True)
@@ -134,7 +135,7 @@ def plattenmasse(texte, faktor, grundriss, vorderansicht=None):
 
 
 def _plattenform(masse, bohrungen, taschen):
-    from OCC.Core.BRepPrimAPI import BRepPrimAPI_MakeBox, BRepPrimAPI_MakeCylinder
+    from OCC.Core.BRepPrimAPI import BRepPrimAPI_MakeBox, BRepPrimAPI_MakeCylinder, BRepPrimAPI_MakeCone
     from OCC.Core.BRepAlgoAPI import BRepAlgoAPI_Cut
     from OCC.Core.BRepCheck import BRepCheck_Analyzer
     from OCC.Core.TopTools import TopTools_ListOfShape
@@ -146,7 +147,15 @@ def _plattenform(masse, bohrungen, taschen):
     platte.Append(form)
     dicke = masse[2].nennwert
     zugabe = max(.01, dicke*.01)
-    for bohrung in bohrungen:
+    for i, bohrung in enumerate(bohrungen):
+        if bohrung.senkwinkel:
+            radius = bohrung.durchmesser.nennwert/2
+            innen = bohrungen[i-1].durchmesser.nennwert/2
+            steigung = np.tan(np.deg2rad(bohrung.senkwinkel.nennwert)/2)
+            hoehe = (radius-innen)/steigung
+            achse = gp_Ax2(gp_Pnt(bohrung.x, bohrung.y, dicke-hoehe), gp_Dir(0, 0, 1))
+            werkzeuge.Append(BRepPrimAPI_MakeCone(achse, innen, radius, hoehe).Shape())
+            continue
         boden = dicke-bohrung.tiefe.nennwert if bohrung.tiefe else -zugabe
         achse = gp_Ax2(gp_Pnt(bohrung.x, bohrung.y, boden), gp_Dir(0, 0, 1))
         werkzeuge.Append(BRepPrimAPI_MakeCylinder(achse, bohrung.durchmesser.nennwert/2, dicke+zugabe-boden).Shape())
@@ -166,7 +175,7 @@ def _plattenform(masse, bohrungen, taschen):
 
 def _flaechenmasse(modell, masse, bohrungen, taschen):
     from OCC.Core.BRepAdaptor import BRepAdaptor_Surface
-    from OCC.Core.GeomAbs import GeomAbs_Plane, GeomAbs_Cylinder
+    from OCC.Core.GeomAbs import GeomAbs_Plane, GeomAbs_Cylinder, GeomAbs_Cone
     paare = [set() for _ in masse]
     waende = [set() for _ in bohrungen]
     ebenen = [{}, {}, {}]
@@ -180,11 +189,18 @@ def _flaechenmasse(modell, masse, bohrungen, taschen):
             ebenen[achse][i] = ort
             if abs(ort) < 1e-7 or abs(ort-masse[achse].nennwert) < 1e-7:
                 paare[achse].add(i)
-        elif s.GetType() == GeomAbs_Cylinder:
-            z = s.Cylinder()
-            ort = z.Location()
+        elif s.GetType() in (GeomAbs_Cylinder, GeomAbs_Cone):
+            kegel = s.GetType() == GeomAbs_Cone
+            if kegel:
+                z = s.Cone()
+                ort = z.Location()
+                rad = max(np.hypot(q.X()-ort.X(), q.Y()-ort.Y())
+                          for q in (s.Value(0,s.FirstVParameter()), s.Value(0,s.LastVParameter())))
+            else:
+                z = s.Cylinder()
+                ort, rad = z.Location(), z.Radius()
             treffer = [j for j, b in enumerate(bohrungen) if abs(ort.X()-b.x) < 1e-6
-                       and abs(ort.Y()-b.y) < 1e-6 and abs(z.Radius()-b.durchmesser.nennwert/2) < 1e-6]
+                       and abs(ort.Y()-b.y) < 1e-6 and bool(b.senkwinkel) == kegel and abs(rad-b.durchmesser.nennwert/2) < 1e-6]
             if len(treffer) != 1:
                 raise ValueError(tr("Die Bohrungsflächen sind nicht eindeutig."))
             waende[treffer[0]].add(i)
@@ -202,7 +218,7 @@ def _flaechenmasse(modell, masse, bohrungen, taschen):
                 ursprung = {i for i in paare[achse] if abs(ebenen[achse][i]) < 1e-7}
                 alle.append(replace(mass, typ="Location_LinearDistance_FromOuterToCenter"))
                 flaechen.append(ursprung | wand)
-    if taschen or any(b.tiefe for b in bohrungen):
+    if taschen or any(b.tiefe or b.senkwinkel for b in bohrungen):
         from .vergleich_geo import _nachbarn
         nachbarn = _nachbarn(modell.flaechen, modell.flaechen_index)
         gruppen = {}
@@ -213,6 +229,14 @@ def _flaechenmasse(modell, masse, bohrungen, taschen):
             for j in reversed(gruppe):
                 bohrung = bohrungen[j]
                 angrenzend = set().union(*(nachbarn[i] for i in waende[j]))
+                if bohrung.senkwinkel:
+                    if not deckel <= angrenzend or not waende[j-1] <= angrenzend:
+                        raise ValueError(tr("Die Kegelsenkung ist keiner Eintrittsfläche und Kernbohrung eindeutig zugeordnet."))
+                    alle[len(masse)+j] = replace(bohrung.durchmesser, kreisrand=_eintrittskante(modell, waende[j], deckel))
+                    alle.append(bohrung.senkwinkel)
+                    flaechen.append(waende[j])
+                    eintritt = waende[j]
+                    continue
                 ziel_z = dicke-bohrung.tiefe.nennwert if bohrung.tiefe else 0.
                 boden = {i for i in angrenzend & horizontal.keys() if abs(horizontal[i]-ziel_z) < 1e-6}
                 if len(boden) != 1 or not eintritt <= angrenzend:
@@ -229,6 +253,17 @@ def _flaechenmasse(modell, masse, bohrungen, taschen):
             flaechen.extend(bezuege)
     return [replace(p, flaechen=f, quelle="eigen", nummer=i, step_id=-i)
             for i, (p, f) in enumerate(zip(alle, flaechen, strict=True), 1)]
+
+
+def _eintrittskante(modell, wand, deckel):
+    from .step_schreiben import randkanten
+    kegel, = wand
+    oben, = deckel
+    kanten = (randkanten(modell.datei, modell.flaeche_zu_step[kegel])
+              & randkanten(modell.datei, modell.flaeche_zu_step[oben]))
+    if len(kanten) != 1:
+        raise ValueError(tr("Der Eintrittskreis der Senkung ist nicht eindeutig."))
+    return kanten.pop()
 
 
 def _taschenflaechen(tasche, dicke, deckel, ebenen, nachbarn):

@@ -117,11 +117,22 @@ def _massbereich(p):
     return min(werte), max(werte)
 
 
-def sollbohrungen(ringe, werte, masse, umfang, *, tiefen=None):
+def senkwinkelmass(text, _faktor=1.):
+    p = lese_angabe(text.strip().removeprefix("⌵").strip(), 1.)
+    if not p or p.typ != "Size_Angular" or p.nennwert is None or p.modifikatoren or p.passung:
+        return None
+    oben, unten = p.grenzen()
+    if oben is not None and unten is not None and oben < unten:
+        return None
+    return p if all(0 < g < 180 for g in (p.nennwert, oben, unten) if g is not None) else None
+
+
+def sollbohrungen(ringe, werte, masse, umfang, *, tiefen=None, senkwinkel=None):
     breite, hoehe, _ = [p.nennwert for p in masse]
     bx, by = umfang
     if tiefen is None:
         tiefen = [None] * len(ringe)
+    senkwinkel = senkwinkel or {}
     bohrungen = []
     for index, (ring, zeile, tiefentext) in enumerate(zip(ringe, werte, tiefen, strict=True), 1):
         tx, ty, td = zeile
@@ -156,11 +167,23 @@ def sollbohrungen(ringe, werte, masse, umfang, *, tiefen=None):
             if tiefe is None or tiefe.nennwert is None:
                 raise ValueError(tr("Die Tiefe bis zum flachen Grund von Bohrung {} angeben.").format(index))
             pruefe_tiefe(tiefe, masse[2])
+        winkel = None
+        if index-1 in senkwinkel:
+            winkel = senkwinkelmass(senkwinkel[index-1])
+            if winkel is None:
+                raise ValueError(tr("Den eingeschlossenen Senkwinkel mit Gradzeichen angeben (größer als 0° und kleiner als 180°)."))
+            if ring.kern is None or (index < len(ringe) and ringe[index].kern == ring.kern) or tiefe is not None:
+                raise ValueError(tr("Die Kegelsenkung von oben benötigt den äußersten Ring einer Bohrung."))
         if ring.kern is not None:
             innen = bohrungen[-1]
-            if tiefe is None or _massbereich(pmi)[0] <= _massbereich(innen.durchmesser)[1]:
+            if (tiefe is None and winkel is None) or _massbereich(pmi)[0] <= _massbereich(innen.durchmesser)[1]:
                 raise ValueError(tr("Für jede äußere Stufe einen größeren Durchmesser und eine Tiefe von oben angeben."))
-            if innen.tiefe is not None and _massbereich(tiefe)[1] >= _massbereich(innen.tiefe)[0]:
+            if winkel:
+                differenz = _massbereich(pmi)[1]-_massbereich(innen.durchmesser)[0]
+                tiefste = differenz/(2*math.tan(math.radians(_massbereich(winkel)[0])/2))
+            else:
+                tiefste = _massbereich(tiefe)[1]
+            if tiefste >= _massbereich(innen.tiefe or masse[2])[0]:
                 raise ValueError(tr("Die äußere Stufe muss auch mit Toleranz flacher als die innere Bohrung sein."))
-        bohrungen.append(Plattenbohrung(x, y, pmi, tiefe, mitte if ring.kern is None else None, ring.kern))
+        bohrungen.append(Plattenbohrung(x, y, pmi, tiefe, mitte if ring.kern is None else None, ring.kern, winkel))
     return bohrungen

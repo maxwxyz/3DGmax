@@ -2,6 +2,20 @@
 
 ## Current state, 2026-11-21
 
+### Reconstruct conical seats and dimension their entry circle
+
+- Checked PLAN §§8.16, 8.28, 8.35–8.37 and docs/Roadmap.md. The outermost concentric ring can be
+  confirmed as a countersink from the plate top. The included angle with its deviations or limits
+  and the two diameters determine the taper. The deepest permitted taper must leave an inner
+  cylindrical segment. An outer ring alone does not determine whether the seat is conical.
+- The angular size references the actual cone. The entry diameter uses the EDGE_CURVE shared
+  by the cone and the top face. Its graphical arrow ends on this same circle. Two equal Ø12 entries
+  at different centers, with 90 ±1° and 120 ±2° angles, were checked through the PDF dialog,
+  STEP export, native import and OCCT/XCAF. One was above a through bore and the other above
+  a stepped blind bore. Actual material removal matched the two frustum volumes.
+- All 200 affected tests, 69 drawing comparison/reconstruction tests and eight macOS screen tests passed. Drill points,
+  turned parts, rounded pockets and automatic cross-view association remain open. QIF stays last.
+
 ### Generated dimension and tolerance leaders on tessellated STEP faces
 
 - Checked PLAN §§8.16, 8.22, 8.35–8.37 and docs/Roadmap.md. A face can contain only triangles.
