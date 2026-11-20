@@ -569,3 +569,57 @@ def test_gegabelte_hinweislinie_im_zeichnungsabgleich(app, tmp_path, gabel):
         finally:
             d.blatt.schliesse()
             d.close()
+
+
+@pytest.mark.parametrize("zusatz", [False, True])
+def test_freie_grafische_masszeile_beim_zuordnen_des_bohrbilds(app, tmp_path, zusatz):
+    from pypdfium2 import PdfDocument
+    from programm.ui.zeichnungsabgleich_ui import Zeichnungsabgleich
+    pfad = tmp_path / "Freie Zeile.pdf"
+    pdf = QtGui.QPdfWriter(str(pfad))
+    pdf.setResolution(72)
+    pdf.setPageSize(QtGui.QPageSize(QtCore.QSizeF(1900, 1230), QtGui.QPageSize.Unit.Point))
+    pdf.setPageMargins(QtCore.QMarginsF(0, 0, 0, 0))
+    bild = QtGui.QImage(str(Path(__file__).parent / "daten/nist_d2mi_904_4x_durchmesser.png"))
+    with QtGui.QPainter(pdf) as maler:
+        for x,y,r in ((8,7,2), (29,9,2), (13,29,3), (40,25,4)):
+            maler.drawEllipse(QtCore.QPointF(300+5*x, 500+5*y), 5*r, 5*r)
+        maler.drawImage(QtCore.QRectF(684, 312, 144, 16), bild)
+        if zusatz:
+            maler.drawRect(835, 317, 5, 6)
+            maler.drawLine(835, 317, 840, 323)
+        tip = np.array([350., 535.])
+        knie = np.array([550., 320.])
+        maler.drawLine(QtCore.QPointF(679, 320), QtCore.QPointF(*knie))
+        maler.drawLine(QtCore.QPointF(*knie), QtCore.QPointF(*tip))
+        v = (knie-tip)/np.linalg.norm(knie-tip)
+        n = np.array([-v[1], v[0]])
+        maler.setPen(QtCore.Qt.PenStyle.NoPen)
+        maler.setBrush(QtCore.Qt.GlobalColor.black)
+        maler.drawPolygon(QtGui.QPolygonF([QtCore.QPointF(*tip), QtCore.QPointF(*(tip+10*v+2*n)),
+                                           QtCore.QPointF(*(tip+10*v-2*n))]))
+    with PdfDocument(pfad) as doc:
+        d = Zeichnungsabgleich(doc, [], lambda _: None, (str(pfad), ""), einzelteil=_teil())
+        try:
+            assert not d.blatt.textbereiche and not d.seiten[0]
+            def registrieren():
+                d.registrieren.click()
+                d.ansicht.bereich.emit((.14,.38,.29,.56))
+                assert d.auftrag.wait(10000)
+                app.processEvents()
+            registrieren()
+            assert len(d.kreise[0]) == 4
+            if zusatz:
+                assert not d.seiten[0]
+                return
+            a, = d.seiten[0]
+            assert a.text == "4X⌀.215-.225" and d.zielvorschlaege[a] is not None
+            d.waehle(a)
+            registrieren()
+            assert d.seiten[0] == [a]
+            d.entfernen.click()
+            registrieren()
+            assert not d.seiten[0]
+        finally:
+            d.blatt.schliesse()
+            d.close()

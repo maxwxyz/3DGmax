@@ -2,6 +2,22 @@
 
 ## Current state, 2026-11-20
 
+### Discover standalone graphical diameter rows around a selected hole pattern
+
+- Checked PLAN §8.35 and docs/Roadmap.md. The registration worker follows free horizontal leader
+  ends to printed circles inside the selection, independently of whether a STEP face can be matched.
+  Only the adjacent row is rendered for OCR. A complete diameter reading must recur at two
+  resolutions and competing readings stay open. Existing labels and frame cells take precedence.
+  Reselecting the view neither duplicates findings nor restores a finding the user removed.
+- In the review dialog, selecting the symmetric hole pattern on D2MI 904 sheet 3 recovered the
+  standalone 4X diameter with 0.215–0.225 inch limits. The row is in the list and its crop is
+  visible. The individual STEP faces remain ambiguous under reflection. A portable public-domain
+  raster crop of this callout exercises the normal dialog on a separate, asymmetric PDF fixture.
+  The test also adds an unknown graphical suffix to verify that the partial row stays out of the list.
+- All 51 affected tests passed and 47 focused drawing and translation tests passed. Still open are
+  group-level associations invariant under symmetry, inclined or stacked free rows, sections,
+  non-circular targets and whole-drawing verification. §8.36 reconstruction precedes QIF in §8.37.
+
 ### Follow branched drawing leaders to a hole pattern
 
 - Checked PLAN §8.35 and docs/Roadmap.md. A printed quantity can identify two or more distinct

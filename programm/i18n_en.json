@@ -1,4 +1,7 @@
 {
+"Für dieses Bohrbild sind noch keine Modellflächen zugeordnet.": "No model faces have been matched to this hole pattern yet.",
+"Eine weitere Durchmesserangabe gefunden.": "Found one additional diameter callout.",
+"{} weitere Durchmesserangaben gefunden.": "Found {} additional diameter callouts.",
 "Bohrung {} von {}": "Hole {} of {}",
 "Einzel-PMI je Bohrung": "Individual PMI per hole",
 "Bohrung im Muster": "Hole in pattern",

@@ -225,11 +225,26 @@ class Blattgeometrie:
         if anzahl < 2 or anzahl > len(kreise) or not self.pfeile:
             return ()
         ziele = self._verfolge(self._starts(box, None, True), kreise, anzahl)
-        if not ziele or max(k.r for k in ziele)-min(k.r for k in ziele) > .75:
+        if len(ziele) != anzahl or max(k.r for k in ziele)-min(k.r for k in ziele) > .75:
             return ()
         if any(math.hypot(k.x-q.x, k.y-q.y) < 1.5 for i,k in enumerate(ziele) for q in ziele[:i]):
             return ()
         return tuple(sorted(ziele, key=lambda k: (k.y, k.x)))
+
+    def schriftenden(self, kreise, pruefe=lambda: None):
+        """Freie Enden waagerechter Hinweisstriche mit Pfeilziel im gewaehlten Bohrbild."""
+        if not kreise or not self.pfeile:
+            return []
+        orte = []
+        delta = self.linien[:, 1]-self.linien[:, 0]
+        for nr, i in enumerate(np.flatnonzero((abs(delta[:, 1]) <= .55) & (abs(delta[:, 0]) >= 5))):
+            if nr % 32 == 0:
+                pruefe()
+            for k in (0, 1):
+                start, ende = self.linien[i, [k, 1-k]]
+                if len(self.enden.query_ball_point(start, 1.5)) == 1 and self._verfolge([2*i+k], kreise, len(kreise)):
+                    orte.append((start, 1 if start[0] > ende[0] else -1))
+        return orte
 
     def _starts(self, box, durchmesseranfang, musterzeile):
         (l,t), (r,b) = np.array(box).reshape(2,2) * self.groesse
@@ -359,7 +374,7 @@ class Blattgeometrie:
             # Jeder offene Ast muss noch mindestens einen eigenen Pfeil erreichen.
             if len(ziele) + len(offen) > anzahl:
                 return ()
-        return tuple(ziele) if len(ziele) == anzahl else ()
+        return tuple(ziele)
 
 
 def _projektion(richtung, ebenen):

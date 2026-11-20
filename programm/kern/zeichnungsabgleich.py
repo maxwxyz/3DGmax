@@ -58,13 +58,13 @@ def muster_deckt(anzahl, ziele, modell):
 def lese_angabe(text, faktor, grundmass=False):
     if m := _MENGE.match(text):
         text = text[m.end():]
-        # Bei zwei aufsteigenden Durchmessergrenzen kann der Plotter einen Bindestrich ausgeben.
-        zahl = r"(?:[0-9]+(?:[.,][0-9]+)?|[.,][0-9]+)"
-        grenzen = re.fullmatch(rf'([⌀Ø∅]\s*)({zahl})\s*-\s*({zahl})(\s*(?:mm|in|inch|")?)\s*', text, re.I)
-        if grenzen and float(grenzen[2].replace(",", ".")) < float(grenzen[3].replace(",", ".")):
-            text = f"{grenzen[1]}{grenzen[2]}–{grenzen[3]}{grenzen[4]}"
     elif re.match(r"\s*\d+\s*[xX×]", text):
         return None
+    # Bei zwei aufsteigenden Durchmessergrenzen kann der Plotter einen Bindestrich ausgeben.
+    zahl = r"(?:[0-9]+(?:[.,][0-9]+)?|[.,][0-9]+)"
+    grenzen = re.fullmatch(rf'([⌀Ø∅]\s*)({zahl})\s*-\s*({zahl})(\s*(?:mm|in|inch|")?)\s*', text, re.I)
+    if grenzen and float(grenzen[2].replace(",", ".")) < float(grenzen[3].replace(",", ".")):
+        text = f"{grenzen[1]}{grenzen[2]}–{grenzen[3]}{grenzen[4]}"
     if "|" in text:
         teile = [t.strip().translate(str.maketrans({"Ø": "⌀", "∅": "⌀"})) for t in text.split("|")]
         if len(teile) >= 2:

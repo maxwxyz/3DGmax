@@ -1,6 +1,6 @@
 """PDF-Blatt in Leselage, mit Fundstellen aus Schrift und gezeichneten Toleranzrahmen."""
 
-from functools import lru_cache
+from functools import cached_property, lru_cache
 import zlib
 
 import numpy as np
@@ -307,6 +307,62 @@ class Zeichnungsblatt:
                 grundmass = True
             yield Blattangabe(self.nummer, box, text, grundmass)
 
+    def _schriftboxen(self, ort, sinn):
+        # Die Streifenhoehe variiert mit Blattmassstab und Schriftgrad. Schrift darf oben und
+        # unten nicht angeschnitten sein. Von rechts kommende Hinweise in Leserichtung zurueckrechnen.
+        h, w = self.bild.shape[:2]
+        x = int(np.ceil(ort[0]))+2 if sinn > 0 else int(np.floor(ort[0]))-2
+        for halbe in (7, 9, 12, 16, 22, 30):
+            y = round(ort[1])-halbe
+            if y < 0 or y+2*halbe >= h:
+                continue
+            l, r = (x, min(w, x+38*halbe)) if sinn > 0 else (max(0, x-38*halbe), x)
+            if not 0 <= l < r <= w:
+                continue
+            mask = self.bild[y:y+2*halbe+1, l:r].min(axis=2) < 245
+            if sinn < 0:
+                mask = mask[:, ::-1]
+            gruppen = list(schrift._gruppen(mask))
+            if not gruppen or not 1 <= gruppen[0][0] <= 1.5*halbe:
+                continue
+            von, bis = gruppen[0]
+            for a,b in gruppen[1:]:
+                if a-bis > 2.1*halbe:
+                    break
+                bis = b
+            if bis == gruppen[0][1] or bis+2 >= mask.shape[1]:
+                continue
+            ys = np.nonzero(mask[:, von:bis])[0]
+            oben, unten = ys.min(), ys.max()+1
+            if oben < 1 or unten >= mask.shape[0] or unten-oben < 5:
+                continue
+            x1, x2 = (l+von, l+bis) if sinn > 0 else (r-bis, r-von)
+            yield (max(0,x1-1)/w, (y+oben-1)/h, min(w,x2+1)/w, (y+unten+1)/h)
+
+    def freie_masszeile(self, ort, sinn, belegt):
+        boxen = list(self._schriftboxen(ort, sinn))
+        if not boxen:
+            return None
+        # Nur die vollstaendige Zeile lesen. Ein schmalerer Ausschnitt kann einen Zusatz verlieren.
+        box = max(boxen, key=lambda q: q[2]-q[0])
+        x, y = (box[0]+box[2])/2, (box[1]+box[3])/2
+        if any(l <= x <= r and t <= y <= b for l,t,r,b in belegt):
+            return None
+        h, w = self.bild.shape[:2]
+        if any(l <= x*w <= r and t <= y*h <= b for l,t,r,b in self.zellen):
+            return None
+        stimmen = {}
+        for hoehe in (72, 60, 64):
+            wort = self._bildtext(box, False, 0, hoehe)
+            if wort:
+                stimmen[wort] = stimmen.get(wort, 0)+1
+        if len(stimmen) == 1:
+            wort, anzahl = next(iter(stimmen.items()))
+            p = lese_angabe(wort, 1.)
+            if anzahl >= 2 and p is not None and p.typ == "Size_Diameter":
+                return Blattangabe(self.nummer, box, wort)
+        return None
+
     def _muster_am_rahmen(self, rahmen):
         # Die Mengenangabe gehoert zur eigenen Durchmesserzeile ueber dem Rahmen.
         h, w = self.bild.shape[:2]
@@ -341,12 +397,15 @@ class Zeichnungsblatt:
                 return Blattangabe(self.nummer, box, text)
         return None
 
+    @cached_property
+    def zellen(self):
+        return _zellen(self.bild.min(axis=2) < 195)
+
     def fundstellen(self):
         h, w = self.bild.shape[:2]
-        zellen = _zellen(self.bild.min(axis=2) < 195)
         rahmen, einzeln = {}, []
         for k in range(4):
-            for a in self._rahmen(zellen, k, w, h):
+            for a in self._rahmen(self.zellen, k, w, h):
                 if "|" not in a.text:
                     einzeln.append(a)
                 elif a.box in rahmen and rahmen[a.box].text != a.text:

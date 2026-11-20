@@ -16,10 +16,11 @@ from ..kern.vergleich_pmi import FELD_TEXT
 
 
 class Ansichtsauftrag(Modellauftrag):
-    def __init__(self, einzelteil, modellkreise, kreise, bereich):
+    def __init__(self, einzelteil, modellkreise, kreise, bereich, geometrie):
         super().__init__()
         self.einzelteil, self.modellkreise, self.kreise = einzelteil, modellkreise, kreise
-        self.bereich = bereich
+        self.bereich, self.geometrie = bereich, geometrie
+        self.schriftenden = []
         self.treffer, self.fehler = [], ""
 
     def _pruefe(self):
@@ -31,6 +32,7 @@ class Ansichtsauftrag(Modellauftrag):
             if self.modellkreise is None:
                 self.modellkreise = ansichtsabgleich.modellkreise(self.einzelteil, self._pruefe)
             self.treffer = ansichtsabgleich.zuordnen(self.kreise, self.modellkreise, self._pruefe)
+            self.schriftenden = self.geometrie.schriftenden(self.kreise, self._pruefe)
         except Abbruch:
             pass
         except Exception as e:  # noqa: BLE001 - unlesbare Modellgeometrie im Dialog melden
@@ -199,6 +201,7 @@ class Zeichnungsabgleich(QtWidgets.QDialog):
         self.quellen = quellen
         self.blatt = self.aktiv = None
         self.seiten = {}
+        self.entfernte_bereiche = {}
         self.auftrag = None
         self.einzelteil = einzelteil
         self.modellkreise = self.blattgeometrie = None
@@ -397,7 +400,7 @@ class Zeichnungsabgleich(QtWidgets.QDialog):
             QtWidgets.QMessageBox.warning(self, tr("Bohrbild zuordnen"), str(e))
             return
         kreise = self.blattgeometrie.im_bereich(box)
-        self.auftrag = Ansichtsauftrag(self.einzelteil, self.modellkreise, kreise, box)
+        self.auftrag = Ansichtsauftrag(self.einzelteil, self.modellkreise, kreise, box, self.blattgeometrie)
         self.auftrag.finished.connect(self._zugeordnet)
         self.auftrag.starte()
         self._status()
@@ -406,6 +409,27 @@ class Zeichnungsabgleich(QtWidgets.QDialog):
         if self.auftrag is not None:
             self.auftrag.abgebrochen = True
             self.auftrag = None
+
+    def _ergaenze_masszeilen(self, schriftenden):
+        nr = self.blatt.nummer
+        angaben = self.seiten[nr]
+        belegt = [a.box for a in angaben] + self.entfernte_bereiche.get(nr, [])
+        belegt.extend(box for box, _ in self.blatt.textbereiche)
+        neu = []
+        for ort, sinn in schriftenden:
+            a = self.blatt.freie_masszeile(ort, sinn, belegt)
+            if a is not None:
+                belegt.append(a.box)
+                neu.append(a)
+        with QtCore.QSignalBlocker(self.tabelle):
+            for a in sorted(neu, key=lambda a: (a.box[1], a.box[0])):
+                i = len(angaben)
+                angaben.append(a)
+                self.zeilen.insert(i, a)
+                self.tabelle.insertRow(i)
+                for j, wort in enumerate((str(nr+1), a.text, tr("Zu prüfen"))):
+                    self.tabelle.setItem(i, j, QtWidgets.QTableWidgetItem(wort))
+        return len(neu)
 
     @QtCore.Slot()
     def _zugeordnet(self):
@@ -421,6 +445,7 @@ class Zeichnungsabgleich(QtWidgets.QDialog):
         self.kreise[nr] = arbeit.treffer
         self.sichtkreise[nr] = arbeit.kreise
         self.bereiche[nr] = arbeit.bereich
+        neu = self._ergaenze_masszeilen(arbeit.schriftenden)
         for a in self.seiten[nr]:
             self.musterwahl.pop(a, None)
             k = self._hinweisziel(a)
@@ -444,6 +469,9 @@ class Zeichnungsabgleich(QtWidgets.QDialog):
         else:
             self._auswahl(self.tabelle.currentRow(), entwurf=True)
         self._status()
+        if neu:
+            meldung = tr("Eine weitere Durchmesserangabe gefunden.") if neu == 1 else tr("{} weitere Durchmesserangaben gefunden.").format(neu)
+            self.status.setText(f"{self.status.text()} {meldung}")
 
     def _hinweisziel(self, a):
         pruefe = self.blatt.durchmesseranfang if "|" in a.text else None
@@ -454,7 +482,7 @@ class Zeichnungsabgleich(QtWidgets.QDialog):
             if gruppe:
                 self.musterwahl[a] = gruppe
                 return gruppe[0]
-        return self.blattgeometrie.hinweisziel(a.box, kreise, pruefe, musterzeile=bool(anzahl))
+        return self.blattgeometrie.hinweisziel(a.box, kreise, pruefe, musterzeile=bool(anzahl) or a.text.lstrip().startswith(("⌀", "Ø", "∅")))
 
     def _anderer_bereich(self, a):
         if not a.blattziel or a.seite not in self.bereiche:
@@ -622,7 +650,9 @@ class Zeichnungsabgleich(QtWidgets.QDialog):
         self.zeige_modell(m)
         if vorher_einzeln:
             self.ansicht.zeige_kreise(self.kreise.get(a.seite, []), self.zielvorschlaege.get(a), muster)
-        if anzahl and len(muster) != anzahl:
+        if anzahl and not muster and not self.kreise.get(a.seite):
+            self.detail.setText(tr("Für dieses Bohrbild sind noch keine Modellflächen zugeordnet."))
+        elif anzahl and len(muster) != anzahl:
             self.detail.setText(tr("{} von {} Bohrungen gewählt. Erste Bohrung anklicken, weitere mit Umschalt+Klick wählen.").format(len(muster), anzahl))
         elif anzahl and m is not None and not za.muster_deckt(anzahl, muster, m):
             self.detail.setText(tr("Die gewählte Modell-PMI deckt das markierte Bohrbild nicht vollständig und ausschließlich ab."))
@@ -684,6 +714,7 @@ class Zeichnungsabgleich(QtWidgets.QDialog):
         self._liste(a)
 
     def _entferne(self):
+        self.entfernte_bereiche.setdefault(self.aktiv.seite, []).append(self.aktiv.box)
         self.musterwahl.pop(self.aktiv, None)
         self.zielvorschlaege.pop(self.aktiv, None)
         self.seiten[self.blatt.nummer] = [a for a in self.seiten[self.blatt.nummer] if a is not self.aktiv]
