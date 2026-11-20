@@ -2,6 +2,15 @@
 
 ## Current state, 2026-11-20
 
+### Next work after Ravigneaux and differential operating points
+
+PLAN §§8.27, 8.33 and 8.37 and the Roadmap retain tolerance and gear analysis as the current
+priority. A concrete next gear task is to propagate signed speeds through a worm pair in the
+operating point. The power-flow view already recognises the pair. In parallel, automatic 3D
+tolerance analysis still has open cases for common multi-feature datums and measured-feature
+modifiers. The plan sets no strict order between these tasks. Drawing comparison precedes 3D
+reconstruction from drawings, with the remaining QIF work last.
+
 ### Ravigneaux gearsets and limited-slip differentials
 
 - PLAN §8.27 and the Roadmap now cover a Ravigneaux set with two independent suns, a ring and a
