@@ -229,7 +229,9 @@
 | Multistage power flow with selectable reference shaft, branches, independent gear trains, cycle checks and mixed spur/bevel/worm stages | ✅ |
 | Operating speeds across coupled spur, bevel and simple planetary stages, reverted trains with separate coaxial input/output shafts, star operation with a fixed carrier, and symmetric open bevel differentials with selectable carrier axis | ✅ |
 | Stepped planetary sets with two tooth bands on each one-piece planet: sun-side and ring-side mesh assignment, carrier ratio, operating speeds and REXS planet shafts | ✅ |
-| Ravigneaux gearsets and locking or torque-biasing differentials | ⬜ |
+| Ravigneaux recognition and four-shaft operating speeds with a shared carrier, verified through STEP and STL | ✅ |
+| Symmetric bevel and parallel-axis helical differentials: open, fully locked, clutch torque limit or torque bias ratio, operating-point conditions and torque bounds | ✅ |
+| Component-specific friction, overrun and transient locking characteristics from independent data | ⬜ |
 | Cylindrical gear pairs: actual axial engagement and overlap contact ratio | ✅ |
 | Tooth-averaged left/right flank deviation maps, numeric CSV/JSON and illustrated gear PDF with sourced findings | ✅ |
 | Wiggle in the open degrees of freedom (kinematic) | ✅ |

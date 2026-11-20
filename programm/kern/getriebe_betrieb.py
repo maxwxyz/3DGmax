@@ -1,4 +1,4 @@
-"""Dreiwellensaetze erkennen und Drehzahlen gekoppelter Stirnrad-, Kegelrad- und Umlaufstufen berechnen."""
+"""Drehzahlen gekoppelter Stirnrad-, Kegelrad- und Umlaufstufen berechnen."""
 
 from __future__ import annotations
 
@@ -18,21 +18,34 @@ def _positive_achse(d):
 
 
 @dataclass
-class Dreiwelle:
+class Umlaufstufe:
     art: str
-    a: int
-    b: int
+    zentralraeder: tuple[int, ...]
     umlauf: tuple[int, ...]
-    koeffizienten: tuple[int, int]
+    gleichungen: tuple[tuple[int, ...], ...]  # letzte Spalte: gemeinsamer Steg
+
+    @classmethod
+    def dreiwellig(cls, art, a, b, umlauf, koeffizienten):
+        ka, kb = koeffizienten
+        return cls(art, (a, b), umlauf, ((ka, kb, -(ka + kb)),))
 
     @property
     def teile(self):
-        return {self.a, self.b, *self.umlauf}
+        return {*self.zentralraeder, *self.umlauf}
+
+    @property
+    def a(self):
+        return self.zentralraeder[0]
+
+    @property
+    def b(self):
+        return self.zentralraeder[1]
 
     def name(self, liste):
         art = {"kegel": tr("Kegelraddifferential"), "planet": tr("Planetensatz"),
-               "stufenplanet": tr("Stufenplanetensatz")}[self.art]
-        return f"{art} · {liste[self.a].teil} / {liste[self.b].teil}"
+               "stufenplanet": tr("Stufenplanetensatz"), "ravigneaux": tr("Ravigneaux-Getriebe"),
+               "schraegraddifferential": tr("Schrägraddifferential")}[self.art]
+        return art + " · " + " / ".join(liste[i].teil for i in self.zentralraeder)
 
 
 def differentialgruppen(liste, kegelpaare):
@@ -54,7 +67,7 @@ def differentialgruppen(liste, kegelpaare):
         plan = tuple(k for k in sorted(nachbarn[i] & nachbarn[j]) if abs(a.richtung @ liste[k].richtung) < .001)
         if not plan:
             continue
-        satz = Dreiwelle("kegel", i, j, plan, (a.z, b.z))
+        satz = Umlaufstufe.dreiwellig("kegel", i, j, plan, (a.z, b.z))
         kanten = {tuple(sorted((ende, k))) for ende in (i, j) for k in plan}
         passend = [g for g in gruppen if g[0] & kanten]
         varianten = [satz]
@@ -148,15 +161,21 @@ class Betriebsmodell:
 
     def __init__(self, liste, paare, *, getrennte_wellen=False):
         from .verzahnung import Verzahnung
+        from .schraegraddifferential import schraegradgruppen
         self.liste = liste
         raeder = [v for v in liste if isinstance(v, Verzahnung)]
         idx = {id(v): i for i, v in enumerate(liste)}
         ri = [idx[id(v)] for v in raeder]
-        self.planeten = [Dreiwelle("stufenplanet" if s.gestuft else "planet", ri[s.sonne], ri[s.hohlrad],
-                                   tuple(ri[i] for i in s.umlaufraeder), s.koeffizienten)
-                         for s in vd.planetensaetze(raeder, paare)]
+        planeten, ravigneaux = vd.umlaufsaetze(raeder, paare)
+        self.planeten = [Umlaufstufe.dreiwellig("stufenplanet" if s.gestuft else "planet",
+                                                ri[s.sonne], ri[s.hohlrad], tuple(ri[i] for i in s.umlaufraeder),
+                                                s.koeffizienten) for s in planeten]
+        for s in ravigneaux:
+            zentral = tuple(ri[i] for i in (s.sonne_lang, s.sonne_kurz, s.hohlrad))
+            self.planeten.append(Umlaufstufe("ravigneaux", zentral, tuple(ri[i] for i in s.umlaufraeder),
+                                            s.koeffizienten))
         kegel = kegelpaar_kandidaten(liste)
-        self.differentiale = differentialgruppen(liste, kegel)
+        self.differentiale = differentialgruppen(liste, kegel) + schraegradgruppen(liste, paare)
         saetze = self.planeten + [v for gruppe in self.differentiale for v in gruppe]
         mitglieder = [s.teile for s in saetze]
         self.gruppen = vd.wellen(liste, mitglieder)
@@ -207,21 +226,24 @@ class Betriebsmodell:
         beschreibung = []
         for s in saetze:
             steg = len(namen)
-            a, b = self.welle[s.a], self.welle[s.b]
-            za, zb = s.koeffizienten
-            ec = _positive_achse(self.liste[s.a].richtung)
-            ea = _positive_achse(self.liste[achsen[a]].richtung)
-            eb = _positive_achse(self.liste[achsen[b]].richtung)
-            ka = za if ea @ ec > 0 else -za
-            kb = zb if eb @ ec > 0 else -zb
+            referenz = s.zentralraeder[0]
             namen.append(tr("Steg") + " · " + s.name(self.liste))
-            achsen.append(s.a)
-            ports.update([a, b, steg])
-            gleichung = {a: ka, steg: -(za + zb)}
-            _addiere(gleichung, b, kb)
-            zeilen.append((gleichung, 0.))
-            beschreibung.append({"art": s.art, "raeder": [s.a, s.b], "umlaufraeder": list(s.umlauf),
-                                 "wellen": [a, b, steg], "koeffizienten": [ka, kb, -(za + zb)]})
+            achsen.append(referenz)
+            wellen = [self.welle[i] for i in s.zentralraeder] + [steg]
+            ports.update(wellen)
+            ec = _positive_achse(self.liste[referenz].richtung)
+            vorzeichen = [1 if _positive_achse(self.liste[achsen[w]].richtung) @ ec > 0 else -1 for w in wellen]
+            matrix = []
+            for zeile in s.gleichungen:
+                koeff = [k * v for k, v in zip(zeile, vorzeichen, strict=True)]
+                matrix.append(koeff)
+                gleichung = {}
+                for w, k in zip(wellen, koeff, strict=True):
+                    _addiere(gleichung, w, k)
+                if gleichung:
+                    zeilen.append((gleichung, 0.))
+            beschreibung.append({"art": s.art, "raeder": list(s.zentralraeder), "umlaufraeder": list(s.umlauf),
+                                 "wellen": wellen, "koeffizienten": matrix[0] if len(matrix) == 1 else matrix})
         return Betrieb(self, namen, achsen, sorted(ports), zeilen, beschreibung)
 
 
@@ -241,7 +263,8 @@ class Betrieb:
     def positive_achse(self, i):
         return _positive_achse(self.modell.liste[self.achsen[i]].richtung)
 
-    def auswerten(self, drehzahlen, kupplungen):
+    def auswerten(self, drehzahlen, kupplungen, *, sperren=None):
+        from .differentialsperre import momentdaten, sperrfaelle
         aktiv = set(self.ports)
         if any(i not in aktiv or not np.isfinite(n) for i, n in drehzahlen.items()):
             raise ValueError("Ungueltige Drehzahlvorgabe")
@@ -253,8 +276,10 @@ class Betrieb:
                 raise ValueError("Ungueltige Wellenkupplung")
             sinn = 1 if self.positive_achse(i) @ self.positive_achse(j) > 0 else -1
             zeilen.append(({i: 1, j: -sinn}, 0.))
-        werte, konflikt = _loesen(len(self.namen), zeilen)
+        zusatz, faelle = sperrfaelle(self, sperren)
+        werte, konflikt = _loesen(len(self.namen), zeilen + zusatz)
         return {"saetze": self.saetze, "wellen": [{"id": i, "name": self.namen[i], "vorgabe": drehzahlen.get(i),
                 "drehzahl": werte[i], "status": "widerspruch" if i in konflikt else
                 "frei" if werte[i] is None else "bestimmt"} for i in self.ports],
-                "kupplungen": list(kupplungen), "einheit": "1/min"}
+                "kupplungen": list(kupplungen), "einheit": "1/min",
+                "differentialsperren": momentdaten(faelle, kupplungen, konflikt, werte, self)}

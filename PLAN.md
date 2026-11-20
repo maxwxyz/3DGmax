@@ -1313,10 +1313,22 @@ tools (the user names MASTA as an example of a tool that needs these inputs), an
   In the carrier frame the two bands rotate together. For tooth counts S, P1, P2 and R this gives
   `S·P2·(nS − nC) + R·P1·(nR − nC) = 0`. Shaft speeds and exports use both mesh ratios.
   Assembly phasing remains unresolved from tooth counts alone. [Compound planetary gear equations](https://www.mathworks.com/help/sdl/ref/compoundplanetarygear.html)
-- Further gearbox families need their own evidence and regression models, including Ravigneaux sets
-  and locking or torque-biasing differentials. Gear positions alone
-  do not establish which clutch or brake is engaged. Worm pairs currently contribute ratios to the
-  power-flow view only.
+- Ravigneaux recognition assigns two coaxial, axially separated suns, one ring and at least two
+  pairs of long and short pinions. The larger sun and ring both engage the long pinions. The smaller
+  sun engages the short pinions, which engage their long partners. The operating point uses two
+  speed equations on the same carrier. Shared bodies retain their rigid connections. The gear
+  report and REXS export preserve the actual meshes. [Ravigneaux equations](https://www.mathworks.com/help/sdl/ref/ravigneauxgear.html)
+- Differential analysis supports symmetric bevel gears and a parallel-axis helical configuration with
+  two axially offset side gears of opposite hand and at least two meshing pinion pairs. The geometry
+  identifies the gearing. Lock engagement, friction capacity and torque bias require independent
+  operating inputs. [Parallel-axis differential geometry](https://patents.google.com/patent/US4751853)
+- The operating point evaluates an open differential, a positive lock, a specified torque bias
+  ratio (TBR), or a clutch with a specified side-to-side torque capacity. A positive lock imposes
+  equal output speeds. Limited slip admits differentiation and provides torque bounds under
+  stated steady driving conditions. CSV, JSON and PDF record the selected assumptions and results.
+  [Torque bias ratio](https://torsen.com/faqs/what-is-tbr/)
+- Measured component-specific friction laws, transient lock engagement, overrun characteristics
+  and signed speeds through worm pairs remain open.
 - Cylindrical pairs require axial overlap, used in the overlap ratio. Flank maps show sampled deviations on
   both flanks over the working width and radius, averaged across teeth. CSV and JSON include the numerical
   map. The PDF includes the data sheets, maps and sourced design findings. Individual-tooth scatter,

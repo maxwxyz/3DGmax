@@ -20,7 +20,7 @@ Abbildung:
   Profilverschiebungen, Profil-, Sprung- und Gesamtueberdeckung, Normalflankenspiel (min = max, aus der Nennlage),
   dazu je Rad cylindrical_stage_gear_data (stage_gear_data-Relation) mit Kopfspiel, Betriebseingriffswinkel und
   spezifischem Gleiten am Fuss;
-- je Planetensatz planetary_stage mit den beiden central_shaft (Sonne und Hohlrad), planet_shaft und den
+- je Planetensatz planetary_stage mit den central_shaft der Zentralraeder, planet_shaft und den
   zugehoerigen Eingriffen. Aus der Verzahnung nicht belegte Steg- und Lagerbauteile fehlen im Teilmodell.
   Siehe https://spec.rexs.info/1.7/en/root-modeling-planetary-stages.html.
 """
@@ -133,8 +133,10 @@ def modell(liste: list[Verzahnung], paare: list[Paar], name: str = "3DGmax",
     einheit = m.komponente("gear_unit", name, {"model_name": name})
     ids = [_rad(m, v) for v in liste]
     paare = [p for p in paare if vd.eingriff_moeglich(p)]
-    saetze = vd.planetensaetze(liste, paare)
-    mitglieder = [{s.sonne, s.hohlrad, *s.umlaufraeder} for s in saetze]
+    from .schraegraddifferential import schraegradgruppen
+    planeten, ravigneaux = vd.umlaufsaetze(liste, paare)
+    saetze = planeten + ravigneaux + [s for gruppe in schraegradgruppen(liste, paare) for s in gruppe]
+    mitglieder = [s.teile for s in saetze]
     welle_von = {}
     for gruppe in vd.wellen(liste, mitglieder):
         welle = m.komponente("shaft", " + ".join(liste[i].teil for i in gruppe), {})
@@ -144,15 +146,14 @@ def modell(liste: list[Verzahnung], paare: list[Paar], name: str = "3DGmax",
     satz_eingriffe = {}
     umlaufwellen = {welle_von[i] for s in saetze for i in s.umlaufraeder}
     for n, s in enumerate(saetze, 1):
-        satz = m.komponente("planetary_stage", f"Planetensatz {n}", {})
+        satz = m.komponente("planetary_stage", s.titel(n), {})
         m.relation("assembly", assembly=einheit, part=satz)
-        for welle in dict.fromkeys(welle_von[i] for i in (s.sonne, s.hohlrad)):
+        for welle in dict.fromkeys(welle_von[i] for i in s.zentralraeder):
             m.relation("central_shaft", planetary_stage=satz, shaft=welle)
-        # Pro Bolzen eine Planetenwelle. Der Ringeingriff kann am zweiten Zahnkranz desselben Koerpers liegen.
-        for i, j in zip(s.planeten, s.planeten_ring or s.planeten, strict=True):
-            m.relation("planet_shaft", planetary_stage=satz, shaft=welle_von[i])
-            for paar in ((i, s.sonne), (j, s.hohlrad)):
-                satz_eingriffe.setdefault(frozenset(paar), []).append(satz)
+        for welle in dict.fromkeys(welle_von[i] for i in s.umlaufraeder):
+            m.relation("planet_shaft", planetary_stage=satz, shaft=welle)
+        for paar in s.eingriffe:
+            satz_eingriffe.setdefault(frozenset(paar), []).append(satz)
     index = {id(v): i for i, v in enumerate(liste)}
     for p in paare:
         a, b = index[id(p.a)], index[id(p.b)]

@@ -437,6 +437,14 @@ select the one used in the assembly.</p>
 the ring. Recognition requires both bands to belong to one continuous body on each of at least two
 distinct planet pins. Power flow displays both tooth counts. Operating speeds account for both meshes.
 Evaluating assembly phasing also requires the relative angular position of the two bands.</p>
+<p>For a <b>Ravigneaux gearset</b>, Power flow identifies the long-pinion sun, short-pinion sun,
+ring and common carrier. Enter two independent speeds in Operating point. With the carrier held,
+the two suns rotate in opposite directions.</p>
+<p>For a symmetric bevel or parallel-axis helical differential, choose the <b>differential locking model</b>
+in Operating point. A mechanical lock forces equal output speeds. For limited slip, specify a maximum
+torque bias ratio (TBR) or the torque capacity of a clutch acting between the side gears. Enter
+carrier input torque to obtain bounds for each output under steady driving conditions. Clutch capacity
+and installed lock state require information in addition to the gear geometry.</p>
 <p>For multiple stages, couple coaxial shafts known to rotate together, such as the output of a spur stage
 and the sun, or the first carrier and the next sun. For a reverted train with coaxial input and output shafts,
 use separate assignments for coaxial gears and couple the two wheels on the intermediate shaft.

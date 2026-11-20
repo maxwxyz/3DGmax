@@ -226,6 +226,19 @@ class Planetensatz:
         return [*self.planeten, *self.planeten_ring]
 
     @property
+    def zentralraeder(self):
+        return [self.sonne, self.hohlrad]
+
+    @property
+    def teile(self):
+        return {*self.zentralraeder, *self.umlaufraeder}
+
+    @property
+    def eingriffe(self):
+        return [paar for a, b in zip(self.planeten, self.planeten_ring or self.planeten)
+                for paar in ((self.sonne, a), (self.hohlrad, b))]
+
+    @property
     def koeffizienten(self):
         if self.gestuft:
             return self.z_sonne * self.z_planet_ring, self.z_hohlrad * self.z_planet
@@ -329,8 +342,16 @@ def _planetenbaender(liste, sonnenseite, ringseite):
     return a, b
 
 
-def planetensaetze(liste: list[Verzahnung], paare: list[Paar]) -> list[Planetensatz]:
-    """Zentralraeder und mindestens zwei verschiedene Bolzen mit einfachen oder einteiligen Stufenplaneten."""
+def _nur_satzkontakte(satz, nachbarn):
+    """Ein zusaetzlicher innerer Zahneingriff kann einen Freiheitsgrad des Satzes sperren."""
+    teile = satz.teile
+    ist = {frozenset((i, j)) for i in teile for j in nachbarn[i] & teile if i < j}
+    return ist == {frozenset(paar) for paar in satz.eingriffe}
+
+
+def umlaufsaetze(liste: list[Verzahnung], paare: list[Paar]):
+    """Planeten- und Ravigneauxsaetze aus demselben Netz moeglicher Eingriffe, ohne doppelte Grundstufe."""
+    from . import ravigneaux
     idx = {id(v): i for i, v in enumerate(liste)}
     nachbarn: dict[int, set[int]] = {}
     for p in paare:
@@ -358,8 +379,19 @@ def planetensaetze(liste: list[Verzahnung], paare: list[Paar]) -> list[Planetens
                 satz.hinweise.append(tr("Planeten mit verschiedenen Zähnezahlen: {}").format(sorted(zp)))
             if not satz.gestuft and hohl.z != sonne.z + 2 * min(zp):
                 satz.hinweise.append(tr("zr ≠ zs + 2 zp – Profilverschiebung oder Planeten mit Stufen"))
-            out.append(satz)
-    return out
+            if _nur_satzkontakte(satz, nachbarn):
+                out.append(satz)
+    rv = ravigneaux.erkenne(liste, nachbarn, out)
+    enthalten = {(p.sonne_lang, p.hohlrad) for p in rv}
+    return [p for p in out if (p.sonne, p.hohlrad) not in enthalten], rv
+
+
+def planetensaetze(liste: list[Verzahnung], paare: list[Paar]) -> list[Planetensatz]:
+    return umlaufsaetze(liste, paare)[0]
+
+
+def ravigneauxsaetze(liste: list[Verzahnung], paare: list[Paar]):
+    return umlaufsaetze(liste, paare)[1]
 
 
 @dataclass
@@ -439,11 +471,10 @@ def _kraftfluesse(liste, paare, planeten, bezugsrad=None, umlauf=()):
     return gruppen, zuege
 
 
-def _planeten_indizes(liste, paare):
-    raeder = [v for v in liste if isinstance(v, Verzahnung)]
-    saetze = planetensaetze(raeder, paare)
-    idx = {id(v): i for i, v in enumerate(liste)}
-    return saetze, [{idx[id(raeder[i])] for i in [s.sonne, s.hohlrad, *s.umlaufraeder]} for s in saetze]
+def _umlaufindizes(liste, paare):
+    ids = [i for i, v in enumerate(liste) if isinstance(v, Verzahnung)]
+    planeten, rv = umlaufsaetze([liste[i] for i in ids], paare)
+    return planeten, rv, [{ids[i] for i in s.teile} for s in [*planeten, *rv]]
 
 
 def _achswahl(varianten, nr, wahl):
@@ -465,16 +496,21 @@ def _umlaufgruppen(gruppen, wahl):
     return mitglieder, umlauf
 
 
-def _zugdaten(liste, paare, bezugsrad, achswahl):
+def _differentialgruppen(liste, paare, kegel):
     from .getriebe_betrieb import differentialgruppen
+    from .schraegraddifferential import schraegradgruppen
+    return [*differentialgruppen(liste, kegel), *schraegradgruppen(liste, paare)]
+
+
+def _zugdaten(liste, paare, bezugsrad, achswahl):
     from .verzahnung_sonder import kegelpaar_kandidaten, schneckenpaar_kandidaten
-    saetze, mitglieder = _planeten_indizes(liste, paare)
+    saetze, rv, mitglieder = _umlaufindizes(liste, paare)
     kegel = kegelpaar_kandidaten(liste)
-    diff = differentialgruppen(liste, kegel)
+    diff = _differentialgruppen(liste, paare, kegel)
     weitere, umlauf = _umlaufgruppen(diff, achswahl)
     schnecken = schneckenpaar_kandidaten(liste)
     gruppen, zuege = _kraftfluesse(liste, [*paare, *kegel, *schnecken], mitglieder + weitere, bezugsrad, umlauf)
-    return gruppen, zuege, saetze, diff, kegel, schnecken
+    return gruppen, zuege, saetze, diff, kegel, schnecken, rv
 
 
 def _zuege(liste, paare, bezugsrad=None, achswahl=None):
@@ -483,21 +519,38 @@ def _zuege(liste, paare, bezugsrad=None, achswahl=None):
 
 def stufen(liste, paare, planeten, bezugsrad=None, achswahl=None):
     """Stufen und Wellenwerte aus den angegebenen Paaren ohne Eingriffe der Umlaufraeder."""
-    from .getriebe_betrieb import differentialgruppen
     from .verzahnung_sonder import kegelpaar_kandidaten
-    saetze = planeten or _planeten_indizes(liste, [p for p in paare if isinstance(p, Paar)])[0]
-    raeder = [i for i, v in enumerate(liste) if isinstance(v, Verzahnung)]
-    mitglieder = [{raeder[i] for i in [s.sonne, s.hohlrad, *s.umlaufraeder]} for s in saetze]
-    weitere, umlauf = _umlaufgruppen(differentialgruppen(liste, kegelpaar_kandidaten(liste)), achswahl)
+    _, _, mitglieder = _umlaufindizes(liste, [p for p in paare if isinstance(p, Paar)])
+    if planeten:
+        ids = [i for i, v in enumerate(liste) if isinstance(v, Verzahnung)]
+        for s in planeten:
+            gruppe = {ids[i] for i in s.teile}
+            if gruppe not in mitglieder:
+                mitglieder.append(gruppe)
+    zylinderpaare = [p for p in paare if isinstance(p, Paar)]
+    weitere, umlauf = _umlaufgruppen(_differentialgruppen(liste, zylinderpaare, kegelpaar_kandidaten(liste)), achswahl)
     _, zuege = _kraftfluesse(liste, paare, mitglieder + weitere, bezugsrad, umlauf)
+    return _stufenwerte(zuege)
+
+
+def _stufenwerte(zuege):
     return ([s for z in zuege for s in z.stufen],
             {k: v for z in zuege if not z.widerspruch for k, v in z.ergebnis.items()})
+
+
+def _differentialgleichung(s):
+    a, b, c = s.gleichungen[0]
+    teiler = math.gcd(a, b, c)
+    a, b, c = a // teiler, b // teiler, c // teiler
+    formel = "nA + nB = 2 nC" if a == b == 1 else f"{a} nA + {b} nB = {-c} nC"
+    return [a, b, c], formel
 
 
 def _differential_zeilen(liste, gruppen, achswahl):
     zeilen = []
     for nr, varianten in enumerate(gruppen):
-        titel = tr("Offenes Kegelraddifferential {}").format(nr + 1)
+        schraeg = varianten[0].art == "schraegraddifferential"
+        titel = (tr("Schrägraddifferential {}") if schraeg else tr("Symmetrisches Kegelraddifferential {}")).format(nr + 1)
         idx = _achswahl(varianten, nr, achswahl)
         wahl = tr("Achswahl offen") if idx is None else tr("Achse {}").format(idx + 1)
         zeilen.append((titel, wahl))
@@ -505,8 +558,17 @@ def _differential_zeilen(liste, gruppen, achswahl):
             name = tr("Achse {}").format(k + 1)
             seiten = f"{liste[s.a].teil} / {liste[s.b].teil}"
             zeilen.append((f"{titel} · {name} · " + tr("Seitenräder A / B"), seiten))
-            zeilen.append((f"{titel} · {name} · " + tr("Ausgleichsräder"), ", ".join(liste[i].teil for i in s.umlauf)))
-        zeilen.append((titel + " · " + tr("Drehzahlgleichung"), tr("nA + nB = 2 nC (nC: Stegdrehzahl)")))
+            if schraeg:
+                paare = [f"{liste[i].teil} / {liste[j].teil}" for i, j in zip(s.umlauf[::2], s.umlauf[1::2])]
+                zeilen.append((f"{titel} · {name} · " + tr("Ausgleichsradpaare A / B"), ", ".join(paare)))
+            else:
+                zeilen.append((f"{titel} · {name} · " + tr("Ausgleichsräder"), ", ".join(liste[i].teil for i in s.umlauf)))
+        if schraeg:
+            formel = _differentialgleichung(varianten[0])[1]
+            zeilen.append((titel + " · " + tr("Drehzahlgleichung"), formel))
+        else:
+            zeilen.append((titel + " · " + tr("Drehzahlgleichung"), tr("nA + nB = 2 nC (nC: Stegdrehzahl)")))
+        zeilen.append((titel + " · " + tr("Sperrwirkung und Torque Bias Ratio (TBR)"), tr("nicht bestimmbar")))
     return zeilen
 
 
@@ -518,18 +580,25 @@ def _differential_daten(liste, gruppen, achswahl):
         varianten = []
         for s in gruppe:
             rad = liste[s.a]
+            koeff, formel = _differentialgleichung(s)
+            zusatz = {"ausgleichsradpaare": list(zip(s.umlauf[::2], s.umlauf[1::2])), "tbr": None,
+                      "sperrwirkung": None} if s.art == "schraegraddifferential" else {}
             varianten.append({"seitenraeder": [s.a, s.b], "ausgleichsraeder": list(s.umlauf),
                               "stegachse": {"punkt": rad.punkt.tolist(), "richtung": _positive_achse(rad.richtung).tolist()},
                               "rollen": ["seitenrad_a", "seitenrad_b", "steg"],
-                              "koeffizienten": [1, 1, -2], "gleichung": "nA + nB = 2 nC"})
-        daten.append({"art": "offenes_kegelraddifferential", "indexbezug": "kraftfluss.teile", "achswahl": idx,
+                              "koeffizienten": koeff, "gleichung": formel, **zusatz})
+        art = "schraegraddifferential" if gruppe[0].art == "schraegraddifferential" else "offenes_kegelraddifferential"
+        daten.append({"art": art, "indexbezug": "kraftfluss.teile", "achswahl": idx,
+                      "geometrie": "schraegraddifferential" if gruppe[0].art == "schraegraddifferential" else
+                                   "symmetrisches_kegelraddifferential",
+                      "sperrzustand": "unbekannt", "tbr": None,
                       "achswahl_erforderlich": idx is None, "varianten": varianten})
     return daten
 
 
 def getriebe_zeilen(liste, paare, bezugsrad=None, achswahl=None):
     """Kraftfluss und bedingte Betriebsarten bei gegebenen oder noch offenen Achsen."""
-    gruppen, zuege, saetze, diff, _, _ = _zugdaten(liste, paare, bezugsrad, achswahl)
+    gruppen, zuege, saetze, diff, _, _, rv = _zugdaten(liste, paare, bezugsrad, achswahl)
     raeder = [v for v in liste if isinstance(v, Verzahnung)]
     zeilen = []
     for nr, zug in enumerate(zuege, 1):
@@ -556,6 +625,8 @@ def getriebe_zeilen(liste, paare, bezugsrad=None, achswahl=None):
         titel = s.titel(n)
         zeilen += [(titel + " – " + a, b) for a, b in s.zeilen(raeder)]
         zeilen += [(titel + " – " + tr("Hinweis"), h) for h in s.hinweise]
+    for n, s in enumerate(rv, 1):
+        zeilen += [(s.titel(n) + " – " + a, b) for a, b in s.zeilen(raeder)]
     return zeilen + _differential_zeilen(liste, diff, achswahl)
 
 
@@ -563,15 +634,21 @@ def datenblatt(liste: list, paare: list[Paar], bezugsrad=None, achswahl=None) ->
     """Alles fuer den JSON-Export (Werte als Zahlen, mm und Grad)."""
     from . import passverzahnung as pv
     from .verzahnung_sonder import Sonderprofil, Taillenrad
-    gruppen_alle, zuege, saetze, diff, kegel, schnecken = _zugdaten(liste, paare, bezugsrad, achswahl)
+    gruppen_alle, zuege, saetze, diff, kegel, schnecken, rv = _zugdaten(liste, paare, bezugsrad, achswahl)
     differentiale = _differential_daten(liste, diff, achswahl)
     teile = [v.teil for v in liste]
     bezug = liste[bezugsrad] if bezugsrad is not None else None
     sonder = [v for v in liste if isinstance(v, (Sonderprofil, Taillenrad))]
     profile = [v for v in liste if isinstance(v, pv.Steckprofil)]
-    liste = [v for v in liste if isinstance(v, Verzahnung)]
-    st, ziel = stufen(liste, paare, saetze, next((i for i, v in enumerate(liste) if v is bezug), None))
-    gruppen = wellen(liste, [{s.sonne, s.hohlrad, *s.umlaufraeder} for s in saetze])
+    # Die aelteren JSON-Listen indizieren nur Zylinderraeder. Dieselben bekannten Umlaufachsen dort erhalten.
+    zylinder_ids = [i for i, v in enumerate(liste) if isinstance(v, Verzahnung)]
+    lokal = {i: k for k, i in enumerate(zylinder_ids)}
+    weitere, umlauf = _umlaufgruppen(diff, achswahl)
+    gruppierung = [s.teile for s in [*saetze, *rv]] + [{lokal[i] for i in g if i in lokal} for g in weitere]
+    liste = [liste[i] for i in zylinder_ids]
+    gruppen, zylinderzuege = _kraftfluesse(liste, paare, gruppierung, lokal.get(bezugsrad),
+                                            [lokal[i] for i in umlauf if i in lokal])
+    st, ziel = _stufenwerte(zylinderzuege)
     raeder = []
     for v in liste:
         d = v.als_dict()
@@ -615,6 +692,7 @@ def datenblatt(liste: list, paare: list[Paar], bezugsrad=None, achswahl=None) ->
             "uebersetzung_je_welle": {str(k): {"i": i, "richtung": r} for k, (i, r) in ziel.items()},
             "differentialgruppen": differentiale,
             "planetensaetze": [s.als_dict() for s in saetze],
+            "ravigneauxsaetze": [s.als_dict() for s in rv],
             "auslegungsbefunde": _befunde([*liste, *profile, *sonder], paare, bezug)}
 
 

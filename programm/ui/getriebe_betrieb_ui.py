@@ -8,6 +8,7 @@ from PySide6 import QtCore, QtWidgets
 
 from ..i18n import tr
 from ..kern.getriebe_betrieb import Betriebsmodell
+from .differentialsperre_ui import SperrenEditor, sperrzeilen
 
 
 def _wert(zahl):
@@ -55,6 +56,9 @@ class BetriebspunktSeite(QtWidgets.QWidget):
             grenze = QtWidgets.QLabel(self.grenze())
             grenze.setWordWrap(True)
             lay.addWidget(grenze)
+        self.sperren = SperrenEditor()
+        self.sperren.geaendert.connect(self._rechnen)
+        lay.addWidget(self.sperren)
         self.tabelle = QtWidgets.QTableWidget(0, len(self.spalten()))
         self.tabelle.verticalHeader().hide()
         self.tabelle.setEditTriggers(QtWidgets.QAbstractItemView.EditTrigger.NoEditTriggers)
@@ -90,19 +94,23 @@ class BetriebspunktSeite(QtWidgets.QWidget):
     def _aufbauen(self):
         self.betrieb = self.modell.betrieb(self.achswahl())
         b = self.betrieb
+        self.sperren.setze_betrieb(b)
         # Nach einer Achswahl koennen Stege andere Indizes haben. Eingaben gehoeren zur konkreten Welle.
         self.schluessel = {i: ("welle", i) for i in b.ports}
         self.rollen = {i: {} for i in b.ports}
         for s in b.saetze:
-            a, seite_b, steg = s["wellen"]
-            if s["art"] in ("planet", "stufenplanet"):
-                self.rollen[a]["sonne"] = tr("Sonne")
-                self.rollen[seite_b]["hohlrad"] = tr("Hohlrad")
+            *zentral, steg = s["wellen"]
+            if s["art"] == "ravigneaux":
+                rollen = (("sonne_lang", tr("Sonne am Langplaneten")), ("sonne_kurz", tr("Sonne am Kurzplaneten")),
+                          ("hohlrad", tr("Hohlrad")))
+            elif s["art"] in ("kegel", "schraegraddifferential"):
+                rollen = (("seitenrad_a", tr("Seitenrad A")), ("seitenrad_b", tr("Seitenrad B")))
             else:
-                self.rollen[a]["seitenrad_a"] = tr("Seitenrad A")
-                self.rollen[seite_b]["seitenrad_b"] = tr("Seitenrad B")
+                rollen = (("sonne", tr("Sonne")), ("hohlrad", tr("Hohlrad")))
+            for i, (rolle, text) in zip(zentral, rollen, strict=True):
+                self.rollen[i][rolle] = text
             self.rollen[steg]["steg"] = tr("Steg")
-            self.schluessel[s["wellen"][2]] = (s["art"], *s["raeder"], tuple(s["umlaufraeder"]))
+            self.schluessel[steg] = (s["art"], *s["raeder"], tuple(s["umlaufraeder"]))
         self.tabelle.setRowCount(0)
         self.tabelle.setRowCount(len(b.ports))
         self.eingaben = {}
@@ -173,7 +181,8 @@ class BetriebspunktSeite(QtWidgets.QWidget):
             item = self.kupplungen.item(r)
             if item.checkState() == QtCore.Qt.CheckState.Checked:
                 paare.append(tuple(item.data(QtCore.Qt.ItemDataRole.UserRole)))
-        self.ergebnis = self.betrieb.auswerten(drehzahlen, paare)
+        self.ergebnis = self.betrieb.auswerten(drehzahlen, paare, sperren=self.sperren.parameter())
+        self.sperren.zeige(self.ergebnis)
         for r, zeile in enumerate(self.wellenzeilen()):
             for c in (2, 3, 4):
                 self.tabelle.setItem(r, c, QtWidgets.QTableWidgetItem(zeile[c]))
@@ -216,7 +225,7 @@ class BetriebspunktSeite(QtWidgets.QWidget):
             zeilen.append((tr("Differential {} · Seitenräder").format(gruppe["gruppe"] + 1), name))
         for i, j in self.ergebnis["kupplungen"]:
             zeilen.append((tr("Drehfeste Kopplung"), f"{self._wellenname(i)} ↔ {self._wellenname(j)}"))
-        return zeilen
+        return zeilen + sperrzeilen(self.ergebnis, self._wellenname)
 
     def verfuegbar(self):
         return bool(self.betrieb.ports or self.modell.differentiale)

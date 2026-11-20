@@ -2,6 +2,26 @@
 
 ## Current state, 2026-11-20
 
+### Ravigneaux gearsets and limited-slip differentials
+
+- PLAN §8.27 and the Roadmap now cover a Ravigneaux set with two independent suns, a ring and a
+  common carrier. A generated seven-gear assembly gave the same eight meshes through both STEP
+  and STL. With the carrier held and the large sun at 900 rpm, the ring turns at −480 rpm and
+  the small sun at −1,800 rpm. The operating point and REXS export preserve the shared carrier
+  kinematics and mesh membership, respectively.
+- A rotated six-gear STL exercises parallel-axis helical differential recognition. It requires
+  two separate, opposite-hand coaxial side gears and two complete three-mesh pinion chains.
+  Symmetric bevel and helical differentials expose four operating assumptions in the dialog,
+  CSV, JSON and PDF. A rigid lock enforces equal speeds. Open, TBR and plate-clutch models
+  report the permissible output torques for steady driving. At 200 Nm carrier input and 40 Nm
+  side-to-side clutch capacity, the slower output can receive 100–140 Nm and the faster one
+  60–100 Nm in forward drive. Their sum is constrained to 200 Nm.
+- Checked PLAN and the Roadmap. Manufacturer-specific friction, engagement transients and overrun
+  behaviour remain open. These changes were tested on generated assemblies. Drawing comparison
+  (§8.35), reconstruction (§8.36) and QIF (§8.37, last) retain their order.
+- Verification passed for all 57 affected tests, all 56 tests in the eight gearbox integration
+  modules (overlapping selection), and English UI translation coverage.
+
 ### Stepped planetary gearsets
 
 - PLAN §8.27 now covers one-piece planets with two tooth bands. Recognition matches each band to
@@ -17,8 +37,6 @@
   the sun gave −450 rpm at the ring. The UI export test couples the carrier to a second stage and
   recovers 112.5 rpm. Splitting each planet into two loose bodies preserves the four candidate meshes
   and removes the compound-set assignment. All 35 affected tests passed.
-- Checked PLAN and the Roadmap. Ravigneaux sets and locking or torque-biasing differentials remain open.
-  Drawing comparison (§8.35), reconstruction (§8.36) and QIF (§8.37) retain their order.
 
 ### Multistage gearbox reverse engineering
 

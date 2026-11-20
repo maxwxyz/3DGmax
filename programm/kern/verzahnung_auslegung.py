@@ -169,10 +169,12 @@ def stufen_befunde(p: Paar) -> list[Befund]:
 def getriebe_befunde(liste: list[Verzahnung], paare: list[Paar], bezug=None) -> list[Befund]:
     """Stufenaufteilung mehrstufiger Getriebe und Befunde der Planetensaetze."""
     out = []
-    saetze = vd.planetensaetze(liste, paare)
-    mitglieder = [{s.sonne, s.hohlrad, *s.umlaufraeder} for s in saetze]
+    from .schraegraddifferential import schraegradgruppen
+    saetze, ravigneaux = vd.umlaufsaetze(liste, paare)
+    schraegdifferentiale = [s for gruppe in schraegradgruppen(liste, paare) for s in gruppe]
+    mitglieder = [s.teile for s in [*saetze, *ravigneaux, *schraegdifferentiale]]
     bezugsrad = next((i for i, v in enumerate(liste) if v is bezug), None)
-    gruppen, zuege = vd._kraftfluesse(liste, paare, mitglieder, bezugsrad)
+    gruppen, zuege = vd._kraftfluesse(liste, paare, mitglieder, bezugsrad, {i for s in schraegdifferentiale for i in s.umlauf})
     welle = {i: k for k, g in enumerate(gruppen) for i in g}
     for zug in zuege:
         stufen = zug.stufen
@@ -215,6 +217,10 @@ def getriebe_befunde(liste: list[Verzahnung], paare: list[Paar], bezug=None) -> 
         out.append(Befund(name, "Zähnezahlen", f"{zs} / {s.z_planet} / {zr}",
                           tr("zr = zs + 2 zp: ohne Profilverschiebungsausgleich") if zr == zs + 2 * s.z_planet else
                           tr("zr ≠ zs + 2 zp: Profilverschiebung zum Ausgleich des Achsabstands"), Q_DIN3992))
+    for n, s in enumerate(ravigneaux, 1):
+        zaehne = " / ".join(str(liste[i].z) for i in s.zentralraeder)
+        out.append(Befund(s.titel(n), "Zähnezahlen", zaehne,
+                          tr("Sonne am Langplaneten / Sonne am Kurzplaneten / Hohlrad"), tr("Stirnschnitte")))
     return out
 
 

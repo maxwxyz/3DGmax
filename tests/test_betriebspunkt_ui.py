@@ -151,3 +151,33 @@ def test_stufenplanetensatz_treibt_zweiten_planetensatz(app, tmp_path):
                 else " ".join(s.extract_text() for s in PdfReader(pfad).pages))
         assert "Stufenplanetensatz" in text and "112.5" in text
     f.close()
+
+
+def test_ravigneaux_ueber_vier_wellen_und_export(tmp_path, app):
+    from tests.test_ravigneaux import _radliste
+
+    f = VerzahnungFenster(_radliste(), str(tmp_path / "Ravigneaux"))
+    seite = f.betriebspunkt
+    satz, = seite.ergebnis["saetze"]
+    lang, kurz, ring, steg = satz["wellen"]
+    assert satz["art"] == "ravigneaux" and len(seite.eingaben) == 4
+    assert "Kurzplaneten" in seite._wellenname(kurz)
+    _vorgabe(seite, lang, 690)
+    _vorgabe(seite, ring, 0)
+    pfad = tmp_path / "getriebe.json"
+    f.speichere("json", str(pfad))
+    daten = json.loads(pfad.read_text())
+    wellen = {w["id"]: w for w in daten["betriebspunkt"]["wellen"]}
+    assert [wellen[w]["drehzahl"] for w in (lang, kurz, ring, steg)] == [690, -660, 0, 240]
+    assert len(daten["ravigneauxsaetze"]) == 1 and not daten["planetensaetze"]
+    assert not daten["kraftfluss"]["zuege"]
+    f.speichere("csv", str(tmp_path / "getriebe.csv"))
+    assert "Ravigneaux" in (tmp_path / "getriebe.csv").read_text(encoding="utf-8-sig")
+    bericht = PdfReader(f.speichere("pdf", str(tmp_path / "getriebe.pdf")))
+    assert any("Betriebspunkt" in t and "-660" in t for t in (s.extract_text() for s in bericht.pages))
+    pfad = tmp_path / "getriebe.rexsj"
+    f.speichere("rexs", str(pfad))
+    modell = json.loads(pfad.read_text())["model"]
+    rollen = [r["type"] for r in modell["relations"]]
+    assert rollen.count("central_shaft") == 3 and rollen.count("planet_shaft") == 4 and rollen.count("stage") == 8
+    f.close()
