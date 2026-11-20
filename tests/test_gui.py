@@ -2850,7 +2850,9 @@ def test_semantisch_machen(fenster, tmp_path):
     f._pmi_befehl("semantisch", p)
     d = f._semantik_dialog
     assert d.isVisible() and d.art.currentData() == "toleranz" and d.typ.currentData() == "Flatness"
-    assert d.flaechen and d.fehler()  # Toleranzwert fehlt
+    assert d.flaechen and not d.fehler() and d.v.ocr_text == "⏥ 0.2"
+    d.felder["wert"].clear()
+    assert d.fehler()
     d.felder["wert"].setText("0,1")
     assert not d.fehler()
     d._pruefen()

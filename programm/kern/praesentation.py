@@ -58,6 +58,10 @@ class Grafik:
     def grenzen(self):
         pts = [l for l in self.linien] + [p for p, _ in self.dreiecke]
         if not pts:
+            for ph in self.platzhalter:
+                o, b, h = ph.ursprung, ph.x * ph.breite, ph.y * ph.hoehe
+                pts.append(np.array([o, o+b, o+h, o+b+h]))
+        if not pts:
             return None
         alle = np.vstack(pts)
         return alle.min(axis=0), alle.max(axis=0)
@@ -442,8 +446,14 @@ def prc_grafik(modell_prc) -> dict[int, Grafik]:
     """Markup-ID -> Grafik aus PRC (fertige Linien und Flaechen, Name des Markups)."""
     from . import prc
     out: dict[int, Grafik] = {}
+    faktor = prc.einheit_mm(modell_prc)
     for m in prc.markup_grafik(modell_prc):
-        g = Grafik(m.eid, m.name, linien=_ketten(m.linien), fertig=True, farbe=m.farbe, markup=(m.art, m.unterart))
+        g = Grafik(m.eid, m.name, linien=_ketten(m.linien), fertig=True, farbe=m.farbe,
+                   markup=(m.art, m.unterart), textfaktor=faktor)
+        for text, o, x, y, breite, hoehe in m.texte:
+            g.platzhalter.append(Platzhalter(o, x, y, breite, hoehe, text))
+            if g.ebene is None:
+                g.ebene = (o, x, y, np.cross(x, y))
         for d in m.dreiecke:
             if len(d) >= 3:
                 n = len(d) // 3 * 3

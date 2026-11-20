@@ -1311,7 +1311,7 @@ class Hauptfenster(QtWidgets.QMainWindow):
         self.baum.zeige(erg.baum)
         self._ansicht_pmi_ids = None
         self._wende_norm_an(erg, self._norm_wahl(erg.pfad))
-        self.pmi.zeige(erg.pmi, erg.ansichten)
+        self.pmi.zeige(erg.pmi, erg.ansichten, erg.grafik)
         self.spalten_anpassen()
         self.ansichten.zeige(erg.ansichten)
         self._starte_vorschau()
@@ -1820,7 +1820,7 @@ class Hauptfenster(QtWidgets.QMainWindow):
             return
         self.ein.setValue("norm/" + os.path.abspath(self.erg.pfad).replace("/", "|"), wahl)
         self._wende_norm_an(self.erg, wahl)
-        self.pmi.zeige(self.erg.pmi, self.erg.ansichten)
+        self.pmi.zeige(self.erg.pmi, self.erg.ansichten, self.erg.grafik)
         self.statusBar().showMessage(tr("Norm: {}").format(self.norm_text), 6000)
 
     def _zonen_je_instanz(self, formen: list, rollen: list, quellen: list) -> tuple[list, list]:
@@ -3339,7 +3339,7 @@ class Hauptfenster(QtWidgets.QMainWindow):
             setattr(p, k, v)
         p.bearbeitet = True
         self.ansicht.aktualisiere_pmi_texte([p])
-        self.pmi.zeige(self.erg.pmi, self.erg.ansichten)
+        self.pmi.zeige(self.erg.pmi, self.erg.ansichten, self.erg.grafik)
         self.pmi.waehle(lambda q: q is p)
         self.statusBar().showMessage(tr("PMI {} geändert: {}").format(p.nummer, p.wert_text()), 6000)
 
@@ -3408,7 +3408,7 @@ class Hauptfenster(QtWidgets.QMainWindow):
         self.ansicht.entferne_grafik(ids)
         for cid in [c for c, g in self.erg.grafik.items() if g.pmi_ids & ids]:
             del self.erg.grafik[cid]
-        self.pmi.zeige(self.erg.pmi, self.erg.ansichten)
+        self.pmi.zeige(self.erg.pmi, self.erg.ansichten, self.erg.grafik)
         self._semantik_aktion()
         self.statusBar().showMessage(tr("{} eigene PMI gelöscht").format(len(weg)), 5000)
 
@@ -3715,7 +3715,7 @@ class Hauptfenster(QtWidgets.QMainWindow):
         grafik = {frei - i: g for i, g in enumerate(grafik.values())}
         self.erg.grafik.update(grafik)
         self.ansicht.ergaenze_grafik(grafik, neue)
-        self.pmi.zeige(self.erg.pmi, self.erg.ansichten)
+        self.pmi.zeige(self.erg.pmi, self.erg.ansichten, self.erg.grafik)
         self._semantik_aktion()
         self.pmi.waehle(lambda p: p in neue)
         self.statusBar().showMessage(tr("{} PMI angelegt (eigene, werden im Projekt gespeichert)").format(len(neue)), 6000)
@@ -5153,6 +5153,7 @@ class Hauptfenster(QtWidgets.QMainWindow):
             uhr.stop()
 
     def closeEvent(self, ev):
+        self.pmi.beende_schriftsuche()
         self._semantik_beenden()
         if self in FENSTER:
             FENSTER.remove(self)

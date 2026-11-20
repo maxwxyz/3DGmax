@@ -73,7 +73,7 @@ class Tessellation:
     netze: list[Netz] = field(default_factory=list)
     linien: list[np.ndarray] = field(default_factory=list)  # Drahtkanten / Markup-Linien je (n, 3)
     dreiecke: list[np.ndarray] = field(default_factory=list)  # Markup-Flaechen je (m*3, 3)
-    texte: list[tuple] = field(default_factory=list)  # (Text, Ursprung, x, y, Breite, Hoehe)
+    texte: list[tuple] = field(default_factory=list)  # (Text, Ursprung, x, y, Breite, Hoehe, Schriftindex)
     farbe: int = -1  # Markup: zuletzt gesetzte Farbe (Index in Globals.farben)
 
 
@@ -1164,6 +1164,7 @@ class MarkupGrafik:
     dreiecke: list[np.ndarray]
     farbe: tuple | None
     unterart: int = 0
+    texte: list[tuple] = field(default_factory=list)
 
 
 def einheit_mm(modell: PrcModell) -> float:
@@ -1257,6 +1258,18 @@ def koerper(modell: PrcModell) -> list[Koerper]:
     return out
 
 
+def _texte_in_weltlage(texte, welt):
+    """Lokale Schreibachsen und Textabmessungen in Weltkoordinaten (mm)."""
+    out = []
+    for text, o, x, y, breite, hoehe, _schrift in texte:
+        x, y = welt[:3, :3] @ x, welt[:3, :3] @ y
+        sx, sy = np.linalg.norm(x), np.linalg.norm(y)
+        if text and min(sx, sy) > 0:
+            out.append((text, welt[:3, :3] @ o + welt[:3, 3],
+                        x / sx, y / sy, breite * sx, hoehe * sy))
+    return out
+
+
 def markup_grafik(modell: PrcModell) -> list[MarkupGrafik]:
     f = einheit_mm(modell)
     skala = np.diag([f, f, f, 1.0])
@@ -1280,7 +1293,8 @@ def markup_grafik(modell: PrcModell) -> list[MarkupGrafik]:
                     j = t.farbe // 3
                     farbe = g.farben[j] if 0 <= j < len(g.farben) else farbe
                 out.append(MarkupGrafik(k.eid, k.name, MARKUP_ARTEN.get(k.art, "Other"),
-                                        [tr(l) for l in t.linien], [tr(d) for d in t.dreiecke], farbe, k.unterart))
+                                        [tr(l) for l in t.linien], [tr(d) for d in t.dreiecke], farbe, k.unterart,
+                                        _texte_in_weltlage(t.texte, welt)))
     return out
 
 

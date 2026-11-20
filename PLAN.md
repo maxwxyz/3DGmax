@@ -161,7 +161,12 @@ Throughout: tests (core, offscreen UI, stress test, on-screen test), `--selbstte
 - On-demand vector OCR in the conversion dialog reads single-line strokes, outlined letters and filled triangle
   glyphs in an annotation plane. NIST CTC-01 exercises diameter with ± deviations, flatness, perpendicularity,
   position, surface profile and datum letters. A separate STEP round trip uses only the triangles of the value.
-  Open: search before review, additional fonts, stacked limits and composite controls.
+  The PMI list indexes supported callouts on the first content search. Free text, nominal/tolerance values,
+  types and datums can find an unreviewed graphical source. The search index is local to the displayed table.
+  The recogniser separates stacked upper/lower limits from signed deviations alongside a nominal dimension.
+  It also reads supported angular and parenthesised reference dimensions. Four stacked CTC-01 dimensions
+  with opposite, unilateral and absolute limits retain their interpretation on STEP reimport.
+  Open: additional fonts, composite controls and dimensions with ambiguous leader or text placement.
 - Convert to semantic PMI: evaluate recognized text + frame structure; mark result as "derived (check)", never as
   genuine semantics.
 
@@ -875,7 +880,9 @@ print annotations. Today 3DGmax writes generated texts only into the placeholder
   identity for tessellated STEP shapes. Tested on the original NIST FTC-08 tessellated file with 273 faces, 60
   graphics and four saved views. For AP203e2 curve PMI the writer maps the verified source constructs to AP242e3
   before adding semantics. NIST CTC-01, CTC-03 and CTC-05 exercise that mapping. Other legacy constructs require
-  further mappings. PRC and QIF reviews are stored in the project. The dialog reads supported strokes and triangle fills (§8.4).
+  further mappings. PRC and QIF reviews are stored in the project.
+  PRC markup literals now reach both the display and text parser. Their rectangle and local writing axes follow
+  the part instance placement and model units. The PRC v4 STC-06 sample itself contains graphical lettering. The dialog reads supported strokes and triangle fills (§8.4).
 
 ### 8.19 QIF graphics and views (done 2026-10-27)
 - `kern/qif_grafik.py`: PMIDisplay → Grafik in the annotation plane (AnnotationView normal + direction, plane origin

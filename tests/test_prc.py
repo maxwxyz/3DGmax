@@ -212,3 +212,36 @@ def test_zeichnung_aus_netz():
                   [2, 6, 7], [2, 7, 3], [0, 4, 6], [0, 6, 2], [1, 3, 7], [1, 7, 5]])
     a = zeichnung.projiziere_netz([(p, t[i:i + 2]) for i in range(0, 12, 2)], (-1, -1, -1), (0, 0, 1))
     assert a.linien[zeichnung.SICHTBAR] and a.linien[zeichnung.VERDECKT]
+
+
+def test_prc_textliteral_im_modell_und_semantikvorschlag():
+    from programm.kern.pmi_lesen import ergaenze_hinweise
+    from programm.kern.praesentation import prc_grafik
+
+    lokal = np.eye(4)
+    lokal[:3, 3] = (1., 2., 3.)
+    # Der Textblock liegt in einer skalierenden Schreibmatrix innerhalb eines gedrehten Zoll-Teils.
+    lokal[0, 0] = 1.5
+    lokal[1, 1] = .5
+    codes = [0x08000001, 18, 0x04000000 | (14 << 21) | 1, 2, 0, 0x08000000, 0]
+    t = prc._markup_grafik(codes, np.r_[lokal.T.ravel(), 1.2, .1], ["⌀0.5 ±0.01"])
+    teil = prc.Teil("A", markups=[prc.Markup(22, "Diameter.1", 2, 11, 0)])
+    lage = np.array([[0., -1., 0., 4.], [1., 0., 0., 0.], [0., 0., 1., 1.], [0., 0., 0., 1.]])
+    v = prc.Vorkommen("A.1", 0, -1, [], lage)
+    st = prc.Dateistruktur(0, 0, {}, prc.Globals(), [teil], [v], 0, [t])
+    modell = prc.PrcModell([st], einheit=25.4, einheit_cad=True)
+    grafik = prc_grafik(modell)
+    g = grafik[22]
+    ph, = g.platzhalter
+    assert not g.leer() and not g.linien and not g.dreiecke
+    assert ph.text == "⌀0.5 ±0.01"
+    np.testing.assert_allclose(ph.ursprung, np.array([2., 1., 4.]) * 25.4)
+    np.testing.assert_allclose(ph.x, [0., 1., 0.])
+    np.testing.assert_allclose(ph.y, [-1., 0., 0.])
+    assert (ph.breite, ph.hoehe) == pytest.approx((1.8*25.4, .05*25.4))
+    lo, hi = g.grenzen()
+    np.testing.assert_allclose(lo, ph.ursprung + ph.y * ph.hoehe)
+    np.testing.assert_allclose(hi, ph.ursprung + ph.x * ph.breite)
+    p, = ergaenze_hinweise([], grafik)
+    assert p.typ == "Size_Diameter" and not p.semantisch
+    assert (p.nennwert, p.unten, p.oben) == pytest.approx((12.7, -.254, .254))

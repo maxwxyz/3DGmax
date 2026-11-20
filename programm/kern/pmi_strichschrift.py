@@ -2,6 +2,8 @@
 
 from functools import lru_cache
 
+import re
+
 import numpy as np
 from PySide6 import QtCore, QtGui
 from scipy import ndimage
@@ -174,7 +176,9 @@ def _lies_zeile(zeichen):
                 continue
             if z == "°" and (h > .43 or y > oben + .27 * hoehe):
                 continue
-            if z not in ".°±" and (h < .46 or not y < (oben + unten) / 2 < u):
+            if z == "-" and (h > .28 or abs((y+u-oben-unten)/2) > .23 * hoehe):
+                continue
+            if z not in ".°±-" and (h < .46 or not y < (oben + unten) / 2 < u):
                 continue
             fehler = (dist[vorlage].mean() + abstand[bitmap].mean()) / 2
             je_zeichen[z] = min(je_zeichen.get(z, np.inf), fehler)
@@ -224,10 +228,42 @@ def _rahmentext(pfade, zellen):
     if not all(teile):
         return ""
     if len(teile) == 1:
-        return teile[0] if teile[0].isalpha() else ""
+        return f"[{teile[0]}]" if teile[0].isalpha() else ""
     if teile[0] not in TOL_SYMBOL.values():
         return ""
     return " ".join(teile)
+
+
+def _gestapelt(mask):
+    """Gemeinsamer Vorsatz links, zwei getrennte Zahlenzeilen rechts."""
+    zahl = r"(?:[0-9]+(?:[.,][0-9]+)?|[.,][0-9]+)"
+    gruppen = _gruppen(mask)
+    if not 2 <= len(gruppen) <= 48:
+        return ""
+    for _, trennung in gruppen[:-1]:
+        rechts = mask[:, trennung:]
+        zeilen = _gruppen(rechts.T)
+        if len(zeilen) != 2:
+            continue
+        (a, b), (c, d) = zeilen
+        h = max(b-a, d-c)
+        if min(b-a, d-c) < .65*h or not .1*h < c-b < 1.8*h:
+            continue
+        links = mask[:, :trennung]
+        ly, lx = np.nonzero(links)
+        rx = np.flatnonzero(rechts.any(axis=0))
+        mitte = (ly.min() + ly.max()) / 2
+        if not (a+b)/2 < mitte < (c+d)/2 or rx.min() + trennung - lx.max() > 3*h:
+            continue
+        vorsatz = _lies_zeile(_bildzeichen(links))
+        oben, unten = (_lies_zeile(_bildzeichen(rechts[y:v])) for y, v in zeilen)
+        if vorsatz in ("⌀", "R") and re.fullmatch(zahl, oben) and re.fullmatch(zahl, unten):
+            if float(oben.replace(",", ".")) >= float(unten.replace(",", ".")):
+                return f"{vorsatz}{oben}\n{unten}"
+        abmass = rf"(?:[+-]{zahl}|0(?:[.,]0+)?)"
+        if re.fullmatch(rf"(?:⌀|R)?{zahl}", vorsatz) and all(re.fullmatch(abmass, t) for t in (oben, unten)):
+            return f"{vorsatz} {oben}\n{unten}"
+    return ""
 
 
 def _freitext(pfade):
@@ -236,7 +272,7 @@ def _freitext(pfade):
     if min(spannweite) <= 0:
         return ""
     # Erst die gesamte Grafik rastern. Lange Masslinien samt verbundener Pfeilspitze abtrennen.
-    skala = min(120 / spannweite[1], 2400 / spannweite[0])
+    skala = min(720 / spannweite[1], 2000 / spannweite[0])
     mask, _ = _gesamtbild(pfade, skala)
     if mask is None:
         return ""
@@ -247,16 +283,16 @@ def _freitext(pfade):
     hoehen = [y.stop-y.start for y, x in objekte if y.stop-y.start >= 4]
     if not hoehen:
         return ""
-    typisch = np.median(hoehen)
+    typisch = np.percentile(hoehen, 65)
     for i, (y, x) in enumerate(objekte, 1):
-        if x.stop-x.start > 3.5 * typisch and y.stop-y.start > 1.45 * typisch:
+        if max(x.stop-x.start, y.stop-y.start) > 3.5 * typisch:
             # Nur eindeutig angeschlossene, lange Fuehrungslinien mit geringem Flaechenanteil.
             teil = labels[y, x] == i
             if teil.mean() < .12:
                 mask[y, x] &= ~teil
     if not mask.any():
         return ""
-    return _lies_zeile(_bildzeichen(mask))
+    return _lies_zeile(_bildzeichen(mask)) or _gestapelt(mask)
 
 
 def lies_schrift(g):

@@ -434,3 +434,117 @@ def test_einlinige_schrift_auf_schraeger_ebene_und_unbekanntes_zeichen():
     assert lies_schrift(g) == "27"
     g.linien.append(linie([(18, 0), (24, 8), (18, 8), (24, 0), (18, 0)]))
     assert lies_schrift(g) == ""
+
+
+def test_suche_liest_grafische_schrift_erst_bei_bedarf(fenster, monkeypatch, app):
+    import time
+    from programm.kern import pmi_strichschrift
+
+    gelesen = []
+    lies = pmi_strichschrift.lies_schrift
+    def mitzaehlen(g):
+        gelesen.append(g.callout_id)
+        return lies(g)
+    monkeypatch.setattr(pmi_strichschrift, "lies_schrift", mitzaehlen)
+    fenster.lade(pfad("nist_ctc_01_asme1_ap203.stp.gz"), warten=True)
+    panel = fenster.pmi
+    panel.suche.setText("nr:1")
+    assert not gelesen and not panel._schrift_timer.isActive()
+    panel.suche.setText("⌀25")
+    assert panel._schrift_timer.isActive()
+    panel.suche.clear()
+    assert not panel._schrift_timer.isActive() and not gelesen
+    panel.suche.setText("wert:0.75 bezug:c")
+    ende = time.monotonic() + 5
+    while not panel._schrift_fertig and time.monotonic() < ende:
+        app.processEvents()
+        time.sleep(.002)
+    assert {p.step_id for p in panel.sichtbare()} == {3415, 3424}
+    assert len(gelesen) == len(set(gelesen)) == 21
+    panel.suche.setText("⌀25±0.15")
+    assert [p.step_id for p in panel.sichtbare()] == [3420]
+    assert not panel._schrift_timer.isActive()
+    assert all(not p.semantisch and p.wert is None for p in fenster.erg.pmi)
+    fenster.schliesse_modell()
+    assert not panel._schriftwerte and not panel.sichtbare()
+
+
+def test_ocr_gestapelte_abmasse_und_grenzmasse_im_step(grafische_datei, tmp_path):
+    from programm.kern.pmi_reparieren import vorschlag
+
+    datei, referenz, vorher = grafische_datei
+    erwartet = {607: (35., 0., -.2, False), 608: (35., .2, 0., False),
+                609: (20., .05, -.10, False), 614: (35., 35.2, 34.8, True)}
+    bestaetigt = []
+    for nr, soll in erwartet.items():
+        original = next(p for p in vorher.pmi if p.step_id == nr)
+        v = vorschlag(original, vorher.grafik[nr], vorher.modell)
+        assert v.typ == "Size_Diameter" and "\n" in v.ocr_text and not v.nennwert_aus_geometrie
+        assert (v.nennwert, v.oben, v.unten, v.grenzmass) == soll
+        # Der Pruefer waehlt die Bezugsflaeche. Alle Masswerte stammen ausschliesslich aus der Schrift.
+        ref = next(p for p in referenz.pmi if p.step_id in referenz.grafik[nr].pmi_ids)
+        v.flaechen = set(ref.flaechen)
+        v.quelle, v.step_id, v.nummer = "eigen", -nr, nr
+        bestaetigt.append(v)
+    ziel = str(tmp_path / "gestapelt.stp")
+    bericht = step_schreiben.schreibe(datei, ziel, bestaetigt, vorher.modell)
+    assert set(bericht.repariert) == set(erwartet)
+    neu = lade_alles(ziel)
+    for nr, soll in erwartet.items():
+        sem, = [p for p in neu.pmi if p.step_id in neu.grafik[nr].pmi_ids]
+        assert sem.semantisch and (sem.nennwert, sem.oben, sem.unten, sem.grenzmass) == soll
+    assert all(neu.modell.datei.get(i) == e for i, e in vorher.modell.datei.entities.items())
+
+
+def test_ocr_winkel_hilfsmass_und_buchstabe_ohne_bezugsrahmen():
+    from programm.kern.pmi_reparieren import vorschlag
+    erg = lade_alles(pfad("nist_ctc_01_asme1_ap203.stp.gz"))
+    def lies(nr):
+        return vorschlag(next(p for p in erg.pmi if p.step_id == nr), erg.grafik[nr], erg.modell)
+    p = lies(3421)
+    assert p.typ in ("Size_Angular", "Location_Angular") and (p.nennwert, p.oben, p.unten) == (60, .5, -.5)
+    assert "Hilfsmass" in lies(3418).modifikatoren and lies(3418).nennwert == 85
+    assert not lies(3412).ocr_text  # Der Buchstabe B ist hier nur eine Notiz.
+
+
+def test_laufende_schrifterkennung_nach_modellwechsel(fenster, monkeypatch, app):
+    import threading
+    import time
+    from programm.kern import pmi_strichschrift
+
+    gestartet, freigabe = threading.Event(), threading.Event()
+    def warte(g):
+        gestartet.set()
+        freigabe.wait(4)
+        return "⌀123"
+    monkeypatch.setattr(pmi_strichschrift, "lies_schrift", warte)
+    fenster.lade(pfad("nist_ctc_01_asme1_ap203.stp.gz"), warten=True)
+    panel = fenster.pmi
+    panel.suche.setText("123")
+    ende = time.monotonic() + 3
+    while not gestartet.is_set() and time.monotonic() < ende:
+        app.processEvents()
+        time.sleep(.002)
+    try:
+        assert gestartet.is_set()
+        arbeit = panel._schriftarbeit
+        fenster.schliesse_modell()
+        assert arbeit.abgebrochen and panel._schriftarbeit is None
+    finally:
+        freigabe.set()
+    assert arbeit.wait(3000)
+    app.processEvents()
+    assert not panel._schriftwerte and not panel.sichtbare()
+
+
+def test_suche_nach_originaltext_einer_freitextnotiz(app):
+    from programm.kern.pmi_lesen import ergaenze_hinweise
+    from programm.kern.praesentation import Grafik, Platzhalter
+    from programm.ui.panels import PmiPanel
+    o, x, y = np.zeros(3), np.array([1., 0., 0.]), np.array([0., 1., 0.])
+    g = Grafik(41, "Text.1", platzhalter=[Platzhalter(o, x, y, 20., 2., "Scharfe Kanten entgraten")])
+    p, = ergaenze_hinweise([], {41: g})
+    panel = PmiPanel()
+    panel.zeige([p])
+    panel.suche.setText("Entgraten")
+    assert panel.sichtbare() == [p] and p.name == "Text.1" and not p.semantisch

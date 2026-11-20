@@ -142,7 +142,8 @@ tab group).</li>
 <li><b>Clicking a PMI</b> highlights faces and annotation and shows the datum system; <b>clicking a face</b> selects all
     PMI of that face; clicking an annotation selects its PMI.</li>
 <li><b>Search</b> (<kbd>Ctrl</kbd>+<kbd>F</kbd>): free text or <code>bezug:A</code>, <code>wert:0.5</code>,
-    <code>typ:position</code>, <code>art:toleranz</code>, <code>ansicht:MBD_A</code>, <code>ballon:3</code>.</li>
+    <code>typ:position</code>, <code>art:toleranz</code>, <code>ansicht:MBD_A</code>, <code>ballon:3</code>. A content search also reads graphical lettering. Recognised values appear with ≈
+    until the entry is reviewed and accepted as semantic PMI.</li>
 <li>Right-click in the list: zoom, align, select datums, tolerances using this datum, show tolerance zone, show in view,
     edit, copy.</li>
 <li><b>Show graphical PMI</b> (<kbd>G</kbd>) shows and hides the annotations, <kbd>Shift</kbd>+<kbd>G</kbd> shows only the
@@ -161,7 +162,7 @@ tab group).</li>
     (z, m, αn, β, x) against the recognised gear. Double-click selects the PMI or the faces.</li>
 <li><b>Tools › Convert graphical PMI to semantic PMI …</b> walks through the graphical annotations in the open model.
     To review a subset, select the rows in the PMI list and use the context menu. Character recognition proposes legible dimensions, tolerance frames and datum letters from strokes and filled
-    triangles. Compare the kind, values and faces
+    triangles, including dimensions with stacked deviations or limits. Compare the kind, values and faces
     against the original graphic. Enter any missing values from the graphic. To change the faces, select them in
     the model and apply the selection. Accept the entry to create semantic PMI or skip it to keep it graphical.
     For a native STEP file, the following command saves the confirmed characteristics with their original graphics.

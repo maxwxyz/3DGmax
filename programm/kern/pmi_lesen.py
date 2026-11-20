@@ -352,7 +352,8 @@ def ergaenze_hinweise(pmi: list[Pmi], grafik: dict) -> list[Pmi]:
         g = grafik[cid]
         if g.pmi_ids & vorhanden or g.doppelt or g.leer():
             continue
-        p = Pmi(HINWEIS, typ="Note", name=g.name, nur_grafik_text=g.name or tr_hinweis(),
+        wortlaut = "\n".join(ph.text for ph in g.platzhalter if ph.text)
+        p = Pmi(HINWEIS, typ="Note", name=g.name, nur_grafik_text=wortlaut or g.name or tr_hinweis(),
                 semantisch=False, grafisch=True, quelle="step", step_id=cid)
         felder = pmi_ableiten.ableiten(g)  # nur grafisch: Art und Werte aus Text/Markup ableiten (zu pruefen)
         if felder is not None:

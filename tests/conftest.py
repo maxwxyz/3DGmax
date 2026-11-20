@@ -68,7 +68,10 @@ os.environ["DG_LANG"] = "de"
 def app(tmp_path_factory):
     os.environ["DG_EINSTELLUNGEN"] = str(tmp_path_factory.mktemp("ein") / "einstellungen.ini")
     from PySide6 import QtWidgets
-    return QtWidgets.QApplication.instance() or QtWidgets.QApplication([])
+    anwendung = QtWidgets.QApplication.instance() or QtWidgets.QApplication([])
+    yield anwendung
+    # Ohne app.exec() sendet Qt das Ende der Sitzung nicht an laufende Modellauftraege.
+    anwendung.aboutToQuit.emit()
 
 
 @pytest.fixture

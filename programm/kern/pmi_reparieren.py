@@ -109,7 +109,7 @@ def schriftvorschlag(g, bekannt):
     art, typ = bekannt or (None, "")
     if felder and felder["art"] == MASS and art == TOLERANZ and typ in TOL_SYMBOL:
         felder = aus_text([TOL_SYMBOL[typ], text], g.textfaktor)
-    if not felder or (art and felder["art"] != art):
+    if not felder or (art and felder["art"] != art) or (not bekannt and text.isalpha()):
         return "", {}
     if felder["art"] == TOLERANZ and ("wert" not in felder or (typ and typ != felder["typ"])):
         return "", {}
@@ -134,7 +134,7 @@ def vorschlag(p, g, modell) -> Pmi:
             setattr(neu, k, gelesen[k])
     neu.ocr_text = ocr
     for k in FELDER:
-        if p.art == art and getattr(p, k, None) not in (None, "", []):
+        if k not in gelesen and p.art == art and getattr(p, k, None) not in (None, "", []):
             setattr(neu, k, deepcopy(getattr(p, k)))
     neu.flaechen = {i for i in p.flaechen if 0 <= i < len(modell.flaechen)}
     if not neu.flaechen and g is not None and getattr(modell, "datei", None) is not None:

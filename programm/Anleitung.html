@@ -142,7 +142,8 @@ Reiter blendet andere Leisten ein (sie kommen in diese Reitergruppe).</li>
 <li><b>PMI anklicken</b> hebt Flächen und Beschriftung hervor und zeigt das Bezugssystem; <b>Fläche anklicken</b> wählt
     alle PMI dieser Fläche; ein Klick auf eine Beschriftung wählt ihre PMI.</li>
 <li><b>Suche</b> (<kbd>Strg</kbd>+<kbd>F</kbd>): freier Text oder gezielt <code>bezug:A</code>, <code>wert:0.5</code>,
-    <code>typ:position</code>, <code>art:toleranz</code>, <code>ansicht:MBD_A</code>, <code>ballon:3</code>.</li>
+    <code>typ:position</code>, <code>art:toleranz</code>, <code>ansicht:MBD_A</code>, <code>ballon:3</code>. Eine Inhaltssuche liest auch grafische Beschriftungen. Der Wert erscheint mit ≈,
+    bis die Angabe als semantische PMI geprüft und übernommen wird.</li>
 <li>Rechtsklick in der Liste: zoomen, ausrichten, Bezüge wählen, Toleranzen mit diesem Bezug, Toleranzzone zeigen,
     in Ansicht zeigen, bearbeiten, kopieren.</li>
 <li><b>Grafische PMI zeigen</b> (<kbd>G</kbd>) blendet die Beschriftungen ein und aus, <kbd>Umschalt</kbd>+<kbd>G</kbd>
@@ -162,7 +163,7 @@ Reiter blendet andere Leisten ein (sie kommen in diese Reitergruppe).</li>
 <li><b>Werkzeuge › Grafische PMI semantisch machen …</b> führt durch die grafischen Angaben des geöffneten Modells.
     Für eine Teilmenge die gewünschten Zeilen in der PMI-Liste markieren und den Befehl im Kontextmenü wählen.
     Die Schrifterkennung schlägt lesbare Maße, Toleranzrahmen und Bezugsbuchstaben aus Linien und gefüllten
-    Dreiecken vor. Art, Werte und zugehörige Flächen mit der Originalgrafik abgleichen. Fehlende Werte aus der Grafik ablesen,
+    Dreiecken vor, auch Maße mit übereinanderstehenden Abmaßen oder Grenzmaßen. Art, Werte und zugehörige Flächen mit der Originalgrafik abgleichen. Fehlende Werte aus der Grafik ablesen,
     die Flächen bei Bedarf im Modell wählen und <b>Auswahl übernehmen</b> anklicken. <b>Übernehmen</b> bestätigt die
     Angabe, <b>Überspringen</b> belässt sie als Grafik. Bei geöffneter STEP-Datei speichert der folgende Befehl
     die bestätigten Merkmale zusammen mit ihren Originalgrafiken. Das funktioniert auch für gepackte STEP-Dateien

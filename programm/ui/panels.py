@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from dataclasses import replace
+
 from PySide6 import QtCore, QtGui, QtWidgets
 
 from ..i18n import tr
@@ -252,6 +254,13 @@ class PmiPanel(QtWidgets.QWidget):
         self.ansichten_je_pmi: dict[int, list[str]] = {}
         self.ansichten: list = []
         self.nur_nummern: set[int] | None = None
+        self._schriftgrafik = {}
+        self._schriftwerte = {}
+        self._schriftarbeit = None
+        self._schrift_fertig = False
+        self._schrift_timer = QtCore.QTimer(self)
+        self._schrift_timer.setSingleShot(True)
+        self._schrift_timer.timeout.connect(self._schrift_starten)
         self.art.currentIndexChanged.connect(self._filtern)
         self.suche.textChanged.connect(self._filtern)
         self.tabelle.itemSelectionChanged.connect(self._auswahl)
@@ -267,8 +276,12 @@ class PmiPanel(QtWidgets.QWidget):
         return [[self._werte(p, self.ansichten_je_pmi.get(p.nummer, []), self.ballon).get(s, "") for s in spalten]
                 for p in pmi_liste]
 
-    def zeige(self, pmi: list, ansichten: list | None = None):
+    def zeige(self, pmi: list, ansichten: list | None = None, grafik=None):
         from ..kern import merkmale
+        self.beende_schriftsuche()
+        self._schriftgrafik = grafik or {}
+        self._schriftwerte.clear()
+        self._schrift_fertig = False
         self.pmi = pmi
         self.merkmale = merkmale.liste(pmi)
         self.ballon = merkmale.ballon_je_pmi(self.merkmale)
@@ -343,7 +356,9 @@ class PmiPanel(QtWidgets.QWidget):
             return False
         s = self.suche.text().strip().lower()
         if s:
-            return all(self._passt_teil(p, teil) for teil in s.split())
+            gelesen = self._schriftwerte.get(p.step_id)
+            return all(self._passt_teil(p, teil) or (gelesen is not None and self._passt_teil(gelesen, teil))
+                       for teil in s.split())
         return True
 
     # gezielte Suche: schluessel:wert (deutsch und englisch)
@@ -355,7 +370,7 @@ class PmiPanel(QtWidgets.QWidget):
         schluessel, _, wert = teil.partition(":")
         feld = self.FELDER.get(schluessel) if wert else None
         if feld is None:
-            text = " ".join((p.wert_text(), p.bezug_text(), p.name, p.typ, tr(ART_TEXT.get(p.art, "")), tr(p.merkmal()),
+            text = " ".join((p.wert_text(), p.nur_grafik_text, p.bezug_text(), p.name, p.typ, tr(ART_TEXT.get(p.art, "")), tr(p.merkmal()),
                              " ".join(self.ansichten_je_pmi.get(p.nummer, [])), " ".join(p.modifikatoren))).lower()
             return teil in text
         if feld == "bezug":
@@ -380,6 +395,55 @@ class PmiPanel(QtWidgets.QWidget):
             return wert == str(p.nummer)
         return wert == str(self.ballon.get(p.nummer, ""))
 
+    def beende_schriftsuche(self):
+        self._schrift_timer.stop()
+        if self._schriftarbeit is not None:
+            self._schriftarbeit.abgebrochen = True
+            self._schriftarbeit = None
+
+    def _schrift_starten(self):
+        from ..kern.pmi_reparieren import aus_name
+        aufgaben = []
+        for zeile, p in enumerate(self.pmi):
+            g = self._schriftgrafik.get(p.step_id)
+            if g is not None and not p.semantisch and not g.erzeugt and not any(ph.text for ph in g.platzhalter):
+                art = (p.art, p.typ) if p.art != HINWEIS else aus_name(p.name or g.name)
+                # Eine Modellbewegung ersetzt die Arrays der Originalgrafik.
+                aufgaben.append((zeile, replace(g), art))
+        if not aufgaben:
+            self._schrift_fertig = True
+            self._filtern()
+            return
+        self._schriftarbeit = SchriftLader(aufgaben)
+        self._schriftarbeit.finished.connect(self._schrift_gelesen)
+        self._schriftarbeit.starte()
+
+    @QtCore.Slot()
+    def _schrift_gelesen(self):
+        arbeit = self.sender()
+        if arbeit is not self._schriftarbeit:
+            return
+        self._schriftarbeit = None
+        self._schrift_fertig = True
+        for zeile, text, felder in arbeit.treffer:
+            p = self.pmi[zeile]
+            self._schriftwerte[p.step_id] = replace(p, nur_grafik_text=text, **felder)
+            item = self.tabelle.item(zeile, self.SPALTEN.index("Wert"))
+            item.setText("≈ " + text)
+            item.setToolTip(tr("Automatisch erkannte Schrift (ungeprüft): {}").format(text))
+        self._filtern()
+
+    def _schrift_suchen(self):
+        teile = self.suche.text().lower().split()
+        inhalt = any(self.FELDER.get(t.partition(":")[0]) not in ("nr", "ballon", "ansicht", "name")
+                     or ":" not in t for t in teile)
+        if inhalt and self._schriftgrafik and not self._schrift_fertig:
+            if self._schriftarbeit is None:
+                self._schrift_timer.start(120)
+            return True
+        self.beende_schriftsuche()
+        return False
+
     def _filtern(self):
         sichtbar = 0
         for z, p in enumerate(self.pmi):
@@ -387,6 +451,8 @@ class PmiPanel(QtWidgets.QWidget):
             self.tabelle.setRowHidden(z, not zeigen)
             sichtbar += zeigen
         text = tr("{} von {} PMI").format(sichtbar, len(self.pmi))
+        if self._schrift_suchen():
+            text += "   ·   " + tr("Grafische Schrift wird durchsucht …")
         self.hinweis.setText(f"{text}   ·   {self.norm_text}" if self.norm_text and self.pmi else text)
         aktiv = self.art.currentData() is not None or bool(self.suche.text().strip())
         self.filter_geaendert.emit({p.step_id for p in self.sichtbare() if p.step_id} if aktiv else None)
@@ -728,6 +794,24 @@ class AnsichtenPanel(QtWidgets.QWidget):
             if a.name == name:
                 self.liste.setCurrentRow(z)
                 return
+
+
+class SchriftLader(Modellauftrag):
+    """Grafische Schrift ohne Zugriff auf Widgets lesen."""
+
+    def __init__(self, aufgaben):
+        super().__init__()
+        self.aufgaben = aufgaben
+        self.treffer = []
+
+    def run(self):
+        from ..kern.pmi_reparieren import schriftvorschlag
+        for zeile, grafik, art in self.aufgaben:
+            if self.abgebrochen:
+                return
+            text, felder = schriftvorschlag(grafik, art)
+            if text:
+                self.treffer.append((zeile, text, felder))
 
 
 class VorschauLader(Modellauftrag):

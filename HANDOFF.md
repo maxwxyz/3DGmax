@@ -2,6 +2,24 @@
 
 ## Current state, 2026-11-20
 
+### Search graphical lettering before semantic review
+
+- Native text also stays searchable under its original wording. The PRC parser previously retained text codes
+  internally but dropped them when assembling renderable markups. A rotated, locally scaled inch part with
+  the literal ⌀0.5 ±0.01 now displays a text rectangle and proposes 12.7 ±0.254 mm. STC-06 exercises the
+  existing real-file path. The positioned literal uses a constructed PRC markup-code sequence.
+
+- The PMI list starts recognising graphical entries on the first content search. It retains temporary results
+  across queries, cancels pending recognition when the search is cleared, and drops the index on model switch.
+  This adds no OCR to ordinary file loading. A search for value 0.75 and datum C in the original graphical
+  AP203e2 model returns the two position frames. The diameter string also finds its source callout directly.
+- Recognition runs in a cancellable worker using snapshots of the graphical annotations. A stale result cannot
+  populate a newly loaded model. Search and review share the same recognition rules.
+- Checked PLAN §§8.4 and 8.18 and docs/Roadmap.md. Stacked deviations and absolute limits now survive review and
+  STEP reimport (including zero on either side), while degree signs and parentheses retain the meaning of angular
+  and reference dimensions. A lone letter on an unframed note stays a note. Composite controls and additional
+  glyph sets remain open.
+
 ### Planar lettering in the graphical PMI conversion dialog
 
 - Checked PLAN §§8.4, 8.18 and 8.28 against docs/Roadmap.md. OCR runs when a graphical entry is reviewed.

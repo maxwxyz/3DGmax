@@ -1,6 +1,8 @@
 {
  "unreleased": {
   "de": [
+   "PMI-Text in PRC und 3D-PDF bleibt beim Laden erhalten, einschließlich Position und Ausrichtung. Die Suche findet auch den Wortlaut grafischer Textnotizen.",
+   "Die PMI-Suche findet automatisch erkannte grafische Beschriftungen vor der Übernahme, auch nach Wert, Merkmal und Bezug. Die Erkennung läuft während der Inhaltssuche im Hintergrund. Auch übereinanderstehende Abmaße und Grenzmaße, Winkel und geklammerte Hilfsmaße werden unterstützt.",
    "Grafische PMI semantisch machen: Die Texterkennung liest unterstützte Maße, Toleranzrahmen und Bezüge aus Strichen, Konturen und gefüllten Dreiecken. Bestätigte Angaben werden mit der Originalgrafik als STEP gespeichert.",
    "Zusammenbau: Teile im 3D mit der linken Maustaste ziehen (klassische Navigation: mit Alt) – nur in den offenen Freiheitsgraden; nahe einer passenden Ebene oder Achse rastet das Teil live ein (Flächen hervorgehoben), Loslassen legt die Verbindung an; der 3D-Griff rastet ebenso ein.",
    "Modell hinzufügen (Datei-Menü und Zusammenbau): weitere Dateien beliebigen Formats als zusätzliche Teile ins geladene Modell aufnehmen – eigener Knoten im Strukturbaum, neben das Modell gelegt, auswählbar, ausblendbar, im Zusammenbau wie die übrigen Teile verbindbar, PMI und Ansichten der Datei bleiben erhalten; das Projekt speichert die Dateien mit.",
@@ -116,6 +118,8 @@
    "Grafische PMI aus unterstützten AP203e2-Kurvenmodellen lassen sich als STEP AP242 Edition 3 ausgeben. Facettierte STEP-Modelle behalten ihre Flächenbezüge. Gepackte STEP-Dateien lassen sich als unkomprimierte STEP-Kopie speichern."
   ],
   "en": [
+   "Native PMI text in PRC and 3D PDF retains its position and orientation on import. Search also finds original wording in graphical text notes.",
+   "PMI search finds automatically recognised graphical lettering before review, including by value, characteristic and datum. Recognition runs in the background during a content search. Supported lettering includes stacked deviations and limits, angles and parenthesised reference dimensions.",
    "Convert graphical PMI to semantic PMI: character recognition reads supported dimensions, tolerance frames and datums from strokes, outlines and filled triangles. Confirmed entries retain their original graphics in the STEP copy.",
    "Assembly: drag parts in 3D with the left mouse button (classic navigation: with Alt) – only along the open degrees of freedom; close to a matching plane or axis the part snaps live (faces highlighted), releasing creates the connection; the 3D handle snaps the same way.",
    "Add model (File menu and assembly panel): load further files of any format as additional parts into the current model – own node in the structure tree, placed next to the model, selectable, hideable, connectable in the assembly like the other parts, PMI and views of the file kept; the project stores the files too.",
