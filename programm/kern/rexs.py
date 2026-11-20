@@ -20,8 +20,9 @@ Abbildung:
   Profilverschiebungen, Profil-, Sprung- und Gesamtueberdeckung, Normalflankenspiel (min = max, aus der Nennlage),
   dazu je Rad cylindrical_stage_gear_data (stage_gear_data-Relation) mit Kopfspiel, Betriebseingriffswinkel und
   spezifischem Gleiten am Fuss;
-- je Planetensatz planetary_stage mit central_shaft (Welle der Sonne) und planet_shaft (Wellen der Planeten); der
-  Steg ist aus der Verzahnung allein nicht bestimmbar und fehlt.
+- je Planetensatz planetary_stage mit den beiden central_shaft (Sonne und Hohlrad), planet_shaft und den
+  zugehoerigen Eingriffen. Aus der Verzahnung nicht belegte Steg- und Lagerbauteile fehlen im Teilmodell.
+  Siehe https://spec.rexs.info/1.7/en/root-modeling-planetary-stages.html.
 """
 
 from __future__ import annotations
@@ -129,21 +130,42 @@ def modell(liste: list[Verzahnung], paare: list[Paar], name: str = "3DGmax",
            programm_version: str = "") -> dict:
     """REXS-Modell (dict fuer json.dump) der Raeder, Paare, Wellen und Planetensaetze."""
     m = _Modell()
-    m.komponente("gear_unit", name, {"model_name": name})
+    einheit = m.komponente("gear_unit", name, {"model_name": name})
     ids = [_rad(m, v) for v in liste]
-    for k, gruppe in enumerate(vd.wellen(liste), 1):
+    paare = [p for p in paare if vd.eingriff_moeglich(p)]
+    saetze = vd.planetensaetze(liste, paare)
+    mitglieder = [{s.sonne, s.hohlrad, *s.planeten} for s in saetze]
+    welle_von = {}
+    for gruppe in vd.wellen(liste, mitglieder):
         welle = m.komponente("shaft", " + ".join(liste[i].teil for i in gruppe), {})
         for i in gruppe:
             m.relation("assembly", assembly=welle, part=ids[i])
+            welle_von[i] = welle
+    satz_eingriffe = {}
+    umlaufwellen = {welle_von[i] for s in saetze for i in s.planeten}
+    for n, s in enumerate(saetze, 1):
+        satz = m.komponente("planetary_stage", f"Planetensatz {n}", {})
+        m.relation("assembly", assembly=einheit, part=satz)
+        for welle in dict.fromkeys(welle_von[i] for i in (s.sonne, s.hohlrad)):
+            m.relation("central_shaft", planetary_stage=satz, shaft=welle)
+        for i in s.planeten:
+            m.relation("planet_shaft", planetary_stage=satz, shaft=welle_von[i])
+            for j in (s.sonne, s.hohlrad):
+                satz_eingriffe.setdefault(frozenset((i, j)), []).append(satz)
     index = {id(v): i for i, v in enumerate(liste)}
     for p in paare:
+        a, b = index[id(p.a)], index[id(p.b)]
+        baugruppen = satz_eingriffe.get(frozenset((a, b)), [])
+        if not baugruppen and (welle_von[a] in umlaufwellen or welle_von[b] in umlaufwellen):
+            continue
         w = vd.paar_werte(p)
         stufe = m.komponente("cylindrical_stage", f"{p.a.teil} – {p.b.teil}", {
             "center_distance": p.abstand, "gear_ratio": w["u"], "sum_of_addendum_modification_coefficients": w["summe_x"],
             "radial_contact_ratio": p.eps_alpha, "overlap_contact_ratio": p.eps_beta,
             "total_contact_ratio": w["eps_gamma"], "minimum_normal_backlash": p.spiel,
             "maximum_normal_backlash": p.spiel})
-        a, b = index[id(p.a)], index[id(p.b)]
+        for gruppe in baugruppen or [einheit]:
+            m.relation("assembly", assembly=gruppe, part=stufe)
         m.relation("stage", stage=stufe, gear_1=ids[a], gear_2=ids[b])
         klein_ist_a = w["klein"] == p.a.teil
         gleiten = w["gleiten"] or (None, None)
@@ -154,14 +176,6 @@ def modell(liste: list[Verzahnung], paare: list[Paar], name: str = "3DGmax",
                 "operating_pressure_angle_in_the_transverse_section": p.alpha_wt,
                 "specific_sliding_at_root_diameter": gleiten[0] if klein else gleiten[1]})
             m.relation("stage_gear_data", stage=stufe, gear=ids[i], stage_gear_data=daten)
-    wellen = vd.wellen(liste)
-    welle_von = {i: k for k, g in enumerate(wellen) for i in g}
-    wellen_ids = [c["id"] for c in m.komponenten if c["type"] == "shaft"]
-    for n, s in enumerate(vd.planetensaetze(liste, paare), 1):
-        satz = m.komponente("planetary_stage", f"Planetensatz {n}", {})
-        m.relation("central_shaft", planetary_stage=satz, shaft=wellen_ids[welle_von[s.sonne]])
-        for i in s.planeten:
-            m.relation("planet_shaft", planetary_stage=satz, shaft=wellen_ids[welle_von[i]])
     jetzt = datetime.datetime.now(datetime.timezone.utc).astimezone().replace(microsecond=0)
     datum = jetzt.strftime("%Y-%m-%dT%H:%M:%S") + jetzt.strftime("%z")[:3] + ":" + jetzt.strftime("%z")[3:]
     return {"model": {"version": VERSION, "applicationId": "3DGmax", "applicationVersion": programm_version or "0",

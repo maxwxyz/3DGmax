@@ -12,7 +12,7 @@ from ..i18n import tr
 from ..kern import passverzahnung as pv
 from ..kern import verzahnung as vz
 from ..kern import verzahnung_daten as vd
-from ..kern.verzahnung_sonder import kegelpaar_kandidaten, schneckenpaar_kandidaten
+from ..kern.verzahnung_sonder import Schneckenpaar, kegelpaar_kandidaten, schneckenpaar_kandidaten
 from .lader import Modellauftrag
 from .tabellen import spalten_anpassen
 
@@ -81,19 +81,20 @@ class VerzahnungFenster(QtWidgets.QDialog):
         getriebelayout = QtWidgets.QVBoxLayout(self.getriebeseite)
         wahl = QtWidgets.QFormLayout()
         self.bezugswelle = QtWidgets.QComboBox()
-        self.bezugswelle.addItem(tr("Automatisch (kleinstes Rad einer Endwelle)"), None)
-        gruppen, zuege, _ = vd._zuege(self.liste, self.paare)
-        for k in sorted({k for zug in zuege for k in zug.ergebnis}):
-            gruppe = gruppen[k]
-            self.bezugswelle.addItem(" + ".join(self.liste[i].teil for i in gruppe), gruppe[0])
         wahl.addRow(tr("Bezugswelle für die Übersetzung"), self.bezugswelle)
         getriebelayout.addLayout(wahl)
-        annahme = QtWidgets.QLabel(tr("Gleichachsige Räder werden als drehfest verbunden angenommen. "
-                                     "Jeder getrennte Getriebezug hat eine eigene Bezugswelle."))
+        annahme = QtWidgets.QLabel(tr("Der Kraftfluss fasst gleichachsige Räder festachsiger Stufen automatisch zusammen. "
+                                     "Unabhängige Wellen und Kupplungen können Sie im Betriebspunkt zuordnen."))
         annahme.setWordWrap(True)
         getriebelayout.addWidget(annahme)
         getriebelayout.addWidget(self.getriebe_tabelle, 1)
         self.bezugswelle.currentIndexChanged.connect(self._bezug_geaendert)
+        from .getriebe_betrieb_ui import BetriebspunktSeite
+        self.betriebspunkt = BetriebspunktSeite(self.liste, self.paare,
+                                                any(isinstance(p, Schneckenpaar) for p in self.sonderpaare))
+        self.betriebspunkt.achseGeaendert.connect(self._achse_geaendert)
+        self.reiter.addTab(self.betriebspunkt, tr("Betriebspunkt"))
+        self._reiter_zeigen(self.betriebspunkt, self.betriebspunkt.verfuegbar())
         self.befund_tabelle = QtWidgets.QTableWidget()
         self.befund_tabelle.setEditTriggers(QtWidgets.QAbstractItemView.EditTrigger.NoEditTriggers)
         self.reiter.addTab(self.befund_tabelle, tr("Auslegungsbefunde"))
@@ -155,7 +156,7 @@ class VerzahnungFenster(QtWidgets.QDialog):
                 pt.setItem(r, s, QtWidgets.QTableWidgetItem(wert))
         spalten_anpassen(pt)
         self._reiter_zeigen(pt, bool(paarzeilen))
-        self._bezug_geaendert()
+        self._achse_geaendert()
         texte = [f"{v.teil}: {h}" for v in self.raeder for h in v.hinweise]
         texte += [f"{p.a.teil} – {p.b.teil}: {h}" for p in self.paare for h in p.hinweise]
         self.hinweise.setText("\n".join(texte) if texte else ("" if self.liste else tr("Keine auswertbare Verzahnung gefunden. Bei Netzmodellen müssen die Zahnflanken durch genügend Dreiecke aufgelöst sein.")))
@@ -166,9 +167,21 @@ class VerzahnungFenster(QtWidgets.QDialog):
     def _reiter_zeigen(self, seite, sichtbar):
         self.reiter.setTabVisible(self.reiter.indexOf(seite), sichtbar)
 
+    def _achse_geaendert(self):
+        ref = self.bezugswelle.currentData()
+        with QtCore.QSignalBlocker(self.bezugswelle):
+            self.bezugswelle.clear()
+            self.bezugswelle.addItem(tr("Automatisch (kleinstes Rad einer Endwelle)"), None)
+            gruppen, zuege, _ = vd._zuege(self.liste, self.paare, achswahl=self.betriebspunkt.achswahl())
+            for k in sorted({k for zug in zuege for k in zug.ergebnis}):
+                gruppe = gruppen[k]
+                self.bezugswelle.addItem(" + ".join(self.liste[i].teil for i in gruppe), gruppe[0])
+            self.bezugswelle.setCurrentIndex(max(0, self.bezugswelle.findData(ref)))
+        self._bezug_geaendert()
+
     def _bezug_geaendert(self):
         self.bezugsrad = self.bezugswelle.currentData()
-        getriebe = vd.getriebe_zeilen(self.liste, self.paare, self.bezugsrad)
+        getriebe = vd.getriebe_zeilen(self.liste, self.paare, self.bezugsrad, self.betriebspunkt.achswahl())
         gt = self.getriebe_tabelle
         gt.setRowCount(len(getriebe))
         gt.setColumnCount(1)
@@ -207,13 +220,24 @@ class VerzahnungFenster(QtWidgets.QDialog):
             return verzahnung_pdf(self, pfad)
         with open(pfad, "w", encoding="utf-8-sig" if art == "csv" else "utf-8") as f:
             if art == "csv":
-                f.write(vd.als_csv(self.liste, self.paare, self.bezugsrad))
+                f.write(vd.als_csv(self.liste, self.paare, self.bezugsrad, self.betriebspunkt.achswahl()))
+                if self.betriebspunkt.verfuegbar():
+                    import csv
+                    writer = csv.writer(f, delimiter=";", lineterminator="\n")
+                    writer.writerow([])
+                    writer.writerow([tr("Betriebspunkt")])
+                    writer.writerows(self.betriebspunkt.bedingungen())
+                    writer.writerow(self.betriebspunkt.spalten())
+                    writer.writerows(self.betriebspunkt.wellenzeilen())
             elif art == "rexs":
                 from ..kern import rexs
                 from ..version import VERSION
                 json.dump(rexs.modell(self.raeder, self.paare, os.path.basename(self.basis) or "3DGmax", VERSION), f,
                           ensure_ascii=False, indent=1)
             else:
-                json.dump({"format": "3dgmax-verzahnung", "version": 2, **vd.datenblatt(self.liste, self.paare, self.bezugsrad)}, f,
+                daten = vd.datenblatt(self.liste, self.paare, self.bezugsrad, self.betriebspunkt.achswahl())
+                if self.betriebspunkt.verfuegbar():
+                    daten["betriebspunkt"] = self.betriebspunkt.daten()
+                json.dump({"format": "3dgmax-verzahnung", "version": 2, **daten}, f,
                           ensure_ascii=False, indent=1)
         return pfad

@@ -343,10 +343,18 @@ def verzahnung_pdf(fenster, pfad: str) -> str:
     if gt.rowCount():
         bericht.neue_seite()
         bericht.ueberschrift(tr("Getriebe"))
-        bericht.absatz(tr("Gleichachsige Räder werden als drehfest verbunden angenommen. "
-                          "Jeder getrennte Getriebezug hat eine eigene Bezugswelle."))
+        bericht.absatz(tr("Der Kraftfluss fasst gleichachsige Räder festachsiger Stufen automatisch zusammen. "
+                          "Unabhängige Wellen und Kupplungen können Sie im Betriebspunkt zuordnen."))
         bericht.tabelle([(tr("Größe"), .55), (tr("Wert"), .45)],
                         [(gt.verticalHeaderItem(r).text(), gt.item(r, 0).text()) for r in range(gt.rowCount())])
+    betrieb = fenster.betriebspunkt
+    if betrieb.verfuegbar():
+        bericht.neue_seite()
+        bericht.ueberschrift(tr("Betriebspunkt"))
+        bedingungen = betrieb.bedingungen()
+        if bedingungen:
+            bericht.tabelle([(tr("Bedingung"), .35), (tr("Wert"), .65)], bedingungen)
+        bericht.tabelle(list(zip(betrieb.spalten(), (.33, .14, .14, .13, .26))), betrieb.wellenzeilen())
     bt = fenster.befund_tabelle
     if bt.rowCount():
         bericht.neue_seite()

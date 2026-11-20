@@ -71,6 +71,7 @@ class Steckprofil:
     modul: float | None = None
     alpha: float | None = None
     koerper: str | None = None
+    koerper_id: object | None = field(default=None, repr=False, compare=False)
 
     @property
     def fussform(self):

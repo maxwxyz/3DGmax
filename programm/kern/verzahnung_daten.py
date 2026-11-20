@@ -171,22 +171,26 @@ def _gleiche_achse(a: Verzahnung, b: Verzahnung, toleranz: float = 1e-3) -> bool
     return float(np.linalg.norm(q - a.richtung * float(q @ a.richtung))) < toleranz * max(_achsmass(a), _achsmass(b), 1.0)
 
 
-def wellen(liste, planeten=()) -> list[list[int]]:
-    """Gruppen gleichachsiger Raeder (Indizes) - Annahme: gleiche Achse = gleiche Welle (eine durchgehende Welle mit
-    Lagern zwischen koaxialen Stufen laesst sich aus der Geometrie allein nicht unterscheiden)."""
-    # Sonne und Hohlrad desselben Satzes sind trotz gleicher Achse unabhaengig.
-    getrennt = {i for s in planeten for i in s if any(
-        j != i and _gleiche_achse(liste[i], liste[j]) for j in s)}
-    gruppen: list[list[int]] = []
-    for i, v in enumerate(liste):
-        if not hasattr(v, "richtung"):  # Steckprofile bilden keine drehzahlwandelnde Stufe.
-            continue
-        g = next((g for g in gruppen if i not in getrennt and g[0] not in getrennt and
-                  _gleiche_achse(liste[g[0]], v)), None)
-        if g is None:
-            gruppen.append([i])
+def wellen(liste, planeten=(), *, getrennte_wellen=False) -> list[list[int]]:
+    """Bestaetigte Koerper bleiben drehfest. Sonstige gleichachsige Raeder optional zusammenfassen."""
+    koerper = {}
+    for i, rad in enumerate(liste):
+        if hasattr(rad, "richtung"):
+            kennung = getattr(rad, "koerper_id", None)
+            koerper.setdefault(i if kennung is None else kennung, []).append(i)
+    if getrennte_wellen:
+        return list(koerper.values())
+    unabhaengig = {i for s in planeten for i in s}
+    gruppen = []
+    for teile in koerper.values():
+        gruppe = None
+        if unabhaengig.isdisjoint(teile):
+            gruppe = next((g for g in gruppen if unabhaengig.isdisjoint(g) and
+                           _gleiche_achse(liste[g[0]], liste[teile[0]])), None)
+        if gruppe is None:
+            gruppen.append(teile)
         else:
-            g.append(i)
+            gruppe.extend(teile)
     return gruppen
 
 
@@ -200,10 +204,20 @@ class Planetensatz:
     z_hohlrad: int
     hinweise: list[str] = field(default_factory=list)
 
+    def betriebsfaelle(self):
+        """Drehzahlverhaeltnisse fuer vorgegebene Rollen; Geometrie allein legt sie nicht fest."""
+        zs, zr = self.z_sonne, self.z_hohlrad
+        return [{"art": "planet", "fest": "hohlrad", "antrieb": "sonne", "abtrieb": "steg", "i": 1 + zr / zs},
+                {"art": "planet", "fest": "sonne", "antrieb": "hohlrad", "abtrieb": "steg", "i": 1 + zs / zr},
+                {"art": "stern", "fest": "steg", "antrieb": "sonne", "abtrieb": "hohlrad", "i": -zr / zs},
+                {"art": "differential", "fest": None, "i": None}]
+
     def zeilen(self, liste: list[Verzahnung]) -> list[tuple[str, str]]:
         zs, zp, zr, n = self.z_sonne, self.z_planet, self.z_hohlrad, len(self.planeten)
         montage = (zs + zr) / n
         return [(tr("Sonne / Planeten / Hohlrad"), f"{zs} / {zp} / {zr}"),
+                (tr("Sonne / Hohlrad"), f"{liste[self.sonne].teil} / {liste[self.hohlrad].teil}"),
+                (tr("Umlaufräder"), ", ".join(liste[i].teil for i in self.planeten)),
                 (tr("Anzahl Planeten"), str(n)),
                 (tr("Standübersetzung i0 (Steg fest)"), _g(-zr / zs, 4)),
                 (tr("Übersetzung Sonne → Steg (Hohlrad fest)"), _g(1 + zr / zs, 4)),
@@ -211,7 +225,10 @@ class Planetensatz:
                 (tr("Montagebedingung (zs + zr) / n"),
                  f"{_g(montage, 3)} – " + (tr("erfüllt") if abs(montage - round(montage)) < 1e-9 else
                                            tr("nicht ganzzahlig: gleich verteilte Planeten nicht montierbar"))),
-                (tr("Teilung der Planeten"), self._teilung(liste))]
+                (tr("Teilung der Planeten"), self._teilung(liste)),
+                (tr("Sternbetrieb (Steg fest)"), f"nS / nR = {_g(-zr / zs)}"),
+                (tr("Dreiwellenbetrieb (kein Glied fest)"), f"{zs} nS + {zr} nR = {zs + zr} nC"),
+                (tr("Drehzahlrollen"), tr("nS: Sonne, nR: Hohlrad, nC: Steg"))]
 
     def _teilung(self, liste: list[Verzahnung]) -> str:
         s = liste[self.sonne]
@@ -225,11 +242,19 @@ class Planetensatz:
         return ", ".join(f"{a:.1f}°" for a in abst) + (" – " + tr("gleich verteilt") if gleich else "")
 
 
+def eingriff_moeglich(p: Paar) -> bool:
+    """Positive Eingriffsstrecke und zueinander passende Steigungshaende eines Zylinderpaars."""
+    a, b = p.a, p.b
+    return p.eps_alpha > 0 and (not (a.beta and b.beta) or (a.hand == b.hand) == (a.innen or b.innen))
+
+
 def planetensaetze(liste: list[Verzahnung], paare: list[Paar]) -> list[Planetensatz]:
     """Hohlrad und gleichachsige Sonne mit mindestens zwei Planeten, die mit beiden kaemmen."""
     idx = {id(v): i for i, v in enumerate(liste)}
     nachbarn: dict[int, set[int]] = {}
     for p in paare:
+        if not isinstance(p, Paar) or not eingriff_moeglich(p):
+            continue
         i, j = idx[id(p.a)], idx[id(p.b)]
         nachbarn.setdefault(i, set()).add(j)
         nachbarn.setdefault(j, set()).add(i)
@@ -269,22 +294,26 @@ class Kraftfluss:
     widerspruch: bool
 
 
-def _kraftfluesse(liste, paare, planeten, bezugsrad=None):
+def _kraftfluesse(liste, paare, planeten, bezugsrad=None, umlauf=()):
     """Festachsige Getriebezuege je Zusammenhang. Lose Raeder und Planeteneingriffe getrennt halten."""
     from collections import defaultdict, deque
     idx = {id(v): i for i, v in enumerate(liste)}
     gruppen = wellen(liste, planeten)
     welle = {i: k for k, g in enumerate(gruppen) for i in g}
+    bewegt = {welle[i] for i in umlauf}
+    # Auch beim direkten Aufruf mit Planetensatz-Indizes bleibt der Planetenbolzen eine bewegliche Achse.
+    for s in planeten:
+        ring = next((i for i in s if getattr(liste[i], "innen", False)), None)
+        if ring is not None:
+            bewegt.update(welle[i] for i in s if not _gleiche_achse(liste[i], liste[ring]))
     graph = defaultdict(list)
     for p in paare:
         i, j = idx[id(p.a)], idx[id(p.b)]
-        if any(i in s and j in s for s in planeten):
+        if welle[i] in bewegt or welle[j] in bewegt or any(i in s and j in s for s in planeten):
             continue
         richtung = None
         if isinstance(p, Paar):
-            if p.a.beta and p.b.beta and (p.a.hand == p.b.hand) != (p.a.innen or p.b.innen):
-                continue
-            if p.eps_alpha <= 0:
+            if not eingriff_moeglich(p):
                 continue
             richtung = 1 if p.a.innen or p.b.innen else -1
         graph[welle[i]].append((i, j, richtung))
@@ -333,25 +362,90 @@ def _planeten_indizes(liste, paare):
     return saetze, [{idx[id(raeder[i])] for i in [s.sonne, s.hohlrad, *s.planeten]} for s in saetze]
 
 
-def _zuege(liste, paare, bezugsrad=None):
+def _achswahl(varianten, nr, wahl):
+    idx = (wahl or {}).get(nr, 0 if len(varianten) == 1 else None)
+    if idx is not None and (not isinstance(idx, int) or idx not in range(len(varianten))):
+        raise ValueError("Unbekannte Achsvariante")
+    return idx
+
+
+def _umlaufgruppen(gruppen, wahl):
+    if wahl and any(k not in range(len(gruppen)) for k in wahl):
+        raise ValueError("Unbekannte Differentialgruppe")
+    mitglieder, umlauf = [], set()
+    for nr, varianten in enumerate(gruppen):
+        idx = _achswahl(varianten, nr, wahl)
+        for s in varianten if idx is None else [varianten[idx]]:
+            mitglieder.append(s.teile)
+            umlauf.update(s.umlauf)
+    return mitglieder, umlauf
+
+
+def _zugdaten(liste, paare, bezugsrad, achswahl):
+    from .getriebe_betrieb import differentialgruppen
     from .verzahnung_sonder import kegelpaar_kandidaten, schneckenpaar_kandidaten
     saetze, mitglieder = _planeten_indizes(liste, paare)
-    paare = [*paare, *kegelpaar_kandidaten(liste), *schneckenpaar_kandidaten(liste)]
-    gruppen, zuege = _kraftfluesse(liste, paare, mitglieder, bezugsrad)
-    return gruppen, zuege, saetze
+    kegel = kegelpaar_kandidaten(liste)
+    diff = differentialgruppen(liste, kegel)
+    weitere, umlauf = _umlaufgruppen(diff, achswahl)
+    schnecken = schneckenpaar_kandidaten(liste)
+    gruppen, zuege = _kraftfluesse(liste, [*paare, *kegel, *schnecken], mitglieder + weitere, bezugsrad, umlauf)
+    return gruppen, zuege, saetze, diff, kegel, schnecken
 
 
-def stufen(liste, paare, planeten, bezugsrad=None):
-    """Stirnradstufen und Wellenwerte. Bei mehreren Zuegen hat jeder seine eigene Bezugswelle."""
-    mitglieder = [{s.sonne, s.hohlrad, *s.planeten} for s in planeten]
-    _, zuege = _kraftfluesse(liste, paare, mitglieder, bezugsrad)
+def _zuege(liste, paare, bezugsrad=None, achswahl=None):
+    return _zugdaten(liste, paare, bezugsrad, achswahl)[:3]
+
+
+def stufen(liste, paare, planeten, bezugsrad=None, achswahl=None):
+    """Stufen und Wellenwerte aus den angegebenen Paaren ohne Eingriffe der Umlaufraeder."""
+    from .getriebe_betrieb import differentialgruppen
+    from .verzahnung_sonder import kegelpaar_kandidaten
+    saetze = planeten or _planeten_indizes(liste, [p for p in paare if isinstance(p, Paar)])[0]
+    raeder = [i for i, v in enumerate(liste) if isinstance(v, Verzahnung)]
+    mitglieder = [{raeder[i] for i in [s.sonne, s.hohlrad, *s.planeten]} for s in saetze]
+    weitere, umlauf = _umlaufgruppen(differentialgruppen(liste, kegelpaar_kandidaten(liste)), achswahl)
+    _, zuege = _kraftfluesse(liste, paare, mitglieder + weitere, bezugsrad, umlauf)
     return ([s for z in zuege for s in z.stufen],
             {k: v for z in zuege if not z.widerspruch for k, v in z.ergebnis.items()})
 
 
-def getriebe_zeilen(liste, paare, bezugsrad=None):
-    """Kraftfluss, Uebersetzungen und getrennt auswertbare Planeten-Betriebsfaelle."""
-    gruppen, zuege, saetze = _zuege(liste, paare, bezugsrad)
+def _differential_zeilen(liste, gruppen, achswahl):
+    zeilen = []
+    for nr, varianten in enumerate(gruppen):
+        titel = tr("Offenes Kegelraddifferential {}").format(nr + 1)
+        idx = _achswahl(varianten, nr, achswahl)
+        wahl = tr("Achswahl offen") if idx is None else tr("Achse {}").format(idx + 1)
+        zeilen.append((titel, wahl))
+        for k, s in enumerate(varianten):
+            name = tr("Achse {}").format(k + 1)
+            seiten = f"{liste[s.a].teil} / {liste[s.b].teil}"
+            zeilen.append((f"{titel} · {name} · " + tr("Seitenräder A / B"), seiten))
+            zeilen.append((f"{titel} · {name} · " + tr("Ausgleichsräder"), ", ".join(liste[i].teil for i in s.umlauf)))
+        zeilen.append((titel + " · " + tr("Drehzahlgleichung"), tr("nA + nB = 2 nC (nC: Stegdrehzahl)")))
+    return zeilen
+
+
+def _differential_daten(liste, gruppen, achswahl):
+    from .getriebe_betrieb import _positive_achse
+    daten = []
+    for nr, gruppe in enumerate(gruppen):
+        idx = _achswahl(gruppe, nr, achswahl)
+        varianten = []
+        for s in gruppe:
+            rad = liste[s.a]
+            varianten.append({"seitenraeder": [s.a, s.b], "ausgleichsraeder": list(s.umlauf),
+                              "stegachse": {"punkt": rad.punkt.tolist(), "richtung": _positive_achse(rad.richtung).tolist()},
+                              "rollen": ["seitenrad_a", "seitenrad_b", "steg"],
+                              "koeffizienten": [1, 1, -2], "gleichung": "nA + nB = 2 nC"})
+        daten.append({"art": "offenes_kegelraddifferential", "indexbezug": "kraftfluss.teile", "achswahl": idx,
+                      "achswahl_erforderlich": idx is None, "varianten": varianten})
+    return daten
+
+
+def getriebe_zeilen(liste, paare, bezugsrad=None, achswahl=None):
+    """Kraftfluss und bedingte Betriebsarten bei gegebenen oder noch offenen Achsen."""
+    gruppen, zuege, saetze, diff, _, _ = _zugdaten(liste, paare, bezugsrad, achswahl)
     raeder = [v for v in liste if isinstance(v, Verzahnung)]
     zeilen = []
     for nr, zug in enumerate(zuege, 1):
@@ -377,20 +471,20 @@ def getriebe_zeilen(liste, paare, bezugsrad=None):
     for n, s in enumerate(saetze, 1):
         zeilen += [(tr("Planetensatz {}").format(n) + " – " + a, b) for a, b in s.zeilen(raeder)]
         zeilen += [(tr("Planetensatz {}").format(n) + " – " + tr("Hinweis"), h) for h in s.hinweise]
-    return zeilen
+    return zeilen + _differential_zeilen(liste, diff, achswahl)
 
 
-def datenblatt(liste: list, paare: list[Paar], bezugsrad=None) -> dict:
+def datenblatt(liste: list, paare: list[Paar], bezugsrad=None, achswahl=None) -> dict:
     """Alles fuer den JSON-Export (Werte als Zahlen, mm und Grad)."""
     from . import passverzahnung as pv
-    from .verzahnung_sonder import Sonderprofil, Taillenrad, kegelpaar_kandidaten, schneckenpaar_kandidaten
-    gruppen_alle, zuege, _ = _zuege(liste, paare, bezugsrad)
+    from .verzahnung_sonder import Sonderprofil, Taillenrad
+    gruppen_alle, zuege, saetze, diff, kegel, schnecken = _zugdaten(liste, paare, bezugsrad, achswahl)
+    differentiale = _differential_daten(liste, diff, achswahl)
     teile = [v.teil for v in liste]
     bezug = liste[bezugsrad] if bezugsrad is not None else None
     sonder = [v for v in liste if isinstance(v, (Sonderprofil, Taillenrad))]
     profile = [v for v in liste if isinstance(v, pv.Steckprofil)]
     liste = [v for v in liste if isinstance(v, Verzahnung)]
-    saetze = planetensaetze(liste, paare)
     st, ziel = stufen(liste, paare, saetze, next((i for i, v in enumerate(liste) if v is bezug), None))
     gruppen = wellen(liste, [{s.sonne, s.hohlrad, *s.planeten} for s in saetze])
     raeder = []
@@ -415,8 +509,8 @@ def datenblatt(liste: list, paare: list[Paar], bezugsrad=None) -> dict:
             "zahnraeder": raeder,
             "steckprofile": [v.als_dict() for v in profile],
             "sonderprofile": [v.als_dict() for v in sonder],
-            "kegelpaar_kandidaten": [p.als_dict() for p in kegelpaar_kandidaten(sonder)],
-            "schneckenpaar_kandidaten": [p.als_dict() for p in schneckenpaar_kandidaten(sonder)],
+            "kegelpaar_kandidaten": [p.als_dict() for p in kegel],
+            "schneckenpaar_kandidaten": [p.als_dict() for p in schnecken],
             "steckpaare": [p.als_dict() for p in pv.paare(profile)],
             "paare": [{"a": p.a.teil, "b": p.b.teil, "abstand": p.abstand, "abstand_soll": p.abstand_soll,
                        "spiel": p.spiel,  # Schluessel wie in Version 1
@@ -434,8 +528,13 @@ def datenblatt(liste: list, paare: list[Paar], bezugsrad=None) -> dict:
             "stufen": [{"antrieb": s.antrieb, "abtrieb": s.abtrieb, "u": s.u, "gegenlaeufig": s.gegenlaeufig}
                        for s in st],
             "uebersetzung_je_welle": {str(k): {"i": i, "richtung": r} for k, (i, r) in ziel.items()},
+            "differentialgruppen": differentiale,
             "planetensaetze": [{"sonne": s.sonne, "hohlrad": s.hohlrad, "planeten": s.planeten, "z_sonne": s.z_sonne,
-                                "z_planet": s.z_planet, "z_hohlrad": s.z_hohlrad, "hinweise": s.hinweise}
+                                "z_planet": s.z_planet, "z_hohlrad": s.z_hohlrad, "hinweise": s.hinweise,
+                                "rollen": ["sonne", "hohlrad", "steg"],
+                                "koeffizienten": [s.z_sonne, s.z_hohlrad, -(s.z_sonne + s.z_hohlrad)],
+                                "gleichung": "zS nS + zR nR = (zS + zR) nC",
+                                "betriebsfaelle": s.betriebsfaelle()}
                                for s in saetze],
             "auslegungsbefunde": _befunde([*liste, *profile, *sonder], paare, bezug)}
 
@@ -594,7 +693,7 @@ def tabelle(zeilen_je_spalte: list[list[tuple]]) -> tuple[list[str], list[list[s
     return namen, werte
 
 
-def als_csv(liste: list[Verzahnung], paare: list[Paar], bezugsrad=None) -> str:
+def als_csv(liste: list[Verzahnung], paare: list[Paar], bezugsrad=None, achswahl=None) -> str:
     """Datenblatt als CSV (Semikolon): Raeder spaltenweise mit Herkunft, darunter Paare und Getriebe."""
     import csv
     import io
@@ -623,7 +722,7 @@ def als_csv(liste: list[Verzahnung], paare: list[Paar], bezugsrad=None) -> str:
         w.writerow([tr("Radpaar")] + [f"{p.a.teil} – {p.b.teil}" for p in paare])
         for i, n in enumerate(namen):
             w.writerow([n] + [s[i] for s in werte])
-    getriebe = getriebe_zeilen(liste, paare, bezugsrad)
+    getriebe = getriebe_zeilen(liste, paare, bezugsrad, achswahl)
     if getriebe:
         w.writerow([])
         w.writerow([tr("Getriebe")])

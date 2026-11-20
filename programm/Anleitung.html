@@ -431,7 +431,21 @@ Die Tabelle nennt die Herkunft. Sie unterstützt auch Steckprofile, konische Zä
 Bezugswelle. Als Vorgabe dient das kleinste Rad auf einer Endwelle jedes verbundenen Zugs. Gleichachsige
 Räder gelten dabei als drehfest verbunden. Bei getrennten Zügen oder Verzweigungen werden die Wege
 separat bewertet. Für Planetensätze sind die Übersetzungen je nach festgehaltenem Glied angegeben. Bei
-Kegel- und Schneckenpaaren ist die Zuordnung ein geometrischer Befund. Ein Lastnachweis erfordert weitere Daten.</p>
+Kegel- und Schneckenpaaren ist die Zuordnung ein geometrischer Befund. Die Paartabelle zeigt äußeren und mittleren Stirnmodul für Rad 1 und Rad 2, wenn sich die ebenen Enden des
+jeweiligen Zahnbands bestätigen lassen. Die gemeinsame Zahnbreite ist der Überlapp entlang der Teilkegel.
+Ein Lastnachweis erfordert weitere Daten.</p>
+<p>Im Reiter <b>Betriebspunkt</b> aktivieren Sie die Wellen mit bekannten Drehzahlen und geben die Werte in U/min ein.
+Für ein festgehaltenes Glied geben Sie 0 ein. Bei einem einfachen Planetensatz ergibt ein fester Steg
+ein Sterngetriebe. Bei festem Hohlrad und angetriebener Sonne ist der Steg der Abtrieb. Bei einem offenen
+symmetrischen Kegelraddifferential ist die Stegdrehzahl der Mittelwert der beiden Seitenraddrehzahlen.
+Sind zwei Trägerachsen geometrisch möglich, wählen Sie die Achse anhand des tatsächlichen Einbaus.</p>
+<p>Für mehrere Stufen koppeln Sie gleichachsige Wellen, die im Getriebe drehfest miteinander verbunden sind,
+etwa das Abtriebsrad einer Stirnradstufe mit der Sonne oder den Steg eines Satzes mit der Sonne des nächsten.
+Liegen Antrieb und Abtrieb eines Stirnradzugs auf derselben Achse, wählen Sie im Betriebspunkt die getrennte
+Zuordnung gleichachsiger Räder. Koppeln Sie dann die tatsächlich verbundenen Räder der Zwischenwelle.
+Vorgegebene Drehzahlen gelten als exakt. Lassen Sie abgeleitete Drehzahlen deaktiviert, damit das Programm
+sie mit voller Genauigkeit berechnet. Die Rechnung kennzeichnet freie Drehzahlen und widersprüchliche Vorgaben. Schneckenpaare erscheinen im Kraftfluss.
+CSV, JSON und PDF übernehmen den Betriebspunkt.</p>
 <p>STEP-Körper und Dreiecksnetze wie STL und OBJ können auch mehrere getrennte Räder in einem Objekt enthalten.
 Bei einer einteiligen Stufenwelle werden erkennbare Zahnbänder einzeln mit ihrer Lage, Breite und Zähnezahl ausgewiesen.
 Je feiner die Flanken im Netz aufgelöst sind, desto genauer lässt sich die Evolvente anpassen. Der Fitfehler steht

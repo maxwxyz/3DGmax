@@ -69,6 +69,7 @@ class Verzahnung:
     kopffase: float | None = None  # radiale Hoehe im Stirnschnitt
 
     koerper: str | None = None  # gemeinsamer Ursprung mehrerer nachgewiesener Zahnbaender
+    koerper_id: object | None = field(default=None, repr=False, compare=False)
 
     def zeilen(self) -> list[tuple[str, str, str]]:
         """(Groesse, Wert, Herkunft) fuer Tabelle und Export."""
@@ -484,9 +485,11 @@ def _aus_schnitten(form, teil, punkt, n, dreiecke, steckprofile, sonderprofile):
         if v is not None:
             profile.append(v)
     if len(profile) > 1:
+        kennung = object()  # Unabhaengig vom Anzeigenamen, der in Baugruppen mehrfach vorkommen kann.
         for i, v in enumerate(profile, 1):
             v.teil = f"{teil} [{i}/{len(profile)}]"
             v.koerper = teil
+            v.koerper_id = kennung
     elif not band_gefunden and sonderprofile:
         from .verzahnung_sonder import schraube
         v = schraube(teil, punkt, n, schnitte_netz)
@@ -498,7 +501,7 @@ def _aus_schnitten(form, teil, punkt, n, dreiecke, steckprofile, sonderprofile):
 def _aus_band(form, teil, punkt, n, schnitte_netz, steckprofile, sonderprofile, a, b, schnitte):
     if sonderprofile:
         from .verzahnung_sonder import zahnkoerper
-        zahnprofil = zahnkoerper(teil, punkt, n, schnitte_netz, schnitte)
+        zahnprofil = zahnkoerper(teil, punkt, n, schnitte_netz, schnitte, (a, b))
         if zahnprofil is not None:
             return zahnprofil
     mitte_s = (a + b) / 2

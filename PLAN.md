@@ -1296,6 +1296,22 @@ tools (the user names MASTA as an example of a tool that needs these inputs), an
   wheels. Each disconnected train has its own reference shaft. The user can change the reference.
   An inconsistent cycle suppresses cumulative ratios. Planetary sets retain explicit fixed-member cases.
   Separate coaxial shafts and clutches can be geometrically indistinguishable from a rigid shaft.
+- The operating-point analysis links fixed-axis spur/helical stages, candidate external bevel pairs,
+  simple planetary sets and symmetric open bevel differentials. A simple planetary set needs a sun,
+  a coaxial ring and at least two common planets. Sun, ring and carrier remain independent ports.
+  A stationary carrier gives star operation. With all three members moving, two independent speeds
+  determine the third. A symmetric bevel differential uses the two opposed side gears and at least
+  one shared perpendicular pinion. A cross with two possible carrier axes requires an axis choice.
+  For reverted trains the operating point can keep the coaxial input and output independent and
+  couple the two wheels of the intermediate shaft. It reports free speeds and
+  conflicting inputs per connected train. Its equations follow the [Willis relation](https://mechanics.ju.se/MachineElements/planetary-gears.html)
+  and the [symmetric differential relation](https://mechanics.ju.se/MachineElements/transmissions.html).
+  The REXS export uses separate sun and ring shaft relations and attaches planetary meshes to their
+  planetary stage according to the [REXS 1.7 planetary stage model](https://spec.rexs.info/1.7/en/root-modeling-planetary-stages.html).
+- Further gearbox families need their own evidence and regression models, including stepped planets
+  on a common pin, Ravigneaux sets and locking or torque-biasing differentials. Gear positions alone
+  do not establish which clutch or brake is engaged. Worm pairs currently contribute ratios to the
+  power-flow view only.
 - Cylindrical pairs require axial overlap, used in the overlap ratio. Flank maps show sampled deviations on
   both flanks over the working width and radius, averaged across teeth. CSV and JSON include the numerical
   map. The PDF includes the data sheets, maps and sourced design findings. Individual-tooth scatter,
@@ -1319,7 +1335,7 @@ intent; "nicht bestimmbar" where the geometry does not tell.
   zr/n fractional parts → noise strategy), planet spacing (equal / unequal for assembly or noise), ring gear rim
   thickness indication, sun/planet/ring tooth number relations (zr = zs + 2 zp or with profile shift), ratio range
   and speed ratios, floating sun indication from geometry where visible.
-- Bevel gears (analysis only, test data needed – no generator as a feature): system (Gleason/Klingelnberg/straight),
+- Bevel gears (analysis only): system (Gleason/Klingelnberg/straight),
   pitch cone angles, shaft angle, ratio, spiral angle and hand, outer/mean module, face width to cone distance ratio.
 - Splines shaft/hub (male/female): standard (ISO 4156 / DIN 5480 / ISO 14 / serrations), centring (flank /
   major / minor diameter) from the clearances of the pair, fit class, root form (flat/fillet), load-oriented choices
@@ -1344,6 +1360,15 @@ intent; "nicht bestimmbar" where the geometry does not tell.
 - Update 2026-11-20. The design report now includes supported spline and conical-pair findings. Reported
   inferences distinguish measured geometry from design intent and from properties that need a drawing,
   actual tolerance class, manufacturing specification or load case.
+
+- Bevel-pair data sheets now give the outer and mean transverse module for each member, face
+  width along its pitch cone, outer cone distance and the ratio of face width to outer cone distance.
+  Overlap is the intersection of both bands measured from the common apex. Each band requires an
+  axial end face at both ends and tooth contours consistent with the cone. Without these checks
+  the affected dimensions remain unresolved. The pair table and CSV, JSON and PDF use the same values.
+  STEP and STL round trips of a 12/24-tooth reference with offset bands cover this distinction.
+  Spiral angle and hand at the pitch surface and manufacturing-system identification remain open.
+  Pitch-cone geometry follows [KHK, Bevel Gears, Fig. 8.1](https://khkgears.net/product-category/bevel-gears/).
 
 ### 8.28 Writing STEP AP242 with semantic PMI (research 2026-10-27, by experiment)
 Findings (pythonocc-core 8.0.1.2 and OCP 8.0.1.1, both on OCCT 8.0.1; scripts were throw-away):

@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import math
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 
 import numpy as np
 
@@ -44,6 +44,8 @@ class Sonderprofil:
     fuss: tuple
     phase: float | None  # Aenderung des Zahnspurwinkels ueber den Messbereich (rad)
     koerper: str | None = None
+    bandgrenzen: tuple[float, float] | None = None  # belegte Stirnenden relativ zum Achspunkt
+    koerper_id: object | None = field(default=None, repr=False, compare=False)
 
     def als_dict(self):
         return {"teil": self.teil, "koerper": self.koerper, "art": self.art, "anzahl": self.z, "messlaenge": self.breite,
@@ -113,6 +115,7 @@ class Taillenrad:
     aufweitung: float
     spursteigung: float
     koerper: str | None = None
+    koerper_id: object | None = field(default=None, repr=False, compare=False)
 
     def zeilen(self):
         quelle = tr("Stirnschnitte")
@@ -154,7 +157,27 @@ def _taillenrad(teil, punkt, n, netz, schnitte, s, r, h, z):
                       float(probe[1].min()), float(hub[0]), winkel / (ds[-1] - ds[0]))
 
 
-def zahnkoerper(teil, punkt, richtung, netz, schnitte):
+def _stirnende(netz, ort, richtung, z, kopf, fuss, breite):
+    """Stirnschnitt und ebene Abschlussfacetten muessen das Zahnende rundum bestaetigen."""
+    from .verzahnung import _verzahnt
+    eps = max(1e-8, netz.r_max * 2e-6)
+    probe = _verzahnt(netz, ort + richtung * min(breite / 100, 3 * eps))
+    if probe is None or probe[2] != z or probe[4]:
+        return False
+    hoehe = kopf - fuss
+    if max(abs(probe[1].max() - kopf), abs(probe[1].min() - fuss)) > .05 * hoehe:
+        return False
+    eben = ((abs(netz.a[:, 2] - ort) <= eps) & (abs(netz.b[:, 2] - ort) <= eps) &
+            (abs(netz.c[:, 2] - ort) <= eps))
+    xy = np.vstack((netz.a[eben, :2], netz.b[eben, :2], netz.c[eben, :2]))
+    spitzen = xy[abs(np.hypot(*xy.T) - kopf) <= .05 * hoehe]
+    if len(spitzen) < z:
+        return False
+    winkel = np.sort(np.arctan2(spitzen[:, 1], spitzen[:, 0]))
+    return np.diff(winkel, append=winkel[0] + 2 * math.pi).max() <= 1.15 * (2 * math.pi / z)
+
+
+def zahnkoerper(teil, punkt, richtung, netz, schnitte, band):
     """Kopf- und Fussradius ueber den zusammenhaengenden Zahnbereich auf Taille oder Konizitaet pruefen."""
     if len(schnitte) < 5:
         return None
@@ -178,13 +201,19 @@ def zahnkoerper(teil, punkt, richtung, netz, schnitte):
         return None
     ende = start + steigung * breit
     weg = _zahnspur(netz, schnitte, z)
+    unten, oben = band
+    grenzen = None
+    if all(_stirnende(netz, ort, vorzeichen, z, *(start + (ort - s[0]) * steigung), oben - unten)
+           for ort, vorzeichen in ((unten, 1), (oben, -1))):
+        grenzen = ((s[-1] - oben, s[-1] - unten) if steigung[0] < 0 else
+                   (unten - s[0], oben - s[0]))
     if steigung[0] < 0:
         start, ende = ende, start
         punkt, richtung = punkt + s[-1] * richtung, -richtung
     else:
         punkt = punkt + s[0] * richtung
     return Sonderprofil(teil, "konisch", z, punkt, richtung, breit, (float(start[0]), float(ende[0])),
-                        (float(start[1]), float(ende[1])), weg)
+                        (float(start[1]), float(ende[1])), weg, bandgrenzen=grenzen)
 
 
 def _schraubschnitt(netz, s):
@@ -272,22 +301,76 @@ def schraube(teil, punkt, richtung, netz):
 
 
 @dataclass
+class Teilkegelband:
+    innen: float  # Laengen auf der Teilkegel-Mantellinie ab Kegelspitze
+    aussen: float
+    modul_aussen: float
+    modul_mitte: float
+
+    @property
+    def breite(self):
+        return self.aussen - self.innen
+
+    def als_dict(self):
+        return {"kegellaenge_innen": self.innen, "kegellaenge_aussen": self.aussen,
+                "zahnbreite": self.breite, "b_durch_re": self.breite / self.aussen,
+                "stirnmodul_aussen": self.modul_aussen, "stirnmodul_mitte": self.modul_mitte}
+
+
+@dataclass
 class Kegelpaar:
     a: Sonderprofil
     b: Sonderprofil
     achswinkel: float
     teil_a: float
     teil_b: float
+    baender: tuple[Teilkegelband | None, Teilkegelband | None] = (None, None)
+
+    @property
+    def gemeinsame_breite(self):
+        a, b = self.baender
+        if a is not None and b is not None:
+            return max(0., min(a.aussen, b.aussen) - max(a.innen, b.innen))
+        return None
 
     def zeilen(self):
-        return [(tr("Zuordnung"), tr("Mögliches äußeres Kegelradpaar")),
-                (tr("Achswinkel"), f"{self.achswinkel:.2f}°"),
-                (tr("Zähnezahlverhältnis z₂/z₁"), f"{self.b.z / self.a.z:.4g}"),
-                (tr("Teilkegel-Halbwinkel δ₁ / δ₂"), f"{self.teil_a:.2f}° / {self.teil_b:.2f}°")]
+        zeilen = [(tr("Zuordnung"), tr("Mögliches äußeres Kegelradpaar")),
+                  (tr("Achswinkel"), f"{self.achswinkel:.2f}°"),
+                  (tr("Zähnezahlverhältnis z₂/z₁"), f"{self.b.z / self.a.z:.4g}"),
+                  (tr("Teilkegel-Halbwinkel δ₁ / δ₂"), f"{self.teil_a:.2f}° / {self.teil_b:.2f}°")]
+        daten = [band.als_dict() if band else None for band in self.baender]
+        for beschriftung, feld in ((tr("Äußere Kegellänge Rₑ (mm)"), "kegellaenge_aussen"),
+                                   (tr("Zahnbreite am Teilkegel (mm)"), "zahnbreite"),
+                                   (tr("Breitenverhältnis b/Rₑ"), "b_durch_re"),
+                                   (tr("Äußerer Stirnmodul (mm)"), "stirnmodul_aussen"),
+                                   (tr("Mittlerer Stirnmodul (mm)"), "stirnmodul_mitte")):
+            werte = [f"{band[feld]:.4f}" if band else tr("nicht bestimmbar") for band in daten]
+            zeilen.append((beschriftung + " 1 / 2", " / ".join(werte)))
+        b = self.gemeinsame_breite
+        zeilen.append((tr("Gemeinsame Zahnbreite am Teilkegel (mm)"),
+                       f"{b:.4f}" if b is not None else tr("nicht bestimmbar")))
+        return zeilen
 
     def als_dict(self):
         return {"teile": [self.a.teil, self.b.teil], "achs_winkel": self.achswinkel,
-                "z2_durch_z1": self.b.z / self.a.z, "teilwinkel": [self.teil_a, self.teil_b]}
+                "z2_durch_z1": self.b.z / self.a.z, "teilwinkel": [self.teil_a, self.teil_b],
+                "teilkegelbaender": [band.als_dict() if band else None for band in self.baender],
+                "gemeinsame_zahnbreite": self.gemeinsame_breite}
+
+
+def _teilkegelband(rad, delta, spitze):
+    """Modul aus Teilkreisdurchmesser und Zaehnezahl an bestaetigten Stirnenden."""
+    if rad.bandgrenzen is None:
+        return None
+    pos = np.asarray(rad.bandgrenzen)
+    radius = (pos - spitze) * math.tan(delta)
+    kopf = rad.kopf[0] + pos * (rad.kopf[1] - rad.kopf[0]) / rad.breite
+    fuss = rad.fuss[0] + pos * (rad.fuss[1] - rad.fuss[0]) / rad.breite
+    if radius[0] <= 0 or np.any(radius < fuss) or np.any(radius > kopf):
+        return None
+    innen, aussen = (pos - spitze) / math.cos(delta)
+    return Teilkegelband(float(innen), float(aussen), float(2 * radius[1] / rad.z),
+                         float((radius[0] + radius[1]) / rad.z))
 
 
 def _kegelpaar(a, b):
@@ -306,16 +389,18 @@ def _kegelpaar(a, b):
     db = achswinkel - da
     if not (0 < da < math.pi / 2 and 0 < db < math.pi / 2):
         return None
-    bereiche = []
+    bereiche, baender = [], []
     for rad, delta, s in ((a, da, sa), (b, db, sb)):
         axial = np.array([-s, rad.breite - s])
         soll = axial * math.tan(delta)
         if not (np.all(soll >= rad.fuss) and np.all(soll <= rad.kopf)):
             return None
-        bereiche.append(axial / math.cos(delta))
-    if max(w[0] for w in bereiche) >= min(w[1] for w in bereiche):
+        band = _teilkegelband(rad, delta, s)
+        bereiche.append((band.innen, band.aussen) if band else axial / math.cos(delta))
+        baender.append(band)
+    if min(w[1] for w in bereiche) - max(w[0] for w in bereiche) <= 1e-7:
         return None
-    return Kegelpaar(a, b, math.degrees(achswinkel), math.degrees(da), math.degrees(db))
+    return Kegelpaar(a, b, math.degrees(achswinkel), math.degrees(da), math.degrees(db), tuple(baender))
 
 
 def kegelpaar_kandidaten(liste):

@@ -56,29 +56,37 @@ def test_schraubprofil(z, hand):
     assert d["hand"] == ("rechts" if hand > 0 else "links")
 
 
-def test_kegelstufe_aus_schnittachsen_und_zahnband(tmp_path, app):
+@pytest.mark.parametrize("format_", ["step", "stl"])
+def test_kegelstufe_aus_schnittachsen_und_zahnband(tmp_path, app, format_):
     import json
     from OCC.Core.STEPControl import STEPControl_AsIs, STEPControl_Writer
     from OCC.Core.TopLoc import TopLoc_Location
     from OCC.Core.gp import gp_Ax1, gp_Dir, gp_Trsf, gp_Vec
-    from programm.kern.laden import lade_step
+    from programm.kern.laden import lade_modell
     from programm.kern import verzahnung_daten as vd
     from programm.kern.verzahnung_sonder import kegelpaar_kandidaten
     from programm.ui.verzahnung_ui import VerzahnungFenster
 
     def rad(z, delta, quer):
-        start = 18 * math.cos(delta)
-        form = _referenz(z, 18 * math.sin(delta) + .9, 1.8, 7 * math.cos(delta), 0., kegel=math.tan(delta))
+        innen, breite = (20., 6.) if quer else (18., 7.)
+        start = innen * math.cos(delta)
+        form = _referenz(z, innen * math.sin(delta) + .9, 1.8, breite * math.cos(delta), 0., kegel=math.tan(delta))
         t = gp_Trsf()
         if quer:
             t.SetRotation(gp_Ax1(gp_Pnt(), gp_Dir(0, 1, 0)), math.pi / 2)
         t.SetTranslationPart(gp_Vec(start, 0, 0) if quer else gp_Vec(0, 0, start))
         form = form.Moved(TopLoc_Location(t))
-        pfad = str(tmp_path / f"kegel{z}.stp")
-        schreiber = STEPControl_Writer()
-        schreiber.Transfer(form, STEPControl_AsIs)
-        schreiber.Write(pfad)
-        return vz.erkenne(lade_step(pfad).form, str(z), steckprofile=True, sonderprofile=True)
+        pfad = str(tmp_path / f"kegel{z}.{format_}")
+        if format_ == "step":
+            schreiber = STEPControl_Writer()
+            schreiber.Transfer(form, STEPControl_AsIs)
+            schreiber.Write(pfad)
+        else:
+            from OCC.Core.BRepMesh import BRepMesh_IncrementalMesh
+            from OCC.Core.StlAPI import StlAPI_Writer
+            BRepMesh_IncrementalMesh(form, .001)
+            assert StlAPI_Writer().Write(form, pfad)
+        return vz.erkenne(lade_modell(pfad).form, str(z), steckprofile=True, sonderprofile=True)
 
     a = rad(12, math.atan(.5), False)
     b = rad(24, math.atan(2.), True)
@@ -87,16 +95,44 @@ def test_kegelstufe_aus_schnittachsen_und_zahnband(tmp_path, app):
     p = paare[0]
     assert p.achswinkel == pytest.approx(90., abs=.01)
     assert p.teil_a == pytest.approx(26.56505, abs=.01)
+    assert p.gemeinsame_breite == pytest.approx(5., abs=.002)
+    for band, innen, aussen, delta, z in zip(p.baender, [18., 20.], [25., 26.], [math.atan(.5), math.atan(2.)], [12, 24]):
+        assert band.innen == pytest.approx(innen, abs=.002)
+        assert band.aussen == pytest.approx(aussen, abs=.002)
+        assert band.modul_aussen == pytest.approx(2 * aussen * math.sin(delta) / z, abs=.0002)
+        assert band.modul_mitte == pytest.approx((innen + aussen) * math.sin(delta) / z, abs=.0002)
     daten = vd.datenblatt([a, b], [])
     assert daten["kegelpaar_kandidaten"][0]["z2_durch_z1"] == 2 and not daten["zahnraeder"]
     assert any(b["thema"] == "Teilkegel" for b in daten["auslegungsbefunde"])
     w = VerzahnungFenster([a, b], str(tmp_path / "kegel"))
     assert w.paar_tabelle.columnCount() == 1 and not w.rexs.isEnabled()
-    assert json.loads(open(w.speichere("json", str(tmp_path / "werte.json"))).read())["sonderprofile"]
+    export = json.loads(open(w.speichere("json", str(tmp_path / "werte.json"))).read())
+    from pypdf import PdfReader
+    pdf_text = " ".join(seite.extract_text() for seite in PdfReader(w.speichere("pdf", str(tmp_path / "paar.pdf"))).pages)
+    assert "Gemeinsame Zahnbreite" in pdf_text and "5.0000" in pdf_text
+    assert export["kegelpaar_kandidaten"][0]["teilkegelbaender"][0]["b_durch_re"] == pytest.approx(7/25, abs=.0002)
+    assert "5.0000" in vd.als_csv([a, b], [])
     assert "Mögliches äußeres Kegelradpaar" in vd.als_csv([a, b], [])
     w.close()
+    from dataclasses import replace
+    ohne_rand, = kegelpaar_kandidaten([replace(a, bandgrenzen=None), b])
+    assert ohne_rand.baender[0] is None and ohne_rand.baender[1] is not None
+    assert ohne_rand.als_dict()["gemeinsame_zahnbreite"] is None
     b.punkt[1] += 1.   # windschiefe Achsen
     assert not kegelpaar_kandidaten([a, b])
+
+
+def test_offener_kegelmantel_belegt_keine_zahnbreite():
+    from OCC.Core.BRepMesh import BRepMesh_IncrementalMesh
+    from programm.kern.ausrichten import tesselliere
+    from programm.kern.laden import _alle_flaechen
+    form = _referenz(14, 9., 1.7, 8., 0., kegel=.55)
+    BRepMesh_IncrementalMesh(form, .001)
+    dreiecke = np.vstack([p[ix] for p, ix in tesselliere(_alle_flaechen(form)) if len(ix)])
+    # Nur das breite Ende oeffnen. Die Zahnkonturen im Inneren bleiben vollstaendig.
+    offen = dreiecke[~np.all(np.isclose(dreiecke[:, :, 2], 8.), axis=1)]
+    rad, = vz._aus_schnitten(None, "Kegel", np.zeros(3), np.array([0., 0., 1.]), offen, False, True)
+    assert rad.art == "konisch" and rad.bandgrenzen is None
 
 
 def test_gleichfoermige_und_ungerillte_teile_sind_keine_sonderprofile():

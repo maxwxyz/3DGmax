@@ -2,6 +2,50 @@
 
 ## Current state, 2026-11-20
 
+### Multistage gearbox reverse engineering
+
+- The **Operating point** tab under **Tools › Analyse gearbox** combines fixed cylindrical and
+  external bevel stages, simple planetary sets and symmetric open bevel differentials. The user can
+  set signed speeds, hold shafts stationary, choose the carrier axis of an ambiguous cross and
+  connect coaxial shafts. For reverted trains with independent coaxial input and output shafts,
+  the user can separate ordinary coaxial gears and couple the intended intermediate wheels.
+  Recognised planetary and differential members keep separate ports. Orbiting pinions cannot create
+  spurious fixed-axis stages, including on the axis line of an axially displaced spur gear.
+- Speeds are solved per connected component using exact rational elimination of tooth-count relations
+  and user inputs. Free members remain undetermined even after thirteen 10:1 reductions. Inconsistent
+  inputs affect their own connected train. Reference axes, constraints, selected topology and speeds
+  are available in the dialog and its CSV, JSON and PDF reports.
+- A complete STL assembly with a 12:24 spur stage driving an 18:54 planetary set gives −600 rpm
+  at the sun for 1,200 rpm input. Holding the ring gives −150 rpm at the carrier. Holding the carrier
+  gives +200 rpm at the ring. In a synthetic three-bevel differential, STEP and STL independently
+  give +1,000 rpm at the second side gear with the first held and the carrier at +500 rpm. Tests also
+  cover two cascaded planetary sets, a symmetric four-gear cross and opposite signed axis conventions.
+- PLAN §8.27 and the Roadmap distinguish these families from compound planets, Ravigneaux sets,
+  and torque-biasing or locking mechanisms, which remain open. Worm pairs are considered by the
+  power-flow view. Operating speeds across a worm stage need a signed mesh relation.
+- Corrected the REXS planetary stage hierarchy. Both central shafts, each planet shaft and their
+  actual meshes have separate roles. Confirmed tooth bands on one physical body keep a shared
+  identity even when other coaxial wheels are assigned to independent shafts.
+- Verification: all 67 affected tests passed. The operating-point PDF was also rendered and
+  inspected. Manufacturer reference gearboxes were unavailable for this round.
+
+### Bevel gear pair measurements
+
+- Continued gearbox reverse engineering in PLAN §8.27a. The pair data sheet now gives each
+  gear's outer and mean transverse module, outer cone distance, face width on the pitch cone and
+  width ratio. Its shared face width uses the overlap of the bands measured from the common apex.
+- The existing interior transverse sections identify the cone. Full-width measurements additionally
+  require the tooth contour near each end and flat end facets around the circumference. An open
+  mesh or an unconfirmed end leaves that gear's full-band values and the overlap unresolved.
+- Verified through STEP and STL import with synthetic 12- and 24-tooth gears covering cone
+  distances 18–25 and 20–26 mm. The 5 mm shared width and both sets of modules reach the results
+  dialog and the exports. The open-end mesh control retains conical-tooth recognition.
+- Checked PLAN and `docs/Roadmap.md` against the implementation. Spiral angle and hand at the pitch
+  surface remain open, as does independent evidence for the manufacturing system. Drawing comparison
+  (§8.35), reconstruction (§8.36) and the final QIF stage (§8.37) keep their order.
+
+### Earlier results from the same day
+
 - Reviewed the normal STEP import and viewer/comparison paths. The main bottleneck was a linear
   OCCT label lookup for each face. The importer indexes transferred entities once. Part 21
   parsing indexes entity types and respects STEP strings across comments and statement boundaries.

@@ -58,6 +58,9 @@ def test_zwei_arbeitsbereiche_auf_einem_koerper(doppelrad, netz, tmp_path):
         form = lade_modell(pfad).form
     raeder = sorted(vz.erkenne_koerper(form, "Welle", steckprofile=True, sonderprofile=True), key=lambda v: v.z)
     assert [v.z for v in raeder] == [14, 21]
+    from programm.kern.getriebe_betrieb import Betriebsmodell
+    modell = Betriebsmodell(raeder, [], getrennte_wellen=True)
+    assert modell.gruppen == [[0, 1]] and not modell.trennbar
     assert {v.teil for v in raeder} == {"Welle [1/2]", "Welle [2/2]"}
     for v, start, breite in zip(raeder, [1.1, 28.], [.7, 6.]):
         assert v.als_dict()["koerper"] == "Welle"

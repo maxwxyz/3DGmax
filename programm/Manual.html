@@ -425,7 +425,20 @@ and screw profiles have their own measurements.</p>
 gives each stage ratio and the cumulative ratio relative to the chosen reference shaft. Each connected train
 defaults to the smallest gear on an end shaft. Coaxial gears are assumed to rotate together. Branches and
 separate trains are evaluated separately. Planetary ratios depend on the member held stationary. Bevel and
-worm pairings indicate geometric compatibility. A load rating requires additional data.</p>
+worm pairings indicate geometric compatibility. The pair table gives the outer and mean transverse modules of gears 1 and 2 when both ends of the
+respective tooth band are confirmed by planar end faces. The shared face width is the overlap along the pitch cones.
+A load rating requires additional data.</p>
+<p>In the <b>Operating point</b> tab, tick the shafts with known speeds and enter their values in rpm.
+Enter 0 for a stationary member and leave unknown speeds unticked. A simple planetary set operates as a star train when the carrier is fixed.
+With the ring held and the sun driven, the carrier is the output. For a symmetric open bevel differential,
+the carrier speed is the mean of the two side gear speeds. If a cross admits two possible carrier axes,
+select the one used in the assembly.</p>
+<p>For multiple stages, couple coaxial shafts known to rotate together, such as the output of a spur stage
+and the sun, or the first carrier and the next sun. For a reverted train with coaxial input and output shafts,
+use separate assignments for coaxial gears and couple the two wheels on the intermediate shaft.
+Specified speeds are treated as exact. Leave derived
+speeds unticked so the calculation retains their full precision. The results identify free speeds and conflicting inputs.
+Worm pairs appear in the power-flow view. CSV, JSON and PDF include the operating point.</p>
 <p>STEP solids and triangle meshes such as STL and OBJ may contain several separate gears in one object.
 On a one-piece stepped shaft, each identifiable tooth band is reported separately with position, width and tooth count.
 Finer flank resolution improves the involute fit. The fit error is included in the data sheet. Very coarse meshes

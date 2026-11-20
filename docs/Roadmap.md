@@ -215,6 +215,8 @@
 | Gear design analysis (reverse engineering of design philosophies): cylindrical stages and planetary sets – PLAN §8.27a | ✅ |
 | Shaft/hub splines and serrations, measured clearance and centring indications, conditional design findings – PLAN §8.27a | ✅ |
 | Conical tooth geometry, tip/root cone angles and conditional pitch angles of a compatible pair, checked against known control geometry | ✅ |
+| Bevel-pair dimensions from confirmed tooth-band ends: outer/mean transverse module, cone distance, face width, width ratio and shared width (STEP and STL controls) | ✅ |
+| Bevel gears: spiral angle and hand at the pitch surface, manufacturing-system identification where independently supported | ⬜ |
 | Screw profiles: number of starts, lead, axial pitch and hand | ✅ |
 | Throated wheel and candidate worm pair from screw and wheel geometry, axis position, hand and pitch | ✅ |
 | Straight gears: repeated B-rep root fillet radius and radial tip chamfer height | ✅ |
@@ -225,6 +227,8 @@
 | Gearbox reverse engineering for an individual gear, selected parts or all visible components, including disconnected wheels inside a single STL/OBJ mesh or CAD compound | ✅ |
 | Stepped gears: distinguish axial tooth bands on a single solid or connected mesh, including tooth-count changes across a shoulder | ✅ |
 | Multistage power flow with selectable reference shaft, branches, independent gear trains, cycle checks and mixed spur/bevel/worm stages | ✅ |
+| Operating speeds across coupled spur, bevel and simple planetary stages, reverted trains with separate coaxial input/output shafts, star operation with a fixed carrier, and symmetric open bevel differentials with selectable carrier axis | ✅ |
+| Compound planets on a common pin, Ravigneaux gearsets and locking or torque-biasing differentials | ⬜ |
 | Cylindrical gear pairs: actual axial engagement and overlap contact ratio | ✅ |
 | Tooth-averaged left/right flank deviation maps, numeric CSV/JSON and illustrated gear PDF with sourced findings | ✅ |
 | Wiggle in the open degrees of freedom (kinematic) | ✅ |

@@ -120,3 +120,48 @@ def test_stufen_eines_step_baumblatts(tmp_path):
     assert sorted(v.z for v in raeder) == [14, 16, 20, 24]
     paare = vz.paare(raeder)
     assert len(vd.stufen(raeder, paare, [])[0]) == 2
+
+
+def test_planetengetriebe_mit_stirnradvorstufe_aus_einem_stl(tmp_path):
+    from OCC.Core.BRep import BRep_Builder
+    from OCC.Core.BRepMesh import BRepMesh_IncrementalMesh
+    from OCC.Core.StlAPI import StlAPI_Writer
+    from OCC.Core.TopLoc import TopLoc_Location
+    from OCC.Core.TopoDS import TopoDS_Compound
+    from OCC.Core.gp import gp_Trsf, gp_Vec
+    from programm.kern.getriebe_betrieb import Betriebsmodell
+    from werkzeuge.zahnrad import zahnrad
+
+    bau, koerper = BRep_Builder(), TopoDS_Compound()
+    bau.MakeCompound(koerper)
+
+    def dazu(form, x=0., y=0., h=0.):
+        pos = gp_Trsf()
+        pos.SetTranslation(gp_Vec(x, y, h))
+        bau.Add(koerper, form.Moved(TopLoc_Location(pos)))
+
+    klein = zahnrad(18, 1.5, 6.)
+    dazu(klein)
+    dazu(zahnrad(54, 1.5, 6., innen=True))
+    for winkel in np.radians([0, 120, 240]):
+        dazu(klein, 27 * np.cos(winkel), 27 * np.sin(winkel))
+    dazu(zahnrad(24, 1.5, 6.), h=12.)
+    dazu(zahnrad(12, 1.5, 6.), x=27., h=12.)
+    pfad = str(tmp_path / "Umlaufgetriebe.stl")
+    BRepMesh_IncrementalMesh(koerper, .005)
+    assert StlAPI_Writer().Write(koerper, pfad)
+
+    raeder = list(vz.erkenne_koerper(lade_modell(pfad).form, "Getriebe", steckprofile=True, sonderprofile=True))
+    assert sorted(v.z for v in raeder) == [12, 18, 18, 18, 18, 24, 54]
+    modell = Betriebsmodell(raeder, vz.paare(raeder))
+    betrieb = modell.betrieb()
+    satz, = betrieb.saetze
+    sonne, ring, steg = satz["wellen"]
+    assert len(satz["umlaufraeder"]) == 3
+    an, ab = (modell.welle[next(i for i, v in enumerate(raeder) if v.z == z)] for z in [12, 24])
+    assert len(modell.gruppen[an]) == 1
+    for fest, ziel, soll in [(ring, steg, -150.), (steg, ring, 200.)]:
+        ergebnis = betrieb.auswerten({an: 1200., fest: 0.}, [(ab, sonne)])
+        drehzahlen = {w["id"]: w["drehzahl"] for w in ergebnis["wellen"]}
+        assert drehzahlen[sonne] == pytest.approx(-600.)
+        assert drehzahlen[ziel] == pytest.approx(soll)
