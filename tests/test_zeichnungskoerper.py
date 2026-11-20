@@ -6,7 +6,7 @@ from programm.kern.zeichnungskoerper import plattenmasse, rechteckansicht
 from programm.ui.zeichnungskoerper_ui import Plattendialog
 
 
-def _blatt(pfad, bohrungen=(), innenlinie=False):
+def _blatt(pfad, bohrungen=(), innenlinie=False, tiefe=None):
     pdf = QtGui.QPdfWriter(str(pfad))
     pdf.setResolution(72)
     pdf.setPageSize(QtGui.QPageSize(QtCore.QSizeF(400, 300), QtGui.QPageSize.Unit.Point))
@@ -20,6 +20,8 @@ def _blatt(pfad, bohrungen=(), innenlinie=False):
         p.drawRect(40, 185, 120, 16)
         if bohrungen:
             p.drawText(60, 280, "Ø10 ±0.05")
+        if tiefe:
+            p.drawText(220, 280, tiefe)
         for x, text in ((30, "60 ±0.1"), (140, "40"), (230, "8")):
             p.drawText(x, 250, text)
 
@@ -212,3 +214,64 @@ def test_mengenangabe_und_falsches_bohrziel_bleiben_offen():
             sollbohrungen([ring], [zeile], masse, (600,400))
     with pytest.raises(ValueError, match="andere Bohrung"):
         sollbohrungen([ring, ring], [("20","16","Ø10"), ("20","16","Ø10")], masse, (600,400))
+
+
+def test_sackloch_gemischte_platte_mit_getrennten_tiefenzielen(app, tmp_path, monkeypatch):
+    from pypdfium2 import PdfDocument
+    from OCC.Core.BRepAdaptor import BRepAdaptor_Surface
+    from OCC.Core.BRepGProp import brepgprop
+    from OCC.Core.GProp import GProp_GProps
+    from programm.kern.pmi_lesen import lies_pmi_xcaf
+    from programm.ui.lader import lade_alles
+    pdf, ziel = tmp_path / "Grundriss.pdf", tmp_path / "Flachboden.stp"
+    _blatt(pdf, ((12, 12, 3), (32, 20, 4), (48, 28, 4)), tiefe="4 ±0.1")
+    monkeypatch.setattr(QtWidgets.QFileDialog, "getSaveFileName", lambda *args: (str(ziel), "STEP"))
+    with PdfDocument(pdf) as doc:
+        d = Plattendialog(doc, pdf)
+        try:
+            d.show()
+            d.einheit.setCurrentIndex(1)
+            for feld, text in zip(d.texte, ("60", "40", "8 ±0.1")):
+                feld.setText(text)
+            d.ansicht.bereich.emit((.08,.1,.51,.52))
+            assert len(d.ringe) == 3
+            for i, werte in enumerate((("12","12","6"), ("32","20","8"), ("48","28","8"))):
+                for j, wert in enumerate(werte, 1):
+                    d.bohrtabelle.item(i,j).setText(wert)
+            d.durchgehend.click()
+            assert d.speichern.isEnabled()
+            for i in (1,2):
+                d.bohrtabelle.cellWidget(i,4).setCurrentIndex(2)
+                assert not d.speichern.isEnabled() and not d.durchgehend.isChecked()
+                d.bohrtabelle.setCurrentCell(i,5)
+                d.auswahl.setCurrentIndex(8)
+                d.ansicht.bereich.emit((.52,.86,.80,.96))
+                assert d.bohrtabelle.item(i,5).text() == "4 ±0.1"
+            for fehler in ("0", "4 ±5", "7.8 ±0.2", "Ø4", "(4)", "4 H7"):
+                d.bohrtabelle.item(2,5).setText(fehler)
+                assert not d.speichern.isEnabled()
+            d.bohrtabelle.item(2,5).setText("↧4 ±0.2")
+            assert d.speichern.isEnabled()
+            d.speichern.click()
+            erg = lade_alles(str(ziel))
+            assert "8" in d.status.text()
+            v = GProp_GProps()
+            brepgprop.VolumeProperties(erg.modell.form, v)
+            assert v.Mass() == pytest.approx(60*40*8 - np.pi*(9*8+2*16*4))
+            assert len(erg.pmi) == 8 and all(p.grafisch and p.semantisch for p in erg.pmi)
+            for quelle in (erg.pmi, lies_pmi_xcaf(erg.modell)):
+                tiefen = sorted((p for p in quelle if p.nennwert == 4), key=lambda p: p.oben)
+                assert len(tiefen) == 2
+                for p, (x,y,tol) in zip(tiefen, ((32,20,.1),(48,28,.2)), strict=True):
+                    assert p.typ == "Location_LinearDistance" and p.grenzen() == pytest.approx((4+tol,4-tol))
+                    ebenen = sorted((BRepAdaptor_Surface(erg.modell.flaechen[i]).Plane().Location().Z(), i)
+                                    for i in p.flaechen)
+                    assert [z for z, _ in ebenen] == pytest.approx([4,8])
+                    boden = GProp_GProps()
+                    brepgprop.SurfaceProperties(erg.modell.flaechen[ebenen[0][1]], boden)
+                    assert boden.CentreOfMass().Coord() == pytest.approx((x,y,4))
+            d.bohrtabelle.cellWidget(2,4).setCurrentIndex(1)
+            assert d.bohrtabelle.item(2,5).text() == "" and (2,8) not in d.marken
+        finally:
+            d.blatt.schliesse()
+            d.close()

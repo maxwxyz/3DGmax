@@ -1,6 +1,6 @@
 """Rechteckige Platten aus bemassten orthogonalen Zeichnungsansichten aufbauen."""
 
-from dataclasses import replace
+from dataclasses import dataclass, replace
 from pathlib import Path
 from tempfile import TemporaryDirectory
 
@@ -9,6 +9,15 @@ from scipy import ndimage
 
 from ..i18n import tr
 from .zeichnungsabgleich import lese_angabe
+from .pmi import Pmi
+
+
+@dataclass(frozen=True)
+class Plattenbohrung:
+    x: float
+    y: float
+    durchmesser: Pmi
+    tiefe: Pmi | None = None
 
 
 def rechteckgrenzen(bild, box):
@@ -87,15 +96,16 @@ def _plattenform(masse, bohrungen):
     platte.Append(form)
     dicke = masse[2].nennwert
     zugabe = max(.01, dicke*.01)
-    for x, y, p in bohrungen:
-        achse = gp_Ax2(gp_Pnt(x, y, -zugabe), gp_Dir(0, 0, 1))
-        bohrer.Append(BRepPrimAPI_MakeCylinder(achse, p.nennwert/2, dicke+2*zugabe).Shape())
+    for bohrung in bohrungen:
+        boden = dicke-bohrung.tiefe.nennwert if bohrung.tiefe else -zugabe
+        achse = gp_Ax2(gp_Pnt(bohrung.x, bohrung.y, boden), gp_Dir(0, 0, 1))
+        bohrer.Append(BRepPrimAPI_MakeCylinder(achse, bohrung.durchmesser.nennwert/2, dicke+zugabe-boden).Shape())
     schnitt = BRepAlgoAPI_Cut()
     schnitt.SetArguments(platte)
     schnitt.SetTools(bohrer)
     schnitt.Build()
     if not schnitt.IsDone() or not BRepCheck_Analyzer(schnitt.Shape()).IsValid():
-        raise ValueError(tr("Die Durchgangsbohrungen konnten nicht erzeugt werden."))
+        raise ValueError(tr("Die Bohrungen konnten nicht erzeugt werden."))
     return schnitt.Shape()
 
 
@@ -104,26 +114,48 @@ def _flaechenmasse(modell, masse, bohrungen):
     from OCC.Core.GeomAbs import GeomAbs_Plane, GeomAbs_Cylinder
     paare = [set() for _ in masse]
     waende = [set() for _ in bohrungen]
+    horizontal = {}
     for i, flaeche in enumerate(modell.flaechen):
         s = BRepAdaptor_Surface(flaeche)
         if s.GetType() == GeomAbs_Plane:
-            normal = s.Plane().Axis().Direction().Coord()
-            paare[int(np.argmax(np.abs(normal)))].add(i)
+            ebene = s.Plane()
+            achse = int(np.argmax(np.abs(ebene.Axis().Direction().Coord())))
+            if achse == 2:
+                horizontal[i] = ebene.Location().Z()
+            else:
+                paare[achse].add(i)
         elif s.GetType() == GeomAbs_Cylinder:
             z = s.Cylinder()
             ort = z.Location()
-            treffer = [j for j,(x,y,p) in enumerate(bohrungen) if abs(ort.X()-x) < 1e-6 and abs(ort.Y()-y) < 1e-6
-                       and abs(z.Radius()-p.nennwert/2) < 1e-6]
+            treffer = [j for j, b in enumerate(bohrungen) if abs(ort.X()-b.x) < 1e-6
+                       and abs(ort.Y()-b.y) < 1e-6 and abs(z.Radius()-b.durchmesser.nennwert/2) < 1e-6]
             if len(treffer) != 1:
                 raise ValueError(tr("Die Bohrungsflächen sind nicht eindeutig."))
             waende[treffer[0]].add(i)
     if not all(waende):
         raise ValueError(tr("Die Bohrungsflächen sind nicht eindeutig."))
-    if any(len(paar) != 2 for paar in paare):
+    dicke = masse[2].nennwert
+    deckel = {i for i, z in horizontal.items() if abs(z-dicke) < 1e-7}
+    paare[2] = deckel | {i for i, z in horizontal.items() if abs(z) < 1e-7}
+    if len(deckel) != 1 or any(len(paar) != 2 for paar in paare):
         raise ValueError(tr("Die gegenüberliegenden Plattenflächen sind nicht eindeutig."))
-    alle = [*masse, *(p for _, _, p in bohrungen)]
+    alle = [*masse, *(b.durchmesser for b in bohrungen)]
+    flaechen = paare + waende
+    if any(b.tiefe for b in bohrungen):
+        from .vergleich_geo import _nachbarn
+        nachbarn = _nachbarn(modell.flaechen, modell.flaechen_index)
+        for b, wand in zip(bohrungen, waende, strict=True):
+            if b.tiefe is None:
+                continue
+            angrenzend = set().union(*(nachbarn[i] for i in wand))
+            boden = {i for i in (angrenzend & horizontal.keys()) - paare[2]
+                     if abs(horizontal[i] - (dicke-b.tiefe.nennwert)) < 1e-6}
+            if len(boden) != 1 or not deckel <= angrenzend:
+                raise ValueError(tr("Eintrittsfläche und Bohrungsgrund sind nicht eindeutig."))
+            alle.append(b.tiefe)
+            flaechen.append(deckel | boden)
     return [replace(p, flaechen=f, quelle="eigen", nummer=i, step_id=-i)
-            for i, (p, f) in enumerate(zip(alle, paare+waende, strict=True), 1)]
+            for i, (p, f) in enumerate(zip(alle, flaechen, strict=True), 1)]
 
 
 def schreibe_platte(ziel, masse, bohrungen=()):
@@ -134,6 +166,7 @@ def schreibe_platte(ziel, masse, bohrungen=()):
     from .laden import LadeFehler, lade_step
     from .step_schreiben import schreibe
 
+    bohrungen = [b if isinstance(b, Plattenbohrung) else Plattenbohrung(*b) for b in bohrungen]
     ziel = Path(ziel)
     with TemporaryDirectory(dir=ziel.parent) as tmp:
         roh = str(Path(tmp) / "geometry.stp")
@@ -153,3 +186,4 @@ def schreibe_platte(ziel, masse, bohrungen=()):
         if len(bericht.neu) != len(merkmale) or len(bericht.dargestellt) != len(merkmale):
             raise ValueError(tr("Die Maßangaben konnten nicht vollständig als STEP-PMI geschrieben werden."))
         fertig.replace(ziel)
+        return len(merkmale)

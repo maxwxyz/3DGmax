@@ -10,7 +10,7 @@ from scipy.spatial import cKDTree
 from ..i18n import tr
 from .zeichnungsabgleich import lese_angabe, musteranzahl
 from .zeichnungsansicht import Blattkreis
-from .zeichnungskoerper import rechteckgrenzen
+from .zeichnungskoerper import Plattenbohrung, rechteckgrenzen
 
 
 @dataclass(frozen=True)
@@ -69,11 +69,22 @@ def plattenumriss(bild, box, kreise):
     return (breite, hoehe), sorted(bohrungen, key=lambda q: (q.x, q.y))
 
 
-def sollbohrungen(ringe, werte, masse, umfang):
+def tiefenmass(text, faktor):
+    wert = lese_angabe(text.strip().removeprefix("↧").strip(), faktor)
+    if wert and wert.typ == "Location_LinearDistance" and not wert.passung and "Hilfsmass" not in wert.modifikatoren:
+        return wert
+    return None
+
+
+def sollbohrungen(ringe, werte, masse, umfang, *, tiefen=None):
     breite, hoehe, _ = [p.nennwert for p in masse]
     bx, by = umfang
+    mindestdicke = masse[2].grenzen()[1]
+    grenze = min(masse[2].nennwert, mindestdicke) if mindestdicke is not None else masse[2].nennwert
+    if tiefen is None:
+        tiefen = [None] * len(ringe)
     bohrungen = []
-    for index, (ring, zeile) in enumerate(zip(ringe, werte, strict=True), 1):
+    for index, (ring, zeile, tiefentext) in enumerate(zip(ringe, werte, tiefen, strict=True), 1):
         tx, ty, td = zeile
         pmi = lese_angabe(td, 1.)
         if pmi and pmi.typ == "Location_LinearDistance":
@@ -91,10 +102,18 @@ def sollbohrungen(ringe, werte, masse, umfang):
         r = pmi.nennwert/2
         if not (r < x < breite-r and r < y < hoehe-r):
             raise ValueError(tr("Bohrung {} reicht über den Plattenrand.").format(index))
-        if any(math.hypot(x-a, y-b) <= r+q.nennwert/2 for a, b, q in bohrungen):
+        if any(math.hypot(x-b.x, y-b.y) <= r+b.durchmesser.nennwert/2 for b in bohrungen):
             raise ValueError(tr("Bohrung {} berührt oder schneidet eine andere Bohrung.").format(index))
         if (math.hypot((x/breite-ring.x)*bx, (y/hoehe-ring.y)*by) > 2.
                 or abs((r/breite-ring.r)*bx) > 2.):
             raise ValueError(tr("Lage oder Durchmesser von Bohrung {} widerspricht dem Grundriss.").format(index))
-        bohrungen.append((x, y, pmi))
+        tiefe = None
+        if tiefentext is not None:
+            tiefe = tiefenmass(tiefentext, 1.)
+            if tiefe is None or tiefe.nennwert is None:
+                raise ValueError(tr("Die Tiefe bis zum flachen Grund von Bohrung {} angeben.").format(index))
+            werte_z = [tiefe.nennwert, *(g for g in tiefe.grenzen() if g is not None)]
+            if not all(0 < g < grenze for g in werte_z):
+                raise ValueError(tr("Die Bohrtiefe muss mit ihren Grenzmaßen zwischen null und der kleinsten Plattendicke liegen."))
+        bohrungen.append(Plattenbohrung(x, y, pmi, tiefe))
     return bohrungen

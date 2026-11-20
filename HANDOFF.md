@@ -2,6 +2,22 @@
 
 ## Current state, 2026-11-20
 
+### Reconstruct flat-bottom blind holes with depth PMI
+
+- Checked PLAN §§8.35–8.37 and docs/Roadmap.md. Each printed ring now has an explicit end
+  condition. Through and top-entry flat-bottom holes can share a plate. A blind hole requires
+  a depth from the drawing, including any limits or deviations. The depth range must leave
+  material at the minimum plate thickness. New view selections clear previous end choices.
+- After the STEP geometry is read back, the cylinder's edge neighbours identify its planar
+  bottom and entry face. The exporter attaches the depth to those faces and the diameter to
+  the bore wall. Tested on a three-hole drawing with one through hole and two Ø8 blind holes
+  of depth 4 mm at different centers, with ±0.1 and ±0.2 mm depth deviations. The solid volume,
+  all eight graphical and semantic records, both bottom centers and both tolerances survived
+  reload. OCCT/XCAF independently read both depth records on the correct pairs of faces.
+- All 13 affected tests and 62 combined drawing/reconstruction/translation tests passed.
+  Next in §8.36: checked pocket outlines and their depth or stepped bores. Drawings with drill
+  points, center-location PMI and automatic view interpretation remain open. QIF stays last.
+
 ### Reconstruct confirmed through holes in a plate
 
 - Checked PLAN §§8.35–8.37 and docs/Roadmap.md. The plate dialog matches separate closed ink

@@ -8,7 +8,7 @@ from ..i18n import tr
 from ..kern.zeichnungsabgleich import Blattangabe, lese_angabe
 from ..kern.zeichnungsblatt import Zeichnungsblatt
 from ..kern.zeichnungsansicht import Blattgeometrie
-from ..kern.plattenbohrung import plattenumriss, sollbohrungen
+from ..kern.plattenbohrung import plattenumriss, sollbohrungen, tiefenmass
 from ..kern.zeichnungskoerper import plattenmasse, rechteckansicht, schreibe_platte
 from .zeichnungsabgleich_ui import Blattansicht
 
@@ -49,7 +49,7 @@ class Plattendialog(QtWidgets.QDialog):
         self.ansicht = Blattansicht()
         fit.clicked.connect(self.ansicht.einpassen)
         layout.addWidget(self.ansicht, 1)
-        self.hinweis = QtWidgets.QLabel(tr("Die Außenkontur der rechteckigen Platte mit etwas Rand einrahmen. Durchgangsbohrungen dürfen als einzelne Kreise sichtbar sein. "
+        self.hinweis = QtWidgets.QLabel(tr("Die Außenkontur der rechteckigen Platte mit etwas Rand einrahmen. Bohrungen dürfen als einzelne Kreise sichtbar sein. "
                                             "Maßzahlen einzeln einrahmen oder eingeben. Eine Vorderansicht ist optional."))
         self.hinweis.setWordWrap(True)
         layout.addWidget(self.hinweis)
@@ -67,8 +67,9 @@ class Plattendialog(QtWidgets.QDialog):
                                      "Die erste Spalte zeigt Schätzwerte. Für ein Maß aus dem PDF die Bohrung und das Maß unter „Einrahmen“ wählen."))
         hinweis.setWordWrap(True)
         inhalt.addWidget(hinweis)
-        self.bohrtabelle = QtWidgets.QTableWidget(0, 4)
-        self.bohrtabelle.setHorizontalHeaderLabels([tr("Geschätzt (X / Y / ⌀, mm)"), tr("X (mm)"), tr("Y (mm)"), tr("Durchmesser (mm)")])
+        self.bohrtabelle = QtWidgets.QTableWidget(0, 6)
+        self.bohrtabelle.setHorizontalHeaderLabels([tr("Geschätzt (X / Y / ⌀, mm)"), tr("X (mm)"), tr("Y (mm)"), tr("Durchmesser (mm)"),
+                                                 tr("Bohrungsende"), tr("Tiefe (mm)")])
         self.bohrtabelle.horizontalHeader().setSectionResizeMode(QtWidgets.QHeaderView.ResizeMode.Stretch)
         self.bohrtabelle.setSelectionBehavior(QtWidgets.QAbstractItemView.SelectionBehavior.SelectRows)
         self.bohrtabelle.setMaximumHeight(140)
@@ -79,7 +80,7 @@ class Plattendialog(QtWidgets.QDialog):
         self.bohrfeld.hide()
         self.bohrtabelle.cellChanged.connect(self._pruefen)
         self.bohrtabelle.currentCellChanged.connect(self._markieren)
-        self.durchgehend.toggled.connect(self._pruefen)
+        self.durchgehend.toggled.connect(self._alle_durch)
         self.ansicht.kreis_gewaehlt.connect(self._bohrung_waehlen)
         self.status = QtWidgets.QLabel()
         self.status.setWordWrap(True)
@@ -153,11 +154,18 @@ class Plattendialog(QtWidgets.QDialog):
             self.bohrtabelle.setRowCount(0)
             self.bohrtabelle.setRowCount(len(self.ringe))
             for i in range(len(self.ringe)):
-                for j in range(4):
+                for j in (0, 1, 2, 3, 5):
                     item = QtWidgets.QTableWidgetItem()
+                    if j == 5:
+                        item.setFlags(QtCore.Qt.ItemFlag.NoItemFlags)
                     if j == 0:
                         item.setFlags(item.flags() & ~QtCore.Qt.ItemFlag.ItemIsEditable)
                     self.bohrtabelle.setItem(i, j, item)
+                art = QtWidgets.QComboBox()
+                art.addItems([tr("Offen"), tr("Durchgang"), tr("Flachboden von oben")])
+                self.bohrtabelle.setCellWidget(i, 4, art)
+                art.currentIndexChanged.connect(lambda _, zeile=i: self._bohrart(zeile))
+            self.durchgehend.setEnabled(True)
             if self.ringe:
                 self.bohrtabelle.setCurrentCell(0, 1)
         self.marken = {k: v for k, v in self.marken.items() if isinstance(k, int)}
@@ -166,9 +174,32 @@ class Plattendialog(QtWidgets.QDialog):
                 self.auswahl.removeItem(5)
             if self.ringe:
                 self.auswahl.addItems([tr("X-Maß der gewählten Bohrung"), tr("Y-Maß der gewählten Bohrung"),
-                                       tr("Durchmesser der gewählten Bohrung")])
+                                       tr("Durchmesser der gewählten Bohrung"), tr("Tiefe der gewählten Bohrung")])
         self.bohrfeld.setVisible(bool(self.ringe))
         return umfang
+
+    def _alle_durch(self, aktiv):
+        for i in range(len(self.ringe)):
+            art = self.bohrtabelle.cellWidget(i, 4)
+            with QtCore.QSignalBlocker(art):
+                art.setCurrentIndex(1 if aktiv else 0)
+        self._pruefen()
+
+    def _bohrart(self, zeile):
+        arten = [self.bohrtabelle.cellWidget(i, 4).currentIndex() for i in range(len(self.ringe))]
+        with QtCore.QSignalBlocker(self.durchgehend):
+            self.durchgehend.setChecked(all(a == 1 for a in arten))
+            self.durchgehend.setEnabled(2 not in arten)
+        item = self.bohrtabelle.item(zeile, 5)
+        with QtCore.QSignalBlocker(self.bohrtabelle):
+            if arten[zeile] == 2:
+                item.setFlags(QtCore.Qt.ItemFlag.ItemIsEnabled | QtCore.Qt.ItemFlag.ItemIsEditable | QtCore.Qt.ItemFlag.ItemIsSelectable)
+            else:
+                item.setText("")
+                item.setFlags(QtCore.Qt.ItemFlag.NoItemFlags)
+                self.marken.pop((zeile, 8), None)
+        self._markieren()
+        self._pruefen()
 
     def _bereich(self, box):
         i = self.auswahl.currentIndex()
@@ -186,14 +217,18 @@ class Plattendialog(QtWidgets.QDialog):
             zeile = self.bohrtabelle.currentRow()
             if zeile < 0:
                 return
+            if i == 8 and self.bohrtabelle.cellWidget(zeile, 4).currentIndex() != 2:
+                self.status.setText(tr("Für ein Tiefenmaß zuerst eine Bohrung mit flachem Grund wählen."))
+                return
             wert = self.blatt.lies(box)
+            lesen = tiefenmass if i == 8 else lese_angabe
             faktor = self.einheit.currentData()
-            if lese_angabe(wert, faktor) is None:
+            if lesen(wert, faktor) is None:
                 wert = ""
-            elif faktor == 25.4 and lese_angabe(wert, None) is None:
+            elif faktor == 25.4 and lesen(wert, None) is None:
                 # Die Bohrungstabelle verwendet mm, eine gedruckte Zollangabe eindeutig erhalten.
                 wert += " in"
-            self.bohrtabelle.item(zeile, i-4).setText(wert)
+            self.bohrtabelle.item(zeile, 5 if i == 8 else i-4).setText(wert)
         if wert:
             self.marken[schluessel] = Blattangabe(self.blatt.nummer, box, self.auswahl.currentText())
         self._markieren()
@@ -217,10 +252,14 @@ class Plattendialog(QtWidgets.QDialog):
     def _bohrungen(self, masse):
         if not self.ringe:
             return []
-        if not self.durchgehend.isChecked():
-            raise ValueError(tr("Die Ausführung als Durchgangsbohrungen anhand der Zeichnung bestätigen."))
+        tiefen = []
+        for i in range(len(self.ringe)):
+            art = self.bohrtabelle.cellWidget(i, 4).currentIndex()
+            if art == 0:
+                raise ValueError(tr("Für Bohrung {} das Bohrungsende anhand der Zeichnung wählen.").format(i+1))
+            tiefen.append(self.bohrtabelle.item(i, 5).text() if art == 2 else None)
         werte = [[self.bohrtabelle.item(i, j).text() for j in (1, 2, 3)] for i in range(len(self.ringe))]
-        return sollbohrungen(self.ringe, werte, masse, self.konturen[0])
+        return sollbohrungen(self.ringe, werte, masse, self.konturen[0], tiefen=tiefen)
 
     def _pruefen(self):
         self.vorne_entfernen.setEnabled(self.vorne_offen or self.konturen[1] is not None)
@@ -256,11 +295,11 @@ class Plattendialog(QtWidgets.QDialog):
                 raise ValueError(tr("Für das STEP-Modell eine eigene Zieldatei wählen."))
             masse = self._masse()
             bohrungen = self._bohrungen(masse)
-            schreibe_platte(ziel, masse, bohrungen)
+            anzahl = schreibe_platte(ziel, masse, bohrungen)
         except (OSError, ValueError, RuntimeError) as e:
             QtWidgets.QMessageBox.warning(self, tr("Platte aus 2D-Zeichnung"), str(e))
             return
-        self.status.setText(tr("STEP-Modell mit {} bemaßten Merkmalen unter {} gespeichert.").format(len(masse)+len(bohrungen), ziel))
+        self.status.setText(tr("STEP-Modell mit {} bemaßten Merkmalen unter {} gespeichert.").format(anzahl, ziel))
 
 
 def oeffne_plattenzeichnung(fenster):
