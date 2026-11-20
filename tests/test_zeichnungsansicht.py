@@ -128,6 +128,19 @@ def test_d2mi_904_einzelbohrung_in_hauptansicht(app):
         blatt = Zeichnungsblatt(doc, 1)
         geo = Blattgeometrie(blatt)
         treffer = zuordnen(geo.im_bereich((.17, .09, .395, .36)), modellkreise(modell))
+        # Gleiche Flaechen nach raeumlicher Drehung des gesamten STEP-Modells finden.
+        geneigt = SimpleNamespace(flaechen=_neige(modell.flaechen))
+        gedreht = zuordnen(geo.im_bereich((.17, .09, .395, .36)), modellkreise(geneigt))
+        assert len(gedreht) == 14 and gedreht == treffer
+        for x, y, achse in ((604.4, 151.1, (63.5, 63.1952)), (592.2, 370., (60.325, 6.35))):
+            radien = set()
+            for ring in treffer:
+                if np.hypot(ring.x-x, ring.y-y) < .15:
+                    for i in ring.flaechen:
+                        zylinder = BRepAdaptor_Surface(modell.flaechen[i]).Cylinder()
+                        assert zylinder.Location().Coord()[:2] == pytest.approx(achse)
+                        radien.add(round(zylinder.Radius(), 6))
+            assert {3.175, 4.7625} <= radien
         rahmen = [a for a in blatt.fundstellen() if a.text.startswith("⌖")]
         zugeordnet = [(a, k) for a in rahmen if (k := geo.hinweisziel(a.box, treffer, blatt.durchmesseranfang))]
         assert len(zugeordnet) == 1
@@ -303,3 +316,25 @@ def test_freier_drehwinkel_mit_fremdkreis_und_mehrdeutiger_symmetrie():
     dreieck = [Blattkreis(30*np.cos(t), 30*np.sin(t), 2, frozenset([i]))
                for i, t in enumerate(np.arange(3)*2*np.pi/3)]
     assert not zuordnen([drehen(k) for k in dreieck], [dreieck])
+
+
+def _neige(flaechen):
+    from OCC.Core.gp import gp_Ax1, gp_Dir, gp_Pnt, gp_Trsf
+    from OCC.Core.TopLoc import TopLoc_Location
+    from OCC.Core.TopoDS import topods
+    trafo = gp_Trsf()
+    trafo.SetRotation(gp_Ax1(gp_Pnt(13, -29, 9), gp_Dir(1., 2., -1.)), .83)
+    lage = TopLoc_Location(trafo)
+    return [topods.Face(f.Moved(lage)) for f in flaechen]
+
+
+def test_geneigte_bohrgruppe_und_zweite_ansichtsrichtung(app):
+    teil = _teil()
+    original, = modellkreise(teil)
+    blatt = [Blattkreis(3*k.x+80, -3*k.y+170, 3*k.r) for k in original]
+    geneigt = _neige(teil.flaechen)
+    treffer = zuordnen(blatt, modellkreise(SimpleNamespace(flaechen=geneigt)))
+    assert [k.flaechen for k in treffer] == [k.flaechen for k in original]
+    # Die gleiche Gruppe auf einer anderen Flaeche ist auf dem Blatt nicht unterscheidbar.
+    beide = modellkreise(SimpleNamespace(flaechen=[*teil.flaechen, *geneigt]))
+    assert len(beide) == 2 and not zuordnen(blatt, beide)

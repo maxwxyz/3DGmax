@@ -1581,9 +1581,12 @@ model characteristic and two equal candidates on different faces. A cropped rast
 in the regular suite. A second test uses the local original PDF and STEP together. General page OCR in
 ZGmax uses a separate OpenCV/ONNX process. This stage reuses the 3DGmax GD&T parser and CAD glyphs.
 
-**Principal views of individual parts** can be registered by selecting the printed hole pattern.
+**Orthographic views along the hole axes of an individual part** can be registered by selecting
+the printed hole pattern. Parallel holes are grouped by their direction in the model, including
+inclined hole groups in auxiliary views. Separate rim arcs use the axis and radius of the cylindrical
+face for their projected center and size. The edge supplies the depth and angular coverage.
 Complete circular paths and printed annuli are matched to full circular boundaries on cylindrical faces.
-Two distinct centers provide a candidate rotation, scale and translation within a principal plane.
+Two distinct centers provide a candidate rotation, scale and translation within each projection plane.
 The fit checks all printed radii and centers, including reflections and arbitrary in-plane rotation.
 At least three non-collinear centers must agree. Only face associations common to
 all best fits are proposed. Coaxial blind holes at separate depths remain ambiguous. A direct or
@@ -1593,7 +1596,7 @@ the upper row’s leader when it begins with a diameter symbol and a number. A q
 open arrowhead leaves this association unresolved.
 The reviewer can also click a matched ring. The CSV stores the accepted circle in sheet coordinates.
 
-Remaining work includes views along non-principal model axes, sections, non-circular features and compound leaders, automatically
+Remaining work includes views in which holes project as ellipses, sections, non-circular features and compound leaders, automatically
 finding unframed and oblique graphical annotations, interpreting composite controls and establishing
 the scope required for a verified whole-drawing verdict. Confirmed matches currently apply to individual characteristics.
 

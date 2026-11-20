@@ -287,8 +287,26 @@ class Blattgeometrie:
         return None
 
 
+def _projektion(richtung, ebenen):
+    # Positives und negatives Achsende bezeichnen dieselbe Ansicht. Bei gleich grossen
+    # Komponenten dieselbe Bezugsachse waehlen, auch nach Rundung im STEP-Export.
+    n = np.asarray(richtung)
+    betrag = abs(n)
+    k = int(np.flatnonzero(betrag >= betrag.max()-1e-9)[0])
+    if n[k] < 0:
+        n = -n
+    schluessel = tuple(np.round(n, 9))
+    if schluessel not in ebenen:
+        u = np.eye(3)[(k+1) % 3]
+        u -= (u @ n)*n
+        u /= np.linalg.norm(u)
+        ebenen[schluessel] = np.array([u, np.cross(n, u), n])
+    return schluessel, ebenen[schluessel]
+
+
 def modellkreise(modell, pruefe=lambda: None):
-    """Kreisraender aus zusammengehoerenden Zylindermantelflaechen, getrennt je Hauptansicht."""
+    """Kreisraender aus zusammengehoerenden Zylindermantelflaechen, getrennt nach Achsrichtung."""
+    from OCC.Core.BRep import BRep_Tool
     from OCC.Core.BRepAdaptor import BRepAdaptor_Curve
     from OCC.Core.GeomAbs import GeomAbs_Circle
     from OCC.Core.TopAbs import TopAbs_EDGE
@@ -296,32 +314,36 @@ def modellkreise(modell, pruefe=lambda: None):
     from OCC.Core.TopoDS import topods
     from .pmi_vorschlag import _flaeche_info
     boegen = defaultdict(list)
+    ebenen = {}
     for i, f in enumerate(modell.flaechen):
         if i % 32 == 0:
             pruefe()
         info = _flaeche_info(f)
         if not info or info[0] != "zylinder":
             continue
-        achse = np.abs(info[1]["achse"])
-        k = int(np.argmax(achse))
-        if np.linalg.norm(np.delete(achse, k)) > 1e-6:
-            continue
-        u, v = (k+1) % 3, (k+2) % 3
+        richtung, basis = _projektion(info[1]["achse"], ebenen)
+        zentrum = basis[:2] @ info[1]["punkt"]
         ex = TopExp_Explorer(f, TopAbs_EDGE)
         while ex.More():
-            kurve = BRepAdaptor_Curve(topods.Edge(ex.Current()))
+            kante = topods.Edge(ex.Current())
+            kurve = BRepAdaptor_Curve(kante)
             ex.Next()
             if kurve.GetType() != GeomAbs_Circle:
                 continue
             kreis = kurve.Circle()
-            normal = kreis.Axis().Direction().Coord()[k]
+            normal = basis[2] @ kreis.Axis().Direction().Coord()
             if abs(normal) < 1 - 1e-9 or not math.isclose(kreis.Radius(), info[1]["r"], abs_tol=1e-6):
                 continue
-            mitte = kreis.Location().Coord()
+            mitte = np.array(kreis.Location().Coord())
+            if np.linalg.norm(basis[:2] @ mitte - zentrum) > max(BRep_Tool.Tolerance(kante), 1e-5):
+                continue
             start, ende = kurve.FirstParameter(), kurve.LastParameter()
             punkt = kurve.Value(start if normal > 0 else ende).Coord()
-            phi = math.atan2(punkt[v]-mitte[v], punkt[u]-mitte[u]) % math.tau
-            schluessel = (k, *(round(mitte[j], 6) for j in (u, v, k)), round(kreis.Radius(), 6))
+            x, y = basis[:2] @ (punkt-mitte)
+            phi = math.atan2(y, x) % math.tau
+            # Getrennt angepasste Halbkreise koennen leicht verschiedene Mittelpunkte
+            # haben. Fuer ihre gemeinsame Projektion ist die Zylinderachse massgeblich.
+            schluessel = (richtung, *np.round(zentrum, 6), round(basis[2] @ mitte, 6), round(info[1]["r"], 6))
             boegen[schluessel].append((phi, phi + ende-start, i))
     ansichten = defaultdict(lambda: defaultdict(list))
     for (k, x, y, _, r), teile in boegen.items():
@@ -469,7 +491,7 @@ def _passungen(m, z, pruefe, minimum):
 
 
 def zuordnen(kreise, ansichten, pruefe=lambda: None):
-    """Nur Zuordnungen behalten, die alle gleich gut passenden Hauptansichten gemeinsam haben."""
+    """Nur Zuordnungen behalten, die alle gleich gut passenden Projektionen gemeinsam haben."""
     if len(kreise) < 3:
         return []
     def daten(zeilen):

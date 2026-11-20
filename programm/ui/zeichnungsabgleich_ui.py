@@ -153,7 +153,7 @@ class Zeichnungsabgleich(QtWidgets.QDialog):
         self.registrieren = QtWidgets.QPushButton(tr("Bohrbild zuordnen"))
         self.registrieren.setCheckable(True)
         self.registrieren.setEnabled(einzelteil is not None)
-        self.registrieren.setToolTip(tr("Eine Hauptansicht eines Einzelteils mit mindestens drei verteilten Kreismittelpunkten einrahmen."))
+        self.registrieren.setToolTip(tr("Ein Bohrbild in Achsrichtung einrahmen. Mindestens drei Mittelpunkte müssen ein Dreieck bilden."))
         oben.addWidget(self.registrieren)
         oben.addStretch()
         oben.addWidget(QtWidgets.QLabel(tr("Zeichnungseinheit")))
@@ -292,7 +292,7 @@ class Zeichnungsabgleich(QtWidgets.QDialog):
         elif self.auftrag is not None:
             self.status.setText(tr("Bohrbild wird mit dem Modell verglichen …"))
         elif self.blatt is not None and self.kreise.get(self.blatt.nummer) == []:
-            self.status.setText(tr("Keine eindeutige Zuordnung. Eine Hauptansicht mit weiteren Kreisen einrahmen."))
+            self.status.setText(tr("Keine eindeutige Zuordnung. Eine Ansicht entlang der Bohrungsachsen mit weiteren Kreisen einrahmen."))
         elif self.blatt is not None and self.blatt.nummer in self.kreise:
             self.status.setText(tr("{} Kreise zugeordnet. Eine Angabe wählen und den Kreis am Hinweisziel anklicken.")
                                 .format(len(self.kreise[self.blatt.nummer])))

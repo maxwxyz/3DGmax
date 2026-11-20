@@ -2,6 +2,22 @@
 
 ## Current state, 2026-11-20
 
+### Register auxiliary views along inclined hole axes
+
+- Checked PLAN §8.35 against docs/Roadmap.md. The model now groups analytic cylinders by their
+  common axis direction and projects their circular rims into the perpendicular plane. Complete
+  angular coverage and depth remain separate checks. Complementary STEP arcs can have slightly
+  different fitted centers. Their cylinder’s axis supplies a stable projected center and radius.
+- D2MI 904 sheet 2 now matches 14 printed rings. The four additional rings are the 3.175 mm and
+  4.7625 mm steps on the holes at (63.5, 63.1952) and (60.325, 6.35) mm. Tilting the real STEP
+  faces about an oblique axis preserved all 14 associations, including the split face pairs.
+  Rotating the PDF sheet by 28 degrees independently preserved them too. The plotted leader still
+  identified the position control on the inner diameter. Two identical groups on differently
+  inclined planes stayed open. All 24 affected tests, 32 focused drawing cases and the translation
+  completeness test passed.
+- Still open in §8.35 are elliptical projections, sections, non-circular targets, repeated-hole
+  callouts and whole-drawing verification. §8.36 covers reconstruction and §8.37 keeps QIF last.
+
 ### Register a principal view at any angle on the sheet
 
 - Checked PLAN §8.35 and docs/Roadmap.md. Two separated circle centers give candidate scales and
