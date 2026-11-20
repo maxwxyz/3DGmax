@@ -145,7 +145,8 @@
 | Assembly variation: measured planes and axes in their datum frame, lever arm at the measuring point, incomplete inputs indicated in the UI, PDF and chain | ✅ |
 | Assembly variation: common datum axis from separate coaxial bearing seats, common plane from coplanar pads, individual member contributions | ✅ |
 | Assembly variation: size-dependent Ⓜ/Ⓛ bonus on measured cylindrical features, coupled surface displacement, maximum geometric tolerance, projected axis zones with explicit start and offset | ✅ |
-| Assembly variation: deformable form, other common datum geometries, material-boundary datum simulator contact, thread construction geometry and simultaneous axis zones with different projected intervals | ⬜ |
+| Assembly variation: simultaneous position controls on different native and projected intervals of the same rigid axis with matching diameter and material conditions | ✅ |
+| Assembly variation: deformable form, other common datum geometries, material-boundary datum simulator contact, thread construction geometry and differing position diameters or orientation controls on different intervals | ⬜ |
 | 3D chain from an assembly measure (one link per part on the connection path, clearance limits per component) | ✅ |
 | Wiggle of the closing faces at the worst-case limits (exaggerated, coloured against the requirement) | ✅ |
 | Chain from faces: median planes as chain ends, chains across parts with joint links from assembly connections | ✅ |

@@ -2,6 +2,17 @@
 
 ## Current state, 2026-11-20
 
+### Simultaneous projected position zones on a rigid axis
+
+- Checked PLAN §8.20 and docs/Roadmap.md. Equal-diameter position controls with the same datum frame,
+  material condition and maximum geometric tolerance share the two outermost constrained stations.
+  Checked nested and separated projections, projections from opposite ends, and a projection together
+  with the physical cylinder. Reversing PMI order or rotating the assembly preserves the bounds.
+- Two Ø0.2 mm intervals at 20–30 and 35–45 mm yield a 0.52 mm total range at station zero in the
+  measurement and exported 3D chain. With a common MMC bonus capped at Ø0.4 mm the range is 1.04 mm.
+  All 23 affected tests passed. Different effective widths or floating orientation controls on different
+  intervals remain open.
+
 ### Tooth-to-tooth variation in the cylindrical gear analysis
 
 - Checked PLAN §8.27 and docs/Roadmap.md. Each flank map cell now includes the peak-to-peak deviation

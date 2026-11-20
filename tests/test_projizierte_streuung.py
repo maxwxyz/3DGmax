@@ -63,14 +63,63 @@ def test_ungeklaerte_projektion_unterdrueckt_sollbewertung(fehler):
     elif fehler == "offset":
         p.projektionsversatz = None
     elif fehler == "gemischt":
-        angaben.append(replace(p, zone="", zonen_wert=None, projektionsflaechen=[]))
+        angaben.append(replace(p, typ="Parallelism", zone="", zonen_wert=None, projektionsflaechen=[]))
     else:
-        angaben.append(replace(p, zonen_wert=11.))
+        angaben.append(replace(p, zonen_wert=11., wert=.1))
     m = bm.Messgroesse(1, 2, 8, 1, 1, art=bm.PUNKT_ACHSE, punkt=[4., 0., 5.], soll_min=0., soll_max=8.)
     a = bm.Analyse(vb.Baugruppe(), [*angaben, _datum(7, "A")], lambda t, i: formen.get(i) if t == 1 else None)
     e = a.berechne(m, formen[2], formen[1], proben=60)
     assert e.hinweise and not bm.bewertung(e, m)[0]
     assert a.als_kette3d(m, formen[2], formen[1]).hinweise == e.hinweise
+
+
+@pytest.mark.parametrize("zweite,z,breite", [
+    ({"zonen_wert": 15.}, 0., .2 * 55/15),                            # 20..30 und 20..35
+    ({"projektionsversatz": 15.}, 0., .52),                            # 20..30 und 35..45
+    ({"projektionsflaechen": [3]}, -30., .4),                          # -10..0 und 20..30
+    ({"zone": "Diameter", "projektionsflaechen": []}, 0., .2),        # 0..20 und 20..30
+])
+def test_gleiche_positionsdurchmesser_auf_mehreren_abschnitten(zweite, z, breite):
+    formen = _zylinder()
+    formen[7] = _flaeche(BRepPrimAPI_MakeCylinder(1., 4.).Shape())
+    p = _rahmen(2)
+    m = bm.Messgroesse(1, 2, 8, 1, 1, art=bm.PUNKT_ACHSE, punkt=[4., 0., z])
+    bg = vb.Baugruppe()
+    lage = np.eye(4)
+    lage[:3, :3] = Rotation.from_rotvec([.5, -.7, .1]).as_matrix()
+    lage[:3, 3] = [17., 4., -92.]
+    bg.lagen.update({1: lage.copy(), 2: lage.copy()})
+    for angaben in ([p, replace(p, **zweite)], [replace(p, **zweite), p]):
+        a = bm.Analyse(bg, [*angaben, _datum(7, "A")], lambda t, i: formen.get(i) if t == 1 else None)
+        e = a.berechne(m, formen[7], formen[1])
+        assert not e.hinweise and len(e.beitraege) == 1
+        assert (e.wc_min, e.wc_max) == pytest.approx((4 - breite/2, 4 + breite/2))
+        kette = a.als_kette3d(m, formen[7], formen[1])
+        assert not kette.hinweise
+        assert sum(g.werte["z"].oben - g.werte["z"].unten for g in kette.glieder) == pytest.approx(breite)
+
+
+def test_positionsabschnitte_teilen_materialbonus_und_deckel():
+    formen = _zylinder()
+    formen[7] = _flaeche(BRepPrimAPI_MakeCylinder(1., 4.).Shape())
+    p = replace(_rahmen(2), material="M", maximum_toleranz=.4)
+    mass = Pmi("mass", "Size_Diameter", nennwert=6., unten=-.2, oben=.2, flaechen={1})
+    m = bm.Messgroesse(1, 2, 8, 1, 1, art=bm.PUNKT_ACHSE, punkt=[4., 0., 0.])
+    def analyse(zweiter):
+        return bm.Analyse(vb.Baugruppe(), [p, zweiter, mass, _datum(7, "A")],
+                          lambda t, i: formen.get(i) if t == 1 else None)
+
+    zweiter = replace(p, projektionsversatz=15.)
+    a = analyse(zweiter)
+    e = a.berechne(m, formen[7], formen[1])
+    assert not e.hinweise and len(e.beitraege) == 1
+    assert e.wc_max - e.wc_min == pytest.approx(.4 * 2.6)
+    assert e.wc_min <= e.mc_min < e.mc_max <= e.wc_max
+    kette = a.als_kette3d(m, formen[7], formen[1])
+    assert not kette.hinweise
+    assert sum(g.werte["z"].oben - g.werte["z"].unten for g in kette.glieder) == pytest.approx(.4 * 2.6)
+    for anders in (replace(zweiter, maximum_toleranz=None), replace(zweiter, material="L")):
+        assert analyse(anders).berechne(m, formen[7], formen[1]).hinweise
 
 
 def test_ftc07_projektionsursprung_an_geteilter_zylinderwand(ftc07):

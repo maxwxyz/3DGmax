@@ -926,9 +926,14 @@ Current coverage (2026-11-20), superseding the earlier progress notes below:
 - Projected cylindrical axis tolerances use the specified origin face, height and offset. The
   rigid axis is constrained over that interval and can be extrapolated to a measurement point.
   The loaded FTC-07 bore has a projection from 12.700 to 23.495 mm in Y. [CAx-IF AP242 PMI recommended practice, §6.9](https://www.mbx-if.org/home/wp-content/uploads/2024/06/rec_pracs_pmi_v41.pdf)
+- For simultaneous position controls of equal diameter on one nominal axis in the same datum
+  frame, the limit applies at the two outermost constrained stations. The radial displacement is linear
+  along the rigid axis and the permitted disk is convex. This includes separate projections from
+  opposite faces, gaps and a native interval alongside a projection. A shared size-dependent bonus and
+  cap are evaluated once for the feature. Checks cover rotated assembly placements and 3D chain export.
 - Incomplete measures suppress the requirement verdict. Remaining cases include deformable form,
   other common datum geometries, physical datum simulators under material boundary conditions,
-  and simultaneous controls with differing projection intervals. Curved boundaries are sampled.
+  and differing diameters or orientation controls on different projection intervals. Curved boundaries are sampled.
 Request: build assemblies, set up functional dimension chains ("Funktionsmaßketten", FMK – assumed meaning) from the
 PMI, recognize or assign materials, take temperatures and thermal expansion into account, compute stack-ups, and
 move parts within their tolerances (1:1 and exaggerated) in worst case or per tolerance / chain ("wiggle") to find

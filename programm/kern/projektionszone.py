@@ -86,17 +86,26 @@ def messmerkmal(angaben, form, merkmal, lage, form_fuer):
     if art != "achse" or BRepAdaptor_Surface(form).GetType() != GeomAbs_Cylinder:
         return None, tr("Projizierte Zone ohne zylindrisches Messmerkmal")
     kanten = _kanten(form)
-    abschnitt = None
+    abschnitte = []
     for p in angaben:
         if getattr(p, "zone", "") != "Projected":
-            return None, tr("Verschiedene Geltungsbereiche der Achstoleranzen")
+            abschnitte.append(merkmal)
+            continue
         intervall, hinweis = sichtintervall(p, mitte, d, laenge, form_fuer, lage)
         if hinweis:
             return None, hinweis
         if not any(_beruehren(kanten, _kanten(form_fuer(idx))) for idx in p.projektionsflaechen):
             return None, tr("Austrittsfläche der projizierten Zone")
-        if abschnitt and (abs(abschnitt[3] - intervall[3]) > 1e-8 or
-                          np.linalg.norm(abschnitt[1] - intervall[1]) > 1e-8):
-            return None, tr("Verschiedene Geltungsbereiche der Achstoleranzen")
-        abschnitt = intervall
-    return abschnitt, ""
+        abschnitte.append(intervall)
+    erster = abschnitte[0]
+    if all(abs(a[3] - erster[3]) <= 1e-8 and np.linalg.norm(a[1] - erster[1]) <= 1e-8 for a in abschnitte):
+        return erster, ""
+    # Auf einer starren Geraden ist der Radialversatz zwischen den Enden linear.
+    # Gleich grosse, ortsfeste Kreisscheiben binden daher nur an den beiden aeussersten Enden.
+    durchmesser = {(p.wert, getattr(p, "material", ""), getattr(p, "maximum_toleranz", None)) for p in angaben}
+    if len(durchmesser) != 1 or any(p.typ != "Position" for p in angaben):
+        return None, tr("Verschiedene Geltungsbereiche der Achstoleranzen")
+    lagen = [(float((o - mitte) @ d), h / 2) for _, o, _, h in abschnitte]
+    unten = min(s - halb for s, halb in lagen)
+    oben = max(s + halb for s, halb in lagen)
+    return ("achse", mitte + d * ((unten + oben) / 2), d, oben - unten), ""
