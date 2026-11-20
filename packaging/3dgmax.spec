@@ -44,7 +44,8 @@ if os.environ.get("DG_MIT_JT") == "1":
         raise SystemExit("DG_MIT_JT=1, aber extern/jt2glb fehlt (packaging/jt/bauen.sh)")
     jt_binaer = [(_jt, ".")]
 
-from PyInstaller.utils.hooks import collect_submodules  # noqa: E402
+from PyInstaller.utils.hooks import collect_submodules, copy_metadata  # noqa: E402
+datas += copy_metadata("pypdfium2")  # enthaelt auch die Lizenztexte des mitgelieferten PDFium
 hidden = collect_submodules("programm") + collect_submodules("OCC.Core") + ["OCC.Display.qtDisplay",
                                                                              "OCC.Display.backend"]
 excludes = ["tkinter", "matplotlib", "IPython", "pytest", "PyQt5", "PyQt6", "PySide2", "wx",

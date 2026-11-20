@@ -24,6 +24,7 @@ LIZENZEN = (
     ("NumPy", "BSD", "https://numpy.org"),
     ("SciPy", "BSD", "https://scipy.org"),
     ("lxml", "BSD", "https://lxml.de"),
+    ("pypdfium2 / PDFium", "Apache-2.0 / BSD", "https://github.com/pypdfium2-team/pypdfium2"),
     ("pypdf", "BSD", "https://github.com/py-pdf/pypdf"),
     ("Asymptote PRC (Kodierungstabelle, Bitleser)", "LGPL 3", "https://github.com/vectorgraphics/asymptote"),
     ("isofits (ISO-286-Werte j/J, a), © Parker Greene", "MIT", "https://github.com/parkergreene/isofits"),

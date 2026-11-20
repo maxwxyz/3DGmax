@@ -19,6 +19,7 @@ pyside6 = "6.11.*"
 
 [pypi-dependencies]
 pypdf = "*"
+pypdfium2 = ">=5.15.2, <6"
 
 [feature.dev.dependencies]
 pyinstaller = "6.*"

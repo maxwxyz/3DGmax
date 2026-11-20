@@ -24,6 +24,7 @@ model properties (volume, mass, center of gravity), parts list, draft angle, cur
 
 **Comparison** – automatic or manual alignment, geometry status per face, deviation color map, added/removed material,
 moved elements and PMI, assembly changes, semantic and graphical PMI diff, review walk-through with a SHA-256 report.
+Compare individual PDF drawing annotations against model PMI, highlight their faces and export the reviewed findings to CSV.
 
 **Output** – PDF reports (views, comparison, PMI changes, bill of characteristics, measurements, comments), drawings
 via hidden-line removal as PDF/SVG/DXF with PMI, CSV exports, project container (`.3dgmax`), folder comparison.

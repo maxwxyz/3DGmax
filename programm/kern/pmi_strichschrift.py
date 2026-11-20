@@ -159,7 +159,7 @@ _Y, _X = np.ogrid[:32, :32]
 _KREIS_INNEN = (_Y - 15.5)**2 + (_X - 15.5)**2 <= 9**2
 
 
-def _lies_zeile(zeichen):
+def _lies_zeile(zeichen, vorlagen=None):
     if not 1 <= len(zeichen) <= 48:
         return ""
     oben = min(box[1] for _, box in zeichen)
@@ -170,7 +170,7 @@ def _lies_zeile(zeichen):
         h = (u - y) / hoehe
         dist = ndimage.distance_transform_edt(~bitmap)
         je_zeichen = {}
-        for z, vorlage, abstand in _vorlagen():
+        for z, vorlage, abstand in (_vorlagen() if vorlagen is None else vorlagen):
             if z == "." and (h > .38 or u < unten - .23 * hoehe):
                 continue
             if z == "°" and (h > .43 or y > oben + .27 * hoehe):
@@ -179,7 +179,7 @@ def _lies_zeile(zeichen):
                 continue
             if z not in ".°±-" and (h < .46 or not y < (oben + unten) / 2 < u):
                 continue
-            if z in "ⓂⒻ":
+            if z in "ⓂⒻⓁ":
                 # Der gemeinsame Aussenkreis sagt nichts ueber die Materialbedingung aus.
                 innen = np.r_[dist[vorlage & _KREIS_INNEN], abstand[bitmap & _KREIS_INNEN]]
                 if not innen.size or np.quantile(innen, .9) > 1.7:

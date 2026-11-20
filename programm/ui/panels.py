@@ -194,6 +194,7 @@ def _setze_kinder(it, zustand, hilfe_auslassen=False):
 class PmiPanel(QtWidgets.QWidget):
     """Tabelle aller PMI mit Artfilter, Suche (Wert, Bezug, Name, Ansicht) und Kontextmenue."""
 
+    bestand_geaendert = QtCore.Signal(list)
     gewaehlt = QtCore.Signal(list)  # Liste von Pmi
     filter_geaendert = QtCore.Signal(object)  # STEP-#IDs der gefilterten PMI oder None (kein Art-/Suchfilter)
     befehl = QtCore.Signal(str, object)  # Kontextmenue: ("zoomen"|"ausrichten"|"ansicht", Wert)
@@ -315,6 +316,7 @@ class PmiPanel(QtWidgets.QWidget):
                 t.setItem(z, s, it)
         t.blockSignals(False)
         self._filtern()
+        self.bestand_geaendert.emit(self.pmi)
 
     @staticmethod
     def _werte(p, namen, ballon: dict | None = None) -> dict[str, str]:

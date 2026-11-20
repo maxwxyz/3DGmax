@@ -309,7 +309,7 @@
 
 | Feature | Status |
 |---|---|
-| Compare model PMI and a corresponding 2D drawing, link equivalent, changed, missing, extra and ambiguous characteristics to both sources – PLAN §8.35 | ⬜ |
+| Compare model PMI with PDF drawing annotations and export reviewed matches, differences, one-sided and open findings with sheet and face references. Automatic view/leader registration and whole-drawing verification remain open – PLAN §8.35 | 🟡 |
 | Generate a solid and dimensioned semantic PMI from orthographic drawing views and sections, resolve missing dimensions and verify by reprojection – PLAN §8.36 | ⬜ |
 
 ## Final implementation stage

@@ -162,6 +162,7 @@ class Hauptfenster(QtWidgets.QMainWindow):
         self.setAcceptDrops(True)
         self.resize(1400, 860)
         self.ein = einstellungen()
+        self.zeichnungsabgleich = None
         self.erg = None  # Ergebnis des Ladens
         self._lader: Modellauftrag | None = None
         self._ladeabschluss = None
@@ -627,6 +628,8 @@ class Hauptfenster(QtWidgets.QMainWindow):
           tipp=tr("Von der Gegenseite schauen (180° um die Hochachse)"))
         A("ordnervergleich", tr("Ordner vergleichen …"), self.zeige_ordnervergleich,
           tipp=tr("Alle Modelle zweier Ordner paarweise vergleichen (Übersicht)"), modell=False)
+        A("zeichnungsabgleich", tr("PMI mit 2D-Zeichnung vergleichen …"), self.zeige_zeichnungsabgleich,
+          tipp=tr("Zeichnungsangaben im PDF mit den semantischen PMI des geladenen Modells prüfen"))
         A("zoom_auswahl", tr("Auf Auswahl zoomen"), self._zoome_auswahl, "Z",
           tipp=tr("Gewählte Flächen, Kanten, PMI, Messung oder Änderung bildfüllend zeigen"))
         A("normal_auswahl", tr("Normal auf Auswahl ausrichten"), self._normal_auswahl, "N",
@@ -851,6 +854,7 @@ class Hauptfenster(QtWidgets.QMainWindow):
         self._beispiel_menue(m.addMenu(tr("Beispiele")))
         m.addSeparator()
         m.addAction(a["vergleichen"])
+        m.addAction(a["zeichnungsabgleich"])
         m.addAction(a["ordnervergleich"])
         m.addAction(a["manuell_ausrichten"])
         m.addAction(a["vergleich_beenden"])
@@ -1287,6 +1291,8 @@ class Hauptfenster(QtWidgets.QMainWindow):
         if zuruecksetzen is None:
             zuruecksetzen = erg is not self.erg
         if self.erg is not erg:
+            if self.zeichnungsabgleich is not None:
+                self.zeichnungsabgleich.close()
             self._semantik_beenden()
             self._verzahnung_abbrechen()
         if zuruecksetzen and self.erg is not None:
@@ -1543,6 +1549,8 @@ class Hauptfenster(QtWidgets.QMainWindow):
         QtWidgets.QMessageBox.warning(self, tr("Laden fehlgeschlagen"), text)
 
     def schliesse_modell(self):
+        if self.zeichnungsabgleich is not None:
+            self.zeichnungsabgleich.close()
         self._semantik_beenden()
         self.lade_abbrechen()
         self.beende_vergleich(neu_zeigen=False)
@@ -2219,6 +2227,20 @@ class Hauptfenster(QtWidgets.QMainWindow):
                 projekt.uebernimm_pruefstand(v, stand.get("vergleich", {}).get("aenderungen", []))
             self.zeige_vergleich(v)
         self._starte_ladeauftrag(lader, tr("Vergleiche …"), uebernehmen, warten, stand, danach)
+
+    def zeige_zeichnungsabgleich(self):
+        if self.zeichnungsabgleich is not None:
+            self.zeichnungsabgleich.raise_()
+            self.zeichnungsabgleich.activateWindow()
+            return self.zeichnungsabgleich
+        if self.erg is None:
+            return
+        pfad, _ = QtWidgets.QFileDialog.getOpenFileName(self, tr("2D-Zeichnung öffnen"), "", "PDF (*.pdf)")
+        if not pfad:
+            return
+        from .zeichnungsabgleich_ui import oeffne_zeichnung
+        self.zeichnungsabgleich = oeffne_zeichnung(self, pfad)
+        return self.zeichnungsabgleich
 
     def zeige_ordnervergleich(self):
         from .ordnervergleich_ui import OrdnerVergleich
@@ -5153,6 +5175,8 @@ class Hauptfenster(QtWidgets.QMainWindow):
             uhr.stop()
 
     def closeEvent(self, ev):
+        if self.zeichnungsabgleich is not None:
+            self.zeichnungsabgleich.close()
         self.pmi.beende_schriftsuche()
         self._semantik_beenden()
         if self in FENSTER:

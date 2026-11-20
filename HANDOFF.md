@@ -2,6 +2,27 @@
 
 ## Current state, 2026-11-20
 
+### Review model PMI against a drawing PDF
+
+- Checked PLAN §8.35 against docs/Roadmap.md. File → Compare PMI with 2D drawing opens a separate
+  review window. The sheet keeps each annotation’s location, and the model view remains interactive.
+  Confirm a model association after checking the view and leader. Repeated detail views can refer to
+  the same PMI. Ambiguous candidates, unsupported annotations and missing units remain open.
+- A real D2MI 904 drawing and STEP pair agree on a 2.016 inch basic dimension (51.2064 mm) and on
+  0.005 inch flatness and position controls (0.127 mm). The position test includes least material
+  and the ordered datum system A, B, C. A raster crop exercises the path without a PDF text layer
+  even when the local NIST archive is unavailable. The same crop is verified at 0°, 90°, 180° and
+  270° with its original datum order and sheet location.
+- Automatic leader/feature registration, inclined annotations, composites and whole-drawing
+  completeness are still open in §8.35. Reconstruction remains in §8.36 and QIF is last in §8.37.
+- Checked a frozen macOS PDFium executable against sheet 2 of the same source. It read the three-page
+  document and rendered the selected sheet. A complete macOS app build contains the PDFium dynamic
+  library and dependency license files. Its self-test loaded 117 faces and 23 PMI. All 12 sheets in
+  the six local D2MI engineering drawings rendered and returned sheet-relative annotation regions.
+- All 146 affected tests passed. The full offscreen suite passed 667 tests and skipped the eight
+  display tests. All eight also passed separately on the macOS display. The 21 graphical PMI
+  conversion and STEP round-trip tests passed separately.
+
 ### Different position diameters and floating orientation zones along one axis
 
 - Checked PLAN §8.20 and docs/Roadmap.md. All supported controls on one rigid cylindrical feature in

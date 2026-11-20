@@ -184,6 +184,7 @@ environments:
       - conda: https://conda.anaconda.org/conda-forge/noarch/tzdata-2026e-h5d301ff_0.conda
       - conda: https://conda.anaconda.org/conda-forge/noarch/zipp-4.1.2-pyh5ded981_0.conda
       - pypi: https://files.pythonhosted.org/packages/1b/4d/c9d2d67f204eff463237a1a8f5e25a6923b7b1043982b91fcaf104c8ef60/pypdf-6.21.2-py3-none-any.whl
+      - pypi: https://files.pythonhosted.org/packages/c8/e5/2e668bc1bc6fe22f9006694b5571a2dd2c9b874d6a21d16ee839c8f7f6ea/pypdfium2-5.15.2-py3-none-manylinux_2_17_x86_64.manylinux2014_x86_64.whl
       mac-arm:
       - conda: https://conda.anaconda.org/conda-forge/noarch/altgraph-0.17.5-pyhd8ed1ab_0.conda
       - conda: https://conda.anaconda.org/conda-forge/noarch/ca-certificates-2026.10.23-hbd8a1cb_0.conda
@@ -293,6 +294,7 @@ environments:
       - conda: https://conda.anaconda.org/conda-forge/osx-arm64/tk-8.6.13-hbeba79b_4.conda
       - conda: https://conda.anaconda.org/conda-forge/osx-arm64/zstd-1.5.7-hf451053_7.conda
       - pypi: https://files.pythonhosted.org/packages/1b/4d/c9d2d67f204eff463237a1a8f5e25a6923b7b1043982b91fcaf104c8ef60/pypdf-6.21.2-py3-none-any.whl
+      - pypi: https://files.pythonhosted.org/packages/e7/bb/bf88a781a53c905022b25b2d1fb742c908f86b8076403471f626cc41a508/pypdfium2-5.15.2-py3-none-macosx_13_0_arm64.whl
       mac-intel:
       - conda: https://conda.anaconda.org/conda-forge/noarch/altgraph-0.17.5-pyhd8ed1ab_0.conda
       - conda: https://conda.anaconda.org/conda-forge/noarch/ca-certificates-2026.10.23-hbd8a1cb_0.conda
@@ -401,6 +403,7 @@ environments:
       - conda: https://conda.anaconda.org/conda-forge/osx-64/scipy-1.18.1-py314hefcf020_2.conda
       - conda: https://conda.anaconda.org/conda-forge/osx-64/tk-8.6.13-ha6c374e_4.conda
       - conda: https://conda.anaconda.org/conda-forge/osx-64/zstd-1.5.7-hbc1a06c_7.conda
+      - pypi: https://files.pythonhosted.org/packages/09/de/9e7eda3ee1c00228d72f7fc53a370d76eed51fe5fea25debc428ac684e35/pypdfium2-5.15.2-py3-none-macosx_13_0_x86_64.whl
       - pypi: https://files.pythonhosted.org/packages/1b/4d/c9d2d67f204eff463237a1a8f5e25a6923b7b1043982b91fcaf104c8ef60/pypdf-6.21.2-py3-none-any.whl
       win-64:
       - conda: https://conda.anaconda.org/conda-forge/noarch/altgraph-0.17.5-pyhd8ed1ab_0.conda
@@ -508,6 +511,7 @@ environments:
       - conda: https://conda.anaconda.org/conda-forge/win-64/zlib-1.3.2-hfd05255_3.conda
       - conda: https://conda.anaconda.org/conda-forge/win-64/zstd-1.5.7-h534d264_7.conda
       - pypi: https://files.pythonhosted.org/packages/1b/4d/c9d2d67f204eff463237a1a8f5e25a6923b7b1043982b91fcaf104c8ef60/pypdf-6.21.2-py3-none-any.whl
+      - pypi: https://files.pythonhosted.org/packages/fe/7f/8aa446529fa14523e5c18f89e823afc95526689f76a75efe68a82a10d850/pypdfium2-5.15.2-py3-none-win_amd64.whl
 packages:
 - conda: https://conda.anaconda.org/conda-forge/linux-64/_openmp_mutex-4.5-20_gnu.conda
   build_number: 20
@@ -6886,6 +6890,11 @@ packages:
     - zstd >=1.5.7,<1.6.0a0
   size: 387535
   timestamp: 1786599623274
+- pypi: https://files.pythonhosted.org/packages/09/de/9e7eda3ee1c00228d72f7fc53a370d76eed51fe5fea25debc428ac684e35/pypdfium2-5.15.2-py3-none-macosx_13_0_x86_64.whl
+  name: pypdfium2
+  version: 5.15.2
+  sha256: 7f296a298074d76fb7c3d1ecb80d7097a96778bf0ad9c5c48a0170e56e2c6821
+  requires_python: '>=3.6'
 - pypi: https://files.pythonhosted.org/packages/1b/4d/c9d2d67f204eff463237a1a8f5e25a6923b7b1043982b91fcaf104c8ef60/pypdf-6.21.2-py3-none-any.whl
   name: pypdf
   version: 6.21.2
@@ -6917,3 +6926,18 @@ packages:
   - arabic-reshaper ; extra == 'rtl-text'
   - python-bidi ; extra == 'rtl-text'
   requires_python: '>=3.9'
+- pypi: https://files.pythonhosted.org/packages/c8/e5/2e668bc1bc6fe22f9006694b5571a2dd2c9b874d6a21d16ee839c8f7f6ea/pypdfium2-5.15.2-py3-none-manylinux_2_17_x86_64.manylinux2014_x86_64.whl
+  name: pypdfium2
+  version: 5.15.2
+  sha256: dc31aea5b0fb9fefc9b537a65f4113980b2c40798445736a7e6565bc85161e37
+  requires_python: '>=3.6'
+- pypi: https://files.pythonhosted.org/packages/e7/bb/bf88a781a53c905022b25b2d1fb742c908f86b8076403471f626cc41a508/pypdfium2-5.15.2-py3-none-macosx_13_0_arm64.whl
+  name: pypdfium2
+  version: 5.15.2
+  sha256: e71fe832e94421ac3c28d6a6ed4a9e61f22417089652d339f391c4ffc2a44c35
+  requires_python: '>=3.6'
+- pypi: https://files.pythonhosted.org/packages/fe/7f/8aa446529fa14523e5c18f89e823afc95526689f76a75efe68a82a10d850/pypdfium2-5.15.2-py3-none-win_amd64.whl
+  name: pypdfium2
+  version: 5.15.2
+  sha256: 74d1bace34fb01c660d0b64344d5a4b7d276942b7c6623c88ab59ea21c5acfbd
+  requires_python: '>=3.6'

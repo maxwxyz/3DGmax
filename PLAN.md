@@ -1549,7 +1549,7 @@ Write `docs/UI_UX_Plan.md` (English) with:
   cleanup. Subsequent work delivered the assembly play/pause control, workspaces, inspector and guided flows.
   The usability test with the target users remains open.
 
-### 8.35 Compare 3D model PMI with a 2D drawing (planned)
+### 8.35 Compare 3D model PMI with a 2D drawing (partially implemented)
 
 Compare the product definition of a 3D model with the corresponding drawing. Match drawing views,
 sections and leaders to model features, then compare nominal dimensions, units, limits and fits,
@@ -1565,6 +1565,24 @@ and an ambiguous leader.
 Reference files checked locally: the CTC-01 PDF shows the annotated model in an isometric view.
 The D2MI archive includes dimensioned drawings and their STEP geometry. For both sources the visible
 annotations require graphical extraction; the searchable PDF text alone does not cover them.
+
+**Implemented** in File → Compare PMI with 2D drawing. PDFium supplies sheet coordinates and native
+text. Rendered cells supply graphical feature control frames in four orthogonal reading directions, upright
+datum tags and basic dimensions. Stacked rows with an unresolved shared control stay open.
+A user can also mark a sheet region and correct its transcription. The review compares dimension type,
+nominal and limit values in common units, fits, tolerance values, material conditions and datum order
+and modifiers. Multiple sheet locations can refer to one model PMI. The user confirms the association
+while inspecting the highlighted model faces. CSV records source filenames, sheet regions, model PMI,
+face indices and open items, including unopened sheets.
+
+Tests cover a two-sheet drawing with an edited tolerance, repeated dimension, extra datum, omitted
+model characteristic and two equal candidates on different faces. A cropped raster from D2MI 904 runs
+in the regular suite. A second test uses the local original PDF and STEP together. General page OCR in
+ZGmax uses a separate OpenCV/ONNX process. This stage reuses the 3DGmax GD&T parser and CAD glyphs.
+
+Remaining work includes registering views, sections and leaders with model features, extending recognition
+to unframed and inclined graphical annotations and composite controls, and establishing the scope
+required for a verified whole-drawing verdict. Confirmed matches currently apply to individual characteristics.
 
 ### 8.36 Generate 3D geometry and dimensioned PMI from a 2D drawing (planned)
 
