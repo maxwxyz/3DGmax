@@ -254,3 +254,52 @@ def test_anschluss_am_durchmesser_unterscheidet_mengenpraefix(app, tmp_path, anz
         box = ((x.min()-4)/w, (y.min()-4)/h, (x.max()+4)/w, (y.max()+4)/h)
         assert blatt.durchmesseranfang(box) != anzahl
         blatt.schliesse()
+
+
+@pytest.mark.parametrize(("winkel", "spiegel"), [(27.5, 1), (123.4, -1)])
+def test_schraeg_gedruckte_hauptansicht_im_dialog(app, tmp_path, winkel, spiegel):
+    import pypdfium2 as pdf
+    from programm.ui.zeichnungsabgleich_ui import Zeichnungsabgleich
+    teil = _teil()
+    gruppe, = modellkreise(teil)
+    weg = QtGui.QTransform().translate(250, 300).rotate(winkel).scale(2.7, spiegel*2.7)
+    pfad = tmp_path / "Gedrehte Ansicht.pdf"
+    pdfwriter = QtGui.QPdfWriter(str(pfad))
+    pdfwriter.setResolution(72)
+    with QtGui.QPainter(pdfwriter) as maler:
+        maler.setTransform(weg)
+        for k in gruppe:
+            maler.drawEllipse(QtCore.QPointF(k.x, k.y), k.r, k.r)
+    with pdf.PdfDocument(pfad) as doc:
+        dialog = Zeichnungsabgleich(doc, [], lambda _: None, (str(pfad), ""), einzelteil=teil)
+        try:
+            dialog.registrieren.click()
+            dialog.ansicht.bereich.emit((0., 0., 1., 1.))
+            assert dialog.auftrag.wait(10000)
+            app.processEvents()
+            kreise = dialog.kreise[0]
+            assert len(kreise) == 4
+            # Zwei Bohrungen sind gleich gross. Unabhaengig die Reihenfolge auf dem Blatt pruefen.
+            erwartet = sorted(gruppe, key=lambda k: weg.map(QtCore.QPointF(k.x, k.y)).x())
+            assert [k.flaechen for k in sorted(kreise, key=lambda k: k.x)] == [k.flaechen for k in erwartet]
+        finally:
+            dialog.blatt.schliesse()
+            dialog.close()
+
+
+def test_freier_drehwinkel_mit_fremdkreis_und_mehrdeutiger_symmetrie():
+    gruppe = [Blattkreis(x, y, r, frozenset([i])) for i, (x, y, r) in
+              enumerate(((0, 0, 2), (18, 5, 2), (11, 29, 4), (20, 15, 5)))]
+    def drehen(k):
+        q = (k.x + 1j*k.y)*3*np.exp(.49j) + 260 + 160j
+        return Blattkreis(q.real, q.imag, 3*k.r)
+    blatt = [Blattkreis(450, 210, 12)] + [drehen(k) for k in gruppe]
+    assert [k.flaechen for k in zuordnen(blatt, [gruppe])] == [k.flaechen for k in gruppe]
+    gerundet = [replace(k, x=round(k.x*2)/2, y=round(k.y*2)/2, r=round(k.r*2)/2) for k in blatt]
+    assert [k.flaechen for k in zuordnen(gerundet, [gruppe])] == [k.flaechen for k in gruppe]
+    # Zwei exakt passende Muster im Modell unterscheiden sich um 28 Grad.
+    kopie = [replace(drehen(k), flaechen=frozenset([i+4])) for i, k in enumerate(gruppe)]
+    assert not zuordnen(blatt, [gruppe+kopie])
+    dreieck = [Blattkreis(30*np.cos(t), 30*np.sin(t), 2, frozenset([i]))
+               for i, t in enumerate(np.arange(3)*2*np.pi/3)]
+    assert not zuordnen([drehen(k) for k in dreieck], [dreieck])

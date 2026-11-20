@@ -1583,8 +1583,9 @@ ZGmax uses a separate OpenCV/ONNX process. This stage reuses the 3DGmax GD&T par
 
 **Principal views of individual parts** can be registered by selecting the printed hole pattern.
 Complete circular paths and printed annuli are matched to full circular boundaries on cylindrical faces.
-The geometric fit checks a common scale, translation, quarter turns and reflections in the three
-principal planes. At least three non-collinear centers must agree. Only face associations common to
+Two distinct centers provide a candidate rotation, scale and translation within a principal plane.
+The fit checks all printed radii and centers, including reflections and arbitrary in-plane rotation.
+At least three non-collinear centers must agree. Only face associations common to
 all best fits are proposed. Coaxial blind holes at separate depths remain ambiguous. A direct or
 bent, unbranched leader can suggest the PMI on its target ring. Arrowheads may be filled, hatched or
 outlined in separate strokes. For a control frame below a diameter annotation, the review follows
@@ -1592,7 +1593,7 @@ the upper row’s leader when it begins with a diameter symbol and a number. A q
 open arrowhead leaves this association unresolved.
 The reviewer can also click a matched ring. The CSV stores the accepted circle in sheet coordinates.
 
-Remaining work includes other view orientations, sections, non-circular features and compound leaders, automatically
+Remaining work includes views along non-principal model axes, sections, non-circular features and compound leaders, automatically
 finding unframed and oblique graphical annotations, interpreting composite controls and establishing
 the scope required for a verified whole-drawing verdict. Confirmed matches currently apply to individual characteristics.
 

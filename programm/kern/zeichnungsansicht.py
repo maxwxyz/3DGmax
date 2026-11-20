@@ -344,59 +344,128 @@ def modellkreise(modell, pruefe=lambda: None):
              for ort, wand in gruppe.items()] for gruppe in ansichten.values()]
 
 
-def _passungen(m, z, pruefe):
-    # Mit einem Kreispaar sind Massstab und Verschiebung festgelegt. Die uebrigen Kreise pruefen die Lage.
-    block = max(1, 8192 // len(z))
-    for xy in (m[:, :2], m[:, 1::-1]):
-        for vorzeichen in ((1,1), (1,-1), (-1,1), (-1,-1)):
-            p = xy * vorzeichen
-            baum = cKDTree(np.column_stack((p, m[:, 2])))
-            gesehen = set()
-            for anker in z:
-                relativ = z[:, :2] - anker[:2]
-                grob = 1.5 + .015 * np.linalg.norm(relativ, axis=1)
-                for i in range(0, len(m), block):
-                    pruefe()
-                    radien = m[i:i+block, 2]
-                    s = anker[2] / radien
-                    orte = np.empty((len(s), len(z), 3))
-                    orte[:, :, :2] = relativ / s[:, None, None] + p[i:i+block, None, :]
-                    orte[:, :, 2] = z[:, 2] / s[:, None]
-                    dist, ids = baum.query(orte)
-                    nah = dist*s[:, None] <= grob
-                    for j in np.flatnonzero(nah.sum(axis=1) >= 3):
-                        ziel = np.flatnonzero(nah[j])
-                        quelle = ids[j, ziel]
-                        schluessel = tuple(zip(ziel.tolist(), quelle.tolist()))
-                        if schluessel in gesehen:
-                            continue
-                        if len(gesehen)*len(z) > 32768:
-                            gesehen.clear()  # Nur ein Rechencache, keine Begrenzung der geprueften Hypothesen.
-                        gesehen.add(schluessel)
-                        a, b = p[quelle], z[ziel, :2]
-                        am, bm = a.mean(axis=0), b.mean(axis=0)
-                        a0 = a - am
-                        if not np.any(a0):
-                            continue
-                        faktor = np.sum(a0*(b-bm)) / np.sum(a0*a0)
-                        if faktor <= 0:
-                            continue
-                        modell = np.column_stack(((z[:, :2]-bm)/faktor + am, z[:, 2]/faktor))
-                        abstand, index = baum.query(modell, k=2)
-                        eindeutig = (abstand[:, 0]*faktor <= .75) & (abstand[:, 1]*faktor > .75)
-                        ziel = np.flatnonzero(eindeutig)
-                        quelle = index[ziel, 0]
-                        if len(ziel) < 3 or len(set(quelle)) != len(ziel):
-                            continue
-                        mitten = []
-                        for ort in z[ziel, :2]:
-                            if all(np.linalg.norm(ort-q) > 1.5 for q in mitten):
-                                mitten.append(ort)
-                        if len(mitten) < 3:
-                            continue
-                        streuung = np.linalg.svd(mitten-np.mean(mitten, axis=0), compute_uv=False)
-                        if streuung[1] > max(2., .01*streuung[0]):
-                            yield (len(mitten), len(ziel)), zip(quelle, ziel)
+def _modellpunkte(mitten, radien):
+    return np.column_stack((mitten.real, mitten.imag, radien))
+
+
+def _pruefe_passung(baum, modell, blatt, radien, ursprung, faktor, grob, cache):
+    # Komplexer Faktor: gemeinsamer Massstab und beliebige Drehung in der Zeichenebene.
+    ort = ursprung + blatt*faktor
+    massstab = abs(faktor)
+    abstand, ids = baum.query(_modellpunkte(ort, radien*massstab))
+    ziel = np.flatnonzero(abstand <= grob*massstab)
+    if len(ziel) < 3:
+        return None
+    quelle = ids[ziel]
+    schluessel = tuple(zip(ziel.tolist(), quelle.tolist()))
+    if schluessel in cache:
+        return None
+    if len(cache)*len(blatt) > 32768:
+        cache.clear()
+    cache.add(schluessel)
+    a, b = blatt[ziel], modell[quelle]
+    am, bm = a.mean(), b.mean()
+    norm = np.vdot(a-am, a-am).real
+    if norm < 1:
+        return None
+    faktor = np.vdot(a-am, b-bm) / norm
+    massstab = abs(faktor)
+    if massstab <= 0:
+        return None
+    punkte = _modellpunkte(bm + (blatt-am)*faktor, radien*massstab)
+    abstand, ids = baum.query(punkte, k=2)
+    eindeutig = (abstand[:, 0] <= .75*massstab) & (abstand[:, 1] > .75*massstab)
+    ziel = np.flatnonzero(eindeutig)
+    quelle = ids[ziel, 0]
+    if len(ziel) < 3 or len(set(quelle)) != len(ziel):
+        return None
+    xy = np.column_stack((blatt[ziel].real, blatt[ziel].imag))
+    zentren = cKDTree(xy)
+    einzeln = np.ones(len(xy), dtype=bool)
+    for i in np.flatnonzero(zentren.query(xy, k=2)[0][:, 1] <= 1.5):
+        if einzeln[i]:
+            einzeln[zentren.query_ball_point(xy[i], 1.5)] = False
+            einzeln[i] = True
+    xy = xy[einzeln]
+    if len(xy) < 3:
+        return None
+    streuung = np.linalg.svd(xy-xy.mean(axis=0), compute_uv=False)
+    if streuung[1] <= max(2., .01*streuung[0]):
+        return None
+    return (len(xy), len(ziel)), zip(quelle, ziel)
+
+
+def _ankerfolge(blatt, pruefe):
+    # Zuerst raeumlich verteilte Zentren verwenden, damit die Basislinien lang sind.
+    folge = [int(np.argmax(abs(blatt-blatt.mean())))]
+    abstand = abs(blatt-blatt[folge[0]])
+    getrennt = [np.inf]
+    while len(folge) < len(blatt):
+        if len(folge) % 32 == 0:
+            pruefe()
+        abstand[folge[-1]] = -1.
+        j = int(np.argmax(abstand))
+        getrennt.append(min(getrennt[-1], abstand[j]))
+        folge.append(j)
+        np.minimum(abstand, abs(blatt-blatt[j]), out=abstand)
+    return folge, getrennt
+
+
+def _passungen(m, z, pruefe, minimum):
+    modell = m[:, 0] + 1j*m[:, 1]
+    blatt = z[:, 0] + 1j*z[:, 1]
+    ebenen = (blatt, blatt.conj())
+    baum = cKDTree(m)
+    cache = [set(), set()]
+    # Die erste Basislinie reicht quer durch die Ansicht. Eine vollstaendige Passung
+    # muss dieses Paar enthalten, auch bei einer anderen Drehung oder Spiegelung.
+    folge, getrennt = _ankerfolge(blatt, pruefe)
+    min_basis = max(3., .15*getrennt[1])
+
+    def paargrenze(anzahl):
+        # Bei mindestens K passenden Zentren enthalten die ersten N-K+2 Ringe mindestens
+        # zwei passende Zentren. Kurze Basislinien duerfen die Suche nicht beschraenken.
+        n = min(len(blatt), len(blatt)-anzahl+2)
+        return n if getrennt[n-1] >= min_basis else len(blatt)
+
+    grenze = paargrenze(minimum)
+    # Abstaende nur fuer einen Block von Modellzentren gleichzeitig im Speicher halten.
+    block = max(1, 32768 // len(m))
+    for anfang in range(0, len(m), block):
+        pruefe()
+        mit = modell[anfang:anfang+block]
+        abstand = abs(mit[:, None]-modell)
+        ri = m[anfang:anfang+block, 2, None]
+        rk = m[:, 2]
+        for pos, j in enumerate(folge[:-1]):
+            if pos >= grenze-1:
+                break
+            for q in range(pos+1, grenze):
+                if q >= grenze:
+                    break
+                zweiter = folge[q]
+                pruefe()
+                laenge = abs(blatt[zweiter]-blatt[j])
+                if laenge < 3:
+                    continue
+                # Die Zentren duerfen je .75 Bildpunkte abweichen. Der daraus moegliche
+                # Massstab muss auch beide gedruckten Radien innerhalb .75 Punkten treffen.
+                passend = ((abstand > 0)
+                           & (abs(laenge*ri - z[j, 2]*abstand) <= .75*abstand + 1.5*ri)
+                           & (abs(laenge*rk - z[zweiter, 2]*abstand) <= .75*abstand + 1.5*rk))
+                grob = 1.5 + 1.5*(abs(blatt-blatt[j]) + z[:, 2])/laenge
+                for n, (ii, k) in enumerate(zip(*np.nonzero(passend))):
+                    if n % 32 == 0:
+                        pruefe()
+                    i = anfang + ii
+                    for spiegel, ebene in enumerate(ebenen):
+                        faktor = (modell[k]-modell[i])/(ebene[zweiter]-ebene[j])
+                        treffer = _pruefe_passung(baum, modell, ebene, z[:, 2], modell[i]-ebene[j]*faktor,
+                                                  faktor, grob, cache[spiegel])
+                        if treffer is not None:
+                            minimum = max(minimum, treffer[0][0])
+                            grenze = 2 if treffer[0][1] == len(z) else min(grenze, paargrenze(minimum))
+                            yield treffer
 
 
 def zuordnen(kreise, ansichten, pruefe=lambda: None):
@@ -408,9 +477,9 @@ def zuordnen(kreise, ansichten, pruefe=lambda: None):
     z = daten(kreise)
     beste, sicher = (0, 0), {}
     for gruppe in ansichten:
-        if len(gruppe) < 3:
+        if len(gruppe) < max(3, beste[0]):
             continue
-        for rang, treffer in _passungen(daten(gruppe), z, pruefe):
+        for rang, treffer in _passungen(daten(gruppe), z, pruefe, beste[0]):
             if rang < beste:
                 continue
             neu = {j: gruppe[i].flaechen for i,j in treffer}

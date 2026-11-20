@@ -2,6 +2,20 @@
 
 ## Current state, 2026-11-20
 
+### Register a principal view at any angle on the sheet
+
+- Checked PLAN §8.35 and docs/Roadmap.md. Two separated circle centers give candidate scales and
+  rotations. The fit checks the remaining centers and radii, including reflected views. Competing
+  fits retain only their shared face associations. Distances are processed in bounded blocks.
+- A second PDF made by rotating the entire NIST D2MI 904 sheet by 28 degrees matched the same ten
+  sets of STEP faces. The selected rectangle contained 19 circles after rotation and 18 before it.
+  Generated PDFs exercised rotated and mirrored views through the dialog. Tests also cover rounded
+  coordinates, an extra circle, a second equally plausible pattern and threefold symmetry.
+  All 21 affected tests and all 31 focused drawing cases passed.
+- The projection direction is still a principal axis of the model. Views along inclined bore axes,
+  sections, non-circular targets, repeated-hole callouts and whole-drawing verification remain open.
+  Drawing reconstruction follows in §8.36 and QIF stays last in §8.37.
+
 ### Follow plotted leaders from a diameter row shared with a control frame
 
 - Checked PLAN §8.35 and docs/Roadmap.md. A triangular arrowhead may be filled, outlined in a single

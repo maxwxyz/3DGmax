@@ -1,6 +1,7 @@
 {
  "unreleased": {
   "de": [
+   "Bohrbilder lassen sich auch in beliebig gedrehten oder gespiegelten Hauptansichten mit dem Modell abgleichen. Gleich gut passende Bohrungen bleiben zur Prüfung offen.",
    "Der Zeichnungsabgleich erkennt auch Pfeilköpfe aus Einzelstrichen. Steht ein Toleranzrahmen direkt unter einem Durchmessermaß, kann dessen Hinweislinie die zugehörige Bohrung und Modell-PMI bestimmen.",
    "Der Zeichnungsabgleich erkennt Bohrbilder in Hauptansichten von Einzelteilen. Er folgt eindeutigen Pfeilen zur zugehörigen Zylinderfläche und schlägt die Modell-PMI auch bei abweichendem Maß vor. Das bestätigte Hinweisziel steht in der CSV-Prüfliste.",
    "Der Zeichnungsabgleich liest auch schräg gedruckte Maßzahlen aus einem markierten PDF-Ausschnitt. Bei mehreren möglichen Lesarten bleibt die Angabe zur Prüfung offen.",
@@ -128,6 +129,7 @@
    "Grafische PMI aus unterstützten AP203e2-Kurvenmodellen lassen sich als STEP AP242 Edition 3 ausgeben. Facettierte STEP-Modelle behalten ihre Flächenbezüge. Gepackte STEP-Dateien lassen sich als unkomprimierte STEP-Kopie speichern."
   ],
   "en": [
+   "Hole patterns can be matched to the model in principal views rotated by any angle on the sheet, including mirrored views. Equally plausible hole associations remain open for review.",
    "The drawing comparison recognizes arrowheads drawn in separate strokes. A control frame directly below a diameter dimension can use its leader to identify the hole and its model PMI.",
    "The drawing comparison matches hole patterns in principal views of individual parts. It follows unambiguous leaders to cylindrical faces and suggests the associated model PMI even when the dimension differs. The CSV records the confirmed leader target.",
    "The drawing comparison reads inclined dimensions in a selected PDF region. Multiple plausible readings leave the annotation open for review.",
