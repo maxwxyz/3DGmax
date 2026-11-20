@@ -11,7 +11,7 @@ from ..i18n import tr
 from .zeichnungsabgleich import lese_angabe
 
 
-def rechteckansicht(bild, box):
+def rechteckgrenzen(bild, box):
     """Vollstaendige achsparallele Aussenkontur einer ungebohrten Platte im Blattausschnitt."""
     h, w = bild.shape[:2]
     l, t, r, b = np.rint(np.clip(box, 0., 1.) * [w, h, w, h]).astype(int)
@@ -40,7 +40,14 @@ def rechteckansicht(bild, box):
     if not geschlossen[kontur.shape[0]//2, kontur.shape[1]//2]:
         return None
     # Die Mittellinien der Striche statt der aeusseren Tintenraender verwenden.
-    return x2-x1-links.mean()-rechts.mean(), y2-y1-oben.mean()-unten.mean()
+    return l+x1+links.mean(), t+y1+oben.mean(), l+x2-rechts.mean(), t+y2-unten.mean()
+
+
+def rechteckansicht(bild, box):
+    grenzen = rechteckgrenzen(bild, box)
+    if grenzen is not None:
+        l, t, r, b = grenzen
+        return r-l, b-t
 
 
 def plattenmasse(texte, faktor, grundriss, vorderansicht=None):
@@ -67,10 +74,60 @@ def plattenmasse(texte, faktor, grundriss, vorderansicht=None):
     return masse
 
 
-def schreibe_platte(ziel, masse):
-    """Geometrie und drei Masse in einer AP242-Kopie mit Darstellung speichern."""
+def _plattenform(masse, bohrungen):
+    from OCC.Core.BRepPrimAPI import BRepPrimAPI_MakeBox, BRepPrimAPI_MakeCylinder
+    from OCC.Core.BRepAlgoAPI import BRepAlgoAPI_Cut
+    from OCC.Core.BRepCheck import BRepCheck_Analyzer
+    from OCC.Core.TopTools import TopTools_ListOfShape
+    from OCC.Core.gp import gp_Ax2, gp_Dir, gp_Pnt
+    form = BRepPrimAPI_MakeBox(*(p.nennwert for p in masse)).Shape()
+    if not bohrungen:
+        return form
+    platte, bohrer = TopTools_ListOfShape(), TopTools_ListOfShape()
+    platte.Append(form)
+    dicke = masse[2].nennwert
+    zugabe = max(.01, dicke*.01)
+    for x, y, p in bohrungen:
+        achse = gp_Ax2(gp_Pnt(x, y, -zugabe), gp_Dir(0, 0, 1))
+        bohrer.Append(BRepPrimAPI_MakeCylinder(achse, p.nennwert/2, dicke+2*zugabe).Shape())
+    schnitt = BRepAlgoAPI_Cut()
+    schnitt.SetArguments(platte)
+    schnitt.SetTools(bohrer)
+    schnitt.Build()
+    if not schnitt.IsDone() or not BRepCheck_Analyzer(schnitt.Shape()).IsValid():
+        raise ValueError(tr("Die Durchgangsbohrungen konnten nicht erzeugt werden."))
+    return schnitt.Shape()
+
+
+def _flaechenmasse(modell, masse, bohrungen):
     from OCC.Core.BRepAdaptor import BRepAdaptor_Surface
-    from OCC.Core.BRepPrimAPI import BRepPrimAPI_MakeBox
+    from OCC.Core.GeomAbs import GeomAbs_Plane, GeomAbs_Cylinder
+    paare = [set() for _ in masse]
+    waende = [set() for _ in bohrungen]
+    for i, flaeche in enumerate(modell.flaechen):
+        s = BRepAdaptor_Surface(flaeche)
+        if s.GetType() == GeomAbs_Plane:
+            normal = s.Plane().Axis().Direction().Coord()
+            paare[int(np.argmax(np.abs(normal)))].add(i)
+        elif s.GetType() == GeomAbs_Cylinder:
+            z = s.Cylinder()
+            ort = z.Location()
+            treffer = [j for j,(x,y,p) in enumerate(bohrungen) if abs(ort.X()-x) < 1e-6 and abs(ort.Y()-y) < 1e-6
+                       and abs(z.Radius()-p.nennwert/2) < 1e-6]
+            if len(treffer) != 1:
+                raise ValueError(tr("Die Bohrungsflächen sind nicht eindeutig."))
+            waende[treffer[0]].add(i)
+    if not all(waende):
+        raise ValueError(tr("Die Bohrungsflächen sind nicht eindeutig."))
+    if any(len(paar) != 2 for paar in paare):
+        raise ValueError(tr("Die gegenüberliegenden Plattenflächen sind nicht eindeutig."))
+    alle = [*masse, *(p for _, _, p in bohrungen)]
+    return [replace(p, flaechen=f, quelle="eigen", nummer=i, step_id=-i)
+            for i, (p, f) in enumerate(zip(alle, paare+waende, strict=True), 1)]
+
+
+def schreibe_platte(ziel, masse, bohrungen=()):
+    """Geometrie und flaechenbezogene Masse mit Darstellung als AP242 speichern."""
     from OCC.Core.DESTEP import DESTEP_Parameters
     from OCC.Core.IFSelect import IFSelect_RetDone
     from OCC.Core.STEPControl import STEPControl_AsIs, STEPControl_Writer
@@ -81,7 +138,7 @@ def schreibe_platte(ziel, masse):
     with TemporaryDirectory(dir=ziel.parent) as tmp:
         roh = str(Path(tmp) / "geometry.stp")
         fertig = Path(tmp) / "model.stp"
-        form = BRepPrimAPI_MakeBox(*(p.nennwert for p in masse)).Shape()
+        form = _plattenform(masse, bohrungen)
         writer = STEPControl_Writer()
         parameter = DESTEP_Parameters()
         parameter.WriteSchema = parameter.WriteMode_StepSchema_AP242DIS
@@ -91,15 +148,8 @@ def schreibe_platte(ziel, masse):
             modell = lade_step(roh)
         except LadeFehler as e:
             raise ValueError(str(e)) from e
-        paare = [set() for _ in masse]
-        for i, flaeche in enumerate(modell.flaechen):
-            normal = BRepAdaptor_Surface(flaeche).Plane().Axis().Direction().Coord()
-            paare[int(np.argmax(np.abs(normal)))].add(i)
-        if any(len(paar) != 2 for paar in paare):
-            raise ValueError(tr("Die gegenüberliegenden Plattenflächen sind nicht eindeutig."))
-        merkmale = [replace(p, flaechen=paar, quelle="eigen", nummer=i, step_id=-i)
-                    for i,(p,paar) in enumerate(zip(masse, paare, strict=True),1)]
+        merkmale = _flaechenmasse(modell, masse, bohrungen)
         bericht = schreibe(roh, str(fertig), merkmale, modell)
-        if len(bericht.neu) != len(masse) or len(bericht.dargestellt) != len(masse):
+        if len(bericht.neu) != len(merkmale) or len(bericht.dargestellt) != len(merkmale):
             raise ValueError(tr("Die Maßangaben konnten nicht vollständig als STEP-PMI geschrieben werden."))
         fertig.replace(ziel)

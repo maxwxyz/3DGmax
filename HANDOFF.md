@@ -2,6 +2,28 @@
 
 ## Current state, 2026-11-20
 
+### Reconstruct confirmed through holes in a plate
+
+- Checked PLAN §§8.35–8.37 and docs/Roadmap.md. The plate dialog matches separate closed ink
+  components to circular vector paths inside the top outline. Residual lines, cropped profiles
+  and overlapping holes prevent reconstruction. Each row shows estimated X/Y/diameter separately
+  from the drawing values. The user enters those values or picks the annotations on the PDF and
+  confirms through depth. The cut uses all tools together, and the export associates the diameter
+  with the actual cylindrical wall. X/Y specify the modeled location.
+- A portable 60 × 40 × 8 mm PDF defines Ø10 ±0.05 and Ø8 H7 holes at (20,16) and (48,28) mm.
+  STEP reload gives a volume of 18169.55761 mm³, five displayed and semantic dimensions, both
+  cylinder centers and the expected tolerance and fit. OCCT/XCAF independently read both diameters
+  on their walls. Other tests cover mismatched or missing coordinates, a repeated quantity pasted
+  into an individual diameter, extra ink, intersecting bores, units and reselection.
+- Selected PDF crops can contain a native text row separated into single-glyph fragments by PDFium.
+  The crop reader now rejoins horizontally aligned fragments with consistent spacing. All 23
+  affected tests passed. The final reconstruction, drawing and translation run passed 61 tests.
+  An earlier run with a failing assertion also aborted
+  during subsequent Qt preview setup; it did not recur on the corrected runs.
+- Next in §8.36: explicitly dimensioned blind bores and the bottom face/depth PMI. Counterbores,
+  pockets, separate X/Y PMI and automatic cross-view interpretation also remain. Whole-drawing
+  verification in §8.35 is still open. QIF remains last.
+
 ### Reconstruct a dimensioned rectangular plate from a drawing
 
 - Checked PLAN §§8.35–8.37 and docs/Roadmap.md. File → Plate from 2D drawing is available

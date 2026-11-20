@@ -5,8 +5,10 @@ from pathlib import Path
 from PySide6 import QtCore, QtWidgets
 
 from ..i18n import tr
-from ..kern.zeichnungsabgleich import Blattangabe
+from ..kern.zeichnungsabgleich import Blattangabe, lese_angabe
 from ..kern.zeichnungsblatt import Zeichnungsblatt
+from ..kern.zeichnungsansicht import Blattgeometrie
+from ..kern.plattenbohrung import plattenumriss, sollbohrungen
 from ..kern.zeichnungskoerper import plattenmasse, rechteckansicht, schreibe_platte
 from .zeichnungsabgleich_ui import Blattansicht
 
@@ -19,6 +21,7 @@ class Plattendialog(QtWidgets.QDialog):
         self.konturen = [None, None]
         self.marken = {}
         self.vorne_offen = False
+        self.ringe = []
         self.setWindowTitle(tr("Platte aus 2D-Zeichnung") + " – " + self.pfad.name)
         self.resize(1000, 700)
         layout = QtWidgets.QVBoxLayout(self)
@@ -37,7 +40,7 @@ class Plattendialog(QtWidgets.QDialog):
         self.vorne_entfernen.clicked.connect(self._ohne_vorderansicht)
         werkzeug.addWidget(self.vorne_entfernen)
         self.einheit = QtWidgets.QComboBox()
-        for name, wert in ((tr("Zeichnungseinheit wählen"), None), ("mm", 1.), (tr("Zoll"), 25.4)):
+        for name, wert in ((tr("Zeichnungseinheit wählen"), None), (tr("mm"), 1.), (tr("Zoll"), 25.4)):
             self.einheit.addItem(name, wert)
         werkzeug.addWidget(self.einheit)
         werkzeug.addStretch()
@@ -46,7 +49,7 @@ class Plattendialog(QtWidgets.QDialog):
         self.ansicht = Blattansicht()
         fit.clicked.connect(self.ansicht.einpassen)
         layout.addWidget(self.ansicht, 1)
-        self.hinweis = QtWidgets.QLabel(tr("Die Außenkontur einer rechteckigen Platte ohne Innenkonturen mit etwas Rand einrahmen. "
+        self.hinweis = QtWidgets.QLabel(tr("Die Außenkontur der rechteckigen Platte mit etwas Rand einrahmen. Durchgangsbohrungen dürfen als einzelne Kreise sichtbar sein. "
                                             "Maßzahlen einzeln einrahmen oder eingeben. Eine Vorderansicht ist optional."))
         self.hinweis.setWordWrap(True)
         layout.addWidget(self.hinweis)
@@ -58,6 +61,26 @@ class Plattendialog(QtWidgets.QDialog):
             zeile.addWidget(QtWidgets.QLabel(name))
             zeile.addWidget(feld)
             self.texte.append(feld)
+        self.bohrfeld = QtWidgets.QGroupBox(tr("Bohrungen im Grundriss"))
+        inhalt = QtWidgets.QVBoxLayout(self.bohrfeld)
+        hinweis = QtWidgets.QLabel(tr("X und Y ab der linken unteren Ecke sowie den Durchmesser aus der Zeichnung eingeben. "
+                                     "Die erste Spalte zeigt Schätzwerte. Für ein Maß aus dem PDF die Bohrung und das Maß unter „Einrahmen“ wählen."))
+        hinweis.setWordWrap(True)
+        inhalt.addWidget(hinweis)
+        self.bohrtabelle = QtWidgets.QTableWidget(0, 4)
+        self.bohrtabelle.setHorizontalHeaderLabels([tr("Geschätzt (X / Y / ⌀, mm)"), tr("X (mm)"), tr("Y (mm)"), tr("Durchmesser (mm)")])
+        self.bohrtabelle.horizontalHeader().setSectionResizeMode(QtWidgets.QHeaderView.ResizeMode.Stretch)
+        self.bohrtabelle.setSelectionBehavior(QtWidgets.QAbstractItemView.SelectionBehavior.SelectRows)
+        self.bohrtabelle.setMaximumHeight(140)
+        inhalt.addWidget(self.bohrtabelle)
+        self.durchgehend = QtWidgets.QCheckBox(tr("Alle aufgeführten Bohrungen sind Durchgangsbohrungen"))
+        inhalt.addWidget(self.durchgehend)
+        layout.addWidget(self.bohrfeld)
+        self.bohrfeld.hide()
+        self.bohrtabelle.cellChanged.connect(self._pruefen)
+        self.bohrtabelle.currentCellChanged.connect(self._markieren)
+        self.durchgehend.toggled.connect(self._pruefen)
+        self.ansicht.kreis_gewaehlt.connect(self._bohrung_waehlen)
         self.status = QtWidgets.QLabel()
         self.status.setWordWrap(True)
         layout.addWidget(self.status)
@@ -93,31 +116,90 @@ class Plattendialog(QtWidgets.QDialog):
         if self.blatt is not None:
             self.blatt.schliesse()
         self.blatt = neu
+        self.geometrie = None
         self.ansicht.zeige(self.blatt.bild)
         self._markieren()
         self._pruefen()
 
     def _markieren(self):
         sichtbar = [a for a in self.marken.values() if a.seite == self.blatt.nummer]
-        self.ansicht.markiere(sichtbar, self.marken.get(self.auswahl.currentIndex()))
+        self.ansicht.markiere(sichtbar, self.marken.get(self._markenschluessel()))
+        grundriss = self.marken.get(0)
+        kreise = [q.kreis for q in self.ringe] if grundriss and grundriss.seite == self.blatt.nummer else []
+        i = self.bohrtabelle.currentRow()
+        self.ansicht.zeige_kreise(kreise, kreise[i] if 0 <= i < len(kreise) else None)
+
+    def _markenschluessel(self):
+        feld = self.auswahl.currentIndex()
+        return feld if feld < 5 else (self.bohrtabelle.currentRow(), feld)
+
+    def _bohrung_waehlen(self, kreis):
+        for i, ring in enumerate(self.ringe):
+            if ring.kreis == kreis:
+                self.bohrtabelle.setCurrentCell(i, 1)
+                break
+
+    def _grundriss(self, box):
+        umfang = rechteckansicht(self.blatt.bild, box)
+        self.ringe = []
+        if not umfang:
+            if self.geometrie is None:
+                self.geometrie = Blattgeometrie(self.blatt)
+            ergebnis = plattenumriss(self.blatt.bild, box, self.geometrie.im_bereich(box))
+            if ergebnis is not None:
+                umfang, self.ringe = ergebnis
+        with QtCore.QSignalBlocker(self.bohrtabelle), QtCore.QSignalBlocker(self.durchgehend):
+            self.durchgehend.setChecked(False)
+            self.bohrtabelle.setRowCount(0)
+            self.bohrtabelle.setRowCount(len(self.ringe))
+            for i in range(len(self.ringe)):
+                for j in range(4):
+                    item = QtWidgets.QTableWidgetItem()
+                    if j == 0:
+                        item.setFlags(item.flags() & ~QtCore.Qt.ItemFlag.ItemIsEditable)
+                    self.bohrtabelle.setItem(i, j, item)
+            if self.ringe:
+                self.bohrtabelle.setCurrentCell(0, 1)
+        self.marken = {k: v for k, v in self.marken.items() if isinstance(k, int)}
+        with QtCore.QSignalBlocker(self.auswahl):
+            while self.auswahl.count() > 5:
+                self.auswahl.removeItem(5)
+            if self.ringe:
+                self.auswahl.addItems([tr("X-Maß der gewählten Bohrung"), tr("Y-Maß der gewählten Bohrung"),
+                                       tr("Durchmesser der gewählten Bohrung")])
+        self.bohrfeld.setVisible(bool(self.ringe))
+        return umfang
 
     def _bereich(self, box):
         i = self.auswahl.currentIndex()
-        self.marken.pop(i, None)
+        schluessel = self._markenschluessel()
+        self.marken.pop(schluessel, None)
         if i < 2:
-            wert = rechteckansicht(self.blatt.bild, box)
+            wert = self._grundriss(box) if i == 0 else rechteckansicht(self.blatt.bild, box)
             self.konturen[i] = wert
             if i == 1:
                 self.vorne_offen = wert is None
-        else:
+        elif i < 5:
             wert = self.blatt.lies(box)
             self.texte[i-2].setText(wert)
+        else:
+            zeile = self.bohrtabelle.currentRow()
+            if zeile < 0:
+                return
+            wert = self.blatt.lies(box)
+            faktor = self.einheit.currentData()
+            if lese_angabe(wert, faktor) is None:
+                wert = ""
+            elif faktor == 25.4 and lese_angabe(wert, None) is None:
+                # Die Bohrungstabelle verwendet mm, eine gedruckte Zollangabe eindeutig erhalten.
+                wert += " in"
+            self.bohrtabelle.item(zeile, i-4).setText(wert)
         if wert:
-            self.marken[i] = Blattangabe(self.blatt.nummer, box, self.auswahl.currentText())
+            self.marken[schluessel] = Blattangabe(self.blatt.nummer, box, self.auswahl.currentText())
         self._markieren()
         self._pruefen()
         if not wert:
-            self.status.setText(tr("Keine einzelne geschlossene Rechteckkontur im Ausschnitt.") if i < 2
+            self.status.setText(tr("Die Auswahl muss eine geschlossene Rechteckkontur enthalten. Im Grundriss sind einzelne Bohrkreise zulässig.") if i < 2
                                 else tr("Maßzahl nicht eindeutig lesbar. Den Wert aus der Zeichnung eingeben."))
 
     def _ohne_vorderansicht(self):
@@ -132,10 +214,31 @@ class Plattendialog(QtWidgets.QDialog):
             raise ValueError(tr("Die Vorderansicht erneut einrahmen oder entfernen."))
         return plattenmasse([feld.text() for feld in self.texte], self.einheit.currentData(), *self.konturen)
 
+    def _bohrungen(self, masse):
+        if not self.ringe:
+            return []
+        if not self.durchgehend.isChecked():
+            raise ValueError(tr("Die Ausführung als Durchgangsbohrungen anhand der Zeichnung bestätigen."))
+        werte = [[self.bohrtabelle.item(i, j).text() for j in (1, 2, 3)] for i in range(len(self.ringe))]
+        return sollbohrungen(self.ringe, werte, masse, self.konturen[0])
+
     def _pruefen(self):
         self.vorne_entfernen.setEnabled(self.vorne_offen or self.konturen[1] is not None)
         try:
             masse = self._masse()
+        except ValueError as e:
+            with QtCore.QSignalBlocker(self.bohrtabelle):
+                for i in range(len(self.ringe)):
+                    self.bohrtabelle.item(i, 0).setText("")
+            self.status.setText(str(e))
+            self.speichern.setEnabled(False)
+            return
+        with QtCore.QSignalBlocker(self.bohrtabelle):
+            for i, q in enumerate(self.ringe):
+                x, y = masse[0].nennwert, masse[1].nennwert
+                self.bohrtabelle.item(i, 0).setText(f"{q.x*x:.2f} / {q.y*y:.2f} / ⌀{2*q.r*x:.2f}")
+        try:
+            self._bohrungen(masse)
         except ValueError as e:
             self.status.setText(str(e))
             self.speichern.setEnabled(False)
@@ -151,11 +254,13 @@ class Plattendialog(QtWidgets.QDialog):
         try:
             if Path(ziel).resolve() == self.pfad.resolve():
                 raise ValueError(tr("Für das STEP-Modell eine eigene Zieldatei wählen."))
-            schreibe_platte(ziel, self._masse())
+            masse = self._masse()
+            bohrungen = self._bohrungen(masse)
+            schreibe_platte(ziel, masse, bohrungen)
         except (OSError, ValueError, RuntimeError) as e:
             QtWidgets.QMessageBox.warning(self, tr("Platte aus 2D-Zeichnung"), str(e))
             return
-        self.status.setText(tr("STEP-Modell mit drei bemaßten Flächenpaaren gespeichert: {}").format(ziel))
+        self.status.setText(tr("STEP-Modell mit {} bemaßten Merkmalen unter {} gespeichert.").format(len(masse)+len(bohrungen), ziel))
 
 
 def oeffne_plattenzeichnung(fenster):

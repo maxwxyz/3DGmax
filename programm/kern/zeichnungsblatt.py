@@ -149,6 +149,42 @@ def _geneigte_angabe(mask):
     return next((wort for wort, lagen in gelesen.items() if len(lagen) >= 2), "")
 
 
+def _einzelzeichen_verbinden(zeilen, groesse):
+    """PDFium kann jeden Buchstaben einer einzigen Masszeile als eigene Textzeile liefern."""
+    h, w = groesse
+    gruppe = []
+    def abgeschlossen():
+        boxen, teile = zip(*gruppe)
+        box = (boxen[0][0], min(q[1] for q in boxen), boxen[-1][2], max(q[3] for q in boxen))
+        return box, "".join(teile)
+
+    for box, text in zeilen:
+        if len(text) != 1:
+            if gruppe:
+                yield abgeschlossen()
+                gruppe.clear()
+            yield box, text
+            continue
+        leerzeichen = False
+        if gruppe:
+            letzte = gruppe[-1][0]
+            abstand = (box[0]-letzte[2])*w
+            hoehe = max(zeilenhoehe, (box[3]-box[1])*h)
+            if not (-.12*hoehe <= abstand <= .85*hoehe and box[0] > letzte[0]
+                    and abs(box[3]-basis)*h <= .32*hoehe):
+                yield abgeschlossen()
+                gruppe.clear()
+            else:
+                leerzeichen = abstand > .45*hoehe
+        if not gruppe:
+            zeilenhoehe, basis = (box[3]-box[1])*h, box[3]
+        else:
+            zeilenhoehe = hoehe
+        gruppe.append((box, (" " if leerzeichen else "") + text))
+    if gruppe:
+        yield abgeschlossen()
+
+
 class Zeichnungsblatt:
     def __init__(self, doc, nummer):
         self.nummer = nummer
@@ -195,8 +231,9 @@ class Zeichnungsblatt:
 
     def _pdftext(self, box):
         l, t, r, b = box
-        return "\n".join(text for (x, y, x2, y2), text in self.textbereiche
-                         if l <= x and t <= y and x2 <= r and y2 <= b)
+        zeilen = ((q, text) for q, text in self.textbereiche
+                  if l <= q[0] and t <= q[1] and q[2] <= r and q[3] <= b)
+        return "\n".join(text for _, text in _einzelzeichen_verbinden(zeilen, self.bild.shape[:2]))
 
     def ausschnitt(self, box, max_breite, max_hoehe, grau=False):
         l, t, r, b = box

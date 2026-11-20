@@ -1633,13 +1633,20 @@ Check a known part by reprojecting the solid into the drawing views and comparin
 and PMI against the drawing using §8.35. An underdetermined drawing must identify the missing
 constraint and allow reconstruction to continue once it is supplied.
 
-**Implemented for plain rectangular plates.** File → Plate from 2D drawing works with a PDF and
-no loaded model. Select one closed axis-aligned top outline with an empty interior. Pick or enter
+**Implemented for rectangular plates, including confirmed cylindrical through holes.** File → Plate from 2D drawing works with a PDF and
+no loaded model. Select one closed axis-aligned top outline. Pick or enter
 the width, height and thickness from the drawing. An optional rectangular front view checks the
 thickness, even at a different scale. Missing depth or units and inconsistent view proportions
 leave export unavailable. The AP242 file contains a solid and three dimensions associated with
 opposite faces, including their graphical presentations. A portable 60 × 40 × 8 mm drawing verifies
-the exported volume, opposite-face distances and the width tolerance after reload. Holes, pockets,
+the exported volume, opposite-face distances and the width tolerance after reload.
+The top view can contain circular vector outlines. Each must match a separate closed printed ring.
+The reviewer selects or enters X, Y and the diameter, and confirms that the holes go through the plate.
+The estimated positions and sizes are shown separately. Reprojected centers and radii must agree
+with the drawing. Additional interior lines, intersecting holes and rings on the boundary remain
+unresolved. One cylindrical cut and a graphical and semantic diameter PMI are written for each
+confirmed bore. Tests verify both wall positions, volume, a bilateral tolerance and a fit after reload.
+X/Y position PMI, blind and stepped bores, pockets,
 nonrectangular profiles, automatic cross-view association and datum/GD&T transfer remain open.
 
 ### 8.37 QIF extensions (last in the implementation order)

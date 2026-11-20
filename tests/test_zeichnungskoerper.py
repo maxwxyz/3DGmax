@@ -6,14 +6,20 @@ from programm.kern.zeichnungskoerper import plattenmasse, rechteckansicht
 from programm.ui.zeichnungskoerper_ui import Plattendialog
 
 
-def _blatt(pfad):
+def _blatt(pfad, bohrungen=(), innenlinie=False):
     pdf = QtGui.QPdfWriter(str(pfad))
     pdf.setResolution(72)
     pdf.setPageSize(QtGui.QPageSize(QtCore.QSizeF(400, 300), QtGui.QPageSize.Unit.Point))
     pdf.setPageMargins(QtCore.QMarginsF(0, 0, 0, 0))
     with QtGui.QPainter(pdf) as p:
         p.drawRect(40, 40, 150, 100)
+        for x, y, r in bohrungen:
+            p.drawEllipse(QtCore.QPointF(40+2.5*x, 140-2.5*y), 2.5*r, 2.5*r)
+        if innenlinie:
+            p.drawLine(123, 80, 134, 88)
         p.drawRect(40, 185, 120, 16)
+        if bohrungen:
+            p.drawText(60, 280, "Ø10 ±0.05")
         for x, text in ((30, "60 ±0.1"), (140, "40"), (230, "8")):
             p.drawText(x, 250, text)
 
@@ -125,3 +131,84 @@ def test_grenzmasse_aus_zollzeichnung_auch_in_xcaf(tmp_path):
         assert breite.nennwert == pytest.approx(38.354) and breite.grenzmass
         assert breite.grenzen() == pytest.approx((38.608,38.1))
         assert (dicke.nennwert, dicke.oben, dicke.unten) == pytest.approx((3.175,.0508,-.0508))
+
+
+
+@pytest.mark.parametrize("innenlinie", [False, True])
+def test_bohrungen_im_plattendialog_mit_ap242_wandbezug(app, tmp_path, monkeypatch, innenlinie):
+    from pypdfium2 import PdfDocument
+    from OCC.Core.BRepAdaptor import BRepAdaptor_Surface
+    from OCC.Core.BRepGProp import brepgprop
+    from OCC.Core.GProp import GProp_GProps
+    from programm.kern.pmi_lesen import lies_pmi_xcaf
+    from programm.ui.lader import lade_alles
+    pfad, ziel = (tmp_path / name for name in ("Bohrbild.pdf", "Bohrplatte.stp"))
+    _blatt(pfad, ((20,16,5),(48,28,4)), innenlinie)
+    with PdfDocument(pfad) as doc:
+        d = Plattendialog(doc, pfad)
+        try:
+            d.show()
+            d.einheit.setCurrentIndex(1)
+            for feld, text in zip(d.texte, ("60","40","8")):
+                feld.setText(text)
+            d.ansicht.bereich.emit((.08,.1,.51,.52))
+            if innenlinie:
+                assert not d.speichern.isEnabled() and not d.ringe
+                return
+            assert d.bohrfeld.isVisible() and not d.speichern.isEnabled()
+            assert d.bohrtabelle.rowCount() == len(d.ansicht.kreismarken) == 2
+            d.ansicht.kreis_gewaehlt.emit(d.ringe[1].kreis)
+            assert d.bohrtabelle.currentRow() == 1
+            for i, werte in enumerate((("20","16","Ø10 ±0.05"), ("48","28","Ø8 H7"))):
+                for j, text in enumerate(werte, 1):
+                    d.bohrtabelle.item(i,j).setText(text)
+            d.bohrtabelle.setCurrentCell(0, 3)
+            d.auswahl.setCurrentIndex(7)
+            d.ansicht.bereich.emit((.12,.86,.38,.96))
+            assert d.bohrtabelle.item(0,3).text() == "Ø10 ±0.05"
+            d.einheit.setCurrentIndex(2)
+            d.ansicht.bereich.emit((.12,.86,.38,.96))
+            assert d.bohrtabelle.item(0,3).text().endswith(" in")
+            d.einheit.setCurrentIndex(1)
+            d.ansicht.bereich.emit((.12,.86,.38,.96))
+            d.auswahl.setCurrentIndex(0)
+            assert not d.speichern.isEnabled()
+            d.durchgehend.setChecked(True)
+            assert d.speichern.isEnabled()
+            for falsch in ("25", "20 ±0.1", "20°"):
+                d.bohrtabelle.item(0,1).setText(falsch)
+                assert not d.speichern.isEnabled()
+            d.bohrtabelle.item(0,1).setText("20")
+            monkeypatch.setattr(QtWidgets.QFileDialog, "getSaveFileName", lambda *args: (str(ziel), "STEP"))
+            d.speichern.click()
+            erg = lade_alles(str(ziel))
+            assert len(erg.pmi) == 5 and all(p.grafisch and p.semantisch for p in erg.pmi)
+            volumen = GProp_GProps()
+            brepgprop.VolumeProperties(erg.modell.form, volumen)
+            assert volumen.Mass() == pytest.approx(8*(60*40-np.pi*(25+16)))
+            for quelle in (erg.pmi, lies_pmi_xcaf(erg.modell)):
+                zyl = sorted((p for p in quelle if p.typ == "Size_Diameter"), key=lambda p: -p.nennwert)
+                assert len(zyl) == 2 and zyl[0].grenzen() == pytest.approx((10.05,9.95))
+                for p, (x, y, r) in zip(zyl, ((20,16,5),(48,28,4)), strict=True):
+                    f, = p.flaechen
+                    z = BRepAdaptor_Surface(erg.modell.flaechen[f]).Cylinder()
+                    assert (z.Location().X(), z.Location().Y(), z.Radius()) == pytest.approx((x,y,r))
+            assert any(p.passung == "H7" for p in erg.pmi)
+            d.ansicht.bereich.emit((.08,.1,.51,.52))
+            assert not d.durchgehend.isChecked() and not d.speichern.isEnabled()
+        finally:
+            d.blatt.schliesse()
+            d.close()
+
+
+def test_mengenangabe_und_falsches_bohrziel_bleiben_offen():
+    from programm.kern.plattenbohrung import Plattenring, sollbohrungen
+    from programm.kern.zeichnungsansicht import Blattkreis
+    ring = Plattenring(Blattkreis(200, 240, 50), 1/3, .4, 1/12)
+    masse = plattenmasse(["60","40","8"], 1., (600,400))
+    for zeile in (("20", "16", "2X Ø10"), ("4", "16", "Ø10"), ("20", "16", "R5"),
+                  ("20", "16", "Ø20"), ("20", "16", "Ø10 ±11")):
+        with pytest.raises(ValueError):
+            sollbohrungen([ring], [zeile], masse, (600,400))
+    with pytest.raises(ValueError, match="andere Bohrung"):
+        sollbohrungen([ring, ring], [("20","16","Ø10"), ("20","16","Ø10")], masse, (600,400))
