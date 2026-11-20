@@ -2,6 +2,24 @@
 
 ## Current state, 2026-11-20
 
+### Analysis mesh quality on previously displayed models
+
+- The 42.85 MB STEP assembly supplied 28,800 triangles across 14,400 faces. Drawing 8,000 surface samples
+  took a median 11.3 ms across five runs versus 156.2 ms at the preceding revision. All point coordinates
+  and face indices matched exactly. These timings cover sampling after extraction, excluding loading and
+  the remainder of the comparison. An additional regression spans empty faces, zero-area triangles and a
+  processing block boundary.
+
+- Checked PLAN §§6 and 8.1 against docs/Roadmap.md. Comparison, deviation mapping and scan inspection now
+  reuse refined meshes for the lifetime of the loaded model. A 12 mm sphere displayed with 58 triangles
+  yielded 11,936 analysis triangles at the 0.01 mm setting. The largest radial error measured at their
+  centroids was 0.00761 mm. On the development Mac, extraction took 29 ms initially and a median of
+  0.041 ms over ten subsequent calls on this single face.
+- Tests cover simultaneous requests on two instances, curved trims on a planar cap, and a face supplied
+  only as triangles. NIST CTC-01 against its changed variant reported 111 unchanged, four changed, two new
+  and four removed faces. All 56 affected cases passed. Persistent disk caching and interactive display
+  levels remain open.
+
 ### Tolerance frames without a supplied writing plane
 
 - Checked PLAN §§8.4, 8.15 and 8.18 and docs/Roadmap.md. Planar multi-cell frames can establish their own axes.

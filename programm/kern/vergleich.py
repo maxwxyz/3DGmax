@@ -483,7 +483,8 @@ def vergleiche(alt, neu, toleranz: float = 0.01, suchweite: float = 2.0, ausrich
     """alt, neu: Ergebnisse von ui.lader.lade_alles (Modell, PMI, ...)."""
     if ausrichtung is None:
         fortschritt(tr("Ausrichten …"))
-        ausrichtung = ausrichten.richte_aus(alt.modell.flaechen, neu.modell.flaechen, toleranz)
+        ausrichtung = ausrichten.richte_aus(alt.modell.flaechen, neu.modell.flaechen, toleranz,
+                                            modell_a=alt.modell, modell_b=neu.modell)
     fortschritt(tr("Geometrie vergleichen …"))
     geo = vergleich_geo.vergleiche(alt.modell, neu.modell, ausrichtung, toleranz, suchweite=suchweite)
     nachbarn_neu = vergleich_geo._nachbarn(neu.modell.flaechen, neu.modell.flaechen_index)

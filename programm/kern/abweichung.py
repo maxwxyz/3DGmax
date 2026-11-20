@@ -219,12 +219,12 @@ def berechne(modell_alt, modell_neu, ausrichtung: Ausrichtung | None = None, fei
     # alle Flaechen mit Lage (jedes Exemplar einer Baugruppe einzeln; modell.flaechen fasst Exemplare zusammen)
     alt_f, neu_f = _flaechen_mit_lage(modell_alt.form), _flaechen_mit_lage(modell_neu.form)
     feinheit = feinheit or _feinheit(alt_f)
-    netz_alt = NetzAbstand(tesselliere(alt_f, feinheit))
+    netz_alt = NetzAbstand(tesselliere(alt_f, feinheit, modell=modell_alt))
     m = np.eye(4) if ausrichtung is None else ausrichtung.matrix
     netze, werte = [], []
     flaechen: dict[int, _Flaeche] = {}
     abstand = _FlaechenAbstand(alt_f)
-    neu_netze = tesselliere(neu_f, feinheit)
+    neu_netze = tesselliere(neu_f, feinheit, modell=modell_neu)
     laenge = _diagonale(neu_netze) / teilung
     k = min(8, len(netz_alt.a))
     for i, (pts, tri) in enumerate(neu_netze):

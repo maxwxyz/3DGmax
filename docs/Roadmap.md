@@ -21,7 +21,9 @@
 | 3D selection of faces/edges (multiple), context menu, zoom to selection, align normal (upright: edges level, annotations readable), flip view | ✅ |
 | View cube with axes (chamfered edges/corners, click aligns, drag rotates) | ✅ |
 | Wireframe: click through to hidden edges | ✅ |
-| Large assemblies: tessellation cache, levels of detail | ⬜ |
+| Large assemblies: in-memory analysis mesh reuse across instances, comparisons and scan inspections, including refinement of coarse display meshes | ✅ |
+| Batch surface sampling for alignment and comparison of assemblies with many small faces | ✅ |
+| Large assemblies: persistent tessellation cache and viewer levels of detail | ⬜ |
 | Indexed STEP geometry and PMI import, unique display edges, saved-view thumbnail generation only when enabled | ✅ |
 | Model properties: volume, area, mass (density), center of gravity, overall size, file header | ✅ |
 | Anti-aliasing, sans-serif labels, subtle view cube; window/panel/column layout remembered | ✅ |

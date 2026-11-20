@@ -62,7 +62,7 @@ def zuordnen(modell, punkte: np.ndarray, feinheit: float | None = None, nur: set
     from .ausrichten import NetzAbstand, tesselliere
     cad_f = _flaechen_mit_lage(modell.form)
     feinheit = feinheit or _feinheit(cad_f)
-    netz = NetzAbstand(tesselliere(cad_f, feinheit))
+    netz = NetzAbstand(tesselliere(cad_f, feinheit, modell=modell))
     d, q, fl = netz.abfrage(punkte)
     normalen = netz.normalen(netz.letzte_dreiecke)
     vz = np.sign(np.einsum("ij,ij->i", punkte - q, normalen))
@@ -430,7 +430,7 @@ def feinausrichten(modell, scan_punkte: np.ndarray, matrix: np.ndarray, anzahl: 
     from .abweichung import _feinheit, _flaechen_mit_lage
     from .ausrichten import NetzAbstand, _drehung, _matrix, tesselliere
     cad_f = _flaechen_mit_lage(modell.form)
-    netz = NetzAbstand(tesselliere(cad_f, _feinheit(cad_f)))
+    netz = NetzAbstand(tesselliere(cad_f, _feinheit(cad_f), modell=modell))
     geom = [BRep_Tool.Surface(f) for f in cad_f]
     b = scan_punkte
     if len(b) > anzahl:
@@ -468,7 +468,7 @@ def _status(ueber: float) -> str:
 def scan_punkte(scan_modell, ausrichtung, anzahl: int = 200000) -> np.ndarray:
     """Knoten des Scans (gleichmaessig ausgeduennt) im CAD-System (ausrichtung: Ausrichtung, 4x4-Matrix oder None)."""
     from .ausrichten import tesselliere
-    netze = tesselliere(scan_modell.flaechen)
+    netze = tesselliere(scan_modell.flaechen, modell=scan_modell)
     p = np.vstack([q for q, _ in netze if len(q)]) if netze else np.zeros((0, 3))
     if len(p) > anzahl:
         p = p[np.random.default_rng(1).choice(len(p), anzahl, replace=False)]
@@ -527,7 +527,7 @@ def richte_nach_bezug(modell, scan_punkte: np.ndarray, matrix: np.ndarray, stufe
     for flaechen in stufen:
         formen = [modell.flaechen[i] for i in sorted(flaechen) if i < len(modell.flaechen)]
         if formen:
-            netze.append((NetzAbstand(tesselliere(formen)), [BRep_Tool.Surface(f) for f in formen]))
+            netze.append((NetzAbstand(tesselliere(formen, modell=modell)), [BRep_Tool.Surface(f) for f in formen]))
     m = matrix.copy()
     if anlage:  # die Anlage haengt an den aeussersten Punkten: nicht ausduennen
         anzahl = max(anzahl, 20000)

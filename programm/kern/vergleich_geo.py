@@ -169,7 +169,7 @@ def bereite_vor(modell, anzahl: int = 8000, feinheit: float | None = None) -> Se
         x0, y0, z0, x1, y1, z1 = box.Get()
         diag = float(np.linalg.norm([x1 - x0, y1 - y0, z1 - z0]))
         feinheit = min(max(diag * 5e-4, 0.01), 0.2)
-    netze = tesselliere(flaechen, feinheit)
+    netze = tesselliere(flaechen, feinheit, modell=modell)
     punkte, fi = _mindestens(netze, *abtasten(netze, anzahl))
     punkte = _auf_flaeche(punkte, fi, flaechen)
     if basis is None:

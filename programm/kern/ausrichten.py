@@ -10,13 +10,20 @@ Ergebnis ist eine 4x4-Matrix, die Modell B (neu) auf Modell A (alt) abbildet.
 from __future__ import annotations
 
 import itertools
-from dataclasses import dataclass
+from dataclasses import dataclass, field
+from threading import Lock
 
 import numpy as np
 
 from OCC.Core.BRep import BRep_Tool
+from OCC.Core.BRepAdaptor import BRepAdaptor_Curve, BRepAdaptor_Surface
+from OCC.Core.BRepBuilderAPI import BRepBuilderAPI_Copy
 from OCC.Core.BRepMesh import BRepMesh_IncrementalMesh
+from OCC.Core.GeomAbs import GeomAbs_Line, GeomAbs_Plane
+from OCC.Core.TopAbs import TopAbs_EDGE, TopAbs_FORWARD
+from OCC.Core.TopExp import TopExp_Explorer
 from OCC.Core.TopLoc import TopLoc_Location
+from OCC.Core.TopoDS import topods
 from OCC.Core.gp import gp_Translation
 
 
@@ -38,18 +45,72 @@ class Ausrichtung:
         return t
 
 
-def tesselliere(flaechen, feinheit: float = 0.1):
-    """Dreiecksnetz je Flaeche: Liste von (punkte (n,3), dreiecke (m,3)) in Modellkoordinaten."""
+@dataclass
+class _Netzspeicher:
+    # Je Grundflaeche das feinste berechnete Netz, gemeinsam fuer ihre Einbaulagen.
+    flaechen: dict = field(default_factory=dict)
+    sperre: Lock = field(default_factory=Lock)
+
+
+_ERSTMESH = Lock()
+
+
+def _geradlinige_ebene(f):
+    if BRepAdaptor_Surface(f).GetType() != GeomAbs_Plane:
+        return False
+    ex = TopExp_Explorer(f, TopAbs_EDGE)
+    while ex.More():
+        kante = topods.Edge(ex.Current())
+        if not BRep_Tool.Degenerated(kante):
+            try:
+                if BRepAdaptor_Curve(kante).GetType() != GeomAbs_Line:
+                    return False
+            except RuntimeError:
+                return False  # Ohne auswertbare Raumkurve ist die Sehne nicht verifiziert.
+        ex.Next()
+    return True
+
+
+def _analysenetz(f, tri, loc, feinheit, speicher):
+    parameter = tri.Parameters()
+    if (parameter is not None and parameter.HasDeflection() and parameter.Deflection() <= feinheit
+            and (tri.Deflection() <= feinheit or parameter.HasAngle() and parameter.Angle() <= 0.5)):
+        return tri, loc
+    # Ein reines Netz ist die Originalgeometrie. Bei ebenen Polygonen sind die Sehnen exakt.
+    if BRep_Tool.Surface(f) is None or _geradlinige_ebene(f):
+        return tri, loc
+    basis = topods.Face(f.Located(TopLoc_Location()).Oriented(TopAbs_FORWARD))
+    with speicher.sperre:
+        eintrag = speicher.flaechen.get(basis)
+        if eintrag is None or eintrag[0] != tri or eintrag[1] > feinheit:
+            # Eigene Topologie: eine Analyse darf die Zeichnung und deren Kantenpolygone nicht umnetzen.
+            kopie = topods.Face(BRepBuilderAPI_Copy(basis, False, False).Shape())
+            BRepMesh_IncrementalMesh(kopie, feinheit, False, 0.5, True)
+            ort = TopLoc_Location()
+            netz = BRep_Tool.Triangulation(kopie, ort)
+            if netz is None:
+                from ..i18n import tr
+                raise ValueError(tr("Eine CAD-Fläche konnte für die Analyse nicht verfeinert werden."))
+            eintrag = speicher.flaechen[basis] = (tri, feinheit, netz, ort)
+    return eintrag[2], f.Location().Multiplied(eintrag[3])
+
+
+def tesselliere(flaechen, feinheit: float = 0.1, *, modell=None):
+    """Dreiecksnetze in Modellkoordinaten; mit Modell bleiben feinere Analysenetze wiederverwendbar."""
+    speicher = _Netzspeicher() if modell is None else vars(modell).setdefault("_analysenetze", _Netzspeicher())
     out, instanzen = [], {}
     for i, f in enumerate(flaechen):
         loc = TopLoc_Location()
-        tri = BRep_Tool.Triangulation(f, loc)
-        if tri is None:
-            BRepMesh_IncrementalMesh(f, feinheit, False, 0.5, True)
+        # Lesen und erstes Schreiben der nativen Triangulierung synchronisieren.
+        with _ERSTMESH:
             tri = BRep_Tool.Triangulation(f, loc)
+            if tri is None and BRep_Tool.Surface(f) is not None:
+                BRepMesh_IncrementalMesh(f, feinheit, False, 0.5, True)
+                tri = BRep_Tool.Triangulation(f, loc)
         if tri is None:
             out.append((np.zeros((0, 3)), np.zeros((0, 3), dtype=int)))
             continue
+        tri, loc = _analysenetz(f, tri, loc, feinheit, speicher)
         out.append(None)
         instanzen.setdefault(tri, []).append((i, loc))
     # OCCT teilt das lokale Netz platzierter Flaechen. Knoten und Indizes je Netz nur einmal auslesen.
@@ -75,28 +136,32 @@ def _netz_in_lage(punkte, trsf):
 
 def abtasten(netze, anzahl: int = 6000, zufall: int = 1) -> tuple[np.ndarray, np.ndarray]:
     """Gleichmaessig verteilte Punkte auf der Oberflaeche (nach Flaeche gewichtet) und ihr Flaechenindex."""
-    pts_all, flaeche_all, gewicht = [], [], []
-    for idx, (pts, tri) in enumerate(netze):
-        if len(tri) == 0:
-            continue
-        a, b, c = pts[tri[:, 0]], pts[tri[:, 1]], pts[tri[:, 2]]
-        inhalt = 0.5 * np.linalg.norm(np.cross(b - a, c - a), axis=1)
-        pts_all.append((a, b, c))
-        flaeche_all.append(np.full(len(tri), idx))
-        gewicht.append(inhalt)
-    if not gewicht:
+    netze = list(netze)
+    enden = np.cumsum([len(tri) for _, tri in netze], dtype=np.intp)
+    if len(enden) == 0 or enden[-1] == 0:
         return np.zeros((0, 3)), np.zeros(0, dtype=int)
-    a = np.vstack([x[0] for x in pts_all])
-    b = np.vstack([x[1] for x in pts_all])
-    c = np.vstack([x[2] for x in pts_all])
-    fl = np.concatenate(flaeche_all)
-    w = np.concatenate(gewicht)
+    ecken = np.empty((enden[-1], 3, 3))
+    start = 0
+    for (pts, tri), ende in zip(netze, enden):
+        if ende > start:
+            ecken[start:ende] = pts[tri]
+        start = ende
+    # Flaecheninhalte blockweise berechnen, auch fuer Netze mit Millionen Dreiecken.
+    w = np.empty(len(ecken))
+    for start in range(0, len(ecken), 65536):
+        block = ecken[start:start + 65536]
+        a, b, c = block.transpose(1, 0, 2)
+        w[start:start + len(block)] = 0.5 * np.linalg.norm(np.cross(b - a, c - a), axis=1)
+    gesamt = w.sum()
+    if gesamt == 0:
+        return np.zeros((0, 3)), np.zeros(0, dtype=int)
     rng = np.random.default_rng(zufall)
-    wahl = rng.choice(len(w), size=anzahl, p=w / w.sum())
+    wahl = rng.choice(len(w), size=anzahl, p=w / gesamt)
+    a, b, c = ecken[wahl].transpose(1, 0, 2)
     r1, r2 = rng.random(anzahl), rng.random(anzahl)
     s = np.sqrt(r1)
-    punkte = (1 - s)[:, None] * a[wahl] + (s * (1 - r2))[:, None] * b[wahl] + (s * r2)[:, None] * c[wahl]
-    return punkte, fl[wahl]
+    punkte = (1 - s)[:, None] * a + (s * (1 - r2))[:, None] * b + (s * r2)[:, None] * c
+    return punkte, np.searchsorted(enden, wahl, side="right")
 
 
 def _teile_dreiecke(a, b, c, laenge: float):
@@ -298,15 +363,15 @@ def _hauptachsen(p: np.ndarray):
 
 
 def richte_aus(flaechen_a, flaechen_b, toleranz: float = 0.05, anzahl: int = 6000,
-               punkte_b: np.ndarray | None = None) -> Ausrichtung:
+               punkte_b: np.ndarray | None = None, *, modell_a=None, modell_b=None) -> Ausrichtung:
     """Automatisch: gleiche Lage, sonst Bestpassung. punkte_b: Punktwolke statt der Flaechen von B."""
-    netze_a = tesselliere(flaechen_a)
+    netze_a = tesselliere(flaechen_a, modell=modell_a)
     a, _ = abtasten(netze_a, anzahl)
     if punkte_b is not None:
         b = punkte_b if len(punkte_b) <= anzahl else \
             punkte_b[np.random.default_rng(2).choice(len(punkte_b), anzahl, replace=False)]
     else:
-        b, _ = abtasten(tesselliere(flaechen_b), anzahl, zufall=2)
+        b, _ = abtasten(tesselliere(flaechen_b, modell=modell_b), anzahl, zufall=2)
     netz = NetzAbstand(netze_a)
     # Lage gilt als gleich, wenn mindestens die Haelfte der Punkte schon exakt aufliegt: dann teilen beide Staende
     # das Koordinatensystem, und eine Bestpassung wuerde geaenderte Bereiche nur auf alles verteilen
@@ -365,7 +430,6 @@ def element_von(form, punkt, gefangen: bool = False):
     if gefangen or form is None:
         return PUNKT, p, None
     if form.ShapeType() == TopAbs_FACE:
-        from OCC.Core.BRep import BRep_Tool
         if BRep_Tool.Surface(topods.Face(form)) is None:
             return PUNKT, p, None  # Netzflaeche: nur der Klickpunkt
         s = BRepAdaptor_Surface(topods.Face(form))

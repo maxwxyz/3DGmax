@@ -50,14 +50,16 @@ class ScanLader(QtCore.QThread):
             else:
                 scan = lade_modell(self.pfad)
                 probe = sp.scan_punkte(scan, None)
-                netze = ausrichten.tesselliere(scan.flaechen)
+                netze = ausrichten.tesselliere(scan.flaechen, modell=scan)
             melde(tr("Scan ausrichten …"))
             if self.startlage is not None:
                 grob = ausrichten.Ausrichtung(np.asarray(self.startlage, float), "punkte", 0.0, 0.0)
             elif wolke:
-                grob = ausrichten.richte_aus(self.erg.modell.flaechen, None, 0.05, punkte_b=probe)
+                grob = ausrichten.richte_aus(self.erg.modell.flaechen, None, 0.05, punkte_b=probe,
+                                             modell_a=self.erg.modell)
             else:
-                grob = ausrichten.richte_aus(self.erg.modell.flaechen, scan.flaechen, 0.05)
+                grob = ausrichten.richte_aus(self.erg.modell.flaechen, scan.flaechen, 0.05,
+                                             modell_a=self.erg.modell, modell_b=scan)
             matrix = sp.feinausrichten(self.erg.modell, probe, grob.matrix)
             if self.bezug:
                 melde(tr("Am Bezugssystem {} ausrichten …").format("|".join(self.bezug)))

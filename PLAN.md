@@ -118,8 +118,10 @@ Throughout: tests (core, offscreen UI, stress test, on-screen test), `--selbstte
 3. **Large assemblies.** STEP import now indexes entity types and reuses OCCT's transfer map for faces,
    colours and PMI. The viewer draws shared edges once. Comparison reads each shared triangulation once
    per extraction and applies its instance transforms. Checked with 2,400 solids and 14,400 faces in a
-   42.85 MB STEP file (11.86 s on the development Mac, all faces assigned). Persistent mesh caching and
-   levels of detail remain open.
+   42.85 MB STEP file (11.86 s on the development Mac, all faces assigned). Comparisons and scan inspections
+   refine coarse CAD meshes on separate topology and share the result across instances and repeated analyses of
+   a loaded model. This also covers planar faces with curved trims. Persistent mesh caching and viewer levels
+   of detail remain open.
 4. **JT with PMI** only via TKJT (GPL) or commercial SDK.
 
 ## 7. Decisions
@@ -132,6 +134,9 @@ Throughout: tests (core, offscreen UI, stress test, on-screen test), `--selbstte
 ## 8. Extensions
 
 ### 8.1 Comparison
+- Surface samples for alignment and comparison are weighted in batches. On the 14,400-face STEP assembly,
+  drawing 8,000 samples from the extracted meshes took 11.3 ms versus 156.2 ms, with identical points
+  and face indices for the same seed (median of five runs on the development Mac).
 - Verified 2026-11-20 on NIST CTC-01 and its changed variant. Bounding-box distance supplies a lower
   bound for exact B-rep queries. Import, colours and PMI associations were also checked on FTC-09.
   The measured comparison retained the face assignments, classifications and deviation values.
