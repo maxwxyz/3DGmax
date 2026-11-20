@@ -19,6 +19,7 @@ class Plattenbohrung:
     durchmesser: Pmi
     tiefe: Pmi | None = None
     lagemasse: tuple[Pmi, Pmi] | None = None
+    kern: int | None = None
 
 
 @dataclass(frozen=True)
@@ -204,16 +205,22 @@ def _flaechenmasse(modell, masse, bohrungen, taschen):
     if taschen or any(b.tiefe for b in bohrungen):
         from .vergleich_geo import _nachbarn
         nachbarn = _nachbarn(modell.flaechen, modell.flaechen_index)
-        for b, wand in zip(bohrungen, waende, strict=True):
-            if b.tiefe is None:
-                continue
-            angrenzend = set().union(*(nachbarn[i] for i in wand))
-            boden = {i for i in (angrenzend & horizontal.keys()) - paare[2]
-                     if abs(horizontal[i] - (dicke-b.tiefe.nennwert)) < 1e-6}
-            if len(boden) != 1 or not deckel <= angrenzend:
-                raise ValueError(tr("Eintrittsfläche und Bohrungsgrund sind nicht eindeutig."))
-            alle.append(b.tiefe)
-            flaechen.append(deckel | boden)
+        gruppen = {}
+        for i, bohrung in enumerate(bohrungen):
+            gruppen.setdefault(i if bohrung.kern is None else bohrung.kern, []).append(i)
+        for gruppe in gruppen.values():
+            eintritt = deckel
+            for j in reversed(gruppe):
+                bohrung = bohrungen[j]
+                angrenzend = set().union(*(nachbarn[i] for i in waende[j]))
+                ziel_z = dicke-bohrung.tiefe.nennwert if bohrung.tiefe else 0.
+                boden = {i for i in angrenzend & horizontal.keys() if abs(horizontal[i]-ziel_z) < 1e-6}
+                if len(boden) != 1 or not eintritt <= angrenzend:
+                    raise ValueError(tr("Eintrittsfläche und Bohrungsgrund sind nicht eindeutig."))
+                if bohrung.tiefe:
+                    alle.append(bohrung.tiefe)
+                    flaechen.append(deckel | boden)
+                eintritt = boden
         for tasche in taschen:
             bezuege = _taschenflaechen(tasche, dicke, deckel, ebenen, nachbarn)
             alle.extend((tasche.breite, tasche.hoehe))

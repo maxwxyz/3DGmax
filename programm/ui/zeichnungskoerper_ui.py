@@ -209,19 +209,27 @@ class Plattendialog(QtWidgets.QDialog):
             self.durchgehend.setChecked(False)
             self.bohrtabelle.setRowCount(0)
             self.bohrtabelle.setRowCount(len(self.ringe))
-            for i in range(len(self.ringe)):
+            for i, ring in enumerate(self.ringe):
                 for j in (0, 1, 2, 3, 5):
                     item = QtWidgets.QTableWidgetItem()
                     if j == 5:
                         item.setFlags(QtCore.Qt.ItemFlag.NoItemFlags)
                     if j == 0:
                         item.setFlags(item.flags() & ~QtCore.Qt.ItemFlag.ItemIsEditable)
+                    if ring.kern is not None and j in (1, 2):
+                        item.setText(tr("wie Zeile {}").format(ring.kern+1))
+                        item.setFlags(item.flags() & ~QtCore.Qt.ItemFlag.ItemIsEditable)
                     self.bohrtabelle.setItem(i, j, item)
                 art = QtWidgets.QComboBox()
-                art.addItems([tr("Offen"), tr("Durchgang"), tr("Flachboden von oben")])
+                art.addItem(tr("Offen"), 0)
+                if ring.kern is None:
+                    art.addItem(tr("Durchgang"), 1)
+                    art.addItem(tr("Flachboden von oben"), 2)
+                else:
+                    art.addItem(tr("Zylindrische Stufe von oben"), 2)
                 self.bohrtabelle.setCellWidget(i, 4, art)
                 art.currentIndexChanged.connect(lambda _, zeile=i: self._bohrart(zeile))
-            self.durchgehend.setEnabled(True)
+            self.durchgehend.setEnabled(all(r.kern is None for r in self.ringe))
             if self.ringe:
                 self.bohrtabelle.setCurrentCell(0, 1)
         self.taschenmarken = [Blattangabe(self.blatt.nummer, q.box, tr("Tasche")) for q in self.taschen]
@@ -265,10 +273,10 @@ class Plattendialog(QtWidgets.QDialog):
         self._pruefen()
 
     def _bohrart(self, zeile):
-        arten = [self.bohrtabelle.cellWidget(i, 4).currentIndex() for i in range(len(self.ringe))]
+        arten = [self.bohrtabelle.cellWidget(i, 4).currentData() for i in range(len(self.ringe))]
         with QtCore.QSignalBlocker(self.durchgehend):
             self.durchgehend.setChecked(all(a == 1 for a in arten))
-            self.durchgehend.setEnabled(2 not in arten)
+            self.durchgehend.setEnabled(2 not in arten and all(r.kern is None for r in self.ringe))
         self._tiefenfeld(self.bohrtabelle, zeile, arten[zeile] == 2, (zeile, 8))
 
     def _tiefenfeld(self, tabelle, zeile, aktiv, schluessel):
@@ -301,11 +309,14 @@ class Plattendialog(QtWidgets.QDialog):
             zeile = tabelle.currentRow()
             if zeile < 0:
                 return
-            if taschenspalte is None and i == 8 and self.bohrtabelle.cellWidget(zeile, 4).currentIndex() != 2:
+            if taschenspalte is None and i == 8 and self.bohrtabelle.cellWidget(zeile, 4).currentData() != 2:
                 self.status.setText(tr("Für ein Tiefenmaß zuerst eine Bohrung mit flachem Grund wählen."))
                 return
             if taschenspalte == 5 and self.taschentabelle.cellWidget(zeile, 6).currentIndex() == 1:
                 self.status.setText(tr("Ein Durchbruch hat kein Tiefenmaß."))
+                return
+            if taschenspalte is None and i in (5, 6) and self.ringe[zeile].kern is not None:
+                self.status.setText(tr("X und Y in der Zeile der innersten Bohrung angeben."))
                 return
             wert = self.blatt.lies(box)
             spalte = taschenspalte if taschenspalte is not None else 5 if i == 8 else i-4
@@ -342,7 +353,7 @@ class Plattendialog(QtWidgets.QDialog):
             return []
         tiefen = []
         for i in range(len(self.ringe)):
-            art = self.bohrtabelle.cellWidget(i, 4).currentIndex()
+            art = self.bohrtabelle.cellWidget(i, 4).currentData()
             if art == 0:
                 raise ValueError(tr("Für Bohrung {} das Bohrungsende anhand der Zeichnung wählen.").format(i+1))
             tiefen.append(self.bohrtabelle.item(i, 5).text() if art == 2 else None)

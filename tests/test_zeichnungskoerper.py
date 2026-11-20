@@ -427,3 +427,103 @@ def test_taschen_kollisionen_und_offene_konturen():
     assert len(plattenumriss(bild,(0,0,1,1),[])[2]) == 1
     bild[30,40:46] = 255
     assert plattenumriss(bild,(0,0,1,1),[]) is None
+
+
+def test_stufenbohrungen_mit_absatz_und_kern_tiefe_ab_oberseite(app, tmp_path, monkeypatch):
+    from pypdfium2 import PdfDocument
+    from OCC.Core.BRepAdaptor import BRepAdaptor_Surface
+    from OCC.Core.BRepGProp import brepgprop
+    from OCC.Core.GProp import GProp_GProps
+    from programm.kern.pmi_lesen import lies_pmi_xcaf
+    from programm.ui.lader import lade_alles
+
+    pdf, ziel = tmp_path/"Stufen.pdf", tmp_path/"Stufen.stp"
+    _blatt(pdf, [(16,20,6),(16,20,2),(16,20,4),(42,20,2),(42,20,4)], tiefe="2 ±0.1")
+    monkeypatch.setattr(QtWidgets.QFileDialog, "getSaveFileName", lambda *args: (str(ziel), "STEP"))
+    with PdfDocument(pdf) as doc:
+        d = Plattendialog(doc, pdf)
+        try:
+            d.show()
+            d.einheit.setCurrentIndex(1)
+            for feld, text in zip(d.texte, ("60","40","8")):
+                feld.setText(text)
+            d.ansicht.bereich.emit((.08,.1,.51,.52))
+            assert [r.kern for r in d.ringe] == [None,0,0,None,3]
+            assert not d.durchgehend.isEnabled()
+            tabelle = d.bohrtabelle
+            for i, (x, dm, ende, tiefe) in enumerate(((16,4,1,None), (None,8,1,"5"), (None,12,1,"2 ±0.1"),
+                                                       (42,4,2,"6"), (None,8,1,"2 ±0.2"))):
+                if x is not None:
+                    tabelle.item(i,1).setText(str(x))
+                    tabelle.item(i,2).setText("20")
+                else:
+                    assert not tabelle.item(i,1).flags() & QtCore.Qt.ItemFlag.ItemIsEditable
+                tabelle.item(i,3).setText(str(dm))
+                tabelle.cellWidget(i,4).setCurrentIndex(ende)
+                if tiefe:
+                    tabelle.item(i,5).setText(tiefe)
+            assert d.speichern.isEnabled()
+            tabelle.item(1,5).setText("2.2 ±0.2")
+            assert not d.speichern.isEnabled()
+            tabelle.item(1,5).setText("5")
+            tabelle.item(1,3).setText("8 ±4")
+            assert not d.speichern.isEnabled()
+            tabelle.item(1,3).setText("8")
+            tabelle.cellWidget(2,4).setCurrentIndex(0)
+            assert not d.speichern.isEnabled()
+            tabelle.cellWidget(2,4).setCurrentIndex(1)
+            d.ansicht.kreis_gewaehlt.emit(d.ringe[2].kreis)
+            d.auswahl.setCurrentIndex(8)
+            d.ansicht.bereich.emit((.52,.86,.8,.96))
+            assert tabelle.item(2,5).text() == "2 ±0.1" and d.speichern.isEnabled()
+            d.speichern.click()
+            erg = lade_alles(str(ziel))
+            assert len(erg.pmi) == 16 and all(p.grafisch and p.semantisch for p in erg.pmi)
+            props = GProp_GProps()
+            brepgprop.VolumeProperties(erg.modell.form, props)
+            assert props.Mass() == pytest.approx(60*40*8-np.pi*(4*8+12*5+20*2+4*6+12*2))
+            for merkmale in (erg.pmi, lies_pmi_xcaf(erg.modell)):
+                zylinder = []
+                tiefen = []
+                for p in merkmale:
+                    if p.typ == "Size_Diameter":
+                        f, = p.flaechen
+                        s = BRepAdaptor_Surface(erg.modell.flaechen[f])
+                        x = s.Cylinder().Location().X()
+                        zs = [s.Value(0,v).Z() for v in (s.FirstVParameter(),s.LastVParameter())]
+                        zylinder.append((x,p.nennwert,*sorted(zs)))
+                    if p.typ == "Location_LinearDistance" and p.nennwert in (2,5,6):
+                        fl = sorted((BRepAdaptor_Surface(erg.modell.flaechen[f]).Plane().Location().Z(), f)
+                                    for f in p.flaechen)
+                        assert [z for z, _ in fl] == pytest.approx([8-p.nennwert,8])
+                        brepgprop.SurfaceProperties(erg.modell.flaechen[fl[0][1]], props)
+                        tiefen.append((props.CentreOfMass().X(), p.nennwert, p.oben or 0.))
+                np.testing.assert_allclose(sorted(zylinder), [(16,4,0,3),(16,8,3,6),(16,12,6,8),
+                                                             (42,4,2,6),(42,8,6,8)], atol=1e-6)
+                np.testing.assert_allclose(sorted(tiefen, key=lambda v:(round(v[0]),v[1])),
+                                           [(16,2,.1),(16,5,0),(42,2,.2),(42,6,0)], atol=1e-6)
+        finally:
+            d.blatt.schliesse()
+            d.close()
+
+
+def test_nahe_ringradien_und_exzentrische_ringe(app):
+    from programm.kern.plattenbohrung import plattenumriss, sollbohrungen
+    from programm.kern.zeichnungsansicht import Blattkreis
+    yy, xx = np.indices((300,400))
+    bild = np.full((300,400,3), 255, np.uint8)
+    bild[20:281,20] = bild[20:281,380] = bild[20,20:381] = bild[280,20:381] = 0
+    for versatz in (0, 1):
+        maske = bild.copy()
+        kreise = [Blattkreis(200,150,60), Blattkreis(200+versatz,150,65)]
+        for k in kreise:
+            maske[np.abs(np.hypot(xx-k.x, yy-k.y)-k.r) <= 1] = 0
+        umfang, ringe, _ = plattenumriss(maske, (0,0,1,1), kreise)
+        assert [r.kern for r in ringe] == [None, None if versatz else 0]
+        masse = plattenmasse(["360","260","8"], 1., umfang)
+        werte = [("180","130","120"), (str(180+versatz),"130","130")]
+        if versatz:
+            with pytest.raises(ValueError, match="andere Bohrung"):
+                sollbohrungen(ringe, werte, masse, umfang, tiefen=[None,"3"])
+        else:
+            assert len(sollbohrungen(ringe, werte, masse, umfang, tiefen=[None,"3"])) == 2

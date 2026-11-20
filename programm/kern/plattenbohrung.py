@@ -21,6 +21,7 @@ class Plattenring:
     x: float
     y: float
     r: float
+    kern: int | None = None
 
 
 def _ist_ring(maske, kreis, x, y):
@@ -31,6 +32,30 @@ def _ist_ring(maske, kreis, x, y):
         return False
     gefuellt = ndimage.binary_fill_holes(maske, structure=np.ones((3, 3), dtype=bool))
     return gefuellt[maske.shape[0]//2, maske.shape[1]//2]
+
+
+def _ringgruppen(ringe, links, unten, breite, hoehe):
+    bohrungen = []
+    if not ringe:
+        return bohrungen
+    # Nur deckungsgleiche Vektormitten gruppieren. Die zwei Pixel fuer die Rasterpruefung
+    # waeren zu grob und koennten einen exzentrischen Ring zur Stufe machen.
+    baum = cKDTree([k.mitte for k in ringe])
+    gesehen = set()
+    for i in sorted(range(len(ringe)), key=lambda j: (ringe[j].x, -ringe[j].y)):
+        if i in gesehen:
+            continue
+        gruppe = baum.query_ball_point(ringe[i].mitte, .05)
+        if gesehen.intersection(gruppe) or any(math.dist(ringe[j].mitte, ringe[n].mitte) > .05
+                                               for j in gruppe for n in gruppe):
+            return None
+        gesehen.update(gruppe)
+        kern = len(bohrungen)
+        for n, j in enumerate(sorted(gruppe, key=lambda j: ringe[j].r)):
+            k = ringe[j]
+            bohrungen.append(Plattenring(k, (k.x-links)/breite, (unten-k.y)/hoehe, k.r/breite,
+                                         kern if n else None))
+    return bohrungen
 
 
 def plattenumriss(bild, box, kreise):
@@ -62,6 +87,13 @@ def plattenumriss(bild, box, kreise):
         nahe = (kreise[j] for j in zentren.query_ball_point((x,y), 1.75)) if zentren is not None else ()
         kandidaten = [k for k in nahe if abs(radius-k.r) <= max(2., .10*k.r)]
         teil = labels[yy, xx] == i
+        if len(kandidaten) > 1:
+            ys, xs = np.nonzero(teil)
+            # Bei nahen Radien die Mitte der gedruckten Strichstaerke auswerten.
+            def radienfehler(k):
+                abstand = np.hypot(l+xx.start+xs-k.x, t+yy.start+ys-k.y)
+                return abs((abstand.min()+abstand.max())/2-k.r)
+            kandidaten = [k for k in kandidaten if radienfehler(k) <= 1.]
         if len(kandidaten) == 1 and _ist_ring(teil, kandidaten[0], l+xx.start, t+yy.start):
             ringe.append(kandidaten[0])
             continue
@@ -71,11 +103,18 @@ def plattenumriss(bild, box, kreise):
         x1, y1, x2, y2 = rand
         taschen.append(Taschenkontur((x1/w,y1/h,x2/w,y2/h), ((x1+x2)/2-links)/breite,
                                     (unten-(y1+y2)/2)/hoehe, (x2-x1)/breite, (y2-y1)/hoehe))
-    bohrungen = [Plattenring(k, (k.x-links)/breite, (unten-k.y)/hoehe, k.r/breite) for k in ringe]
+    bohrungen = _ringgruppen(ringe, links, unten, breite, hoehe)
+    if bohrungen is None:
+        return None
     if any(not (0 < q.x-q.r < q.x+q.r < 1 and 0 < q.y-q.r*breite/hoehe < q.y+q.r*breite/hoehe < 1)
            for q in bohrungen):
         return None
-    return (breite, hoehe), sorted(bohrungen, key=lambda q: (q.x, q.y)), sorted(taschen, key=lambda q: (q.x, q.y))
+    return (breite, hoehe), bohrungen, sorted(taschen, key=lambda q: (q.x, q.y))
+
+
+def _massbereich(p):
+    werte = [g for g in (p.nennwert, *p.grenzen()) if g is not None]
+    return min(werte), max(werte)
 
 
 def sollbohrungen(ringe, werte, masse, umfang, *, tiefen=None):
@@ -94,18 +133,19 @@ def sollbohrungen(ringe, werte, masse, umfang, *, tiefen=None):
             raise ValueError(tr("Den Durchmesser von Bohrung {} angeben.").format(index))
         if any(g is not None and (not math.isfinite(g) or g <= 0) for g in pmi.grenzen()):
             raise ValueError(tr("Die Grenzmaße für Bohrung {} müssen positiv sein.").format(index))
-        mitte = koordinatenmasse(tx, ty)
+        mitte = (bohrungen[ring.kern].lagemasse if ring.kern is not None else koordinatenmasse(tx, ty))
         if not mitte:
             raise ValueError(tr("X und Y für Bohrung {} als Koordinaten angeben.").format(index))
         x, y = (p.nennwert for p in mitte)
         r = pmi.nennwert/2
         # Auch am Toleranzrand muss der vollstaendige Ring innerhalb der Platte liegen.
-        radius_max = max(g for g in (pmi.nennwert, *pmi.grenzen()) if g is not None)/2
+        radius_max = _massbereich(pmi)[1]/2
         for lage, seite in zip(mitte, masse[:2], strict=True):
-            rand = min(v for v in (seite.nennwert, *seite.grenzen()) if v is not None)
+            rand = _massbereich(seite)[0]
             if any(not radius_max < g < rand-radius_max for g in (lage.nennwert, *lage.grenzen()) if g is not None):
                 raise ValueError(tr("Bohrung {} reicht über den Plattenrand.").format(index))
-        if any(math.hypot(x-b.x, y-b.y) <= r+b.durchmesser.nennwert/2 for b in bohrungen):
+        fremd = (b for j, b in enumerate(bohrungen) if ring.kern is None or (j != ring.kern and b.kern != ring.kern))
+        if any(math.hypot(x-b.x, y-b.y) <= r+b.durchmesser.nennwert/2 for b in fremd):
             raise ValueError(tr("Bohrung {} berührt oder schneidet eine andere Bohrung.").format(index))
         if (math.hypot((x/breite-ring.x)*bx, (y/hoehe-ring.y)*by) > 2.
                 or abs((r/breite-ring.r)*bx) > 2.):
@@ -116,5 +156,11 @@ def sollbohrungen(ringe, werte, masse, umfang, *, tiefen=None):
             if tiefe is None or tiefe.nennwert is None:
                 raise ValueError(tr("Die Tiefe bis zum flachen Grund von Bohrung {} angeben.").format(index))
             pruefe_tiefe(tiefe, masse[2])
-        bohrungen.append(Plattenbohrung(x, y, pmi, tiefe, mitte))
+        if ring.kern is not None:
+            innen = bohrungen[-1]
+            if tiefe is None or _massbereich(pmi)[0] <= _massbereich(innen.durchmesser)[1]:
+                raise ValueError(tr("Für jede äußere Stufe einen größeren Durchmesser und eine Tiefe von oben angeben."))
+            if innen.tiefe is not None and _massbereich(tiefe)[1] >= _massbereich(innen.tiefe)[0]:
+                raise ValueError(tr("Die äußere Stufe muss auch mit Toleranz flacher als die innere Bohrung sein."))
+        bohrungen.append(Plattenbohrung(x, y, pmi, tiefe, mitte if ring.kern is None else None, ring.kern))
     return bohrungen

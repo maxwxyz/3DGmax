@@ -1662,7 +1662,11 @@ both readers verifies the two references and the coordinate tolerance.
 A confirmed rectangular opening can also pass through the plate. Its four connected walls must meet
 both plate faces, and the export attaches the side dimensions to opposite wall pairs. A through
 opening has no floor or depth PMI. Through openings and pockets can be mixed within a single plate.
-Pocket center-position PMI, drill points, stepped bores, rounded pocket profiles,
+Concentric rings can be reviewed as coaxial cylindrical steps cut from the top. Each larger
+diameter needs its own depth from the plate surface. Diameter and depth limits must keep the
+shoulders distinct. The inner bore can pass through or end at a flat bottom. The export
+associates each diameter with its cylindrical wall and each depth with its own shoulder or floor.
+Pocket center-position PMI, drill points, conical seats, rounded pocket profiles,
 nonrectangular profiles, automatic cross-view association and datum/GD&T transfer remain open.
 
 ### 8.37 QIF extensions (last in the implementation order)

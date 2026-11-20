@@ -1,4 +1,9 @@
 {
+"wie Zeile {}": "same as row {}",
+"Zylindrische Stufe von oben": "Cylindrical step from top",
+"X und Y in der Zeile der innersten Bohrung angeben.": "Enter X and Y on the row for the innermost bore.",
+"Für jede äußere Stufe einen größeren Durchmesser und eine Tiefe von oben angeben.": "Enter a larger diameter and a depth from the top for each outer step.",
+"Die äußere Stufe muss auch mit Toleranz flacher als die innere Bohrung sein.": "The outer step must remain shallower than the inner bore, including tolerances.",
 "Ausführung": "End condition",
 "Den Mittelpunkt X und Y für Tasche {} angeben.": "Enter the X and Y coordinates of the center of pocket {}.",
 "Die Tiefe zum flachen Grund von Tasche {} angeben.": "Enter the depth to the flat bottom of pocket {}.",

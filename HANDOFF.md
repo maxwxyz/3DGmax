@@ -2,6 +2,22 @@
 
 ## Current state, 2026-11-21
 
+### Reconstruct cylindrical stepped bores from the top view
+
+- Checked PLAN §§8.35–8.37 and docs/Roadmap.md. Concentric vector rings with distinct ink contours
+  share their innermost row’s reviewed X and Y. The reviewer selects a through or flat-bottom core
+  and confirms a cylindrical step from the top for each larger ring. All depths are measured from
+  the top surface. Step diameter and depth ranges must stay separated.
+- On a 60 × 40 × 8 mm plate, one through bore had two shoulders and one blind bore had one shoulder.
+  The native STEP reader and OCCT/XCAF recovered all five cylinder positions, diameters and axial
+  extents, both equal-depth shoulders with their distinct tolerances, and the blind floor. Volume
+  agreed with the nominal cuts. The PDF dialog test exercises picking the outer depth, changing
+  end conditions and rejecting overlapping limits. Separate near-radius and eccentric profiles
+  exercise the distinction between two steps and interfering bores.
+- All 20 affected tests and 68 combined drawing comparison/reconstruction tests passed. Conical
+  seats, drill points, rounded pockets, turned parts and automatic cross-view association remain
+  open under §8.36. Whole-drawing completeness remains open under §8.35. QIF is last.
+
 ### Rectangular through openings alongside pockets and bores
 
 - Checked PLAN §§8.35–8.37 and docs/Roadmap.md. Each rectangular interior contour can be a
