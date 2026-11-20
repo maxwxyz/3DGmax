@@ -372,3 +372,65 @@ def test_netzflaeche_in_zwei_produktformen_ist_nicht_eindeutig(tmp_path):
     bericht = step_schreiben.schreibe(str(datei), ziel, [p], erg.modell)
     assert [n for n, _, _ in bericht.uebersprungen] == [61] and not bericht.neu
     assert not any(p.semantisch for p in lade_alles(ziel).pmi)
+
+
+def test_ocr_reine_fuellung_vom_pruefdialog_bis_zur_step_kopie(grafische_datei, fenster, tmp_path):
+    datei, referenz, _ = grafische_datei
+    text = Path(datei).read_text(encoding="utf-8")
+    # Nur die Dreiecke der Ziffern behalten, auch Rahmen, Symbol und Pfeil entfallen.
+    alt = "TESSELLATED_GEOMETRIC_SET((#461,#348,#462,#349))"
+    assert text.count(alt) == 1
+    quelle = tmp_path / "nur_fuellung.stp"
+    quelle.write_text(text.replace(alt, "TESSELLATED_GEOMETRIC_SET((#349))"), encoding="utf-8")
+    fenster.lade(str(quelle), warten=True)
+    vorher = fenster.erg
+    g = vorher.grafik[611]
+    assert not g.linien and not g.platzhalter and len(g.dreiecke) == 1
+    original = next(p for p in vorher.pmi if p.step_id == 611)
+    assert not original.semantisch and original.wert is None
+    fenster._pmi_befehl("semantisch", original)
+    dialog = fenster._semantik_dialog
+    assert dialog.v.ocr_text == "0.2" and dialog.v.typ == "Flatness" and dialog.v.wert == .2
+    ref = next(p for p in referenz.pmi if p.typ == "Flatness")
+    fenster.ansicht.setze_auswahl([vorher.modell.flaechen[i] for i in ref.flaechen])
+    dialog._auswahl_uebernehmen()
+    assert not dialog.fehler()
+    dialog._pruefen()
+    ziel = fenster.speichere_step_pmi(str(tmp_path / "fuellung_und_semantik.stp"), melden=False)
+    nachher = lade_alles(ziel)
+    neu, = [p for p in nachher.pmi if p.semantisch]
+    assert (neu.typ, neu.wert, neu.flaechen) == ("Flatness", .2, ref.flaechen)
+    assert nachher.grafik[611].pmi_ids == {neu.step_id}
+    assert all(nachher.modell.datei.get(i) == e for i, e in vorher.modell.datei.entities.items())
+
+
+def test_ocr_kurvengrafik_liest_symbole_und_verwirft_zusatzangabe():
+    from programm.kern.pmi_reparieren import vorschlag
+    vorher = lade_alles(pfad("nist_ctc_01_asme1_ap203.stp.gz"))
+    def lies(nr):
+        return vorschlag(next(p for p in vorher.pmi if p.step_id == nr), vorher.grafik[nr], vorher.modell)
+    assert not vorher.grafik[3420].dreiecke and not vorher.grafik[3420].platzhalter
+    mass = lies(3420)
+    assert (mass.typ, mass.nennwert, mass.unten, mass.oben) == ("Size_Diameter", 25, -.15, .15)
+    assert not mass.nennwert_aus_geometrie
+    rahmen = lies(3415)
+    assert (rahmen.typ, rahmen.wert, [b.name for b in rahmen.bezuege]) == ("Position", .75, ["A", "B", "C"])
+    assert lies(3428).wert == .2
+    assert lies(3422).wert is None
+
+
+def test_einlinige_schrift_auf_schraeger_ebene_und_unbekanntes_zeichen():
+    from programm.kern.pmi_strichschrift import lies_schrift
+    from programm.kern.praesentation import Grafik
+    # Frei gezeichnete Zwei und Sieben, weder Konturen noch Dreiecke. Lage und Massstab sind beliebig.
+    x = np.array([0., 1., 0.])
+    y = np.array([.6, 0., .8])
+    o = np.array([34., 28., -71.])
+    def linie(punkte):
+        return np.array([o + .7 * (u*x + v*y) for u, v in punkte])
+    l = [linie([(0, 6.1), (1.1, 7.2), (2, 8), (4, 8), (6, 7), (6.1, 5), (0, 0), (6, 0)]),
+         linie([(9, 8), (15, 8.1), (11, 0)])]
+    g = Grafik(19, linien=l, ebene=(o, x, y, np.cross(x, y)))
+    assert lies_schrift(g) == "27"
+    g.linien.append(linie([(18, 0), (24, 8), (18, 8), (24, 0), (18, 0)]))
+    assert lies_schrift(g) == ""

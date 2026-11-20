@@ -287,13 +287,13 @@ def lies_grafik(datei: P21Datei, skala: float = 1.0) -> dict[int, Grafik]:
     for e in datei.of_types_by_id(ANNOTATIONEN):
         if eigenstaendige_annotation(datei, e):
             name = e.args("REPRESENTATION_ITEM")[0] if e.is_a("REPRESENTATION_ITEM") else e.args()[0]
-            g = Grafik(e.id, name or "")
+            g = Grafik(e.id, name or "", textfaktor=skala)
             leser.annotation(Ref(e.id), g)
             g.linien.extend(g.hinweislinien)
             out[e.id] = g
     for c in datei.of_type("DRAUGHTING_CALLOUT"):
         name, teile = c.args("DRAUGHTING_CALLOUT")[:2]
-        g = Grafik(c.id, name or "")
+        g = Grafik(c.id, name or "", textfaktor=skala)
         for r in teile:
             leser.annotation(r, g)
         # Platzhalter nur, wenn es keine fertige Grafik gibt (NIST liefert oft beides)
@@ -302,6 +302,24 @@ def lies_grafik(datei: P21Datei, skala: float = 1.0) -> dict[int, Grafik]:
         else:
             g.linien += g.hinweislinien
         out[c.id] = g
+    # Die Schreibachsen sind auch bei reiner Kurvengrafik fuer die Strichschrifterkennung noetig.
+    for e in datei.of_type("ANNOTATION_PLANE"):
+        args = e.args("ANNOTATION_PLANE")
+        stil = e.parts.get("STYLED_ITEM")
+        if not args or not isinstance(args[-1], list):
+            continue
+        flaeche = stil[-1] if stil else args[2] if len(args) >= 4 else None
+        fl = datei.get(flaeche) if isinstance(flaeche, Ref) else None
+        if fl is None or not fl.is_a("PLANE"):
+            continue
+        platz = _eig(fl, "PLANE")
+        achse = datei.get(platz[0]) if platz and isinstance(platz[0], Ref) else None
+        if achse is None or not achse.is_a("AXIS2_PLACEMENT_3D"):
+            continue
+        for ref in args[-1]:
+            g = out.get(ref.id) if isinstance(ref, Ref) else None
+            if g is not None and g.ebene is None:
+                g.ebene = leser.platzierung(platz[0])
     for d in datei.of_type("DRAUGHTING_MODEL_ITEM_ASSOCIATION") + datei.of_type(DMIA_PH):
         args = d.args(next(iter(d.parts)))
         if isinstance(args[2], Ref) and isinstance(args[4], Ref) and args[4].id in out:

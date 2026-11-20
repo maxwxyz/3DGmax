@@ -158,7 +158,10 @@ Throughout: tests (core, offscreen UI, stress test, on-screen test), `--selbstte
   under GPL-compatible terms with source (fits GPL-3.0-or-later). Switch in build scripts and workflow with step 7.
 
 ### 8.4 Make graphical PMI usable
-- Searchable: render annotations offscreen, text recognition (OCR as in ZGmax), map text to the annotation.
+- On-demand vector OCR in the conversion dialog reads single-line strokes, outlined letters and filled triangle
+  glyphs in an annotation plane. NIST CTC-01 exercises diameter with ± deviations, flatness, perpendicularity,
+  position, surface profile and datum letters. A separate STEP round trip uses only the triangles of the value.
+  Open: search before review, additional fonts, stacked limits and composite controls.
 - Convert to semantic PMI: evaluate recognized text + frame structure; mark result as "derived (check)", never as
   genuine semantics.
 
@@ -845,11 +848,11 @@ print annotations. Today 3DGmax writes generated texts only into the placeholder
 - Semantic-only PMI: shown as generated graphics in the view (stage 2 done, §8.16), switch in the View menu.
 - Graphical-only PMI: evaluate them in the table – kind from the source (PRC markup type: dimension, GD&T, datum,
   note; STEP callout names), values from text where the file has strings (STEP placeholders, PRC text entities) and
-  OCR for stroked text later (§8.4). Mark as "derived (check)", never as genuine semantics.
+  on-demand recognition of planar lettering (§8.4). Mark as "derived (check)", never as genuine semantics.
   **Done (2026-10-27):** `kern/pmi_ableiten.py` – text parser (frame symbol, ⌀/Ⓜ/Ⓛ, value, datums; limit, ±, +/-
   deviations, radius, angle; single datum letter) and PRC markup kind/name rules (NX stores datum symbols as GD&T);
   applied in `pmi_lesen.ergaenze_hinweise`; `quelle="abgeleitet"`, list shows "≈" and a tooltip. NIST STC PRC
-  texts are strokes → kind only; QIF texts → full values. Open: OCR for stroked text.
+  texts are strokes → kind only; QIF texts → full values. The review now also reads supported planar lettering (§8.4).
   **Done (2026-10-28): "Make semantic …" (repair)** – PMI list context command for a graphical-only PMI of the file
   (`kern/pmi_reparieren.py`, dialog `ui/semantik_ui.py`, not modal so faces can be picked meanwhile): kind from the
   derived fields or the callout name (CATIA/NX names such as "Flatness.1", "Linear Size.3", "Simple Datum.2",
@@ -872,7 +875,7 @@ print annotations. Today 3DGmax writes generated texts only into the placeholder
   identity for tessellated STEP shapes. Tested on the original NIST FTC-08 tessellated file with 273 faces, 60
   graphics and four saved views. For AP203e2 curve PMI the writer maps the verified source constructs to AP242e3
   before adding semantics. NIST CTC-01, CTC-03 and CTC-05 exercise that mapping. Other legacy constructs require
-  further mappings. PRC and QIF reviews are stored in the project. OCR of stroked lettering remains open.
+  further mappings. PRC and QIF reviews are stored in the project. The dialog reads supported strokes and triangle fills (§8.4).
 
 ### 8.19 QIF graphics and views (done 2026-10-27)
 - `kern/qif_grafik.py`: PMIDisplay → Grafik in the annotation plane (AnnotationView normal + direction, plane origin

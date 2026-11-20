@@ -1,4 +1,4 @@
-"""Nur grafisch vorhandene PMI semantisch machen ("Reparieren", PLAN §8.18/§8.28, ohne Qt).
+"""Nur grafisch vorhandene PMI semantisch machen ("Reparieren", PLAN §8.18/§8.28).
 
 Eine Grafik ohne Semantik (Callout ohne Verknuepfung, in der Liste als Hinweis oder "aus der Grafik abgeleitet")
 wird nach Pruefung durch den Anwender zu einer eigenen PMI mit Art, Werten und Flaechen. Sie behaelt die Grafik der
@@ -8,7 +8,7 @@ verknuepft - die Datei zeigt danach dieselbe Darstellung, jetzt mit Semantik.
 Vorschlag:
 - Art aus den abgeleiteten Feldern (Text der Grafik) oder aus dem Namen des Callouts (CATIA/NX: "Flatness.1",
   "Linear Size.3", "Simple Datum.2", "Position surfacic profile.1" ...); Werte nur, wo die Grafik Text liefert
-  (gestrichene Schrift ist ohne Texterkennung nicht lesbar).
+  oder die Vektor-OCR sie erkennt.
 - Flaechen: Enden der Linien und Ecken der Dreiecke (Pfeilspitzen, Bezugsdreieck), die auf einer Flaeche liegen.
 """
 
@@ -96,10 +96,43 @@ def geometrie_nennmass(typ, flaechen, modell):
     return None
 
 
+def schriftvorschlag(g, bekannt):
+    """Lesbare Angabe aus der Schrift, abgestimmt mit der bekannten Art des Callouts."""
+    from .pmi import TOL_SYMBOL
+    from .pmi_ableiten import aus_text
+    from .pmi_strichschrift import lies_schrift
+
+    if g.erzeugt:
+        return "", {}
+    text = lies_schrift(g)
+    felder = aus_text([text], g.textfaktor) if text else None
+    art, typ = bekannt or (None, "")
+    if felder and felder["art"] == MASS and art == TOLERANZ and typ in TOL_SYMBOL:
+        felder = aus_text([TOL_SYMBOL[typ], text], g.textfaktor)
+    if not felder or (art and felder["art"] != art):
+        return "", {}
+    if felder["art"] == TOLERANZ and ("wert" not in felder or (typ and typ != felder["typ"])):
+        return "", {}
+    if felder["typ"] == "Location_LinearDistance":
+        if art != MASS or typ in ("Size_Angular", "Location_Angular"):
+            return "", {}
+        felder["typ"] = typ or felder["typ"]
+    return text, felder
+
+
 def vorschlag(p, g, modell) -> Pmi:
     """Eigene PMI als Startwert fuer die Pruefung: Art, Werte (soweit lesbar), Flaechen, Verweis auf den Callout."""
-    art, typ = (p.art, p.typ) if p.art != HINWEIS else (aus_name(p.name or (g.name if g else "")) or (TOLERANZ, ""))
+    bekannt = (p.art, p.typ) if p.art != HINWEIS else aus_name(p.name or (g.name if g else ""))
+    art, typ = bekannt or (TOLERANZ, "")
+    texte = [ph.text for ph in g.platzhalter if ph.text] if g is not None else []
+    ocr, gelesen = schriftvorschlag(g, bekannt) if g and not texte and not p.semantisch else ("", {})
+    if gelesen:
+        art, typ = gelesen["art"], gelesen["typ"]
     neu = Pmi(art, typ=typ, norm=p.norm, name=p.name if art == BEZUG and re.fullmatch(r"[A-Z]{1,2}", p.name or "") else "")
+    for k in ("name", *FELDER):
+        if k in gelesen:
+            setattr(neu, k, gelesen[k])
+    neu.ocr_text = ocr
     for k in FELDER:
         if p.art == art and getattr(p, k, None) not in (None, "", []):
             setattr(neu, k, deepcopy(getattr(p, k)))
@@ -118,8 +151,7 @@ def vorschlag(p, g, modell) -> Pmi:
     if art == MASS and neu.nennwert is None:
         neu.nennwert = geometrie_nennmass(neu.typ, neu.flaechen, modell)
         neu.nennwert_aus_geometrie = neu.nennwert is not None
-    texte = [ph.text for ph in g.platzhalter if ph.text] if g is not None else []
-    neu.callout, neu.nur_grafik_text = p.step_id, "\n".join(texte) or p.nur_grafik_text or p.name
+    neu.callout, neu.nur_grafik_text = p.step_id, "\n".join(texte) or ocr or p.nur_grafik_text or p.name
     return neu
 
 

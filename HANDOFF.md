@@ -2,6 +2,17 @@
 
 ## Current state, 2026-11-20
 
+### Planar lettering in the graphical PMI conversion dialog
+
+- Checked PLAN §§8.4, 8.18 and 8.28 against docs/Roadmap.md. OCR runs when a graphical entry is reviewed.
+  It reads projected curve strokes and rasterises triangle interiors directly. A reference test removes every
+  curve and the original feature semantics from the flatness callout in NIST CTC-01. The dialog proposes 0.2
+  from the filled digits, and the exported characteristic reopens on the selected face with every source entity intact.
+- An independent single-stroke drawing on an oblique plane reads 27. The AP203e2 reference supplies a 25 mm
+  diameter with ±0.15 deviations and a position frame with A, B and C. A profile with an additional indication
+  outside its frame is left for manual review. Unknown letterforms, stacked deviations, freeform notes and
+  composite frames still require review. All 23 affected regression tests passed. Next under §8.4 is searching recognised callouts before acceptance.
+
 ### Graphical PMI to semantic PMI and native STEP export
 
 - The Tools command reviews a complete source model. The PMI list can start the same review on a selection.

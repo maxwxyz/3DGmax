@@ -48,6 +48,8 @@ class SemantikDialog(QtWidgets.QDialog):
         info.setTextFormat(QtCore.Qt.TextFormat.PlainText)
         info.setObjectName("leise")
         lay.addRow(info)
+        if getattr(vorschlag, "ocr_text", ""):
+            lay.addRow(QtWidgets.QLabel(tr("Der Textvorschlag stammt aus der automatischen Schrifterkennung.")))
         self.geometriehinweis = QtWidgets.QLabel(tr("Das vorgeschlagene Nennmaß stammt aus der Modellgeometrie."))
         lay.addRow(self.geometriehinweis)
         self.geometriehinweis.setVisible(getattr(vorschlag, "nennwert_aus_geometrie", False))
