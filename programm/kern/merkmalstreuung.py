@@ -284,7 +284,7 @@ class Messmerkmale:
         if any((teil, i) in self.verbunden for i in gruppe):
             return
         key = (teil, min(gruppe))
-        merkmal, hinweis = projektionszone.messmerkmal(angaben, form, merkmal, self.bg.lage(teil), form_fuer)
+        merkmal, intervalle, hinweis = projektionszone.messabschnitte(angaben, form, merkmal, self.bg.lage(teil), form_fuer)
         if hinweis:
             self._unvollstaendig(teil, idx, hinweis)
             return
@@ -297,7 +297,7 @@ class Messmerkmale:
                 return
             self.masse[key] = mass
         self.schluessel.update({(teil, i): key for i in gruppe})
-        self.zonen[key] = (merkmal, lage, neigung, angaben)
+        self.zonen[key] = (merkmal, lage, neigung, angaben, intervalle)
         self.kraefte[key] += kraft
         if not lage:
             anteil = kraft[3:] @ d if art == "ebene" else np.linalg.norm(np.cross(kraft[3:], d))
@@ -369,7 +369,7 @@ class Messmerkmale:
 
     def beitraege(self):
         out = []
-        for (teil, idx), (merkmal, lage, neigung, angaben) in self.zonen.items():
+        for (teil, idx), (merkmal, lage, neigung, angaben, intervalle) in self.zonen.items():
             art, o, d, laenge = merkmal
             k = self.kraefte[teil, idx]
             moment = k[:3] + np.cross(self.punkt - o, k[3:])
@@ -377,8 +377,14 @@ class Messmerkmale:
             if art == "ebene":
                 grenzen = _planar(self._form(teil, idx), self.bg.lage(teil), o, d, k[3:], moment, lage, neigung)
             elif (teil, idx) in self.masse:
-                material = self._materialstreuung(teil, idx, d, laenge, k[3:], moment, angaben)
+                material = self._materialstreuung(teil, idx, d, laenge, k[3:], moment, angaben, intervalle)
                 grenzen = material.grenzen()
+            elif intervalle is not None:
+                from .achsenintervalle import intervallhub
+                radial = k[3:] - d * (k[3:] @ d)
+                hub = intervallhub(radial, np.cross(moment, d) / laenge, intervalle,
+                                   [p.wert for p in angaben], [p.typ in ORIENTIERUNG for p in angaben])
+                grenzen = -hub, hub
             else:
                 grenzen = _zylindrisch(d, laenge, k[3:], moment, lage, neigung)
             if grenzen is None:
@@ -391,10 +397,10 @@ class Messmerkmale:
                 out.append(Anteil(teil, idx, *grenzen, ", ".join(texte), material))
         return out
 
-    def _materialstreuung(self, teil, idx, d, laenge, kraft, moment, angaben):
+    def _materialstreuung(self, teil, idx, d, laenge, kraft, moment, angaben, intervalle):
         radial = kraft - d * (kraft @ d)
         winkel = np.cross(moment, d) / laenge
         zonen = [(p.wert, getattr(p, "material", ""), getattr(p, "maximum_toleranz", None),
                   p.typ in ORIENTIERUNG) for p in angaben]
         return mm.Materialstreuung(self.masse[teil, idx], self.durchmesserfaktoren.get((teil, idx), 0.),
-                                   tuple(radial), tuple(winkel), zonen)
+                                   tuple(radial), tuple(winkel), zonen, intervalle)

@@ -931,9 +931,15 @@ Current coverage (2026-11-20), superseding the earlier progress notes below:
   along the rigid axis and the permitted disk is convex. This includes separate projections from
   opposite faces, gaps and a native interval alongside a projection. A shared size-dependent bonus and
   cap are evaluated once for the feature. Checks cover rotated assembly placements and 3D chain export.
+- Simultaneous cylindrical controls can also have different diameters, lengths, offsets and material
+  conditions on the same rigid nominal axis and datum frame. Each position diameter constrains both
+  ends of its own interval. A floating orientation zone limits the change in displacement across its
+  own length. The measurement, Monte Carlo model and saved 3D chain retain all intervals and share a
+  single actual diameter per feature. An independent four-variable constrained optimisation checked
+  the directional bounds on 200 generated combinations of controls.
 - Incomplete measures suppress the requirement verdict. Remaining cases include deformable form,
-  other common datum geometries, physical datum simulators under material boundary conditions,
-  and differing diameters or orientation controls on different projection intervals. Curved boundaries are sampled.
+  other common datum geometries and physical datum simulators under material boundary conditions.
+  Curved boundaries are sampled.
 Request: build assemblies, set up functional dimension chains ("Funktionsmaßketten", FMK – assumed meaning) from the
 PMI, recognize or assign materials, take temperatures and thermal expansion into account, compute stack-ups, and
 move parts within their tolerances (1:1 and exaggerated) in worst case or per tolerance / chain ("wiggle") to find
@@ -1555,6 +1561,10 @@ links the drawing sheet and annotation to the corresponding model face and PMI w
 Report equivalence only when the full comparison scope has been matched and checked. Verify with a
 matched pair and variants containing an omitted dimension, an extra datum, a changed tolerance
 and an ambiguous leader.
+
+Reference files checked locally: the CTC-01 PDF shows the annotated model in an isometric view.
+The D2MI archive includes dimensioned drawings and their STEP geometry. For both sources the visible
+annotations require graphical extraction; the searchable PDF text alone does not cover them.
 
 ### 8.36 Generate 3D geometry and dimensioned PMI from a 2D drawing (planned)
 

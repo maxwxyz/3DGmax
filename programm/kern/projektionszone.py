@@ -75,16 +75,16 @@ def sichtintervall(p, mitte, d, laenge, flaeche_fuer, lage):
     return ("achse", zentrum, ende * d, float(h)), ""
 
 
-def messmerkmal(angaben, form, merkmal, lage, form_fuer):
-    """Torsor am Mittelpunkt des tatsaechlich tolerierten Achsenabschnitts aufstellen."""
+def messabschnitte(angaben, form, merkmal, lage, form_fuer):
+    """Bezugsabschnitt des Torsors und normierte Teilintervalle in der Reihenfolge der PMI."""
     from OCC.Core.BRepAdaptor import BRepAdaptor_Surface
     from OCC.Core.GeomAbs import GeomAbs_Cylinder
 
     if not any(getattr(p, "zone", "") == "Projected" for p in angaben):
-        return merkmal, ""
+        return merkmal, None, ""
     art, mitte, d, laenge = merkmal
     if art != "achse" or BRepAdaptor_Surface(form).GetType() != GeomAbs_Cylinder:
-        return None, tr("Projizierte Zone ohne zylindrisches Messmerkmal")
+        return None, None, tr("Projizierte Zone ohne zylindrisches Messmerkmal")
     kanten = _kanten(form)
     abschnitte = []
     for p in angaben:
@@ -93,19 +93,22 @@ def messmerkmal(angaben, form, merkmal, lage, form_fuer):
             continue
         intervall, hinweis = sichtintervall(p, mitte, d, laenge, form_fuer, lage)
         if hinweis:
-            return None, hinweis
+            return None, None, hinweis
         if not any(_beruehren(kanten, _kanten(form_fuer(idx))) for idx in p.projektionsflaechen):
-            return None, tr("Austrittsfläche der projizierten Zone")
+            return None, None, tr("Austrittsfläche der projizierten Zone")
         abschnitte.append(intervall)
     erster = abschnitte[0]
-    if all(abs(a[3] - erster[3]) <= 1e-8 and np.linalg.norm(a[1] - erster[1]) <= 1e-8 for a in abschnitte):
-        return erster, ""
-    # Auf einer starren Geraden ist der Radialversatz zwischen den Enden linear.
-    # Gleich grosse, ortsfeste Kreisscheiben binden daher nur an den beiden aeussersten Enden.
-    durchmesser = {(p.wert, getattr(p, "material", ""), getattr(p, "maximum_toleranz", None)) for p in angaben}
-    if len(durchmesser) != 1 or any(p.typ != "Position" for p in angaben):
-        return None, tr("Verschiedene Geltungsbereiche der Achstoleranzen")
+    if all(a[3] == erster[3] and np.array_equal(a[1], erster[1]) for a in abschnitte):
+        return erster, None, ""
     lagen = [(float((o - mitte) @ d), h / 2) for _, o, _, h in abschnitte]
     unten = min(s - halb for s, halb in lagen)
     oben = max(s + halb for s, halb in lagen)
-    return ("achse", mitte + d * ((unten + oben) / 2), d, oben - unten), ""
+    laenge = oben - unten
+    if not np.isfinite(laenge) or laenge <= 0:
+        return None, None, tr("Höhe oder Versatz der projizierten Zone")
+    zentrum = unten + laenge / 2
+    bereich = ("achse", mitte + d * zentrum, d, laenge)
+    intervalle = [((s - halb - zentrum) / laenge, (s + halb - zentrum) / laenge) for s, halb in lagen]
+    if any(not lo < hi for lo, hi in intervalle):
+        return None, None, tr("Höhe oder Versatz der projizierten Zone")
+    return bereich, intervalle, ""

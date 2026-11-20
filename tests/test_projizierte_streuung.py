@@ -47,9 +47,10 @@ def test_projizierte_position_am_messort_und_in_kette(fuss, z, offset, bereich):
     assert sum(g.werte["z"].oben - g.werte["z"].unten for g in kette.glieder) == pytest.approx(bereich)
 
 
-@pytest.mark.parametrize("fehler", ["keine", "beide", "fremd", "hoehe", "offset", "gemischt", "verschieden"])
+@pytest.mark.parametrize("fehler", ["keine", "beide", "fremd", "hoehe", "offset", "bezug", "materialmass"])
 def test_ungeklaerte_projektion_unterdrueckt_sollbewertung(fehler):
     formen = _zylinder()
+    formen[7] = _flaeche(BRepPrimAPI_MakeCylinder(1., 4.).Shape())
     p = _rahmen(2)
     angaben = [p]
     if fehler == "keine":
@@ -62,10 +63,10 @@ def test_ungeklaerte_projektion_unterdrueckt_sollbewertung(fehler):
         p.zonen_wert = float("nan")
     elif fehler == "offset":
         p.projektionsversatz = None
-    elif fehler == "gemischt":
-        angaben.append(replace(p, typ="Parallelism", zone="", zonen_wert=None, projektionsflaechen=[]))
+    elif fehler == "bezug":
+        angaben.append(replace(p, bezuege=[BezugsRef("B")], projektionsversatz=15.))
     else:
-        angaben.append(replace(p, zonen_wert=11., wert=.1))
+        angaben.append(replace(p, material="M", zonen_wert=11., wert=.1))
     m = bm.Messgroesse(1, 2, 8, 1, 1, art=bm.PUNKT_ACHSE, punkt=[4., 0., 5.], soll_min=0., soll_max=8.)
     a = bm.Analyse(vb.Baugruppe(), [*angaben, _datum(7, "A")], lambda t, i: formen.get(i) if t == 1 else None)
     e = a.berechne(m, formen[2], formen[1], proben=60)
@@ -78,8 +79,11 @@ def test_ungeklaerte_projektion_unterdrueckt_sollbewertung(fehler):
     ({"projektionsversatz": 15.}, 0., .52),                            # 20..30 und 35..45
     ({"projektionsflaechen": [3]}, -30., .4),                          # -10..0 und 20..30
     ({"zone": "Diameter", "projektionsflaechen": []}, 0., .2),        # 0..20 und 20..30
+    ({"wert": .1, "zonen_wert": 11.}, 0., .1 * 51/11),                # engerer Abschnitt 20..31
+    ({"wert": .1, "projektionsversatz": 15.}, 0., .44),               # beide Durchmesser begrenzen
+    ({"wert": .05, "typ": "Parallelism", "zone": "Diameter"}, 0., .3),  # Kippung .05/20
 ])
-def test_gleiche_positionsdurchmesser_auf_mehreren_abschnitten(zweite, z, breite):
+def test_achsbewegung_auf_mehreren_abschnitten(zweite, z, breite):
     formen = _zylinder()
     formen[7] = _flaeche(BRepPrimAPI_MakeCylinder(1., 4.).Shape())
     p = _rahmen(2)
@@ -118,8 +122,14 @@ def test_positionsabschnitte_teilen_materialbonus_und_deckel():
     kette = a.als_kette3d(m, formen[7], formen[1])
     assert not kette.hinweise
     assert sum(g.werte["z"].oben - g.werte["z"].unten for g in kette.glieder) == pytest.approx(.4 * 2.6)
-    for anders in (replace(zweiter, maximum_toleranz=None), replace(zweiter, material="L")):
-        assert analyse(anders).berechne(m, formen[7], formen[1]).hinweise
+    import json
+    from programm.kern import kette3d
+    for anders, breite in [(replace(zweiter, maximum_toleranz=None), 1.2), (replace(zweiter, material="L"), 1.04)]:
+        a = analyse(anders)
+        e = a.berechne(m, formen[7], formen[1], proben=500, zufall=3)
+        assert not e.hinweise and e.wc_max - e.wc_min == pytest.approx(breite)
+        k = kette3d.von_dict(json.loads(json.dumps(kette3d.als_dict(a.als_kette3d(m, formen[7], formen[1])))))
+        np.testing.assert_allclose(kette3d.monte_carlo(k, 500, zufall=10), e.proben, atol=1e-12)
 
 
 def test_ftc07_projektionsursprung_an_geteilter_zylinderwand(ftc07):
@@ -130,7 +140,7 @@ def test_ftc07_projektionsursprung_an_geteilter_zylinderwand(ftc07):
     for idx in p.flaechen:
         f = lookup(idx)
         assert projektionszone.einzelachse(p, f, lookup)
-        ziel, hinweis = projektionszone.messmerkmal([p], f, _merkmal(f, np.eye(4)), np.eye(4), lookup)
+        ziel, _, hinweis = projektionszone.messabschnitte([p], f, _merkmal(f, np.eye(4)), np.eye(4), lookup)
         assert not hinweis
         _, mitte, achse, laenge = ziel
         np.testing.assert_allclose(mitte, [142.875, 18.0975, 98.425], atol=1e-7)
@@ -160,3 +170,22 @@ def test_projektion_mit_materialbonus_oder_richtungstoleranz(modell, breite):
     e = a.berechne(m, bezug, formen[1])
     assert not e.hinweise and len(e.beitraege) == 1
     assert e.wc_max - e.wc_min == pytest.approx(breite)
+
+
+def test_drei_bindende_kreisscheiben_bei_unabhaengiger_kraft_und_kippung():
+    from programm.kern.achsenintervalle import intervallhub
+    # Kraefte an den aeusseren Enden sind senkrecht zueinander. Radien 1 und 2 wuerden
+    # ohne die mittlere Scheibe Hub 3 erlauben. In der Mitte gilt ||(x+y)/2|| <= 1.
+    # Am Extremum gilt x*y = -0.5. Die optimale Drehung liefert sqrt(5 + sqrt(15)).
+    kraft = np.array([1., 1., 0.])
+    moment = np.array([-.5, .5, 0.])
+    abschnitte = [(-.5, 0.), (0., .5)]
+    faktor = np.array([0., .01, 1., 2.])
+    hub = intervallhub(kraft, moment, abschnitte, [2*faktor, 4*faktor], [False, False])
+    np.testing.assert_allclose(hub, np.sqrt(5 + np.sqrt(15)) * faktor, atol=1e-14)
+    # Reine Orientierung mit Nulltoleranz unterbindet Kippen, die engste Lagezone erlaubt Versatz.
+    hub = intervallhub(kraft, moment, [*abschnitte, (.1, .2)], [2., 4., 0.], [False, False, True])
+    assert hub == pytest.approx(np.sqrt(2))
+    # Kurze Zusatzprojektion in der Mitte: zwei numerisch nahe, physikalisch getrennte Enden.
+    hub = intervallhub(kraft, moment, [(-.5, .5), (-1e-8, 0.)], [4., 2.], [False, False])
+    assert hub == pytest.approx(np.sqrt(8 + 4*np.sqrt(3)), abs=1e-10)

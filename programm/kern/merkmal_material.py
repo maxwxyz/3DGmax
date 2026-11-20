@@ -89,22 +89,27 @@ class Materialstreuung:
     radial: tuple
     winkel: tuple
     zonen: list  # (Grundtoleranz, Materialbedingung, Obergrenze, reine Richtungszone)
+    intervalle: list | None = None  # normierte Achsabschnitte je Zone; gemeinsame Zone in alten Projekten
 
     @classmethod
     def von_dict(cls, daten):
         return cls(**{**daten, "mass": Zylindermass(**daten["mass"])})
 
     def _hub(self, d):
-        lage, neigung = [], []
+        durchmesser = []
         for grund, material, deckel, richtung in self.zonen:
             t = grund + tz._bonus(material, self.mass.innen, d, self.mass.klein, self.mass.gross)
             if deckel is not None:
                 t = np.minimum(t, deckel)
-            if richtung:
-                neigung.append(t)
-            else:
-                lage.append((-t / 2, t / 2))
-        return achsenhub(np.asarray(self.radial), np.asarray(self.winkel), lage, neigung)
+            durchmesser.append(t)
+        radial, winkel = np.asarray(self.radial), np.asarray(self.winkel)
+        richtungen = [z[3] for z in self.zonen]
+        if self.intervalle is not None:
+            from .achsenintervalle import intervallhub
+            return intervallhub(radial, winkel, self.intervalle, durchmesser, richtungen)
+        lage = [(-t / 2, t / 2) for t, r in zip(durchmesser, richtungen) if not r]
+        neigung = [t for t, r in zip(durchmesser, richtungen) if r]
+        return achsenhub(radial, winkel, lage, neigung)
 
     def _intervall(self, anteil):
         d = self.mass.klein + anteil * (self.mass.gross - self.mass.klein)

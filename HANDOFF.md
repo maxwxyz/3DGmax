@@ -2,6 +2,26 @@
 
 ## Current state, 2026-11-20
 
+### Different position diameters and floating orientation zones along one axis
+
+- Checked PLAN §8.20 and docs/Roadmap.md. All supported controls on one rigid cylindrical feature in
+  one datum frame retain their own native or projected interval. The shared actual size determines
+  each control’s effective diameter independently, including opposite material conditions and separate
+  caps. The intervals survive the 3D chain JSON round trip with reproducible Monte Carlo results.
+- For Ø0.2 at stations 20–30 mm and Ø0.1 at 35–45 mm the total range at zero is 0.44 mm. A floating
+  Ø0.05 orientation zone on the native 0–20 mm cylinder with Ø0.2 position at 20–30 mm gives 0.30 mm.
+  An analytic test requires three active circles and independent radial and tilting loads. A short
+  intermediate interval checks numerical conditioning. Across 200 generated interval sets the largest
+  difference from an independent four-variable SLSQP optimisation was under 0.00000004 in model units.
+  All 50 cases selected by the affected-test runner passed. The focused projected-zone, material and
+  feature-variation suites passed all 52 cases.
+
+- For the next PLAN §8.35 package, the local NIST archive contains the CTC-01 model specification
+  and six D2MI engineering drawings. Rendered CTC-01 shows the same 25 ±0.15 diameter callout and
+  position frames as the model. Its PDF text layer contains only the caption and revision information.
+  The six D2MI PDFs likewise return plotting metadata as text. A drawing comparison needs the visible
+  vector annotations or their rendered image to cover these reference files.
+
 ### Simultaneous projected position zones on a rigid axis
 
 - Checked PLAN §8.20 and docs/Roadmap.md. Equal-diameter position controls with the same datum frame,

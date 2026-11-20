@@ -392,7 +392,7 @@ def _projektionsabschnitt(z, p, modell, start, d, laenge, form=None):
     if form is None:
         abschnitt, hinweis = projektionszone.sichtintervall(p, mitte, d, laenge, flaeche, np.eye(4))
     else:
-        abschnitt, hinweis = projektionszone.messmerkmal([p], form, ("achse", mitte, d, laenge), np.eye(4), flaeche)
+        abschnitt, _, hinweis = projektionszone.messabschnitte([p], form, ("achse", mitte, d, laenge), np.eye(4), flaeche)
     if abschnitt is None:
         if hinweis not in z.hinweise:
             z.hinweise.append(hinweis)
