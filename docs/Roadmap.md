@@ -246,6 +246,7 @@
 | Component-specific friction, overrun and transient locking characteristics from independent data | ⬜ |
 | Cylindrical gear pairs: actual axial engagement and overlap contact ratio | ✅ |
 | Tooth-averaged left/right flank deviation maps, numeric CSV/JSON and illustrated gear PDF with sourced findings | ✅ |
+| Tooth-to-tooth flank variation of cylindrical gears: peak-to-peak range per side at each sampled radius and section, pitch-circle summary in the gear table and PDF | ✅ |
 | Wiggle in the open degrees of freedom (kinematic) | ✅ |
 | Clash check at the tolerance limit positions (assembly) | ✅ |
 | Clash check over joint ranges (open DOF): free range per DOF up to the first collision | ✅ |

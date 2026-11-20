@@ -1,4 +1,8 @@
 {
+"Teilkreis, größte Spannweite zwischen den Zähnen über die auswertbaren Stirnschnitte": "Pitch circle, maximum tooth-to-tooth range across the evaluable transverse sections",
+"Flankenstreuung links (mm)": "Left flank tooth-to-tooth range (mm)",
+"Flankenstreuung rechts (mm)": "Right flank tooth-to-tooth range (mm)",
+"Spannweite zwischen den Zähnen (mm)": "Tooth-to-tooth range (mm)",
 "Eine CAD-Fläche konnte für die Analyse nicht verfeinert werden.": "A CAD face could not be refined for analysis.",
 "Automatisch erkannte Schrift (ungeprüft): {}": "Automatically recognised lettering (unreviewed): {}",
 "Grafische Schrift wird durchsucht …": "Searching graphical lettering …",

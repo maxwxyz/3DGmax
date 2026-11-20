@@ -2,6 +2,18 @@
 
 ## Current state, 2026-11-20
 
+### Tooth-to-tooth variation in the cylindrical gear analysis
+
+- Checked PLAN §8.27 and docs/Roadmap.md. Each flank map cell now includes the peak-to-peak deviation
+  of the individual tooth positions relative to equal angular spacing, expressed on the fitted base
+  circle. The gear table and PDF give the largest pitch-circle range over the evaluable sections.
+  CSV and JSON contain the ranges over the measured radius and width. A missing angular sector and
+  duplicate crossing invalidate the cell even if the total crossing count looks correct.
+- A single tooth of a generated 24-tooth gear was rotated by the equivalent of 0.060 mm on the base
+  circle. The STEP and STL round trips recovered 0.060 mm within 0.003 mm on both flanks. Periodic
+  angle crossings, CSV values and the PDF summary are covered. All 14 affected tests passed.
+  The result describes variation in the supplied geometry. Production grades and load response remain open.
+
 ### Analysis mesh quality on previously displayed models
 
 - The 42.85 MB STEP assembly supplied 28,800 triangles across 14,400 faces. Drawing 8,000 surface samples

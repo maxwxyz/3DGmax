@@ -1,6 +1,7 @@
 {
  "unreleased": {
   "de": [
+   "Die Verzahnungsanalyse zeigt für Stirnräder die Streuung zwischen einzelnen Zähnen, getrennt für linke und rechte Flanken. Datenblatt und PDF nennen die größte Spannweite am Teilkreis, CSV und JSON enthalten die Werte über Radius und Zahnbreite.",
    "Ausrichten und Vergleichen großer Baugruppen: Die Abtastung verarbeitet viele kleine Flächen gemeinsam. Bei 14.400 Flächen sank die Zeit für 8.000 Stichproben auf dem Testrechner von 156 auf 11 ms.",
    "Modellvergleich und Scanprüfung verfeinern grobe Ansichtsnetze auf gekrümmten CAD-Flächen und an runden Rändern. Weitere Analysen und Baugruppeninstanzen verwenden das berechnete Netz erneut. Importierte Dreiecksnetze behalten ihre Geometrie.",
    "Die PMI-Erkennung liest ebene Toleranzrahmen auch ohne gespeicherte Schreibebene, etwa in 3D-PDF. Sie prüft Bezugsfächer einzeln und unterscheidet freien Zustand Ⓕ und Maximum-Material-Bedingung Ⓜ.",
@@ -121,6 +122,7 @@
    "Grafische PMI aus unterstützten AP203e2-Kurvenmodellen lassen sich als STEP AP242 Edition 3 ausgeben. Facettierte STEP-Modelle behalten ihre Flächenbezüge. Gepackte STEP-Dateien lassen sich als unkomprimierte STEP-Kopie speichern."
   ],
   "en": [
+   "Cylindrical gear analysis now reports tooth-to-tooth variation for the left and right flanks separately. The gear sheet and PDF show the largest pitch-circle range. CSV and JSON include the ranges across radius and face width.",
    "Alignment and comparison now sample small faces in batches. On a 14,400-face assembly, drawing 8,000 samples took 11 ms on the test machine, down from 156 ms.",
    "Model comparison and scan inspection refine coarse display meshes on curved CAD faces and along curved boundaries. Subsequent analyses and assembly instances reuse the refined mesh. Imported triangle meshes retain their geometry.",
    "PMI recognition reads planar tolerance frames without stored writing axes, including in 3D PDF. It checks individual datum compartments and distinguishes free state Ⓕ from maximum material Ⓜ.",

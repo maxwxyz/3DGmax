@@ -1379,8 +1379,11 @@ tools (the user names MASTA as an example of a tool that needs these inputs), an
   remain open.
 - Cylindrical pairs require axial overlap, used in the overlap ratio. Flank maps show sampled deviations on
   both flanks over the working width and radius, averaged across teeth. CSV and JSON include the numerical
-  map. The PDF includes the data sheets, maps and sourced design findings. Individual-tooth scatter,
-  production quality grades and under-load contact require additional evidence.
+  map. The PDF includes the data sheets, maps and sourced design findings. For each sampled circle the
+  left and right tooth-to-tooth ranges are available in CSV and JSON. The gear table and PDF give the
+  largest evaluable pitch-circle range across the face width. A single tooth shifted by 0.060 mm on the
+  base circle of a 24-tooth control was recovered within 0.003 mm through both STEP and STL import.
+  Production quality grades and under-load contact require additional evidence.
 
 ### 8.27a Design analysis of gears – reverse engineering of design philosophies (requested 2026-11-03)
 Goal (user): from existing gear geometry (analysis only, no generators as a feature) recognise the design decisions

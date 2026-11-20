@@ -657,14 +657,17 @@ def datenblatt(liste: list, paare: list[Paar], bezugsrad=None, achswahl=None) ->
         k = kugelmass(v)
         d["kugelmass"] = {"DM": k[0], "Md": k[1]} if k else None
         p = profil(v)
-        from .flankentopografie import karte
+        from .flankentopografie import karte, spannweite_am_teilkreis
         cb = breitenballigkeit(v)
+        streuung = spannweite_am_teilkreis(v, p)
         d["mikrogeometrie"] = None if p is None else {
             "dFf": p.dff, "dFa": p.dfa, "fussrundungsradius": v.fussradius, "kopffase_radial": v.kopffase,
             "kopfruecknahme": p.ca or None, "kopfruecknahme_ab_d": p.dca if p.ca else None,
             "profilwinkelabweichung": p.fh_alpha if abs(p.fh_alpha) > p.toleranz else None,
             "breitenballigkeit": cb if cb is not None and abs(cb) > p.toleranz else None, "schwelle": p.toleranz,
-            "flankenkarte_stirnschnitt": karte(v, p)}
+            "flankenkarte_stirnschnitt": karte(v, p),
+            "spannweite_teilkreis_mm": None if streuung is None else {
+                "links": float(streuung[0]), "rechts": float(streuung[1])}}
         raeder.append(d)
     idx = {id(v): i for i, v in enumerate(liste)}
     return {"einheiten": {"laenge": "mm", "winkel": "Grad"},
@@ -810,6 +813,7 @@ def breitenballigkeit(v: Verzahnung) -> float | None:
 
 
 def mikro_zeilen(v: Verzahnung) -> list[tuple[str, str, str]]:
+    from .flankentopografie import spannweite_am_teilkreis
     p = profil(v)
     if p is None:
         return []
@@ -831,6 +835,10 @@ def mikro_zeilen(v: Verzahnung) -> list[tuple[str, str, str]]:
     zeilen.append((tr("Breitenballigkeit Cβ"),
                    tr(NICHT) if cb is None else (_g(cb, 4) if abs(cb) > p.toleranz else tr("keine modelliert")),
                    tr("Zahndicke der Stirnschnitte entlang der Breite")))
+    streuung = spannweite_am_teilkreis(v, p)
+    quelle_streuung = tr("Teilkreis, größte Spannweite zwischen den Zähnen über die auswertbaren Stirnschnitte")
+    for i, name in enumerate((tr("Flankenstreuung links (mm)"), tr("Flankenstreuung rechts (mm)"))):
+        zeilen.append((name, tr(NICHT) if streuung is None else _g(streuung[i], 4), quelle_streuung))
     return zeilen
 
 
@@ -897,9 +905,14 @@ def als_csv(liste: list[Verzahnung], paare: list[Paar], bezugsrad=None, achswahl
         raster = karte(rad, profil(rad))
         if raster is None:
             continue
-        for seite, name in (("links_mm", tr("Linke Flanke")), ("rechts_mm", tr("Rechte Flanke"))):
+        for seite, name, art in (
+            ("links_mm", tr("Linke Flanke"), tr("Flankenabweichung im Stirnschnitt (mm)")),
+            ("rechts_mm", tr("Rechte Flanke"), tr("Flankenabweichung im Stirnschnitt (mm)")),
+            ("spannweite_links_mm", tr("Linke Flanke"), tr("Spannweite zwischen den Zähnen (mm)")),
+            ("spannweite_rechts_mm", tr("Rechte Flanke"), tr("Spannweite zwischen den Zähnen (mm)")),
+        ):
             w.writerow([])
-            w.writerow([rad.teil, name, tr("Flankenabweichung im Stirnschnitt (mm)")])
+            w.writerow([rad.teil, name, art])
             w.writerow([tr("Axiallage / Radius (mm)"), *raster["radius_mm"]])
             w.writerows([s, *reihe] for s, reihe in zip(raster["axial_mm"], raster[seite]))
     return puffer.getvalue()
