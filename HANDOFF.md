@@ -2,6 +2,17 @@
 
 ## Current state, 2026-11-20
 
+### Inclined dimension text in a selected drawing region
+
+- Checked PLAN §8.35 and docs/Roadmap.md. Dragging a region around a single graphical dimension
+  now also tries a fitted baseline and both reading directions. A transcription needs the same result
+  at multiple angles. Conflicting readings stay open. The drawing retains the original region.
+- A raster dimension from D2MI 904 read .005 inch (0.127 mm) in PDFs at 25°, 55°, 135° and 224°.
+  A standalone leader and two stacked labels did not produce a single dimension. Automatic discovery
+  of oblique unframed annotations and leader registration remain open. CSV uses a format-neutral
+  source ID so a QIF characteristic identifier can be traced correctly. A second experiment with
+  the 2.016 inch callout recovered all four rotated values. All 19 affected tests passed.
+
 ### Review model PMI against a drawing PDF
 
 - Checked PLAN §8.35 against docs/Roadmap.md. File → Compare PMI with 2D drawing opens a separate

@@ -103,7 +103,7 @@ def test_pdf_aus_dem_dateimenue_zuordnen_und_exportieren(fenster_ctc01, tmp_path
     for z in beide:
         l, t, r, b = map(float, z["Blattbereich (links, oben, rechts, unten relativ)"].split())
         assert 0 <= l < r <= 1 and 0 <= t < b <= 1 and z["Flächen"] != "[]"
-        assert int(z["STEP-Entität"]) == m.step_id
+        assert int(z["Quell-ID der Modell-PMI"]) == m.step_id
         assert z["Zeichnungsdatei"] == pfad and z["Modelldatei"] == str(f.erg.pfad)
 
 
@@ -185,3 +185,43 @@ def test_gemeinsame_rahmenwand_haelt_mehrzeilige_angaben_offen():
     assert not _mehrzeilig([oben, daneben], lambda z: "⌖")
     assert not _mehrzeilig([oben, unten], lambda z: "⏥" if z == oben[0] else "⟂")
     assert za.lese_angabe("⌖ | ⌀.1 | A | …", 1.) is None
+
+
+@pytest.mark.parametrize("winkel", [25, 55, 135, 224])
+def test_frei_markierte_schraege_rasterbemassung(app, tmp_path, winkel):
+    import numpy as np
+    import pypdfium2 as pdf
+    from programm.kern.zeichnungsblatt import Zeichnungsblatt
+    # Der Ausschnitt enthaelt allein die Ziffern und den Dezimalpunkt der NIST-Vorlage.
+    bild = QtGui.QImage(str(Path(__file__).parent / "daten/nist_d2mi_904_rahmen.png")).copy(135, 18, 95, 35)
+    pfad = tmp_path / "Geneigte Beschriftung.pdf"
+    schreiber = QtGui.QPdfWriter(str(pfad))
+    schreiber.setResolution(72)
+    with QtGui.QPainter(schreiber) as maler:
+        maler.translate(200, 100)
+        maler.rotate(winkel)
+        maler.drawImage(QtCore.QRectF(0, 0, bild.width()/3, bild.height()/3), bild)
+    with pdf.PdfDocument(pfad) as doc:
+        blatt = Zeichnungsblatt(doc, 0)
+        h, w = blatt.bild.shape[:2]
+        y, x = np.nonzero(blatt.bild.min(axis=2) < 190)
+        box = ((x.min()-5)/w, (y.min()-5)/h, (x.max()+5)/w, (y.max()+5)/h)
+        text = blatt.lies(box)
+        assert text == ".005"
+        p = za.lese_angabe(text, 25.4)
+        assert p.nennwert == pytest.approx(.127)
+        blatt.schliesse()
+
+
+def test_hinweislinie_und_zwei_beschriftungen_bleiben_offen(app):
+    import numpy as np
+    from scipy import ndimage
+    from programm.kern.zeichnungsblatt import _geneigte_angabe
+    bild = QtGui.QImage(str(Path(__file__).parent / "daten/nist_d2mi_904_rahmen.png"))
+    bild = bild.convertToFormat(QtGui.QImage.Format.Format_Grayscale8)
+    pixel = np.frombuffer(bild.constBits(), np.uint8).reshape(bild.height(), bild.bytesPerLine())
+    zahl = pixel[18:53, 135:230] < 185
+    zwei_zeilen = np.vstack([zahl, np.zeros_like(zahl), zahl])
+    linie = np.pad(np.ones((1, 200), bool), ((10, 10), (5, 5)))
+    for maske in (linie, zwei_zeilen):
+        assert not _geneigte_angabe(ndimage.rotate(maske, 33, order=0))

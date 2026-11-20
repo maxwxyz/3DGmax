@@ -340,7 +340,7 @@ class Zeichnungsabgleich(QtWidgets.QDialog):
                 w.writerow([tr("Zeichnungsdatei"), tr("Modelldatei"), tr("Blatt"),
                             tr("Blattbereich (links, oben, rechts, unten relativ)"), tr("Angabe"),
                             tr("Zeichnungseinheit"), tr("Befund"), tr("Modell-PMI"), tr("Modellwert"), tr("Flächen"),
-                            tr("Eingerahmtes theoretisch genaues Maß"), tr("STEP-Entität")])
+                            tr("Eingerahmtes theoretisch genaues Maß"), tr("Quell-ID der Modell-PMI")])
                 verbunden = set()
                 for nr, angaben in sorted(self.seiten.items()):
                     for a in angaben:

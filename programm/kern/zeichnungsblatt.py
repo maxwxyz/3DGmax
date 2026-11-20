@@ -104,6 +104,51 @@ def _zeile(mask):
     return schrift._lies_zeile(zeichen, _vorlagen())
 
 
+def _geneigte_angabe(mask):
+    """Schreibachse einer frei markierten Masszahl suchen, beide Leserichtungen pruefen."""
+    y, x = np.nonzero(mask)
+    if len(x) < 20:
+        return ""
+    punkte = np.column_stack((x, y)).astype(float)
+    punkte -= punkte.mean(axis=0)
+    _, basis = np.linalg.eigh(punkte.T @ punkte)
+    quer, laengs = basis.T
+    if np.ptp(punkte @ laengs) < 1.8 * np.ptp(punkte @ quer):
+        return ""
+    grad = np.rad2deg(np.arctan2(laengs[1], laengs[0]))
+    grad = (grad + 90) % 180 - 90
+    # Waagerechte Beschriftungen sind bereits in der normalen Zeilenlesung behandelt.
+    if abs(grad) < 5:
+        return ""
+    from scipy.spatial import ConvexHull, QhullError
+    try:
+        rand = punkte[ConvexHull(punkte).vertices]
+    except QhullError:
+        return ""
+    winkel = grad + np.arange(-10, 10.1, .5)
+    rad = np.deg2rad(winkel)
+    hoehen = np.ptp(rand @ np.array([-np.sin(rad), np.cos(rad)]), axis=0)
+    # In einer Zeile liegen die meisten Zeichen auf gemeinsamer Grundlinie.
+    # Gleichwertige Lesarten (z. B. 66 / 99) koennen nur am Original geklaert werden.
+    gelesen = {}
+    for i in np.argsort(hoehen)[:10]:
+        gedreht = ndimage.rotate(mask, winkel[i], order=0, prefilter=False)
+        ys, xs = np.nonzero(gedreht)
+        if not len(ys):
+            continue
+        zeile = gedreht[ys.min():ys.max()+1, xs.min():xs.max()+1]
+        if zeile.shape[0] < 5 or zeile.shape[1] > 65 * zeile.shape[0]:
+            continue
+        for bild in (zeile, zeile[::-1, ::-1]):
+            reduziert = ndimage.zoom(bild, 30 / bild.shape[0], order=0, prefilter=False)
+            wort = _zeile(reduziert)
+            if wort and lese_angabe(wort, 1.) is not None:
+                gelesen.setdefault(wort, set()).add(i)
+                if len(gelesen) > 1:
+                    return ""
+    return next((wort for wort, lagen in gelesen.items() if len(lagen) >= 2), "")
+
+
 class Zeichnungsblatt:
     def __init__(self, doc, nummer):
         self.nummer = nummer
@@ -183,6 +228,13 @@ class Zeichnungsblatt:
             wort = self._bildtext(box, rahmenfach, drehung, hoehe)
             if wort:
                 return wort
+        if not rahmenfach:
+            bitmap = self.ausschnitt(box, 520, 520, grau=True)
+            if bitmap is not None:
+                try:
+                    return _geneigte_angabe(bitmap.to_numpy().reshape(bitmap.height, bitmap.width) < 185)
+                finally:
+                    bitmap.close()
         return ""
 
     def _bildtext(self, box, rahmenfach, drehung, hoehe):

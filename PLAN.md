@@ -1569,7 +1569,8 @@ annotations require graphical extraction; the searchable PDF text alone does not
 **Implemented** in File → Compare PMI with 2D drawing. PDFium supplies sheet coordinates and native
 text. Rendered cells supply graphical feature control frames in four orthogonal reading directions, upright
 datum tags and basic dimensions. Stacked rows with an unresolved shared control stay open.
-A user can also mark a sheet region and correct its transcription. The review compares dimension type,
+A user can also mark a sheet region and correct its transcription. For inclined single-line graphical
+dimensions the reader estimates the baseline and checks both reading directions. The review compares dimension type,
 nominal and limit values in common units, fits, tolerance values, material conditions and datum order
 and modifiers. Multiple sheet locations can refer to one model PMI. The user confirms the association
 while inspecting the highlighted model faces. CSV records source filenames, sheet regions, model PMI,
@@ -1580,9 +1581,9 @@ model characteristic and two equal candidates on different faces. A cropped rast
 in the regular suite. A second test uses the local original PDF and STEP together. General page OCR in
 ZGmax uses a separate OpenCV/ONNX process. This stage reuses the 3DGmax GD&T parser and CAD glyphs.
 
-Remaining work includes registering views, sections and leaders with model features, extending recognition
-to unframed and inclined graphical annotations and composite controls, and establishing the scope
-required for a verified whole-drawing verdict. Confirmed matches currently apply to individual characteristics.
+Remaining work includes registering views, sections and leaders with model features, automatically
+finding unframed and oblique graphical annotations, interpreting composite controls and establishing
+the scope required for a verified whole-drawing verdict. Confirmed matches currently apply to individual characteristics.
 
 ### 8.36 Generate 3D geometry and dimensioned PMI from a 2D drawing (planned)
 

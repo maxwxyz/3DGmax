@@ -1,6 +1,7 @@
 {
  "unreleased": {
   "de": [
+   "Der Zeichnungsabgleich liest auch schräg gedruckte Maßzahlen aus einem markierten PDF-Ausschnitt. Bei mehreren möglichen Lesarten bleibt die Angabe zur Prüfung offen.",
    "Maße, Toleranzrahmen und Bezüge einer PDF-Zeichnung lassen sich mit den Modell-PMI vergleichen. Die Prüfliste verknüpft Blattstellen mit Modellflächen und exportiert gleiche, abweichende, fehlende oder offene Angaben als CSV.",
    "Die 3D-Toleranzanalyse kombiniert unterschiedlich große Positions- und Richtungszonen auf mehreren Abschnitten derselben Achse. Worst Case, Monte Carlo und gespeicherte 3D-Ketten berücksichtigen die Projektionslänge, den Versatz und die Materialbedingung jeder Angabe.",
    "Die 3D-Toleranzanalyse berücksichtigt gleich große Positionszonen auf mehreren Abschnitten derselben Achse, auch bei Projektionen von gegenüberliegenden Stirnflächen. Messung und 3D-Kette verwenden einen gemeinsamen Materialbonus und dessen Obergrenze.",
@@ -125,6 +126,7 @@
    "Grafische PMI aus unterstützten AP203e2-Kurvenmodellen lassen sich als STEP AP242 Edition 3 ausgeben. Facettierte STEP-Modelle behalten ihre Flächenbezüge. Gepackte STEP-Dateien lassen sich als unkomprimierte STEP-Kopie speichern."
   ],
   "en": [
+   "The drawing comparison reads inclined dimensions in a selected PDF region. Multiple plausible readings leave the annotation open for review.",
    "Compare dimensions, tolerance frames and datums in a PDF drawing with model PMI. The review links sheet locations to model faces and exports matching, different, missing or unresolved characteristics to CSV.",
    "3D tolerance analysis combines position and orientation zones of different diameters on separate intervals of one axis. Worst case, Monte Carlo and saved 3D chains account for each control’s projection length, offset and material condition.",
    "The 3D tolerance analysis supports equal-diameter position zones on multiple intervals of one axis, including projections from opposite end faces. The measurement and 3D chain share the feature’s material bonus and its cap.",
