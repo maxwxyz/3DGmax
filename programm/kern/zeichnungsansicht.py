@@ -180,8 +180,14 @@ class Blattgeometrie:
             nachbarn = self.enden.query_ball_point(a, .3)
             if np.linalg.norm(a-b) <= .3 or any(np.linalg.norm(self.linien[j//2,1-j%2]-b) <= .3 for j in nachbarn):
                 pfeile.append(pfeil)
-        # Auch drei einzeln geplottete Seiten bilden einen geschlossenen Pfeilkopf.
         laengen = np.linalg.norm(self.linien[:, 0]-self.linien[:, 1], axis=1)
+        # Lange und kurze Linien getrennt indizieren, damit die Umgebungssuche lokal bleibt.
+        self.schaftindex = []
+        groessen = np.frexp(laengen)[1]
+        for klasse in np.unique(groessen):
+            ids = np.flatnonzero(groessen == klasse)
+            self.schaftindex.append((cKDTree(self.linien[ids].mean(axis=1)), ids, laengen[ids].max()/2+1.5))
+        # Auch drei einzeln geplottete Seiten bilden einen geschlossenen Pfeilkopf.
         for i in np.flatnonzero(laengen < .65 * 45):
             a, b = self.linien[i]
             links = self.enden.query_ball_point(a, .3)
@@ -210,6 +216,22 @@ class Blattgeometrie:
         """Ein einzelner unverzweigter Linienzug vom Beschriftungsrand zur Dreiecksspitze."""
         if not self.pfeile or not kreise:
             return None
+        starts = self._starts(box, durchmesseranfang, musterzeile)
+        ziele = self._verfolge(starts, kreise, 1)
+        return ziele[0] if ziele else None
+
+    def hinweisgruppe(self, box, kreise, anzahl):
+        """Ein gezeichnetes Pfeilende pro gedruckter Wiederholung."""
+        if anzahl < 2 or anzahl > len(kreise) or not self.pfeile:
+            return ()
+        ziele = self._verfolge(self._starts(box, None, True), kreise, anzahl)
+        if not ziele or max(k.r for k in ziele)-min(k.r for k in ziele) > .75:
+            return ()
+        if any(math.hypot(k.x-q.x, k.y-q.y) < 1.5 for i,k in enumerate(ziele) for q in ziele[:i]):
+            return ()
+        return tuple(sorted(ziele, key=lambda k: (k.y, k.x)))
+
+    def _starts(self, box, durchmesseranfang, musterzeile):
         (l,t), (r,b) = np.array(box).reshape(2,2) * self.groesse
         seiten = ((l,(t+b)/2), (r,(t+b)/2), ((l+r)/2,t), ((l+r)/2,b))
         starts = []
@@ -231,9 +253,7 @@ class Blattgeometrie:
                         starts.append(j)
         if not starts and durchmesseranfang is not None and r-l > 2*(b-t):
             starts = self._anschluss_am_mass(l, t, b-t, durchmesseranfang)
-        if len(starts) != 1:
-            return None
-        return self._verfolge(starts[0], kreise)
+        return list(dict.fromkeys(starts))
 
     def _anschluss_am_mass(self, l, t, h, durchmesseranfang):
         # Der Pfeil kann an der Masszeile unmittelbar ueber dem Toleranzrahmen enden.
@@ -253,48 +273,93 @@ class Blattgeometrie:
                 starts.append(j)
         return starts
 
-    def _verfolge(self, index, kreise):
-        benutzt = set()
-        while index//2 not in benutzt and len(benutzt) < 4:
-            i, k = divmod(index, 2)
-            benutzt.add(i)
-            start, ende = self.linien[i, [k, 1-k]]
-            laenge = np.linalg.norm(ende-start)
-            richtung = (ende-start) / laenge
-            nahe = {j//2 for j in self.pfeilenden.query_ball_point(ende, 2)}
-            spitzen = []
-            for j in nahe:
-                s, basis, kontur = self.pfeile[j]
-                if richtung @ (s-basis) > .94*np.linalg.norm(s-basis):
-                    spitzen.append((s, kontur))
-            kandidaten = self.enden.query_ball_point((start+ende)/2, laenge/2+1.5)
-            for j in kandidaten:
-                if j//2 in benutzt:
+    def _schaefte_am_punkt(self, punkt):
+        # Die ankommende Linie kann mitten auf einem durchgehenden Querstueck enden.
+        for baum, ids, reichweite in self.schaftindex:
+            for j in baum.query_ball_point(punkt, reichweite):
+                i = ids[j]
+                a, b = self.linien[i]
+                weg = b-a
+                laenge = np.linalg.norm(weg)
+                dist = (punkt-a) @ weg / laenge
+                if 1.5 < dist < laenge-1.5:
+                    fuss = a + dist/laenge*weg
+                    if np.linalg.norm(fuss-punkt) <= 1.5:
+                        yield i, fuss
+
+    def _linienende(self, index, kreise, abzweig):
+        i, k = divmod(index, 2)
+        start, ende = self.linien[i, [k, 1-k]]
+        if abzweig is not None:
+            start = abzweig
+        laenge = np.linalg.norm(ende-start)
+        richtung = (ende-start) / laenge
+        nahe = {j//2 for j in self.pfeilenden.query_ball_point(ende, 2)}
+        spitzen = []
+        for j in nahe:
+            s, basis, kontur = self.pfeile[j]
+            if richtung @ (s-basis) > .94*np.linalg.norm(s-basis):
+                spitzen.append((s, kontur))
+        if len(spitzen) > 1:
+            return None
+        nachbarn = []
+        for j in self.enden.query_ball_point((start+ende)/2, laenge/2+1.5):
+            if j//2 == i:
+                continue
+            v = self.linien[j//2, j%2] - start
+            dist = v @ richtung
+            am_ende = np.linalg.norm(v-(ende-start)) <= 1.5
+            auf_linie = 1.5 < dist < laenge-1.5 and np.linalg.norm(v-dist*richtung) < 1.5
+            if am_ende or auf_linie:
+                if spitzen and _im_dreieck(self.linien[j//2], spitzen[0][1]):
                     continue
-                v = self.linien[j//2, j%2] - start
-                dist = v @ richtung
-                am_kopf = bool(spitzen) and np.linalg.norm(v-(ende-start)) <= 1.5
-                auf_linie = 1.5 < dist < laenge-1.5 and np.linalg.norm(v-dist*richtung) < 1.5
-                if am_kopf or auf_linie:
-                    # Kontur und Schraffur innerhalb des Pfeilkopfs sind keine Verzweigung.
-                    if len(spitzen) == 1:
-                        if _im_dreieck(self.linien[j//2], spitzen[0][1]):
-                            continue
+                if spitzen and am_ende:
                     return None
-            if spitzen:
-                if len(spitzen) != 1:
-                    return None
-                x,y = spitzen[0][0]
-                # Auch unbekannte oder konzentrische Nachbarkreise koennen das Hinweisziel sein.
-                alle = [a for a in self.kreise if abs(math.hypot(a.x-x, a.y-y)-a.r) < 1.6]
-                if len(alle) == 1:
-                    return next((a for a in kreise if (a.x,a.y,a.r) == (alle[0].x,alle[0].y,alle[0].r)), None)
+                nachbarn.append((j, am_ende))
+        quer = []
+        if spitzen:
+            x,y = spitzen[0][0]
+            alle = [a for a in self.kreise if abs(math.hypot(a.x-x, a.y-y)-a.r) < 1.6]
+            if len(alle) != 1:
                 return None
-            nachbarn = [j for j in self.enden.query_ball_point(ende, 1.5) if j//2 not in benutzt]
-            if len(nachbarn) != 1:
+            ziel = next((a for a in kreise if (a.x,a.y,a.r) == (alle[0].x,alle[0].y,alle[0].r)), None)
+            if ziel is None:
                 return None
-            index = nachbarn[0]
-        return None
+        else:
+            ziel = None
+            # Ein seitlicher Ast darf ein offenes Ende der weiterlaufenden Linie nicht verdecken.
+            quer = list(self._schaefte_am_punkt(ende))
+            if not quer and not any(am_ende for _, am_ende in nachbarn):
+                return None
+        return ziel, [j for j, _ in nachbarn], quer
+
+    def _verfolge(self, starts, kreise, anzahl):
+        if not starts or len(starts) > anzahl:
+            return ()
+        offen = [(j, None) for j in starts]
+        benutzt = {j//2 for j in starts}
+        ziele = []
+        while offen:
+            index, abzweig = offen.pop()
+            ergebnis = self._linienende(index, kreise, abzweig)
+            if ergebnis is None:
+                return ()
+            ziel, nachbarn, quer = ergebnis
+            if ziel is not None:
+                if ziel in ziele:
+                    return ()
+                ziele.append(ziel)
+            neu = [j//2 for j in nachbarn] + [i for i, _ in quer]
+            if len(set(neu)) != len(neu) or benutzt.intersection(neu):
+                return ()
+            benutzt.update(neu)
+            offen.extend((j, None) for j in nachbarn)
+            for i, fuss in quer:
+                offen.extend((2*i+k, fuss) for k in (0, 1))
+            # Jeder offene Ast muss noch mindestens einen eigenen Pfeil erreichen.
+            if len(ziele) + len(offen) > anzahl:
+                return ()
+        return tuple(ziele) if len(ziele) == anzahl else ()
 
 
 def _projektion(richtung, ebenen):

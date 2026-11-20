@@ -13,19 +13,19 @@ from programm.kern.zeichnungsblatt import Zeichnungsblatt
 from programm.kern.pmi import Pmi
 
 
-def _teil():
+def _teil(zusatz=()):
     from OCC.Core.BRepAlgoAPI import BRepAlgoAPI_Cut
     from OCC.Core.BRepPrimAPI import BRepPrimAPI_MakeBox, BRepPrimAPI_MakeCylinder
     from OCC.Core.gp import gp_Ax2, gp_Dir, gp_Pnt
     from programm.kern.laden import _alle_flaechen
     form = BRepPrimAPI_MakeBox(52, 37, 9).Shape()
-    for x, y, r in ((8, 7, 2), (29, 9, 2), (13, 29, 3), (40, 25, 4)):
+    for x, y, r in ((8, 7, 2), (29, 9, 2), (13, 29, 3), (40, 25, 4), *zusatz):
         bohrer = BRepPrimAPI_MakeCylinder(gp_Ax2(gp_Pnt(x, y, -1), gp_Dir(0, 0, 1)), r, 11).Shape()
         form = BRepAlgoAPI_Cut(form, bohrer).Shape()
     return SimpleNamespace(form=form, flaechen=_alle_flaechen(form))
 
 
-def _blatt(pfad, verzweigt=False, text="Ø4.1", fremdkreis=False):
+def _blatt(pfad, verzweigt=False, text="Ø4.1", fremdkreis=False, gabel=None):
     pdf = QtGui.QPdfWriter(str(pfad))
     pdf.setResolution(72)
     with QtGui.QPainter(pdf) as maler:
@@ -41,17 +41,49 @@ def _blatt(pfad, verzweigt=False, text="Ø4.1", fremdkreis=False):
         knick = QtCore.QPointF(78, anfang.y())
         ziel = QtCore.QPointF(118, 179)
         maler.drawLine(anfang, knick)
-        maler.drawLine(knick, ziel)
+        if gabel in ("quer", "kreuzung"):
+            # Zwei Pfeile an einem einzigen durchgehenden PDF-Strich.
+            links, rechts = QtCore.QPointF(124, 179), QtCore.QPointF(187, 173)
+            richtung = (rechts-links)/np.hypot(rechts.x()-links.x(), rechts.y()-links.y())
+            z1, z2 = links+6*richtung, rechts-6*richtung
+            mitte = (z1+z2)/2
+            ende = mitte if gabel == "quer" else mitte+(mitte-knick)*.12
+            maler.drawLine(knick, ende)
+            maler.drawLine(z1, z2)
+            pfeile = [(mitte, z1), (mitte, z2)]
+        else:
+            maler.drawLine(knick, ziel)
+            pfeile = [(knick, ziel)]
         if verzweigt:
             abzweig = (knick + ziel)/2 if verzweigt == "innen" else knick
             maler.drawLine(abzweig, QtCore.QPointF(82, 198))
-        v = np.array([ziel.x()-knick.x(), ziel.y()-knick.y()])
-        v /= np.linalg.norm(v)
-        basis = np.array([ziel.x(), ziel.y()]) - 6*v
-        n = np.array([-v[1], v[0]])
+        if gabel and gabel not in ("quer", "kreuzung"):
+            von = knick if gabel == "knick" else (knick+ziel)/2
+            nach = QtCore.QPointF(181, 173)
+            if gabel == "fremdkreis":
+                nach = QtCore.QPointF(163, 144)
+            elif gabel == "gleiches_ziel":
+                nach = QtCore.QPointF(124, 173)
+            maler.drawLine(von, nach)
+            if gabel != "offen":
+                pfeile.append((von, nach))
+            if gabel == "drei":
+                dritter = QtCore.QPointF(169, 150)
+                ast = (von+nach)/2
+                maler.drawLine(ast, dritter)
+                pfeile.append((ast, dritter))
+            elif gabel == "schleife":
+                ecke = QtCore.QPointF(90, 191)
+                maler.drawLine(knick, ecke)
+                maler.drawLine(ecke, von)
         maler.setPen(QtCore.Qt.PenStyle.NoPen)
         maler.setBrush(QtCore.Qt.GlobalColor.black)
-        maler.drawPolygon(QtGui.QPolygonF([ziel, QtCore.QPointF(*(basis+n)), QtCore.QPointF(*(basis-n))]))
+        for von, nach in pfeile:
+            v = np.array([nach.x()-von.x(), nach.y()-von.y()])
+            v /= np.linalg.norm(v)
+            basis = np.array([nach.x(), nach.y()]) - 6*v
+            n = np.array([-v[1], v[0]])
+            maler.drawPolygon(QtGui.QPolygonF([nach, QtCore.QPointF(*(basis+n)), QtCore.QPointF(*(basis-n))]))
 
 
 @pytest.mark.parametrize(("verzweigt", "drehung"), [(False, 0), (True, 0), ("innen", 0), (False, 90)])
@@ -498,6 +530,42 @@ def test_einzel_pmi_aus_ap242_pro_bohrung_pruefen_und_exportieren(app, tmp_path,
             d.einzel.mass.setCurrentIndex(d.einzel.mass.findText(f"#77  {doppelt.wert_text()}"))
             d.bestaetigen.click()
             assert za.befund(a, 1.) == "gleich" and a.musterziele[offen].modell is doppelt
+        finally:
+            d.blatt.schliesse()
+            d.close()
+
+@pytest.mark.parametrize("gabel", ["knick", "schaft", "quer", "kreuzung", "drei", "offen", "gleiches_ziel", "fremdkreis", "schleife"])
+def test_gegabelte_hinweislinie_im_zeichnungsabgleich(app, tmp_path, gabel):
+    import pypdfium2 as pdf
+    from programm.ui.zeichnungsabgleich_ui import Zeichnungsabgleich
+    anzahl = 3 if gabel == "drei" else 2
+    teil = _teil(((23, 56/3, 2),) if anzahl == 3 else ())
+    gruppe, = modellkreise(teil)
+    gruppe = [k for k in gruppe if k.r == 2]
+    masse = [Pmi("mass", "Size_Diameter", nennwert=4., flaechen=set(k.flaechen), nummer=i)
+             for i, k in enumerate(gruppe, 1)]
+    pfad = tmp_path / "Pfeilzweige.pdf"
+    _blatt(pfad, text=f"{anzahl}X Ø4", fremdkreis=True, gabel=gabel)
+    with pdf.PdfDocument(pfad) as doc:
+        d = Zeichnungsabgleich(doc, masse, lambda _: None, (str(pfad), ""), einzelteil=teil)
+        try:
+            d.einheit.setCurrentIndex(1)
+            a = next(a for a in d.seiten[0] if a.text.startswith(f"{anzahl}X"))
+            d.waehle(a)
+            d.registrieren.click()
+            d.ansicht.bereich.emit((.12, .11, .46, .3))
+            assert d.auftrag.wait(10000)
+            app.processEvents()
+            assert len(d.sichtkreise[0]) == 5 and len(d.kreise[0]) == 2+anzahl
+            if gabel in ("knick", "schaft", "quer", "drei"):
+                assert d.zuordnung.currentData() == -2
+                assert {k.flaechen for k in d._muster(a, anzahl)} == {k.flaechen for k in gruppe}
+                d.bestaetigen.click()
+                assert za.befund(a, 1.) == "gleich"
+                assert not d.blattgeometrie.hinweisgruppe(a.box, d.kreise[0], anzahl+1)
+            else:
+                assert d.zielvorschlaege[a] is None and not d._muster(a, anzahl)
+                assert za.befund(a, 1.) == "offen"
         finally:
             d.blatt.schliesse()
             d.close()

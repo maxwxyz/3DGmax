@@ -447,8 +447,14 @@ class Zeichnungsabgleich(QtWidgets.QDialog):
 
     def _hinweisziel(self, a):
         pruefe = self.blatt.durchmesseranfang if "|" in a.text else None
-        return self.blattgeometrie.hinweisziel(a.box, self.kreise.get(a.seite, []), pruefe,
-                                               musterzeile=bool(za.musteranzahl(a.text)))
+        kreise = self.kreise.get(a.seite, [])
+        anzahl = za.musteranzahl(a.text)
+        if anzahl > 1:
+            gruppe = self.blattgeometrie.hinweisgruppe(a.box, kreise, anzahl)
+            if gruppe:
+                self.musterwahl[a] = gruppe
+                return gruppe[0]
+        return self.blattgeometrie.hinweisziel(a.box, kreise, pruefe, musterzeile=bool(anzahl))
 
     def _anderer_bereich(self, a):
         if not a.blattziel or a.seite not in self.bereiche:

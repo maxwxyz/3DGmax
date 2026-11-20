@@ -1597,7 +1597,11 @@ open arrowhead leaves the frame’s association unresolved. A repeated diameter 
 as its own annotation. Native PDF text and supported plotted rows (including a row above a frame)
 retain the printed count and limits. An arrow or manual selection identifies the first hole. The
 review proposes the remaining visible rings only when the size and count agree and all are
-registered. The user can select a subset explicitly. One grouped model PMI must cover every marked
+registered. A branched vector leader can identify a subset directly even when extra equal-size holes are
+present. Each branch must end in a recognized arrowhead on a distinct registered ring, with as many
+rings as the printed count. Junctions may be at a segment end or on its shaft. Open branches,
+cycles, repeated targets or unregistered rings leave the assignment unresolved. The user can
+also select a subset explicitly. One grouped model PMI must cover every marked
 hole and have no faces outside the group. The CSV records the individual circle coordinates. When the model contains a separate diameter
 characteristic for each hole, the reviewer can step through the individual targets, resolve
 competing records and confirm a missing characteristic for one hole. Each CSV row identifies the
@@ -1605,7 +1609,7 @@ target, model record, source ID, local finding and overall pattern finding. An u
 leaves the pattern open. A partly missing or different pattern is reported as changed.
 The reviewer can also click a matched ring. The CSV stores the accepted circle in sheet coordinates.
 
-Remaining work includes views in which holes project as ellipses, sections, non-circular features and compound leaders, automatically
+Remaining work includes views in which holes project as ellipses, sections, non-circular features and leaders on section or edge geometry, automatically
 finding unframed and oblique graphical annotations, interpreting composite controls and establishing
 the scope required for a verified whole-drawing verdict. Confirmed matches currently apply to individual characteristics.
 

@@ -2,6 +2,22 @@
 
 ## Current state, 2026-11-20
 
+### Follow branched drawing leaders to a hole pattern
+
+- Checked PLAN §8.35 and docs/Roadmap.md. A printed quantity can identify two or more distinct
+  registered holes through its arrow branches, including a junction in the middle of a shaft and a
+  dimension line drawn as a single crossbar with arrowheads at both ends. Unconnected crossings,
+  open or cyclic paths, two arrows to the same hole, an unregistered tip or a quantity mismatch
+  do not produce a complete group.
+- In constructed vector PDFs the dialog selected two specified holes despite a third printed circle
+  of the same diameter and matched a three-hole callout with nested branches. Nine regression cases
+  exercised the review dialog. D2MI 904 retained its 14 registered rings and the separate diameter
+  and position targets. The automatically discovered repeated callout in the local D2MI drawing
+  collection has a single representative arrow. The branch tests therefore use constructed PDFs.
+- All 35 affected tests passed; the focused drawing and translation run passed 45 tests. Further
+  work includes finding unframed graphical annotations beyond the recognized rows, sections and
+  non-circular targets in §8.35. Reconstruction remains in §8.36 and QIF stays last in §8.37.
+
 ### Compare a repeated drawing callout with separate STEP dimensions
 
 - Checked PLAN §8.35 and docs/Roadmap.md. In individual-PMI mode each selected hole has a model
