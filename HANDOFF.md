@@ -2,6 +2,20 @@
 
 ## Current state, 2026-11-20
 
+### Match symmetric hole patterns as a group
+
+- Checked PLAN §8.35 and docs/Roadmap.md. Where every equally good registration permutes the
+  same complete set of bore walls, a repeated diameter can match a grouped model dimension.
+  The review draws dashed rings for these holes and identifies the group association in CSV.
+  Individual targets and alternative sets of walls remain unresolved.
+- Verified in the drawing dialog on the original D2MI 904 sheet 3. The callout with four
+  0.215–0.225 inch diameters matches STEP #103256 on eight half-cylinder faces. The model gives
+  5.461 mm as the upper and 5.715 mm as the lower limit, so the numerical verdict stays open.
+  A portable solid/PDF test also covers equal and changed values, registering the view twice,
+  and CSV export. All 49 focused drawing tests and 42 affected tests passed.
+- Next in §8.35: recover standalone diameter rows at rotated leader ends. Sections, oblique
+  projections and whole-drawing scope remain open. §8.36 reconstruction precedes QIF in §8.37.
+
 ### Discover standalone graphical diameter rows around a selected hole pattern
 
 - Checked PLAN §8.35 and docs/Roadmap.md. The registration worker follows free horizontal leader

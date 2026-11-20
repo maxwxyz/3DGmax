@@ -13,23 +13,26 @@ from programm.kern.zeichnungsblatt import Zeichnungsblatt
 from programm.kern.pmi import Pmi
 
 
-def _teil(zusatz=()):
+_BOHRUNGEN = ((8, 7, 2), (29, 9, 2), (13, 29, 3), (40, 25, 4))
+
+
+def _teil(zusatz=(), bohrungen=_BOHRUNGEN):
     from OCC.Core.BRepAlgoAPI import BRepAlgoAPI_Cut
     from OCC.Core.BRepPrimAPI import BRepPrimAPI_MakeBox, BRepPrimAPI_MakeCylinder
     from OCC.Core.gp import gp_Ax2, gp_Dir, gp_Pnt
     from programm.kern.laden import _alle_flaechen
     form = BRepPrimAPI_MakeBox(52, 37, 9).Shape()
-    for x, y, r in ((8, 7, 2), (29, 9, 2), (13, 29, 3), (40, 25, 4), *zusatz):
+    for x, y, r in (*bohrungen, *zusatz):
         bohrer = BRepPrimAPI_MakeCylinder(gp_Ax2(gp_Pnt(x, y, -1), gp_Dir(0, 0, 1)), r, 11).Shape()
         form = BRepAlgoAPI_Cut(form, bohrer).Shape()
     return SimpleNamespace(form=form, flaechen=_alle_flaechen(form))
 
 
-def _blatt(pfad, verzweigt=False, text="Ø4.1", fremdkreis=False, gabel=None):
+def _blatt(pfad, verzweigt=False, text="Ø4.1", fremdkreis=False, gabel=None, bohrungen=_BOHRUNGEN):
     pdf = QtGui.QPdfWriter(str(pfad))
     pdf.setResolution(72)
     with QtGui.QPainter(pdf) as maler:
-        for x, y, r in ((8, 7, 2), (29, 9, 2), (13, 29, 3), (40, 25, 4)):
+        for x, y, r in bohrungen:
             maler.drawEllipse(QtCore.QPointF(100+3*x, 200-3*y), 3*r, 3*r)
         # Gleicher Druckwert an der falschen Flaeche. Der zweigliedrige Pfeil zeigt auf die erste Bohrung.
         if fremdkreis:
@@ -620,6 +623,96 @@ def test_freie_grafische_masszeile_beim_zuordnen_des_bohrbilds(app, tmp_path, zu
             d.entfernen.click()
             registrieren()
             assert not d.seiten[0]
+        finally:
+            d.blatt.schliesse()
+            d.close()
+
+
+def test_symmetrisches_bohrbild_nur_mit_vollstaendiger_flaechenmenge():
+    ringe = [Blattkreis(x, y, 3, frozenset([i])) for i, (x, y) in enumerate(((0,0),(0,20),(35,0),(35,20)))]
+    gruppe = zuordnen(ringe, [ringe], mit_gruppen=True)
+    assert len(gruppe) == 4 and all(not k.flaechen and len(k.tauschgruppe) == 4 for k in gruppe)
+    mass = Pmi("mass", "Size_Diameter", nennwert=6, flaechen=set(range(4)))
+    assert za.muster_deckt(4, gruppe, mass)
+    assert not za.muster_deckt(3, gruppe[:3], mass)
+    assert not za.muster_deckt(4, [*gruppe[:3], gruppe[0]], mass)
+    assert not za.muster_deckt(4, gruppe, replace(mass, typ="Size_Radius"))
+    for flaechen in ({0,1,2}, {0,1,2,3,4}):
+        assert not za.muster_deckt(4, gruppe, replace(mass, flaechen=flaechen))
+    andere = [replace(k, flaechen=frozenset([i+10])) for i,k in enumerate(ringe)]
+    assert not zuordnen(ringe, [ringe, andere], mit_gruppen=True)
+
+
+def test_symmetrisches_mengenmass_im_zeichnungsabgleich(app, tmp_path, monkeypatch):
+    from pypdfium2 import PdfDocument
+    from programm.ui.zeichnungsabgleich_ui import Zeichnungsabgleich
+    bohrungen = ((8,7,2), (38,7,2), (12,29,2), (34,29,2))
+    teil = _teil(bohrungen=bohrungen)
+    achse, = modellkreise(teil)
+    alle = Pmi("mass", "Size_Diameter", nennwert=4., nummer=1, step_id=100,
+               flaechen=set().union(*(k.flaechen for k in achse)))
+    einzeln = replace(alle, nummer=2, step_id=101, flaechen=set(achse[0].flaechen))
+    pfad = tmp_path / "Symmetrie.pdf"
+    _blatt(pfad, text="4X Ø4", bohrungen=bohrungen)
+    with PdfDocument(pfad) as doc:
+        d = Zeichnungsabgleich(doc, [einzeln, alle], lambda _: None, (str(pfad), ""), einzelteil=teil)
+        try:
+            d.einheit.setCurrentIndex(1)
+            a = next(a for a in d.seiten[0] if a.text.startswith("4X"))
+            d.waehle(a)
+            for wiederholung in range(2):
+                d.registrieren.click()
+                d.ansicht.bereich.emit((.12, .11, .46, .30))
+                assert d.auftrag.wait(10000)
+                app.processEvents()
+                assert d.zuordnung.currentData() == d.modellindex[id(alle)]
+                assert d.zuordnung.findData(-2) < 0
+                assert len(d.ansicht.kreismarken) == 4
+                assert all(item.pen().style() == QtCore.Qt.PenStyle.DashLine for _,item in d.ansicht.kreismarken)
+                if wiederholung:
+                    assert za.befund(a, 1.) == "gleich"
+                d.bestaetigen.click()
+                assert len(a.musterziele) == 4 and all(not z.flaechen for z in a.musterziele)
+                assert a.modell is alle and za.befund(a, 1.) == "gleich"
+            d.text.setPlainText("4X Ø4.2")
+            d.bestaetigen.click()
+            assert za.befund(a, 1.) == "geaendert"
+            datei = tmp_path / "Befund.csv"
+            monkeypatch.setattr(QtWidgets.QFileDialog, "getSaveFileName", lambda *args: (str(datei), "CSV"))
+            d._export()
+            with datei.open(encoding="utf-8-sig") as f:
+                zeile = next(z for z in csv.DictReader(f, delimiter=";") if z["Angabe"].startswith("4X"))
+            assert zeile["Nur als Gruppe zugeordnet"] == "1" and zeile["Quell-ID der Modell-PMI"] == "100"
+            assert len(zeile["Bohrbild (x/Breite, y/Höhe, Radius/Breite je Bohrung)"].split(" | ")) == 4
+        finally:
+            d.blatt.schliesse()
+            d.close()
+
+
+def test_d2mi_904_symmetrisches_vierfachmass(app):
+    from pypdfium2 import PdfDocument
+    from programm.ui.lader import lade_alles
+    from programm.ui.zeichnungsabgleich_ui import Zeichnungsabgleich
+    pfad = Path(__file__).parents[1] / "daten/nist_d2mi/NIST-D2MI-Models/827-9999-904 rev c.pdf"
+    if not pfad.exists():
+        pytest.skip("Lokales NIST-D2MI-Referenzpaket fehlt")
+    erg = lade_alles(str(pfad.with_suffix(".stp")))
+    with PdfDocument(pfad) as doc:
+        d = Zeichnungsabgleich(doc, erg.pmi, lambda _: None, (str(pfad), erg.pfad), einzelteil=erg.modell)
+        try:
+            d.seite.setValue(3)
+            d.einheit.setCurrentIndex(2)
+            d.registrieren.click()
+            d.ansicht.bereich.emit((.32, .33, .55, .57))
+            assert d.auftrag.wait(10000)
+            app.processEvents()
+            a = next(a for a in d.seiten[2] if a.text == "4X⌀.215-.225")
+            d.waehle(a)
+            d.bestaetigen.click()
+            assert a.modell.step_id == 103256 and len(a.modell.flaechen) == 8
+            assert len(a.musterziele) == 4 and all(not z.flaechen for z in a.musterziele)
+            assert a.modell.grenzen() == pytest.approx((5.461, 5.715))
+            assert not a.zielkonflikt and za.befund(a, 25.4) == "offen"
         finally:
             d.blatt.schliesse()
             d.close()

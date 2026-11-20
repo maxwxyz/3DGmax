@@ -1,4 +1,8 @@
 {
+"Gestrichelte Kreise sind nur als vollständige Gruppe zuordenbar.": "Dashed circles can only be matched as a complete group.",
+"Diese Bohrung ist nur zusammen mit den übrigen Bohrungen eindeutig.": "This hole can only be identified together with the other holes in its group.",
+"Modellflächen als Bohrbild zugeordnet.": "Model faces matched as a hole pattern.",
+"Nur als Gruppe zugeordnet": "Matched only as a group",
 "Für dieses Bohrbild sind noch keine Modellflächen zugeordnet.": "No model faces have been matched to this hole pattern yet.",
 "Eine weitere Durchmesserangabe gefunden.": "Found one additional diameter callout.",
 "{} weitere Durchmesserangaben gefunden.": "Found {} additional diameter callouts.",

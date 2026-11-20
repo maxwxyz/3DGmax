@@ -14,6 +14,11 @@ class Musterziel:
     flaechen: frozenset
     modell: Pmi | None = None
     nur_zeichnung: bool = False
+    tauschgruppe: frozenset = frozenset()
+
+    @property
+    def mitte(self):
+        return self.ort[:2]
 
 
 @dataclass(eq=False)
@@ -44,11 +49,22 @@ def musteranzahl(text):
 
 
 def muster_deckt(anzahl, ziele, modell):
-    if len(ziele) != anzahl or modell is None or not ziele:
+    if not ziele or modell is None or modell.typ != "Size_Diameter" or len(ziele) != anzahl:
         return False
+    if len({z.mitte for z in ziele}) != anzahl:
+        return False
+    waende = [z.flaechen for z in ziele if not z.tauschgruppe]
+    gruppen = {}
+    for z in ziele:
+        if z.tauschgruppe:
+            gruppen[z.tauschgruppe] = gruppen.get(z.tauschgruppe, 0)+1
+    for gruppe, gewaehlt in gruppen.items():
+        if len(gruppe) != gewaehlt:
+            return False
+        waende.extend(gruppe)
     erfasst = set()
-    for k in ziele:
-        anteil = k.flaechen & modell.flaechen
+    for wand in waende:
+        anteil = wand & modell.flaechen
         if not anteil or anteil & erfasst:
             return False
         erfasst.update(anteil)

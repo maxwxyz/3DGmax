@@ -1602,7 +1602,12 @@ present. Each branch must end in a recognized arrowhead on a distinct registered
 rings as the printed count. Junctions may be at a segment end or on its shaft. Open branches,
 cycles, repeated targets or unregistered rings leave the assignment unresolved. The user can
 also select a subset explicitly. One grouped model PMI must cover every marked
-hole and have no faces outside the group. The CSV records the individual circle coordinates. When the model contains a separate diameter
+hole and have no faces outside the group. The CSV records the individual circle coordinates.
+When equally good views permute the holes, the group can still match one diameter PMI if every fit
+assigns the same distinct bore walls to the complete set of marked circles. Dashed rings and a CSV
+flag identify this case. A single interchangeable hole or a choice between distinct sets remains open.
+D2MI 904 sheet 3 matches the four-hole callout to STEP #103256. Its reversed limit order keeps
+the numerical finding open. When the model contains a separate diameter
 characteristic for each hole, the reviewer can step through the individual targets, resolve
 competing records and confirm a missing characteristic for one hole. Each CSV row identifies the
 target, model record, source ID, local finding and overall pattern finding. An unresolved hole

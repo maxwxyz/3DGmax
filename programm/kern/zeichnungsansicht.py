@@ -14,6 +14,11 @@ class Blattkreis:
     y: float
     r: float
     flaechen: frozenset = frozenset()
+    tauschgruppe: frozenset = frozenset()
+
+    @property
+    def mitte(self):
+        return self.x, self.y
 
 
 def _kreis(punkte):
@@ -580,29 +585,59 @@ def _passungen(m, z, pruefe, minimum):
                             yield treffer
 
 
-def zuordnen(kreise, ansichten, pruefe=lambda: None):
-    """Nur Zuordnungen behalten, die alle gleich gut passenden Projektionen gemeinsam haben."""
+def zuordnen(kreise, ansichten, pruefe=lambda: None, *, mit_gruppen=False):
+    """Einzelziele und auf Wunsch unteilbare Gruppen aus allen besten Projektionen."""
+    from scipy.cluster.hierarchy import DisjointSet
     if len(kreise) < 3:
         return []
+
     def daten(zeilen):
         return np.array([(k.x, k.y, k.r) for k in zeilen])
+
     z = daten(kreise)
-    beste, sicher = (0, 0), {}
+    beste = (0, 0)
+    verbunden = DisjointSet()
+    immer = set()
     for gruppe in ansichten:
         if len(gruppe) < max(3, beste[0]):
             continue
         for rang, treffer in _passungen(daten(gruppe), z, pruefe, beste[0]):
             if rang < beste:
                 continue
-            neu = {j: gruppe[i].flaechen for i,j in treffer}
-            if rang == beste:
-                sicher = {j: ids for j, ids in sicher.items() if ids == neu.get(j)}
+            paare = [(int(j), gruppe[i].flaechen) for i,j in treffer]
+            # Auch bei geteilten Mantelflaechen muss jeder Kreis eine eigene Bohrung treffen.
+            belegt, doppelt = set(), set()
+            for _, wand in paare:
+                if wand in belegt:
+                    doppelt.add(wand)
+                belegt.add(wand)
+            sicher = {j for j, wand in paare if wand and wand not in doppelt}
+            if rang > beste:
+                beste, verbunden, immer = rang, DisjointSet(), sicher
             else:
-                beste, sicher = rang, neu
-    return [Blattkreis(kreise[j].x, kreise[j].y, kreise[j].r, ids) for j, ids in sorted(sicher.items()) if ids]
+                immer.intersection_update(sicher)
+            for j, wand in paare:
+                if wand:
+                    verbunden.add(j)
+                    verbunden.add(wand)
+                    verbunden.merge(j, wand)
+    zuordnung = {}
+    for teil in verbunden.subsets():
+        orte = {j for j in teil if isinstance(j, int)}
+        waende = frozenset(teil-orte)
+        if not orte <= immer or len(orte) != len(waende):
+            continue
+        if len(orte) == 1:
+            zuordnung[orte.pop()] = (next(iter(waende)), frozenset())
+        elif mit_gruppen and sum(map(len, waende)) == len(frozenset().union(*waende)):
+            # Jede Passung bildet diese Blattmenge bijektiv auf dieselben Waende ab.
+            for j in orte:
+                zuordnung[j] = (frozenset(), waende)
+    return [Blattkreis(kreise[j].x, kreise[j].y, kreise[j].r, *zuordnung[j]) for j in sorted(zuordnung)]
+
 
 def muster_am_ziel(anker, anzahl, sichtbar, zugeordnet):
-    """Alle gleich grossen sichtbaren Kreise der Auswahl muessen einzeln zugeordnet sein."""
+    """Das Mengenmass erfasst alle gleich grossen sichtbaren und zugeordneten Kreise."""
     if anker is None:
         return ()
     ringe = [k for k in sichtbar if abs(k.r-anker.r) <= .75]
