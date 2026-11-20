@@ -297,9 +297,12 @@ def _ebenen_paar(flaechen):
 
 def _masslinie(p, flaechen, quader, mitte, belegt, bilder, h, nr) -> Grafik | None:
     """Abstandsmass zwischen zwei parallelen Ebenen: Masshilfslinien, Masslinie mit Pfeilen, Text darueber."""
-    if p.typ in ("Location_LinearDistance_FromOuterToCenter", "Location_LinearDistance_FromOuterToOuter"):
+    if p.mittenabstand or p.typ in ("Location_LinearDistance_FromOuterToCenter", "Location_LinearDistance_FromOuterToOuter"):
         from .plausibilitaet import ebene_zur_achse, langlochenden
-        lage = ebene_zur_achse(flaechen) if p.typ == "Location_LinearDistance_FromOuterToCenter" else langlochenden(flaechen)
+        if p.typ == "Location_LinearDistance_FromOuterToCenter":
+            lage = ebene_zur_achse(flaechen)
+        else:
+            lage = langlochenden(flaechen, mitten=p.mittenabstand)
         if lage is None:
             return None
         c1, c2, n = lage[-3:]

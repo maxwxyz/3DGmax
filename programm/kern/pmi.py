@@ -112,6 +112,7 @@ class Pmi:
     maximum_toleranz: float | None = None  # Obergrenze der Gesamttoleranz bei Materialbedingung
 
     massziel_step: int | None = None  # STEP-Kante oder -Punkt als Ziel eines erzeugten Masses
+    mittenabstand: bool = False  # Beide Massziele sind abgeleitete Symmetriezentren.
 
     # --- Darstellung ---
 
@@ -169,6 +170,8 @@ class Pmi:
 
     def merkmal(self) -> str:
         """Merkmalsschluessel (deutsch, Anzeige ueber tr()) nach der Norm des Modells; unbekannte Typen unveraendert."""
+        if self.mittenabstand:
+            return "Abstand zwischen Symmetriezentren"
         if self.norm == "asme" and self.typ in MERKMAL_ASME:
             return MERKMAL_ASME[self.typ]
         if self.typ in MERKMAL:

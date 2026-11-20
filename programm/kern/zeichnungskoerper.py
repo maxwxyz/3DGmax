@@ -34,6 +34,8 @@ class Plattentasche:
     tiefe: Pmi | None
     radius: Pmi | None = None
     langloch: bool = False
+    achsabstand: Pmi | None = None
+    gesamt_abgeleitet: bool = False
 
     @property
     def rundungsradius(self):
@@ -331,15 +333,21 @@ def _flaechenmasse(modell, masse, bohrungen, taschen):
                 eintritt = boden
         for tasche in taschen:
             bezuege = _taschenflaechen(tasche, dicke, deckel, ebenen, nachbarn, viertelkreise, halbkreise)
-            for mass in (tasche.breite, tasche.hoehe):
+            for mass, paar in zip((tasche.breite, tasche.hoehe), bezuege[:2], strict=True):
                 if tasche.langloch and mass.nennwert > 2*tasche.rundungsradius:
+                    if tasche.achsabstand:
+                        alle.append(replace(tasche.achsabstand, mittenabstand=True))
+                        flaechen.append(paar)
+                    if tasche.gesamt_abgeleitet:
+                        continue
                     mass = replace(mass, typ="Location_LinearDistance_FromOuterToOuter")
                 alle.append(mass)
+                flaechen.append(paar)
             if tasche.radius:
                 alle.append(tasche.radius)
             if tasche.tiefe:
                 alle.append(tasche.tiefe)
-            flaechen.extend(bezuege)
+            flaechen.extend(bezuege[2:])
     return [replace(p, flaechen=f, quelle="eigen", nummer=i, step_id=-i)
             for i, (p, f) in enumerate(zip(alle, flaechen, strict=True), 1)]
 

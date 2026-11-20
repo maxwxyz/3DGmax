@@ -1,10 +1,11 @@
 """Gezeichnete Rechtecktaschen anhand von Lage, Seitenlaengen und Tiefe pruefen."""
 
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 import math
 import re
 
 from ..i18n import tr
+from .pmi import MASS, Pmi
 from .zeichnungsabgleich import lese_angabe
 from .zeichnungskoerper import Plattentasche, koordinaten, pruefe_tiefe, tiefenmass
 
@@ -48,6 +49,59 @@ def _beruehrt(dx, dy, a, b, radien):
     return math.hypot(max(abs(dx)-a,0.), max(abs(dy)-b,0.)) <= radien
 
 
+def _positives_mass(text):
+    p = lese_angabe(text, 1.)
+    if not p or p.typ != "Location_LinearDistance" or p.nennwert is None or "Hilfsmass" in p.modifikatoren:
+        return None
+    oben, unten = p.grenzen()
+    if oben is not None and unten is not None and oben < unten:
+        return None
+    if all(math.isfinite(g) and g > 0 for g in (p.nennwert, oben, unten) if g is not None):
+        return p
+    return None
+
+
+def _nennmasse_abgleichen(gesamt, kurz, achse):
+    if math.isclose(gesamt.nennwert, achse.nennwert+kurz.nennwert, abs_tol=1e-7, rel_tol=0):
+        return gesamt, kurz, achse
+    # Bei gedruckten Grenzmassen ist der Mittelwert nur ein Vorschlag fuer die Geometrie.
+    (min_lang, max_lang), (min_kurz, max_kurz), (min_achse, max_achse) = (
+        (p.unten, p.oben) if p.grenzmass else (p.nennwert, p.nennwert) for p in (gesamt, kurz, achse))
+    unten = max(min_lang, min_kurz+min_achse)
+    oben = min(max_lang, max_kurz+max_achse)
+    if unten > oben+1e-7:
+        raise ValueError(tr("Gesamtlänge und Summe aus Achsabstand und Langlochbreite widersprechen sich."))
+    laenge = min(max(gesamt.nennwert,unten),oben)
+    breite = min(max(kurz.nennwert, min_kurz, laenge-max_achse), max_kurz, laenge-min_achse)
+    return tuple(replace(p,nennwert=wert) if p.grenzmass else p
+                 for p, wert in zip((gesamt,kurz,achse), (laenge,breite,laenge-breite), strict=True))
+
+
+def _langlochmasse(gesamttext, kurz, achstext):
+    achsmass = _positives_mass(achstext) if achstext else None
+    if achstext and (achsmass is None or achsmass.passung):
+        raise ValueError(tr("Für den Achsabstand ein positives Längenmaß mit gültigen Grenzen angeben."))
+    if kurz is None:
+        raise ValueError(tr("Die Breite zwischen den geraden Langlochwänden angeben."))
+    if not gesamttext and achsmass:
+        return Pmi(MASS, typ="Location_LinearDistance", nennwert=achsmass.nennwert+kurz.nennwert), kurz, achsmass
+    gesamt = _positives_mass(gesamttext)
+    if gesamt is None:
+        raise ValueError(tr("Die Gesamtlänge oder den Achsabstand des Langlochs angeben."))
+    if achsmass is None and min(g for g in (gesamt.nennwert,*gesamt.grenzen()) if g is not None) <= max(
+            g for g in (kurz.nennwert,*kurz.grenzen()) if g is not None):
+        raise ValueError(tr("Die Gesamtlänge des Langlochs muss auch bei Grenzmaß größer als die Breite sein."))
+    if achsmass:
+        gesamt, kurz, achsmass = _nennmasse_abgleichen(gesamt, kurz, achsmass)
+        # Nur wenn alle drei Toleranzintervalle vorliegen, ist deren Schnitt pruefbar.
+        grenzen = [p.grenzen() for p in (gesamt, achsmass, kurz)]
+        if all(None not in paar for paar in grenzen):
+            (max_lang, min_lang), (max_achse, min_achse), (max_kurz, min_kurz) = grenzen
+            if max_lang < min_achse+min_kurz-1e-7 or min_lang > max_achse+max_kurz+1e-7:
+                raise ValueError(tr("Die Grenzmaße für Gesamtlänge, Achsabstand und Langlochbreite sind unvereinbar."))
+    return gesamt, kurz, achsmass
+
+
 def solltaschen(konturen, zeilen, masse, umfang, bohrungen):
     sx, sy = (p.nennwert for p in masse[:2])
     bx, by = umfang
@@ -58,10 +112,18 @@ def solltaschen(konturen, zeilen, masse, umfang, bohrungen):
         if not mitte:
             raise ValueError(tr("Den Mittelpunkt X und Y für Tasche {} angeben.").format(i))
         x, y = mitte
-        breite, hoehe = (lese_angabe(text, 1.) for text in (tb, th))
-        for p in (breite, hoehe):
-            if (not p or p.typ != "Location_LinearDistance" or p.nennwert is None or "Hilfsmass" in p.modifikatoren
-                    or not all(math.isfinite(g) and g > 0 for g in (p.nennwert, *p.grenzen()) if g is not None)):
+        achsmass, abgeleitet = None, False
+        if kontur.langloch:
+            quer = kontur.breite*bx > kontur.hoehe*by
+            gesamttext = (tb if quer else th).strip()
+            achstext = zeile[6].strip() if len(zeile) > 6 else ""
+            kurz = _positives_mass(th if quer else tb)
+            gesamt, kurz, achsmass = _langlochmasse(gesamttext, kurz, achstext)
+            breite, hoehe = (gesamt, kurz) if quer else (kurz, gesamt)
+            abgeleitet = not gesamttext
+        else:
+            breite, hoehe = _positives_mass(tb), _positives_mass(th)
+            if breite is None or hoehe is None:
                 raise ValueError(tr("Für Tasche {} beide positiven Seitenmaße angeben.").format(i))
         tiefe = None
         if tt is not None:
@@ -70,12 +132,7 @@ def solltaschen(konturen, zeilen, masse, umfang, bohrungen):
                 raise ValueError(tr("Die Tiefe zum flachen Grund von Tasche {} angeben.").format(i))
             pruefe_tiefe(tiefe, masse[2])
         radius = _eckradius(zeile[5] if len(zeile) > 5 else "", kontur, breite, hoehe, sx, bx)
-        tasche = Plattentasche(x, y, breite, hoehe, tiefe, radius, kontur.langloch)
-        if kontur.langloch:
-            lang, kurz = (breite, hoehe) if kontur.breite*bx > kontur.hoehe*by else (hoehe, breite)
-            if min(g for g in (lang.nennwert,*lang.grenzen()) if g is not None) <= max(
-                    g for g in (kurz.nennwert,*kurz.grenzen()) if g is not None):
-                raise ValueError(tr("Die Gesamtlänge des Langlochs muss auch bei Grenzmaß größer als die Breite sein."))
+        tasche = Plattentasche(x, y, breite, hoehe, tiefe, radius, kontur.langloch, achsmass, abgeleitet)
         r = tasche.rundungsradius
         a, b = breite.nennwert/2, hoehe.nennwert/2
         if not (a < x < sx-a and b < y < sy-b):

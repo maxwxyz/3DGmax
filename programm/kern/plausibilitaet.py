@@ -74,8 +74,8 @@ def ebene_zur_achse(flaechen):
     return None
 
 
-def langlochenden(flaechen):
-    """Aeussere Scheitel zweier gegenueberliegender Halbzylinder auf gemeinsamer Hoehe."""
+def langlochenden(flaechen, *, mitten=False):
+    """Scheitel von Langlochenden oder Achspunkte paralleler Zylinder auf gemeinsamer Hoehe."""
     from OCC.Core.BRep import BRep_Tool
     from OCC.Core.BRepAdaptor import BRepAdaptor_Surface
     from OCC.Core.BRepClass import BRepClass_FaceClassifier
@@ -85,7 +85,9 @@ def langlochenden(flaechen):
     if len(flaechen) != 2 or any(BRep_Tool.Surface(f) is None for f in flaechen):
         return None
     zylinder = [BRepAdaptor_Surface(f) for f in flaechen]
-    if any(s.GetType() != GeomAbs_Cylinder or abs(s.LastUParameter()-s.FirstUParameter()-np.pi) > 1e-6 for s in zylinder):
+    if any(s.GetType() != GeomAbs_Cylinder for s in zylinder):
+        return None
+    if not mitten and any(abs(s.LastUParameter()-s.FirstUParameter()-np.pi) > 1e-6 for s in zylinder):
         return None
     achsen = [np.array(s.Cylinder().Axis().Direction().Coord()) for s in zylinder]
     n = achsen[0].copy()
@@ -109,6 +111,9 @@ def langlochenden(flaechen):
         u = (s.FirstUParameter()+s.LastUParameter())/2
         v = (oben-lagen[i]@n)/(achsen[i]@n)
         fuss = lagen[i]+v*achsen[i]
+        if mitten:
+            punkte.append(fuss)
+            continue
         punkt = np.array(s.Value(u,v).Coord())
         if np.linalg.norm((punkt-fuss)/s.Cylinder().Radius()-(2*i-1)*quer) > 1e-6:
             return None
@@ -331,6 +336,10 @@ def geometrie(pmi, modell) -> list:
                 radien = {round(a[3], 6) for a in achsen}
                 r = max(radien, key=lambda x: -abs(x * (2 if p.typ == "Size_Diameter" else 1) - abs(p.nennwert)))
                 ist = r * (2 if p.typ == "Size_Diameter" else 1)
+        elif p.mittenabstand or p.typ == "Location_LinearDistance_FromOuterToOuter":
+            enden = langlochenden(flaechen, mitten=p.mittenabstand)
+            if enden is not None:
+                ist = np.linalg.norm(enden[1]-enden[0])
         elif p.typ in ("Location_LinearDistance", "Size_Thickness") and len(flaechen) == 2:
             e1, e2 = _ebene(flaechen[0]), _ebene(flaechen[1])
             if e1 and e2 and abs(e1[1] @ e2[1]) > 0.9999:
@@ -339,10 +348,6 @@ def geometrie(pmi, modell) -> list:
             paar = ebene_zur_achse(flaechen)
             if paar is not None:
                 ist = np.linalg.norm(paar[2] - paar[1])
-        elif p.typ == "Location_LinearDistance_FromOuterToOuter":
-            enden = langlochenden(flaechen)
-            if enden is not None:
-                ist = np.linalg.norm(enden[1]-enden[0])
         if ist is not None and abs(ist - abs(p.nennwert)) > GEOMETRIE_TOLERANZ:
             out.append(_befund(WARNUNG, "geometrie", tr("Nennmaß {:.4g} passt nicht zum Modell ({:.4f})").format(
                 abs(p.nennwert), ist), [p.nummer], p.flaechen))

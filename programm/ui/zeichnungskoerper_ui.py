@@ -93,12 +93,14 @@ class Plattendialog(QtWidgets.QDialog):
                                  "Breite und Höhe sind Außenmaße in X und Y. Für einen Durchbruch „Durchgang“ wählen, für eine Tasche die Tiefe von oben angeben."))
         tip.setWordWrap(True)
         tl.addWidget(tip)
-        self.taschentabelle = QtWidgets.QTableWidget(0, 8)
+        self.taschentabelle = QtWidgets.QTableWidget(0, 9)
         self.taschentabelle.setColumnHidden(7, True)
+        self.taschentabelle.setColumnHidden(8, True)
         self.taschenfelder = [tr("X-Maß der gewählten Tasche"), tr("Y-Maß der gewählten Tasche"),
                               tr("Breite der gewählten Tasche"), tr("Höhe der gewählten Tasche"), tr("Tiefe der gewählten Tasche")]
         self.taschentabelle.setHorizontalHeaderLabels([tr("Geschätzt (X / Y / B / H, mm)"), tr("X (mm)"), tr("Y (mm)"),
-                                                       tr("Breite (mm)"), tr("Höhe (mm)"), tr("Tiefe (mm)"), tr("Ausführung"), tr("Eckradius (mm)")])
+                                                       tr("Breite (mm)"), tr("Höhe (mm)"), tr("Tiefe (mm)"), tr("Ausführung"), tr("Eckradius (mm)"), tr("Achsabstand (mm)")])
+        self.taschentabelle.horizontalHeaderItem(8).setToolTip(tr("Bei Langlöchern kann der Achsabstand die Gesamtlänge ersetzen. Die kurze Seite immer angeben."))
         self.taschentabelle.setSelectionBehavior(QtWidgets.QAbstractItemView.SelectionBehavior.SelectRows)
         self.taschentabelle.horizontalHeader().setSectionResizeMode(QtWidgets.QHeaderView.ResizeMode.Stretch)
         self.taschentabelle.setMaximumHeight(140)
@@ -249,12 +251,13 @@ class Plattendialog(QtWidgets.QDialog):
             self.taschentabelle.setRowCount(0)
             self.taschentabelle.setRowCount(len(self.taschen))
             self.taschentabelle.setColumnHidden(7, not any(q.radius for q in self.taschen))
+            self.taschentabelle.setColumnHidden(8, not any(q.langloch for q in self.taschen))
             for i, q in enumerate(self.taschen):
-                for j in (0,1,2,3,4,5,7):
+                for j in (0,1,2,3,4,5,7,8):
                     item = QtWidgets.QTableWidgetItem()
                     if j == 0:
                         item.setFlags(item.flags() & ~QtCore.Qt.ItemFlag.ItemIsEditable)
-                    if j == 7 and not q.radius:
+                    if (j == 7 and not q.radius) or (j == 8 and not q.langloch):
                         item.setFlags(QtCore.Qt.ItemFlag.NoItemFlags)
                     self.taschentabelle.setItem(i, j, item)
                 art = QtWidgets.QComboBox()
@@ -274,6 +277,8 @@ class Plattendialog(QtWidgets.QDialog):
             if self.taschen:
                 for j, text in enumerate(self.taschenfelder, 1):
                     self.auswahl.addItem(text, j)
+                if any(q.langloch for q in self.taschen):
+                    self.auswahl.addItem(tr("Achsabstand des gewählten Langlochs"), 8)
                 if any(q.radius for q in self.taschen):
                     self.auswahl.addItem(tr("Eckradius der gewählten Tasche"), 7)
         self.innen.setTabVisible(0, bool(self.ringe))
@@ -339,6 +344,9 @@ class Plattendialog(QtWidgets.QDialog):
                 return
             if taschenspalte is None and i == 9 and self.bohrtabelle.cellWidget(zeile, 4).currentData() not in SPITZENFORMEN:
                 self.status.setText(tr("Für einen Spitzenwinkel zuerst eine Bohrung mit Bohrspitze wählen."))
+                return
+            if taschenspalte == 8 and not self.taschen[zeile].langloch:
+                self.status.setText(tr("Für den Achsabstand ein Langloch wählen."))
                 return
             if taschenspalte == 7 and not self.taschen[zeile].radius:
                 self.status.setText(tr("Für einen Eckradius eine gerundete Tasche wählen."))
@@ -409,7 +417,7 @@ class Plattendialog(QtWidgets.QDialog):
         for i, zeile in enumerate(zeilen):
             if self.taschentabelle.cellWidget(i, 6).currentIndex() == 1:
                 zeile[-1] = None
-            zeile.append(self.taschentabelle.item(i,7).text())
+            zeile.extend(self.taschentabelle.item(i,j).text() for j in (7,8))
         taschen = solltaschen(self.taschen, zeilen, masse, self.konturen[0], bohrungen)
         return bohrungen, taschen
 

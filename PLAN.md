@@ -1686,7 +1686,12 @@ shorter dimension fixes both end radii. Length and width tolerance ranges must p
 The long dimension uses an outer-to-outer dimensional location on the half cylinders and a dimension
 line between their outer tangents. The short dimension references the straight walls. Native and XCAF
 round trips verify both orientations, individual tolerances and the optional pocket depth.
-Pocket center-position PMI, inclined slots, slots dimensioned by center spacing, unequal corner radii,
+The drawing can instead give the spacing between end axes. The short width plus spacing determines
+overall length. If both lengths are dimensioned, their nominal values and available tolerance ranges
+must be compatible. An interval-only dimension may take a nominal within its limits to match the
+other dimensions. Only the entered dimensions receive PMI. Center spacing uses two derived symmetry
+centers connected to their end faces, with the graphical dimension line spanning the two axes.
+Pocket center-position PMI, inclined slots, unequal corner radii,
 other profiles, automatic cross-view association and datum/GD&T transfer remain open.
 
 ### 8.37 QIF extensions (last in the implementation order)

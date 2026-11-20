@@ -901,3 +901,88 @@ def test_langloch_quer_und_hoch_mit_gesamtmass_im_step(app, tmp_path, monkeypatc
         finally:
             d.blatt.schliesse()
             d.close()
+
+
+def test_langloch_achsabstand_als_abgeleitetes_ziel_und_masslinie(app,tmp_path,monkeypatch):
+    from dataclasses import replace
+    from pypdfium2 import PdfDocument
+    from OCC.Core.BRepAdaptor import BRepAdaptor_Surface
+    from OCC.Core.BRepGProp import brepgprop
+    from OCC.Core.GProp import GProp_GProps
+    from programm.kern.plausibilitaet import geometrie
+    from programm.kern.pmi_lesen import lies_pmi_xcaf
+    from programm.kern.vergleich_pmi import vergleiche_pmi
+    from programm.ui.lader import lade_alles
+    pdf, ziel = tmp_path/"Achsen.pdf", tmp_path/"Achsen.stp"
+    _blatt(pdf,tiefe="10 ±0.1",taschen=[(15,16,16,6,3),(44,20,6,16,3)])
+    monkeypatch.setattr(QtWidgets.QFileDialog, "getSaveFileName", lambda *args: (str(ziel), "STEP"))
+    with PdfDocument(pdf) as doc:
+        d = Plattendialog(doc, pdf)
+        try:
+            d.einheit.setCurrentIndex(1)
+            for feld, text in zip(d.texte, ("60","40","8")):
+                feld.setText(text)
+            d.ansicht.bereich.emit((.08,.1,.51,.52))
+            t = d.taschentabelle
+            assert not t.isColumnHidden(8)
+            for i, daten in enumerate((("15","16","","6 ±0.04","4"), ("44","20","6 ±0.03","16 ±0.2"))):
+                for j, text in enumerate(daten,1):
+                    t.item(i,j).setText(text)
+            t.cellWidget(1,6).setCurrentIndex(1)
+            assert not d.speichern.isEnabled()
+            t.setCurrentCell(0,8)
+            d.auswahl.setCurrentIndex(d.auswahl.findData(8))
+            d.ansicht.bereich.emit((.52,.86,.8,.96))
+            assert t.item(0,8).text() == "10 ±0.1" and d.speichern.isEnabled()
+            for ungueltig in ("10 ±10","R10","12","10 H7"):
+                t.item(1,8).setText(ungueltig)
+                assert not d.speichern.isEnabled()
+            t.item(1,8).setText("9.98–10.08")
+            assert d.speichern.isEnabled()
+            d.speichern.click()
+            erg = lade_alles(str(ziel))
+            vol = GProp_GProps()
+            brepgprop.VolumeProperties(erg.modell.form, vol)
+            assert vol.Mass() == pytest.approx(60*40*8-(10*6+9*np.pi)*12)
+            assert len(erg.pmi) == 9 and all(p.semantisch and p.grafisch for p in erg.pmi)
+            for quelle in (erg.pmi, lies_pmi_xcaf(erg.modell)):
+                gesamt, = (p for p in quelle if p.typ == "Location_LinearDistance_FromOuterToOuter")
+                assert gesamt.grenzen() == pytest.approx((16.2,15.8))
+                achsen = sorted((p for p in quelle if p.typ == "Location_LinearDistance"
+                                 and 9.98 <= p.nennwert <= 10.08),key=lambda p:p.grenzmass)
+                for p, grenzen, orte in zip(achsen, ((10.1,9.9),(10.08,9.98)),
+                                            ([(10,16),(20,16)],[(44,15),(44,25)]),strict=True):
+                    assert p.typ == "Location_LinearDistance" and p.grenzen() == pytest.approx(grenzen)
+                    assert sorted(tuple(np.round(BRepAdaptor_Surface(erg.modell.flaechen[f]).Cylinder().Location().Coord()[:2],6))
+                                  for f in p.flaechen) == orte
+            datei = erg.modell.datei
+            for p in (p for p in erg.pmi if p.nennwert == 10):
+                assert p.mittenabstand and p.merkmal() == "Abstand zwischen Symmetriezentren"
+                assert not geometrie([p], erg.modell)
+                assert geometrie([replace(p,nennwert=16)], erg.modell)
+                aenderung, = vergleiche_pmi([p],[replace(p,mittenabstand=False)])
+                assert aenderung.status == "geaendert"
+                refs = datei.entities[p.step_id].args("DIMENSIONAL_LOCATION")[2:]
+                assert all(datei.get(ref).is_a("CENTRE_OF_SYMMETRY") for ref in refs)
+                g, = (g for g in erg.grafik.values() if p.step_id in g.pmi_ids)
+                linie = g.linien[2]
+                assert np.linalg.norm(linie[1]-linie[0]) == pytest.approx(10.)
+                achse = int(p.grenzmass)
+                assert sorted(linie[:,achse]) == pytest.approx([15,25] if achse else [10,20])
+                np.testing.assert_allclose(linie[:,2], [8,8], atol=1e-6)
+        finally:
+            d.blatt.schliesse()
+            d.close()
+
+
+def test_langloch_grenzmasse_schneiden_sich_nur_bei_gemeinsam_erreichbaren_werten():
+    from programm.kern.plattentasche import _langlochmasse
+    from programm.kern.zeichnungsabgleich import lese_angabe
+    with pytest.raises(ValueError, match="unvereinbar"):
+        _langlochmasse("16 +0.5/+0.3", lese_angabe("6 ±0.03",1.), "10 ±0.1")
+    gesamt, kurz, achse = _langlochmasse("15.94–16.02", lese_angabe("5.98–6.12",1.), "10")
+    assert gesamt.nennwert == pytest.approx(kurz.nennwert+achse.nennwert)
+    assert gesamt.unten <= gesamt.nennwert <= gesamt.oben
+    assert kurz.unten <= kurz.nennwert <= kurz.oben
+    with pytest.raises(ValueError, match="widersprechen"):
+        _langlochmasse("16", lese_angabe("6",1.), "9.8–9.95")

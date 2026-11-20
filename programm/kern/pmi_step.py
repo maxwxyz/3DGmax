@@ -453,6 +453,9 @@ def _lies_mass_step(modell: StepModell, e: Entity) -> Pmi:
         aspekte = [a1, a2]
         typ = "Location_Angular" if teil == "ANGULAR_LOCATION" else LAGEN.get(name, "Location_LinearDistance")
     p = Pmi(MASS, typ=typ, name=name or "", quelle="step", step_id=e.id)
+    if typ == "Location_LinearDistance" and len(aspekte) == 2:
+        p.mittenabstand = all(isinstance(a, Ref) and (ziel := datei.get(a)) is not None
+                              and ziel.is_a("CENTRE_OF_SYMMETRY") for a in aspekte)
     werte = _werte_der_darstellung(datei, e.id)
     for notiz in werte.get("_notizen", []):
         mod = MASS_TYP1.get(notiz, MASS_TYP2.get(notiz, notiz))

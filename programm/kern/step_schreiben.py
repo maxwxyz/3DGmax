@@ -269,6 +269,11 @@ class _Anhang:
             self.neu(f"GEOMETRIC_ITEM_SPECIFIC_USAGE('','',#{sa},#{self.darst},#{f})")
         return sa
 
+    def symmetriemitte(self, ursprung):
+        mitte = self.neu(f"CENTRE_OF_SYMMETRY('','',#{self.pds},.F.)")
+        self.neu(f"SHAPE_ASPECT_DERIVING_RELATIONSHIP('','',#{mitte},#{ursprung})")
+        return mitte
+
     def winkel_dateiwert(self, grad: float) -> float:
         """Grad in die Winkeleinheit der Datei (SI: Radiant)."""
         e = self.datei.entities.get(self.einheit_winkel)
@@ -447,6 +452,10 @@ def _schreibe_mass(a: _Anhang, p) -> str | None:
         s1, s2 = a.aspekt({f1}), a.aspekt({f2}, ziel=p.massziel_step)
         if s1 is None or s2 is None:
             return tr("Flächen ohne Entsprechung in der Datei")
+        if p.mittenabstand:
+            if p.typ != "Location_LinearDistance" or p.massziel_step is not None:
+                return tr("Maßart nicht schreibbar")
+            s1, s2 = a.symmetriemitte(s1), a.symmetriemitte(s2)
         dim = a.neu(f"DIMENSIONAL_LOCATION('{name}','',#{s1},#{s2})" if p.typ != "Location_Angular"
                     else f"ANGULAR_LOCATION('angular location','',#{s1},#{s2},.EQUAL.)")
     else:

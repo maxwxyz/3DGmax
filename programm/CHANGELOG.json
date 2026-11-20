@@ -1,6 +1,7 @@
 {
  "unreleased": {
   "de": [
+   "Langlöcher lassen sich aus Achsabstand und Breite einer PDF-Zeichnung rekonstruieren. STEP speichert den Achsabstand mit den angegebenen Toleranzen als grafisches und semantisches Maß zwischen beiden Endachsen. Eine zusätzlich angegebene Gesamtlänge wird geprüft und mit exportiert.",
    "Waagerechte und senkrechte Langlöcher lassen sich aus einem PDF-Grundriss als Durchbruch oder Tasche mit flachem Grund rekonstruieren. Die STEP-Bemaßung verknüpft die Gesamtlänge mit den halbrunden Enden, die Breite mit den geraden Wänden und die Tiefe mit dem Taschengrund.",
    "Aus PDF-Vektorkonturen lassen sich rechteckige Taschen und Durchbrüche mit vier gleichen Eckradien rekonstruieren. STEP verknüpft das tolerierte Radiusmaß mit allen vier Eckflächen der jeweiligen Tasche.",
    "Sacklöcher können eine kegelige Bohrspitze erhalten. Je nach Zeichnung verweist das Tiefenmaß im STEP auf den Kreis am Zylinderende oder den Scheitelpunkt. Der Spitzenwinkel bleibt als toleriertes Winkelmaß am Kegel erhalten.",
@@ -148,6 +149,7 @@
    "Grafische PMI aus unterstützten AP203e2-Kurvenmodellen lassen sich als STEP AP242 Edition 3 ausgeben. Facettierte STEP-Modelle behalten ihre Flächenbezüge. Gepackte STEP-Dateien lassen sich als unkomprimierte STEP-Kopie speichern."
   ],
   "en": [
+   "Obround slots can be reconstructed from a PDF drawing using center spacing and width. STEP retains the toleranced spacing as a graphical and semantic dimension between the two end axes. An additional overall length is checked and exported when supplied.",
    "Horizontal and vertical obround slots can be reconstructed from a PDF top view as through openings or flat-bottom pockets. STEP links overall length to the semicircular ends, width to the straight walls and depth to the pocket floor.",
    "Rectangular pockets and through openings with four equal corner radii can be reconstructed from PDF vector contours. STEP links the toleranced radius to all four corner faces of the corresponding pocket.",
    "Blind holes can include a conical drill point. The exported STEP depth references the circle at the cylindrical end or the apex according to the drawing. The included point angle remains a toleranced dimension on the cone.",

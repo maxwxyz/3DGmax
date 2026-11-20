@@ -2,6 +2,32 @@
 
 ## Current state, 2026-11-21
 
+### Reconstruct obround slots from their end-axis spacing
+
+- Checked PLAN §§8.16, 8.28 and 8.35–8.37 and docs/Roadmap.md. The PDF picker and pocket table
+  accept spacing between the end axes in either orientation. Width plus spacing fixes the geometry.
+  An explicitly entered overall length is checked against the other dimensions and exported as a
+  separate characteristic. Limit-only dimensions can use a compatible nominal inside the printed
+  range. The slot keeps the drawing limits. A calculated overall length adds no extra PMI.
+- Verified a 16 × 6 mm blind slot specified by a 10 ±0.1 mm spacing and a vertical through slot
+  whose drawing supplied overall length, width and a 9.98–10.08 mm spacing. The STEP uses two
+  CENTRE_OF_SYMMETRY aspects derived from the respective end faces. Reloads confirmed both pairs
+  of faces and the printed limits. The native reader retains the 10 mm nominal fixed by the other
+  dimensions. XCAF's value for the asymmetric interval is its midpoint, 10.03 mm. The actual
+  axes and graphical dimension lines are 10 mm apart. The model comparison detects a change in
+  the targets from derived centers to the original faces even if the numerical values agree.
+  All 209 affected tests, 83 drawing/STEP tests and eight macOS screen tests passed. The final
+  reconstruction run passed all 24 tests, including incompatible ranges.
+- The next §8.36 package is turned parts. A local OCCT probe revolved an axial profile with
+  Ø20 × 12 mm and Ø12 × 18 mm lands. Native and XCAF STEP reloads returned four face-linked
+  dimensions, each diameter on its own cylinder and each length between its end or shoulder planes.
+  The volume was 5805.663224 mm³. A separate rendered PDF probe included three cylindrical lands
+  with lengths 12, 18 and 8 mm and diameters 20, 12 and 20 mm. Column envelopes reproduced
+  these six dimensions to within 0.11 mm, including both equal-diameter lands. Pen width affected
+  the transition pixels. Centerline extraction, rejection of ambiguous outlines and connection
+  to the user-facing workflow remain open. Inclined slots, datum transfer
+  and whole-drawing comparison are also open. QIF stays last.
+
 ### Obround slots dimensioned by their overall length
 
 - Checked PLAN §§8.16, 8.28 and 8.35–8.37 and docs/Roadmap.md. The plate dialog accepts a

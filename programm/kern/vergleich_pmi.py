@@ -21,6 +21,7 @@ FELD_TEXT = {"nennwert": "Nennwert", "oben": "oberes Abmaß/Höchstmaß", "unten
              "passung": "Passung", "wert": "Toleranzwert", "zone": "Zone", "zonen_wert": "Zonenwert",
              "projektionsversatz": "Projektionsversatz", "projektionsflaechen": "Projektionsursprung",
              "maximum_toleranz": "Höchstwert der geometrischen Toleranz",
+             "mittenabstand": "Abstand zwischen Symmetriezentren",
              "material": "Materialbedingung", "modifikatoren": "Modifikatoren", "bezuege": "Bezüge",
              "flaechen": "zugeordnete Flächen", "name": "Name", "geometrie": "Geometrie", "text": "Text"}
 
@@ -138,6 +139,9 @@ def _vergleiche_felder(a: Pmi, b: Pmi, zuordnung, zuordnung_ab=None, geo_status=
     if (alt or neu) and ({zuordnung.get(i) for i in neu} != alt):
         felder.append(("projektionsflaechen", ", ".join(map(str, sorted(alt))) or "–",
                        ", ".join(map(str, sorted(neu))) or "–"))
+    if a.mittenabstand != b.mittenabstand:
+        felder.append(("mittenabstand", tr("Ja") if a.mittenabstand else tr("Nein"),
+                       tr("Ja") if b.mittenabstand else tr("Nein")))
     if sorted(a.modifikatoren) != sorted(b.modifikatoren):
         felder.append(("modifikatoren", ", ".join(a.modifikatoren) or "–", ", ".join(b.modifikatoren) or "–"))
     if a.bezug_text() != b.bezug_text():
