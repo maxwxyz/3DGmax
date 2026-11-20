@@ -2,6 +2,20 @@
 
 ## Current state, 2026-11-20
 
+### Follow plotted leaders from a diameter row shared with a control frame
+
+- Checked PLAN §8.35 and docs/Roadmap.md. A triangular arrowhead may be filled, outlined in a single
+  path, or assembled from separately plotted segments. Its contour must close. A hatch inside the
+  triangle is allowed. A branch leaving the triangle or a quantity prefix such as 2X prevents an
+  automatic association via the diameter row above a frame.
+- In the review dialog, D2MI 904 sheet 2 registered ten circles and automatically associated the
+  0.005 inch position control with maximum material and A|B|C to the cylinder at (63.5, 63.1952) mm.
+  The STEP reports the same control on both half-cylinder faces. Several other controls carry the
+  same printed value. The repeated-hole callout and the separate counterbore frame stayed open.
+  All 30 affected tests and 28 focused drawing cases passed.
+- Multiple-hole leaders, sections, non-circular targets and whole-drawing verification remain open.
+  Reconstruction is §8.36 and QIF remains last in §8.37.
+
 ### Register hole patterns and follow leaders on PDF drawings
 
 - Checked PLAN §8.35 against docs/Roadmap.md. The review registers a selected principal view
@@ -10,7 +24,7 @@
   the exact printed value. The reviewer can select the target ring directly and confirm it in the CSV.
 - On sheet 2 of D2MI 904 the selected main view returned ten matched circles. The hole at sheet
   pixel (384.35, 296.65) maps to both half-cylinder faces at model (6.35, 25.4) mm, radius
-  2.38125 mm. The reference sheet needed manual target selection. Constructed PDF/solid pairs
+  2.38125 mm. This initial stage required manual target selection on the reference sheet. Constructed PDF/solid pairs
   separately verify automatic leader tracing, changed values, branching, rotation, symmetry,
   separate blind holes at the same projected location, and cancellation on a page change. A conflict
   with an earlier approved value-only match reopens the finding. All 15 affected tests and all 22

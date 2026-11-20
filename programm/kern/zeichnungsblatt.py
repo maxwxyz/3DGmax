@@ -220,6 +220,25 @@ class Zeichnungsblatt:
         finally:
             bitmap.close()
 
+    def durchmesseranfang(self, box):
+        """Die obere Zeile muss unmittelbar mit einem Durchmessersymbol und einer Zahl beginnen."""
+        mask = self._mask(box, 0, 72)
+        if mask is None:
+            return False
+        zeichen = schrift._bildzeichen(mask)
+        if len(zeichen) < 2 or schrift._lies_zeile(zeichen[:1], _vorlagen()) != "⌀":
+            return False
+        for i in range(1, min(4, len(zeichen))):
+            wort = schrift._lies_zeile(zeichen[i:i+1], _vorlagen())
+            if wort.isdecimal():
+                return True
+            # Ein vorangestellter Dezimalpunkt liegt unter der Zeichenmitte.
+            _, (_, y, _, u) = zeichen[i]
+            _, (_, oben, _, unten) = zeichen[0]
+            if y < (oben+unten)/2 or u-y > .36*(unten-oben):
+                return False
+        return False
+
     def lies(self, box, rahmenfach=False, drehung=0):
         text = self._pdftext(box)
         if text:

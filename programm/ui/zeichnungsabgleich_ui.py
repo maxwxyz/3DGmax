@@ -337,7 +337,7 @@ class Zeichnungsabgleich(QtWidgets.QDialog):
         nr = self.blatt.nummer
         self.kreise[nr] = arbeit.treffer
         for a in self.seiten[nr]:
-            k = self.blattgeometrie.hinweisziel(a.box, arbeit.treffer)
+            k = self._hinweisziel(a)
             self.zielvorschlaege[a] = k
             if k and a.modell is not None:
                 a.zielkonflikt = not bool(k.flaechen & a.modell.flaechen)
@@ -351,6 +351,10 @@ class Zeichnungsabgleich(QtWidgets.QDialog):
         else:
             self._auswahl(self.tabelle.currentRow(), entwurf=True)
         self._status()
+
+    def _hinweisziel(self, a):
+        pruefe = self.blatt.durchmesseranfang if "|" in a.text else None
+        return self.blattgeometrie.hinweisziel(a.box, self.kreise.get(a.seite, []), pruefe)
 
     def _kreis_waehlen(self, k):
         if isinstance(self.aktiv, za.Blattangabe):
@@ -479,7 +483,7 @@ class Zeichnungsabgleich(QtWidgets.QDialog):
         a = za.Blattangabe(self.blatt.nummer, box, self.blatt.lies(box))
         self.seiten[a.seite].append(a)
         if self.blattgeometrie is not None:
-            self.zielvorschlaege[a] = self.blattgeometrie.hinweisziel(box, self.kreise.get(a.seite, []))
+            self.zielvorschlaege[a] = self._hinweisziel(a)
         self._liste(a)
 
     def _entferne(self):

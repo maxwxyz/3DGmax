@@ -1586,7 +1586,10 @@ Complete circular paths and printed annuli are matched to full circular boundari
 The geometric fit checks a common scale, translation, quarter turns and reflections in the three
 principal planes. At least three non-collinear centers must agree. Only face associations common to
 all best fits are proposed. Coaxial blind holes at separate depths remain ambiguous. A direct or
-bent, unbranched leader with a filled triangular arrowhead can suggest the PMI on its target ring.
+bent, unbranched leader can suggest the PMI on its target ring. Arrowheads may be filled, hatched or
+outlined in separate strokes. For a control frame below a diameter annotation, the review follows
+the upper row’s leader when it begins with a diameter symbol and a number. A quantity prefix or an
+open arrowhead leaves this association unresolved.
 The reviewer can also click a matched ring. The CSV stores the accepted circle in sheet coordinates.
 
 Remaining work includes other view orientations, sections, non-circular features and compound leaders, automatically

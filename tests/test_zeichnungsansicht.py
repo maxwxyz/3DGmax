@@ -122,11 +122,24 @@ def test_d2mi_904_einzelbohrung_in_hauptansicht(app):
     pfad = Path(__file__).parents[1] / "daten/nist_d2mi/NIST-D2MI-Models/827-9999-904 rev c.pdf"
     if not pfad.exists():
         pytest.skip("Lokales NIST-D2MI-Referenzpaket fehlt")
-    modell = lade_alles(str(pfad.with_suffix(".stp"))).modell
+    erg = lade_alles(str(pfad.with_suffix(".stp")))
+    modell = erg.modell
     with pdf.PdfDocument(pfad) as doc:
         blatt = Zeichnungsblatt(doc, 1)
         geo = Blattgeometrie(blatt)
         treffer = zuordnen(geo.im_bereich((.17, .09, .395, .36)), modellkreise(modell))
+        rahmen = [a for a in blatt.fundstellen() if a.text.startswith("⌖")]
+        zugeordnet = [(a, k) for a in rahmen if (k := geo.hinweisziel(a.box, treffer, blatt.durchmesseranfang))]
+        assert len(zugeordnet) == 1
+        a, ziel = zugeordnet[0]
+        assert a.text == "⌖ | ⌀.005Ⓜ | A | B | C"
+        gleich = [p for p in erg.pmi if p.typ == "Position" and p.material == "M" and p.wert == pytest.approx(.127)]
+        assert len(gleich) > 1
+        p, = [p for p in gleich if p.flaechen & ziel.flaechen]
+        assert p.bezug_text() == "A|B|C" and p.flaechen == set(ziel.flaechen)
+        for i in p.flaechen:
+            zylinder = BRepAdaptor_Surface(modell.flaechen[i]).Cylinder()
+            assert zylinder.Location().Coord()[:2] == pytest.approx((63.5, 63.1952))
         blatt.schliesse()
     k, = [k for k in treffer if np.linalg.norm([k.x-384.35, k.y-296.65]) < .1]
     assert len(k.flaechen) == 2
@@ -186,3 +199,58 @@ def test_wechsel_des_blatts_verwirft_laufende_zuordnung(app, tmp_path, monkeypat
             weiter.set()
             d.blatt.schliesse()
             d.close()
+
+
+@pytest.mark.parametrize(("geschlossen", "abzweig", "einzeln"),
+                         [(True, False, False), (True, False, True), (False, False, True), (True, True, False)])
+def test_pfeil_aus_getrennten_strichen_braucht_geschlossene_kontur(app, tmp_path, geschlossen, abzweig, einzeln):
+    from pypdf import PdfWriter
+    from pypdf.generic import DecodedStreamObject, NameObject
+    import pypdfium2 as pdf
+    w = PdfWriter()
+    seite = w.add_blank_page(400, 200)
+    # Der Kreis rechts wird links vom Pfeil getroffen. Die Schraffur beruehrt den Hinweisstrich.
+    linien = ["0.45 w", "90 100 m 240 100 l S",
+              "232 101.3 m 232 98.7 l S 232 98.7 m 240 100 l S" if einzeln else "232 101.3 m 232 98.7 l 240 100 l S", "232 100.1 m 236 100.1 l S"]
+    if geschlossen:
+        linien.append("240 100 m 232 101.3 l S")
+    if abzweig:
+        linien.append("235 100 m 235 102 l S")
+    phi = np.linspace(0., 2*np.pi, 65)
+    for i, t in enumerate(phi):
+        linien.append(f"{250+10*np.cos(t):.4f} {100+10*np.sin(t):.4f} " + ("m" if i == 0 else "l"))
+    linien.append("h S")
+    strom = DecodedStreamObject()
+    strom.set_data("\n".join(linien).encode("ascii"))
+    seite[NameObject("/Contents")] = w._add_object(strom)
+    pfad = tmp_path / "Kontur.pdf"
+    w.write(pfad)
+    with pdf.PdfDocument(pfad) as doc:
+        blatt = Zeichnungsblatt(doc, 0)
+        g = Blattgeometrie(blatt)
+        kreis, = g.kreise
+        ring = replace(kreis, flaechen=frozenset([42]))
+        ziel = g.hinweisziel((50/400, .45, 90/400, .55), [ring])
+        assert ziel == (ring if geschlossen and not abzweig else None)
+        blatt.schliesse()
+
+
+@pytest.mark.parametrize("anzahl", [False, True])
+def test_anschluss_am_durchmesser_unterscheidet_mengenpraefix(app, tmp_path, anzahl):
+    import pypdfium2 as pdf
+    bild = QtGui.QImage(str(Path(__file__).parent / "daten/nist_d2mi_904_rahmen.png")).copy(98, 15, 131, 39)
+    pfad = tmp_path / "Masszeile.pdf"
+    schreiber = QtGui.QPdfWriter(str(pfad))
+    schreiber.setResolution(72)
+    with QtGui.QPainter(schreiber) as maler:
+        if anzahl:
+            maler.setFont(QtGui.QFont("Helvetica", 12))
+            maler.drawText(40, 62, "2X")
+        maler.drawImage(QtCore.QRectF(60 if anzahl else 40, 50, bild.width()/3, bild.height()/3), bild)
+    with pdf.PdfDocument(pfad) as doc:
+        blatt = Zeichnungsblatt(doc, 0)
+        h, w = blatt.bild.shape[:2]
+        y, x = np.nonzero(blatt.bild.min(axis=2) < 190)
+        box = ((x.min()-4)/w, (y.min()-4)/h, (x.max()+4)/w, (y.max()+4)/h)
+        assert blatt.durchmesseranfang(box) != anzahl
+        blatt.schliesse()

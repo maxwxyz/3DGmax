@@ -77,8 +77,16 @@ def _pfeil(p):
     spitze = p[(i+2) % 3]
     if (1 <= kanten[i] < .65 * kanten.max() and kanten.max() < 45
             and abs(kanten[(i+1) % 3]-kanten[(i+2) % 3]) < .4*kanten[i]):
-        return spitze, basis
+        return spitze, basis, p
     return None
+
+
+def _im_dreieck(linie, ecken):
+    # Vorzeichenbehaftete Abstaende zu den drei Kanten, fuer beide Strichenden.
+    kanten = np.roll(ecken, -1, axis=0) - ecken
+    delta = linie[:, None, :] - ecken
+    abstand = (kanten[:, 0]*delta[:, :, 1] - kanten[:, 1]*delta[:, :, 0]) / np.linalg.norm(kanten, axis=1)
+    return (abstand >= -.6).all() or (abstand <= .6).all()
 
 
 def _duenner_balken(p):
@@ -119,7 +127,7 @@ class Blattgeometrie:
         o = np.array(ks.to_page(0, 0))
         basis = np.array([(ks.to_page(w, 0)-o)/w, (ks.to_page(0, h)-o)/h])
         zur_ansicht = np.linalg.inv(basis)
-        kreise, linien, pfeile = {}, [], []
+        kreise, linien, pfeile, konturen = {}, [], [], []
         for obj in blatt.seite.get_objects(filter=[raw.FPDF_PAGEOBJ_PATH]):
             fuellung, strich = ct.c_int(), ct.c_int()
             if not raw.FPDFPath_GetDrawMode(obj, fuellung, strich):
@@ -151,10 +159,13 @@ class Blattgeometrie:
                     balken = _duenner_balken(p)
                     if balken is not None and _sichtbar(mask, np.linspace(*balken, 9)):
                         linien.append(balken)
-                if fuellung.value and 3 <= len(p) <= 5:
+                if 3 <= len(p) <= 5:
                     pfeil = _pfeil(p)
-                    if pfeil is not None and _sichtbar(mask, [p.mean(axis=0)]):
-                        pfeile.append(pfeil)
+                    if pfeil is not None:
+                        if fuellung.value and _sichtbar(mask, [p.mean(axis=0)]):
+                            pfeile.append(pfeil)
+                        elif strich.value and _sichtbar(mask, p):
+                            konturen.append((p[0], p[-1], pfeil))
             if len(ringraender) == 2:
                 (k, sinn), (j, sinn2) = ringraender
                 if (math.hypot(k.x-j.x, k.y-j.y) < .15 and abs(k.r-j.r) < min(4., .18*k.r)
@@ -164,14 +175,39 @@ class Blattgeometrie:
         self.kreise = list(kreise.values())
         self.linien = np.array(linien).reshape(-1,2,2)
         self.enden = cKDTree(self.linien.reshape(-1,2))
-        self.pfeile = pfeile
+        # Bei geplotteten Pfeilen kann die dritte Dreiecksseite ein eigener Strich sein.
+        for a, b, pfeil in konturen:
+            nachbarn = self.enden.query_ball_point(a, .3)
+            if np.linalg.norm(a-b) <= .3 or any(np.linalg.norm(self.linien[j//2,1-j%2]-b) <= .3 for j in nachbarn):
+                pfeile.append(pfeil)
+        # Auch drei einzeln geplottete Seiten bilden einen geschlossenen Pfeilkopf.
+        laengen = np.linalg.norm(self.linien[:, 0]-self.linien[:, 1], axis=1)
+        for i in np.flatnonzero(laengen < .65 * 45):
+            a, b = self.linien[i]
+            links = self.enden.query_ball_point(a, .3)
+            rechts = self.enden.query_ball_point(b, .3)
+            if not (2 <= len(links) <= 12 and 2 <= len(rechts) <= 12):
+                continue
+            for j in links:
+                if j//2 == i:
+                    continue
+                c = self.linien[j//2, 1-j%2]
+                if not any(k//2 not in (i, j//2) and np.linalg.norm(self.linien[k//2, 1-k%2]-c) <= .3
+                           for k in rechts):
+                    continue
+                kandidat = _pfeil(np.array([a, b, c]))
+                if kandidat is not None and np.linalg.norm(kandidat[0]-c) < .3:
+                    pfeile.append(kandidat)
+        eindeutig = {tuple(np.round(np.concatenate(p[:2]), 1)): p for p in pfeile}
+        self.pfeile = list(eindeutig.values())
+        self.pfeilenden = cKDTree(np.array([eintrag[:2] for eintrag in self.pfeile]).reshape(-1,2))
 
     def im_bereich(self, box):
         l, t, r, b = (np.array(box).reshape(2,2) * self.groesse).ravel()
         return [k for k in self.kreise if l <= k.x-k.r and k.x+k.r <= r and t <= k.y-k.r and k.y+k.r <= b]
 
-    def hinweisziel(self, box, kreise):
-        """Ein einzelner unverzweigter Linienzug vom Beschriftungsrand zur gefuellten Pfeilspitze."""
+    def hinweisziel(self, box, kreise, durchmesseranfang=None):
+        """Ein einzelner unverzweigter Linienzug vom Beschriftungsrand zur Dreiecksspitze."""
         if not self.pfeile or not kreise:
             return None
         (l,t), (r,b) = np.array(box).reshape(2,2) * self.groesse
@@ -183,30 +219,62 @@ class Blattgeometrie:
                 weg = self.linien[i,1-k] - self.linien[i,k]
                 if weg @ aussen > .25*np.linalg.norm(weg):
                     starts.append(index)
+        if not starts and durchmesseranfang is not None and r-l > 2*(b-t):
+            starts = self._anschluss_am_mass(l, t, b-t, durchmesseranfang)
         if len(starts) != 1:
             return None
-        index, benutzt = starts[0], set()
+        return self._verfolge(starts[0], kreise)
+
+    def _anschluss_am_mass(self, l, t, h, durchmesseranfang):
+        # Der Pfeil kann an der Masszeile unmittelbar ueber dem Toleranzrahmen enden.
+        starts = []
+        for j in self.enden.query_ball_point((l, t-.6*h), 1.7*h):
+            i, k = divmod(j, 2)
+            endpunkt, weiter = self.linien[i, [k, 1-k]]
+            x, y = endpunkt
+            if not (l-1.6*h <= x <= l+.4*h and t-1.15*h <= y <= t-.25*h):
+                continue
+            if abs(weiter[1]-y) > .5 or x-weiter[0] < h*.45:
+                continue
+            if len(self.enden.query_ball_point(endpunkt, 1.5)) != 1:
+                continue
+            box = np.array([x+1, y-.49*h, x+3.6*h, min(t-1, y+.49*h)]).reshape(2,2)
+            if durchmesseranfang(tuple(np.clip(box/self.groesse, 0., 1.).ravel())):
+                starts.append(j)
+        return starts
+
+    def _verfolge(self, index, kreise):
+        benutzt = set()
         while index//2 not in benutzt and len(benutzt) < 4:
             i, k = divmod(index, 2)
             benutzt.add(i)
             start, ende = self.linien[i, [k, 1-k]]
             laenge = np.linalg.norm(ende-start)
             richtung = (ende-start) / laenge
+            nahe = {j//2 for j in self.pfeilenden.query_ball_point(ende, 2)}
+            spitzen = []
+            for j in nahe:
+                s, basis, kontur = self.pfeile[j]
+                if richtung @ (s-basis) > .94*np.linalg.norm(s-basis):
+                    spitzen.append((s, kontur))
             kandidaten = self.enden.query_ball_point((start+ende)/2, laenge/2+1.5)
             for j in kandidaten:
                 if j//2 in benutzt:
                     continue
                 v = self.linien[j//2, j%2] - start
                 dist = v @ richtung
-                if 1.5 < dist < laenge-1.5 and np.linalg.norm(v-dist*richtung) < 1.5:
+                am_kopf = bool(spitzen) and np.linalg.norm(v-(ende-start)) <= 1.5
+                auf_linie = 1.5 < dist < laenge-1.5 and np.linalg.norm(v-dist*richtung) < 1.5
+                if am_kopf or auf_linie:
+                    # Kontur und Schraffur innerhalb des Pfeilkopfs sind keine Verzweigung.
+                    if len(spitzen) == 1:
+                        if _im_dreieck(self.linien[j//2], spitzen[0][1]):
+                            continue
                     return None
-            spitzen = [s for s, basis in self.pfeile if
-                       min(np.linalg.norm(ende-s), np.linalg.norm(ende-basis)) < 2
-                       and richtung @ (s-basis) > .94*np.linalg.norm(s-basis)]
             if spitzen:
                 if len(spitzen) != 1:
                     return None
-                x,y = spitzen[0]
+                x,y = spitzen[0][0]
                 # Auch unbekannte oder konzentrische Nachbarkreise koennen das Hinweisziel sein.
                 alle = [a for a in self.kreise if abs(math.hypot(a.x-x, a.y-y)-a.r) < 1.6]
                 if len(alle) == 1:
