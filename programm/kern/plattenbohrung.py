@@ -103,16 +103,19 @@ def plattenumriss(bild, box, kreise, rundungen=()):
         if rundmitten is not None:
             nachbarn = rundmitten.query_ball_point((x, y), 3., p=np.inf)
             rund = passende_rundung(teil, l+xx.start, t+yy.start, (rundungen[j] for j in nachbarn))
+        langloch = False
         if rund is None:
             rand = tintenrechteck(np.pad(teil, 1), l+xx.start-1, t+yy.start-1)
             if rand is None:
                 return None
             radius = 0.
         else:
-            rand, radius = rund[:4], rund[4]/breite
+            rand = rund[:4]
+            langloch = abs(min(rand[2:]-rand[:2])/2-rund[4]) < 1e-6
+            radius = 0. if langloch else rund[4]/breite
         x1, y1, x2, y2 = rand
         taschen.append(Taschenkontur((x1/w,y1/h,x2/w,y2/h), ((x1+x2)/2-links)/breite,
-                                    (unten-(y1+y2)/2)/hoehe, (x2-x1)/breite, (y2-y1)/hoehe, radius))
+                                    (unten-(y1+y2)/2)/hoehe, (x2-x1)/breite, (y2-y1)/hoehe, radius, langloch))
     bohrungen = _ringgruppen(ringe, links, unten, breite, hoehe)
     if bohrungen is None:
         return None

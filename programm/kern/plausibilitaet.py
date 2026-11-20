@@ -74,6 +74,50 @@ def ebene_zur_achse(flaechen):
     return None
 
 
+def langlochenden(flaechen):
+    """Aeussere Scheitel zweier gegenueberliegender Halbzylinder auf gemeinsamer Hoehe."""
+    from OCC.Core.BRep import BRep_Tool
+    from OCC.Core.BRepAdaptor import BRepAdaptor_Surface
+    from OCC.Core.BRepClass import BRepClass_FaceClassifier
+    from OCC.Core.GeomAbs import GeomAbs_Cylinder
+    from OCC.Core.gp import gp_Pnt2d
+    from OCC.Core.TopAbs import TopAbs_IN, TopAbs_ON
+    if len(flaechen) != 2 or any(BRep_Tool.Surface(f) is None for f in flaechen):
+        return None
+    zylinder = [BRepAdaptor_Surface(f) for f in flaechen]
+    if any(s.GetType() != GeomAbs_Cylinder or abs(s.LastUParameter()-s.FirstUParameter()-np.pi) > 1e-6 for s in zylinder):
+        return None
+    achsen = [np.array(s.Cylinder().Axis().Direction().Coord()) for s in zylinder]
+    n = achsen[0].copy()
+    if np.linalg.norm(np.cross(achsen[1], n)) > 1e-7:
+        return None
+    if n[np.argmax(abs(n))] < 0:
+        n = -n
+    lagen = [np.array(s.Cylinder().Location().Coord()) for s in zylinder]
+    bereiche = [sorted((ort@n+v*(a@n) for v in (s.FirstVParameter(),s.LastVParameter())))
+                for ort,a,s in zip(lagen,achsen,zylinder)]
+    oben = min(b[1] for b in bereiche)
+    if oben <= max(b[0] for b in bereiche):
+        return None
+    delta = lagen[1]-lagen[0]
+    quer = delta-n*(delta@n)
+    if np.linalg.norm(quer) < 1e-7:
+        return None
+    quer /= np.linalg.norm(quer)
+    punkte = []
+    for i, s in enumerate(zylinder):
+        u = (s.FirstUParameter()+s.LastUParameter())/2
+        v = (oben-lagen[i]@n)/(achsen[i]@n)
+        fuss = lagen[i]+v*achsen[i]
+        punkt = np.array(s.Value(u,v).Coord())
+        if np.linalg.norm((punkt-fuss)/s.Cylinder().Radius()-(2*i-1)*quer) > 1e-6:
+            return None
+        if BRepClass_FaceClassifier(flaechen[i], gp_Pnt2d(u,v), 1e-7).State() not in (TopAbs_IN, TopAbs_ON):
+            return None
+        punkte.append(punkt)
+    return punkte[0], punkte[1], n
+
+
 def hierarchie(pmi, modell) -> list:
     from .pmi_bericht import WARNUNG
     out = []
@@ -295,6 +339,10 @@ def geometrie(pmi, modell) -> list:
             paar = ebene_zur_achse(flaechen)
             if paar is not None:
                 ist = np.linalg.norm(paar[2] - paar[1])
+        elif p.typ == "Location_LinearDistance_FromOuterToOuter":
+            enden = langlochenden(flaechen)
+            if enden is not None:
+                ist = np.linalg.norm(enden[1]-enden[0])
         if ist is not None and abs(ist - abs(p.nennwert)) > GEOMETRIE_TOLERANZ:
             out.append(_befund(WARNUNG, "geometrie", tr("Nennmaß {:.4g} passt nicht zum Modell ({:.4f})").format(
                 abs(p.nennwert), ist), [p.nummer], p.flaechen))

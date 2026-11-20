@@ -33,6 +33,13 @@ class Plattentasche:
     hoehe: Pmi
     tiefe: Pmi | None
     radius: Pmi | None = None
+    langloch: bool = False
+
+    @property
+    def rundungsradius(self):
+        if self.langloch:
+            return min(self.breite.nennwert, self.hoehe.nennwert)/2
+        return self.radius.nennwert if self.radius else 0.
 
 
 def rechteckgrenzen(bild, box):
@@ -172,6 +179,9 @@ def _plattenform(masse, bohrungen, taschen):
     for tasche in taschen:
         x, y = tasche.breite.nennwert, tasche.hoehe.nennwert
         boden = dicke-tasche.tiefe.nennwert if tasche.tiefe else -zugabe
+        if tasche.langloch:
+            werkzeuge.Append(_langlochwerkzeug(tasche, boden, dicke+zugabe-boden))
+            continue
         ecke = gp_Pnt(tasche.x-x/2, tasche.y-y/2, boden)
         werkzeug = BRepPrimAPI_MakeBox(ecke, x, y, dicke+zugabe-boden).Shape()
         if tasche.radius:
@@ -184,6 +194,28 @@ def _plattenform(masse, bohrungen, taschen):
     if not schnitt.IsDone() or not BRepCheck_Analyzer(schnitt.Shape()).IsValid():
         raise ValueError(tr("Die Innenkonturen konnten nicht ausgeschnitten werden."))
     return schnitt.Shape()
+
+
+def _langlochwerkzeug(tasche, boden, tiefe):
+    from OCC.Core.BRepBuilderAPI import BRepBuilderAPI_MakeEdge, BRepBuilderAPI_MakeWire, BRepBuilderAPI_MakeFace
+    from OCC.Core.BRepPrimAPI import BRepPrimAPI_MakePrism
+    from OCC.Core.GC import GC_MakeArcOfCircle
+    from OCC.Core.gp import gp_Pnt, gp_Vec
+    x, y = tasche.breite.nennwert, tasche.hoehe.nennwert
+    r, a = tasche.rundungsradius, abs(x-y)/2
+
+    def punkt(langs, quer):
+        dx, dy = (langs, quer) if x > y else (-quer, langs)
+        return gp_Pnt(tasche.x+dx, tasche.y+dy, boden)
+
+    links, rechts = punkt(-a,r), punkt(a,r)
+    unten_rechts, unten_links = punkt(a,-r), punkt(-a,-r)
+    draht = BRepBuilderAPI_MakeWire()
+    draht.Add(BRepBuilderAPI_MakeEdge(links, rechts).Edge())
+    draht.Add(BRepBuilderAPI_MakeEdge(GC_MakeArcOfCircle(rechts, punkt(a+r,0), unten_rechts).Value()).Edge())
+    draht.Add(BRepBuilderAPI_MakeEdge(unten_rechts, unten_links).Edge())
+    draht.Add(BRepBuilderAPI_MakeEdge(GC_MakeArcOfCircle(unten_links, punkt(-a-r,0), links).Value()).Edge())
+    return BRepPrimAPI_MakePrism(BRepBuilderAPI_MakeFace(draht.Wire()).Face(), gp_Vec(0,0,tiefe)).Shape()
 
 
 def _runde_senkrechte_kanten(form, radius):
@@ -214,7 +246,7 @@ def _flaechenmasse(modell, masse, bohrungen, taschen):
     spitzen = [set() for _ in bohrungen]
     ebenen = [{}, {}, {}]
     horizontal = ebenen[2]
-    viertelkreise = {}
+    viertelkreise, halbkreise = {}, {}
     for i, flaeche in enumerate(modell.flaechen):
         s = BRepAdaptor_Surface(flaeche)
         if s.GetType() == GeomAbs_Plane:
@@ -234,7 +266,11 @@ def _flaechenmasse(modell, masse, bohrungen, taschen):
             else:
                 z = s.Cylinder()
                 ort, rad = z.Location(), z.Radius()
-                if abs(s.LastUParameter()-s.FirstUParameter()-np.pi/2) < 1e-6:
+                winkel = s.LastUParameter()-s.FirstUParameter()
+                if abs(winkel-np.pi) < 1e-6:
+                    halbkreise[i] = (ort.X(), ort.Y(), rad)
+                    continue
+                if abs(winkel-np.pi/2) < 1e-6:
                     viertelkreise[i] = (ort.X(), ort.Y(), rad)
                     continue
             treffer = [j for j, b in enumerate(bohrungen) if abs(ort.X()-b.x) < 1e-6
@@ -294,8 +330,11 @@ def _flaechenmasse(modell, masse, bohrungen, taschen):
                     flaechen.append(deckel | boden)
                 eintritt = boden
         for tasche in taschen:
-            bezuege = _taschenflaechen(tasche, dicke, deckel, ebenen, nachbarn, viertelkreise)
-            alle.extend((tasche.breite, tasche.hoehe))
+            bezuege = _taschenflaechen(tasche, dicke, deckel, ebenen, nachbarn, viertelkreise, halbkreise)
+            for mass in (tasche.breite, tasche.hoehe):
+                if tasche.langloch and mass.nennwert > 2*tasche.rundungsradius:
+                    mass = replace(mass, typ="Location_LinearDistance_FromOuterToOuter")
+                alle.append(mass)
             if tasche.radius:
                 alle.append(tasche.radius)
             if tasche.tiefe:
@@ -329,7 +368,7 @@ def _spitzenziel(modell, wand, spitze, gesamt):
     return punkte.pop(), spitze
 
 
-def _taschenflaechen(tasche, dicke, deckel, ebenen, nachbarn, viertelkreise):
+def _taschenflaechen(tasche, dicke, deckel, ebenen, nachbarn, viertelkreise, halbkreise):
     ziel_z = dicke-tasche.tiefe.nennwert if tasche.tiefe else 0.
     kandidaten = []
     for i, z in ebenen[2].items():
@@ -343,8 +382,11 @@ def _taschenflaechen(tasche, dicke, deckel, ebenen, nachbarn, viertelkreise):
         for lagen, mitte, mass in zip(ebenen[:2], (tasche.x, tasche.y), (tasche.breite, tasche.hoehe)):
             for ort in (mitte-mass.nennwert/2, mitte+mass.nennwert/2):
                 seiten.append({j for j in waende & lagen.keys() if abs(lagen[j]-ort) < 1e-6})
-        if tasche.radius:
-            paare = _gerundete_waende(tasche, seiten, waende, nachbarn, viertelkreise)
+        if tasche.langloch or tasche.radius:
+            if tasche.langloch:
+                paare = _langlochwaende(tasche, seiten, waende, nachbarn, halbkreise)
+            else:
+                paare = _gerundete_waende(tasche, seiten, waende, nachbarn, viertelkreise)
             if paare:
                 kandidaten.append((*paare, deckel | {i}) if tasche.tiefe else paare)
             continue
@@ -362,6 +404,23 @@ def _taschenflaechen(tasche, dicke, deckel, ebenen, nachbarn, viertelkreise):
     if len(kandidaten) != 1:
         raise ValueError(tr("Die vier zusammenhängenden Wände der Innenkontur sind nicht eindeutig."))
     return kandidaten[0]
+
+
+def _langlochwaende(tasche, seiten, waende, nachbarn, halbkreise):
+    x, y = tasche.breite.nennwert, tasche.hoehe.nennwert
+    r, a = tasche.rundungsradius, abs(x-y)/2
+    seitenpaar = seiten[2:] if x > y else seiten[:2]
+    enden = set()
+    for vorzeichen in (-1,1):
+        dx, dy = (vorzeichen*a, 0) if x > y else (0, vorzeichen*a)
+        ziel = np.array([tasche.x+dx, tasche.y+dy, r])
+        treffer = [k for k in waende & halbkreise.keys() if np.max(np.abs(ziel-halbkreise[k])) < 1e-6]
+        if len(treffer) != 1:
+            return None
+        enden.add(treffer[0])
+    links, rechts = ({j for j in seite if enden <= nachbarn[j]} for seite in seitenpaar)
+    if len(enden) == 2 and len(links) == len(rechts) == 1:
+        return (enden, links | rechts) if x > y else (links | rechts, enden)
 
 
 def _gerundete_waende(tasche, seiten, waende, nachbarn, viertelkreise):

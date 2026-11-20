@@ -90,7 +90,7 @@ class Plattendialog(QtWidgets.QDialog):
         taschenfeld = QtWidgets.QWidget()
         tl = QtWidgets.QVBoxLayout(taschenfeld)
         tip = QtWidgets.QLabel(tr("X und Y bezeichnen die Mitte ab der linken unteren Plattenecke. "
-                                 "Für einen rechteckigen Durchbruch „Durchgang“ wählen, für eine Tasche die Tiefe von oben angeben."))
+                                 "Breite und Höhe sind Außenmaße in X und Y. Für einen Durchbruch „Durchgang“ wählen, für eine Tasche die Tiefe von oben angeben."))
         tip.setWordWrap(True)
         tl.addWidget(tip)
         self.taschentabelle = QtWidgets.QTableWidget(0, 8)
@@ -244,7 +244,7 @@ class Plattendialog(QtWidgets.QDialog):
             self.durchgehend.setEnabled(all(r.kern is None for r in self.ringe))
             if self.ringe:
                 self.bohrtabelle.setCurrentCell(0, 1)
-        self.taschenmarken = [Blattangabe(self.blatt.nummer, q.box, tr("Tasche")) for q in self.taschen]
+        self.taschenmarken = [Blattangabe(self.blatt.nummer, q.box, tr("Langloch") if q.langloch else tr("Tasche")) for q in self.taschen]
         with QtCore.QSignalBlocker(self.taschentabelle):
             self.taschentabelle.setRowCount(0)
             self.taschentabelle.setRowCount(len(self.taschen))
@@ -368,7 +368,7 @@ class Plattendialog(QtWidgets.QDialog):
         self._markieren()
         self._pruefen()
         if not wert:
-            self.status.setText(tr("Die Auswahl muss eine geschlossene Rechteckkontur enthalten. Im Grundriss sind einzelne Bohrkreise und Rechtecktaschen zulässig.") if i < 2
+            self.status.setText(tr("Die Auswahl muss eine geschlossene Rechteckkontur enthalten. Im Grundriss sind einzelne Bohrkreise, Rechtecktaschen und Langlöcher zulässig.") if i < 2
                                 else tr("Maßzahl nicht eindeutig lesbar. Den Wert aus der Zeichnung eingeben."))
 
     def _ohne_vorderansicht(self):
@@ -436,7 +436,9 @@ class Plattendialog(QtWidgets.QDialog):
             for i, q in enumerate(self.taschen):
                 werte = (q.x*x, q.y*y, q.breite*x, q.hoehe*y)
                 text = " / ".join(f"{v:.2f}" for v in werte)
-                if q.radius:
+                if q.langloch:
+                    text = tr("Langloch") + " " + text
+                elif q.radius:
                     text += f" / R{q.radius*x:.2f}"
                 self.taschentabelle.item(i, 0).setText(text)
         try:

@@ -1,4 +1,4 @@
-"""Geschlossene PDF-Konturen mit vier tangentialen Viertelkreisen pruefen."""
+"""Geschlossene PDF-Konturen mit tangentialen Viertel- oder Halbkreisen pruefen."""
 
 import numpy as np
 from scipy import ndimage
@@ -22,9 +22,19 @@ def rundrechteck(p):
         return None
     # (r-x)^2+(r-y)^2=r^2, jeweils gemessen von der Ecke des Begrenzungsrechtecks.
     r = np.median(x+y+np.sqrt(2*x*y))
-    if r < 2 or min(halb)-r < 1:
+    if r < 2:
         return None
     toleranz = max(.12, .012*r)
+    if min(halb)-r < 1:
+        # Beim Langloch fallen die Viertelkreise an beiden Enden paarweise zusammen.
+        achse = int(np.argmax(halb))
+        if max(halb)-min(halb) < 1 or abs(min(halb)-r) > toleranz:
+            return None
+        for ende in (lo[achse], hi[achse]):
+            extrem = p[np.abs(p[:,achse]-ende) < .001, 1-achse]
+            if np.ptp(extrem) > .05:
+                return None
+        r = min(halb)
     for sx in (-1,1):
         for sy in (-1,1):
             ecke = p[innen & ((p[:,0]-mitte[0])*sx > 0) & ((p[:,1]-mitte[1])*sy > 0)]

@@ -1680,7 +1680,14 @@ Pockets and through openings can have four tangent quarter-circle corners with o
 The top view must contain a closed vector outline that matches the printed contour. Width and height
 reference opposite planar walls. One toleranced radius references all four corner cylinders through a
 composite shape aspect. Round trips through the native reader and XCAF distinguish two equal pockets.
-Pocket center-position PMI, obround slots, unequal corner radii, other nonrectangular profiles, automatic cross-view association and datum/GD&T transfer remain open.
+An axis-aligned obround outline with two straight sides and two semicircular ends can be reconstructed
+as a through opening or a flat-bottom pocket. The drawing supplies overall X and Y dimensions. The
+shorter dimension fixes both end radii. Length and width tolerance ranges must preserve two distinct ends.
+The long dimension uses an outer-to-outer dimensional location on the half cylinders and a dimension
+line between their outer tangents. The short dimension references the straight walls. Native and XCAF
+round trips verify both orientations, individual tolerances and the optional pocket depth.
+Pocket center-position PMI, inclined slots, slots dimensioned by center spacing, unequal corner radii,
+other profiles, automatic cross-view association and datum/GD&T transfer remain open.
 
 ### 8.37 QIF extensions (last in the implementation order)
 

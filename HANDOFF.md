@@ -2,6 +2,27 @@
 
 ## Current state, 2026-11-21
 
+### Obround slots dimensioned by their overall length
+
+- Checked PLAN §§8.16, 8.28 and 8.35–8.37 and docs/Roadmap.md. The plate dialog accepts a
+  closed horizontal or vertical obround vector outline matching the printed top view. Overall
+  X and Y dimensions locate the tangent walls and the two end centers relative to the reviewed
+  midpoint. Length and width limits must keep the ends distinct. The short dimension determines
+  the end diameter. Both a through cut and a flat-bottom slot are supported.
+- Built a 60 × 40 × 8 mm plate from a PDF with two 16 × 6 mm slots. One ran along X and ended at
+  4 mm depth, the other passed through along Y. Volume agreed with removal of (60 + 9π) × 12 mm³.
+  Native STEP and OCCT/XCAF reloads preserved all eight dimensions, including the two outer-to-outer
+  locations on their respective half cylinders. Verified nominal span, separate deviations, straight
+  side walls, floor, and graphical dimension line endpoints along both axes. The geometry check
+  detected a deliberately substituted 10 mm nominal. All 59 affected tests, 82 drawing/STEP
+  tests and eight macOS screen tests passed.
+- Slot center spacing is the next §8.36 drawing case. In a local experiment, a 10 mm linear
+  dimension referencing two CENTRE_OF_SYMMETRY aspects, each related to its end wall by
+  SHAPE_ASPECT_DERIVING_RELATIONSHIP, recovered both face references in the native reader and
+  XCAF for both slots. Capturing the drawing convention, writing the derived targets, preserving
+  tolerance and drawing the center-to-center dimension still need integration. Inclined slots,
+  turned parts and whole-drawing comparison also remain open. QIF stays last.
+
 ### Four equal corner fillets in reconstructed pockets and through openings
 
 - Checked PLAN §§8.16, 8.28, 8.35–8.37 and docs/Roadmap.md. A closed vector contour can define

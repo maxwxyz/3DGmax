@@ -423,7 +423,7 @@ def _schreibe_mass(a: _Anhang, p) -> str | None:
         if sa is None:
             return tr("Flächen ohne Entsprechung in der Datei")
         dim = a.neu(f"ANGULAR_SIZE(#{sa},'',.EQUAL.)")
-    elif p.typ in ("Location_LinearDistance", "Location_LinearDistance_FromOuterToCenter", "Location_Angular") and len(p.flaechen) == 2:
+    elif p.typ in ("Location_LinearDistance", "Location_LinearDistance_FromOuterToCenter", "Location_LinearDistance_FromOuterToOuter", "Location_Angular") and len(p.flaechen) == 2:
         if p.typ == "Location_Angular" and a.einheit_winkel is None:
             return tr("Keine Winkeleinheit in der Datei")
         f1, f2 = sorted(p.flaechen)
@@ -436,6 +436,8 @@ def _schreibe_mass(a: _Anhang, p) -> str | None:
             if paar[0] == 1:
                 f1, f2 = f2, f1
             name = "linear distance outer centre"
+        elif p.typ == "Location_LinearDistance_FromOuterToOuter":
+            name = "linear distance outer outer"
         if p.massziel_step is not None:
             wand = [i for i in (f1,f2) if _enthaelt_massziel(a.datei, a.flaeche_zu_step[i], p.massziel_step)]
             if len(wand) != 1 or p.typ != "Location_LinearDistance":

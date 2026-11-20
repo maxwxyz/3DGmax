@@ -17,6 +17,7 @@ class Taschenkontur:
     breite: float
     hoehe: float
     radius: float = 0.  # Anteil der Plattenbreite
+    langloch: bool = False
 
 
 def eckradiusmass(text, faktor):
@@ -69,12 +70,18 @@ def solltaschen(konturen, zeilen, masse, umfang, bohrungen):
                 raise ValueError(tr("Die Tiefe zum flachen Grund von Tasche {} angeben.").format(i))
             pruefe_tiefe(tiefe, masse[2])
         radius = _eckradius(zeile[5] if len(zeile) > 5 else "", kontur, breite, hoehe, sx, bx)
-        r = radius.nennwert if radius else 0.
+        tasche = Plattentasche(x, y, breite, hoehe, tiefe, radius, kontur.langloch)
+        if kontur.langloch:
+            lang, kurz = (breite, hoehe) if kontur.breite*bx > kontur.hoehe*by else (hoehe, breite)
+            if min(g for g in (lang.nennwert,*lang.grenzen()) if g is not None) <= max(
+                    g for g in (kurz.nennwert,*kurz.grenzen()) if g is not None):
+                raise ValueError(tr("Die Gesamtlänge des Langlochs muss auch bei Grenzmaß größer als die Breite sein."))
+        r = tasche.rundungsradius
         a, b = breite.nennwert/2, hoehe.nennwert/2
         if not (a < x < sx-a and b < y < sy-b):
             raise ValueError(tr("Tasche {} erreicht den Plattenrand.").format(i))
         for t in taschen:
-            rt = t.radius.nennwert if t.radius else 0.
+            rt = t.rundungsradius
             if _beruehrt(x-t.x, y-t.y, a-r+t.breite.nennwert/2-rt, b-r+t.hoehe.nennwert/2-rt, r+rt):
                 raise ValueError(tr("Tasche {} berührt oder schneidet eine andere Tasche.").format(i))
         for bohrung in bohrungen:
@@ -84,5 +91,5 @@ def solltaschen(konturen, zeilen, masse, umfang, bohrungen):
         if (bx*(abs(x/sx-kontur.x)+abs(a/sx-kontur.breite/2)) > 2
                 or by*(abs(y/sy-kontur.y)+abs(b/sy-kontur.hoehe/2)) > 2):
             raise ValueError(tr("Lage oder Seitenmaße von Tasche {} widersprechen dem Grundriss.").format(i))
-        taschen.append(Plattentasche(x, y, breite, hoehe, tiefe, radius))
+        taschen.append(tasche)
     return taschen

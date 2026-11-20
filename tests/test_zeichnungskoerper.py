@@ -798,7 +798,10 @@ def test_rundkontur_verlangt_vier_gleiche_boegen_und_geschlossenen_druckrand():
     assert rundrechteck(p[:-1]) is None
     assert rundrechteck(pfad([8,8,5,8])) is None
     assert rundrechteck(pfad([8]*4, 2)) is None
-    assert rundrechteck(pfad([20]*4)) is None
+    assert rundrechteck(pfad([20]*4)) == pytest.approx([0,0,60,40,20])
+    assert rundrechteck(pfad([19.9]*4)) is None
+    winkel = np.linspace(0, 2*np.pi, 73)
+    assert rundrechteck(np.column_stack((30*np.cos(winkel),20*np.sin(winkel)))) is None
     versatz = np.array([-1,-1,1,1,1])
     assert druckrand([(q-versatz,1),(q+versatz,-1)], False) == pytest.approx(q)
     assert druckrand([(q-versatz,1),(q+versatz,1)], False) is None
@@ -824,3 +827,77 @@ def test_bohrung_neben_gerundeter_taschenecke():
     assert solltaschen([kontur],[zeile],masse,(600,400),[Plattenbohrung(20,12,durchmesser)])
     with pytest.raises(ValueError, match="Bohrung"):
         solltaschen([kontur],[zeile],masse,(600,400),[Plattenbohrung(21,13,durchmesser)])
+
+
+def test_langloch_quer_und_hoch_mit_gesamtmass_im_step(app, tmp_path, monkeypatch):
+    from pypdfium2 import PdfDocument
+    from OCC.Core.BRepAdaptor import BRepAdaptor_Surface
+    from OCC.Core.BRepGProp import brepgprop
+    from OCC.Core.GProp import GProp_GProps
+    from programm.kern.plausibilitaet import langlochenden
+    from programm.kern.pmi_lesen import lies_pmi_xcaf
+    from programm.ui.lader import lade_alles
+    pdf, ziel = tmp_path/"Langloch.pdf", tmp_path/"Langloch.stp"
+    _blatt(pdf, tiefe="16 ±0.1", taschen=[(15,16,16,6,3),(44,20,6,16,3)])
+    monkeypatch.setattr(QtWidgets.QFileDialog, "getSaveFileName", lambda *args: (str(ziel), "STEP"))
+    with PdfDocument(pdf) as doc:
+        d = Plattendialog(doc, pdf)
+        try:
+            d.einheit.setCurrentIndex(1)
+            for feld, text in zip(d.texte, ("60","40","8")):
+                feld.setText(text)
+            d.ansicht.bereich.emit((.08,.1,.51,.52))
+            assert [q.langloch for q in d.taschen] == [True,True]
+            assert d.taschentabelle.isColumnHidden(7)
+            for i, daten in enumerate((("15","16","16","6 ±0.04","4"),("44","20","6 ±0.03","16 ±0.2"))):
+                for j, text in enumerate(daten, 1):
+                    d.taschentabelle.item(i,j).setText(text)
+            d.taschentabelle.cellWidget(1,6).setCurrentIndex(1)
+            d.taschentabelle.setCurrentCell(0,3)
+            d.auswahl.setCurrentIndex(d.auswahl.findData(3))
+            d.ansicht.bereich.emit((.52,.86,.8,.96))
+            assert d.taschentabelle.item(0,3).text() == "16 ±0.1"
+            assert d.speichern.isEnabled()
+            d.taschentabelle.item(0,3).setText("16 ±10")
+            assert not d.speichern.isEnabled()
+            assert "Grenzmaß" in d.status.text()
+            d.taschentabelle.item(0,3).setText("16 ±0.1")
+            d.speichern.click()
+            erg = lade_alles(str(ziel))
+            v = GProp_GProps()
+            brepgprop.VolumeProperties(erg.modell.form, v)
+            assert v.Mass() == pytest.approx(60*40*8-(10*6+9*np.pi)*12)
+            assert len(erg.pmi) == 8 and all(p.grafisch and p.semantisch for p in erg.pmi)
+            from dataclasses import replace
+            from programm.kern.plausibilitaet import geometrie
+            for p in (p for p in erg.pmi if p.typ == "Location_LinearDistance_FromOuterToOuter"):
+                assert not geometrie([p], erg.modell)
+                assert geometrie([replace(p,nennwert=10)], erg.modell)
+                g, = (g for g in erg.grafik.values() if p.step_id in g.pmi_ids)
+                achse = 0 if p.oben == pytest.approx(.1) else 1
+                linie = g.linien[2]
+                assert sorted(linie[:,achse]) == pytest.approx([7,23] if achse == 0 else [12,28])
+                np.testing.assert_allclose(linie[:,2], [8,8], atol=1e-6)
+                assert np.linalg.norm(linie[1]-linie[0]) == pytest.approx(16)
+            for quelle in (erg.pmi, lies_pmi_xcaf(erg.modell)):
+                laengen = sorted((p for p in quelle if p.typ == "Location_LinearDistance_FromOuterToOuter"), key=lambda p:p.oben)
+                for p, tol, punkte in zip(laengen,(.1,.2),([(7,16,8),(23,16,8)],[(44,12,8),(44,28,8)]),strict=True):
+                    assert p.grenzen() == pytest.approx((16+tol,16-tol))
+                    waende = [erg.modell.flaechen[j] for j in p.flaechen]
+                    assert len(waende) == 2
+                    for f in waende:
+                        s = BRepAdaptor_Surface(f)
+                        assert s.Cylinder().Radius() == pytest.approx(3)
+                        assert s.LastUParameter()-s.FirstUParameter() == pytest.approx(np.pi)
+                    a,b,_ = langlochenden(waende)
+                    assert sorted([tuple(a.round(6)),tuple(b.round(6))]) == punkte
+                breiten = sorted((p for p in quelle if p.nennwert == 6),key=lambda p:p.oben)
+                for p, achse, lagen in zip(breiten,(0,1),([41,47],[13,19]),strict=True):
+                    assert sorted(BRepAdaptor_Surface(erg.modell.flaechen[j]).Plane().Location().Coord()[achse]
+                                  for j in p.flaechen) == pytest.approx(lagen)
+                tiefe, = (p for p in quelle if p.nennwert == 4)
+                assert sorted(BRepAdaptor_Surface(erg.modell.flaechen[j]).Plane().Location().Z()
+                              for j in tiefe.flaechen) == pytest.approx([4,8])
+        finally:
+            d.blatt.schliesse()
+            d.close()
