@@ -3,8 +3,8 @@
 from PySide6 import QtCore, QtWidgets
 
 from ..i18n import tr
-from ..kern.axialbohrung import stirnringe
-from ..kern.drehzeichnung import axiales_bohrmass, drehprofil, drehmasse, schreibe_drehteil
+from ..kern.axialbohrung import Sacklochspur, stirnringe
+from ..kern.drehzeichnung import axiale_tiefe, axiales_bohrmass, drehprofil, drehmasse, schreibe_drehteil
 from ..kern.zeichnungsansicht import Blattgeometrie
 from ..kern.zeichnungsabgleich import Blattangabe
 from .zeichnungsabgleich_ui import Blattansicht
@@ -16,6 +16,7 @@ class Drehteildialog(Koerperdialog):
         super().__init__(doc, pfad, tr("Welle aus 2D-Zeichnung"), parent)
         self.kontur, self.sitze, self.massmarken = [], [], {}
         self.spur = self.stirn = None
+        self.senkrecht = False
         self.geometrie = None
         self.resize(980,700)
         layout = QtWidgets.QVBoxLayout(self)
@@ -28,7 +29,8 @@ class Drehteildialog(Koerperdialog):
         self.auswahl = QtWidgets.QComboBox()
         self.auswahl.addItems([tr("Längsansicht waagerecht"), tr("Längsansicht senkrecht"),
                                tr("Abschnittslänge"), tr("Abschnittsdurchmesser"),
-                               tr("Stirnansicht der Hohlwelle"), tr("Durchmesser der Axialbohrung")])
+                               tr("Stirnansicht der Hohlwelle"), tr("Durchmesser der Axialbohrung"),
+                               tr("Tiefe der Axialbohrung")])
         leiste.addWidget(QtWidgets.QLabel(tr("Einrahmen")))
         leiste.addWidget(self.auswahl)
         self.einheit = QtWidgets.QComboBox()
@@ -42,8 +44,8 @@ class Drehteildialog(Koerperdialog):
         fit.clicked.connect(self.ansicht.einpassen)
         layout.addWidget(self.ansicht,1)
         hinweis = QtWidgets.QLabel(tr("Die Längsansicht mit zylindrischen Abschnitten und rechtwinkligen Schultern einrahmen. "
-                                      "Je Abschnitt Länge und Ø-Maß eingeben oder einrahmen. Für eine Axialbohrung ohne "
-                                      "durchgehende Wandlinien zusätzlich die Stirnansicht und ein Durchgangsmaß angeben."))
+                                      "Je Abschnitt Länge und Ø-Maß eingeben oder einrahmen. Für ein Sackloch die Tiefe bis zum "
+                                      "flachen Grund angeben. Für einen Durchgang ohne Wandlinien die Stirnansicht und das Durchgangsmaß angeben."))
         hinweis.setWordWrap(True)
         layout.addWidget(hinweis)
         self.tabelle = QtWidgets.QTableWidget(0,2)
@@ -53,10 +55,15 @@ class Drehteildialog(Koerperdialog):
         layout.addWidget(self.tabelle)
         bohrzeile = QtWidgets.QHBoxLayout()
         layout.addLayout(bohrzeile)
-        bohrzeile.addWidget(QtWidgets.QLabel(tr("Durchgehende Axialbohrung")))
+        self.bohrart = QtWidgets.QLabel(tr("Axialbohrung"))
+        bohrzeile.addWidget(self.bohrart)
         self.bohrtext = QtWidgets.QLineEdit()
         self.bohrtext.setPlaceholderText(tr("Ø-Maß laut Zeichnung"))
         bohrzeile.addWidget(self.bohrtext)
+        self.tiefentext = QtWidgets.QLineEdit()
+        self.tiefentext.setPlaceholderText(tr("Tiefe bis zum flachen Grund"))
+        self.tiefentext.textChanged.connect(self._pruefen)
+        bohrzeile.addWidget(self.tiefentext)
         self.stirn_entfernen = QtWidgets.QPushButton(tr("Stirnansicht entfernen"))
         self.stirn_entfernen.clicked.connect(self._ohne_stirnansicht)
         bohrzeile.addWidget(self.stirn_entfernen)
@@ -101,10 +108,13 @@ class Drehteildialog(Koerperdialog):
     def _bereich(self, box):
         i = self.auswahl.currentIndex()
         if i < 2:
-            self.kontur, self.spur = drehprofil(self.blatt.bild,box,senkrecht=bool(i))
+            self.senkrecht = bool(i)
+            self.kontur, self.spur = drehprofil(self.blatt.bild,box,senkrecht=self.senkrecht)
             self.stirn = None
             with QtCore.QSignalBlocker(self.bohrtext):
                 self.bohrtext.clear()
+            with QtCore.QSignalBlocker(self.tiefentext):
+                self.tiefentext.clear()
             self.sitze = [Blattangabe(self.blatt.nummer,s.box,str(n)) for n,s in enumerate(self.kontur,1)]
             self.massmarken.clear()
             with QtCore.QSignalBlocker(self.tabelle):
@@ -122,12 +132,13 @@ class Drehteildialog(Koerperdialog):
             self.massmarken.pop("stirn",None)
             if self.stirn:
                 self.massmarken["stirn"] = Blattangabe(self.blatt.nummer,box,self.auswahl.currentText())
-        elif i == 5:
+        elif i in (5,6):
+            feld, marke = (self.bohrtext,"bohrung") if i == 5 else (self.tiefentext,"tiefe")
             wert = self.blatt.lies(box)
-            self.bohrtext.setText(wert)
-            self.massmarken.pop("bohrung",None)
+            feld.setText(wert)
+            self.massmarken.pop(marke,None)
             if wert:
-                self.massmarken["bohrung"] = Blattangabe(self.blatt.nummer,box,wert)
+                self.massmarken[marke] = Blattangabe(self.blatt.nummer,box,wert)
         else:
             zeile, spalte = self.tabelle.currentRow(), i-2
             if zeile < 0:
@@ -144,21 +155,35 @@ class Drehteildialog(Koerperdialog):
         zeilen = [(self.tabelle.item(i,0).text(), self.tabelle.item(i,1).text()) for i in range(len(self.kontur))]
         faktor = self.einheit.currentData()
         masse = drehmasse(self.kontur, zeilen, faktor)
-        bohrung = axiales_bohrmass(self.kontur, masse, self.spur, self.stirn, self.bohrtext.text(), faktor)
-        return masse, bohrung
+        tiefe = axiale_tiefe(self.spur, self.tiefentext.text(), faktor)
+        bohrung = axiales_bohrmass(self.kontur, masse, self.spur, self.stirn, self.bohrtext.text(), faktor, tiefe)
+        return masse, bohrung, tiefe, isinstance(self.spur,Sacklochspur) and self.spur.von_rechts
 
     def _pruefen(self):
+        blind = isinstance(self.spur, Sacklochspur)
+        self.tiefentext.setVisible(blind)
+        self.auswahl.model().item(6).setEnabled(blind)
+        if blind:
+            if self.senkrecht:
+                seite = tr("Sackloch von unten") if self.spur.von_rechts else tr("Sackloch von oben")
+            else:
+                seite = tr("Sackloch von rechts") if self.spur.von_rechts else tr("Sackloch von links")
+            self.bohrart.setText(seite)
+        else:
+            self.bohrart.setText(tr("Axialbohrung"))
         self.bohrtext.setEnabled(bool(self.kontur))
         self.stirn_entfernen.setEnabled(self.stirn is not None)
         for i in (2,3,4,5):
             self.auswahl.model().item(i).setEnabled(bool(self.kontur))
         try:
-            masse, bohrung = self._masse()
+            masse, bohrung, tiefe, _ = self._masse()
         except ValueError as e:
             self.status.setText(str(e))
             self.speichern.setEnabled(False)
             return
         status = tr("Hohlwelle mit {} Abschnitten, Gesamtlänge {} mm.") if bohrung else tr("Vollwelle mit {} Abschnitten, Gesamtlänge {} mm.")
+        if tiefe:
+            status = tr("Welle mit Sackloch und {} Abschnitten, Gesamtlänge {} mm.")
         self.status.setText(status.format(len(masse), f"{sum(p.nennwert for p,_ in masse):g}"))
         self.speichern.setEnabled(True)
 

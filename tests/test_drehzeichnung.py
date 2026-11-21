@@ -155,24 +155,37 @@ def test_drehmasse_einheiten_und_gemeinsamer_massstab():
             drehmasse(kontur,falsch,None)
 
 
-def _hohlwellenblatt(pfad, spur):
+def _hohlwellenblatt(pfad, spur, *, sackloch=False, rechts=False, bohrdm=8, hoch=False):
     pdf = QtGui.QPdfWriter(str(pfad))
     pdf.setResolution(72)
     pdf.setPageSize(QtGui.QPageSize(QtCore.QSizeF(300,180),QtGui.QPageSize.Unit.Point))
     pdf.setPageMargins(QtCore.QMarginsF(0,0,0,0))
     with QtGui.QPainter(pdf) as p:
+        p.save()
+        if hoch:
+            p.setTransform(QtGui.QTransform(0,1,1,0,0,0))
         kontur = [(0,10),(12,10),(12,6),(30,6),(30,-6),(12,-6),(12,-10),(0,-10)]
         p.drawPolygon(QtGui.QPolygonF([QtCore.QPointF(30+4*x,75-4*r) for x,r in kontur]))
         p.drawLine(78,51,78,99)
         if spur:
             p.setPen(QtGui.QPen(QtCore.Qt.GlobalColor.black,1,QtCore.Qt.PenStyle.DashLine))
-            for y in (59,91):
-                p.drawLine(30,y,30+4*spur,y)
+            start = 150 if rechts else 30
+            ende = start-4*spur if rechts else start+4*spur
+            oben, unten = 75-2*bohrdm, 75+2*bohrdm
+            for y in (oben,unten):
+                p.drawLine(start,y,ende,y)
+            if sackloch:
+                p.drawLine(ende,oben,ende,unten)
             p.setPen(QtCore.Qt.GlobalColor.black)
+        p.restore()
         assert pdf.newPage()
-        for radius in (10,25):
+        for radius in ([bohrdm*1.25,15,25] if rechts else [bohrdm*1.25,25]):
             p.drawEllipse(QtCore.QPointF(70,65),radius,radius)
-        p.drawText(145,148,"Ø8 H7 THRU ALL")
+        if sackloch:
+            p.drawText(145,148,f"{spur} ±0.1")
+            p.drawText(145,118,f"Ø{bohrdm} H7")
+        else:
+            p.drawText(145,148,"Ø8 H7 THRU ALL")
 
 
 @pytest.mark.parametrize("spur",[30,0])
@@ -311,3 +324,127 @@ def test_stirnringe_pruefen_alle_ringe_und_gedruckte_kontur(tmp_path):
         defekt = bild.copy()
         defekt[y0-2:y0+2,x0-2:x0+2] = 255 if y0 == 45 else 0
         assert not stirnringe(defekt,box,kreise)
+
+
+@pytest.mark.parametrize("rechts,tiefe,dm", [(False,14,8),(True,14,8),(False,12,8),(True,18,8),(False,10,14)])
+def test_sackloch_vom_blatt_mit_bodenbezogener_tiefe(app,tmp_path,monkeypatch,rechts,tiefe,dm):
+    from pypdfium2 import PdfDocument
+    from OCC.Core.BRepAdaptor import BRepAdaptor_Surface
+    from OCC.Core.BRepGProp import brepgprop
+    from OCC.Core.GProp import GProp_GProps
+    from programm.kern.axialbohrung import Sacklochspur
+    from programm.kern.zeichnungsabgleich import befund
+    from programm.kern.pmi_lesen import lies_pmi_xcaf
+    from programm.kern.vergleich_geo import _nachbarn
+    from programm.ui.drehzeichnung_ui import Drehteildialog
+    from programm.ui.lader import lade_alles
+    pdf,ziel = tmp_path/"Sackloch.pdf",tmp_path/"Sackloch.stp"
+    hoch = tiefe == 14
+    _hohlwellenblatt(pdf,tiefe,sackloch=True,rechts=rechts,bohrdm=dm,hoch=hoch)
+    monkeypatch.setattr(QtWidgets.QFileDialog,"getSaveFileName",lambda *args:(str(ziel),"STEP"))
+    with PdfDocument(pdf) as doc:
+        d = Drehteildialog(doc,pdf)
+        try:
+            d.einheit.setCurrentIndex(1)
+            d.auswahl.setCurrentIndex(int(hoch))
+            d.ansicht.bereich.emit((.05,.05,.5,.94) if hoch else (.05,.1,.6,.7))
+            assert isinstance(d.spur,Sacklochspur) and d.spur.von_rechts == rechts
+            richtung = ("unten" if rechts else "oben") if hoch else ("rechts" if rechts else "links")
+            assert d.bohrart.text() == "Sackloch von "+richtung
+            assert not d.tiefentext.isHidden()
+            for i, zeile in enumerate((("12 ±0.03","Ø20"),("18","Ø12 h6"))):
+                for j,wert in enumerate(zeile):
+                    d.tabelle.item(i,j).setText(wert)
+            d.seite.setValue(2)
+            for i,box in ((4,(.13,.18,.35,.55)),(5,(.45,.54,.99,.7)),(6,(.45,.71,.99,.86))):
+                d.auswahl.setCurrentIndex(i)
+                assert not d.speichern.isEnabled()
+                d.ansicht.bereich.emit(box)
+            assert d.speichern.isEnabled() and "Sackloch" in d.status.text()
+            for falsch in ("",str(tiefe-2),f"{tiefe} ±25","2X 14","Ø14"):
+                d.tiefentext.setText(falsch)
+                assert not d.speichern.isEnabled()
+            d.tiefentext.setText(f"↧ {tiefe} ±0.1")
+            d.bohrtext.setText(f"Ø{dm} THRU")
+            assert not d.speichern.isEnabled()
+            d.bohrtext.setText(f"Ø{dm} H7")
+            assert d.speichern.isEnabled()
+            d.speichern.click()
+            erg = lade_alles(str(ziel))
+            assert len(erg.pmi) == 6 and all(p.semantisch and p.grafisch for p in erg.pmi)
+            prop = GProp_GProps()
+            brepgprop.VolumeProperties(erg.modell.form,prop)
+            assert prop.Mass() == pytest.approx(np.pi*(100*12+36*18-(dm/2)**2*tiefe))
+            nachbarn = _nachbarn(erg.modell.flaechen,erg.modell.flaechen_index)
+            soll = [30-tiefe,30] if rechts else [0,tiefe]
+            for quelle in (erg.pmi,lies_pmi_xcaf(erg.modell)):
+                bore, = (p for p in quelle if p.passung == "H7")
+                grund, = (p for p in quelle if p.typ == "Location_LinearDistance" and p.oben == .1)
+                assert grund.nennwert == tiefe and grund.unten == pytest.approx(-.1)
+                wand, = bore.flaechen
+                assert bore.nennwert == dm and BRepAdaptor_Surface(erg.modell.flaechen[wand]).Cylinder().Radius() == pytest.approx(dm/2)
+                assert nachbarn[wand] == grund.flaechen
+                assert sorted(BRepAdaptor_Surface(erg.modell.flaechen[k]).Plane().Location().X()
+                              for k in grund.flaechen) == pytest.approx(soll)
+                assert all(grund.flaechen != p.flaechen for p in quelle if p is not grund)
+                marke = d.massmarken["tiefe"]
+                marke.modell = grund
+                assert befund(marke,1.) == "gleich"
+            grund, = (p for p in erg.pmi if p.oben == .1)
+            grafik, = (g for g in erg.grafik.values() if grund.step_id in g.pmi_ids)
+            assert sorted(grafik.linien[2][:,0]) == pytest.approx(soll)
+        finally:
+            d.blatt.schliesse()
+            d.close()
+
+
+def test_sackloch_braucht_flachen_grund_und_eine_geschlossene_rueckseite():
+    from programm.kern.axialbohrung import Sacklochspur
+    from programm.kern.drehzeichnung import drehprofil
+    box = (0,0,1,1)
+    bild = _konturbild()
+    for y in (34,48):
+        bild[y:y+2,8:62] = 0
+    bild[34:50,60:62] = 0
+    bild[36:48,8:10] = 255
+    sitze,spur = drehprofil(bild.transpose(1,0,2),box,True)
+    assert len(sitze) == 3 and spur == Sacklochspur(14,52,False)
+    for fehler in ("rueckseite offen","boden unterbrochen","kegel","wanderndes ende","zweite bohrung"):
+        kopie = bild.copy()
+        if fehler == "rueckseite offen":
+            kopie[36:48,136:138] = 255
+        elif fehler == "boden unterbrochen":
+            kopie[35:40,60:62] = 255
+        elif fehler == "kegel":
+            kopie[36:48,60:62] = 255
+            for y in range(35,49):
+                x = 60+round(7-abs(41.5-y))
+                kopie[y,x:x+2] = 0
+        elif fehler == "wanderndes ende":
+            kopie[48:50,62:70] = 0
+        else:
+            for y in (34,48):
+                kopie[y:y+2,115:138] = 0
+            kopie[34:50,115:117] = 0
+        assert drehprofil(kopie,box) == ([],None), fehler
+
+
+def test_sackloch_prueft_erreichbare_sitze_grenzmasse_und_die_eintrittsseite(tmp_path):
+    from programm.kern.axialbohrung import Sacklochspur
+    from programm.kern.drehzeichnung import axiales_bohrmass, axiale_tiefe, schreibe_drehteil, Sitzkontur
+    from programm.kern.zeichnungsabgleich import lese_angabe
+    kontur = [Sitzkontur((),48,80),Sitzkontur((),72,48)]
+    masse = drehmasse(kontur,[("12 ±0.3","Ø20"),("18","Ø12")],1.)
+    spur = Sacklochspur(56,40,False)
+    tiefe = axiale_tiefe(spur,"10 ±0.1",1.)
+    assert axiales_bohrmass(kontur,masse,spur,(56,80),"Ø14",1.,tiefe).nennwert == 14
+    with pytest.raises(ValueError):
+        axiales_bohrmass(kontur,masse,Sacklochspur(32,40,False),(32,48,80),"Ø8",1.,tiefe)
+    ziel = tmp_path/"vorhanden.step"
+    ziel.write_bytes(b"vorhanden")
+    for text,dm in (("10 ±1.71","Ø14"),("10 ±1.7","Ø14"),("29 ±1","Ø8"),("10","Ø20")):
+        with pytest.raises(ValueError):
+            schreibe_drehteil(ziel,masse,lese_angabe(dm,1.),axiale_tiefe(spur,text,1.))
+        assert ziel.read_bytes() == b"vorhanden"
+    with pytest.raises(ValueError):
+        axiale_tiefe(32.,"10",1.)

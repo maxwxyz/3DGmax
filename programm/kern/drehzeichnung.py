@@ -7,7 +7,7 @@ import re
 import numpy as np
 
 from ..i18n import tr
-from .axialbohrung import tintenlaeufe, bohrspur
+from .axialbohrung import Sacklochspur, bohrspur, tintenlaeufe
 from .zeichnungsabgleich import lese_angabe, musteranzahl
 from .zeichnungskoerper import schreibe_bemassten_koerper
 
@@ -64,13 +64,18 @@ def _strichbild(tinte, grenzen, radien, mitte, stift):
         radius = max(links,rechts)
         erlaubt[band(mitte-radius,mitte+radius), band(x,x)] = True
     erlaubt[band(mitte,mitte)] = True  # Durchgezogene oder gestrichelte Mittellinie
-    spur = bohrspur(tinte, erlaubt, grenzen, mitte, min(radien), stift)
+    spur = bohrspur(tinte, erlaubt, grenzen, mitte, radien, stift)
     if spur is None:
         return None
-    dm, wandstift = spur
+    bohrung, wandstift = spur
     for x, links, rechts in zip(grenzen,[0.,*radien],[*radien,0.],strict=True):
         gross, klein = max(links,rechts), min(links,rechts)
         streifen = tinte[:,band(x,x)].any(axis=1)
+        if isinstance(bohrung, Sacklochspur):
+            laenge = grenzen[-1]-x if bohrung.von_rechts else x-grenzen[0]
+            dm = bohrung.durchmesser if laenge <= bohrung.tiefe else 0.
+        else:
+            dm = bohrung
         material = max(klein, dm/2)
         for y1,y2 in ((mitte-gross,mitte-material),(mitte+material,mitte+gross)):
             if not streifen[round(y1):round(y2)+1].all():
@@ -84,11 +89,11 @@ def _strichbild(tinte, grenzen, radien, mitte, stift):
                 return None
         if innen.any() and not streifen[innen].any() and streifen[oeffnung].any():
             return None
-    return dm
+    return bohrung
 
 
 def drehprofil(bild, box, senkrecht=False):
-    """Abschnitte in Blattrichtung und Durchmesser einer durchgehenden axialen Spur in Pixeln."""
+    """Abschnitte in Blattrichtung und durchgehende oder blinde axiale Bohrspur in Pixeln."""
     h, w = bild.shape[:2]
     l,t,r,b = np.rint(np.clip(box,0,1)*[w,h,w,h]).astype(int)
     tinte = bild[t:b,l:r,:3].min(axis=2) < 245
@@ -182,13 +187,29 @@ def _massstab(kontur, masse, weitere=()):
 _DURCHGANG = re.compile(r"(?<!\w)(?:THR(?:OUGH|U)(?:\s+ALL)?|DURCHGANG(?:SBOHRUNG)?|DURCHGEHEND|DURCHG?)[.]?(?!\w)", re.I)
 
 
-def axiales_bohrmass(kontur, masse, spur, stirn, text, faktor):
+def axiale_tiefe(spur, text, faktor):
+    if not isinstance(spur, Sacklochspur) and not text.strip():
+        return None
+    if not isinstance(spur, Sacklochspur):
+        raise ValueError(tr("Für eine Bohrtiefe muss die Längsansicht einen flachen Bohrungsgrund zeigen."))
+    tiefe = _mass(text.strip().removeprefix("↧").strip(), faktor, "Location_LinearDistance")
+    if not tiefe or tiefe.passung:
+        raise ValueError(tr("Die Tiefe von der Eintrittsfläche bis zum flachen Bohrungsgrund angeben."))
+    return tiefe
+
+
+def axiales_bohrmass(kontur, masse, spur, stirn, text, faktor, tiefe=None):
+    blind = isinstance(spur, Sacklochspur)
+    if blind != (tiefe is not None):
+        raise ValueError(tr("Bohrtiefe und gezeichneter Bohrungsgrund müssen zusammenpassen."))
     if spur is None and stirn is None and not text.strip():
         return None
     if stirn is not None and not stirn:
         raise ValueError(tr("Die Stirnansicht muss vollständige konzentrische Ringe zeigen."))
     angabe = text.strip()
     durchgang = _DURCHGANG.search(angabe)
+    if blind and durchgang:
+        raise ValueError(tr("Die Durchgangsangabe widerspricht dem gezeichneten Bohrungsgrund."))
     if durchgang and (durchgang.start() == 0 or durchgang.end() == len(angabe)):
         angabe = (angabe[:durchgang.start()]+angabe[durchgang.end():]).strip()
     elif durchgang:
@@ -198,13 +219,17 @@ def axiales_bohrmass(kontur, masse, spur, stirn, text, faktor):
         raise ValueError(tr("Den Durchmesser der Axialbohrung mit Ø angeben."))
     if spur is None and not (stirn and durchgang):
         raise ValueError(tr("Ohne durchgehende Wandlinien sind Stirnansicht und ein Ø-Maß mit Durchgangsangabe erforderlich."))
-    _pruefe_wand(masse, dm)
-    if spur is not None:
+    rechts = blind and spur.von_rechts
+    _pruefe_wand(masse, dm, tiefe, rechts)
+    if blind:
+        _massstab(kontur, masse, [(spur.durchmesser,dm.nennwert),(spur.tiefe,tiefe.nennwert)])
+    elif spur is not None:
         _massstab(kontur, masse, [(spur,dm.nennwert)])
     if stirn:
         aussen = [p.nennwert for _,p in masse]
         # Von einer Stirnseite ist nur der jeweils naechste groessere Sitz sichtbar.
-        ansichten = {tuple(np.unique(np.maximum.accumulate(folge))) for folge in (aussen,aussen[::-1])}
+        folgen = [aussen[::-1] if rechts else aussen] if blind else [aussen,aussen[::-1]]
+        ansichten = {tuple(np.unique(np.maximum.accumulate(folge))) for folge in folgen}
         pixel = np.asarray(stirn)
         treffer = 0
         for sichtbar in ansichten:
@@ -216,37 +241,56 @@ def axiales_bohrmass(kontur, masse, spur, stirn, text, faktor):
     return dm
 
 
-def _pruefe_wand(masse, dm):
-    def groessen(p):
-        oben, unten = p.grenzen()
-        if p.passung and (oben is None or unten is None):
-            raise ValueError(tr("Für diese Passung die Grenzmaße aus der Zeichnung angeben."))
-        return [g for g in (p.nennwert,oben,unten) if g is not None]
-    bohrmasse = groessen(dm)
-    kleinster_sitz = min(min(groessen(p)) for _,p in masse)
-    if not bohrmasse or min(bohrmasse) <= 0 or max(bohrmasse) >= kleinster_sitz:
-        raise ValueError(tr("Die Bohrung muss bei Grenzmaß innerhalb aller Wellenabschnitte liegen."))
+def _groessen(p):
+    oben, unten = p.grenzen()
+    if p.passung and (oben is None or unten is None):
+        raise ValueError(tr("Für diese Passung die Grenzmaße aus der Zeichnung angeben."))
+    return [g for g in (p.nennwert,oben,unten) if g is not None]
 
 
-def _drehform(masse, bohrung):
+def _pruefe_wand(masse, dm, tiefe, rechts):
+    bohrmasse = _groessen(dm)
+    tiefen = _groessen(tiefe) if tiefe else []
+    reichweite = max(tiefen) if tiefen else np.inf
+    station = 0.
+    for laenge, aussen in (reversed(masse) if rechts else masse):
+        if station-reichweite > 1e-9:
+            break
+        if min(bohrmasse) <= 0 or max(bohrmasse) >= min(_groessen(aussen)):
+            raise ValueError(tr("Die Bohrung muss bei Grenzmaß innerhalb der durchbohrten Wellenabschnitte liegen."))
+        station += min(_groessen(laenge))
+    if tiefen and (min(tiefen) <= 0 or station-reichweite <= 1e-9):
+        raise ValueError(tr("Die Tiefe muss auch bei Grenzmaß Material hinter dem Bohrungsgrund lassen."))
+
+
+def _drehform(masse, bohrung, tiefe, rechts):
     from OCC.Core.BRepBuilderAPI import BRepBuilderAPI_MakeFace, BRepBuilderAPI_MakePolygon
     from OCC.Core.BRepPrimAPI import BRepPrimAPI_MakeRevol
     from OCC.Core.gp import gp_Ax1, gp_Dir, gp_Pnt
     profil = BRepBuilderAPI_MakePolygon()
     x = 0.
     innen = bohrung.nennwert/2 if bohrung else 0.
-    profil.Add(gp_Pnt(0,0,innen))
+
     for laenge, dm in masse:
         profil.Add(gp_Pnt(x,0,dm.nennwert/2))
         x += laenge.nennwert
         profil.Add(gp_Pnt(x,0,dm.nennwert/2))
-    profil.Add(gp_Pnt(x,0,innen))
+    if tiefe and rechts:
+        grund = x-tiefe.nennwert
+        rueckweg = [(x,innen),(grund,innen),(grund,0.),(0.,0.)]
+    elif tiefe:
+        grund = tiefe.nennwert
+        rueckweg = [(x,0.),(grund,0.),(grund,innen),(0.,innen)]
+    else:
+        rueckweg = [(x,innen),(0.,innen)]
+    for ort,radius in rueckweg:
+        profil.Add(gp_Pnt(ort,0,radius))
     profil.Close()
     flaeche = BRepBuilderAPI_MakeFace(profil.Wire(), True).Face()
     return BRepPrimAPI_MakeRevol(flaeche, gp_Ax1(gp_Pnt(0,0,0),gp_Dir(1,0,0))).Shape()
 
 
-def _sitzmasse(modell, masse, bohrung):
+def _sitzmasse(modell, masse, bohrung, tiefe, rechts):
     from OCC.Core.BRepAdaptor import BRepAdaptor_Surface
     from OCC.Core.GeomAbs import GeomAbs_Cylinder, GeomAbs_Plane
     from .vergleich_geo import _nachbarn
@@ -258,30 +302,42 @@ def _sitzmasse(modell, masse, bohrung):
             ebenen[i] = s.Plane().Location().X()
         elif s.GetType() == GeomAbs_Cylinder:
             zylinder[i] = 2*s.Cylinder().Radius()
+    def flaechen(dm, anfang, ende):
+        treffer = []
+        for i, d in zylinder.items():
+            if abs(d-dm) >= 1e-6:
+                continue
+            paar = sorted((ebenen[k],k) for k in nachbarn[i] if k in ebenen)
+            if len(paar) == 2 and abs(paar[0][0]-anfang) < 1e-6 and abs(paar[1][0]-ende) < 1e-6:
+                treffer.append(({i},{k for _,k in paar}))
+        if len(treffer) != 1:
+            raise ValueError(tr("Zylinderwand und Stirnflächen eines Abschnitts sind nicht eindeutig."))
+        return treffer[0]
+
     x = 0.
-    merkmale = []
+    ziele = []
     for laenge, dm in masse:
         ende = x+laenge.nennwert
-        stirn = [{i for i, ort in ebenen.items() if abs(ort-ziel) < 1e-6} for ziel in (x,ende)]
-        waende = [i for i,d in zylinder.items() if abs(d-dm.nennwert) < 1e-6 and
-                  all(len(s) == 1 and s <= nachbarn[i] for s in stirn)]
-        if len(waende) != 1:
-            raise ValueError(tr("Zylinderwand und Stirnflächen eines Abschnitts sind nicht eindeutig."))
-        for p, f in ((laenge, stirn[0] | stirn[1]), (dm, set(waende))):
-            nr = len(merkmale)+1
-            merkmale.append(replace(p,flaechen=f,nummer=nr,step_id=-nr,quelle="eigen"))
+        wand, stirn = flaechen(dm.nennwert,x,ende)
+        ziele.extend(((laenge,stirn),(dm,wand)))
         x = ende
     if bohrung:
-        stirn = {i for i, ort in ebenen.items() if abs(ort) < 1e-6 or abs(ort-x) < 1e-6}
-        wand = {i for i,d in zylinder.items() if abs(d-bohrung.nennwert) < 1e-6 and nachbarn[i] == stirn}
-        if len(stirn) != 2 or len(wand) != 1:
-            raise ValueError(tr("Die innere Zylinderwand ist nicht beiden Stirnflächen eindeutig zugeordnet."))
-        nr = len(merkmale)+1
-        merkmale.append(replace(bohrung,flaechen=wand,nummer=nr,step_id=-nr,quelle="eigen"))
-    return merkmale
+        anfang, ende = 0., x
+        if tiefe and rechts:
+            anfang = x-tiefe.nennwert
+        elif tiefe:
+            ende = tiefe.nennwert
+        wand, stirn = flaechen(bohrung.nennwert,anfang,ende)
+        ziele.append((bohrung,wand))
+        if tiefe:
+            ziele.append((tiefe,stirn))
+    return [replace(p,flaechen=f,nummer=n,step_id=-n,quelle="eigen") for n,(p,f) in enumerate(ziele,1)]
 
 
-def schreibe_drehteil(ziel, masse, bohrung=None):
+def schreibe_drehteil(ziel, masse, bohrung=None, tiefe=None, rechts=False):
+    if tiefe and not bohrung:
+        raise ValueError(tr("Den Durchmesser der Axialbohrung mit Ø angeben."))
     if bohrung:
-        _pruefe_wand(masse, bohrung)
-    return schreibe_bemassten_koerper(ziel, _drehform(masse, bohrung), lambda modell: _sitzmasse(modell, masse, bohrung))
+        _pruefe_wand(masse, bohrung, tiefe, rechts)
+    form = _drehform(masse, bohrung, tiefe, rechts)
+    return schreibe_bemassten_koerper(ziel, form, lambda modell: _sitzmasse(modell, masse, bohrung, tiefe, rechts))

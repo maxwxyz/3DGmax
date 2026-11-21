@@ -2,6 +2,32 @@
 
 ## Current state, 2026-11-21
 
+### Flat-bottom axial blind bores in dimensioned shaft drawings
+
+- Checked PLAN §§8.16, 8.28, 8.35–8.37 and docs/Roadmap.md. The shaft dialog recognises paired
+  bore walls from one end to a flat axial floor. Entry is labelled left/right or top/bottom in the
+  selected longitudinal view. Select or enter the diameter and depth from the entry plane. A through
+  callout, a conflicting depth, or an end view from the opposite side prevents export.
+- The bore limits must leave a wall in every seat reached at maximum depth and minimum section
+  lengths, plus material behind the floor. A blind Ø14 H7 × 10 mm bore fits inside an Ø20 × 12 mm
+  land followed by an Ø12 land. Increasing its depth tolerance into the thinner land blocks export.
+  Both continuous and dashed wall lines are supported. Partial floors, conical tips, open rear ends
+  and opposed incomplete wall pairs remain unresolved.
+- For left and right entries, native and XCAF STEP reloads recovered the two outside lengths, both
+  outside diameters, the bore fit and the toleranced bore depth. The depth references the planes
+  adjacent to the inner cylinder even when a shoulder shares the floor coordinate. The graphical
+  depth spans the corresponding X coordinates. Reloaded volume matches the two outside cylinders
+  minus the blind hole, and the drawing comparison matches the printed depth. Checked horizontal
+  and vertical PDFs and a separate dimension sheet. All 20 affected tests, eight native macOS screen
+  tests and 15 native shaft tests passed. All 2538 UI strings have English entries.
+- A probe for the next §8.36 package put an Ø10 H7 counterbore 6 mm deep over an Ø6 H8 core from
+  either end. With a through core the volume is 4655.840313 mm³, with a 14 mm flat-bottom core it
+  is 5108.229655 mm³. Both readers recovered the two cylinder targets and each entered depth from
+  the common entry face to its own floor. A separate four-view PDF probe found both wall pairs and
+  their respective axial spans. Integration still needs connected step-edge evidence, review of
+  each diameter and depth, and clearance checks per step. Conical shaft drill points, tapers,
+  fillets, datum transfer and whole-drawing comparison also remain open. QIF stays last.
+
 ### Reconstruct a straight axial through bore in a stepped shaft
 
 - Checked PLAN §§8.16, 8.28 and 8.35–8.37 against docs/Roadmap.md. File → Shaft from 2D drawing

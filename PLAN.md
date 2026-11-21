@@ -1702,7 +1702,13 @@ either its two longitudinal wall lines reaching both ends or an independently sc
 view with concentric rings and an explicit through callout. The outer, bore and intermediate rings
 must match the bore and the seats visible from one end. Both readers recover the bore diameter and fit on the inner
 cylinder adjacent to both end faces. Incomplete wall traces, conflicting limits and additional
-interior edges block export. Blind or stepped axial bores, chamfers, tapers and fillets remain open. Pocket center-position PMI, inclined slots, unequal corner radii,
+interior edges block export.
+A straight axial blind bore requires paired wall lines ending at a flat floor and a reviewed depth
+from the open end. The optional end view must correspond to the entry side. Depth and diameter
+share the scale of the outside profile. Tolerance limits must leave material behind the floor and
+inside every seat the bore can reach. STEP attaches the depth to the two planes adjacent to its
+inner cylinder, including when the floor is coplanar with an outside shoulder. Stepped axial bores,
+conical drill points on shafts, chamfers, tapers and fillets remain open. Pocket center-position PMI, inclined slots, unequal corner radii,
 other profiles, automatic cross-view association and datum/GD&T transfer remain open.
 
 ### 8.37 QIF extensions (last in the implementation order)

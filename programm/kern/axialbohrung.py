@@ -1,4 +1,6 @@
-"""Durchgehende Bohrkanten und konzentrische Ringe einer Wellenzeichnung pruefen."""
+"""Axiale Bohrkanten und konzentrische Ringe einer Wellenzeichnung pruefen."""
+
+from dataclasses import dataclass
 
 import numpy as np
 
@@ -23,29 +25,73 @@ def _wand_durchgehend(spur, stift):
     return normal <= 8*stift and max(luecken) <= normal+max(1,.2*normal) and rand <= normal+stift/2+1
 
 
-def bohrspur(tinte, erlaubt, grenzen, mitte, aussenradius, stift):
+@dataclass(frozen=True)
+class Sacklochspur:
+    durchmesser: float
+    tiefe: float
+    von_rechts: bool
+
+
+def _bohrgrenzen(rest, baender, grenzen, wandstift):
+    # Alle Kanten ausser den beiden Waenden muessen zum selben ebenen Grund gehoeren.
+    if rest[:baender[0,0]].any() or rest[baender[1,1]:].any():
+        return ()
+    boden = tintenlaeufe(rest.any(axis=0))
+    if not len(boden):
+        return grenzen[1:-1]
+    links, rechts = boden[0,0], boden[-1,1]
+    if rechts-links <= wandstift+2:
+        if len(boden) == 1:
+            reihen = rest[:,links:rechts]
+            kern = np.flatnonzero(reihen[reihen.any(axis=1)].all(axis=0))
+            return [links+kern.mean()] if len(kern) else ()
+        # Die schmale Schulter kann die Mitte eines dickeren Bodenstrichs verdecken.
+        return [x for x in grenzen[1:-1] if links < x < rechts]
+    return ()
+
+
+def bohrspur(tinte, erlaubt, grenzen, mitte, radien, stift):
     rest = tinte & ~erlaubt
-    baender = tintenlaeufe(rest.any(axis=1))
-    if not len(baender):
+    if not rest.any():
         return 0., 0.
+    baender = tintenlaeufe(rest.sum(axis=1) > 2*(stift+2))
+    if len(baender) != 2:
+        baender = tintenlaeufe(rest.any(axis=1))
     if len(baender) != 2:
         return None
     striche = baender[:,1]-baender[:,0]
-    if np.ptp(striche) > 2:
-        return None
-    wandstift = max(striche)
     oben, unten = baender.mean(axis=1)-.5
-    radius = (unten-oben)/2
-    if abs((oben+unten)/2-mitte) > 1 or min(radius,aussenradius-radius) <= (stift+wandstift)/2+1:
+    radius, wandstift = (unten-oben)/2, max(striche)
+    abstand = (stift+wandstift)/2+1
+    if np.ptp(striche) > 2 or abs((oben+unten)/2-mitte) > 1 or radius <= abstand:
         return None
-    start = int(np.floor(grenzen[0]+stift/2+1))+1
-    ende = int(np.ceil(grenzen[-1]-stift/2-1))
-    if rest[:,:max(0,round(grenzen[0]-wandstift/2-1))].any() or rest[:,round(grenzen[-1]+wandstift/2+1):].any() or ende <= start:
-        return None
-    for y1,y2 in baender:
-        if not _wand_durchgehend(tinte[y1:y2,start:ende].any(axis=0), wandstift):
-            return None
-    return 2*radius, wandstift
+    waende = [tinte[lo:hi].any(axis=0) for lo,hi in baender]
+    wandpixel = np.flatnonzero(np.logical_or.reduce([rest[lo:hi].any(axis=0) for lo,hi in baender]))
+
+    def reicht_bis(a, b):
+        if wandpixel[0] < a-wandstift/2-1 or wandpixel[-1] > b+wandstift/2+1:
+            return False
+        rand = max(stift,wandstift)/2+1
+        start, ende = int(np.floor(a+rand))+1, int(np.ceil(b-rand))
+        return ende > start and all(_wand_durchgehend(w[start:ende], wandstift) for w in waende)
+
+    for lo,hi in baender:
+        rest[lo:hi] = False
+    if not rest.any() and min(radien)-radius > abstand and reicht_bis(grenzen[0],grenzen[-1]):
+        return 2*radius, wandstift
+    treffer = []
+    for x in _bohrgrenzen(rest, baender, grenzen, wandstift):
+        if not grenzen[0] < x < grenzen[-1]:
+            continue
+        senkrecht = tinte[round(oben):round(unten)+1,round(x-stift/2):round(x+stift/2)+1].any(axis=1)
+        if not _wand_durchgehend(senkrecht, wandstift):
+            continue
+        for rechts, eintritt in ((False,grenzen[0]),(True,grenzen[-1])):
+            a,b = sorted((eintritt,x))
+            beruehrt = [r for l,h,r in zip(grenzen[:-1],grenzen[1:],radien,strict=True) if l < b and a < h]
+            if min(beruehrt)-radius > abstand and reicht_bis(a,b):
+                treffer.append(Sacklochspur(2*radius, b-a, rechts))
+    return (treffer[0], wandstift) if len(treffer) == 1 else None
 
 
 def stirnringe(bild, box, kreise):

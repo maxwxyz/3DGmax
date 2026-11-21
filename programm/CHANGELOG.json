@@ -1,6 +1,7 @@
 {
  "unreleased": {
   "de": [
+   "Aus einer Wellenzeichnung lassen sich axiale Sacklöcher mit flachem Grund von beiden Stirnseiten rekonstruieren. Der STEP-Export erhält Durchmesser, Passung und tolerierte Tiefe an den zugehörigen Flächen.",
    "„Welle aus 2D-Zeichnung“ rekonstruiert auch Hohlwellen mit gerader Durchgangsbohrung. Als Nachweis dienen durchgehende Wandlinien oder die Stirnansicht mit Durchgangsangabe. Der STEP-Export verknüpft Durchmesser und Passung mit der Bohrungswand.",
    "Neue und geänderte Passungen wie h6 und H7 werden mit getrennten STEP-Feldern für Toleranzlage und Grad gespeichert. Dadurch liest auch OCCT/XCAF die Klasse.",
    "Der neue Dateibefehl „Vollwelle aus 2D-Zeichnung“ rekonstruiert zylindrische Wellenabschnitte und rechtwinklige Schultern aus einer PDF-Längsansicht. STEP verknüpft jeden tolerierten Durchmesser mit seinem Sitz und die Abschnittslängen mit den jeweiligen Stirn- und Schulterflächen.",
@@ -152,6 +153,7 @@
    "Grafische PMI aus unterstützten AP203e2-Kurvenmodellen lassen sich als STEP AP242 Edition 3 ausgeben. Facettierte STEP-Modelle behalten ihre Flächenbezüge. Gepackte STEP-Dateien lassen sich als unkomprimierte STEP-Kopie speichern."
   ],
   "en": [
+   "Reconstruct flat-bottom axial blind bores from either end of a dimensioned shaft drawing. STEP links the diameter, fit and toleranced depth to the bore wall, entry face and floor.",
    "Shaft from 2D drawing also reconstructs hollow shafts with a straight through bore. The drawing must show full-length wall lines or an end view with a through callout. STEP links the bore diameter and fit to the inner cylinder.",
    "New and edited fits such as h6 and H7 use separate STEP fields for form variance and grade so that OCCT/XCAF also preserves the class.",
    "The new Solid shaft from 2D drawing command reconstructs cylindrical sections with square shoulders from a longitudinal PDF view. STEP links each toleranced diameter to its own seat and each length to its corresponding end and shoulder faces.",
