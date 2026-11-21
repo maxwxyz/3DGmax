@@ -181,6 +181,11 @@ Throughout: tests (core, offscreen UI, stress test, on-screen test), `--selbstte
   between a legible dimension and its STEP validation text leaves the numeric fields open until
   the reviewer selects a source or enters the values. Two numbers separated by a hyphen can be
   explicitly adopted as limit dimensions. Tested on FTC-07 with and without validation metadata.
+  Single-row wide control frames preserve the characteristic, diameter zone, projected height or
+  maximum material and the ordered datums. Closed cell borders can also be recovered from filled
+  triangles when the annotation supplies its plane. Both FTC-07's original strokes and a
+  triangle-only rendering of its two position controls pass graphical-only STEP round trips,
+  including review of the projection end face and reimport of both original presentations.
   Open: additional fonts, composite controls and dimensions with
   ambiguous leader or text placement.
 - Convert to semantic PMI: evaluate recognized text + frame structure; mark result as "derived (check)", never as

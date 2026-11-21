@@ -2,6 +2,23 @@
 
 ## Current state, 2026-11-21
 
+### Complete stroke and triangle-only tolerance frames
+
+- Checked PLAN §§8.4, 8.18 and 8.28 and docs/Roadmap.md. Single-row wide CAD frames are
+  decoded as one font family. A circled P and a circled M must match the interior lettering.
+  Entirely filled graphics can supply the cell borders from closed rectangular spaces in the
+  annotation plane. No edges or text entities are required.
+- Removed semantics and validation strings from the FTC-07 STEP reference. The review read
+  the projected position as diameter .020 inch and height .425 inch against A/B, and the other
+  position as diameter .040 inch at maximum material against A/B/C. Tested both the original
+  strokes and a separately triangulated version of both frames with zero line geometry.
+  Reopening each exported STEP confirmed the original entities, ordered datums, target faces,
+  material modifier and reviewed projection end face. A composite position frame stayed open.
+  All 37 affected tests, 37 native repair/projection tests and 103 drawing, validation and PRC
+  tests passed. All 2592 interface strings have English translations.
+- Further §8.4 work includes triangle-only frames that lack a stored writing plane, additional
+  fonts and multi-row control frames. QIF remains the final implementation phase.
+
 ### Wide CAD stroke dimensions and conflicting presentation values
 
 - Checked PLAN §§8.4, 8.18, 8.28 and docs/Roadmap.md. A separate set of wide stroke glyphs

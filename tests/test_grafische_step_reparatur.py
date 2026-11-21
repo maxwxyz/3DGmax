@@ -785,3 +785,94 @@ def test_weitere_breite_zeilen_ohne_dateitext_und_ungenauer_rest(ftc07):
                 15807:"4X⌀.281 +.006\n-.001", 15146:""}
     for nr, wort in erwartet.items():
         assert lies_schrift(grafik[nr]) == wort
+
+
+def _rahmen_als_fuellung(datei, rein, ziel):
+    import json
+
+    def liste(daten):
+        return json.dumps(daten, separators=(",", ":")).translate(str.maketrans("[]", "()"))
+
+    text = Path(datei).read_text(encoding="utf-8")
+    for nr, kurve in ((14040, 14037), (14795, 14792), (14498, 14495)):
+        g = rein.grafik[nr]
+        punkte, faecher = [], []
+        normale = g.ebene[3]
+        for linie in g.linien:
+            for a, b in zip(linie, linie[1:]):
+                v = b-a
+                laenge = np.linalg.norm(v)
+                if laenge < 1e-9:
+                    continue
+                v *= .07 / laenge
+                quer = np.cross(normale, v)
+                # Der Streifen hat eine Flaeche; keine seiner Kanten wird als Linie gespeichert.
+                q = np.array([a-.1*v-quer, b+.1*v-quer, b+.1*v+quer, a-.1*v+quer])
+                faecher.append(list(range(len(punkte)+1, len(punkte)+5)))
+                punkte.extend(np.round(q / g.textfaktor, 9).tolist())
+        koord = 90000 + nr
+        start = text.index(f"#{kurve}=TESSELLATED_CURVE_SET(")
+        ende = text.index(";", start)+1
+        text = (text[:start] + f"#{koord}=COORDINATES_LIST('',{len(punkte)},{liste(punkte)});\n"
+                + f"#{kurve}=COMPLEX_TRIANGULATED_SURFACE_SET('',#{koord},{len(punkte)},"
+                + f"({liste(normale.tolist())}),(),(),{liste(faecher)});" + text[ende:])
+    ziel.write_text(text, encoding="utf-8")
+    return str(ziel)
+
+
+@pytest.mark.parametrize("fuellung", [False, True], ids=["striche", "nur_dreiecke"])
+def test_breite_toleranzrahmen_ohne_validierung_mit_projektion_und_material_im_step(fenster,tmp_path,fuellung):
+    from programm.kern.pmi_strichschrift import lies_schrift
+    datei,ref,rein = _ohne_semantik(pfad("nist_ftc_07_asme1_ap242-e2.stp"),tmp_path/"Rahmen.stp",validierung=False)
+    if fuellung:
+        datei = _rahmen_als_fuellung(datei, rein, tmp_path/"Rahmen gefuellt.stp")
+    fenster.lade(datei,warten=True)
+    rein = fenster.erg
+    for nr in (14040,14795,14498):
+        assert bool(rein.grafik[nr].linien) != fuellung and bool(rein.grafik[nr].dreiecke) == fuellung
+    nummern = (13706,13747,13788,14040,14795)
+    wortlaut = ("[A]","[B]","[C]","⌖ ⌀.020Ⓟ.425 A B","⌖ ⌀.040Ⓜ A B C")
+    for nr,wort in zip(nummern,wortlaut,strict=True):
+        p = next(p for p in fenster.erg.pmi if p.step_id == nr)
+        art = "toleranz" if nr >= 14040 else "bezug"
+        soll, = [p for p in ref.pmi if p.art == art and p.step_id in ref.grafik[nr].pmi_ids]
+        assert not p.semantisch and not fenster.erg.grafik[nr].platzhalter
+        fenster._pmi_befehl("semantisch",p)
+        d = fenster._semantik_dialog
+        assert not d.v.validierungstexte and d.v.ocr_text == wort
+        fenster.ansicht.setze_auswahl([fenster.erg.modell.flaechen[i] for i in soll.flaechen])
+        d._auswahl_uebernehmen()
+        if nr == 14040:
+            assert d.v.zone == "Projected" and d.v.zonen_wert == pytest.approx(10.795)
+            assert d.fehler() and not d.projektionsflaechen
+            fenster.ansicht.setze_auswahl([fenster.erg.modell.flaechen[i] for i in soll.projektionsflaechen])
+            d._projektionsende_waehlen()
+        assert not d.fehler()
+        d._pruefen()
+    ziel = fenster.speichere_step_pmi(str(tmp_path/"Rahmen mit Semantik.stp"),melden=False)
+    assert len(fenster._step_bericht.repariert) == 5 and not fenster._step_bericht.uebersprungen
+    neu = lade_alles(ziel)
+    assert all(neu.modell.datei.get(i) == ent for i,ent in rein.modell.datei.entities.items())
+    for nr in (14040,14795):
+        soll, = [p for p in ref.pmi if p.art == "toleranz" and p.step_id in ref.grafik[nr].pmi_ids]
+        ist, = [p for p in neu.pmi if p.semantisch and p.step_id in neu.grafik[nr].pmi_ids]
+        assert ist.typ == "Position" and ist.flaechen == soll.flaechen and ist.wert == pytest.approx(soll.wert)
+        assert ist.bezug_text() == soll.bezug_text() and "Diameter" in ist.modifikatoren
+        if nr == 14040:
+            assert ist.zone == "Projected" and ist.zonen_wert == pytest.approx(10.795)
+            assert ist.projektionsflaechen == soll.projektionsflaechen
+        else:
+            assert ist.material == "M"
+    # Zusatzzeichen, mehrzeilige Rahmen und Bereichsangaben nicht auf eine einfache Toleranz kuerzen.
+    for nr in (14405,14498,14269):
+        assert lies_schrift(rein.grafik[nr]) == ""
+
+
+def test_breite_rahmen_mit_weiteren_merkmalen(ftc07):
+    from programm.kern.pmi_strichschrift import lies_schrift
+    from programm.kern.praesentation import lies_grafik
+
+    grafik = lies_grafik(ftc07.datei)
+    erwartet = {13999: "⟂ ⌀.015Ⓟ.425 A", 14302: "∥ .03 A", 14335: "⌓ .06 A B C"}
+    for nr, wort in erwartet.items():
+        assert lies_schrift(grafik[nr]) == wort

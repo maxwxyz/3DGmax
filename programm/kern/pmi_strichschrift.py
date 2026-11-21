@@ -96,18 +96,13 @@ def _merkmal(mask):
     return bitmap
 
 
-def _zeichen(pfade, box):
+def _fachmaske(pfade, box):
     x, y, r, t = box
     h = t - y
     rand = .003 * h
     innen = [(p, voll) for p, voll in pfade if np.min(p[:, 0]) > x + rand and np.max(p[:, 0]) < r - rand
              and np.min(p[:, 1]) > y + rand and np.max(p[:, 1]) < t - rand]
-    if not innen or h <= 0:
-        return []
-    mask = _bild(innen, box, 100 / h)
-    if mask is None:
-        return []
-    return _bildzeichen(mask)
+    return _bild(innen, box, 100 / h) if innen and h > 0 else None
 
 
 def _bildzeichen(mask):
@@ -159,14 +154,17 @@ def _vorlagen():
     return [(z, b, ndimage.distance_transform_edt(~b)) for z, b in muster]
 
 
-@lru_cache(maxsize=1)
-def _breitvorlagen():
-    from .pmi_schriftmuster import BREITSCHRIFT
-    return [(z, b, ndimage.distance_transform_edt(~b)) for z, b in _musterbilder(BREITSCHRIFT)]
+@lru_cache(maxsize=2)
+def _breitvorlagen(rahmen=False):
+    from .pmi_schriftmuster import BREITSCHRIFT, BREITE_RAHMENSCHRIFT
+    muster = _musterbilder(BREITSCHRIFT)
+    if rahmen:
+        muster.extend(_musterbilder(BREITE_RAHMENSCHRIFT))
+    return [(z, b, ndimage.distance_transform_edt(~b)) for z, b in muster]
 
 
 # In dieser Schrift ist der Punkt ein kleines, geschlossenes Rechteck.
-_INNENRAEUME = {z: n for n, gruppe in enumerate(("-+±X12357", ".0469R", "8⌀")) for z in gruppe}
+_INNENRAEUME = {z: n for n, gruppe in enumerate(("-+±X12357⟂∥C", ".0469R⌓AD", "8⌀BⓅ", "", "⌖Ⓜ")) for z in gruppe}
 
 
 _Y, _X = np.ogrid[:32, :32]
@@ -185,7 +183,8 @@ def _lies_zeile(zeichen, vorlagen=None, innenraeume=None):
         dist = ndimage.distance_transform_edt(~bitmap)
         je_zeichen = {}
         for z, vorlage, abstand in (_vorlagen() if vorlagen is None else vorlagen):
-            if innenraeume is not None and innenraeume[i] != _INNENRAEUME[z]:
+            if (innenraeume is not None and innenraeume[i] != _INNENRAEUME[z]
+                    and not (z == "Ⓟ" and innenraeume[i] == 3)):
                 continue
             if z == "." and (h > .38 or u < unten - .23 * hoehe):
                 continue
@@ -195,7 +194,7 @@ def _lies_zeile(zeichen, vorlagen=None, innenraeume=None):
                 continue
             if z not in ".°±-" and (h < .46 or not y < (oben + unten) / 2 < u):
                 continue
-            if z in "ⓂⒻⓁ":
+            if z in "ⓂⒻⓁⓅ":
                 # Der gemeinsame Aussenkreis sagt nichts ueber die Materialbedingung aus.
                 innen = np.r_[dist[vorlage & _KREIS_INNEN], abstand[bitmap & _KREIS_INNEN]]
                 if not innen.size or np.quantile(innen, .9) > 1.7:
@@ -246,28 +245,35 @@ def _einzelrahmen(pfade, zellen):
     return True
 
 
-def _rahmentext(pfade, zellen):
+def _rahmenwort(teile):
     from .pmi_ableiten import gueltige_rahmenzellen
-    if not _einzelrahmen(pfade, zellen):
-        return ""
-    teile = [_lies_zeile(_zeichen(pfade, z)) for z in zellen]
-    if not all(teile):
-        return ""
     if len(teile) == 1:
         return f"[{teile[0]}]" if teile[0].isalpha() else ""
-    if not gueltige_rahmenzellen(teile):
+    return " ".join(teile) if gueltige_rahmenzellen(teile) else ""
+
+
+def _rahmentext(pfade, zellen, masken=None):
+    if not _einzelrahmen(pfade, zellen):
         return ""
-    return " ".join(teile)
+    if masken is None:
+        masken = [_fachmaske(pfade, z) for z in zellen]
+    if any(m is None for m in masken):
+        return ""
+    normal = _rahmenwort([_normale_zeile(m) for m in masken])
+    breit = _rahmenwort([_breite_zeile(m, rahmen=True) for m in masken])
+    if breit and normal and breit != normal:
+        return ""
+    return breit or normal
 
 
 def _normale_zeile(mask):
     return _lies_zeile(_bildzeichen(mask))
 
 
-def _breite_zeile(mask):
+def _breite_zeile(mask, rahmen=False):
     zeichen = _bildzeichen(mask)
     innen = [ndimage.label(~np.pad(mask[t:b, l:r], 1))[1] - 1 for _, (l, t, r, b) in zeichen]
-    return _lies_zeile(zeichen, _breitvorlagen(), innen)
+    return _lies_zeile(zeichen, _breitvorlagen(rahmen), innen)
 
 
 def _gestapelt(mask, lesen=_normale_zeile):
@@ -337,10 +343,48 @@ def _freitext(pfade):
     return breit if not normal or breit == normal else ""
 
 
+def _fuellrahmen(pfade):
+    """Gerade geschlossene Fachraender aus der Fuellung, auch ohne einzelne Kantenstriche."""
+    punkte = np.vstack([p for p, _ in pfade])
+    dx, dy = np.ptp(punkte, axis=0)
+    if min(dx, dy) <= 0:
+        return []
+    skala = min(480 / dy, 1800 / dx)
+    mask, box = _gesamtbild(pfade, skala)
+    if mask is None:
+        return []
+    labels, _ = ndimage.label(~mask)
+    faecher = []
+    for y, x in ndimage.find_objects(labels):
+        l, r, t, b = x.start, x.stop, y.start, y.stop
+        h = b - t
+        if not (l and t and r < mask.shape[1] and b < mask.shape[0]
+                and h >= 12 and .4*h < r-l < 30*h):
+            continue
+        if min(mask[t-1, x].mean(), mask[b, x].mean(), mask[y, l-1].mean(), mask[y, r].mean()) < .98:
+            continue
+        faecher.append((l, t, r, b))
+    if not faecher:
+        return []
+    # Eine einzige Reihe mit gemeinsamen Stegen. Mehrzeilige Rahmen brauchen eigene Semantik.
+    h = max(b-t for _, t, _, b in faecher)
+    reihe = sorted(z for z in faecher if z[3] - z[1] > .85*h)
+    t, b = reihe[0][1::2]
+    if (len(reihe) > 6 or any(abs(y-t) > 2 or abs(u-b) > 2 for _, y, _, u in reihe)
+            or any(not 0 < z[0]-a[2] <= max(3, .12*h) for a, z in zip(reihe, reihe[1:]))):
+        return []
+    if not any(mask[y:u,l:r].any() for l, y, r, u in reihe):
+        return []
+    kanten = [reihe[0][0]-1, *((a[2]+z[0]-1)/2 for a, z in zip(reihe, reihe[1:])), reihe[-1][2]]
+    xx = [box[0]+(x-2)/skala for x in kanten]
+    unten, oben = box[3]-(b-2)/skala, box[3]-(t-3)/skala
+    return [(l, unten, r, oben) for l, r in zip(xx, xx[1:])]
+
+
 def _zellen(pfade):
     rahmen = _rahmen(pfade)
     if not rahmen:
-        return []
+        return _fuellrahmen(pfade) if any(voll for _, voll in pfade) else []
     h = max(b[3] - b[1] for b in rahmen)
     return [b for b in rahmen if b[3] - b[1] > .85 * h]
 
@@ -413,8 +457,15 @@ def lies_rahmensymbol(g, fachzahl):
     zellen = _zellen(pfade) if pfade else []
     if len(zellen) != fachzahl or not _einzelrahmen(pfade, zellen):
         return ""
-    zeichen = _lies_zeile(_zeichen(pfade, zellen[0]))
-    return zeichen if zeichen in SYMBOL_ZU_TYP else ""
+    maske = _fachmaske(pfade, zellen[0])
+    if maske is None:
+        return ""
+    lesarten = {_normale_zeile(maske), _breite_zeile(maske, rahmen=True)}
+    lesarten.discard("")
+    if len(lesarten) == 1:
+        zeichen = lesarten.pop()
+        return zeichen if zeichen in SYMBOL_ZU_TYP else ""
+    return ""
 
 
 def lies_schrift(g):
@@ -429,6 +480,7 @@ def lies_schrift(g):
     zellen = _zellen(pfade)
     if len(zellen) > 6:
         return ""
-    if any(_zeichen(pfade, b) for b in zellen):
-        return _rahmentext(pfade, zellen)
+    masken = [_fachmaske(pfade, b) for b in zellen]
+    if any(m is not None and m.any() for m in masken):
+        return _rahmentext(pfade, zellen, masken)
     return _freitext(pfade)
