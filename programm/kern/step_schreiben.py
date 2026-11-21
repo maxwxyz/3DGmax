@@ -331,7 +331,7 @@ def _bezug_basis(a: _Anhang, b) -> str:
     return "COMMON_DATUM_LIST((" + ",".join(f"#{e}" for e in elemente) + "))"
 
 
-def _schreibe_toleranz(a: _Anhang, p) -> str | None:
+def _schreibe_toleranz(a: _Anhang, p, aspekt=None) -> str | None:
     from .pmi_step import BEZUG_MODS, TOL_ARTEN, TOL_MODS
     entitaet = {v: k for k, v in TOL_ARTEN.items()}.get(p.typ)
     if entitaet is None or p.wert is None:
@@ -357,7 +357,7 @@ def _schreibe_toleranz(a: _Anhang, p) -> str | None:
         gruppen = [b.modifikatoren, *b.element_modifikatoren.values()]
         if any(m not in BEZUG_MODS.values() for gruppe in gruppen for m in gruppe):
             return tr("Bezugsmodifikator nicht schreibbar")
-    sa = a.aspekt(p.flaechen)
+    sa = a.aspekt(p.flaechen) if aspekt is None else aspekt
     if sa is None:
         return tr("Flächen ohne Entsprechung in der Datei")
     betrag = a.mass(p.wert)
@@ -531,8 +531,29 @@ def _grafiken(eigene, modell, grafik) -> dict:
     return out
 
 
+def _schreibe_verbund(a, paar):
+    oben, unten = paar
+    if oben.flaechen != unten.flaechen or any(set(p.projektionsflaechen) & p.flaechen for p in paar):
+        return tr("Die Zeilen des Verbundrahmens brauchen gemeinsame Zielflächen."), []
+    fehler = a.waehle(oben.flaechen)
+    if fehler:
+        return fehler, []
+    aspekt = a.aspekt(oben.flaechen)
+    if aspekt is None:
+        return tr("Flächen ohne Entsprechung in der Datei"), []
+    ids = []
+    for zeile in paar:
+        grund = _schreibe_toleranz(a, zeile, aspekt)
+        if grund:
+            return grund, []
+        ids.append(a.semantik)
+    a.neu(f"GEOMETRIC_TOLERANCE_RELATIONSHIP('composite','',#{ids[0]},#{ids[1]})")
+    return None, ids
+
+
 def _haenge_an(text: str, datei, modell, pmi, bericht: Bericht, grafik=None, schrift=None) -> str:
     from .pmi_darstellung import Praesentation
+    from .pmi_reparieren import verbundpaare
     from .praesentation import eigenstaendige_annotation
     eigene = [p for p in pmi if p.quelle == "eigen" and p.art in ("mass", "toleranz", "bezug")]
     if not eigene:
@@ -540,30 +561,44 @@ def _haenge_an(text: str, datei, modell, pmi, bericht: Bericht, grafik=None, sch
     a = _Anhang(datei, modell)
     darst, grafiken = Praesentation(a, modell, schrift), _grafiken(eigene, modell, grafik)
     belegt = _semantische_callouts(datei) if any(p.callout for p in eigene) else set()
+    paare = verbundpaare(eigene)
+    unvollstaendig = {p.callout for p in eigene if p.folgetoleranzen and p.callout not in paare}
     # Bezuege zuerst: Toleranzen verweisen auf sie
     for p in sorted(eigene, key=lambda p: p.art != "bezug"):
+        paar = paare.get(p.callout)
+        if paar and p is paar[1]:
+            continue
+        gruppe = paar or (p,)
+        if p.callout in unvollstaendig:
+            bericht.uebersprungen.append((p.nummer, "neu", tr("Verknüpfung im Verbundrahmen unvollständig")))
+            continue
         if p.callout:
             grafikziel = datei.entities.get(p.callout)
             if grafikziel is None or not (grafikziel.is_a("DRAUGHTING_CALLOUT") or
                                           eigenstaendige_annotation(datei, grafikziel)):
-                bericht.uebersprungen.append((p.nummer, "neu", tr("Originalgrafik in der STEP-Datei fehlt")))
+                bericht.uebersprungen.extend((q.nummer, "neu", tr("Originalgrafik in der STEP-Datei fehlt")) for q in gruppe)
                 continue
             if p.callout in belegt:
-                bericht.uebersprungen.append((p.nummer, "neu", tr("Originalgrafik bereits mit Semantik verknüpft")))
+                bericht.uebersprungen.extend((q.nummer, "neu", tr("Originalgrafik bereits mit Semantik verknüpft")) for q in gruppe)
                 continue
         vorher = (len(a.zeilen), a.naechste)
         schreiber = {"bezug": _schreibe_bezug, "toleranz": _schreibe_toleranz, "mass": _schreibe_mass}[p.art]
-        grund = schreiber(a, p)
+        if paar:
+            grund, semantiken = _schreibe_verbund(a, paar)
+        else:
+            grund = schreiber(a, p)
+            semantiken = [a.semantik]
         if grund:
             del a.zeilen[vorher[0]:]  # halb geschriebene Entitaeten verwerfen
             a.naechste = vorher[1]
-            bericht.uebersprungen.append((p.nummer, "neu", grund))
+            bericht.uebersprungen.extend((q.nummer, "neu", grund) for q in gruppe)
             continue
-        bericht.neu.append(p.nummer)
+        bericht.neu.extend(q.nummer for q in gruppe)
         if p.callout:
-            darst.verknuepfe(p.callout, a.semantik)
+            for eid in semantiken:
+                darst.verknuepfe(p.callout, eid)
             belegt.add(p.callout)
-            bericht.repariert.append(p.nummer)
+            bericht.repariert.extend(q.nummer for q in gruppe)
         elif darst.callout(grafiken.get(p.step_id), a.semantik, p.flaechen):
             bericht.dargestellt.append(p.nummer)
     darst.abschliessen()

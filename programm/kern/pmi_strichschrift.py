@@ -96,13 +96,13 @@ def _merkmal(mask):
     return bitmap
 
 
-def _fachmaske(pfade, box):
+def _fachmaske(pfade, box, pixelhoehe=100):
     x, y, r, t = box
     h = t - y
     rand = .003 * h
     innen = [(p, voll) for p, voll in pfade if np.min(p[:, 0]) > x + rand and np.max(p[:, 0]) < r - rand
              and np.min(p[:, 1]) > y + rand and np.max(p[:, 1]) < t - rand]
-    return _bild(innen, box, 100 / h) if innen and h > 0 else None
+    return _bild(innen, box, pixelhoehe / h) if innen and h > 0 else None
 
 
 def _bildzeichen(mask):
@@ -164,7 +164,7 @@ def _breitvorlagen(rahmen=False):
 
 
 # In dieser Schrift ist der Punkt ein kleines, geschlossenes Rechteck.
-_INNENRAEUME = {z: n for n, gruppe in enumerate(("-+±X12357⟂∥C", ".0469R⌓AD", "8⌀BⓅ", "", "⌖Ⓜ")) for z in gruppe}
+_INNENRAEUME = {z: n for n, gruppe in enumerate(("-+±X12357⟂∥CE", ".0469R⌓AD○", "8⌀BⓅ", "", "⌖Ⓜ")) for z in gruppe}
 
 
 _Y, _X = np.ogrid[:32, :32]
@@ -178,14 +178,27 @@ def _lies_zeile(zeichen, vorlagen=None, innenraeume=None):
     unten = max(box[3] for _, box in zeichen)
     hoehe = unten - oben
     ergebnis = ""
-    for i, (bitmap, (_, y, _, u)) in enumerate(zeichen):
+    for i, (bitmap, (l, y, r, u)) in enumerate(zeichen):
         h = (u - y) / hoehe
         dist = ndimage.distance_transform_edt(~bitmap)
         je_zeichen = {}
         for z, vorlage, abstand in (_vorlagen() if vorlagen is None else vorlagen):
+            if z == "○":
+                # Ein leerer Modifikator folgt der Zahl. Sein Aussenkreis ist breiter
+                # als die Ziffern derselben Schrift; die Eins hat eine eigene Breite.
+                if i != len(zeichen)-1 or not ergebnis[-1:].isdigit():
+                    continue
+                breiten = [b[2]-b[0] for c, (_, b) in zip(ergebnis, zeichen)
+                           if c in "023456789⌀"]
+                if breiten and r-l <= 1.1*np.median(breiten):
+                    continue
             if (innenraeume is not None and innenraeume[i] != _INNENRAEUME[z]
                     and not (z == "Ⓟ" and innenraeume[i] == 3)):
-                continue
+                # Beim umkreisten M kann eine Beruehrung wegrastern. Dann muss jedes Pixel
+                # beider Glyphen hoechstens einen Rasterpunkt von der Gegenglyphe liegen.
+                if (z != "Ⓜ" or innenraeume[i] not in (1, 3)
+                        or dist[vorlage].max() > 1 or abstand[bitmap].max() > 1):
+                    continue
             if z == "." and (h > .38 or u < unten - .23 * hoehe):
                 continue
             if z == "°" and (h > .43 or y > oben + .27 * hoehe):
@@ -357,6 +370,21 @@ def _freitext(pfade):
     return wort if re.match(r"^(?:[1-9][0-9]*X)?[⌀R][0-9.]", wort) else ""
 
 
+def _rechteckfaecher(mask, mindestbreite):
+    labels, _ = ndimage.label(~mask)
+    faecher = []
+    for y, x in ndimage.find_objects(labels):
+        l, r, t, b = x.start, x.stop, y.start, y.stop
+        h = b - t
+        if not (l and t and r < mask.shape[1] and b < mask.shape[0]
+                and h >= 12 and mindestbreite*h < r-l < 30*h):
+            continue
+        if min(mask[t-1, x].mean(), mask[b, x].mean(), mask[y, l-1].mean(), mask[y, r].mean()) < .98:
+            continue
+        faecher.append((l, t, r, b))
+    return faecher
+
+
 def _fuellrahmen(pfade):
     """Gerade geschlossene Fachraender aus der Fuellung, auch ohne einzelne Kantenstriche."""
     punkte = np.vstack([p for p, _ in pfade])
@@ -367,17 +395,7 @@ def _fuellrahmen(pfade):
     mask, box = _gesamtbild(pfade, skala)
     if mask is None:
         return []
-    labels, _ = ndimage.label(~mask)
-    faecher = []
-    for y, x in ndimage.find_objects(labels):
-        l, r, t, b = x.start, x.stop, y.start, y.stop
-        h = b - t
-        if not (l and t and r < mask.shape[1] and b < mask.shape[0]
-                and h >= 12 and .4*h < r-l < 30*h):
-            continue
-        if min(mask[t-1, x].mean(), mask[b, x].mean(), mask[y, l-1].mean(), mask[y, r].mean()) < .98:
-            continue
-        faecher.append((l, t, r, b))
+    faecher = _rechteckfaecher(mask, .4)
     if not faecher:
         return []
     # Eine einzige Reihe mit gemeinsamen Stegen. Mehrzeilige Rahmen brauchen eigene Semantik.

@@ -37,6 +37,7 @@ class SemantikDialog(QtWidgets.QDialog):
         self.geometriewert = geometriewert
         self.flaechen = set(vorschlag.flaechen)
         self.projektionsflaechen = list(vorschlag.projektionsflaechen)
+        self.projektionsflaechen_oben = set()
         self.setWindowTitle(tr("Grafische PMI prüfen ({} von {})").format(position, anzahl)
                             if anzahl else tr("Semantisch machen"))
         lay = QtWidgets.QFormLayout(self)
@@ -56,6 +57,9 @@ class SemantikDialog(QtWidgets.QDialog):
                 herkunft += " " + tr("Das Rahmensymbol wurde aus dem ersten gezeichneten Fach gelesen.")
             elif vorschlag.rahmensymbolquelle == "name":
                 herkunft += " " + tr("Das Rahmensymbol ergibt sich aus dem Namen „{}“.").format(vorschlag.merkmalsname)
+            if getattr(vorschlag, "ocr_text", "") and vorschlag.wert is None:
+                herkunft = tr("Grafik und STEP-Validierung stimmen nicht überein. Beide Rahmenzeilen prüfen. Dateitext: {}").format(
+                    " / ".join(validierung))
             label = QtWidgets.QLabel(herkunft)
             label.setTextFormat(QtCore.Qt.TextFormat.PlainText)
             label.setWordWrap(True)
@@ -242,6 +246,8 @@ class SemantikDialog(QtWidgets.QDialog):
         art = self.art.currentData()
         if not self.flaechen:
             return tr("Bitte Flächen wählen")
+        if self.flaechen & self.projektionsflaechen_oben:
+            return tr("Eine eigene Austrittsfläche für die Projektion wählen")
         if self.typ.currentIndex() < 0:
             return tr("Bitte das Merkmal wählen")
         if art == MASS:
@@ -364,7 +370,7 @@ def semantisch_machen(fenster, auswahl=None):
         indices = {erg.modell.flaechen_index(f) for f in fenster.ansicht.auswahl3d}
         return indices if all(i is not None and 0 <= i < limit for i in indices) else set()
 
-    def weiter(k):
+    def weiter(k, folge=None, erste=None):
         nonlocal uebersprungen
         while k < len(liste) and not kandidaten(erg, [liste[k]]):
             uebersprungen += 1
@@ -378,15 +384,35 @@ def semantisch_machen(fenster, auswahl=None):
         if not fenster.ansicht.grafik_an or fenster.ansicht.grafik_nur_auswahl:
             fenster.ansicht.setze_grafik(True, False, False)
         fenster.ansicht.richte_normal_aus(set(), None, {p.step_id})
-        v = pmi_reparieren.vorschlag(p, erg.grafik[p.step_id], erg.modell)
-        if any(i >= limit or i < 0 for i in v.flaechen):
-            v.flaechen = set()
-            if v.nennwert_aus_geometrie:
-                v.nennwert = None
-        v.projektionsflaechen = [i for i in v.projektionsflaechen if 0 <= i < limit]
+        if folge is None:
+            v = pmi_reparieren.vorschlag(p, erg.grafik[p.step_id], erg.modell)
+            if any(i >= limit or i < 0 for i in v.flaechen):
+                v.flaechen = set()
+                if v.nennwert_aus_geometrie:
+                    v.nennwert = None
+            v.projektionsflaechen = [i for i in v.projektionsflaechen if 0 <= i < limit]
+            paar = pmi_reparieren.verbundvorschlaege(v, erg.grafik[p.step_id], erg.modell)
+            if paar:
+                v, folge = paar
+        else:
+            v = folge
         d = SemantikDialog(v, flaechen, fenster.ansicht.hebe_flaechen, fenster, position=k+1,
                            anzahl=0 if einzeln else len(liste), step=erg.pfad.lower().endswith(ENDUNGEN_STEP + ENDUNGEN_STEPZ),
                            geometriewert=lambda typ, indices: pmi_reparieren.geometrie_nennmass(typ, indices, erg.modell))
+        if folge is not None:
+            if erste is not None:
+                d.projektionsflaechen_oben = set(erste.projektionsflaechen)
+            d.art.setEnabled(False)
+            d.typ.setEnabled(erste is None)
+            if erste is None:
+                box = d.findChild(QtWidgets.QDialogButtonBox)
+                box.button(QtWidgets.QDialogButtonBox.StandardButton.Ok).setText(tr("Untere Zeile prüfen"))
+            d.setWindowTitle(tr("Verbundrahmen prüfen · Zeile {} von 2").format(2 if erste else 1))
+            erklaerung = (tr("Beide Toleranzzeilen werden mit den hier gewählten Flächen übernommen.") if erste
+                          else tr("Nach der oberen Zeile folgt die Prüfung der unteren. Abbrechen verwirft beide Zeilen."))
+            hinweis = QtWidgets.QLabel(erklaerung)
+            hinweis.setWordWrap(True)
+            d.layout().insertRow(0, hinweis)
         def fertig(code):
             nonlocal uebernommen, uebersprungen
             if fenster._semantik_dialog is not d:
@@ -396,7 +422,17 @@ def semantisch_machen(fenster, auswahl=None):
             if fenster.erg is not erg:
                 return
             if code == QtWidgets.QDialog.DialogCode.Accepted and not d.fehler() and kandidaten(erg, [p]):
-                fenster.fuege_pmi_hinzu([d.pmi()])
+                geprueft = d.pmi()
+                if folge is not None and erste is None:
+                    folge.flaechen = set(geprueft.flaechen)
+                    folge.typ = geprueft.typ
+                    weiter(k, folge, geprueft)
+                    return
+                if erste is not None:
+                    erste.flaechen = set(geprueft.flaechen)
+                    erste.step_id, geprueft.step_id = -1, -2
+                    erste.folgetoleranzen = [geprueft.step_id]
+                fenster.fuege_pmi_hinzu([erste, geprueft] if erste is not None else [geprueft])
                 uebernommen += 1
             elif code == 2:
                 uebersprungen += 1

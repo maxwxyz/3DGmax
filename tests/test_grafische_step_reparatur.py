@@ -961,3 +961,168 @@ def test_breite_masse_mit_zielbogen_mengen_und_abmassen_im_step(fenster, tmp_pat
         soll, = [p for p in referenz.pmi if p.art == "mass" and p.step_id in referenz.grafik[nr].pmi_ids]
         assert ist.typ == "Size_Diameter" and ist.flaechen == soll.flaechen
         assert (ist.nennwert, ist.oben, ist.unten) == pytest.approx(np.array([nenn, oben, unten])*25.4)
+
+
+@pytest.mark.parametrize("darstellung,validierung", [
+    ("striche", False), ("dreiecke", False), ("striche", True), ("dreiecke_ohne_ebene", False),
+])
+def test_verbundrahmen_grafisch_bis_zum_semantischen_step(fenster, tmp_path, darstellung, validierung):
+    fuellung = darstellung != "striche"
+    ohne_ebene = darstellung == "dreiecke_ohne_ebene"
+    quelle, ref, rein = _ohne_semantik(pfad("nist_ftc_07_asme1_ap242-e2.stp"), tmp_path/"Verbund.stp",
+                                       validierung=validierung)
+    if fuellung:
+        quelle = _als_fuellung(quelle, rein, tmp_path/"Verbund gefuellt.stp", [(14498, 14495, 14506)], ohne_ebene)
+    f = fenster
+    f.lade(quelle, warten=True)
+
+    ansichten = {a.step_id for a in f.erg.ansichten if 14498 in a.pmi_ids}
+    assert ansichten == {16614}
+    assert (f.erg.grafik[14498].ebene is None) == ohne_ebene
+
+    def oeffnen(nr):
+        p = next(p for p in f.erg.pmi if p.step_id == nr)
+        f._pmi_befehl("semantisch", p)
+        return f._semantik_dialog
+
+    for nr in (13706, 13747, 13788):
+        d = oeffnen(nr)
+        soll, = [p for p in ref.pmi if p.art == "bezug" and p.step_id in ref.grafik[nr].pmi_ids]
+        f.ansicht.setze_auswahl([f.erg.modell.flaechen[i] for i in soll.flaechen])
+        d._auswahl_uebernehmen()
+        assert not d.fehler()
+        d._pruefen()
+
+    def erste_zeile():
+        d = oeffnen(14498)
+        assert "1 von 2" in d.windowTitle() and d.v.ocr_text == "⌖ ⌀.060 A B C"
+        assert d.v.wert == pytest.approx(1.524) and d.v.bezug_text() == "A|B|C"
+        ziel = next(p.flaechen for p in ref.pmi if p.step_id == 14472)
+        f.ansicht.setze_auswahl([f.erg.modell.flaechen[i] for i in ziel])
+        d._auswahl_uebernehmen()
+        assert not d.fehler()
+        d._pruefen()
+        return f._semantik_dialog
+
+    d = erste_zeile()
+    assert "2 von 2" in d.windowTitle()
+    d.reject()
+    assert not any(p.callout == 14498 for p in f.erg.pmi)
+    d = erste_zeile()
+    assert d.v.ocr_text == "⌖ ⌀.015 A" and d.v.wert == pytest.approx(.381) and not d.fehler()
+    assert d.v.bezug_text() == "A"
+    d._pruefen()
+    projekt = f.speichere_projekt(str(tmp_path/"Zwei Zeilen"))
+    f.lade(projekt, warten=True)
+    oben, unten = sorted([p for p in f.erg.pmi if p.callout == 14498], key=lambda p: -p.wert)
+    assert oben.folgetoleranzen == [unten.step_id] and not unten.folgetoleranzen
+    assert {oben.step_id, unten.step_id} <= f.erg.grafik[14498].pmi_ids
+    assert bool(f.erg.grafik[14498].dreiecke) == fuellung
+    for a in f.erg.ansichten:
+        assert ({oben.step_id, unten.step_id} <= a.pmi_ids) == (a.step_id in ansichten)
+        assert ({oben.nummer, unten.nummer} <= set(a.pmi_nummern)) == (a.step_id in ansichten)
+    # Ein ungueltiger Bezug in der zweiten Zeile darf keine einzelne erste Zeile hinterlassen.
+    from dataclasses import replace
+    gespeicherte_bezuege = unten.bezuege
+    unten.bezuege = [replace(unten.bezuege[0], name="ZZ")]
+    fehler = f.speichere_step_pmi(str(tmp_path/"Ohne Verbund.stp"), melden=False)
+    assert {n for n, _, _ in f._step_bericht.uebersprungen} == {oben.nummer, unten.nummer}
+    ohne = lade_alles(fehler)
+    assert not any(p.art == "toleranz" and p.semantisch for p in ohne.pmi)
+    unten.bezuege = gespeicherte_bezuege
+    ziel = f.speichere_step_pmi(str(tmp_path/"Gepruefter Verbund.stp"), melden=False)
+    assert not f._step_bericht.uebersprungen and len(f._step_bericht.repariert) == 5
+    neu = lade_alles(ziel)
+    assert all(neu.modell.datei.get(i) == ent for i, ent in f.erg.modell.datei.entities.items())
+    a, b = sorted([p for p in neu.pmi if p.semantisch and p.step_id in neu.grafik[14498].pmi_ids],
+                  key=lambda p: -p.wert)
+    assert {v.step_id for v in neu.ansichten if {a.step_id, b.step_id} <= v.pmi_ids} == ansichten
+    assert a.folgetoleranzen == [b.step_id] and not b.folgetoleranzen
+    assert a.typ == b.typ == "Position" and a.flaechen == b.flaechen == oben.flaechen
+    assert (a.wert, b.wert) == pytest.approx((1.524, .381))
+    assert (a.bezug_text(), b.bezug_text()) == ("A|B|C", "A")
+    assert all("Diameter" in p.modifikatoren for p in (a, b))
+    assert (neu.modell.datei.get(a.step_id).args("GEOMETRIC_TOLERANCE")[3]
+            == neu.modell.datei.get(b.step_id).args("GEOMETRIC_TOLERANCE")[3])
+    f.loesche_eigene_pmi([unten])
+    assert not any(p.callout == 14498 for p in f.erg.pmi)
+    assert len([p for p in f.erg.pmi if p.step_id == 14498 and not p.semantisch]) == 1
+    assert 14498 in f.erg.grafik and not {oben.step_id, unten.step_id} & f.erg.grafik[14498].pmi_ids
+    for a in f.erg.ansichten:
+        assert (14498 in a.pmi_ids) == (a.step_id in ansichten)
+        assert unten.nummer not in a.pmi_nummern
+
+
+def test_verbundrahmen_widerspruch_und_zusatzgrafik(tmp_path):
+    from dataclasses import replace
+    from programm.kern import pmi_reparieren
+    from programm.kern.pmi_verbundschrift import lies_verbund
+
+    datei, _, _ = _ohne_semantik(pfad("nist_ftc_07_asme1_ap242-e2.stp"), tmp_path/"Quelle.stp")
+    quelle = Path(datei)
+    data = quelle.read_text(encoding="utf-8")
+    start = data.index("#14511=DESCRIPTIVE_REPRESENTATION_ITEM")
+    ende = data.index(";", start)
+    zeile = data[start:ende]
+    assert zeile.count(".015") == 1
+    quelle.write_text(data[:start]+zeile.replace(".015", ".075")+data[ende:], encoding="utf-8")
+    erg = lade_alles(datei)
+    g = erg.grafik[14498]
+    p = next(p for p in erg.pmi if p.step_id == 14498)
+    v = pmi_reparieren.vorschlag(p, g, erg.modell)
+    paar = pmi_reparieren.verbundvorschlaege(v, g, erg.modell)
+    assert len(paar) == 2 and all(z.wert is None and ".075" in z.validierungstexte[0] for z in paar)
+    # Zusatz im freien Feld rechts neben der unteren Zeile.
+    extra = g.linien[0] + 68*g.ebene[1] - 13*g.ebene[2]
+    assert not lies_verbund(replace(g, linien=[*g.linien, extra]))
+    from scipy.spatial.transform import Rotation
+    d = Rotation.from_rotvec([.6, -.82, .17]).as_matrix()
+    gedreht = replace(g, ebene=None, linien=[p @ d.T + [133., 21., 16.] for p in g.linien])
+    assert lies_verbund(gedreht) == ("⌖ ⌀.060 A B C", "⌖ ⌀.015 A")
+    gedreht.linien[0][0] += [10., 37., -43.]
+    assert not lies_verbund(gedreht)
+
+
+@pytest.mark.parametrize("fuellung", [False, True], ids=["striche", "dreiecke"])
+def test_verbundrahmen_mit_material_und_profilhinweisen(fenster, tmp_path, fuellung):
+    from programm.kern.pmi_verbundschrift import lies_verbund
+
+    quelle, ref, rein = _ohne_semantik(pfad("nist_ftc_07_asme1_ap242-e2.stp"), tmp_path/"Profil.stp",
+                                       validierung=False)
+    if fuellung:
+        callouts = [(nr, nr-3, None) for nr in (14143, 14636, 14735, 15050, 15098)]
+        quelle = _als_fuellung(quelle, rein, tmp_path/"Profil gefuellt.stp", callouts)
+    f = fenster
+    f.lade(quelle, warten=True)
+    druck = {14143: ("⌓ .04 A B C", "⌓ .01 A"), 14636: ("⌓ .070 A B C", "⌓ .015 A"),
+             14735: ("⌖ ⌀.06Ⓜ E B C", "⌖ ⌀.02Ⓜ E B C")}
+    for nr in (13706, 13747, 13788, 13887, *druck):
+        referenzen = [p for p in ref.pmi if p.step_id in ref.grafik[nr].pmi_ids and
+                      p.art == ("toleranz" if nr in druck else "bezug")]
+        g = f.erg.grafik[nr]
+        p = next(p for p in f.erg.pmi if p.step_id == nr)
+        f._pmi_befehl("semantisch", p)
+        if nr in druck:
+            assert tuple(lies_verbund(g)) == druck[nr] and bool(g.dreiecke) == fuellung
+        for i, soll in enumerate(referenzen):
+            d = f._semantik_dialog
+            if nr in druck:
+                assert d.v.ocr_text == druck[nr][i]
+            f.ansicht.setze_auswahl([f.erg.modell.flaechen[j] for j in soll.flaechen])
+            d._auswahl_uebernehmen()
+            assert not d.fehler()
+            d._pruefen()
+    for nr in (15050, 15098):
+        assert not lies_verbund(f.erg.grafik[nr])
+    ziel = f.speichere_step_pmi(str(tmp_path/"Profil geprueft.stp"), melden=False)
+    assert len(f._step_bericht.repariert) == 10 and not f._step_bericht.uebersprungen
+    neu = lade_alles(ziel)
+    assert all(neu.modell.datei.get(i) == ent for i, ent in f.erg.modell.datei.entities.items())
+    for nr in druck:
+        soll = [p for p in ref.pmi if p.art == "toleranz" and p.step_id in ref.grafik[nr].pmi_ids]
+        ist = [p for p in neu.pmi if p.art == "toleranz" and p.step_id in neu.grafik[nr].pmi_ids]
+        assert len(ist) == 2 and ist[0].folgetoleranzen == [ist[1].step_id]
+        for a, b in zip(soll, ist, strict=True):
+            assert b.typ == a.typ and b.wert == pytest.approx(a.wert)
+            assert b.material == a.material and b.modifikatoren == a.modifikatoren
+            assert b.bezug_text() == a.bezug_text() and b.flaechen == a.flaechen

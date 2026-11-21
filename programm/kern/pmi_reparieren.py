@@ -280,3 +280,46 @@ def flaechen_vorschlag(g, modell, max_punkte: int = 400) -> set[int]:
         if abst and abst[0][0] < tol and (len(abst) == 1 or abst[1][0] - abst[0][0] > 1e-7):
             out.add(abst[0][1])
     return out
+
+
+def verbundvorschlaege(v, g, modell):
+    """Zwei getrennt pruefbare Toleranzen mit gemeinsamem Symbol und gemeinsamer Zielflaechenauswahl."""
+    from .pmi_ableiten import aus_text
+    from .pmi_validierungstext import verbundtext_passt
+    from .pmi_verbundschrift import lies_verbund
+    if v.art != TOLERANZ or v.ocr_text or g.erzeugt or any(p.text for p in g.platzhalter):
+        return ()
+    zeilen = lies_verbund(g)
+    if not zeilen:
+        return ()
+    daten = [aus_text([z], g.textfaktor) for z in zeilen]
+    if not all(d and d.get("wert") is not None and (not v.typ or d["typ"] == v.typ) for d in daten):
+        return ()
+    passt = verbundtext_passt(getattr(modell, "datei", None), g, zeilen, daten)
+    vorschlaege = []
+    for wort, felder in zip(zeilen, daten):
+        neu = Pmi(**felder, norm=v.norm, callout=v.callout, flaechen=set(v.flaechen), nur_grafik_text=wort)
+        neu.ocr_text = wort
+        if not passt:
+            neu.wert = None
+            neu.validierungstexte = v.validierungstexte
+            neu.rahmensymbolquelle = ""
+            neu.merkmalsname = ""
+        vorschlaege.append(neu)
+    return tuple(vorschlaege)
+
+
+def verbundpaare(pmis):
+    """Eigene zweizeilige Rahmen anhand ihrer ausdruecklichen Verknuepfung gruppieren."""
+    gruppen = {}
+    for p in pmis:
+        if p.callout:
+            gruppen.setdefault(p.callout, []).append(p)
+    paare = {}
+    for cid, gruppe in gruppen.items():
+        if len(gruppe) == 2:
+            for a, b in (gruppe, gruppe[::-1]):
+                if (a.art == b.art == TOLERANZ and a.typ == b.typ and a.step_id != b.step_id
+                        and a.folgetoleranzen == [b.step_id] and not b.folgetoleranzen):
+                    paare[cid] = a, b
+    return paare

@@ -300,7 +300,17 @@ def lies_toleranzen(modell: StepModell) -> list[Pmi]:
     datei = modell.datei
     zonen = _zonen(datei)
     toleranzen = datei.of_types_by_id(("GEOMETRIC_TOLERANCE", *TOL_ARTEN))
-    return [_lies_rahmen(modell, e, zonen) for e in toleranzen]
+    rahmen = {e.id: _lies_rahmen(modell, e, zonen) for e in toleranzen}
+    for link in datei.of_type("GEOMETRIC_TOLERANCE_RELATIONSHIP"):
+        args = link.args()
+        if len(args) != 4 or str(args[0]).strip().lower() != "composite":
+            continue
+        oben, unten = args[2:]
+        if isinstance(oben, Ref) and isinstance(unten, Ref) and oben != unten and oben.id in rahmen and unten.id in rahmen:
+            folge = rahmen[oben.id].folgetoleranzen
+            if unten.id not in folge:
+                folge.append(unten.id)
+    return list(rahmen.values())
 
 
 # --- Masse ---

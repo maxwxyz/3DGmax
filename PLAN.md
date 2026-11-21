@@ -192,7 +192,20 @@ Throughout: tests (core, offscreen UI, stress test, on-screen test), `--selbstte
   arc must fit a circle through the tip, with the shaft radial to the circle and both arrow flanks
   present. All twelve FTC-07 linear size callouts can now be transcribed from their strokes. The
   diameter with the detached arc also passes a triangle-only graphical-to-semantic round trip.
-  Open: additional fonts, composite controls and dimensions with
+  Existing semantic STEP composite relationships retain their direction between individual tolerance
+  rows. The table identifies the linked PMI numbers and the model comparison reports a removed,
+  reversed or redirected link even when the numerical tolerances and datums are unchanged.
+  A two-row frame with a shared symbol cell can also be read from its original strokes or pure
+  triangle fills. When no writing plane is supplied, the planar frame edges give candidate directions
+  and all legible orientations must agree. The reviewer checks each row and the common target
+  faces. Only the confirmed pair is adopted. STEP retains two tolerances on the same shape aspect,
+  their directed composite relationship, the original callout and its saved views. Checked on
+  FTC-07's position frame with .060 inch against A/B/C and .015 inch against A. Two surface-profile
+  frames with a straight and an inclined leader segment ending in a filled dot pass the same
+  round trip. A second FTC-07 position frame retains maximum material on both rows and datums
+  E/B/C. A blank modifier circle is distinguished from a trailing zero. Additional text outside
+  the frame keeps the complete control under manual review.
+  Open: additional fonts, further composite layouts and dimensions with
   ambiguous leader or text placement.
 - Convert to semantic PMI: evaluate recognized text + frame structure; mark result as "derived (check)", never as
   genuine semantics.
@@ -907,7 +920,8 @@ print annotations. Today 3DGmax writes generated texts only into the placeholder
   property. It checks the exact callout and draughting model, preserves the printed quantity and
   reads supported stacked deviations, datum letters and control-frame cells. For a missing symbol
   it checks the original first cell of a single frame or uses a specific callout name. The dialog
-  identifies the source. Conflicting strings, composite frames and unknown qualifiers remain open.
+  identifies the source. For supported two-row frames, both validation rows must agree with the
+  plot or the reviewer must enter the values. Other composite layouts and unknown qualifiers remain open.
   A graphical-only copy of FTC-07 was converted and reloaded with six confirmed characteristics,
   including a rounded printed diameter that differs from the original semantic value.
   **Done (2026-11-20): model-wide conversion and combined STEP export.** The Tools command reviews the graphical

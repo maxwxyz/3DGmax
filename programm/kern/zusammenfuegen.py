@@ -111,6 +111,7 @@ def _pmi_umrechnen(pmi: list, flaechen_versatz: int, id_versatz: int, nummer_ver
         p.projektionsflaechen = [i + flaechen_versatz for i in p.projektionsflaechen]
         if getattr(p, "teilformen", None):
             p.teilformen = [form.Moved(lage) for form in p.teilformen]
+        p.folgetoleranzen = [_id(i, id_versatz) for i in p.folgetoleranzen]
         p.step_id = _id(p.step_id, id_versatz)
         p.nummer += nummer_versatz
         if getattr(p, "callout", 0):  # Verweis auf die Grafik der Datei (falls vorhanden)

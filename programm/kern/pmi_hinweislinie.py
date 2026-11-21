@@ -91,3 +91,58 @@ def zielbogen(pfade, box, skala, labels, objekte, fuehrung, hoehe):
     am_pfeil = np.logical_or.reduce([labels[y+dy, x+dx] == fuehrung+1
                                      for dy in (-1, 0, 1) for dx in (-1, 0, 1)])
     return i if _radialpfeil(kanten[am_pfeil], kreis, hoehe) else None
+
+
+def _an_strecke(punkte, start, ende, toleranz):
+    richtung = ende - start
+    anteil = np.clip((punkte-start) @ richtung / (richtung @ richtung), 0, 1)
+    return np.linalg.norm(punkte - (start + anteil[:, None]*richtung), axis=1) <= toleranz
+
+
+def punkt_hinweislinie(rest, symbol, rand):
+    """Eine zweigliedrige Hinweislinie vom Symbolfach zu einem gefuellten oder schraffierten Punkt."""
+    from scipy import ndimage
+    y, x = np.nonzero(rest)
+    links, oben, _, unten = symbol
+    h = unten - oben
+    if len(y) < 10 or not 0 < links-x.max() <= rand+2:
+        return False
+    # Zusatzzeichen, Verzweigungen und mehrere Ziele duerfen nicht verschwinden.
+    ausschnitt = rest[y.min():y.max()+1, x.min():x.max()+1]
+    if ndimage.label(ausschnitt, np.ones((3, 3)))[1] != 1:
+        return False
+    ende = y[x == x.max()]
+    anschluss = np.array([x.max(), ende.mean()])
+    breite = max(1.6, np.ptp(ende)+1)
+    if abs(anschluss[1]-(oben+unten-1)/2) > max(2, .025*h) or breite > .08*h:
+        return False
+    innen = ndimage.binary_fill_holes(np.pad(ausschnitt, 1))
+    abstand = ndimage.distance_transform_edt(innen)
+    cy, cx = np.unravel_index(abstand.argmax(), abstand.shape)
+    radius = abstand[cy, cx]
+    if not .045*h < radius < .19*h:
+        return False
+    zentrum = np.array([cx+x.min()-1, cy+y.min()-1])
+    punkte = np.column_stack((x, y))
+    lokal = punkte - zentrum
+    radien = np.linalg.norm(lokal, axis=1)
+    kern = lokal[radien < .75*radius]
+    viertel = np.pi*(.75*radius)**2/4
+    if any(np.sum((a*kern[:, 0] > 0) & (b*kern[:, 1] > 0)) < .30*viertel
+           for a in (-1, 1) for b in (-1, 1)):
+        return False
+    schaft = punkte[(radien > radius+breite+1.5) & (np.abs(y-anschluss[1]) > 2*breite)]
+    if len(schaft) < 3 or np.linalg.norm(zentrum-anschluss) < 1.2*h:
+        return False
+    achsen = np.linalg.eigh((schaft-schaft.mean(axis=0)).T @ (schaft-schaft.mean(axis=0)))[1]
+    achse = achsen[:, 1]
+    if abs(achse[1]) < .2:
+        return False
+    knick = zentrum + achse*((anschluss[1]-zentrum[1])/achse[1])
+    if not .05*h < anschluss[0]-knick[0] < 2*h:
+        return False
+    if np.linalg.norm(knick-zentrum) < radius:
+        return False
+    toleranz = breite + 1.5
+    return bool(np.all((radien <= radius+1.5) | _an_strecke(punkte, zentrum, knick, toleranz)
+                       | _an_strecke(punkte, knick, anschluss, toleranz)))

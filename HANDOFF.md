@@ -2,6 +2,42 @@
 
 ## Current state, 2026-11-21
 
+### Semantic STEP composite frame relationships
+
+- Checked PLAN §§8.1, 8.4 and 8.18 against docs/Roadmap.md. Imported composite tolerances
+  retain the directed relationship between their rows. Hovering over the value in either PMI
+  row identifies its linked rows by list number. Loading the model as an additional part
+  remaps the referenced IDs together with the source tolerance.
+- Compared the original FTC-07 file against copies with renumbered tolerances, a removed
+  relationship, reversed roles and a different subordinate tolerance. The latter three cases
+  report a relationship change with the individual numerical tolerances unchanged. Matching
+  also covers repeated identical two-row frames reordered across revisions.
+- Graphical-only #14498 has one symbol cell spanning two rows. Each row is separately editable
+  and both are adopted together. Cancelling either row restores the original state. A conflict
+  with the callout's own validation string clears both suggested tolerance values.
+- Tested the FTC-07 position frame in four graphical-only versions: original strokes with and
+  without validation text, and triangle-only variants with and without a writing plane. The project round trip
+  retains the pair. STEP reimport confirms both diameters (1.524 and 0.381 mm), their A/B/C and A
+  datums, the common shape aspect, directed link, original entities and MBD_B view membership.
+  A missing datum on the second row causes both rows to be skipped. Removing either reviewed
+  row restores one graphical callout. An additional mark outside the row cells prevents a proposal.
+- Surface-profile pairs #14143 and #14636 were also checked from review to STEP reimport
+  with strokes and triangle-only fills. Each bent leader terminates in a filled or hatched dot.
+  The complete leader must account for the outside ink. The graphic of #15050 carries the
+  note “INNER AND OUTER WALL OF ENTIRE GROOVE”, while #15098 adds “SIM REQT”. Both stay open.
+  In #15064 the STEP validation string omits “OF ENTIRE GROOVE”. The full scope can only
+  be recovered from the presentation or supplied explicitly during review.
+- #14735 contains .06 and .02 inch position controls, both at maximum material against E/B/C.
+  The E template comes from a separate datum callout. When a raster contact breaks within the
+  circled M, both complete glyphs must still match within one normalised pixel. An empty outer
+  ring or an altered inner letter stays open. Both stroke and triangle-only STEP round trips
+  retained the modifiers on both rows. The remaining two FTC-07 composite controls have scope
+  or simultaneity notes; preserve those when extending the review. QIF remains last.
+- The full run passed 829 tests with eight display tests skipped. The affected run passed
+  344 tests. On the final OCR code, 101 graphical STEP, composite, PRC and validation tests
+  passed; a further filled-glyph regression verified both an empty and a damaged modifier.
+  The native macOS run passed all 23 selected display and composite tests.
+
 ### Graphical diameter with detached target arc
 
 - Checked PLAN §§8.4, 8.18 and 8.28 and docs/Roadmap.md. FTC-07 #15146 includes a separate

@@ -109,14 +109,40 @@ def _lesen(text, g, bekannt):
     return druck, daten, ergaenzung
 
 
+def _validierungswerte(datei, cid):
+    return {w.replace(r"\\", "\\") for w in _texte(datei, cid)}
+
+
 def validierungsvorschlag(datei, g, bekannt):
     """Zeilentexte zur Anzeige sowie Felder bei einer einzigen eindeutigen Quelle."""
     if datei is None:
         return (), {}, ""
-    werte = sorted({w.replace(r"\\", "\\") for w in _texte(datei, g.callout_id)})
+    werte = sorted(_validierungswerte(datei, g.callout_id))
     if not any(w.startswith((r"DIM\w", r"FCF\w", r"DTM\w")) for w in werte):
         return (), {}, ""
     if len(werte) > 1:
         return tuple(werte), {}, ""
     druck, felder, ergaenzung = _lesen(werte[0], g, bekannt)
     return (druck,), felder, ergaenzung
+
+
+def verbundtext_passt(datei, g, zeilen, daten):
+    """Ein gespeicherter mehrzeiliger Validierungstext muss beide Zeilen in dieser Folge bestaetigen."""
+    roh = _validierungswerte(datei, g.callout_id) if datei is not None else set()
+    if not roh:
+        return True
+    if len(roh) != 1:
+        return False
+    quelle = roh.pop().split(r"\n")
+    if len(quelle) != len(zeilen):
+        return False
+    symbol = zeilen[0].split()[0]
+    for i, (text, soll) in enumerate(zip(quelle, daten)):
+        zellen = text.split(r"\w")
+        if i == 0:
+            if zellen.pop(0) != "FCF" or not zellen or zellen.pop(0) not in ("", symbol):
+                return False
+        zellen.insert(0, symbol)
+        if not gueltige_rahmenzellen(zellen) or aus_text(zellen, g.textfaktor) != soll:
+            return False
+    return True

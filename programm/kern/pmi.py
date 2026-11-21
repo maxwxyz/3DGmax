@@ -114,6 +114,8 @@ class Pmi:
     massziel_step: int | None = None  # STEP-Kante oder -Punkt als Ziel eines erzeugten Masses
     mittenabstand: bool = False  # Beide Massziele sind abgeleitete Symmetriezentren.
 
+    folgetoleranzen: list[int] = field(default_factory=list)  # STEP-Ids nachgeordneter Verbundtoleranzen
+
     # --- Darstellung ---
 
     def wert_text(self) -> str:

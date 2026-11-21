@@ -69,7 +69,8 @@
 | Read stacked positive/negative deviations, unilateral deviations with zero, paired absolute limits, angles and parenthesised dimensions from supported graphical lettering | ✅ |
 | Read planar tolerance frames without supplied writing axes, including original NIST 3D PDF/PRC; distinguish circled free-state and maximum-material symbols from their inner glyph | ✅ |
 | Read complete single-row FTC-07 control frames from wide strokes or filled triangles without contour edges, including planar meshes without stored writing axes. Export reviewed projected or maximum-material position tolerances with the original presentation, datum order and selected faces | ✅ |
-| Read additional lettering and composite frames from graphical PMI | 💡 |
+| Read, review and export a graphical two-row control with one shared symbol cell, including filled triangles with or without writing axes, both sets of datums, common target faces and the STEP composite relationship. Position controls retain maximum material on both rows. Surface-profile frames support a bent leader with a filled endpoint | ✅ |
+| Read additional lettering and further composite layouts from graphical PMI | 💡 |
 | Semantic-only PMI: optional generated display in the view (see generated PMI stage 2) | ✅ |
 | Show tolerance zones as envelope surfaces (offsets ±t/2, ⌀ zone cylinder, exaggeration) | ✅ |
 | Tolerance zones stage 2: unequal zones (UZ/Ⓤ), projected zones, Ⓜ/Ⓛ bonus zone, space of the surface (size + location), size envelopes, patterns per feature | ✅ |
@@ -185,6 +186,7 @@
 | Alignment: same position, best fit (ICP), manual point pairs with snapping (UI) | ✅ |
 | Geometry: equal/changed/new/removed per face, exact (B-rep) with mesh preselection | ✅ |
 | Exact comparison acceleration: reject candidates by B-rep bounds and reuse the mesh of repeated instances | ✅ |
+| Inspect the linked rows of an existing semantic STEP composite frame and compare the direction and target of each relationship across revisions | ✅ |
 | Semantic PMI comparison (field by field incl. name, datums, faces), "geometry under PMI changed" | ✅ |
 | Change list, review walk-through, comment, review report with SHA-256 | ✅ |
 | Export changes (CSV) | ✅ |

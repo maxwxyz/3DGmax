@@ -3426,18 +3426,25 @@ class Hauptfenster(QtWidgets.QMainWindow):
         return pfad
 
     def loesche_eigene_pmi(self, liste):
+        from ..kern.pmi_reparieren import verbundpaare
         weg = {id(p) for p in liste if p.quelle == "eigen"}
         if not weg:
             return
-        ids = {p.step_id for p in liste if id(p) in weg}
+        for paar in verbundpaare(self.erg.pmi).values():
+            if any(id(p) in weg for p in paar):
+                weg.update(id(p) for p in paar)
+        ids = {p.step_id for p in self.erg.pmi if id(p) in weg}
         behalten = []
+        wiederhergestellt = set()
         for p in self.erg.pmi:
             if id(p) not in weg:
                 behalten.append(p)
             elif (quelle := getattr(p, "_grafikquelle", None)) is not None:
-                behalten.append(quelle)
+                if p.callout not in wiederhergestellt:
+                    behalten.append(quelle)
+                    wiederhergestellt.add(p.callout)
                 self.erg.grafik[p.callout].pmi_ids.discard(p.step_id)
-                self._ansichts_pmi_ersetzen(p.step_id, quelle.step_id)
+                self._ansichts_pmi_ersetzen(p, quelle)
         self.erg.pmi = behalten
         # erst die Ansicht: ihre Szene teilt sich das Grafik-Woerterbuch mit erg - danach faende sie nichts mehr
         self.ansicht.entferne_grafik(ids)
@@ -3717,21 +3724,30 @@ class Hauptfenster(QtWidgets.QMainWindow):
             return self.fuege_pmi_hinzu(d.gewaehlte())
         return self.fuege_pmi_hinzu([v.pmi for v in vorschlaege])
 
-    def _ansichts_pmi_ersetzen(self, alt, neu):
-        for ids in [*(a.pmi_ids for a in self.erg.ansichten), getattr(self, "_ansicht_pmi_ids", None)]:
-            if ids is not None and alt in ids:
-                ids.remove(alt)
-                ids.add(neu)
+    def _ansichts_pmi_ersetzen(self, alt, *neue):
+        ids = {p.step_id for p in neue}
+        nummern = {p.nummer for p in neue}
+        for ansicht in self.erg.ansichten:
+            if alt.step_id in ansicht.pmi_ids:
+                ansicht.pmi_ids.discard(alt.step_id)
+                ansicht.pmi_ids.update(ids)
+                ansicht.pmi_nummern = sorted((set(ansicht.pmi_nummern) - {alt.nummer}) | nummern)
+        aktiv = getattr(self, "_ansicht_pmi_ids", None)
+        if aktiv is not None and alt.step_id in aktiv:
+            aktiv.discard(alt.step_id)
+            aktiv.update(ids)
 
     def fuege_pmi_hinzu(self, neue: list) -> list:
         """Eigene PMI ins Modell: Nummer, Kennung, Norm, erzeugte Darstellung, Liste aktualisieren."""
         from ..kern import pmi_erzeugen
+        from ..kern.pmi_reparieren import verbundpaare
         if not neue:
             return []
         start = max((p.nummer for p in self.erg.pmi), default=0)
         kleinste = min([p.step_id for p in self.erg.pmi if p.step_id < 0] + [-1000])
         norm = self.erg.pmi[0].norm if self.erg.pmi else "iso"
         original = {p.step_id: p for p in self.erg.pmi if not p.semantisch}
+        paare = verbundpaare(neue)
         ersatz = {}
         for i, p in enumerate(neue, 1):
             p.nummer, p.step_id, p.quelle, p.norm = start + i, kleinste - i, "eigen", norm
@@ -3740,11 +3756,18 @@ class Hauptfenster(QtWidgets.QMainWindow):
                 p.name = f"{tr(p.merkmal())}.{p.nummer}" if p.art != "bezug" else p.name
             if p.callout and (quelle := original.get(p.callout)) is not None:
                 p._grafikquelle = quelle  # beim erneuten Projektladen wieder aus der Quelldatei
-                p.nummer = quelle.nummer
-                ersatz[p.callout] = p
-                self._ansichts_pmi_ersetzen(quelle.step_id, p.step_id)
+                if p.callout not in paare or p is paare[p.callout][0]:
+                    p.nummer = quelle.nummer
+                    ersatz[p.callout] = p
+                if p.callout not in paare:
+                    self._ansichts_pmi_ersetzen(quelle, p)
+        for cid, (oben, unten) in paare.items():
+            oben.folgetoleranzen = [unten.step_id]
+            if cid in original:
+                self._ansichts_pmi_ersetzen(original[cid], oben, unten)
         self.erg.pmi = [ersatz.get(q.step_id, q) for q in self.erg.pmi]
-        self.erg.pmi.extend(p for p in neue if p.callout not in ersatz)
+        self.erg.pmi.extend(p for p in neue if p.callout not in ersatz or
+                            (p.callout in paare and p is paare[p.callout][1]))
         grafik = pmi_erzeugen.ergaenze(neue, self.erg.grafik, self.erg.modell, self.erg.ansichten)
         frei = min(list(self.erg.grafik) + [0]) - 1
         grafik = {frei - i: g for i, g in enumerate(grafik.values())}

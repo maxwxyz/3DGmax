@@ -295,6 +295,11 @@ class PmiPanel(QtWidgets.QWidget):
         t = self.tabelle
         t.blockSignals(True)
         t.setRowCount(len(pmi))
+        nummern = {p.step_id: p.nummer for p in pmi if p.step_id}
+        zuvor = {}
+        for p in pmi:
+            for nr in p.folgetoleranzen:
+                zuvor.setdefault(nr, []).append(p.nummer)
         for z, p in enumerate(pmi):
             namen = self.ansichten_je_pmi.get(p.nummer, [])
             werte = self._werte(p, namen, self.ballon)
@@ -303,14 +308,21 @@ class PmiPanel(QtWidgets.QWidget):
                 if spalte in self.RECHTS:
                     it.setTextAlignment(QtCore.Qt.AlignmentFlag.AlignRight | QtCore.Qt.AlignmentFlag.AlignVCenter)
                 if spalte == "Wert":
-                    it.setToolTip(_tooltip(p))
+                    tip = [_tooltip(p)]
+                    if p.step_id in zuvor:
+                        tip.append(tr("Übergeordnete Toleranz im Verbundrahmen: {}").format(
+                            ", ".join(map(str, zuvor[p.step_id]))))
+                    if p.folgetoleranzen:
+                        tip.append(tr("Nachgeordnete Toleranz im Verbundrahmen: {}").format(
+                            ", ".join(str(nummern[n]) for n in p.folgetoleranzen if n in nummern)))
                     if p.quelle == "abgeleitet":
                         it.setText(f"≈ {it.text()}")  # aus der Grafik abgeleitet, keine echte Semantik
                     if p.bearbeitet or p.quelle == "eigen":
                         it.setText(f"{it.text()}  ✎")  # in 3DGmax angelegt oder geaendert
                         herkunft = tr("eigene PMI") if p.quelle == "eigen" else tr("geändert, Datei: {}").format(
                             ", ".join(f"{k}={v}" for k, v in (p.original or {}).items()))
-                        it.setToolTip(f"{_tooltip(p)}\n{herkunft}")
+                        tip.append(herkunft)
+                    it.setToolTip("\n".join(tip))
                 if spalte == "Ansichten" and namen:
                     it.setToolTip(tr("In Ansichten: {}").format(", ".join(namen)))
                 t.setItem(z, s, it)

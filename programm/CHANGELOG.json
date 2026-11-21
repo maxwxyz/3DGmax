@@ -1,6 +1,8 @@
 {
  "unreleased": {
   "de": [
+   "Zweizeilige Toleranzrahmen mit gemeinsamem Symbol lassen sich aus Strichen und gefüllten Dreiecken semantisch machen. Auch Flächenprofilrahmen mit geknickter Hinweislinie und gefülltem Endpunkt werden gelesen. Beide Zeilen werden zusammen bestätigt. Im STEP bleiben die Originalgrafik, die gemeinsamen Flächen, beide Bezugsfolgen und die Verknüpfung der Toleranzen erhalten.",
+   "Bei semantischen STEP-Verbundrahmen zeigt die PMI-Liste die Nummern der zugehörigen Toleranzzeilen. Der Modellvergleich meldet gelöste, umgekehrte und geänderte Verknüpfungen auch bei gleichen Toleranzwerten.",
    "Bei grafischen Durchmessermaßen erkennt die App einen abgesetzten Kreisbogen an der Pfeilspitze. Maß und Abmaße lassen sich aus Strichen und reinen Dreiecksfüllungen lesen und mit der Originalgrafik als STEP speichern.",
    "Frei stehende Durchmessermaße in breiter CAD-Schrift werden auch aus gefüllten Dreiecken ohne Kontur gelesen. Mengenangaben sowie symmetrische und gestapelte Abmaße bleiben im Prüfdialog lesbar.",
    "Fehlt bei einem ebenen, vollständig gefüllten Toleranzrahmen die STEP-Schreibebene, bestimmt die PMI-Erkennung die Leserichtung aus den Dreiecken. Die bestätigte Toleranz lässt sich mit der ursprünglichen Grafik exportieren.",
@@ -167,6 +169,8 @@
    "Grafische PMI aus unterstützten AP203e2-Kurvenmodellen lassen sich als STEP AP242 Edition 3 ausgeben. Facettierte STEP-Modelle behalten ihre Flächenbezüge. Gepackte STEP-Dateien lassen sich als unkomprimierte STEP-Kopie speichern."
   ],
   "en": [
+   "Two-row tolerance frames with a shared symbol can be converted from strokes or filled triangles. This includes surface-profile frames with a bent leader ending in a filled dot. Both rows are confirmed together. STEP preserves the original graphics, shared faces, each datum sequence and the relationship between the tolerances.",
+   "For semantic STEP composite frames, the PMI list shows the numbers of the linked tolerance rows. Model comparison reports removed, reversed and redirected relationships even when the individual tolerance values are unchanged.",
    "Graphical diameter dimensions can now be read when a detached circular arc is present at the arrow tip. Dimensions and deviations from strokes or filled triangles can be saved as STEP with the original graphics.",
    "Free-standing diameter dimensions in wide CAD lettering can now be read from filled triangles without outlines. Quantities and symmetric or stacked deviations remain legible in the review dialog.",
    "When a planar filled tolerance frame has no STEP writing plane, PMI recognition derives the reading direction from its triangles. The confirmed tolerance can be exported with the original graphics.",
