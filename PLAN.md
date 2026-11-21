@@ -1723,7 +1723,12 @@ preserve the cylinder and material around and behind the cone. Cylindrical bores
 flat floors or a continuous wall pair on the shared through core. Each end can have its own end view,
 diameters, fits and depths. Opposing maximum depths must leave a central segment or material between
 the floors at minimum shaft length. STEP uses each bore's own entry face and assigns a single
-diameter to the common cylinder. Opposed conical points, chamfers, outer tapers and fillets remain open. Pocket center-position PMI, inclined slots, unequal corner radii,
+diameter to the common cylinder.
+A solid truncated cone can be reconstructed from its full longitudinal outline. Check both straight
+flanks, end segments, length and end diameters. An optional printed included angle must agree with
+the reconstructed geometry at the stated limits or decimal precision. STEP links each diameter to
+its own circular edge, the length to both end faces and the optional angle to the cone. Mixed
+cylindrical and tapered outside profiles, chamfers, opposed drill points and fillets remain open. Pocket center-position PMI, inclined slots, unequal corner radii,
 other profiles, automatic cross-view association and datum/GD&T transfer remain open.
 
 ### 8.37 QIF extensions (last in the implementation order)

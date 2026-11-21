@@ -1,6 +1,7 @@
 {
  "unreleased": {
   "de": [
+   "Massive Kegelstümpfe lassen sich aus waagerechten und senkrechten PDF-Längsansichten mit Länge, beiden Stirndurchmessern und optionalem Kegelwinkel als bemaßtes STEP erzeugen.",
    "Bohrungen von beiden Wellenenden lassen sich mit gemeinsamem Durchgang oder getrennten flachen Böden aus der Zeichnung rekonstruieren. Im STEP bleiben Tiefen und Passungen der jeweiligen Seite zugeordnet.",
    "Wellenzeichnungen mit kegeliger Bohrspitze lassen sich als STEP rekonstruieren. Das Tiefenmaß verweist wahlweise auf den Kreisrand am Zylinderende oder auf den Scheitelpunkt. Der tolerierte Spitzenwinkel bleibt am Kegel erhalten.",
    "Gestufte Axialbohrungen lassen sich aus Wellenzeichnungen mit durchgehendem oder blindem Kern rekonstruieren. STEP verknüpft jede Passung mit der zugehörigen Zylinderwand und jedes Tiefenmaß mit der gemeinsamen Eintrittsfläche und dem jeweiligen Absatz oder Grund.",
@@ -156,6 +157,7 @@
    "Grafische PMI aus unterstützten AP203e2-Kurvenmodellen lassen sich als STEP AP242 Edition 3 ausgeben. Facettierte STEP-Modelle behalten ihre Flächenbezüge. Gepackte STEP-Dateien lassen sich als unkomprimierte STEP-Kopie speichern."
   ],
   "en": [
+   "Reconstruct a solid truncated cone from a horizontal or vertical PDF longitudinal view. STEP preserves its length, the diameter of each end and an optional included taper angle.",
    "Shaft drawings can contain bores from both ends with a shared through core or separate flat floors. STEP preserves the fits and depths for each entry side.",
    "Shaft drawings with a conical drill point can be reconstructed as STEP. The depth references the circular edge at the end of the cylinder or the apex vertex, and the toleranced included angle references the cone.",
    "Reconstruct single-entry stepped axial bores with a through or blind core from shaft drawings. STEP links each fit to its cylinder and each depth to the common entry plane and its own shoulder or floor.",

@@ -5,6 +5,7 @@ from PySide6 import QtCore, QtWidgets
 from ..i18n import tr
 from ..kern.axialbohrung import Gegenbohrungen, Sacklochspur, Stufenbohrspur, stirnringe
 from ..kern.drehzeichnung import Bohrspitze, axiale_tiefe, axiales_bohrmass, drehprofil, drehmasse, schreibe_drehteil, stufenmasse, gegenbohrmasse
+from ..kern.drehkegel import Kegelkontur, kegelkontur, kegelmasse, schreibe_kegel
 from ..kern.plattenbohrung import kegelwinkelmass
 from ..kern.zeichnungsansicht import Blattgeometrie
 from ..kern.zeichnungsabgleich import Blattangabe
@@ -32,7 +33,7 @@ class Drehteildialog(Koerperdialog):
                                tr("Abschnittslänge"), tr("Abschnittsdurchmesser"),
                                tr("Stirnansicht der Hohlwelle"), tr("Durchmesser der Axialbohrung"),
                                tr("Tiefe der Axialbohrung"), tr("Spitzenwinkel der gewählten Bohrung"),
-                               tr("Zweite Stirnansicht")])
+                               tr("Zweite Stirnansicht"),tr("Zweiter Stirndurchmesser"),tr("Eingeschlossener Kegelwinkel")])
         leiste.addWidget(QtWidgets.QLabel(tr("Einrahmen")))
         leiste.addWidget(self.auswahl)
         self.einheit = QtWidgets.QComboBox()
@@ -45,7 +46,7 @@ class Drehteildialog(Koerperdialog):
         self.ansicht = Blattansicht()
         fit.clicked.connect(self.ansicht.einpassen)
         layout.addWidget(self.ansicht,1)
-        hinweis = QtWidgets.QLabel(tr("Die Längsansicht mit zylindrischen Abschnitten und rechtwinkligen Schultern einrahmen. "
+        hinweis = QtWidgets.QLabel(tr("Die Längsansicht einer gestuften Welle oder eines Kegelstumpfs einrahmen. "
                                       "Je Abschnitt Länge und Ø-Maß eingeben oder einrahmen. Bei einer Bohrspitze den Tiefenbezug "
                                       "und den eingeschlossenen Winkel aus der Zeichnung übernehmen. Jede Bohrtiefe ab der zugehörigen Eintrittsfläche angeben. Für einen Durchgang ohne Wandlinien die Stirnansicht und das Durchgangsmaß angeben."))
         hinweis.setWordWrap(True)
@@ -160,6 +161,10 @@ class Drehteildialog(Koerperdialog):
         if i < 2:
             self.senkrecht = bool(i)
             self.kontur, self.spur = drehprofil(self.blatt.bild,box,senkrecht=self.senkrecht)
+            if not self.kontur:
+                kegel = kegelkontur(self.blatt.bild,box,self.senkrecht)
+                if kegel:
+                    self.kontur = [kegel]
             self.stirn = self.stirn2 = None
             self._stufentabelle()
             with QtCore.QSignalBlocker(self.winkeltext), QtCore.QSignalBlocker(self.tiefenbezug):
@@ -173,9 +178,15 @@ class Drehteildialog(Koerperdialog):
             self.massmarken.clear()
             with QtCore.QSignalBlocker(self.tabelle):
                 self.tabelle.setRowCount(0)
+                kopf = [tr("Abschnittslänge"),tr("Abschnittsdurchmesser")]
+                if self._kegel():
+                    kopf = [tr("Abschnittslänge"),tr("Ø oben") if self.senkrecht else tr("Ø links"),
+                            tr("Ø unten") if self.senkrecht else tr("Ø rechts"),tr("Kegelwinkel (optional)")]
+                self.tabelle.setColumnCount(len(kopf))
+                self.tabelle.setHorizontalHeaderLabels(kopf)
                 self.tabelle.setRowCount(len(self.kontur))
                 for zeile in range(len(self.kontur)):
-                    for spalte in range(2):
+                    for spalte in range(len(kopf)):
                         self.tabelle.setItem(zeile,spalte,QtWidgets.QTableWidgetItem())
                 if self.kontur:
                     self.tabelle.setCurrentCell(0,0)
@@ -213,7 +224,7 @@ class Drehteildialog(Koerperdialog):
             if wert:
                 self.massmarken[marke] = Blattangabe(self.blatt.nummer,box,wert)
         else:
-            zeile, spalte = self.tabelle.currentRow(), i-2
+            zeile, spalte = self.tabelle.currentRow(), i-7 if i in (9,10) else i-2
             if zeile < 0:
                 return
             wert = self.blatt.lies(box)
@@ -224,10 +235,16 @@ class Drehteildialog(Koerperdialog):
         self._markieren()
         self._pruefen()
 
+    def _kegel(self):
+        return bool(self.kontur) and isinstance(self.kontur[0],Kegelkontur)
+
     def _masse(self):
         zeilen = [(self.tabelle.item(i,0).text(), self.tabelle.item(i,1).text()) for i in range(len(self.kontur))]
         faktor = self.einheit.currentData()
         masse = drehmasse(self.kontur, zeilen, faktor)
+        if self._kegel():
+            ende,winkel = kegelmasse(self.kontur[0],masse,self.tabelle.item(0,2).text(),self.tabelle.item(0,3).text(),faktor)
+            return masse,dict(ende=ende,winkel=winkel)
         if isinstance(self.spur,(Stufenbohrspur,Gegenbohrungen)):
             texte = [(self.bohrstufen.item(i,0).text(), self.bohrstufen.item(i,1).text() if t is not None else "")
                      for i,(_,t) in enumerate(self.spur.stufen)]
@@ -263,7 +280,13 @@ class Drehteildialog(Koerperdialog):
         self.spitzenzeile.setVisible(spitz)
         self.auswahl.model().item(7).setEnabled(spitz)
         self.bohrstufen.setVisible(gestuft)
-        self.bohrtext.setVisible(not gestuft)
+        kegel = self._kegel()
+        self.bohrart.setVisible(not kegel)
+        self.bohrtext.setVisible(not gestuft and not kegel)
+        self.stirn_entfernen.setVisible(not kegel)
+        self.auswahl.model().item(9).setEnabled(kegel)
+        self.auswahl.model().item(10).setEnabled(kegel)
+        self.auswahl.setItemText(3,tr("Erster Stirndurchmesser") if kegel else tr("Abschnittsdurchmesser"))
         self.tiefentext.setVisible(blind)
         zeile = self.bohrstufen.currentRow()
         mit_tiefe = blind or (gestuft and zeile >= 0 and self.spur.stufen[zeile][1] is not None)
@@ -289,7 +312,7 @@ class Drehteildialog(Koerperdialog):
         self.bohrtext.setEnabled(bool(self.kontur))
         self.stirn_entfernen.setEnabled(self.stirn is not None or self.stirn2 is not None)
         for i in (2,3,4,5):
-            self.auswahl.model().item(i).setEnabled(bool(self.kontur))
+            self.auswahl.model().item(i).setEnabled(bool(self.kontur) and (i < 4 or not kegel))
         try:
             masse, daten = self._masse()
         except ValueError as e:
@@ -297,6 +320,10 @@ class Drehteildialog(Koerperdialog):
             self.speichern.setEnabled(False)
             return
         status = tr("Hohlwelle mit {} Abschnitten, Gesamtlänge {} mm.") if daten.get("bohrung") else tr("Vollwelle mit {} Abschnitten, Gesamtlänge {} mm.")
+        if kegel:
+            self.status.setText(tr("Kegelstumpf mit einer Länge von {} mm.").format(f"{masse[0][0].nennwert:g}"))
+            self.speichern.setEnabled(True)
+            return
         if gegen:
             status = (tr("Welle mit gemeinsamer Kernbohrung und {} Außenabschnitten, Gesamtlänge {} mm.")
                       if self.spur.kern is not None else tr("Welle mit getrennten Sacklöchern und {} Außenabschnitten, Gesamtlänge {} mm."))
@@ -309,4 +336,6 @@ class Drehteildialog(Koerperdialog):
 
     def _schreibe(self, ziel):
         masse, daten = self._masse()
+        if self._kegel():
+            return schreibe_kegel(ziel,masse,**daten)
         return schreibe_drehteil(ziel,masse,**daten)

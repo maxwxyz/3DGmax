@@ -2,6 +2,29 @@
 
 ## Current state, 2026-11-21
 
+### Solid truncated cones from PDF drawings
+
+- Checked PLAN §§8.35–8.37 and docs/Roadmap.md. File → Shaft from 2D drawing also recognizes
+  a solid truncated cone. The two independently fitted flanks must be straight and symmetric,
+  and both end segments must reach them. The length and both end diameters must fit one scale.
+  Size limits must preserve the taper direction. The optional included angle is checked against
+  the geometrical angle, using its explicit limits or the precision of a printed nominal.
+- Verified two PDF → review dialog → STEP round trips in opposite taper directions and sheet
+  orientations (Ø28 and Ø16 over 30 mm). The native reader returned four graphical and semantic
+  characteristics. XCAF returned their diameter fits, edge target counts, length end faces and
+  angle tolerance. Verified the specific circular edges and graphical leader tips for the two fits,
+  both length planes, cone angle and solid volume. Unmarked angles are optional. Additional
+  strokes, broken ends or flanks, a bowed profile, conflicting angle, scale and fits were
+  rejected in tests. All 28 affected tests and 45 native macOS tests passed; all 2577 UI
+  strings have English translations. Mixed cylindrical/tapered shafts remain open.
+- For §8.35 oblique hole views, an isolated vector PDF experiment projected four coplanar
+  circular rims with two in-plane rotations and a 0.5 minor/major axis ratio. The PDF printer
+  emitted each stroke as a pair of filled-path boundaries. The recovered centre lines had a
+  ratio of 0.50008. Undoing the foreshortening matched all four distinct centres and radii to
+  their original pattern. Production work needs complete printed paths, ambiguity and depth
+  checks, and ellipse-aware review, leader targeting and export. Whole-drawing equivalence
+  remains open. QIF is the final implementation item.
+
 ### Bores entering from both shaft ends
 
 - Checked PLAN §§8.35–8.37 and docs/Roadmap.md. The longitudinal view can contain
