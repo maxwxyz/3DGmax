@@ -1,10 +1,13 @@
-"""Stufenzylindrische Vollwellen aus einer bemassten Laengsansicht rekonstruieren."""
+"""Stufenzylindrische Wellen aus einer bemassten Laengsansicht rekonstruieren."""
 
 from dataclasses import dataclass, replace
+
+import re
 
 import numpy as np
 
 from ..i18n import tr
+from .axialbohrung import tintenlaeufe, bohrspur
 from .zeichnungsabgleich import lese_angabe, musteranzahl
 from .zeichnungskoerper import schreibe_bemassten_koerper
 
@@ -16,18 +19,9 @@ class Sitzkontur:
     durchmesser: float
 
 
-def _laeufe(spur):
-    grenzen = np.flatnonzero(np.diff(spur, prepend=False, append=False))
-    return grenzen.reshape(-1,2)
-
-
 def _aussenlinien(spalte, mitte):
-    laeufe = _laeufe(spalte)
-    if len(laeufe) == 3:
-        a, b = laeufe[1]
-        if abs((a+b-1)/2-mitte) > 1:
-            return None
-    elif len(laeufe) != 2:
+    laeufe = tintenlaeufe(spalte)
+    if len(laeufe) < 2:
         return None
     oben, unten = laeufe[0], laeufe[-1]
     o, u = (v.mean()-.5 for v in (oben, unten))
@@ -39,16 +33,18 @@ def _aussenlinien(spalte, mitte):
 
 def _senkrechte(tinte, x, mitte, r1, r2, stift):
     # Auf beiden Schultern zwischen den Durchmessern die senkrechte Strichmitte suchen.
-    radius = (r1+r2)/2
-    lagen = []
-    for vorzeichen in (-1, 1):
-        spur = tinte[round(mitte+vorzeichen*radius)]
-        treffer = [band.mean()-.5 for band in _laeufe(spur) if band[1]-band[0] <= stift+2
-                   and abs(band.mean()-.5-x) <= stift+2]
-        if len(treffer) != 1:
-            return None
-        lagen.append(treffer[0])
-    return sum(lagen)/2 if abs(lagen[0]-lagen[1]) <= 1 else None
+    for anteil in (.5, .7, .3, .85, .15, .925, .075):
+        radius = r1+anteil*(r2-r1)
+        lagen = []
+        for vorzeichen in (-1, 1):
+            spur = tinte[round(mitte+vorzeichen*radius)]
+            treffer = [band.mean()-.5 for band in tintenlaeufe(spur) if band[1]-band[0] <= stift+2
+                       and abs(band.mean()-.5-x) <= stift+2]
+            if len(treffer) == 1:
+                lagen.append(treffer[0])
+        if len(lagen) == 2 and abs(lagen[0]-lagen[1]) <= 1:
+            return sum(lagen)/2
+    return None
 
 
 def _strichbild(tinte, grenzen, radien, mitte, stift):
@@ -63,42 +59,49 @@ def _strichbild(tinte, grenzen, radien, mitte, stift):
             streifen = band(y,y)
             erlaubt[streifen, band(x1,x2)] = True
             if not tinte[streifen, round(x1):round(x2)+1].any(axis=0).all():
-                return False
-    for i, x in enumerate(grenzen):
-        vorher = radien[i-1] if i else 0.
-        danach = radien[i] if i < len(radien) else 0.
-        gross, klein = max(vorher,danach), min(vorher,danach)
-        streifen = band(x,x)
-        erlaubt[band(mitte-gross,mitte+gross), streifen] = True
-        # Eine sichtbare Innenkante der Schulter geht ueber den ganzen kleineren Durchmesser.
-        if klein:
-            innen = np.arange(int(np.ceil(mitte-klein+toleranz+1)), int(np.ceil(mitte+klein-toleranz)))
-            innen = innen[abs(innen-mitte) > toleranz]
-            sichtbar = tinte[innen, streifen].any(axis=1)
-            if sichtbar.any() and not sichtbar.all():
-                return False
-        for y1, y2 in ((mitte-gross, mitte-klein), (mitte+klein, mitte+gross)):
-            if not tinte[round(y1):round(y2)+1, streifen].any(axis=1).all():
-                return False
+                return None
+    for x, links, rechts in zip(grenzen,[0.,*radien],[*radien,0.],strict=True):
+        radius = max(links,rechts)
+        erlaubt[band(mitte-radius,mitte+radius), band(x,x)] = True
     erlaubt[band(mitte,mitte)] = True  # Durchgezogene oder gestrichelte Mittellinie
-    return not (tinte & ~erlaubt).any()
+    spur = bohrspur(tinte, erlaubt, grenzen, mitte, min(radien), stift)
+    if spur is None:
+        return None
+    dm, wandstift = spur
+    for x, links, rechts in zip(grenzen,[0.,*radien],[*radien,0.],strict=True):
+        gross, klein = max(links,rechts), min(links,rechts)
+        streifen = tinte[:,band(x,x)].any(axis=1)
+        material = max(klein, dm/2)
+        for y1,y2 in ((mitte-gross,mitte-material),(mitte+material,mitte+gross)):
+            if not streifen[round(y1):round(y2)+1].all():
+                return None
+        # Die Ansicht kann durchgezogene Stirnkanten oder eine offene Schnittkontur zeigen.
+        abstand = abs(np.arange(len(streifen))-mitte)
+        innen = (abstand < klein-toleranz) & (abstand > dm/2+max(toleranz,wandstift/2+1))
+        oeffnung = (abstand < dm/2-wandstift/2-1) & (abstand > toleranz)
+        for maske in (innen, oeffnung):
+            if streifen[maske].any() and not streifen[maske].all():
+                return None
+        if innen.any() and not streifen[innen].any() and streifen[oeffnung].any():
+            return None
+    return dm
 
 
-def drehkontur(bild, box, senkrecht=False):
-    """Abschnitte von links nach rechts bzw. oben nach unten in der Blattansicht."""
+def drehprofil(bild, box, senkrecht=False):
+    """Abschnitte in Blattrichtung und Durchmesser einer durchgehenden axialen Spur in Pixeln."""
     h, w = bild.shape[:2]
     l,t,r,b = np.rint(np.clip(box,0,1)*[w,h,w,h]).astype(int)
     tinte = bild[t:b,l:r,:3].min(axis=2) < 245
     if senkrecht:
         tinte = tinte.T
     if not tinte.any() or tinte[0].any() or tinte[-1].any():
-        return []
+        return [], None
     ys, xs = np.nonzero(tinte)
     mitte = (ys.min()+ys.max())/2
     linien = [(x, *paar) for x in range(xs.min(), xs.max()+1)
               if (paar := _aussenlinien(tinte[:,x], mitte)) is not None]
     if not linien:
-        return []
+        return [], None
     stift = float(np.median([d for _,_,d in linien]))
     gruppen = []
     for x, dm, strich in linien:
@@ -108,24 +111,31 @@ def drehkontur(bild, box, senkrecht=False):
             gruppen.append([])
         gruppen[-1].append((x, dm))
     if not gruppen or any(len(g) < max(3,stift) for g in gruppen):
-        return []
+        return [], None
     radien = [np.median([dm for _,dm in g])/2 for g in gruppen]
     vermutet = [gruppen[0][0][0], *((a[-1][0]+b[0][0])/2 for a,b in zip(gruppen,gruppen[1:])), gruppen[-1][-1][0]]
     grenzen = [_senkrechte(tinte,x,mitte,r1,r2,stift)
                for x,r1,r2 in zip(vermutet, [0.,*radien], [*radien,0.], strict=True)]
     if any(x is None for x in grenzen):
-        return []
+        return [], None
     if grenzen[0] <= stift/2 or grenzen[-1] >= tinte.shape[1]-1-stift/2:
-        return []
-    if not _strichbild(tinte,grenzen,radien,mitte,stift):
-        return []
+        return [], None
+    bohrung = _strichbild(tinte,grenzen,radien,mitte,stift)
+    if bohrung is None:
+        return [], None
     sitze = []
     for x1,x2,radius in zip(grenzen[:-1],grenzen[1:],radien,strict=True):
         y1, y2 = mitte-radius, mitte+radius
         rechteck = (y1,x1,y2,x2) if senkrecht else (x1,y1,x2,y2)
         box = tuple((np.asarray(rechteck)+[l,t,l,t])/[w,h,w,h])
         sitze.append(Sitzkontur(box, x2-x1, 2*radius))
-    return sitze
+    return sitze, bohrung or None
+
+
+def drehkontur(bild, box, senkrecht=False):
+    """Nur die Laengsansicht einer Vollwelle akzeptieren."""
+    sitze, bohrung = drehprofil(bild, box, senkrecht)
+    return [] if bohrung else sitze
 
 
 def _mass(text, faktor, typ):
@@ -140,9 +150,8 @@ def _mass(text, faktor, typ):
 def drehmasse(kontur, zeilen, faktor):
     if not kontur:
         raise ValueError(tr("Die geschlossene Längsansicht des Drehteils einrahmen."))
-    masse, pixel, mm = [], [], []
-    schulter_px = schulter_mm = 0.
-    for i, (sitz, (laengentext, dmtext)) in enumerate(zip(kontur,zeilen,strict=True),1):
+    masse = []
+    for i, (_, (laengentext, dmtext)) in enumerate(zip(kontur,zeilen,strict=True),1):
         laenge = _mass(laengentext, faktor, "Location_LinearDistance")
         dm = _mass(dmtext, faktor, "Size_Diameter")
         if not laenge or not dm:
@@ -153,34 +162,91 @@ def drehmasse(kontur, zeilen, faktor):
             if max(v for v in (klein.nennwert,*klein.grenzen()) if v is not None) >= min(
                     v for v in (gross.nennwert,*gross.grenzen()) if v is not None):
                 raise ValueError(tr("Die Durchmessergrenzen benachbarter Abschnitte müssen die Schulter erhalten."))
-        schulter_px += sitz.laenge
-        schulter_mm += laenge.nennwert
-        pixel.extend((sitz.durchmesser, sitz.laenge, schulter_px))
-        mm.extend((dm.nennwert, laenge.nennwert, schulter_mm))
         masse.append((laenge, dm))
-    if np.max((np.array(pixel)-2)/mm) > np.min((np.array(pixel)+2)/mm):
-        raise ValueError(tr("Längen, Durchmesser oder Schulterlagen widersprechen der Längsansicht."))
+    _massstab(kontur, masse)
     return masse
 
 
-def _drehform(masse):
+def _massstab(kontur, masse, weitere=()):
+    paare = list(weitere)
+    schulter_px = schulter_mm = 0.
+    for sitz, (laenge, dm) in zip(kontur,masse,strict=True):
+        schulter_px += sitz.laenge
+        schulter_mm += laenge.nennwert
+        paare.extend(((sitz.durchmesser,dm.nennwert), (sitz.laenge,laenge.nennwert), (schulter_px,schulter_mm)))
+    pixel, mm = np.array(paare).T
+    if np.max((pixel-2)/mm) > np.min((pixel+2)/mm):
+        raise ValueError(tr("Längen, Durchmesser oder Schulterlagen widersprechen der Längsansicht."))
+
+
+_DURCHGANG = re.compile(r"(?<!\w)(?:THR(?:OUGH|U)(?:\s+ALL)?|DURCHGANG(?:SBOHRUNG)?|DURCHGEHEND|DURCHG?)[.]?(?!\w)", re.I)
+
+
+def axiales_bohrmass(kontur, masse, spur, stirn, text, faktor):
+    if spur is None and stirn is None and not text.strip():
+        return None
+    if stirn is not None and not stirn:
+        raise ValueError(tr("Die Stirnansicht muss vollständige konzentrische Ringe zeigen."))
+    angabe = text.strip()
+    durchgang = _DURCHGANG.search(angabe)
+    if durchgang and (durchgang.start() == 0 or durchgang.end() == len(angabe)):
+        angabe = (angabe[:durchgang.start()]+angabe[durchgang.end():]).strip()
+    elif durchgang:
+        raise ValueError(tr("Den Durchmesser der Axialbohrung mit Ø angeben."))
+    dm = _mass(angabe, faktor, "Size_Diameter")
+    if dm is None:
+        raise ValueError(tr("Den Durchmesser der Axialbohrung mit Ø angeben."))
+    if spur is None and not (stirn and durchgang):
+        raise ValueError(tr("Ohne durchgehende Wandlinien sind Stirnansicht und ein Ø-Maß mit Durchgangsangabe erforderlich."))
+    _pruefe_wand(masse, dm)
+    if spur is not None:
+        _massstab(kontur, masse, [(spur,dm.nennwert)])
+    if stirn:
+        aussen = [p.nennwert for _,p in masse]
+        # Von einer Stirnseite ist nur der jeweils naechste groessere Sitz sichtbar.
+        ansichten = {tuple(np.unique(np.maximum.accumulate(folge))) for folge in (aussen,aussen[::-1])}
+        pixel = np.asarray(stirn)
+        treffer = 0
+        for sichtbar in ansichten:
+            mm = np.array([dm.nennwert,*sichtbar])
+            if len(mm) == len(pixel) and np.max((pixel-2)/mm) <= np.min((pixel+2)/mm):
+                treffer += 1
+        if treffer != 1:
+            raise ValueError(tr("Die konzentrischen Ringe passen nicht zu Bohrung und Außendurchmessern."))
+    return dm
+
+
+def _pruefe_wand(masse, dm):
+    def groessen(p):
+        oben, unten = p.grenzen()
+        if p.passung and (oben is None or unten is None):
+            raise ValueError(tr("Für diese Passung die Grenzmaße aus der Zeichnung angeben."))
+        return [g for g in (p.nennwert,oben,unten) if g is not None]
+    bohrmasse = groessen(dm)
+    kleinster_sitz = min(min(groessen(p)) for _,p in masse)
+    if not bohrmasse or min(bohrmasse) <= 0 or max(bohrmasse) >= kleinster_sitz:
+        raise ValueError(tr("Die Bohrung muss bei Grenzmaß innerhalb aller Wellenabschnitte liegen."))
+
+
+def _drehform(masse, bohrung):
     from OCC.Core.BRepBuilderAPI import BRepBuilderAPI_MakeFace, BRepBuilderAPI_MakePolygon
     from OCC.Core.BRepPrimAPI import BRepPrimAPI_MakeRevol
     from OCC.Core.gp import gp_Ax1, gp_Dir, gp_Pnt
     profil = BRepBuilderAPI_MakePolygon()
     x = 0.
-    profil.Add(gp_Pnt(0,0,0))
+    innen = bohrung.nennwert/2 if bohrung else 0.
+    profil.Add(gp_Pnt(0,0,innen))
     for laenge, dm in masse:
         profil.Add(gp_Pnt(x,0,dm.nennwert/2))
         x += laenge.nennwert
         profil.Add(gp_Pnt(x,0,dm.nennwert/2))
-    profil.Add(gp_Pnt(x,0,0))
+    profil.Add(gp_Pnt(x,0,innen))
     profil.Close()
     flaeche = BRepBuilderAPI_MakeFace(profil.Wire(), True).Face()
     return BRepPrimAPI_MakeRevol(flaeche, gp_Ax1(gp_Pnt(0,0,0),gp_Dir(1,0,0))).Shape()
 
 
-def _sitzmasse(modell, masse):
+def _sitzmasse(modell, masse, bohrung):
     from OCC.Core.BRepAdaptor import BRepAdaptor_Surface
     from OCC.Core.GeomAbs import GeomAbs_Cylinder, GeomAbs_Plane
     from .vergleich_geo import _nachbarn
@@ -205,8 +271,17 @@ def _sitzmasse(modell, masse):
             nr = len(merkmale)+1
             merkmale.append(replace(p,flaechen=f,nummer=nr,step_id=-nr,quelle="eigen"))
         x = ende
+    if bohrung:
+        stirn = {i for i, ort in ebenen.items() if abs(ort) < 1e-6 or abs(ort-x) < 1e-6}
+        wand = {i for i,d in zylinder.items() if abs(d-bohrung.nennwert) < 1e-6 and nachbarn[i] == stirn}
+        if len(stirn) != 2 or len(wand) != 1:
+            raise ValueError(tr("Die innere Zylinderwand ist nicht beiden Stirnflächen eindeutig zugeordnet."))
+        nr = len(merkmale)+1
+        merkmale.append(replace(bohrung,flaechen=wand,nummer=nr,step_id=-nr,quelle="eigen"))
     return merkmale
 
 
-def schreibe_drehteil(ziel, masse):
-    return schreibe_bemassten_koerper(ziel, _drehform(masse), lambda modell: _sitzmasse(modell, masse))
+def schreibe_drehteil(ziel, masse, bohrung=None):
+    if bohrung:
+        _pruefe_wand(masse, bohrung)
+    return schreibe_bemassten_koerper(ziel, _drehform(masse, bohrung), lambda modell: _sitzmasse(modell, masse, bohrung))

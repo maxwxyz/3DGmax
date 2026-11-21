@@ -1,9 +1,11 @@
-"""Bemasste Vollwelle in der Laengsansicht eines PDF erfassen."""
+"""Bemasste Welle in der Laengsansicht eines PDF erfassen."""
 
 from PySide6 import QtCore, QtWidgets
 
 from ..i18n import tr
-from ..kern.drehzeichnung import drehkontur, drehmasse, schreibe_drehteil
+from ..kern.axialbohrung import stirnringe
+from ..kern.drehzeichnung import axiales_bohrmass, drehprofil, drehmasse, schreibe_drehteil
+from ..kern.zeichnungsansicht import Blattgeometrie
 from ..kern.zeichnungsabgleich import Blattangabe
 from .zeichnungsabgleich_ui import Blattansicht
 from .zeichnungsdialog import Koerperdialog
@@ -11,8 +13,10 @@ from .zeichnungsdialog import Koerperdialog
 
 class Drehteildialog(Koerperdialog):
     def __init__(self, doc, pfad, parent=None):
-        super().__init__(doc, pfad, tr("Vollwelle aus 2D-Zeichnung"), parent)
+        super().__init__(doc, pfad, tr("Welle aus 2D-Zeichnung"), parent)
         self.kontur, self.sitze, self.massmarken = [], [], {}
+        self.spur = self.stirn = None
+        self.geometrie = None
         self.resize(980,700)
         layout = QtWidgets.QVBoxLayout(self)
         leiste = QtWidgets.QHBoxLayout()
@@ -23,7 +27,8 @@ class Drehteildialog(Koerperdialog):
         leiste.addWidget(self.seite)
         self.auswahl = QtWidgets.QComboBox()
         self.auswahl.addItems([tr("Längsansicht waagerecht"), tr("Längsansicht senkrecht"),
-                               tr("Abschnittslänge"), tr("Abschnittsdurchmesser")])
+                               tr("Abschnittslänge"), tr("Abschnittsdurchmesser"),
+                               tr("Stirnansicht der Hohlwelle"), tr("Durchmesser der Axialbohrung")])
         leiste.addWidget(QtWidgets.QLabel(tr("Einrahmen")))
         leiste.addWidget(self.auswahl)
         self.einheit = QtWidgets.QComboBox()
@@ -36,8 +41,9 @@ class Drehteildialog(Koerperdialog):
         self.ansicht = Blattansicht()
         fit.clicked.connect(self.ansicht.einpassen)
         layout.addWidget(self.ansicht,1)
-        hinweis = QtWidgets.QLabel(tr("Die Längsansicht einer massiven Welle mit zylindrischen Abschnitten und rechtwinkligen Schultern einrahmen. "
-                                      "Je Abschnitt Länge und Ø-Maß aus der Zeichnung eintragen oder einzeln einrahmen."))
+        hinweis = QtWidgets.QLabel(tr("Die Längsansicht mit zylindrischen Abschnitten und rechtwinkligen Schultern einrahmen. "
+                                      "Je Abschnitt Länge und Ø-Maß eingeben oder einrahmen. Für eine Axialbohrung ohne "
+                                      "durchgehende Wandlinien zusätzlich die Stirnansicht und ein Durchgangsmaß angeben."))
         hinweis.setWordWrap(True)
         layout.addWidget(hinweis)
         self.tabelle = QtWidgets.QTableWidget(0,2)
@@ -45,6 +51,16 @@ class Drehteildialog(Koerperdialog):
         self.tabelle.horizontalHeader().setSectionResizeMode(QtWidgets.QHeaderView.ResizeMode.Stretch)
         self.tabelle.setMaximumHeight(170)
         layout.addWidget(self.tabelle)
+        bohrzeile = QtWidgets.QHBoxLayout()
+        layout.addLayout(bohrzeile)
+        bohrzeile.addWidget(QtWidgets.QLabel(tr("Durchgehende Axialbohrung")))
+        self.bohrtext = QtWidgets.QLineEdit()
+        self.bohrtext.setPlaceholderText(tr("Ø-Maß laut Zeichnung"))
+        bohrzeile.addWidget(self.bohrtext)
+        self.stirn_entfernen = QtWidgets.QPushButton(tr("Stirnansicht entfernen"))
+        self.stirn_entfernen.clicked.connect(self._ohne_stirnansicht)
+        bohrzeile.addWidget(self.stirn_entfernen)
+        self.bohrtext.textChanged.connect(self._pruefen)
         self.status = QtWidgets.QLabel()
         self.status.setWordWrap(True)
         layout.addWidget(self.status)
@@ -62,6 +78,16 @@ class Drehteildialog(Koerperdialog):
         self.einheit.currentIndexChanged.connect(self._pruefen)
         self._seite()
 
+    def _seite(self):
+        self.geometrie = None
+        super()._seite()
+
+    def _ohne_stirnansicht(self):
+        self.stirn = None
+        self.massmarken.pop("stirn",None)
+        self._markieren()
+        self._pruefen()
+
     def _sitz_waehlen(self, marke):
         if marke in self.sitze:
             self.tabelle.setCurrentCell(self.sitze.index(marke), max(0,self.tabelle.currentColumn()))
@@ -75,7 +101,10 @@ class Drehteildialog(Koerperdialog):
     def _bereich(self, box):
         i = self.auswahl.currentIndex()
         if i < 2:
-            self.kontur = drehkontur(self.blatt.bild,box,senkrecht=bool(i))
+            self.kontur, self.spur = drehprofil(self.blatt.bild,box,senkrecht=bool(i))
+            self.stirn = None
+            with QtCore.QSignalBlocker(self.bohrtext):
+                self.bohrtext.clear()
             self.sitze = [Blattangabe(self.blatt.nummer,s.box,str(n)) for n,s in enumerate(self.kontur,1)]
             self.massmarken.clear()
             with QtCore.QSignalBlocker(self.tabelle):
@@ -86,6 +115,19 @@ class Drehteildialog(Koerperdialog):
                         self.tabelle.setItem(zeile,spalte,QtWidgets.QTableWidgetItem())
                 if self.kontur:
                     self.tabelle.setCurrentCell(0,0)
+        elif i == 4:
+            if self.geometrie is None:
+                self.geometrie = Blattgeometrie(self.blatt)
+            self.stirn = stirnringe(self.blatt.bild,box,self.geometrie.im_bereich(box))
+            self.massmarken.pop("stirn",None)
+            if self.stirn:
+                self.massmarken["stirn"] = Blattangabe(self.blatt.nummer,box,self.auswahl.currentText())
+        elif i == 5:
+            wert = self.blatt.lies(box)
+            self.bohrtext.setText(wert)
+            self.massmarken.pop("bohrung",None)
+            if wert:
+                self.massmarken["bohrung"] = Blattangabe(self.blatt.nummer,box,wert)
         else:
             zeile, spalte = self.tabelle.currentRow(), i-2
             if zeile < 0:
@@ -100,18 +142,25 @@ class Drehteildialog(Koerperdialog):
 
     def _masse(self):
         zeilen = [(self.tabelle.item(i,0).text(), self.tabelle.item(i,1).text()) for i in range(len(self.kontur))]
-        return drehmasse(self.kontur, zeilen, self.einheit.currentData())
+        faktor = self.einheit.currentData()
+        masse = drehmasse(self.kontur, zeilen, faktor)
+        bohrung = axiales_bohrmass(self.kontur, masse, self.spur, self.stirn, self.bohrtext.text(), faktor)
+        return masse, bohrung
 
     def _pruefen(self):
+        self.bohrtext.setEnabled(bool(self.kontur))
+        self.stirn_entfernen.setEnabled(self.stirn is not None)
+        for i in (2,3,4,5):
+            self.auswahl.model().item(i).setEnabled(bool(self.kontur))
         try:
-            masse = self._masse()
+            masse, bohrung = self._masse()
         except ValueError as e:
             self.status.setText(str(e))
             self.speichern.setEnabled(False)
             return
-        self.status.setText(tr("Vollwelle mit {} Abschnitten, Gesamtlänge {} mm.").format(
-            len(masse), f"{sum(p.nennwert for p,_ in masse):g}"))
+        status = tr("Hohlwelle mit {} Abschnitten, Gesamtlänge {} mm.") if bohrung else tr("Vollwelle mit {} Abschnitten, Gesamtlänge {} mm.")
+        self.status.setText(status.format(len(masse), f"{sum(p.nennwert for p,_ in masse):g}"))
         self.speichern.setEnabled(True)
 
     def _schreibe(self, ziel):
-        return schreibe_drehteil(ziel, self._masse())
+        return schreibe_drehteil(ziel, *self._masse())

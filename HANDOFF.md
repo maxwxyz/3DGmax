@@ -2,6 +2,38 @@
 
 ## Current state, 2026-11-21
 
+### Reconstruct a straight axial through bore in a stepped shaft
+
+- Checked PLAN §§8.16, 8.28 and 8.35–8.37 against docs/Roadmap.md. File → Shaft from 2D drawing
+  now handles solid and hollow shafts. A pair of symmetric continuous or dashed bore walls must
+  span the full longitudinal view. When hidden lines are omitted, select the concentric vector
+  rings of an end view and supply the printed through diameter, e.g. Ø8 H7 THRU ALL. Views may
+  use separate sheets and scales. A selected end view must agree with the contour even when
+  longitudinal evidence is already present. Hidden shoulders between larger seats cannot serve as end-view rings. The bore must leave material in each seat at the
+  entered size limits. A fit outside the supported tables requires explicit limits. Incomplete bore traces and partial end edges keep the selection unresolved.
+- Tested two PDF routes to the same two-seat shaft (Ø20 × 12 and Ø12 h6 × 18 mm). The exported
+  Ø8 H7 bore reduces the volume to 4297.698750 mm³. Both the native and XCAF STEP readers
+  recover the fit on the inner cylinder bounded by the 0 and 30 mm planes. Verified five semantic
+  and graphical dimensions and the leader endpoint. The regressions also cover interrupted walls,
+  a hollow section with open end faces, wrong or incomplete end rings, vertical orientation,
+  conflicting tolerances and preserving an existing target when the bore reaches the outside wall.
+  All 139 affected tests passed. The complete headless suite passed 745 with eight screen tests
+  skipped. The native macOS run passed all eight screen tests and all eight shaft tests. The
+  final menu/manual and translation checks passed; all 2527 UI strings have English translations.
+- For the next §8.36 item, an isolated OCCT probe added flat-bottom axial blind bores from either
+  end. Both STEP readers recovered Ø8 H7 and a toleranced depth between entry plane and floor.
+  With 14 mm depth, the graphic spans X = 0–14 or 16–30 mm, and the volume is 5101.946469 mm³.
+  When the floor shares its X coordinate with the outside shoulder, adjacency distinguishes the two
+  planes. A second round trip checked all six dimensions together and preserved the external seat
+  lengths independently of the hole depth. A rendered PDF probe distinguished full floors from
+  interrupted walls ending mid-seat, with both continuous and dashed wall strokes.
+  Where a shoulder coincides with a candidate floor the drawing also needs an explicit depth.
+  A 10 mm blind Ø14 H7 bore in the 12 mm long Ø20 seat also round-tripped from either side,
+  despite the remote Ø12 seat. Check blind-bore clearance only along its possible penetration
+  at the drawing limits. Through-bore clearance still applies along the whole shaft.
+  Blind-bore review and production export, tapers, fillets, datum transfer and whole-drawing
+  comparison remain open. QIF stays last.
+
 ### Solid turned shafts from dimensioned longitudinal PDF views
 
 - Checked PLAN §§8.16, 8.28 and 8.35–8.37 and docs/Roadmap.md. File → Solid shaft from 2D
