@@ -1,4 +1,4 @@
-"""Einzelner Profilrahmen mit direkt darunter gesetztem Geltungshinweis."""
+"""Einzelner Toleranzrahmen mit direkt darunter gesetztem Geltungshinweis."""
 
 from functools import lru_cache
 import re
@@ -9,7 +9,7 @@ from scipy import ndimage
 from . import pmi_strichschrift as schrift
 from .pmi_rahmenzusatz import lies_hinweiszeile
 
-_HINWEIS = re.compile(r"[1-9][0-9]{0,3} COPLANAR SURFACES")
+_KOPLANAR = re.compile(r"[1-9][0-9]{0,3} COPLANAR SURFACES")
 
 
 @lru_cache(maxsize=1)
@@ -43,6 +43,28 @@ def _konturzeile(zeile):
     return wort
 
 
+def _einzelglyphen(pfade, zeilen, oben, skala):
+    from .pmi_konturzeile import lies_konturzeile
+    gruppen = [pfade]
+    if len(zeilen) == 2:
+        # In der Mitte der leeren Rasterzeilen zwischen den Schriftzeilen schneiden.
+        schnitt = oben - ((zeilen[0][1] + zeilen[1][0]) / 2 - 2) / skala
+        gruppen = [[(p, f) for p, f in pfade if p[:, 1].min() > schnitt],
+                   [(p, f) for p, f in pfade if p[:, 1].max() < schnitt]]
+        if sum(map(len, gruppen)) != len(pfade):
+            return ""
+    worte = []
+    for gruppe in gruppen:
+        if not gruppe:
+            return ""
+        y = np.concatenate([p[:, 1] for p, _ in gruppe])
+        wort = lies_konturzeile(gruppe, y.min(), y.max())
+        if not wort:
+            return ""
+        worte.append(wort)
+    return " ".join(worte)
+
+
 def _beschriftung(pfade, links, unten, h):
     punkte = np.vstack([p for p, _ in pfade])
     x, y = punkte.min(axis=0)
@@ -50,7 +72,8 @@ def _beschriftung(pfade, links, unten, h):
     if not (-.12*h <= x-links <= .35*h and .04*h < unten-t < .9*h and
             unten-y < 3*h and 2*h < r-x < 20*h and t > y):
         return ""
-    maske, _ = schrift._gesamtbild(pfade, 80/(t-y))
+    skala = 80/(t-y)
+    maske, _ = schrift._gesamtbild(pfade, skala)
     if maske is None:
         return ""
     zeilen = schrift._gruppen(maske.T)
@@ -60,22 +83,20 @@ def _beschriftung(pfade, links, unten, h):
     for a, b in zeilen:
         zeile = maske[a:b]
         gruppen = schrift._gruppen(zeile)
-        if not (4 <= len(gruppen) <= 20 and gruppen[0][0] < .4*(b-a)):
+        if not (4 <= len(gruppen) <= 32 and gruppen[0][0] < .4*(b-a)):
             return ""
         lesarten.append((lies_hinweiszeile(zeile, anzahl=True, null_pruefen=True) or "", _konturzeile(zeile)))
     texte = {" ".join(lesung) for lesung in zip(*lesarten) if all(lesung)}
-    if not texte and len(zeilen) == 1:
-        from .pmi_konturzeile import lies_konturzeile
-        texte.add(lies_konturzeile(pfade, y, t))
+    if not texte:
+        texte.add(_einzelglyphen(pfade, zeilen, t, skala))
     if len(texte) != 1:
         return ""
-    text = texte.pop()
-    return text if _HINWEIS.fullmatch(text) else ""
+    return texte.pop()
 
 
 def _lesung(pfade):
     zellen = schrift._zellen(pfade) if pfade else []
-    if len(zellen) != 2:
+    if not 2 <= len(zellen) <= 5:
         return None
     l, b, _, t = zellen[0]
     h = t-b
@@ -84,13 +105,19 @@ def _lesung(pfade):
         ziel = zusatz if p[:, 1].max() < b-.03*h and p[:, 0].min() >= l-.12*h else rahmen
         ziel.append((p, voll))
     if zusatz and (text := _beschriftung(zusatz, l, b, h)):
+        if _KOPLANAR.fullmatch(text) and len(zellen) == 2:
+            symbol = "⌓"
+        elif text == "SWITCH MOUNTING LOCATIONS":
+            symbol = "⌖"
+        else:
+            return None
         wert = schrift._rahmentext(rahmen, zellen)
-        if wert.startswith("⌓ "):
+        if wert.startswith(symbol + " "):
             return wert, text
     return None
 
 
-def profil_mit_hinweis(g):
+def rahmen_mit_hinweis(g):
     from .pmi_freier_hinweis import _in_ebene
     if g.erzeugt or g.platzhalter or not schrift._lesbar(g) or not (g.linien or g.dreiecke):
         return None
@@ -107,6 +134,11 @@ def profil_mit_hinweis(g):
             if fund := _lesung([(p*achsen, voll) for p, voll in pfade]):
                 funde.add(fund)
     return funde.pop() if len(funde) == 1 else None
+
+
+def profil_mit_hinweis(g):
+    fund = rahmen_mit_hinweis(g)
+    return fund if fund and _KOPLANAR.fullmatch(fund[1]) else None
 
 
 def passende_flaechen(g, anzahl, indices, modell, datei=None):

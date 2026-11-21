@@ -1,6 +1,7 @@
 {
  "unreleased": {
   "de": [
+   "Die PMI-Prüfung liest den zweizeiligen Hinweis „SWITCH MOUNTING LOCATIONS“ unter einem Positionsrahmen auch aus Strichschrift und Dreiecksfüllungen. Beim STEP-Export bleiben Wortlaut, Maximum-Material-Bedingung, Bezüge, Bohrungsflächen und Originalgrafik erhalten.",
    "Die PMI-Prüfung erkennt „2 COPLANAR SURFACES“ auch bei eng gesetzten Konturen, Strichschrift und reiner Dreiecksfüllung. Beide geprüften Flächen und die ursprüngliche Darstellung bleiben im STEP-Export erhalten.",
    "Der Zeichnungsvergleich liest den koplanaren Flächenhinweis unter einem schräg dargestellten Profilrahmen im PDF. Dialog und CSV zeigen die geforderte Anzahl, die zugeordneten STEP-Flächen und ob diese getrennt in derselben Ebene liegen.",
    "Die PMI-Prüfung liest den Geltungshinweis „4 COPLANAR SURFACES“ unter einer Flächenprofiltoleranz aus Strichschrift, Konturen und Dreiecksfüllungen. Sie gleicht die Anzahl mit den zugeordneten koplanaren Flächen ab. Beim STEP-Export bleiben Hinweis, Flächen und Originalgrafik erhalten.",
@@ -239,6 +240,7 @@
    "Grafische PMI aus unterstützten AP203e2-Kurvenmodellen lassen sich als STEP AP242 Edition 3 ausgeben. Facettierte STEP-Modelle behalten ihre Flächenbezüge. Gepackte STEP-Dateien lassen sich als unkomprimierte STEP-Kopie speichern."
   ],
   "en": [
+   "PMI review reads the two-line “SWITCH MOUNTING LOCATIONS” caption below a position frame, including single strokes and triangle fills. STEP export preserves the wording, maximum material requirement, datums, bore faces and original graphics.",
    "PMI review reads “2 COPLANAR SURFACES” from tightly spaced outlines, single strokes and triangle fills. STEP export preserves both verified faces and the original presentation.",
    "Drawing comparison reads coplanar face counts below a projected PDF surface profile frame. The dialog and CSV show the printed count, the number of linked STEP faces and whether these are separate faces in the same plane.",
    "PMI review reads the scope note “4 COPLANAR SURFACES” below a surface profile from strokes, outlines and triangle fills. It checks the printed count against the linked coplanar faces. STEP export preserves the note, faces and original presentation.",

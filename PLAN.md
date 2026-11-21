@@ -253,7 +253,13 @@ Throughout: tests (core, offscreen UI, stress test, on-screen test), `--selbstte
   callouts. STEP links each original end label to its named boundary feature. Revision comparison
   now measures the area covered only by each revision after alignment. It accounts for holes,
   overlapping trims and cylindrical seams. Unresolved support or invalid geometry stays open.
-  On the inch-based CTC-03 model, three position control frames identify the D/B/C datum
+  CTC-03 AP203 #3627 recovers the printed description “SWITCH MOUNTING LOCATIONS”
+  together with its Ø.05 inch position tolerance at maximum material and datums D/B/C.
+  The four cylindrical mounting faces match the eight half-cylinder patches of AP242 #41.
+  The reviewed AP242 export retains the description, targets and source view for
+  original outlines, a full single-stroke frame and caption, or a triangle-only callout.
+  All thirteen graphical CTC-03 tolerance frames now yield a value.
+  Three other position control frames on the inch-based CTC-03 model identify the D/B/C datum
   order and a perpendicularity control identifies datum E. Previously the printed D could
   be read as B. Verified the six labelled datums A through F and four tolerance frames
   against the semantic AP242 reference, with contour, single-stroke letters and triangle-only

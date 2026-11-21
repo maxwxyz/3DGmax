@@ -188,6 +188,11 @@ def _musterbilder(muster):
 def _vorlagen():
     from .pmi_schriftmuster import MUSTER
     muster = _musterbilder(MUSTER)
+    # Einliniges M im Ring. Das Innenzeichen bleibt vom Ring getrennt.
+    winkel = np.linspace(0, 2*np.pi, 97)
+    kreis = .5 + .5*np.column_stack((np.cos(winkel), np.sin(winkel)))
+    m = np.array([(.28,.21), (.28,.79), (.50,.44), (.72,.79), (.72,.21)])
+    muster.append(("Ⓜ", _merkmal(_bild([(kreis, False), (m, False)], (0,0,1,1), 80))))
     for z, varianten in _STRICHE.items():
         for zug in varianten.split("|"):
             linien = []

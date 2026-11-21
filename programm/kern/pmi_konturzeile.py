@@ -84,8 +84,7 @@ def lies_konturzeile(pfade, unten, oben):
         if fuellungen is None:
             return ""
         gruppen.extend(fuellungen)
-    # Ein bis vier Ziffern und die 16 Buchstaben von COPLANAR SURFACES.
-    if not 17 <= len(gruppen) <= 20:
+    if not 1 <= len(gruppen) <= 32:
         return ""
     zeichen = []
     h = oben-unten

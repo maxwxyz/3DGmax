@@ -31,7 +31,7 @@ def _zahl(text: str) -> float | None:
 class SemantikDialog(QtWidgets.QDialog):
     """Art, Werte und Flaechen einer nur grafischen PMI; Startwerte aus pmi_reparieren.vorschlag."""
 
-    def __init__(self, vorschlag, auswahl, zeigen, parent=None, *, position=0, anzahl=0, step=True, geometriewert=None):
+    def __init__(self, vorschlag, auswahl, zeigen, parent=None, *, position=0, anzahl=0, step=True, geometriewert=None, verbund=False):
         super().__init__(parent)
         self.v, self.auswahl, self.zeigen = vorschlag, auswahl, zeigen
         self.koplanarpruefung = None
@@ -61,7 +61,7 @@ class SemantikDialog(QtWidgets.QDialog):
             zusatz = QtWidgets.QLabel(vorschlag.beschreibung)
             zusatz.setTextFormat(QtCore.Qt.TextFormat.PlainText)
             zusatz.setWordWrap(True)
-            lay.addRow(tr("Geltungshinweis") if vorschlag.koplanare_anzahl else tr("Geltungshinweis für beide Zeilen"), zusatz)
+            lay.addRow(tr("Geltungshinweis für beide Zeilen") if verbund else tr("Geltungshinweis"), zusatz)
         if vorschlag.bereichsgrenzen:
             grenzen = " ↔ ".join(tr("{} (Kante #{})").format(name, k) for name, k in vorschlag.bereichsgrenzen)
             lay.addRow(tr("Begrenzter Profilbereich"), QtWidgets.QLabel(grenzen))
@@ -76,8 +76,8 @@ class SemantikDialog(QtWidgets.QDialog):
             if getattr(vorschlag, "ocr_text", "") and vorschlag.wert is None:
                 herkunft = tr("Grafik und STEP-Validierung stimmen nicht überein. Beide Rahmenzeilen prüfen. Dateitext: {}").format(
                     " / ".join(validierung))
-                if vorschlag.koplanare_anzahl:
-                    herkunft = tr("Grafik und STEP-Validierung widersprechen sich. Profilwert und Geltungshinweis prüfen. Dateitext: {}").format(
+                if vorschlag.beschreibung and not verbund:
+                    herkunft = tr("Grafik und STEP-Validierung widersprechen sich. Toleranzwert und Geltungshinweis prüfen. Dateitext: {}").format(
                         " / ".join(validierung))
             if kurztext := getattr(vorschlag, "kurzer_geltungshinweis", ""):
                 herkunft = tr("Im STEP-Validierungstext steht „{}“. Beim Übernehmen gilt der vollständige "
@@ -487,7 +487,7 @@ def semantisch_machen(fenster, auswahl=None):
             p.profilausschnitte = v.profilausschnitte
             p.profilrandkanten = v.profilrandkanten
             fenster.ansicht.ergaenze_grafik({}, [p])
-        d = SemantikDialog(v, flaechen, fenster.ansicht.hebe_flaechen, fenster, position=k+1,
+        d = SemantikDialog(v, flaechen, fenster.ansicht.hebe_flaechen, fenster, position=k+1, verbund=folge is not None,
                            anzahl=0 if einzeln else len(liste), step=erg.pfad.lower().endswith(ENDUNGEN_STEP + ENDUNGEN_STEPZ),
                            geometriewert=lambda typ, indices: pmi_reparieren.geometrie_nennmass(typ, indices, erg.modell))
         if v.koplanare_anzahl:

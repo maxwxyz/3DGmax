@@ -2,6 +2,34 @@
 
 ## Current state, 2026-11-21
 
+### Switch mounting positions from graphical STEP
+
+- Rechecked PLAN §8.4 and docs/Roadmap.md. Reviewed NIST CTC-03 AP203 #3627
+  from its original contours, a full single-stroke frame and caption, and a
+  single set of filled triangles. The same reading works without a writing
+  plane. Its printed diameter tolerance of .05 inch converts to 1.27 mm at
+  maximum material relative to D/B/C. Both lines of “SWITCH MOUNTING LOCATIONS”
+  become the tolerance description. Missing letters, incomplete strokes inside
+  the modifier and contradictory validation text are covered.
+- Reopened the four independently reviewed PMI (three datums and the position)
+  from the project and the exported AP242. View #3388 and the source graphics
+  survive in all three representations. AP203 #546–549 are four full cylinders.
+  The independent AP242 #41 uses eight half cylinders. Their axes, radii,
+  axial limits and complete circumferential coverage match in pairs. OCCT
+  accepted the modified tolerance with datum references and preserved volume.
+- All thirteen graphical CTC-03 tolerance frames now yield values. The 194-callout
+  inventory found just the two known coplanar profiles and this mounting-position
+  caption. Adding a single-stroke circled M left the original 194 readings stable.
+  Passed 42 affected tests, 25 coplanar/material/composite regression cases and
+  four native Cocoa cases. The signed main app passed its self-test and rendered
+  the reopened triangle-only STEP. Keep one app at `dist/3DGmax.app`.
+- Next in §8.4, bring this position control into drawing comparison. CTC-03 Rev C
+  sheet 1 shows “4X Ø.625 ±.005” above the frame as a separate size dimension.
+  An experiment on the real PDF yielded all five position compartments at 75, 100
+  and 140 pixels per frame height, and both caption lines at 140. The current UI
+  omits this projected position frame. Compare its wording explicitly, including
+  the original semantic reference’s empty description. QIF stays last.
+
 ### Tightly spaced coplanar lettering and the canonical main app
 
 - Verified PLAN §8.4 against docs/Roadmap.md. CTC-03 AP203 #3636 reads
