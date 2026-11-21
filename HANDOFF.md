@@ -2,6 +2,26 @@
 
 ## Current state, 2026-11-21
 
+### Update individual assembly parts and revision colours in the viewer
+
+- Checked PLAN §§6 and 8.1 against docs/Roadmap.md. Tree visibility updates changed occurrences,
+  their edge presentations and their picking modes. Transparency changes touch the visible
+  affected parts. The face index already built by the viewer supplies the visible tolerance-zone
+  targets, including model faces shared by several occurrences.
+- Same-alignment revision colour changes update the affected presentations and removed-face
+  overlay. A realignment rebuilds the scene. The highlight checkbox also clears occurrence
+  overrides. The regression test previously retained new/changed colours after selecting
+  the new revision and clearing the checkbox on the example assembly.
+- Native macOS benchmark on the 42.85 MB / 2,400-part STEP, in milliseconds including redraw:
+  single-part visibility 41.83 → 25.02, transparency 38.33 → 17.14 (ten toggles each);
+  comparison highlighting with one changed face 640.73 → 34.05 (six toggles). With one
+  box hidden, the same 14,394 tolerance-zone face indices took 62.20 → 9.86 ms to retrieve.
+  The full suite passed 927 tests; the eight screen tests skipped offscreen also passed on native macOS.
+- Next §8.4: without a writing plane, all twelve unframed FTC-07 linear size annotations
+  previously returned empty OCR text. Test the three diameter formats and the radius range
+  in original strokes and pure triangle fill, plus an independently rendered filled font.
+  QIF remains last.
+
 ### Retain the two pocket-center dimensions from the drawing
 
 - Checked PLAN §8.36 against docs/Roadmap.md. A rectangular pocket, rounded pocket or

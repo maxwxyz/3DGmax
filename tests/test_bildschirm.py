@@ -244,6 +244,77 @@ def pruefe_alles():
         a._aktiviere_auswahl = aktivieren
     pfad = os.path.join(tempfile.mkdtemp(), "b.png")
     ergebnis["bild"] = f.ansicht.bild(pfad) and os.path.getsize(pfad) > 1000
+    # Bauteilaktionen lassen den Auswahlzustand anderer Instanzen unberuehrt.
+    from OCC.Core.TColStd import TColStd_ListOfInteger
+    f.lade(os.path.join(sys.argv[1], "tests", "daten", "baugruppe.stp"), warten=True)
+    a.darstellung("kanten")
+    a.setze_messmodus(False)
+    ziel, nachbar, verdeckt = list(a._teile)[:3]
+    teil, anderes = a._teile[ziel], a._teile[nachbar]
+    def modi(ais):
+        liste = TColStd_ListOfInteger()
+        ctx.ActivatedModes(ais, liste)
+        return set(liste)
+    ctx.Deactivate(anderes)
+    ctx.Activate(anderes, 1, False)
+    a.knoten_sichtbar({ziel, verdeckt}, False)
+    a.knoten_transparent({ziel}, True)
+    ergebnis["teil_verdeckt"] = not ctx.IsDisplayed(teil) and not ctx.IsDisplayed(a._kanten[ziel])
+    a.knoten_sichtbar({ziel}, True)
+    ergebnis["teil_eingeblendet"] = (ctx.IsDisplayed(teil) and ctx.IsDisplayed(a._kanten[ziel])
+                                     and teil.Transparency() > 0.6 and modi(teil) == {2, 4})
+    a.knoten_transparent({ziel}, False)
+    ergebnis["teil_nachbar_unberuehrt"] = (modi(anderes) == {1} and teil.Transparency() < 0.01
+                                          and not ctx.IsDisplayed(a._teile[verdeckt]))
+    a.isoliere({ziel, nachbar})
+    ergebnis["teile_isoliert"] = ({nr for nr, ais in a._teile.items() if ctx.IsDisplayed(ais)}
+                                  == {ziel, nachbar} and modi(anderes) == {1})
+    from programm.ui.ansicht3d import AnsichtBasis
+    schrauben = [k.nummer for k in a.szene.baum.blaetter() if "Schraube" in k.name]
+    for nummern in ({schrauben[0]}, set(schrauben), {ziel}):
+        a.isoliere(nummern)
+        sichtbar = a.sichtbare_flaechen()
+        assert sichtbar and sichtbar == AnsichtBasis.sichtbare_flaechen(a)
+    a.knoten_sichtbar(set(a._teile), False)
+    ergebnis["alle_flaechen_verdeckt"] = a.sichtbare_flaechen() == set()
+    a.isoliere(None)
+    ergebnis["alle_flaechen_sichtbar"] = a.sichtbare_flaechen() is None
+    ergebnis["isolation_aufgehoben"] = all(ctx.IsDisplayed(ais) for ais in a._teile.values())
+    # Statuswechsel am gleichen Stand erhaelt Geometrie, Kamera und getrennte Instanzfarben.
+    from OCC.Core.gp import gp_Trsf, gp_Vec
+    from programm.kern.vergleich_geo import instanz_schluessel
+    from programm.ui.ansicht3d import _farbe
+    idx = next(i for i, treffer in a._flaechen_ais.items() if len({ais for ais, _ in treffer}) > 1)
+    a.zeige_vergleich({}, [], gp_Trsf(), {})
+    paar = a._flaechen_ais[idx][:2]
+    (ais1, f1), (ais2, f2) = paar
+    def aktuelle_farbe(ais, form, rgb):
+        return ais.CustomAspects(form).ShadingAspect().Color().Distance(_farbe(rgb)) < 1e-5
+    grund, neu = a.thema["modell"], a.thema["v_neu"]
+    k = instanz_schluessel(idx, f1)
+    kamera = a.kamera_daten()
+    a.zeige_vergleich({idx: "neu"}, [f1], gp_Trsf(), {k: "gleich"})
+    entfernt = a._entfernt_ais
+    ergebnis["vergleich_instanzfarben"] = (a._flaechen_ais[idx][:2] == paar and ctx.IsDisplayed(entfernt)
+        and aktuelle_farbe(ais1, f1, grund) and aktuelle_farbe(ais2, f2, neu))
+    a.zeige_vergleich({idx: "neu"}, [], gp_Trsf(), {})
+    ergebnis["vergleich_instanz_ohne_ausnahme"] = aktuelle_farbe(ais1, f1, neu) and not ctx.IsDisplayed(entfernt)
+    a.zeige_vergleich({}, [], gp_Trsf(), {})
+    ergebnis["vergleich_neutral"] = (aktuelle_farbe(ais1, f1, grund) and aktuelle_farbe(ais2, f2, grund)
+                                     and a._gleich(a.kamera_daten(), kamera))
+    nr1 = next(nr for nr, teil in a._teile.items() if teil == ais1)
+    a.knoten_sichtbar({nr1}, False)
+    a.hebe_flaechen({idx})
+    a.zeige_vergleich({idx: "neu"}, [], gp_Trsf(), {})
+    ergebnis["vergleich_markierung"] = (not ctx.IsDisplayed(ais1) and
+        ais2.CustomAspects(f2).ShadingAspect().Color().Distance(a._hervor_farbe(idx, ais2)) < 1e-5)
+    a.hebe_flaechen(set())
+    a.knoten_sichtbar({nr1}, True)
+    ergebnis["vergleich_nach_markierung"] = aktuelle_farbe(ais1, f1, neu) and aktuelle_farbe(ais2, f2, neu)
+    lage = gp_Trsf()
+    lage.SetTranslation(gp_Vec(3, 2, 1))
+    a.zeige_vergleich({}, [], lage, {})
+    ergebnis["vergleich_lage"] = next(iter(a._teile.values())).LocalTransformation().TranslationPart().X() == 3
     print("ERGEBNIS", ergebnis, flush=True)
 QtCore.QTimer.singleShot(500, los)
 app.exec()

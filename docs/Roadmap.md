@@ -32,6 +32,8 @@
 | Camera: perspective/orthographic, view back/forward | ✅ |
 | Smooth camera transitions | ✅ |
 | Hide selected in 3D, tree search; 3D PMI follows list filter | ✅ |
+| Update visibility, edges, selection and transparency per changed assembly part. Determine visible tolerance-zone targets from the scene's indexed face occurrences | ✅ |
+| Retain the comparison scene, camera, selection and graphics when changing status colours under the same alignment. Toggle occurrence-specific colours together with the highlight control | ✅ |
 | Update visibility and colour of changed PMI graphics without rebuilding face and edge selection when filtering or highlighting | ✅ |
 | Exploded view (slider), parts list (BOM) with quantity, volume, mass, CSV | ✅ |
 | Exploded view by assembly levels (staged), BOM with part number | ✅ |

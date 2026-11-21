@@ -2533,16 +2533,17 @@ class Hauptfenster(QtWidgets.QMainWindow):
         if v is None:
             return
         hervor = self.modus_leiste.hervor.isChecked()
+        faerben = self._aenderungen_sichtbar()
         if m == "vergleich":
             entfernt = v.geo.entfernt_a
             if entfernt is None:
                 entfernt = [v.alt.modell.flaechen[i] for i, st in v.geo.status_a.items() if st == "entfernt"]
-            status = v.geo.status_b
         else:
-            entfernt, status = [], v.geo.status_b if hervor or m == "ueberlagern" else {}
-        art = (m == "vergleich", bool(status))  # Szene nur neu aufbauen, wenn sich die Faerbung aendert
+            entfernt = []
+        art = (m == "vergleich", faerben)  # Szene nur neu aufbauen, wenn sich die Faerbung aendert
         if getattr(self, "_anzeige_art", None) != art:
-            self.ansicht.zeige_vergleich(status, entfernt, v.ausrichtung.gp_trsf(), v.geo.instanzen_b)
+            self.ansicht.zeige_vergleich(v.geo.status_b if faerben else {}, entfernt, v.ausrichtung.gp_trsf(),
+                                        v.geo.instanzen_b if faerben else None)
             self._anzeige_art = art
         self.ansicht.zeige_ueberlagerung(v.alt.modell.form if m == "ueberlagern" else None)
         braucht_alt = m in ("alt", "nebeneinander", "blinken")

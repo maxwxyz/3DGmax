@@ -1186,15 +1186,42 @@ class OcctAnsicht(AnsichtBasis):
         self._entfernt_ais = ais
 
     def zeige_vergleich(self, status, entfernt_formen=None, trsf=None, instanzen=None):
+        alt, instanzen_alt = self.vergleich_status, self.vergleich_instanzen
+        lage, entfernt = self.vergleich_trsf, self.vergleich_entfernt
         super().zeige_vergleich(status, entfernt_formen, trsf, instanzen)
-        if status is None:
-            self.abweichung = None
-        # nur der erste Aufbau einer Szene im Vergleich passt ein (Ausrichtung verschiebt das Modell); danach
-        # aendert sich nur die Faerbung, die Kamera bleibt
         behalten = status is not None and getattr(self, "_vergleich_szene", None) is self.szene
         self._vergleich_szene = self.szene if status is not None else None
-        if self._bereit and self.szene is not None:
+        if not self._bereit or self.szene is None:
+            return
+        gleiche_lage = lage is trsf or (lage is not None and trsf is not None and all(
+            lage.Value(i, j) == trsf.Value(i, j) for i in (1, 2, 3) for j in (1, 2, 3, 4)))
+        if not behalten or alt is None or not gleiche_lage:
             self._baue_szene(kamera=not behalten)
+            return
+        self._vergleich_umfaerben(alt, instanzen_alt)
+        if entfernt != self.vergleich_entfernt:
+            if self._entfernt_ais is not None:
+                self.d.Context.Remove(self._entfernt_ais, False)
+            self._baue_entfernt()
+        self._neu_zeichnen()
+
+    def _vergleich_umfaerben(self, alt, instanzen_alt):
+        """Nur Bauteile mit geaenderten Statusfarben neu zeichnen."""
+        neu, instanzen = self.vergleich_status, self.vergleich_instanzen
+        geaendert = {i for i in alt.keys() | neu.keys() if alt.get(i, "gleich") != neu.get(i, "gleich")}
+        if instanzen_alt != instanzen:
+            for k in instanzen_alt.keys() | instanzen.keys():
+                i = k[0]
+                if instanzen_alt.get(k, alt.get(i, "gleich")) != instanzen.get(k, neu.get(i, "gleich")):
+                    geaendert.add(i)
+        teile = set()
+        for idx in geaendert:
+            for ais, f in self._flaechen_ais.get(idx, []):
+                if not self._hervorgehoben(idx, ais):
+                    ais.SetCustomColor(f, _farbe(self._grundfarbe(idx, f)))
+                    teile.add(ais)
+        for ais in teile:
+            self.d.Context.Redisplay(ais, False)
 
     def zeige_analyse(self, karte, skala=None):
         super().zeige_analyse(karte, skala)
@@ -1462,38 +1489,43 @@ class OcctAnsicht(AnsichtBasis):
 
     # --- Sichtbarkeit und Hervorhebung ---
 
-    def _wende_sichtbarkeit_an(self):
-        if not self._bereit or self.szene is None:
+    def _wende_sichtbarkeit_an(self, nummern=None):
+        if not self._bereit or self.szene is None or (nummern is not None and not nummern):
             return
         from OCC.Core.Graphic3d import Graphic3d_ZLayerId_Default, Graphic3d_ZLayerId_Top
         ctx = self.d.Context
         # Drahtmodell mit Kontrast: Kantenebene ueber den Bauteildraehten (die tragen die Flaechenfarben)
         draht = self.modus == "draht" and self.draht_kontrast
-        for nr, kanten in self._kanten.items():
+        teile = self._teile if nummern is None else self._teile.keys() & nummern
+        for nr in teile:
+            kanten = self._kanten[nr]
             if nr in self.versteckt or not (self.modus == "kanten" or draht):
                 ctx.Erase(kanten, False)
             else:
                 kanten.SetZLayer(Graphic3d_ZLayerId_Top if draht else Graphic3d_ZLayerId_Default)
                 ctx.Display(kanten, 0, -1, False)
                 ctx.Deactivate(kanten)
-        for nr, ais in self._teile.items():
+            ais = self._teile[nr]
             if nr in self.versteckt or (self.abweichung is not None and not self.abweichung_ueberlagert):
                 ctx.Erase(ais, False)
             else:
                 ctx.Display(ais, False)
-                # Material davor bzw. Toleranzzonen im Bauteil (Bohrungen) sichtbar; Fokus: alles ausser der Auswahl
-                fokus = self.fokus_aktiv() and nr not in self.fokus_teile
-                durchsichtig = nr in self.transparent or self.material is not None or bool(self.zone_formen) or fokus \
-                    or self.abweichung_ueberlagert or (self.kollision is not None and nr not in self.kollision[0])
-                ctx.SetTransparency(ais, 0.7 if durchsichtig else 0.0, False)
-        self._aktiviere_auswahl()
-        for ais in self._hilfe:
-            if self.hilfsgeometrie_an:
-                ctx.Display(ais, False)
-            else:
-                ctx.Erase(ais, False)
-        self._setze_callout_farben()
+                self._setze_teiltransparenz(nr, ais)
+        self._aktiviere_auswahl(teile)
+        if nummern is None:
+            for ais in self._hilfe:
+                if self.hilfsgeometrie_an:
+                    ctx.Display(ais, False)
+                else:
+                    ctx.Erase(ais, False)
+            self._setze_callout_farben()
         self._neu_zeichnen()
+
+    def _setze_teiltransparenz(self, nr, ais):
+        fokus = self.fokus_aktiv() and nr not in self.fokus_teile
+        durchsichtig = (nr in self.transparent or self.material is not None or bool(self.zone_formen) or fokus
+                        or self.abweichung_ueberlagert or (self.kollision is not None and nr not in self.kollision[0]))
+        self.d.Context.SetTransparency(ais, 0.7 if durchsichtig else 0.0, False)
 
     def _aktualisiere_pmi_grafik(self):
         if self._bereit and self.szene is not None and self._setze_callout_farben():
@@ -2154,17 +2186,35 @@ class OcctAnsicht(AnsichtBasis):
         self._wende_sichtbarkeit_an()
 
     def knoten_sichtbar(self, nummern, sichtbar):
+        geaendert = nummern & self.versteckt if sichtbar else nummern - self.versteckt
         super().knoten_sichtbar(nummern, sichtbar)
-        self._wende_sichtbarkeit_an()
+        self._wende_sichtbarkeit_an(geaendert)
 
     def isoliere(self, nummern):
+        vorher = self.versteckt
         super().isoliere(nummern)
-        self._wende_sichtbarkeit_an()
+        self._wende_sichtbarkeit_an(vorher ^ self.versteckt)
         self.alles_zeigen()
 
+    def sichtbare_flaechen(self):
+        if self.szene is None or not self.versteckt:
+            return None
+        if getattr(self, "_szene_gebaut", None) is not self.szene:
+            return super().sichtbare_flaechen()
+        verborgen = {self._teile[nr] for nr in self.versteckt if nr in self._teile}
+        return {idx for idx, instanzen in self._flaechen_ais.items()
+                if any(ais not in verborgen for ais, _ in instanzen)}
+
     def knoten_transparent(self, nummern, an):
+        geaendert = nummern - self.transparent if an else nummern & self.transparent
         super().knoten_transparent(nummern, an)
-        self._wende_sichtbarkeit_an()
+        if not self._bereit or self.szene is None:
+            return
+        sichtbar = {nr for nr in self._teile.keys() & geaendert if self.d.Context.IsDisplayed(self._teile[nr])}
+        for nr in sichtbar:
+            self._setze_teiltransparenz(nr, self._teile[nr])
+        if sichtbar:
+            self._neu_zeichnen()
 
     # --- Darstellung ---
 
@@ -2766,13 +2816,14 @@ class OcctAnsicht(AnsichtBasis):
         if self._bereit:
             self.setze_thema(self.thema)
 
-    def _aktiviere_auswahl(self):
+    def _aktiviere_auswahl(self, nummern=None):
         if not self._bereit:
             return
         ctx = self.d.Context
-        for nr, ais in self._teile.items():
+        for nr in self._teile if nummern is None else nummern:
             if nr in self.versteckt:
                 continue
+            ais = self._teile[nr]
             ctx.Deactivate(ais)
             if self.modus == "draht":
                 arten = (1, 2)  # Drahtmodell: Flaechen nicht waehlbar -> verdeckte Kanten durchklicken

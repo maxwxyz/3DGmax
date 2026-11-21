@@ -1,6 +1,8 @@
 {
  "unreleased": {
   "de": [
+   "In großen Baugruppen aktualisiert die 3D-Ansicht beim Einblenden, Ausblenden und Transparentstellen nur die betroffenen Teile. Toleranzzonen ermitteln die sichtbaren Flächen aus der aufgebauten Ansicht.",
+   "Beim Wechsel der Vergleichsfarben bleiben Bauteile, PMI und Kamera in der Ansicht erhalten, solange die Ausrichtung gleich bleibt. Das Ausschalten der Hervorhebung entfernt auch die Änderungsfarben einzelner Bauteilinstanzen.",
    "Beim Erzeugen einer Platte aus einer 2D-Zeichnung bleiben die X- und Y-Maße von Taschen und Langlöchern mit ihren Toleranzen erhalten. STEP speichert die grafische Maßlinie und verknüpft das semantische Maß mit der Plattenseite und den beiden zugehörigen Taschenwänden.",
    "Beim Erzeugen einer Welle aus einer 2D-Zeichnung können Sackbohrungen von beiden Enden unterschiedliche Bohrspitzen haben. Pro Seite lassen sich Spitzenwinkel und Tiefenbezug übernehmen. Die Grenzmaßprüfung berücksichtigt den Materialsteg zwischen den Spitzen. STEP erhält die Maße mit den zugehörigen Flächen, Kreisrändern oder Scheitelpunkten.",
    "Die grafische PMI-Erkennung übernimmt auch einen eingerückten, zweizeilig gesetzten Flächenhinweis wie „4 COPLANAR / SURFACES“ unter dem Wertfach eines Verbundrahmens.",
@@ -187,6 +189,8 @@
    "Grafische PMI aus unterstützten AP203e2-Kurvenmodellen lassen sich als STEP AP242 Edition 3 ausgeben. Facettierte STEP-Modelle behalten ihre Flächenbezüge. Gepackte STEP-Dateien lassen sich als unkomprimierte STEP-Kopie speichern."
   ],
   "en": [
+   "In large assemblies, showing, hiding or making parts transparent updates only the affected parts. Tolerance zones use the displayed scene’s face index to find visible faces.",
+   "Switching comparison colours retains the parts, PMI and camera when alignment is unchanged. Turning highlighting off now also clears the change colours of individual part instances.",
    "Plate reconstruction from a 2D drawing now retains pocket and slot center coordinates with their tolerances. STEP stores the dimension line and links the semantic dimension to the plate side and both corresponding pocket walls.",
    "Shaft reconstruction from a 2D drawing supports different drill points on opposite ends. Each bore has its own point angle and depth reference. The limit check preserves material between the tips. STEP retains dimensions on their respective faces, circular edges or apex vertices.",
    "Graphical PMI recognition now also offers inset, wrapped surface counts such as “4 COPLANAR / SURFACES” below the value cell of a composite frame.",

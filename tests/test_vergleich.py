@@ -402,6 +402,11 @@ def test_baugruppenvergleich(fenster):
     assert entfernt & flaechen
     assert not {i for i, st in f.vergleich.geo.status_a.items() if st == "entfernt"} & flaechen
     assert len(f.ansicht.vergleich_instanzen) == len(f.vergleich.geo.instanzen_b) > len(f.vergleich.geo.status_b)
+    f.setze_vergleichsmodus("neu")
+    f.modus_leiste.hervor.setChecked(False)
+    assert not f.ansicht.vergleich_status and not f.ansicht.vergleich_instanzen
+    f.modus_leiste.hervor.setChecked(True)
+    assert f.ansicht.vergleich_instanzen == f.vergleich.geo.instanzen_b
     f.beende_vergleich()
     assert f.ansicht.vergleich_instanzen == {}
 

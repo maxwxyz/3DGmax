@@ -120,7 +120,12 @@ Throughout: tests (core, offscreen UI, stress test, on-screen test), `--selbstte
    per extraction and applies its instance transforms. The 42.85 MB STEP with 2,400 solids and 14,400
    faces was remeasured on the development Mac. Three alternating loads before and after the standard
    detection and parser changes gave medians of 11.43 s and 7.61 s. PMI filters and highlights
-   update changed annotations while retaining the assembly's active selection modes. Comparisons and scan inspections
+   update changed annotations while retaining the assembly's active selection modes. Hiding or
+   showing one occurrence now updates just its geometry, edges and picking modes. On the same
+   assembly, the median of ten native macOS toggles including redraw fell from 41.83 to 25.02 ms.
+   Transparency took 17.14 ms versus 38.33 ms. With one box hidden, finding the 14,394 visible
+   tolerance-zone face indices from the existing display index took 9.86 ms versus 62.20 ms.
+   Comparisons and scan inspections
    refine coarse CAD meshes on separate topology and share the result across instances and repeated analyses of
    a loaded model. This also covers planar faces with curved trims. Persistent mesh caching and viewer levels
    of detail remain open.
@@ -136,6 +141,11 @@ Throughout: tests (core, offscreen UI, stress test, on-screen test), `--selbstte
 ## 8. Extensions
 
 ### 8.1 Comparison
+- Changing revision colours at the same alignment updates the affected face presentations and the
+  removed-face overlay. First display and realignment build the aligned scene. Turning off highlighting
+  clears both prototype and occurrence colours. On the 2,400-part STEP a comparison with one changed
+  face took 34.05 ms to toggle highlighting versus 640.73 ms with scene reconstruction (median
+  of six switches including redraw, on the development Mac).
 - Surface samples for alignment and comparison are weighted in batches. On the 14,400-face STEP assembly,
   drawing 8,000 samples from the extracted meshes took 11.3 ms versus 156.2 ms, with identical points
   and face indices for the same seed (median of five runs on the development Mac).
