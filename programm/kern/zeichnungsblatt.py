@@ -515,9 +515,13 @@ class Zeichnungsblatt:
                 else:
                     rahmen[a.box] = a
 
+        from .zeichnungsverbund import verbundrahmen
+        verbund = list(verbundrahmen(self))
+
         def innerhalb(box):
             x, y = (box[0]+box[2])/2, (box[1]+box[3])/2
-            return any(l <= x <= r and t <= y <= b for l, t, r, b in rahmen)
+            return (any(l <= x <= r and t <= y <= b for l, t, r, b in rahmen)
+                    or any(_enthaelt(a.zeilenecken, x, y) for a in verbund))
 
         for a in einzeln:
             if not innerhalb(a.box):
@@ -532,4 +536,4 @@ class Zeichnungsblatt:
                            m.box[1] <= (ortsangabe.box[1]+ortsangabe.box[3])/2 <= m.box[3] for ortsangabe in rahmen.values()):
                     rahmen[m.box] = m
         self._rahmenzusaetze(rahmen.values())
-        return sorted(rahmen.values(), key=lambda a: (a.box[1], a.box[0]))
+        return sorted([*rahmen.values(), *verbund], key=lambda a: (a.box[1], a.box[0]))

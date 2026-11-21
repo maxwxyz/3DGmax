@@ -1717,6 +1717,12 @@ A group checked before all sheets were opened needs another review. Duplicate ma
 assignments, conflicting printed numbers and unverified datum systems leave membership open.
 The CSV reports each selected sheet region, the mapped and expected source IDs and the group finding.
 
+On FTC-07 drawing sheet 3 the reader uses the positions of native PDF text to rectify two
+oblique composite frames. Both rows must have a single spanning symbol cell and legible printed
+value and datum cells. The review and CSV keep the two rows in order with the attached scope
+caption. The right frame also names four coplanar surfaces. Comparing the two ordered rows with
+the directed STEP composite relationship remains open.
+
 Remaining work includes occluded rims, perspective views, sections, non-circular features and leaders on section or edge geometry, automatically
 finding additional types of unframed graphical annotations, interpreting composite controls and establishing
 the scope required for a verified whole-drawing verdict. Confirmed matches currently apply to individual characteristics.

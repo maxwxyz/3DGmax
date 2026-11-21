@@ -26,11 +26,12 @@ def schriftumfang(mask, halbe):
 
 
 class Schriftstreifen:
-    def __init__(self, blatt, ort, richtung):
+    def __init__(self, blatt, ort, richtung, quer=None):
         self.blatt = blatt
         self.ort = np.asarray(ort)
         u,v = richtung
-        self.basis = np.array([[u,v],[-v,u]])
+        self.achsen = np.array([[u,v], [-v,u] if quer is None else quer])
+        self.basis = np.linalg.inv(self.achsen.T)
         h,w = blatt.bild.shape[:2]
         self.blattpixel = np.array([w,h])
 
@@ -78,7 +79,7 @@ class Schriftstreifen:
 
     def blattecken(self, fenster):
         l,t,r,b = fenster
-        ecken = (self.ort+np.array([(l,t),(r,t),(r,b),(l,b)]) @ self.basis)/self.blattpixel
+        ecken = (self.ort+np.array([(l,t),(r,t),(r,b),(l,b)]) @ self.achsen)/self.blattpixel
         if ecken.min() < 0 or ecken.max() > 1:
             return None
         return tuple(map(tuple,ecken))
@@ -94,6 +95,6 @@ def zeilenvorschau(blatt, ecken, max_breite, max_hoehe):
     a,b,_,d = np.asarray(ecken)*[w,h]
     laenge,hoehe = np.linalg.norm(b-a),np.linalg.norm(d-a)
     rand = .22*hoehe
-    streifen = Schriftstreifen(blatt,a,(b-a)/laenge)
+    streifen = Schriftstreifen(blatt,a,(b-a)/laenge,(d-a)/hoehe)
     faktor = min(max_breite/(laenge+2*rand),max_hoehe/(hoehe+2*rand))
     return streifen._bitmap((-rand,-rand,laenge+rand,hoehe+rand),faktor,False)

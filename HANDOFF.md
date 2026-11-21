@@ -2,6 +2,23 @@
 
 ## Current state, 2026-11-21
 
+### Oblique composite controls on FTC-07 drawing sheet 3
+
+- Checked PLAN §8.35 against docs/Roadmap.md. Sheet 3 shows two surface-profile frames with
+  a shared symbol cell. PDFium returns one scope caption in the same text run as an adjacent
+  value. The drawing reader uses native text origins to locate each frame, rectifies its two
+  axes, then reads the actual printed cells. Both frames contain .070 against A/B/C over .015
+  against A. Both say SIM REQT. Only the right-hand frame says 4 COPLANAR SURFACES.
+- Verified both rectified previews visually against the sheet. A synthetic inclined PDF tests
+  a numbered caption, split symbol cell, unsupported wording and competing captions. The File
+  menu and CSV preserve the transcription, order and four drawing corners. The compound finding
+  stays open for review. No simultaneous partnership is inferred.
+- 62 affected tests passed. Twelve tests passed with the native macOS window. The next comparison
+  case is grounded in the unmodified STEP: upper #14614 links to #14623 on four faces and
+  #15076 links to #15085 on one. Both upper values are 1.778 mm and reference A/B/C. The printed
+  and STEP scope wording, the ordered relationship and the selected target need separate evidence.
+  QIF remains the final work package.
+
 ### Numbered scope notes in graphical 3D composite frames
 
 - Checked PLAN §§8.4, 8.18 and 8.35 against docs/Roadmap.md. Confirmed FTC-07 #15098 failed

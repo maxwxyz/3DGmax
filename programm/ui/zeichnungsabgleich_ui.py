@@ -500,7 +500,7 @@ class Zeichnungsabgleich(QtWidgets.QDialog):
     def _ergaenze_masszeilen(self, schriftenden):
         nr = self.blatt.nummer
         angaben = self.seiten[nr]
-        belegt = [a.box for a in angaben if not a.hinweisenden]+self.entfernte_bereiche.get(nr,[])
+        belegt = [a.zeilenecken or a.box for a in angaben if not a.hinweisenden]+self.entfernte_bereiche.get(nr,[])
         belegt.extend(box for box,_ in self.blatt.textbereiche)
         bekannt = [a for a in angaben if a.hinweisenden]
         enden = {ort for a in bekannt for ort in a.hinweisenden}
@@ -667,7 +667,8 @@ class Zeichnungsabgleich(QtWidgets.QDialog):
             breite = min(520,max(200,self.tabelle.width()-4))
             if a.zeilenecken:
                 from ..kern.schriftstreifen import zeilenvorschau
-                bild = zeilenvorschau(self.blatt,a.zeilenecken,breite,62)
+                hoehe = 140 if a.rahmenbox else 62
+                bild = zeilenvorschau(self.blatt,a.zeilenecken,breite,hoehe)
             else:
                 bild = self.blatt.ausschnitt(box,breite,62)
             if bild is not None:
