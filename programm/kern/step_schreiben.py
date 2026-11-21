@@ -368,6 +368,9 @@ def _schreibe_toleranz(a: _Anhang, p, aspekt=None) -> str | None:
             return tr("Projektionsursprung, Länge oder Versatz nicht eindeutig")
         flaechen.update(p.projektionsflaechen)
     rechteck = (p.einheitslaenge, p.einheitsbreite)
+    if p.hat_einheitskreis() and (p.einheitsdurchmesser is None or not math.isfinite(p.einheitsdurchmesser)
+            or p.einheitsdurchmesser <= 0 or p.einheitsrechteck_text()):
+        return tr("Für die kreisförmige Einheitsfläche einen positiven Durchmesser angeben")
     if ((any(v is not None for v in rechteck) or "RECTANGULAR" in p.modifikatoren) and
             any(v is None or not math.isfinite(v) or v <= 0 for v in rechteck)):
         return tr("Für die rechteckige Einheitsfläche zwei positive Seitenlängen angeben")
@@ -430,6 +433,9 @@ def _schreibe_toleranz(a: _Anhang, p, aspekt=None) -> str | None:
     if p.einheitslaenge is not None:
         teile["GEOMETRIC_TOLERANCE_WITH_DEFINED_UNIT"] = f"(#{a.mass(p.einheitslaenge)})"
         teile["GEOMETRIC_TOLERANCE_WITH_DEFINED_AREA_UNIT"] = f"(.RECTANGULAR.,#{a.mass(p.einheitsbreite)})"
+    elif p.einheitsdurchmesser is not None:
+        teile["GEOMETRIC_TOLERANCE_WITH_DEFINED_UNIT"] = f"(#{a.mass(p.einheitsdurchmesser)})"
+        teile["GEOMETRIC_TOLERANCE_WITH_DEFINED_AREA_UNIT"] = "(.CIRCULAR.,$)"
     if p.maximum_toleranz is not None:
         teile["GEOMETRIC_TOLERANCE_WITH_MAXIMUM_TOLERANCE"] = f"(#{a.mass(p.maximum_toleranz)})"
     name = (p.name or p.typ).replace("'", "''")

@@ -44,7 +44,8 @@ NAMEN = [
     (r"distance|linear dimension|dimension", MASS, "Location_LinearDistance"),
 ]
 FELDER = ("nennwert", "oben", "unten", "grenzmass", "passung", "wert", "zone", "zonen_wert", "material",
-          "modifikatoren", "bezuege", "maximum_toleranz", "einheitslaenge", "einheitsbreite", "projektionsversatz", "projektionsflaechen")
+          "modifikatoren", "bezuege", "maximum_toleranz", "einheitslaenge", "einheitsbreite", "einheitsdurchmesser",
+          "projektionsversatz", "projektionsflaechen")
 
 
 def reparierbar(p, grafik: dict) -> bool:

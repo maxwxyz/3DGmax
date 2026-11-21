@@ -990,6 +990,8 @@ def _weitere_hinweise(p) -> list[str]:
     out = []
     if rechteck := p.einheitsrechteck_text():
         out.append(tr("gilt je Rechteck {} mm").format(rechteck))
+    if p.hat_einheitskreis():
+        out.append(tr("gilt je Kreis {} mm").format(p.einheitsflaeche_text()))
     for m in p.modifikatoren:
         if str(m).startswith("je "):
             out.append(tr("gilt je Teillänge {}").format(str(m)[3:]))

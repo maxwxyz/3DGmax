@@ -1,4 +1,8 @@
 {
+"Lokale Prüfung je Kreis {} mm erforderlich": "Local evaluation per {} mm circle required",
+"gilt je Kreis {} mm": "applies per {} mm circle",
+"Durchmesser der Einheitsfläche (mm)": "Unit area diameter (mm)",
+"Für die kreisförmige Einheitsfläche einen positiven Durchmesser angeben": "Enter a positive diameter for the circular unit area",
 "Lokale Prüfung je Rechteck {} mm erforderlich": "Local evaluation per {} mm rectangle required",
 "gilt je Rechteck {} mm": "applies per {} mm rectangle",
 "Länge der Einheitsfläche (mm)": "Unit area length (mm)",

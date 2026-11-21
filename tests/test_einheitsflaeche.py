@@ -137,7 +137,8 @@ def test_rechteckige_einheitsflaeche_bis_step(fenster, tmp_path, schrift):
     assert zeichnungsabgleich.unterschiede(zeichnung, p) == ([] if schrift == "kontur" else ["einheitsbreite"])
 
 
-@pytest.mark.parametrize("angabe", [".005/.25X", ".005/.25X0", ".005/.25X.25 ABC", ".005/.25X.25/.2"])
+@pytest.mark.parametrize("angabe", [".005/.25X", ".005/.25X0", ".005/.25X.25 ABC", ".005/.25X.25/.2",
+                                   ".01/⌀", ".01/⌀0", ".01/⌀1 A", ".01/⌀1X2", ".01/S⌀1"])
 def test_unvollstaendige_einheitsflaeche_liefert_keinen_globalen_wert(angabe):
     assert "wert" not in pmi_ableiten.aus_text(["⏥ " + angabe], 25.4)
 
@@ -151,3 +152,21 @@ def test_unabhaengige_nist_referenz_mit_rechteckiger_einheitsflaeche():
     assert p.step_id == 37 and p.typ == "Flatness"
     assert (p.wert, p.einheitslaenge, p.einheitsbreite) == pytest.approx((.127, 6.35, 6.35))
     assert {e.modell.flaeche_zu_step[i] for i in p.flaechen} == {1441}
+
+
+def test_kreisflaeche_aus_ftc07_im_vergleich_und_scan(ftc07):
+    from programm.kern import pmi_erzeugen, pmi_step
+    p = next(p for p in pmi_step.lies_toleranzen(ftc07) if p.step_id == 14257)
+    assert {ftc07.flaeche_zu_step[i] for i in p.flaechen} == {10770}
+    assert pmi_erzeugen.felder(p) == ["⏥", "0.254 / ⌀25.4"]
+    geaendert = replace(p, einheitsdurchmesser=12.7)
+    aenderung, = vergleiche_pmi([p], [geaendert])
+    assert [k for k, _, _ in aenderung.felder] == ["einheitsdurchmesser"]
+    zeichnung = zeichnungsabgleich.lese_angabe("⏥ | .01 / Ø.5", 25.4)
+    assert zeichnungsabgleich.unterschiede(zeichnung, geaendert) == []
+    assert zeichnungsabgleich.unterschiede(zeichnung, p) == ["einheitsdurchmesser"]
+    idx, = p.flaechen
+    scan = scanpruefung.Zuordnung(np.zeros((8, 3)), np.linspace(-.2, .2, 8), np.full(8, idx))
+    lokal, global_ = scanpruefung.bewerte([p, replace(p, einheitsdurchmesser=None)], ftc07, scan)
+    assert lokal.status == scanpruefung.OFFEN and "⌀25.4" in lokal.text
+    assert global_.status == scanpruefung.NOK

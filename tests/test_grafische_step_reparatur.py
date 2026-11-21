@@ -875,15 +875,15 @@ def test_breite_toleranzrahmen_ohne_validierung_mit_projektion_und_material_im_s
     fuellung = darstellung != "striche"
     ohne_ebene = darstellung == "dreiecke_ohne_ebene"
     if fuellung:
-        callouts = ((14040, 14037, 14047), (14795, 14792, 14803), (14498, 14495, 14506))
+        callouts = ((14040, 14037, 14047), (14269, 14266, 14277), (14795, 14792, 14803), (14498, 14495, 14506))
         datei = _als_fuellung(datei, rein, tmp_path/"Rahmen gefuellt.stp", callouts, ohne_ebene)
     fenster.lade(datei,warten=True)
     rein = fenster.erg
-    for nr in (14040,14795,14498):
+    for nr in (14040,14269,14795,14498):
         assert (rein.grafik[nr].ebene is None) == ohne_ebene
         assert bool(rein.grafik[nr].linien) != fuellung and bool(rein.grafik[nr].dreiecke) == fuellung
-    nummern = (13706,13747,13788,14040,14795)
-    wortlaut = ("[A]","[B]","[C]","⌖ ⌀.020Ⓟ.425 A B","⌖ ⌀.040Ⓜ A B C")
+    nummern = (13706,13747,13788,14040,14795,14269)
+    wortlaut = ("[A]","[B]","[C]","⌖ ⌀.020Ⓟ.425 A B","⌖ ⌀.040Ⓜ A B C","⏥ .01/⌀1.00")
     for nr,wort in zip(nummern,wortlaut,strict=True):
         p = next(p for p in fenster.erg.pmi if p.step_id == nr)
         art = "toleranz" if nr >= 14040 else "bezug"
@@ -892,23 +892,49 @@ def test_breite_toleranzrahmen_ohne_validierung_mit_projektion_und_material_im_s
         fenster._pmi_befehl("semantisch",p)
         d = fenster._semantik_dialog
         assert not d.v.validierungstexte and d.v.ocr_text == wort
-        fenster.ansicht.setze_auswahl([fenster.erg.modell.flaechen[i] for i in soll.flaechen])
-        d._auswahl_uebernehmen()
+        if nr == 14269:
+            assert d.flaechen == soll.flaechen
+        else:
+            fenster.ansicht.setze_auswahl([fenster.erg.modell.flaechen[i] for i in soll.flaechen])
+            d._auswahl_uebernehmen()
         if nr == 14040:
             assert d.v.zone == "Projected" and d.v.zonen_wert == pytest.approx(10.795)
             assert d.fehler() and not d.projektionsflaechen
             fenster.ansicht.setze_auswahl([fenster.erg.modell.flaechen[i] for i in soll.projektionsflaechen])
             d._projektionsende_waehlen()
+        if nr == 14269:
+            assert soll.typ == d.v.typ == "Flatness"
+            assert soll.einheitsdurchmesser == d.v.einheitsdurchmesser == pytest.approx(25.4)
+            feld = d.felder["einheitsdurchmesser"]
+            feld.setText("0")
+            assert d.fehler()
+            feld.setText("25.4")
         assert not d.fehler()
         d._pruefen()
+    projekt = fenster.speichere_projekt(str(tmp_path/"Rahmen.3dgmax"))
+    fenster.oeffne_projekt(projekt, warten=True)
+    assert any(p.einheitsdurchmesser == 25.4 for p in fenster.erg.pmi)
     ziel = fenster.speichere_step_pmi(str(tmp_path/"Rahmen mit Semantik.stp"),melden=False)
-    assert len(fenster._step_bericht.repariert) == 5 and not fenster._step_bericht.uebersprungen
+    assert len(fenster._step_bericht.repariert) == 6 and not fenster._step_bericht.uebersprungen
     neu = lade_alles(ziel)
     assert all(neu.modell.datei.get(i) == ent for i,ent in rein.modell.datei.entities.items())
-    for nr in (14040,14795):
+    for nr in (14040,14795,14269):
         soll, = [p for p in ref.pmi if p.art == "toleranz" and p.step_id in ref.grafik[nr].pmi_ids]
         ist, = [p for p in neu.pmi if p.semantisch and p.step_id in neu.grafik[nr].pmi_ids]
-        assert ist.typ == "Position" and ist.flaechen == soll.flaechen and ist.wert == pytest.approx(soll.wert)
+        assert ist.flaechen == soll.flaechen and ist.wert == pytest.approx(soll.wert)
+        if nr == 14269:
+            assert ist.typ == "Flatness" and ist.wert == pytest.approx(.254)
+            assert ist.einheitsdurchmesser == pytest.approx(25.4) and not ist.zone and not ist.modifikatoren
+            assert neu.modell.datei.get(ist.step_id).args("GEOMETRIC_TOLERANCE_WITH_DEFINED_AREA_UNIT") == [p21.Enum("CIRCULAR"), None]
+            from tests.test_step_ap242 import _occt
+            alt_typ, alt_diag, alt_vol = _occt(pfad("nist_ftc_07_asme1_ap242-e2.stp"))
+            typ, diag, volumen = _occt(ziel)
+            link, = [e.id for e in neu.modell.datei.of_type("DRAUGHTING_MODEL_ITEM_ASSOCIATION")
+                     if e.args()[2] == p21.Ref(ist.step_id)]
+            assert typ[ist.step_id] == alt_typ[soll.step_id] and volumen == pytest.approx(alt_vol)
+            assert [s for i, s in diag if i == link] == [s for i, s in alt_diag if i == 14278]
+            continue
+        assert ist.typ == "Position"
         assert ist.bezug_text() == soll.bezug_text() and "Diameter" in ist.modifikatoren
         if nr == 14040:
             assert ist.zone == "Projected" and ist.zonen_wert == pytest.approx(10.795)
@@ -916,7 +942,7 @@ def test_breite_toleranzrahmen_ohne_validierung_mit_projektion_und_material_im_s
         else:
             assert ist.material == "M"
     # Zusatzzeichen, mehrzeilige Rahmen und Bereichsangaben nicht auf eine einfache Toleranz kuerzen.
-    for nr in (14405,14498,14269):
+    for nr in (14405,14498):
         assert lies_schrift(rein.grafik[nr]) == ""
     if ohne_ebene:
         from dataclasses import replace

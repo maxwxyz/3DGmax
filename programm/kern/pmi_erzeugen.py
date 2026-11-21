@@ -106,8 +106,8 @@ def felder(p) -> list[str]:
         wert += MAT_SYMBOL.get(p.material, "")
         if p.zone == "Projected":
             wert += " Ⓟ" + (_zahl(p.zonen_wert) if p.zonen_wert else "")
-        if rechteck := p.einheitsrechteck_text():
-            wert += f" / {rechteck}"
+        if flaeche := p.einheitsflaeche_text():
+            wert += f" / {flaeche}"
         bez = [b.text() for b in sorted(p.bezuege, key=lambda b: b.stelle)]
         return [TOL_SYMBOL.get(p.typ, p.typ), wert] + bez
     if p.art == BEZUG:

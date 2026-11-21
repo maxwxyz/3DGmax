@@ -299,6 +299,7 @@ def _felder(p):
     return {"typ": p.typ, "beschreibung": modellhinweis(p), "wert": p.wert, "zone": zone, "zonen_wert": p.zonen_wert,
             "material": p.material, "maximum_toleranz": p.maximum_toleranz,
             "einheitslaenge": p.einheitslaenge, "einheitsbreite": p.einheitsbreite,
+            "einheitsdurchmesser": p.einheitsdurchmesser,
             "modifikatoren": sorted(mods), "bezuege": [(b.stelle, b.name, sorted(b.modifikatoren),
                 {k: sorted(v) for k, v in b.element_modifikatoren.items()})
                 for b in sorted(p.bezuege, key=lambda b: b.stelle)],

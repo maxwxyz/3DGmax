@@ -106,6 +106,15 @@ def _gesicherte_laenge(datei, ref):
     return None
 
 
+def _einheitsmass(datei, ref):
+    messung = datei.get(ref) if isinstance(ref, Ref) else None
+    if messung and messung.is_a("LENGTH_MEASURE_WITH_UNIT"):
+        mm = _gesicherte_laenge(datei, ref)
+        if mm is not None and math.isfinite(mm) and mm > 0:
+            return mm
+    return None
+
+
 # --- Bezugssystem ---
 
 def _bezug_name(datei: P21Datei, ref) -> str:
@@ -284,14 +293,15 @@ def _lies_rahmen(modell: StepModell, e: Entity, zonen: dict[int, list[Entity]], 
         einheit = refs[0] if len(refs) == 1 else None
         gebiet = e.parts.get("GEOMETRIC_TOLERANCE_WITH_DEFINED_AREA_UNIT", ())
         if len(gebiet) == 2 and gebiet[0] == Enum("RECTANGULAR"):
-            seiten = []
-            for ref in (einheit, gebiet[1]):
-                messung = datei.get(ref) if isinstance(ref, Ref) else None
-                mm = _gesicherte_laenge(datei, ref) if messung and messung.is_a("LENGTH_MEASURE_WITH_UNIT") else None
-                seiten.append(mm if mm is not None and mm > 0 else None)
-            p.einheitslaenge, p.einheitsbreite = seiten
+            p.einheitslaenge = _einheitsmass(datei, einheit)
+            p.einheitsbreite = _einheitsmass(datei, gebiet[1])
             if p.einheitslaenge is None and p.einheitsbreite is None:
                 p.modifikatoren.append("RECTANGULAR")
+        elif gebiet and gebiet[0] == Enum("CIRCULAR"):
+            if len(gebiet) == 2 and gebiet[1] is None:
+                p.einheitsdurchmesser = _einheitsmass(datei, einheit)
+            if p.einheitsdurchmesser is None:
+                p.modifikatoren.append("CIRCULAR")
         else:
             p.modifikatoren.append(f"je {laenge_mm(datei, einheit)}")
     _zonen_info(modell, p, zonen.get(e.id, []))

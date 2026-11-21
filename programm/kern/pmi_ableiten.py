@@ -19,6 +19,7 @@ for _typ, _sym in TOL_SYMBOL.items():
 _ZAHL = r"(?:\d+(?:[.,]\d+)?|[.,]\d+)"
 LINEARMASS = re.compile(rf"{_ZAHL}(?:±{_ZAHL})?")
 _RECHTECK = re.compile(rf"({_ZAHL})\s*/\s*({_ZAHL})\s*[Xx×]\s*({_ZAHL})")
+_KREIS = re.compile(rf"({_ZAHL})\s*/\s*⌀\s*({_ZAHL})")
 _MATERIAL = {"Ⓜ": "MaximumMaterialRequirement", "Ⓛ": "LeastMaterialRequirement"}
 _GLIED = r"[A-Z]{1,2}[ⓂⓁ]?"
 _RAHMENWERT = re.compile(rf"(?P<zone>S?⌀)?\s*(?P<wert>{_ZAHL})(?P<mods>(?:\s*[ⓂⓁⓉⒻ])*)"
@@ -83,19 +84,22 @@ def gueltige_rahmenwerte(werte):
 
 def gueltige_rahmenzellen(teile):
     """Vollstaendiger Rahmen mit geometrischem Merkmal im ersten Fach."""
-    if len(teile) == 2 and teile[0] == TOL_SYMBOL["Flatness"] and _RECHTECK.fullmatch(teile[1]):
-        return True
+    if len(teile) == 2 and teile[0] == TOL_SYMBOL["Flatness"]:
+        if _RECHTECK.fullmatch(teile[1]) or _KREIS.fullmatch(teile[1]):
+            return True
     return bool(teile) and teile[0] in SYMBOL_ZU_TYP and gueltige_rahmenwerte(teile[1:])
 
 
 def _toleranz(text, typ, faktor):
     art = {"art": TOLERANZ, "typ": typ}
     # Ein zusammengesetzter Rahmen braucht mehrere Toleranzen; keine Einzelzeile als Gesamtergebnis ausgeben.
-    rechteck = _RECHTECK.fullmatch(text)
-    if typ == "Flatness" and rechteck and faktor is not None:
-        wert, laenge, breite = (faktor*_zahl(z) for z in rechteck.groups())
-        if min(laenge, breite) > 0 and all(map(math.isfinite, (wert, laenge, breite))):
-            return dict(art, wert=wert, einheitslaenge=laenge, einheitsbreite=breite)
+    gebiet = _RECHTECK.fullmatch(text) or _KREIS.fullmatch(text)
+    if typ == "Flatness" and gebiet and faktor is not None:
+        wert, *masse = (faktor*_zahl(z) for z in gebiet.groups())
+        if min(masse) > 0 and all(map(math.isfinite, (wert, *masse))):
+            if len(masse) == 1:
+                return dict(art, wert=wert, einheitsdurchmesser=masse[0])
+            return dict(art, wert=wert, einheitslaenge=masse[0], einheitsbreite=masse[1])
         return art
     m = _RAHMENWERT.match(text)
     if m is None or faktor is None or text[m.end():].lstrip().startswith(("/", "°")):

@@ -129,6 +129,15 @@ class Pmi:
 
     einheitslaenge: float | None = None  # Rechteckige Einheitsflaeche in mm
     einheitsbreite: float | None = None
+    einheitsdurchmesser: float | None = None
+
+    def hat_einheitskreis(self):
+        return self.einheitsdurchmesser is not None or "CIRCULAR" in self.modifikatoren
+
+    def einheitsflaeche_text(self):
+        if self.hat_einheitskreis():
+            return f"⌀{_zahl(self.einheitsdurchmesser)}"
+        return self.einheitsrechteck_text()
 
     def einheitsrechteck_text(self):
         if self.einheitslaenge is None and self.einheitsbreite is None and "RECTANGULAR" not in self.modifikatoren:
@@ -188,8 +197,8 @@ class Pmi:
             wert += " Ⓟ" + (f"{_zahl(self.zonen_wert)}" if self.zonen_wert else "")
             if self.projektionsversatz:
                 wert += f" ({_vz(self.projektionsversatz)})"
-        if rechteck := self.einheitsrechteck_text():
-            wert += f" / {rechteck}"
+        if flaeche := self.einheitsflaeche_text():
+            wert += f" / {flaeche}"
         teile.append(wert)
         for b in sorted(self.bezuege, key=lambda b: b.stelle):
             teile.append(b.text())

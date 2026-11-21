@@ -182,7 +182,7 @@ def _breitvorlagen(rahmen=False):
 
 
 # In dieser Schrift ist der Punkt ein kleines, geschlossenes Rechteck.
-_INNENRAEUME = {z: n for n, gruppe in enumerate(("-+±X12357⟂∥CE", ".0469R⌓AD○", "8⌀BⓅ", "", "⌖Ⓜ")) for z in gruppe}
+_INNENRAEUME = {z: n for n, gruppe in enumerate(("-+±X12357⟂∥CE/", ".0469R⌓⏥AD○", "8⌀BⓅ", "", "⌖Ⓜ")) for z in gruppe}
 
 
 _Y, _X = np.ogrid[:32, :32]

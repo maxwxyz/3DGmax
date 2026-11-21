@@ -273,6 +273,10 @@ Throughout: tests (core, offscreen UI, stress test, on-screen test), `--selbstte
   length. Local scan evaluation over moving rectangles is open. The installed OCCT
   reader treats this complex tolerance
   as an undefined entity, including in the independently authored NIST reference.
+  FTC-07 graphical control #14269 also carries a circular unit area. Review, project save
+  and STEP export preserve its flatness of 0.254 mm per circle of diameter 25.4 mm on
+  face #10770. This works for the original strokes and triangle fills with or without a
+  writing plane. The scan report keeps local evaluation open for both area shapes.
   Single-row wide control frames preserve the characteristic, diameter zone, projected height or
   maximum material and the ordered datums. Closed cell borders can also be recovered from filled
   triangles. With no writing plane the outer edges of coplanar triangles supply candidate axes. Both FTC-07's original strokes and a

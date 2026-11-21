@@ -73,6 +73,7 @@
 | Read R from single-stroke or filled graphical PMI and save the confirmed radius with its STEP callout. Compare repeated R and CR drawing rows with radius PMI on the matching bore walls | ✅ |
 | Use a graphical STEP callout's own validation text for supported dimensions, datums and tolerance frames. Read an omitted symbol from its plotted cell or specific callout name and show its source in review | ✅ |
 | Read rectangular unit-area flatness from a complete graphical frame. Recover both lengths through review, project save and AP242 export with original callout; compare the side lengths independently. Local scan evaluation remains open | ✅ |
+| Read flatness per circular unit area in graphical STEP, review the circle diameter, preserve it in projects and STEP with original graphics, and compare it independently in model revisions and drawing rows | ✅ |
 | Recover CTC-03 graphical surface profiles and angularity with a detached leader ending in a round target. Review and STEP export preserve the measured value, ordered datums, target face and graphic | ✅ |
 | Read CTC-03 position controls with D/B/C and CTC-02 profiles with G/H/J or D/E/F and their material modifiers. Preserve datum labels, source graphics and face references through STEP export | ✅ |
 | Convert a drawn A ↔ B profile tolerance on a separately trimmed STEP face. Confirm the patch, retain holes and original lettering through project reload, and link both original endpoint callouts to the STEP boundary features | ✅ |

@@ -2,6 +2,37 @@
 
 ## Current state, 2026-11-21
 
+### Recover flatness per circular unit area in FTC-07
+
+- Checked PLAN §8.4 and docs/Roadmap.md. The FTC-07 callout #14269 reads
+  “.01 / ⌀1.00”. Original strokes and filled triangles, including fills without
+  a writing plane, supply 0.254 mm flatness on circles of diameter 25.4 mm.
+  Without semantic associations or validation text the review also proposes the
+  correct face #10770. Its STEP reference is flatness #14257. The area diameter
+  stays independent of the tolerance zone shape and is editable in the dialog.
+- Verified project reload and AP242 export with the source graphics. The output
+  uses CIRCULAR with an omitted second size, just as in the reference. The scan
+  report leaves local evaluation open. The revision and drawing comparisons
+  report a change from 25.4 to 12.7 mm independently. In a before/after reading
+  of 194 callouts across FTC-07 and CTC-01 to CTC-05, only #14269 changed. The
+  property text on the independently authored drawing also confirms both values.
+  All 448 affected tests passed, as did 17 native Cocoa checks. The three graphic
+  variants were additionally checked on Cocoa with OCCT link diagnostics.
+- The product volume and OCCT diagnostics on the circular control's graphic link
+  match the NIST reference. The installed OCCT reader treats the complex tolerance
+  and tessellated draughting model as undefined entities. 3DGmax resolves both.
+  The signed app at `dist/3DGmax.app` passed its self-test and rendered the
+  exported file. The macOS ZIP and before/after examples are in `dist/main-einheitskreis/`.
+- Next is revision comparison of trimmed profile interiors. A new experiment with
+  a 60 mm² cylindrical patch crossing its seam found that a single multi-argument
+  OCCT cut returned a negative area for an equivalent two-piece trim. Overlapping
+  tools also produced a false 10 mm² remnant. Subtracting each tool in succession
+  from each source face in both directions gave zero for the seam split and
+  overlaps. A 1 mm axial shift left 6 mm² on each side and a 0.1 rad angular
+  shift left 10 mm² on each side. These checks are experiments. Integration with
+  face and edge correspondence, alignment, and the comparison report remains open.
+  QIF stays last.
+
 ### Preserve both sides of a rectangular unit-area flatness control
 
 - Checked PLAN §8.4 and docs/Roadmap.md. In NIST CTC-03 graphical callout #3623,

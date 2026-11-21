@@ -1,6 +1,7 @@
 {
  "unreleased": {
   "de": [
+   "Ebenheit je Kreisfläche lässt sich aus Strichschrift und gefüllten STEP-Grafiken übernehmen. Der Prüfdialog zeigt den Kreisdurchmesser. Er bleibt mit der Originalgrafik im STEP erhalten und ist im Zeichnungs- und Revisionsvergleich einzeln prüfbar.",
    "Ebenheit je rechteckiger Einheitsfläche lässt sich aus einer grafischen Angabe wie .005 / .25 X .25 übernehmen. Beide Seitenlängen erscheinen in der Prüfung und bleiben im Projekt, STEP-Export und Vergleich erhalten. Eine ungeprüfte lokale Ebenheit bleibt im Scanbericht offen.",
    "Grafische Profil- und Neigungstoleranzen mit abgesetzter Hinweislinie und rundem Ziel lassen sich in semantische STEP-PMI umwandeln. Die Prüfung unterscheidet den Zielkreis am Linienende von einem Kreis am Knick. Bauteilfläche, Bezüge und Originalgrafik bleiben im Export erhalten.",
    "Bei einem stirnseitig verzahnten Ausgleichsrad darf die Zahnfläche gerundet in den Bund an der Bolzenbohrung übergehen. Die Erkennung ermittelt Zähnezahl und Neigung am zusammenhängenden äußeren Zahnband.",
@@ -227,6 +228,7 @@
    "Grafische PMI aus unterstützten AP203e2-Kurvenmodellen lassen sich als STEP AP242 Edition 3 ausgeben. Facettierte STEP-Modelle behalten ihre Flächenbezüge. Gepackte STEP-Dateien lassen sich als unkomprimierte STEP-Kopie speichern."
   ],
   "en": [
+   "Recover flatness per circular unit area from stroked or filled graphical STEP controls. Review the circle diameter, retain it with the original graphics in STEP, and compare it independently against a drawing or another revision.",
    "Review local flatness per rectangular unit area from a graphical frame such as .005 / .25 X .25. Both side lengths survive project save, STEP export and revision comparison. The scan report leaves unevaluated local flatness open.",
    "Graphical surface-profile and angularity frames with a detached leader and round endpoint can be reviewed and exported as semantic STEP PMI. Review distinguishes the endpoint from a circle at the bend. The export retains the target face, datums and original graphics.",
    "Face-toothed differential pinions can have teeth blending into a raised collar around the pin bore. Recognition measures the tooth count and inclination on the continuous outer tooth band.",
