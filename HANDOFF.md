@@ -2,6 +2,31 @@
 
 ## Current state, 2026-11-21
 
+### Tightly spaced coplanar lettering and the canonical main app
+
+- Verified PLAN §8.4 against docs/Roadmap.md. CTC-03 AP203 #3636 reads
+  “⌓ .01” and “2 COPLANAR SURFACES”. Letter widths overlap in L/A and F/A.
+  Grouping complete contours with their counters, or filled triangles by shared
+  edges, retains the individual glyphs. No installed font is needed at runtime.
+  The single-stroke number reader also recognises the leading 2.
+- Reviewed and exported original outlines, a single-stroke caption and a single
+  triangle set without outlines. Reopening each project and AP242 export
+  preserved both faces (#492 and #502), view #3388, the callout geometry and
+  the datum-free 0.254 mm surface profile. OCCT retained solid volume. All
+  three reopened exports agreed with CTC-03 Rev C sheet 1 and AP242 #35.
+  The 194-candidate audit with and without writing planes found only the two
+  known coplanar captions. The affected suite passed 20 tests. Nine focused
+  tests also passed on native Cocoa.
+- Keep one signed main app at `dist/3DGmax.app`. Verified its self-test and a
+  native rendering of the exported STEP. No `main-*` build directories remain.
+  The two historical release ZIP files are separate from the main build.
+- Twelve of thirteen CTC-03 AP203 tolerance frames yield a value. Next in
+  §8.4 is #3627. Its original presentation shows a position control with
+  Ø.05 at maximum material, D/B/C and “SWITCH MOUNTING / LOCATIONS”. AP242
+  #41 supplies an independent comparison for value, modifiers and datums.
+  Check the four source mounting features against split AP242 cylinder faces
+  and retain the printed description through review and export. QIF stays last.
+
 ### Compare single-row coplanar drawing controls with STEP
 
 - Checked PLAN §8.4 and docs/Roadmap.md. The NIST CTC-02 Rev C PDF shows

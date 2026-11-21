@@ -8,9 +8,10 @@ from scipy import ndimage
 from .pmi_ableiten import geltungshinweis
 from .pmi_strichschrift import _breite_zeile, _gruppen
 
-# Strichzuege der Grossbuchstaben und der Null, auf 16 Einheiten Versalhoehe gerundet (FTC-07).
+# Strichzuege der Grossbuchstaben und der Ziffern, auf 16 Einheiten Versalhoehe gerundet (FTC-07).
 _ZUEGE = {
     "0": [[(10,16),(14,14),(16,9),(16,6),(14,1),(10,0),(6,0),(2,1),(0,6),(0,9),(2,14),(6,16),(10,16)]],
+    "2": [[(0,4),(2,2),(5,0),(10,0),(15,2),(15,6),(0,16),(15,16)]],
     "4": [[(15,9),(0,9),(11,0),(11,16)]],
     "C": [[(15,13),(11,16),(4,16),(0,13),(0,3),(4,0),(11,0),(15,3)]],
     "P": [[(0,16),(0,0),(11,0),(15,1),(15,6),(11,8),(0,8)]],

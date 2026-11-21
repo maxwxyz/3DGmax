@@ -35,7 +35,7 @@ def _gefuellt(g):
         if i not in linien:
             assert np.allclose(p[0], p[-1])
             ringe[i] = QtGui.QPolygonF([QtCore.QPointF(*punkt) for punkt in p])
-    eltern = {i: [j for j, q in ringe.items() if j != i and
+    eltern = {i: [j for j, q in ringe.items() if j != i and q.boundingRect().contains(poly.boundingRect()) and
                   q.containsPoint(poly[0], QtCore.Qt.FillRule.OddEvenFill)] for i, poly in ringe.items()}
     gruppen = [[i, *(j for j, a in eltern.items() if i in a and len(a) == len(eltern[i])+1)]
                for i in ringe if len(eltern[i]) % 2 == 0]

@@ -64,6 +64,9 @@ def _beschriftung(pfade, links, unten, h):
             return ""
         lesarten.append((lies_hinweiszeile(zeile, anzahl=True, null_pruefen=True) or "", _konturzeile(zeile)))
     texte = {" ".join(lesung) for lesung in zip(*lesarten) if all(lesung)}
+    if not texte and len(zeilen) == 1:
+        from .pmi_konturzeile import lies_konturzeile
+        texte.add(lies_konturzeile(pfade, y, t))
     if len(texte) != 1:
         return ""
     text = texte.pop()

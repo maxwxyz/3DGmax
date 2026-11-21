@@ -374,8 +374,10 @@ Throughout: tests (core, offscreen UI, stress test, on-screen test), `--selbstte
   It verifies the printed count against the disjoint planar STEP faces in model
   units. The dialog and CSV distinguish missing geometry, conflicting scope and
   differing values. Verified four faces at 0.1 mm and two faces at 0.01 inch.
-  The CTC-03 graphical STEP #3636 still needs the tightly spaced single-line
-  version of the two-face caption for conversion.
+  CTC-03 AP203 #3636 also recovers the single-line two-face caption when adjacent
+  glyphs overlap in horizontal projection. Closed contours retain their counters.
+  Pure triangle fills are grouped by shared edges. Both target faces, the 0.254 mm
+  tolerance and the original presentation survive AP242 export.
   Graphical CTC-02 profile controls #8688, #8694 and #8714 recover 2.5 mm tolerance
   with ASME outer boundary distances of 2.5, 0.5 and 0 mm. The accepted value and
   convention survive project reload and AP242 export with the original graphics.
