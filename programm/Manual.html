@@ -162,7 +162,9 @@ tab group).</li>
     (z, m, αn, β, x) against the recognised gear. When the model contains several gears, the check uses
     the linked faces to identify the gear. On a shaft with several toothed bands, a linked flank can identify
     the band. Shared faces and ambiguous notes remain open. Double-click a finding to select its note and
-    highlight the associated faces.</li>
+    highlight the associated faces. For conical and throated wheels the check uses the tooth count.
+    For screw profiles it checks the explicitly stated number of starts. A value without a
+    corresponding profile measurement remains open in the report.</li>
 <li><b>Tools › Convert graphical PMI to semantic PMI …</b> walks through the graphical annotations in the open model.
     To review a subset, select the rows in the PMI list and use the context menu. The dialog shows the STEP validation text attached to the annotation, including
     printed quantities and stacked deviations. If the symbol cell is empty, the dialog identifies the source of

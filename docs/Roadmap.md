@@ -246,6 +246,7 @@
 | Gear analysis stage 1: cylindrical gears external/internal, spur/helical (z, da, df, b, β, db, mn, αn, x, Wk), CSV/JSON – PLAN §8.27 | ✅ |
 | Gear pairs: centre distance, working pressure angle, contact ratios, backlash from the centre distance | ✅ |
 | Check individual gear notes against geometry, including contradictory values. STEP feature links and mesh source faces can identify the gear or toothed band. Shared occurrences and ambiguous links remain open. Double-click selects the source note and highlights its faces | ✅ |
+| Check PMI tooth counts on conical and throated wheels and explicit start counts on screw profiles. Values without a corresponding profile measurement remain open in the report | ✅ |
 | Gear analysis: involute splines (30°, ISO 4156 / DIN 5480) | ✅ |
 | Gear analysis: full data sheet for cylindrical gears (ISO 21771 values, ball dimension, form diameters, tip relief, crowning, pair data, stages, planetary sets, CSV/JSON) | ✅ |
 | Gear analysis: export as REXS model (FVA exchange format 1.7) for gear design and rating programs | ✅ |

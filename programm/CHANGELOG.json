@@ -1,6 +1,7 @@
 {
  "unreleased": {
   "de": [
+   "Die PMI-Prüfung gleicht die Zähnezahl konischer und taillierter Räder sowie die Gangzahl von Schraubprofilen mit dem Modell ab. Angaben ohne passenden Messwert bleiben als Hinweis sichtbar.",
    "Die PMI-Prüfung vergleicht Verzahnungshinweise einzeln mit dem zugehörigen Rad oder Zahnkranz. Ein widersprüchlicher Wert bleibt unabhängig von der Lesereihenfolge sichtbar. Ein Doppelklick zeigt den Hinweis und seine verknüpften Flächen.",
    "Auch ohne gespeicherte Schreibebene erkennt die App ebene Durchmesser- und Radiusangaben aus Strichen oder gefüllten Dreiecken, einschließlich Mengen, Abmaßen und Radiusbereichen. Bestätigte Maße lassen sich mit der Originalgrafik als STEP speichern.",
    "In großen Baugruppen aktualisiert die 3D-Ansicht beim Einblenden, Ausblenden und Transparentstellen nur die betroffenen Teile. Toleranzzonen ermitteln die sichtbaren Flächen aus der aufgebauten Ansicht.",
@@ -191,6 +192,7 @@
    "Grafische PMI aus unterstützten AP203e2-Kurvenmodellen lassen sich als STEP AP242 Edition 3 ausgeben. Facettierte STEP-Modelle behalten ihre Flächenbezüge. Gepackte STEP-Dateien lassen sich als unkomprimierte STEP-Kopie speichern."
   ],
   "en": [
+   "The PMI check verifies the tooth count of conical and throated wheels and the number of starts on screw profiles. Values without a matching measurement are listed for review.",
    "The PMI check compares each gear note with its gear or toothed band. A conflicting value is reported regardless of the order of the notes. Double-clicking a finding selects the note and highlights its linked faces.",
    "Diameter and radius callouts drawn with strokes or filled triangles can now be read without a stored writing plane, including quantities, deviations and radius ranges. Confirmed dimensions can be saved to STEP with their original graphics.",
    "In large assemblies, showing, hiding or making parts transparent updates only the affected parts. Tolerance zones use the displayed scene’s face index to find visible faces.",

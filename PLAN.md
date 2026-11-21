@@ -1452,6 +1452,10 @@ tools (the user names MASTA as an example of a tool that needs these inputs), an
   a common face across occurrences, or a reference spanning bands remains open. Verified on a
   STEP shaft with 14 and 21 teeth, on separate and shared OBJ source faces, and on repeated gear
   occurrences. Double-clicking a finding selects its source note and highlights the linked faces.
+  Conical and throated wheels support tooth-count checks, and a helical screw profile supports
+  an explicitly labelled start count. Other parameters without a measurement on that profile
+  produce an informational finding. Checked with 14 teeth on a cone, 18 teeth at a throat and
+  two starts on a screw. Notes linked to mixed profile types on a single shaft remain open.
 - The power-flow view traces cylindrical, candidate bevel and candidate worm stages through coaxial
   wheels. Each disconnected train has its own reference shaft. The user can change the reference.
   An inconsistent cycle suppresses cumulative ratios. Planetary sets retain explicit fixed-member cases.

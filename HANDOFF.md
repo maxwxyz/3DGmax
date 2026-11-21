@@ -2,6 +2,22 @@
 
 ## Current state, 2026-11-21
 
+### Check wheel teeth and screw starts in PMI notes
+
+- Checked PLAN §§8.22 and 8.27 against docs/Roadmap.md. The PMI checker now uses the
+  conical, throated and screw profiles from the gear analysis. A tooth-count note
+  is checked on wheels and an explicit number of starts on a screw. Each discrepancy
+  identifies its source. A parameter without a matching measurement stays open.
+- A generated 14-tooth bevel gear was reopened from STEP, a two-start screw from STL.
+  Together with an 18-tooth throated wheel these controls distinguish correct values,
+  wrong counts and requests for a measurement unavailable on that profile. The 40
+  affected tests passed, as did a separate run of 18 mesh, band and note controls
+  and the three updated special-profile tests with the file imports.
+- Next §§8.22 and 8.27: compare explicitly labelled axial pitch and lead with the screw
+  profile. The reference has a 14 mm lead and 7 mm axial pitch. A note with two starts,
+  8 mm axial pitch and 16 mm lead currently returns only the start count. Include unit
+  handling and retain the wheel/screw distinction. QIF remains last.
+
 ### Match each gear note to its own wheel or toothed band
 
 - Checked PLAN §§8.22 and 8.27 against docs/Roadmap.md. The plausibility check keeps

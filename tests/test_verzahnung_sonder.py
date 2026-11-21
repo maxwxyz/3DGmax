@@ -58,6 +58,43 @@ def test_schraubprofil(z, hand):
     assert d["hand"] == ("rechts" if hand > 0 else "links")
 
 
+@pytest.mark.parametrize("profil", ["kegel", "kehle", "schraube"])
+def test_pmi_pruefung_unterscheidet_zaehne_und_gaenge(profil, tmp_path):
+    from types import SimpleNamespace
+    from programm.kern import plausibilitaet as pl
+    from programm.kern.laden import lade_modell
+    from programm.kern.pmi import Pmi
+    from programm.kern.pmi_bericht import FEHLER, INFO
+    if profil == "kegel":
+        from OCC.Core.STEPControl import STEPControl_AsIs, STEPControl_Writer
+        form = _referenz(14, 9., 1.7, 8., .008, kegel=.55, tiefenzuwachs=.06)
+        pfad = str(tmp_path / "kegel.step")
+        schreiber = STEPControl_Writer()
+        schreiber.Transfer(form, STEPControl_AsIs)
+        schreiber.Write(pfad)
+        modell = lade_modell(pfad)
+        hinweise = ["z = 14", "teeth = 15", "Gangzahl = 14", "Normalmodul = 2"]
+    elif profil == "kehle":
+        r2 = 18 * 14 / (4 * math.pi)
+        form = _referenz(18, r2 + .9, 1.8, 8., 14 / (2 * math.pi * 4.2 * r2), lagen=17, kehle=.075)
+        modell = SimpleNamespace(form=form)
+        hinweise = ["z = 18", "teeth = 19", "Gangzahl = 18", "Normalmodul = 2"]
+    else:
+        from OCC.Core.BRepMesh import BRepMesh_IncrementalMesh
+        from OCC.Core.StlAPI import StlAPI_Writer
+        form = _referenz(2, 5.2, 2.1, 28., 2 * math.pi / 14, lagen=80, kerbe=True)
+        pfad = str(tmp_path / "schraube.stl")
+        BRepMesh_IncrementalMesh(form, .001)
+        assert StlAPI_Writer().Write(form, pfad)
+        modell = lade_modell(pfad)
+        hinweise = ["number of starts = 2", "Gangzahl = 3", "teeth = 2", "Normalmodul = 2"]
+    notizen = [Pmi("hinweis", nur_grafik_text=text, nummer=i) for i, text in enumerate(hinweise, 1)]
+    befunde = pl.verzahnung(notizen, modell)
+    assert [(b.nummern, b.stufe) for b in befunde] == [([2], FEHLER), ([3], INFO), ([4], INFO)]
+    assert "Geometrie " + hinweise[0].split()[-1] in befunde[0].text
+    assert pl.verzahnung_angaben("Gangzahl = 1,5") == {}
+
+
 @pytest.mark.parametrize("format_", ["step", "stl"])
 def test_kegelstufe_aus_schnittachsen_und_zahnband(tmp_path, app, format_):
     import json
