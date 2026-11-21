@@ -263,7 +263,7 @@
 | Shaft/hub splines and serrations, measured clearance and centring indications, conditional design findings – PLAN §8.27a | ✅ |
 | Conical tooth geometry, tip/root cone angles and conditional pitch angles of a compatible pair, checked against known control geometry | ✅ |
 | Bevel-pair dimensions from confirmed tooth-band ends: outer/mean transverse module, cone distance, face width, width ratio and shared width (STEP and STL controls) | ✅ |
-| Spherical-backed differential bevel gears in STEP and STL. Tooth count and cone angles use intact tooth sections, with gear pair and differential recognition in assemblies | ✅ |
+| Spherical-backed differential bevel gears in STEP and STL. Tooth count and cone angles use intact tooth sections, including short spherical backs. The gear data sheet reports the back radius and, for a crowned pin bore, its curvature radius and diameter at the extremum. Gear pairs and differentials are recognised in assemblies | ✅ |
 | Bevel gears: tooth hand on an individual gear and mean spiral angle on the pitch cone of a compatible pair, tested with STEP and STL | ✅ |
 | Bevel gears: manufacturing-system identification from independent evidence | ⬜ |
 | Screw profiles: number of starts, lead, axial pitch and hand | ✅ |

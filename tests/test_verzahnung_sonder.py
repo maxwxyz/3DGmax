@@ -116,7 +116,7 @@ def test_kalottenraeder_im_differential_und_uebersetzungen(tmp_path):
 
 def test_kalottenpruefung_verwirft_geraden_konus_und_zylinder():
     from types import SimpleNamespace
-    from programm.kern.verzahnung_sonder import _kalottenbereich
+    from programm.kern.kegel_radkoerper import kalotte
 
     s = np.arange(1., 13.)
     winkel = np.arange(120) * 2 * np.pi / 120
@@ -125,9 +125,9 @@ def test_kalottenpruefung_verwirft_geraden_konus_und_zylinder():
     for steigung in (0., -.3):
         kontur = lambda x: 15. + (x - 8.) * steigung
         r = np.column_stack([np.minimum(8 + .8*s, [kontur(x) for x in s]), 6 + .5*s])
-        netz = SimpleNamespace(a=ecken, b=ecken, c=ecken, konturen=lambda x: [kreis * kontur(x)])
-        assert _kalottenbereich(netz, s, r) is None
-        assert _kalottenbereich(netz, s, np.column_stack([kontur(s), kontur(s)])) is None
+        netz = SimpleNamespace(a=ecken, b=ecken, c=ecken, r_max=16., konturen=lambda x: [kreis * kontur(x)])
+        assert kalotte(netz, s, r) == (None, None)
+        assert kalotte(netz, s, np.column_stack([kontur(s), kontur(s)])) == (None, None)
 
 
 @pytest.mark.parametrize("z,hand", [(2, 1), (3, -1), (1, 1), (4, -1)])

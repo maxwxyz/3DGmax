@@ -8,6 +8,7 @@ from dataclasses import dataclass, field
 import numpy as np
 
 from ..i18n import tr
+from . import kegel_radkoerper
 from .kegel_zahnspur import Kegelspur
 
 
@@ -53,6 +54,8 @@ class Sonderprofil:
     koerper_id: object | None = field(default=None, repr=False, compare=False)
     spur: Kegelspur | None = field(default=None, repr=False, compare=False)
     zahnrichtung: str | None = None
+    kalottenradius: float | None = None
+    bolzenbohrung: dict | None = None
 
     def als_dict(self):
         return {"teil": self.teil, "koerper": self.koerper, "art": self.art, "anzahl": self.z, "messlaenge": self.breite,
@@ -62,7 +65,8 @@ class Sonderprofil:
 
     def _werte(self):
         if self.art == "konisch":
-            return {"kopfkegelwinkel": math.degrees(math.atan((self.kopf[1] - self.kopf[0]) / self.breite)),
+            return {"kalottenradius": self.kalottenradius, "bolzenbohrung": self.bolzenbohrung,
+                    "kopfkegelwinkel": math.degrees(math.atan((self.kopf[1] - self.kopf[0]) / self.breite)),
                     "fusskegelwinkel": math.degrees(math.atan((self.fuss[1] - self.fuss[0]) / self.breite)),
                     "verzahnungsrichtung": self.zahnrichtung,
                     "spiralwinkel_mitte_grad": 0. if self.zahnrichtung == "gerade" else None}
@@ -71,7 +75,7 @@ class Sonderprofil:
 
     def zeilen(self):
         quelle = tr("Stirnschnitte")
-        zeilen = [(tr("Art"), tr("Konisches Zahnprofil") if self.art == "konisch" else tr("Schraubprofil"), quelle),
+        zeilen = [(tr("Art"), tr("Kegelrad") if self.art == "konisch" else tr("Schraubprofil"), quelle),
                   (tr("Axiale Messstrecke"), f"{self.breite:.3f} mm", quelle)]
         d = self._werte()
         if self.art == "konisch":
@@ -82,6 +86,14 @@ class Sonderprofil:
                     spur = tr("gerade")
                 elif abs(self.phase) * self.z >= .08:
                     spur = tr("mit Umfangsversatz")
+            zusatz = []
+            if self.kalottenradius is not None:
+                zusatz.append((tr("Kugelradius der Rückseite"), f"{self.kalottenradius:.3f} mm", tr("Geometrie")))
+            if self.bolzenbohrung:
+                b = self.bolzenbohrung
+                zusatz.extend([(tr("Bolzenbohrung"), tr("mittig enger") if b["profil"] == "mittig_eng" else tr("mittig weiter"), quelle),
+                               (tr("Balligkeitsradius der Bohrung"), f"{b['balligkeitsradius']:.3f} mm", quelle),
+                               (tr("Bohrungsdurchmesser am Scheitel"), f"{b['scheiteldurchmesser']:.3f} mm", quelle)])
             return zeilen + [(tr("Zähnezahl z"), str(self.z), quelle),
                              (tr("Kopfkegel-Halbwinkel"), f"{d['kopfkegelwinkel']:.2f}°", quelle),
                              (tr("Fußkegel-Halbwinkel"), f"{d['fusskegelwinkel']:.2f}°", quelle),
@@ -90,7 +102,7 @@ class Sonderprofil:
                              (tr("Verzahnungsrichtung"), _handtext(self.zahnrichtung), quelle),
                              (tr("Mittlerer Spiralwinkel βm"), "0°" if self.zahnrichtung == "gerade" else
                               tr("nicht bestimmbar"), tr("Einzelteil")),
-                             (tr("Teilkegel und Herstellverfahren"), tr("nicht bestimmbar"), tr("Einzelteil"))]
+                             (tr("Teilkegel und Herstellverfahren"), tr("nicht bestimmbar"), tr("Einzelteil"))] + zusatz
         return zeilen + [(tr("Gangzahl"), str(self.z), quelle),
                          (tr("Vorschub je Umdrehung"), f"{d['vorschub']:.3f} mm", quelle),
                          (tr("Axialteilung"), f"{d['axialteilung']:.3f} mm", quelle),
@@ -211,52 +223,6 @@ def _stirnende(netz, ort, richtung, z, kopf, fuss, breite):
     return np.diff(winkel, append=winkel[0] + 2 * math.pi).max() <= 1.15 * (2 * math.pi / z)
 
 
-def _kugelbogen(orte, radien, tol):
-    """r² + x² ist auf einer achszentrierten Kugel linear in x. Der Bogen muss messbar gekruemmt sein."""
-    u, rho = np.asarray(orte) - orte[0], np.asarray(radien)
-    m, b = np.polyfit(u, rho**2 + u**2, 1)
-    soll = b + m * u - u**2
-    if np.any(soll <= 0) or np.max(abs(np.sqrt(soll) - rho)) > tol:
-        return False
-    gerade = np.polyval(np.polyfit(u, rho, 1), u)
-    return np.max(abs(rho - gerade)) > 2 * tol and np.all(np.diff(rho) < 0)
-
-
-def _kalottenbereich(netz, s, r):
-    """Volle Zahnquerschnitte vor einer Kugelkalotte. Kreisquerschnitte hinter den Zaehnen belegen die Kugel."""
-    sinn = 1 if r[-1, 1] > r[0, 1] else -1
-    x, radien = sinn * s[::sinn], r[::sinn]
-    x0 = x[0]
-    m, start = np.polyfit(x[:5] - x0, radien[:5], 1)
-    hoehe = np.mean(radien[:5, 0] - radien[:5, 1])
-    tol = .05 * hoehe
-    if min(m) <= 0 or min(m) * (x[4] - x0) < .25 * hoehe:
-        return None
-    fehler = radien - (start + np.outer(x - x0, m))
-    if np.abs(fehler[:, 1]).max() > tol or np.any(fehler[:, 0] > tol):
-        return None
-    beschnitten = np.flatnonzero(fehler[:, 0] < -tol)
-    if not len(beschnitten) or beschnitten[0] < 5 or np.any(np.diff(beschnitten) != 1) or beschnitten[-1] != len(x) - 1:
-        return None
-    ende = max((sinn * p[:, 2]).max() for p in (netz.a, netz.b, netz.c))
-    orte, aussen = list(x[beschnitten]), list(radien[beschnitten, 0])
-    for pos in np.linspace(x[-1], ende, 12)[1:-1]:
-        konturen = netz.konturen(sinn * pos)
-        if not konturen:
-            break
-        ring = max((np.hypot(*q.T) for q in konturen), key=np.max)
-        if np.ptp(ring) > tol:
-            if len(orte) == len(beschnitten):
-                continue  # Noch im Auslauf der Zaehne.
-            break
-        orte.append(pos)
-        aussen.append(ring.max())
-        if len(orte) >= len(beschnitten) + 4 and _kugelbogen(orte, aussen, tol):
-            n = int(beschnitten[0])
-            return slice(0, n) if sinn > 0 else slice(-n, None)
-    return None
-
-
 def zahnkoerper(teil, punkt, richtung, netz, schnitte, band):
     """Kopf- und Fussradius ueber den zusammenhaengenden Zahnbereich auf Taille oder Konizitaet pruefen."""
     if len(schnitte) < 5:
@@ -266,7 +232,7 @@ def zahnkoerper(teil, punkt, richtung, netz, schnitte, band):
     if np.diff(s).max() > 1.6 * np.median(np.diff(s)) or any(t[2] != z or t[4] for _, t in schnitte):
         return None
     r = np.array([[t[1].max(), t[1].min()] for _, t in schnitte])
-    bereich = _kalottenbereich(netz, s, r) if len(s) >= 6 else None
+    bereich, radius = kegel_radkoerper.kalotte(netz, s, r) if len(s) >= 6 else (None, None)
     if bereich is not None:
         schnitte, s, r = schnitte[bereich], s[bereich], r[bereich]
     h = (r[:, 0] - r[:, 1]).mean()
@@ -304,7 +270,8 @@ def zahnkoerper(teil, punkt, richtung, netz, schnitte, band):
         punkt = punkt + s[0] * richtung
     return Sonderprofil(teil, "konisch", z, punkt, richtung, breit, (float(start[0]), float(ende[0])),
                         (float(start[1]), float(ende[1])), weg, bandgrenzen=grenzen,
-                        spur=spur, zahnrichtung=spur.richtung() if spur else None)
+                        spur=spur, zahnrichtung=spur.richtung() if spur else None, kalottenradius=radius,
+                        bolzenbohrung=kegel_radkoerper.bolzenbohrung(netz))
 
 
 def _schraubschnitt(netz, s):

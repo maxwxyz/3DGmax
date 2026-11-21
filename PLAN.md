@@ -1402,7 +1402,12 @@ tools (the user names MASTA as an example of a tool that needs these inputs), an
 - Implemented spherical-backed bevel gears. The detector checks whether a spherical back clips
   the tips at the large end, then measures taper and tooth direction on complete tooth sections.
   A curved back alone cannot establish a planar tooth-band end. The same section check works on
-  STEP solids and meshes. The differential and gear-train outputs consume the measured profiles.
+  STEP solids and meshes. Short spherical backs can be measured from the outer sections or
+  from the vertices of spherical facets on the clipped tooth tips when there is no complete
+  rear ring. The gear data sheet reports the back radius. Independently check the inner bore
+  contour along the axis, including a circular crown with its smallest or largest diameter
+  near mid-length. Report the bore curvature radius and diameter at the extremum when both
+  sides support the fit. The differential and gear-train outputs consume the measured profiles.
 - Recognition scope and result selection (implemented): picking a component or one of its faces
   scopes wheel recognition to the selected component occurrences. An empty selection includes all
   physical components, including hidden ones. The gearbox command uses the visible components

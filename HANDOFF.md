@@ -2,6 +2,23 @@
 
 ## Current state, 2026-11-21
 
+### Selected bevel pinion with short spherical back and crowned pin bore
+
+- Reproduced an empty gear list on main 3fe6d18 with a constructed 12-tooth pinion, rear
+  sphere R15, circular bore crown R18 and bore diameter 8 mm at its mid-length extremum.
+  The short back had a sphere-fit residual under 0.001 mm, yet its deviation from a straight
+  line was smaller than the tooth-height-based rejection threshold.
+- Checked PLAN §8.27 and docs/Roadmap.md. Back classification now uses the measured error and
+  corroborates clipped tooth tips against spherical facets if the back ends before full circular
+  sections can be measured. A through bore needs a closed inner contour and evidence of crown
+  curvature on both sides. CSV, JSON and the data sheet expose the two radii independently.
+- Regression controls select the actual bore face in a STEP assembly or the mesh occurrence in
+  its structure tree. They include both crown directions and an interrupted spherical back.
+  Negative controls cover straight and stepped bores, double cones, blind bores and a conical
+  back. Six runs of the selection command in a native macOS window found exactly the selected
+  gear. The generated STEP control returned back radius 15.004 mm, bore profile radius 17.994 mm
+  and bore crown diameter 8.001 mm. The user's source model was unavailable. QIF stays last.
+
 ### Spherical-backed bevel gears and drivetrain reverse engineering
 
 - Reproduced the reported classification failure with a generated 14-tooth bevel gear, a
