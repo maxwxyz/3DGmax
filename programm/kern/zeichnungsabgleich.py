@@ -43,7 +43,12 @@ class Blattangabe:
     rahmenbox: tuple | None = None  # Urspruengliche Rahmenkante fuer die Hinweislinie bei Text darunter
     simultan: Blattgruppe | None = None
 
+    verbundrahmen: bool = False
+    unten: Pmi | None = None
+
     def zugeordnete_pmi(self):
+        if self.verbundrahmen:
+            return [p for p in (self.modell, self.unten) if p is not None]
         if self.einzelpruefung:
             return [z.modell for z in self.musterziele if z.modell is not None]
         return [self.modell] if self.modell is not None else []
@@ -299,7 +304,13 @@ def einzelbefund(p, ziel):
     return wertebefund(p, m)
 
 
-def befund(angabe, faktor, gruppe=None):
+def befund(angabe, faktor, gruppe=None, verbundindex=None):
+    if angabe.verbundrahmen:
+        from .blattverbund import pruefe_rahmen, rahmenzeilen
+        if angabe.nur_zeichnung and not angabe.zielkonflikt and not angabe.grundmass and rahmenzeilen(angabe.text, faktor):
+            return "zeichnung"
+        ergebnis = pruefe_rahmen(angabe, faktor, verbundindex) if verbundindex is not None else None
+        return ergebnis.status if ergebnis else "offen"
     p = lese_angabe(angabe.text, faktor, angabe.grundmass)
     if p is None or angabe.zielkonflikt:
         return "offen"

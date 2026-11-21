@@ -1,6 +1,7 @@
 {
  "unreleased": {
   "de": [
+   "Im Zeichnungsvergleich lassen sich die obere und untere Zeile eines erkannten Verbundrahmens getrennt zuordnen. Der Befund unterscheidet Werte und Bezüge, fehlende oder umgekehrte STEP-Verknüpfungen, gemeinsame Modellflächen und den Wortlaut. Die CSV enthält beide STEP-IDs.",
    "Der Zeichnungsvergleich liest schräge zweizeilige Toleranzrahmen mit gemeinsamem Symbol und durchsuchbarem „SIM REQT“-Hinweis. Vorschau und CSV zeigen beide Werte, ihre Bezüge und den zugehörigen Wortlaut.",
    "Bei grafischen 3D-Verbundrahmen liest die App die Gruppennummer hinter „SIM REQT“ aus Strichschrift und reinen Dreiecksfüllungen. Die bestätigte Nummer bleibt mit der Originalgrafik auf beiden semantischen STEP-Toleranzen erhalten.",
    "Der Zeichnungsvergleich prüft gemeinsam geltende Toleranzen über mehrere PDF-Blätter. Gleiche nummerierte Hinweise werden zur Auswahl vorgeschlagen. Geänderte Gruppenmitglieder sind auch bei gleichen Einzelwerten sichtbar. Die CSV nennt die geprüften Blattstellen und STEP-IDs.",
@@ -178,6 +179,7 @@
    "Grafische PMI aus unterstützten AP203e2-Kurvenmodellen lassen sich als STEP AP242 Edition 3 ausgeben. Facettierte STEP-Modelle behalten ihre Flächenbezüge. Gepackte STEP-Dateien lassen sich als unkomprimierte STEP-Kopie speichern."
   ],
   "en": [
+   "In drawing comparison, assign the upper and lower rows of a detected composite frame separately. Findings distinguish values and datums, missing or reversed STEP relationships, shared model faces and scope wording. The CSV includes both STEP IDs.",
    "The drawing comparison reads inclined two-row tolerance frames with a shared symbol and a searchable “SIM REQT” note. The preview and CSV retain both values, their datums and the attached wording.",
    "For graphical 3D composite frames, the app reads the group number after “SIM REQT” from strokes and triangle-only lettering. The confirmed number is exported on both semantic STEP tolerances together with the original graphics.",
    "Drawing comparison now checks simultaneous tolerances across PDF sheets. Matching numbered captions suggest group members. Changed membership is reported even when the individual values match. CSV records the reviewed sheet regions and STEP IDs.",

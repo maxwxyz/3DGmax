@@ -80,6 +80,7 @@
 | Read numbered SIM REQT suffixes in graphical 3D composite frames, including pure triangle fills without writing axes, and export the full identifier on both semantic tolerances | ✅ |
 | Compare reviewed simultaneous tolerance groups across PDF sheets with explicit STEP group membership; suggest matching numbered captions and export sheet regions, source IDs and findings | ✅ |
 | Locate oblique two-row composite frames from searchable PDF text, read their printed cells and review both rows with the attached scope note in the drawing and CSV | ✅ |
+| Compare both reviewed PDF frame rows, their directed STEP link, shared model faces and scope wording. Export both IDs and per-row evidence | ✅ |
 | Read additional lettering and further composite layouts | 💡 |
 | Semantic-only PMI: optional generated display in the view (see generated PMI stage 2) | ✅ |
 | Show tolerance zones as envelope surfaces (offsets ±t/2, ⌀ zone cylinder, exaggeration) | ✅ |

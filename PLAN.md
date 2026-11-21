@@ -1720,8 +1720,12 @@ The CSV reports each selected sheet region, the mapped and expected source IDs a
 On FTC-07 drawing sheet 3 the reader uses the positions of native PDF text to rectify two
 oblique composite frames. Both rows must have a single spanning symbol cell and legible printed
 value and datum cells. The review and CSV keep the two rows in order with the attached scope
-caption. The right frame also names four coplanar surfaces. Comparing the two ordered rows with
-the directed STEP composite relationship remains open.
+caption. The right frame also names four coplanar surfaces. Assigning both rows compares their individual
+values and datums, the STEP relationship direction and membership, their model face sets and the
+wording attached to both semantic tolerances. The CSV identifies both source entities. On the original
+STEP both pairs match in values, datums and relationship, and both descriptions are empty. The drawing
+includes SIM REQT on both. Cross-frame partner membership and verification of the four coplanar
+drawing targets against the B-rep are open.
 
 Remaining work includes occluded rims, perspective views, sections, non-circular features and leaders on section or edge geometry, automatically
 finding additional types of unframed graphical annotations, interpreting composite controls and establishing

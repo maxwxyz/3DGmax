@@ -108,3 +108,113 @@ def test_verbund_im_dateimenue_und_in_der_pruefliste(fenster_ctc01, tmp_path, mo
         assert not zeile["Befund der Toleranzgruppe"]
     finally:
         dialog.close()
+
+
+@pytest.mark.parametrize("aenderung,bindung,felder,wortlaut,status", [
+    ("", "gleich", ((), ()), "gleich", "gleich"),
+    ("umkehren", "umgekehrt", ((), ()), "gleich", "geaendert"),
+    ("trennen", "fehlt", ((), ()), "gleich", "geaendert"),
+    ("dritter", "weitere", ((), ()), "gleich", "geaendert"),
+    ("zahl", "gleich", ((), ("wert",)), "gleich", "geaendert"),
+    ("bezug", "gleich", (("bezuege",), ()), "gleich", "geaendert"),
+    ("hinweis", "gleich", ((), ()), "geaendert", "geaendert"),
+    ("gruppe", "gleich", ((), ()), "gleich", "offen"),
+    ("gesicht", "gleich", ((), ()), "gleich", "geaendert"),
+    ("unbekannt", "offen", ((), ()), "gleich", "offen"),
+])
+def test_pdf_paar_gegen_semantischen_ftc07_verbund(ftc07, aenderung, bindung, felder, wortlaut, status):
+    from programm.kern.blattverbund import Verbundindex, pruefe_rahmen
+    from programm.kern.pmi_step import lies_toleranzen
+    from programm.kern.zeichnungsabgleich import Blattangabe
+    pmis = lies_toleranzen(ftc07)
+    nach_id = {p.step_id: p for p in pmis}
+    oben, unten = nach_id[15076], nach_id[15085]
+    a = Blattangabe(2, (.64,.14,.76,.31), "⌓ | .070 | A | B | C\n⌓ | .015 | A", modell=oben,
+                    verbundrahmen=True, unten=unten)
+    if aenderung == "umkehren":
+        oben.folgetoleranzen, unten.folgetoleranzen = [], [oben.step_id]
+    elif aenderung == "trennen":
+        oben.folgetoleranzen = []
+    elif aenderung == "dritter":
+        nach_id[14614].folgetoleranzen.append(unten.step_id)
+    elif aenderung == "zahl":
+        a.text = a.text.replace(".015", ".025")
+    elif aenderung == "bezug":
+        a.text = a.text.replace("A | B", "B | A")
+    elif aenderung == "hinweis":
+        a.text += "\n4 COPLANAR SURFACES\nSIM REQT"
+    elif aenderung == "gruppe":
+        a.text += "\nSIM REQT"
+        oben.beschreibung = unten.beschreibung = "SIM REQT"
+    elif aenderung == "gesicht":
+        unten.flaechen = nach_id[14623].flaechen
+    elif aenderung == "unbekannt":
+        pmis.append(oben)
+    index = Verbundindex(pmis)
+    r = pruefe_rahmen(a, 25.4, index)
+    assert (r.verknuepfung, r.felder, r.wortlaut, r.status) == (bindung, felder, wortlaut, status)
+    assert befund(a, 25.4, verbundindex=index) == status
+    assert befund(a, None, verbundindex=index) == "offen"
+
+
+def test_zuordnung_beider_step_zeilen_auf_originalblatt(fenster, tmp_path, monkeypatch):
+    import csv
+    from PySide6.QtWidgets import QFileDialog
+    from tests.conftest import pfad
+    quelle = Path(__file__).parents[1]/"daten/nist/NIST-PMI-STEP-Files/PDF/nist_ftc_07_asme1_rd.pdf"
+    if not quelle.is_file():
+        pytest.skip("Lokale NIST-Referenzzeichnung fehlt")
+    fenster.lade(pfad("nist_ftc_07_asme1_ap242-e2.stp"), warten=True)
+    ausgabe = tmp_path/"Paare.csv"
+    monkeypatch.setattr(QFileDialog, "getOpenFileName", lambda *args: (str(quelle), "PDF"))
+    monkeypatch.setattr(QFileDialog, "getSaveFileName", lambda *args: (str(ausgabe), "CSV"))
+    fenster.aktionen["zeichnungsabgleich"].trigger()
+    d = fenster.zeichnungsabgleich
+    try:
+        d.seite.setValue(3)
+        d.einheit.setCurrentIndex(2)
+        links, rechts = [a for a in d.seiten[2] if a.verbundrahmen]
+        pmis = {p.step_id:p for p in d.modell}
+        for a, oben, unten in [(links,15076,15085), (rechts,14614,14623)]:
+            d.waehle(a)
+            assert d.untere_zeile.isVisible()
+            for combo, nr in ((d.zuordnung,oben), (d.untere_zeile,unten)):
+                combo.setCurrentIndex(combo.findData(d.modellindex[id(pmis[nr])]))
+            d.bestaetigen.click()
+            assert [p.step_id for p in a.zugeordnete_pmi()] == [oben, unten]
+            assert "Obere Zeile: Werte gleich · Untere Zeile: Werte gleich" in d.detail.text()
+            assert "Obere Zeile verweist auf die untere" in d.detail.text()
+            assert "Wortlaut: Abweichend" in d.detail.text()
+        d._export()
+        with ausgabe.open(encoding="utf-8-sig") as f:
+            zeilen = list(csv.DictReader(f, delimiter=";"))
+        paare = [z for z in zeilen if z["STEP-ID der unteren Rahmenzeile"]]
+        assert [(z["Quell-ID der Modell-PMI"], z["STEP-ID der unteren Rahmenzeile"]) for z in paare] == [
+            ("15076","15085"), ("14614","14623")]
+        assert all(z["Befund"] == "Abweichend" and z["Modellwert der unteren Rahmenzeile"] for z in paare)
+        assert all(z["Quell-ID der Modell-PMI"] not in ("14623","15085") for z in zeilen)
+        d.setze_modell([p for p in d.modell if p.step_id != 14623])
+        assert rechts.unten is None and d._befund(rechts) == "offen"
+    finally:
+        d.close()
+
+
+@pytest.mark.parametrize("verweis,erwartet", [("", "fehlt"), ("#15085,#15076", "umgekehrt"),
+                                             ("#15076,#14623", "fehlt")])
+def test_gleiche_werte_mit_veraenderter_step_beziehung(tmp_path, verweis, erwartet):
+    from programm.kern.blattverbund import Verbundindex, pruefe_rahmen
+    from programm.kern.laden import lade_step
+    from programm.kern.pmi_step import lies_toleranzen
+    from programm.kern.zeichnungsabgleich import Blattangabe
+    from tests.conftest import pfad
+    quelle = Path(pfad("nist_ftc_07_asme1_ap242-e2.stp")).read_text()
+    original = "#15086=GEOMETRIC_TOLERANCE_RELATIONSHIP('composite','',#15076,#15085);"
+    assert quelle.count(original) == 1
+    datei = tmp_path/"Geaenderter Verbund.stp"
+    datei.write_text(quelle.replace(original, original.replace("#15076,#15085", verweis) if verweis else ""))
+    pmis = lies_toleranzen(lade_step(str(datei)))
+    nach_id = {p.step_id:p for p in pmis}
+    a = Blattangabe(2, (.64,.14,.76,.31), "⌓ | .070 | A | B | C\n⌓ | .015 | A",
+                    verbundrahmen=True, modell=nach_id[15076], unten=nach_id[15085])
+    r = pruefe_rahmen(a, 25.4, Verbundindex(pmis))
+    assert r.felder == ((), ()) and r.verknuepfung == erwartet and r.status == "geaendert"

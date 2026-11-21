@@ -146,7 +146,7 @@ def _fund(blatt, hinweis, oben, unten, orte):
     if ecken is None:
         return None
     text = "\n".join([" | ".join([symbol,*z]) for z in werte] + [o.text for o in reversed(zusatz)])
-    return Blattangabe(blatt.nummer, _box(ecken), text, zeilenecken=ecken, rahmenbox=_box(rahmen))
+    return Blattangabe(blatt.nummer, _box(ecken), text, zeilenecken=ecken, rahmenbox=_box(rahmen), verbundrahmen=True)
 
 
 def verbundrahmen(blatt):

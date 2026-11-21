@@ -2,6 +2,22 @@
 
 ## Current state, 2026-11-21
 
+### Compare the two drawing rows with the directed STEP pair
+
+- Checked PLAN §8.35 against docs/Roadmap.md. Open FTC-07 sheet 3, choose inches and assign
+  the upper and lower semantic controls. The left frame maps to #15076 and #15085; the right
+  frame maps to #14614 and #14623. Both pairs match in individual values, datums, directed link
+  and common model faces. All four semantic tolerance descriptions are empty. The drawing
+  scope wording differs, and simultaneous group membership is a separate open finding.
+- The review and CSV distinguish row values from a missing, reversed or extra composite link.
+  Both source IDs and model values are exported. Removing a selected lower tolerance from the
+  open model invalidates that assignment. Tests include reading modified STEP files with the
+  link removed, reversed or redirected while all printed and model tolerances stay the same.
+- Verification: 84 affected tests passed, 23 tests passed with native macOS Qt, and all UI
+  strings have English translations. QIF remains last. For the next geometric check, Open CASCADE
+  placed all four faces of #14614 on the same plane, with at least 137.248 mm between any two.
+  Face 8 of #15076 lies on a different parallel plane. Both pairs have identical nominal PMI.
+
 ### Oblique composite controls on FTC-07 drawing sheet 3
 
 - Checked PLAN §8.35 against docs/Roadmap.md. Sheet 3 shows two surface-profile frames with
