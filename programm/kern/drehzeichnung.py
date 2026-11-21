@@ -8,6 +8,7 @@ import numpy as np
 
 from ..i18n import tr
 from .axialbohrung import Sacklochspur, bohrdurchmesser_am_absatz, bohrspur, tintenlaeufe
+from .pmi import Pmi
 from .zeichnungsabgleich import lese_angabe, musteranzahl
 from .zeichnungskoerper import schreibe_bemassten_koerper
 
@@ -194,7 +195,7 @@ def axiale_tiefe(spur, text, faktor):
 def _bohrtiefe(text, faktor):
     tiefe = _mass(text.strip().removeprefix("↧").strip(), faktor, "Location_LinearDistance")
     if not tiefe or tiefe.passung:
-        raise ValueError(tr("Die Tiefe von der Eintrittsfläche bis zum flachen Bohrungsgrund angeben."))
+        raise ValueError(tr("Die Bohrtiefe ab der Eintrittsfläche laut Zeichnung angeben."))
     return tiefe
 
 
@@ -249,7 +250,20 @@ def _pruefe_stirn(stirn, masse, bohrungen, rechts):
         raise ValueError(tr("Die konzentrischen Ringe passen nicht zu Bohrung und Außendurchmessern."))
 
 
-def stufenmasse(kontur, masse, spur, stirn, zeilen, faktor):
+@dataclass(frozen=True)
+class Bohrspitze:
+    winkel: Pmi
+    bis_spitze: bool
+
+    def tiefen(self, dm, tiefe):
+        hoehe = dm.nennwert/(2*np.tan(np.deg2rad(self.winkel.nennwert)/2))
+        zylinder = tiefe.nennwert-hoehe if self.bis_spitze else tiefe.nennwert
+        return zylinder,zylinder+hoehe
+
+
+def stufenmasse(kontur, masse, spur, stirn, zeilen, faktor, spitze=None):
+    if bool(spur.spitzenhoehe) != bool(spitze):
+        raise ValueError(tr("Für die gezeichnete Bohrspitze Spitzenwinkel und Tiefenbezug angeben."))
     profil, messungen = [], []
     for i,((dm_px,tiefe_px),(dmtext,tiefentext)) in enumerate(zip(spur.stufen,zeilen,strict=True),1):
         blind = tiefe_px is not None
@@ -261,10 +275,16 @@ def stufenmasse(kontur, masse, spur, stirn, zeilen, faktor):
         except ValueError as e:
             raise ValueError(tr("Bohrstufe {} – {}").format(i,e)) from e
         messungen.append((dm_px,dm.nennwert))
-        if tiefe:
+        if spitze and i == len(spur.stufen):
+            zylinder,scheitel = spitze.tiefen(dm,tiefe)
+            if zylinder <= 0:
+                raise ValueError(tr("Die Gesamttiefe lässt mit ihren Grenzmaßen keinen zylindrischen Abschnitt übrig."))
+            messungen.extend(((tiefe_px,zylinder),(tiefe_px+spur.spitzenhoehe,scheitel),
+                              (spur.spitzenhoehe,scheitel-zylinder)))
+        elif tiefe:
             messungen.append((tiefe_px,tiefe.nennwert))
         profil.append((dm,tiefe))
-    _pruefe_bohrprofil(masse,profil,spur.von_rechts)
+    _pruefe_bohrprofil(masse,profil,spur.von_rechts,spitze)
     _massstab(kontur,masse,messungen)
     if stirn is not None:
         _pruefe_stirn(stirn,masse,[dm.nennwert for dm,_ in reversed(profil)],spur.von_rechts)
@@ -293,18 +313,50 @@ def _pruefe_wand(masse, dm, tiefe, rechts):
         raise ValueError(tr("Die Tiefe muss auch bei Grenzmaß Material hinter dem Bohrungsgrund lassen."))
 
 
-def _pruefe_bohrprofil(masse, profil, rechts):
+def _pruefe_spitzenwand(masse, dm, tiefe, rechts, spitze):
+    if tiefe is None or spitze.bis_spitze not in (True,False):
+        raise ValueError(tr("Für die gezeichnete Bohrspitze Spitzenwinkel und Tiefenbezug angeben."))
+    winkel = _groessen(spitze.winkel)
+    if spitze.winkel.typ != "Size_Angular" or not all(0 < w < 180 for w in winkel):
+        raise ValueError(tr("Für eine Bohrspitze die Bohrtiefe und den eingeschlossenen Spitzenwinkel mit Gradzeichen angeben."))
+    radius = max(_groessen(dm))/2
+    eng, weit = np.tan(np.deg2rad([min(winkel),max(winkel)])/2)
+    kurz, lang = min(_groessen(tiefe)), max(_groessen(tiefe))
+    zyl_min = kurz-radius/eng if spitze.bis_spitze else kurz
+    spitze_max = lang if spitze.bis_spitze else lang+radius/eng
+    if zyl_min <= 0 or min(_groessen(dm)) <= 0:
+        raise ValueError(tr("Die Gesamttiefe lässt mit ihren Grenzmaßen keinen zylindrischen Abschnitt übrig."))
+    station = 0.
+    for laenge,aussen in (reversed(masse) if rechts else masse):
+        if station < spitze_max:
+            if spitze.bis_spitze:
+                wand = min(radius,(lang-station)*weit)
+            else:
+                wand = radius-max(0.,station-lang)*eng
+            if 2*wand >= min(_groessen(aussen))-1e-9:
+                raise ValueError(tr("Die Bohrung muss bei Grenzmaß innerhalb der durchbohrten Wellenabschnitte liegen."))
+        station += min(_groessen(laenge))
+    if station-spitze_max <= 1e-9:
+        raise ValueError(tr("Die Tiefe muss auch bei Grenzmaß Material hinter dem Bohrungsgrund lassen."))
+    return zyl_min
+
+
+def _pruefe_bohrprofil(masse, profil, rechts, spitze=None):
     for i,(dm,tiefe) in enumerate(profil):
-        _pruefe_wand(masse,dm,tiefe,rechts)
+        if spitze and i == len(profil)-1:
+            zyl_min = _pruefe_spitzenwand(masse,dm,tiefe,rechts,spitze)
+        else:
+            _pruefe_wand(masse,dm,tiefe,rechts)
+            zyl_min = min(_groessen(tiefe)) if tiefe else np.inf
         if i:
             vorher, absatz = profil[i-1]
             if absatz is None or min(_groessen(vorher)) <= max(_groessen(dm)):
                 raise ValueError(tr("Die Durchmessergrenzen müssen jede innere Schulter erhalten."))
-            if tiefe and min(_groessen(tiefe)) <= max(_groessen(absatz)):
+            if zyl_min <= max(_groessen(absatz)):
                 raise ValueError(tr("Die Tiefen ab Eintritt müssen auch bei Grenzmaß von Stufe zu Stufe zunehmen."))
 
 
-def _drehform(masse, bohrprofil, rechts):
+def _drehform(masse, bohrprofil, rechts, spitze):
     from OCC.Core.BRepBuilderAPI import BRepBuilderAPI_MakeFace, BRepBuilderAPI_MakePolygon
     from OCC.Core.BRepPrimAPI import BRepPrimAPI_MakeRevol
     from OCC.Core.gp import gp_Ax1, gp_Dir, gp_Pnt
@@ -317,10 +369,13 @@ def _drehform(masse, bohrprofil, rechts):
         profil.Add(gp_Pnt(x,0,dm.nennwert/2))
     innen = []
     start = 0.
-    for dm,tiefe in bohrprofil:
+    for i,(dm,tiefe) in enumerate(bohrprofil):
         ende = tiefe.nennwert if tiefe else x
+        scheitel = ende
+        if spitze and i == len(bohrprofil)-1:
+            ende,scheitel = spitze.tiefen(dm,tiefe)
         innen.extend(((start,dm.nennwert/2),(ende,dm.nennwert/2)))
-        start = ende
+        start = scheitel
     if start < x:
         innen.extend(((start,0.),(x,0.)))
     for ort,radius in (innen if rechts else reversed(innen)):
@@ -330,16 +385,18 @@ def _drehform(masse, bohrprofil, rechts):
     return BRepPrimAPI_MakeRevol(flaeche, gp_Ax1(gp_Pnt(0,0,0),gp_Dir(1,0,0))).Shape()
 
 
-def _sitzmasse(modell, masse, bohrprofil, rechts):
+def _sitzmasse(modell, masse, bohrprofil, rechts, spitze):
     from OCC.Core.BRepAdaptor import BRepAdaptor_Surface
-    from OCC.Core.GeomAbs import GeomAbs_Cylinder, GeomAbs_Plane
+    from OCC.Core.GeomAbs import GeomAbs_Cone, GeomAbs_Cylinder, GeomAbs_Plane
     from .vergleich_geo import _nachbarn
     nachbarn = _nachbarn(modell.flaechen, modell.flaechen_index)
-    ebenen, zylinder = {}, {}
+    ebenen, zylinder, kegel = {}, {}, set()
     for i, f in enumerate(modell.flaechen):
         s = BRepAdaptor_Surface(f)
         if s.GetType() == GeomAbs_Plane:
             ebenen[i] = s.Plane().Location().X()
+        elif s.GetType() == GeomAbs_Cone:
+            kegel.add(i)
         elif s.GetType() == GeomAbs_Cylinder:
             zylinder[i] = 2*s.Cylinder().Radius()
     def flaechen(dm, anfang, ende):
@@ -363,7 +420,18 @@ def _sitzmasse(modell, masse, bohrprofil, rechts):
         x = ende
     start = eintritt = x if rechts else 0.
     bezug = None
-    for dm,tiefe in bohrprofil:
+    for j,(dm,tiefe) in enumerate(bohrprofil):
+        if spitze and j == len(bohrprofil)-1:
+            from .zeichnungskoerper import _spitzenziel
+            wand = {i for i,d in zylinder.items() if abs(d-dm.nennwert) < 1e-6 and kegel & nachbarn[i]}
+            if len(wand) != 1 or len(kegel) != 1:
+                raise ValueError(tr("Die Bohrspitze und das Ende der Zylinderwand sind nicht eindeutig."))
+            if bezug is None:
+                f, = wand
+                bezug, = (i for i in nachbarn[f] if i in ebenen and abs(ebenen[i]-eintritt) < 1e-6)
+            ziel, referenz = _spitzenziel(modell,wand,kegel,spitze.bis_spitze)
+            ziele.extend(((dm,wand),(replace(tiefe,massziel_step=ziel),{bezug}|referenz),(spitze.winkel,kegel)))
+            break
         laenge = tiefe.nennwert if tiefe else x
         ende = eintritt-laenge if rechts else laenge
         wand, stirn = flaechen(dm.nennwert,*sorted((start,ende)))
@@ -377,10 +445,10 @@ def _sitzmasse(modell, masse, bohrprofil, rechts):
     return [replace(p,flaechen=f,nummer=n,step_id=-n,quelle="eigen") for n,(p,f) in enumerate(ziele,1)]
 
 
-def schreibe_drehteil(ziel, masse, bohrung=None, tiefe=None, rechts=False, stufen=()):
-    if (tiefe or stufen) and not bohrung:
+def schreibe_drehteil(ziel, masse, bohrung=None, tiefe=None, rechts=False, stufen=(), spitze=None):
+    if (tiefe or stufen or spitze) and not bohrung:
         raise ValueError(tr("Den Durchmesser der Axialbohrung mit Ø angeben."))
     profil = [*stufen,(bohrung,tiefe)] if bohrung else []
-    _pruefe_bohrprofil(masse,profil,rechts)
-    form = _drehform(masse,profil,rechts)
-    return schreibe_bemassten_koerper(ziel,form,lambda modell: _sitzmasse(modell,masse,profil,rechts))
+    _pruefe_bohrprofil(masse,profil,rechts,spitze)
+    form = _drehform(masse,profil,rechts,spitze)
+    return schreibe_bemassten_koerper(ziel,form,lambda modell: _sitzmasse(modell,masse,profil,rechts,spitze))

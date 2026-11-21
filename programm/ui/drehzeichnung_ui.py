@@ -4,7 +4,8 @@ from PySide6 import QtCore, QtWidgets
 
 from ..i18n import tr
 from ..kern.axialbohrung import Sacklochspur, Stufenbohrspur, stirnringe
-from ..kern.drehzeichnung import axiale_tiefe, axiales_bohrmass, drehprofil, drehmasse, schreibe_drehteil, stufenmasse
+from ..kern.drehzeichnung import Bohrspitze, axiale_tiefe, axiales_bohrmass, drehprofil, drehmasse, schreibe_drehteil, stufenmasse
+from ..kern.plattenbohrung import kegelwinkelmass
 from ..kern.zeichnungsansicht import Blattgeometrie
 from ..kern.zeichnungsabgleich import Blattangabe
 from .zeichnungsabgleich_ui import Blattansicht
@@ -30,7 +31,7 @@ class Drehteildialog(Koerperdialog):
         self.auswahl.addItems([tr("Längsansicht waagerecht"), tr("Längsansicht senkrecht"),
                                tr("Abschnittslänge"), tr("Abschnittsdurchmesser"),
                                tr("Stirnansicht der Hohlwelle"), tr("Durchmesser der Axialbohrung"),
-                               tr("Tiefe der Axialbohrung")])
+                               tr("Tiefe der Axialbohrung"), tr("Spitzenwinkel der gewählten Bohrung")])
         leiste.addWidget(QtWidgets.QLabel(tr("Einrahmen")))
         leiste.addWidget(self.auswahl)
         self.einheit = QtWidgets.QComboBox()
@@ -44,8 +45,8 @@ class Drehteildialog(Koerperdialog):
         fit.clicked.connect(self.ansicht.einpassen)
         layout.addWidget(self.ansicht,1)
         hinweis = QtWidgets.QLabel(tr("Die Längsansicht mit zylindrischen Abschnitten und rechtwinkligen Schultern einrahmen. "
-                                      "Je Abschnitt Länge und Ø-Maß eingeben oder einrahmen. Für ein Sackloch die Tiefe bis zum "
-                                      "flachen Grund angeben. Bei Stufenbohrungen alle Tiefen ab der Eintrittsfläche eintragen. Für einen Durchgang ohne Wandlinien die Stirnansicht und das Durchgangsmaß angeben."))
+                                      "Je Abschnitt Länge und Ø-Maß eingeben oder einrahmen. Bei einer Bohrspitze den Tiefenbezug "
+                                      "und den eingeschlossenen Winkel aus der Zeichnung übernehmen. Alle Bohrtiefen ab der Eintrittsfläche angeben. Für einen Durchgang ohne Wandlinien die Stirnansicht und das Durchgangsmaß angeben."))
         hinweis.setWordWrap(True)
         layout.addWidget(hinweis)
         self.tabelle = QtWidgets.QTableWidget(0,2)
@@ -74,6 +75,20 @@ class Drehteildialog(Koerperdialog):
         self.bohrstufen.cellChanged.connect(self._pruefen)
         self.bohrstufen.currentCellChanged.connect(self._pruefen)
         layout.addWidget(self.bohrstufen)
+        self.spitzenzeile = QtWidgets.QWidget()
+        spitzenlayout = QtWidgets.QHBoxLayout(self.spitzenzeile)
+        spitzenlayout.setContentsMargins(0,0,0,0)
+        spitzenlayout.addWidget(QtWidgets.QLabel(tr("Spitzenwinkel (°)")))
+        self.winkeltext = QtWidgets.QLineEdit()
+        self.winkeltext.textChanged.connect(self._pruefen)
+        spitzenlayout.addWidget(self.winkeltext)
+        self.tiefenbezug = QtWidgets.QComboBox()
+        self.tiefenbezug.addItem(tr("Tiefenbezug wählen"),None)
+        self.tiefenbezug.addItem(tr("Tiefe bis zum Zylinderende"),False)
+        self.tiefenbezug.addItem(tr("Tiefe bis zur Bohrspitze"),True)
+        self.tiefenbezug.currentIndexChanged.connect(self._pruefen)
+        spitzenlayout.addWidget(self.tiefenbezug)
+        layout.addWidget(self.spitzenzeile)
         self.bohrtext.textChanged.connect(self._pruefen)
         self.status = QtWidgets.QLabel()
         self.status.setWordWrap(True)
@@ -134,6 +149,9 @@ class Drehteildialog(Koerperdialog):
             self.kontur, self.spur = drehprofil(self.blatt.bild,box,senkrecht=self.senkrecht)
             self.stirn = None
             self._stufentabelle()
+            with QtCore.QSignalBlocker(self.winkeltext), QtCore.QSignalBlocker(self.tiefenbezug):
+                self.winkeltext.clear()
+                self.tiefenbezug.setCurrentIndex(0)
             with QtCore.QSignalBlocker(self.bohrtext):
                 self.bohrtext.clear()
             with QtCore.QSignalBlocker(self.tiefentext):
@@ -155,6 +173,12 @@ class Drehteildialog(Koerperdialog):
             self.massmarken.pop("stirn",None)
             if self.stirn:
                 self.massmarken["stirn"] = Blattangabe(self.blatt.nummer,box,self.auswahl.currentText())
+        elif i == 7:
+            wert = self.blatt.lies(box)
+            self.winkeltext.setText(wert)
+            self.massmarken.pop("winkel",None)
+            if wert:
+                self.massmarken["winkel"] = Blattangabe(self.blatt.nummer,box,wert)
         elif i in (5,6):
             wert = self.blatt.lies(box)
             if isinstance(self.spur, Stufenbohrspur):
@@ -188,16 +212,26 @@ class Drehteildialog(Koerperdialog):
         if isinstance(self.spur, Stufenbohrspur):
             texte = [(self.bohrstufen.item(i,0).text(), self.bohrstufen.item(i,1).text() if t is not None else "")
                      for i,(_,t) in enumerate(self.spur.stufen)]
-            profil = stufenmasse(self.kontur,masse,self.spur,self.stirn,texte,faktor)
+            spitze = None
+            if self.spur.spitzenhoehe:
+                winkel = kegelwinkelmass(self.winkeltext.text())
+                bezug = self.tiefenbezug.currentData()
+                if not winkel or bezug is None:
+                    raise ValueError(tr("Für die gezeichnete Bohrspitze Spitzenwinkel und Tiefenbezug angeben."))
+                spitze = Bohrspitze(winkel,bezug)
+            profil = stufenmasse(self.kontur,masse,self.spur,self.stirn,texte,faktor,spitze)
             dm,tiefe = profil[-1]
-            return masse,dm,tiefe,self.spur.von_rechts,profil[:-1]
+            return masse,dm,tiefe,self.spur.von_rechts,profil[:-1],spitze
         tiefe = axiale_tiefe(self.spur, self.tiefentext.text(), faktor)
         bohrung = axiales_bohrmass(self.kontur, masse, self.spur, self.stirn, self.bohrtext.text(), faktor, tiefe)
-        return masse, bohrung, tiefe, isinstance(self.spur,Sacklochspur) and self.spur.von_rechts,()
+        return masse, bohrung, tiefe, isinstance(self.spur,Sacklochspur) and self.spur.von_rechts,(),None
 
     def _pruefen(self):
         blind = isinstance(self.spur, Sacklochspur)
         gestuft = isinstance(self.spur, Stufenbohrspur)
+        spitz = gestuft and bool(self.spur.spitzenhoehe)
+        self.spitzenzeile.setVisible(spitz)
+        self.auswahl.model().item(7).setEnabled(spitz)
         self.bohrstufen.setVisible(gestuft)
         self.bohrtext.setVisible(not gestuft)
         self.tiefentext.setVisible(blind)
@@ -206,13 +240,13 @@ class Drehteildialog(Koerperdialog):
         self.auswahl.model().item(6).setEnabled(mit_tiefe)
         if not mit_tiefe and self.auswahl.currentIndex() == 6:
             self.auswahl.setCurrentIndex(5)
-        if gestuft:
+        if gestuft and len(self.spur.stufen) > 1:
             if self.senkrecht:
                 seite = tr("Stufenbohrung von unten") if self.spur.von_rechts else tr("Stufenbohrung von oben")
             else:
                 seite = tr("Stufenbohrung von rechts") if self.spur.von_rechts else tr("Stufenbohrung von links")
             self.bohrart.setText(seite)
-        elif blind:
+        elif blind or spitz:
             if self.senkrecht:
                 seite = tr("Sackloch von unten") if self.spur.von_rechts else tr("Sackloch von oben")
             else:
@@ -225,13 +259,13 @@ class Drehteildialog(Koerperdialog):
         for i in (2,3,4,5):
             self.auswahl.model().item(i).setEnabled(bool(self.kontur))
         try:
-            masse, bohrung, tiefe, _, _ = self._masse()
+            masse, bohrung, tiefe, _, _, _ = self._masse()
         except ValueError as e:
             self.status.setText(str(e))
             self.speichern.setEnabled(False)
             return
         status = tr("Hohlwelle mit {} Abschnitten, Gesamtlänge {} mm.") if bohrung else tr("Vollwelle mit {} Abschnitten, Gesamtlänge {} mm.")
-        if gestuft:
+        if gestuft and len(self.spur.stufen) > 1:
             status = tr("Welle mit Stufenbohrung und {} Außenabschnitten, Gesamtlänge {} mm.")
         elif tiefe:
             status = tr("Welle mit Sackloch und {} Abschnitten, Gesamtlänge {} mm.")

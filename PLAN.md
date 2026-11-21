@@ -1714,7 +1714,13 @@ each depth from the entry face must match the drawing at a common scale. The opt
 must show all bore rings and the visible outside seats. Size limits must preserve the wall,
 successive shoulders and material behind a blind core. Each STEP diameter references the
 corresponding cylinder and each depth references the same entry plane and its own shoulder or
-floor. Opposed counterbores, conical drill points on shafts, chamfers, tapers and fillets remain open. Pocket center-position PMI, inclined slots, unequal corner radii,
+floor. A simple or stepped blind core may terminate at a conical drill point. Symmetric printed
+flanks must reach the cylinder wall and the apex. Select or enter the included angle and choose
+the printed depth reference (end of full diameter or apex). Both positions must reproject at the
+scale of the longitudinal view. The angle PMI references the conical face; the depth references
+the entry plane and the cylinder-end circle or apex vertex. Size, angle and depth limits must
+preserve the cylinder and material around and behind the cone. Opposed counterbores, chamfers,
+outer tapers and fillets remain open. Pocket center-position PMI, inclined slots, unequal corner radii,
 other profiles, automatic cross-view association and datum/GD&T transfer remain open.
 
 ### 8.37 QIF extensions (last in the implementation order)

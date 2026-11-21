@@ -52,6 +52,7 @@ def _bodenlagen(rest, grenzen, wandstift):
 class Stufenbohrspur:
     stufen: tuple  # (Durchmesser, Tiefe ab Eintritt), durchgehender Kern ohne Tiefe
     von_rechts: bool
+    spitzenhoehe: float = 0.
 
 
 def bohrdurchmesser_am_absatz(spur, x, grenzen):
@@ -66,8 +67,24 @@ def bohrdurchmesser_am_absatz(spur, x, grenzen):
         if tiefe is None or lage < tiefe-.5:
             return dm, dm
         if abs(lage-tiefe) <= .5:
+            if isinstance(spur,Stufenbohrspur) and i+1 == len(stufen) and spur.spitzenhoehe:
+                return dm, dm
             return dm, stufen[i+1][0] if i+1 < len(stufen) else 0.
+    if isinstance(spur,Stufenbohrspur) and spur.spitzenhoehe:
+        dm,tiefe = stufen[-1]
+        innen = dm*max(0.,1.-(lage-tiefe)/spur.spitzenhoehe)
+        return innen,innen
     return 0., 0.
+
+
+def _strichluecke(spur, breite):
+    laeufe = tintenlaeufe(spur)
+    pausen = laeufe[1:,0]-laeufe[:-1,1]
+    if len(pausen) >= 2:
+        luecke = np.median(pausen)
+        if luecke <= 8*breite:
+            return luecke
+    return None
 
 
 def _absatzkante(spur, breite, luecke):
@@ -81,7 +98,7 @@ def _absatzkante(spur, breite, luecke):
     return abs(pause-luecke) <= max(1,.2*luecke) and max(laeufe[0,0],len(spur)-laeufe[-1,1]) <= luecke+1
 
 
-def _stufenspuren(tinte, rest, baender, grenzen, mitte, stift):
+def _stufenspuren(tinte, rest, baender, grenzen, mitte, stift, spitze):
     # Zwischen zwei Wandpaaren muss auf beiden Seiten derselbe ebene Absatz liegen.
     haelfte = len(baender)//2
     paare = list(zip(baender[:haelfte],baender[haelfte:][::-1],strict=True))
@@ -111,9 +128,13 @@ def _stufenspuren(tinte, rest, baender, grenzen, mitte, stift):
         else:
             flanken = [(o[1],u[0])]
         rand = np.vstack([rest[lo:hi] for lo,hi in flanken])
-        laeufe = tintenlaeufe(bild[0][pixel[0]:pixel[-1]+1])
-        pausen = laeufe[1:,0]-laeufe[:-1,1]
-        luecke = np.median(pausen) if len(pausen) >= 2 else None
+        luecke = _strichluecke(bild[0][pixel[0]:pixel[-1]+1],breite)
+        if not innen and spitze is not None:
+            kern,ende,_ = spitze
+            if abs(dm-kern) > 1 or rand.any():
+                return ()
+            stufen.append((dm,breite,bild,pixel,[ende]))
+            continue
         lagen = []
         for x in _bodenlagen(rand,grenzen,breite):
             spalte = tinte[:,round(x-stift/2):round(x+stift/2)+1].any(axis=1)
@@ -125,20 +146,19 @@ def _stufenspuren(tinte, rest, baender, grenzen, mitte, stift):
     return stufen
 
 
-def bohrspur(tinte, erlaubt, grenzen, mitte, radien, stift):
-    rest = tinte & ~erlaubt
-    if not rest.any():
-        return 0., 0.
+def _zylinderspur(tinte, rest, grenzen, mitte, radien, stift, spitze=None):
     baender = tintenlaeufe(rest.sum(axis=1) > 2*(stift+2))
     if len(baender) < 2:
         baender = tintenlaeufe(rest.any(axis=1))
     if not len(baender) or len(baender)%2:
         return None
-    stufen = _stufenspuren(tinte,rest,baender,grenzen,mitte,stift)
+    stufen = _stufenspuren(tinte,rest,baender,grenzen,mitte,stift,spitze)
     if not stufen:
         return None
     treffer = []
     for rechts, eintritt in ((False,grenzen[0]),(True,grenzen[-1])):
+        if spitze is not None and (spitze[2] < spitze[1]) != rechts:
+            continue
         profil = []
         start = eintritt
         for dm,breite,bild,pixel,lagen in stufen:
@@ -161,15 +181,99 @@ def bohrspur(tinte, erlaubt, grenzen, mitte, radien, stift):
             tiefe = None if start in (grenzen[0],grenzen[-1]) else abs(start-eintritt)
             profil.append((dm,tiefe))
         if len(profil) == len(stufen):
-            treffer.append(Stufenbohrspur(tuple(profil),rechts))
+            treffer.append(Stufenbohrspur(tuple(profil),rechts,abs(spitze[2]-spitze[1]) if spitze else 0.))
     breite = max(s[1] for s in stufen)
-    if len(stufen) == 1 and treffer:
+    if len(stufen) == 1 and treffer and spitze is None:
         dm,tiefe = treffer[0].stufen[0]
         if all(p.stufen == ((dm,None),) for p in treffer):
             return dm, breite
         if len(treffer) == 1:
             return Sacklochspur(dm,tiefe,treffer[0].von_rechts), breite
     return (treffer[0],breite) if len(treffer) == 1 else None
+
+
+def _flanke(zentren, abstand, radius, breite):
+    # Mitten der gedruckten Striche zwischen Zylinderwand und Achse.
+    maske = np.isfinite(zentren) & (abstand > breite+1) & (abstand < radius-breite-1)
+    y,x = abstand[maske],zentren[maske]
+    if len(y) < 2 or np.ptp(y) < radius/2:
+        return None
+    steigung, scheitel = np.polyfit(y,x,1)
+    if np.max(abs(x-scheitel-y*steigung)) > 1+breite*np.hypot(1,steigung)/2:
+        return None
+    return scheitel+steigung*radius, scheitel
+
+
+def _kernbaender(belegung, mitte, stift):
+    # Je Schwelle nur ein neues symmetrisches Wandpaar untersuchen.
+    versucht = set()
+    for schwelle in np.unique(belegung[belegung > 2*(stift+2)]):
+        baender = tintenlaeufe(belegung >= schwelle)
+        oben = baender[baender[:,1] < mitte]
+        unten = baender[baender[:,0] > mitte]
+        if len(oben) and len(unten):
+            o,u = oben[-1],unten[0]
+            paar = (*o,*u)
+            if paar not in versucht and abs((o.mean()+u.mean()-1)/2-mitte) <= 1:
+                versucht.add(paar)
+                yield o,u
+
+
+def _spitzenlage(tinte, zentren, mitte, radius, breite, grenzen):
+    abstand = np.arange(len(tinte))-mitte
+    flanken = [_flanke(zentren,s*abstand,radius,breite) for s in (-1,1)]
+    if any(f is None for f in flanken) or np.max(np.ptp(flanken,axis=0)) > 2:
+        return None
+    ende,scheitel = np.mean(flanken,axis=0)
+    if abs(ende-scheitel) <= breite+2 or not grenzen[0] < min(ende,scheitel) < max(ende,scheitel) < grenzen[-1]:
+        return None
+    n = int(np.ceil(np.hypot(radius,ende-scheitel)))+1
+    x = np.rint(np.linspace(ende,scheitel,n)).astype(int)
+    for s in (-1,1):
+        y = np.rint(np.linspace(mitte+s*radius,mitte,n)).astype(int)
+        anfang = grenzen[-1] if scheitel < ende else grenzen[0]
+        a,b = sorted((round(anfang),round(ende)))
+        luecke = _strichluecke(tinte[round(mitte+s*radius),a:b+1],breite)
+        if not _absatzkante(tinte[y,x],breite,luecke):
+            return None
+    return ende,scheitel
+
+
+def _kegelspur(tinte, rest, grenzen, mitte, radien, stift):
+    belegung = rest.sum(axis=1)
+    links = np.argmax(rest,axis=1)
+    rechts = rest.shape[1]-1-np.argmax(rest[:,::-1],axis=1)
+    zentren = np.where(belegung,(links+rechts)/2,np.nan)
+    for o,u in _kernbaender(belegung,mitte,stift):
+        radius = (u.mean()-o.mean())/2
+        breite = max(o[1]-o[0],u[1]-u[0])
+        lage = _spitzenlage(tinte,zentren,mitte,radius,breite,grenzen)
+        if lage is None:
+            continue
+        ende,scheitel = lage
+        y,x = np.nonzero(rest)
+        distanz = abs(y-mitte)
+        steigung = (ende-scheitel)/radius
+        soll = scheitel+steigung*distanz
+        kegel = (distanz <= radius+breite/2+1) & (abs(x-soll) <= (breite/2+1)*np.hypot(1,steigung))
+        bereinigt = rest.copy()
+        bereinigt[y[kegel],x[kegel]] = False
+        # Die zylindrischen Wandenden bleiben bis zum Ansatz erhalten.
+        zylinder = slice(None,round(ende)+1) if scheitel > ende else slice(round(ende),None)
+        for lo,hi in (o,u):
+            bereinigt[lo:hi,zylinder] = rest[lo:hi,zylinder]
+        spur = _zylinderspur(tinte,bereinigt,grenzen,mitte,radien,stift,(2*radius,ende,scheitel))
+        if spur:
+            return spur
+    return None
+
+
+def bohrspur(tinte, erlaubt, grenzen, mitte, radien, stift):
+    rest = tinte & ~erlaubt
+    if not rest.any():
+        return 0., 0.
+    return (_zylinderspur(tinte,rest.copy(),grenzen,mitte,radien,stift)
+            or _kegelspur(tinte,rest,grenzen,mitte,radien,stift))
 
 
 def stirnringe(bild, box, kreise):

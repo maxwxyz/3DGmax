@@ -2,6 +2,34 @@
 
 ## Current state, 2026-11-21
 
+### Conical drill points in shaft drawings
+
+- Checked PLAN §§8.16, 8.28 and 8.35–8.37 against docs/Roadmap.md. File → Shaft from 2D drawing
+  now recognizes a simple or stepped axial blind bore with a conical point. Fit both printed flanks
+  independently and check their strokes from cylinder to apex. The diameter, angle, cylinder end
+  and apex must fit the same drawing scale. Pick or enter the included angle and explicitly select
+  the depth to the cylinder end or to the apex. The median longitudinal selection time on a
+  1900 × 1140 pixel sheet with a dashed 118° point was 14.3 ms over seven local runs.
+- The tolerance check evaluates the cone radius where it reaches each outside seat, minimum
+  remaining cylinder length behind the last shoulder, and material beyond the deepest apex. A cone
+  may extend into a narrower seat when its radius has already reduced sufficiently. Conflicting
+  angle or depth limits keep export unavailable. Broken, asymmetric, doubled or truncated flank
+  drawings stayed unresolved in regression tests.
+- Verified four drawing-to-STEP round trips with 90° and 118° points, both shaft ends, both depth
+  conventions, simple and stepped cores and horizontal and vertical PDFs. Both STEP readers returned
+  the angle and its limits on the cone. The depth targets the entry plane and the circle at full
+  diameter or the apex vertex. Checked the graphical arrow endpoint, depth limits and cut volume.
+  All 31 affected tests and 36 native macOS tests (eight screen tests and 28 shaft tests) passed.
+  All 2553 UI strings have English entries.
+- For the next §8.36 item, an isolated probe put Ø10 H7 × 6 and Ø10 H8 × 8 mm counterbores at
+  opposite ends of a 30 mm shaft. A shared Ø6 core or two separate blind Ø6 cores round-tripped
+  with their individual face assignments, tolerances and reference ends. The volumes were
+  4253.716453 and 4451.636790 mm³ respectively. A PDF probe distinguished two separate Ø10 wall
+  intervals and a continuous or divided Ø6 interval. Drawing review still needs both entry
+  directions, verified connecting shoulders and a retained core or residual wall at the drawing
+  limits. Outer tapers and fillets, datum transfer and whole-drawing comparison remain open.
+  QIF stays last.
+
 ### Single-entry stepped axial bores in shaft drawings
 
 - Checked PLAN §§8.16, 8.28, 8.35–8.37 and docs/Roadmap.md. File → Shaft from 2D drawing now
