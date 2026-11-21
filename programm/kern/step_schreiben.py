@@ -269,6 +269,17 @@ class _Anhang:
             self.neu(f"GEOMETRIC_ITEM_SPECIFIC_USAGE('','',#{sa},#{self.darst},#{f})")
         return sa
 
+    def bereichsaspekt(self, flaechen_step):
+        """Bereichsflaechen als eigene Darstellung im Kontext des Bauteils schreiben."""
+        refs = ",".join(f"#{f}" for f in sorted(flaechen_step))
+        menge = self.neu(f"CONNECTED_FACE_SET('',({refs}))")
+        bereich = self.neu(f"SHAPE_REPRESENTATION('',(#{menge}),#{self.kontext})")
+        teil = self.neu(f"SHAPE_ASPECT('','',#{self.pds},.T.)")
+        self.neu(f"GEOMETRIC_ITEM_SPECIFIC_USAGE('','',#{teil},#{bereich},#{menge})")
+        aspekt = self.neu(f"BETWEEN_SHAPE_ASPECT('',$,#{self.pds},.T.)")
+        self.neu(f"SHAPE_ASPECT_RELATIONSHIP('','',#{aspekt},#{teil})")
+        return aspekt
+
     def verbundaspekt(self, flaechen):
         sa = self.neu(f"COMPOSITE_SHAPE_ASPECT('','DIMENSION',#{self.pds},.F.)")
         for f in sorted(flaechen):
@@ -375,7 +386,7 @@ def _schreibe_toleranz(a: _Anhang, p, aspekt=None) -> str | None:
                         and isinstance(g[0], str) and re.fullmatch("[A-Z]", g[0]) for g in grenzen)
                 or grenzen[0][0] == grenzen[1][0] or not begrenzter_verband(a.datei, fl, [g[1] for g in grenzen])):
             return tr("Die Bereichsgrenzen passen nicht zu den gewählten Flächen.")
-        sa = a.aspekt(p.flaechen, "BETWEEN_SHAPE_ASPECT")
+        sa = a.bereichsaspekt(fl)
         for (name, kante), rolle in zip(grenzen, ("start feature", "end feature")):
             grenze = a.neu(f"SHAPE_ASPECT('{name}','',#{a.pds},.T.)")
             a.neu(f"GEOMETRIC_ITEM_SPECIFIC_USAGE('','',#{grenze},#{a.darst},#{kante})")

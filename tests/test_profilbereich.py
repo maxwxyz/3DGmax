@@ -69,16 +69,24 @@ def _als_strichschrift(text, grafiken):
 
 
 @pytest.mark.parametrize("schrift,ebene", [("kontur", True), ("fuellung", True), ("kontur", False),
-                                         ("fuellung", False), ("strich", False)])
+                                         ("fuellung", False), ("strich", False), ("flaechenmenge", True)])
 def test_profilbereich_mit_originalgrafiken(schrift, ebene, fenster, tmp_path):
     quelle = pfad("nist_ctc_01_asme1_ap203.stp.gz")
     with gzip.open(quelle, "rt", encoding="ascii") as f:
         text = f.read()
-    gefuellt = schrift == "fuellung"
+    gefuellt = schrift in ("fuellung", "flaechenmenge")
     if gefuellt:
         text = _fuellsatz(text, lade_alles(quelle).grafik)
     elif schrift == "strich":
         text = _als_strichschrift(text, lade_alles(quelle).grafik)
+    if schrift == "flaechenmenge":
+        # Eine Zuordnung zur separaten Bereichsdarstellung ersetzt die drei direkten Nutzungen.
+        text, anzahl = re.subn(r"#(?:119|120|121)=GEOMETRIC_ITEM_SPECIFIC_USAGE\([^;]+;", "", text)
+        assert anzahl == 3
+        pos = text.rindex("ENDSEC;")
+        text = (text[:pos] + "#100001=CONNECTED_FACE_SET('',(#554,#553));\n"
+                "#100002=SHAPE_REPRESENTATION('',(#100001),#17160);\n"
+                "#100003=GEOMETRIC_ITEM_SPECIFIC_USAGE('','PMI',#189,#100002,#100001);\n" + text[pos:])
     if not ebene:
         text = _ohne_ebenen(text)
     eingang = tmp_path / "Profilbereich.stp"

@@ -427,9 +427,12 @@ def darstellung_der_flaeche(datei: P21Datei, flaeche_step: int) -> int | None:
     from .laden import NETZFLAECHEN
     if (e := datei.get(flaeche_step)) and e.parts.keys() & NETZFLAECHEN:
         return eindeutige_netzdarstellung(datei, netz_darstellungen(datei, flaeche_step))
-    offen, gesehen = [flaeche_step], set()
+    offen, bereichsmengen, gesehen = [flaeche_step], [], set()
     verweise = datei.referrers()
-    while offen:
+    while offen or bereichsmengen:
+        # Die Produktform hat Vorrang vor einer separaten Darstellung des PMI-Bereichs.
+        if not offen:
+            offen, bereichsmengen = bereichsmengen, []
         x = offen.pop(0)
         for r in verweise.get(x, []):
             if r in gesehen:
@@ -439,7 +442,9 @@ def darstellung_der_flaeche(datei: P21Datei, flaeche_step: int) -> int | None:
             if e.is_a("SHAPE_REPRESENTATION") or e.is_a("ADVANCED_BREP_SHAPE_REPRESENTATION") or \
                     e.is_a("MANIFOLD_SURFACE_SHAPE_REPRESENTATION"):
                 return r
-            if not (e.is_a("STYLED_ITEM") or e.is_a("GEOMETRIC_ITEM_SPECIFIC_USAGE")):
+            if e.is_a("CONNECTED_FACE_SET"):
+                bereichsmengen.append(r)
+            elif not (e.is_a("STYLED_ITEM") or e.is_a("GEOMETRIC_ITEM_SPECIFIC_USAGE")):
                 offen.append(r)
     return None
 

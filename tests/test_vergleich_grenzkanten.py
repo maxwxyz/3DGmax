@@ -4,6 +4,7 @@ import gzip
 import re
 from dataclasses import replace
 from math import pi
+from pathlib import Path
 
 import numpy as np
 import pytest
@@ -65,6 +66,61 @@ def test_echter_step_vergleich_und_bericht(staende, a, b, anzahl):
     else:
         p, = [p for p in v.pmi if p.alt and p.alt.bereichsgrenzen]
         assert [n for _, n in p.neu.bereichsgrenzen] == [52023, 52025] and not p.felder
+
+
+def test_flaechenmenge_und_direkte_flaechen_im_step_vergleich(staende, tmp_path):
+    from tests.test_step_ap242 import _occt
+    alt = staende["Begrenzt"]
+    d = alt.modell.datei
+    gruppe, = d.of_type("CONNECTED_FACE_SET")
+    aspekt, = d.of_type("BETWEEN_SHAPE_ASPECT")
+    rep, = [r for r in d.of_type("SHAPE_REPRESENTATION") if gruppe.id in [v.id for v in r.args()[1]]]
+    gisu, = [e for e in d.of_type("GEOMETRIC_ITEM_SPECIFIC_USAGE") if e.args()[4].id == gruppe.id]
+    assert gisu.args()[3].id == rep.id and rep.id != 148
+    assert {r.id for r in gruppe.args()[1]} == {553, 554}
+    text = Path(alt.pfad).read_text(encoding="ascii")
+    direkt = tmp_path / "Direkte-Flaechen.step"
+    # Aeltere Exporte verknuepften jede Flaeche direkt mit dem Bereichsaspekt.
+    entitaeten = [rep.id, gruppe.id, gisu.args()[2].id, gisu.id]
+    rel, = [e for e in d.of_type("SHAPE_ASPECT_RELATIONSHIP") if e.args()[3] == gisu.args()[2]]
+    for nr in [*entitaeten, rel.id]:
+        text, n = re.subn(rf"#{nr}=[^;]+;", "", text)
+        assert n == 1
+    pos = text.rindex("ENDSEC;")
+    direkt.write_text(text[:pos] + "".join(
+        f"#{nr}=GEOMETRIC_ITEM_SPECIFIC_USAGE('','',#{aspekt.id},#148,#{f});\n"
+        for nr, f in zip(entitaeten, (554, 553))) + text[pos:], encoding="ascii")
+    neu = lade_alles(str(direkt))
+    assert vergleich.ist_gleich(vergleich.vergleiche(alt, neu))
+    typen, fehler, volumen = _occt(alt.pfad)
+    _, andere_fehler, anderes_volumen = _occt(direkt)
+    assert typen[gruppe.id] == "StepShape_ConnectedFaceSet" and fehler == andere_fehler
+    assert volumen == pytest.approx(anderes_volumen)
+
+    geaendert = tmp_path / "Kleinerer-Bereich.step"
+    text = Path(alt.pfad).read_text(encoding="ascii").replace("CONNECTED_FACE_SET('',(#553,#554))",
+                                                              "CONNECTED_FACE_SET('',(#553))")
+    geaendert.write_text(text, encoding="ascii")
+    v = vergleich.vergleiche(alt, lade_alles(str(geaendert)))
+    profil, = [q for q in v.pmi if q.alt and q.alt.bereichsgrenzen]
+    assert any(feld == "flaechen" for feld, _, _ in profil.felder)
+
+
+def test_unvollstaendige_menge_und_flaechenbezogene_endmarke(staende):
+    from programm.kern import p21, pmi_lesen
+    e = staende["Begrenzt"]
+    text = Path(e.pfad).read_text(encoding="ascii")
+    aspekt, = e.modell.datei.of_type("BETWEEN_SHAPE_ASPECT")
+    # Die Endmarke verweist auf eine andere Flaeche. Sie gehoert nicht zum tolerierten Bereich.
+    text, n = re.subn(r"(GEOMETRIC_ITEM_SPECIFIC_USAGE\('','',#\d+,#148,)#2025", r"\g<1>#611", text)
+    assert n == 1
+    for mitglieder, flaechen in (("#553,#554", {553, 554}), ("#553,#2023", set()), ("#553,#999999", set()),
+                                 ("", set())):
+        data = p21.lese_text(text.replace("CONNECTED_FACE_SET('',(#553,#554))",
+                                          f"CONNECTED_FACE_SET('',({mitglieder}))"))
+        ziel = pmi_lesen.flaechen_von_aspekt(data, e.modell, aspekt.id)
+        assert {e.modell.flaeche_zu_step[i] for i in ziel} == flaechen
+        assert not pmi_lesen.teilformen_von_aspekt(data, e.modell, aspekt.id)
 
 
 def test_doppelte_rahmen_behalten_ihre_enden_bei_anderer_reihenfolge(staende):

@@ -241,8 +241,10 @@ Throughout: tests (core, offscreen UI, stress test, on-screen test), `--selbstte
   on their supporting faces after model alignment. A changed or removed extent is a semantic
   finding even when the old and new STEP numbers coincide. Renumbering alone is ignored.
   An ambiguous edge correspondence remains open for review. An explicit CONNECTED_FACE_SET
-  for the restricted area still needs resolution to its member faces. Extents requiring a new
-  trimmed subface are also open.
+  resolves to its original model faces during import and graphical review. Export groups the
+  faces in a separate shape representation in the part context with a related area aspect.
+  Endpoint features stay separate from the toleranced geometry. Extents requiring new
+  trimmed subfaces remain open.
   Single-row wide control frames preserve the characteristic, diameter zone, projected height or
   maximum material and the ordered datums. Closed cell borders can also be recovered from filled
   triangles. With no writing plane the outer edges of coplanar triangles supply candidate axes. Both FTC-07's original strokes and a

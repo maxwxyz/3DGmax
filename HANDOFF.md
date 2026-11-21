@@ -2,6 +2,41 @@
 
 ## Current state, 2026-11-21
 
+### Use grouped model faces for scoped profile tolerances
+
+- Checked PLAN §8.4 and docs/Roadmap.md against CAx-IF PMI v4.1 §6.4.3, Figure 34.
+  A CONNECTED_FACE_SET can identify the restricted area through a related shape aspect
+  and a separate shape representation. The reader now resolves its members to original
+  model faces and excludes start/end features from the area. An empty group or a member
+  without a model-face correspondence leaves the area unresolved.
+- Graphical review of the triangle-only CTC-01 frame with this association recovered its
+  1.25 mm tolerance, A/B/C datums, A/B boundary edges and original saved-view callouts.
+  While testing export, the search for a face's representation reached the separate
+  area before its product. The writer now finds the product first and emits the area
+  as a distinct connected face set with its own representation in the part context.
+- Verified that the old direct associations and the grouped form compare equal, that
+  removing a member changes the comparison, and that a face used as an endpoint does
+  not enlarge the toleranced region. OCCT read one solid with the same volume and no
+  additional diagnostics.
+- Further §8.4 case: a separate ADVANCED_FACE trimmed to a 20 × 50 mm rectangle
+  inside the plane of CTC-01 face #553 is readable by OCCT but absent from the product
+  transfer. The 139 product faces and the volume are unchanged. This area remains
+  unresolved. Recover and validate its own trimming before highlighting or comparing it.
+  The reproduction used the grouped example and a new bounds wire on plane #3344.
+  A separate probe explicitly transferred that patch with STEPControl_Reader.TransferOne.
+  Its surface area was 1,000 mm², all inside the 5,000 mm² product face. This adds a
+  second shape to the reader, so the patch must stay outside the product's display shape
+  and face index. QIF remains last.
+- Rechecked the screenshot case with a second reconstructed pinion, now with 459
+  individually trimmed faces, a crowned bore and a stepped back. The gear command
+  found nine face teeth both in the source and after structure-tree STEP extraction.
+  The original user STEP is still unavailable. The extracted example, grouped graphical
+  and reviewed PMI examples and signed local app are in `dist/main-pmi-flaechenmenge/`.
+- The complete offscreen run passed 1,095 tests, with eight screen tests skipped.
+  All 28 native macOS checks passed, including those eight. The affected run passed
+  123 tests, including the additional grouped-versus-direct and invalid-member
+  regressions. The packaged app passed its self-test and ZIP verification.
+
 ### Compare the ordered boundary edges of scoped profile tolerances
 
 - Checked PLAN §8.4 and docs/Roadmap.md. A removed A ↔ B restriction or swapped endpoint

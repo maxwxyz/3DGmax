@@ -72,6 +72,7 @@
 | Read supported STEP dimension strings, datum letters and tolerance frames from single strokes, curves or filled triangle glyphs in the conversion dialog; export confirmed semantics with the original presentation | ✅ |
 | Read R from single-stroke or filled graphical PMI and save the confirmed radius with its STEP callout. Compare repeated R and CR drawing rows with radius PMI on the matching bore walls | ✅ |
 | Use a graphical STEP callout's own validation text for supported dimensions, datums and tolerance frames. Read an omitted symbol from its plotted cell or specific callout name and show its source in review | ✅ |
+| Import and export the connected face set of a bounded profile in a separate STEP representation. Graphic review resolves all member faces and keeps the original callouts | ✅ |
 | Compare the ordered boundary edges of a profile tolerance after model alignment. The change table and CSV distinguish added, removed or changed extents from unresolved edge correspondence | ✅ |
 | Review a drawn profile frame with an A ↔ B extent on connected faces. STEP stores both boundary edges, datum order and original callouts. Verified with and without writing planes, including triangle-only callouts, single-stroke end letters and an open double arrow | ✅ |
 | Review drawn diameter limits under a generic STEP dimension name, find them in the PMI list, and retain the cylinder and original graphics on export. Conflicting printed and validation limits can be reviewed separately | ✅ |

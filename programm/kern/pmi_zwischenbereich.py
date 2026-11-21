@@ -360,9 +360,9 @@ def ergaenze(v, g, modell, grafiken):
         return
     d = modell.datei
     flaechen = {modell.flaeche_zu_step.get(i) for i in v.flaechen}
-    def ziele(nr):
-        return {z for a in aspekte_am_callout(d, nr) for z in _ziele(d, a)}
-    if ziele(g.callout_id) != flaechen:
+    from .pmi_lesen import geometrieziele_von_aspekt
+    zielgruppen = [geometrieziele_von_aspekt(d, modell, a) for a in aspekte_am_callout(d, g.callout_id)]
+    if any(gruppe is None for gruppe in zielgruppen) or set().union(*zielgruppen) != flaechen:
         return
     ansichten = defaultdict(set)
     for ansicht in _ansichten(d, g.callout_id):
@@ -370,7 +370,7 @@ def ergaenze(v, g, modell, grafiken):
             ansichten[nr].add(ansicht)
     grenzen = {}
     for nr in grafiken.keys() & ansichten.keys():
-        ziel = ziele(nr)
+        ziel = {z for a in aspekte_am_callout(d, nr) for z in _ziele(d, a)}
         if len(ziel) != 1:
             continue
         k = ziel.pop()

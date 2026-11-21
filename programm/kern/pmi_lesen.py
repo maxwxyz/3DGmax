@@ -130,44 +130,66 @@ def _lies_bezuege(modell: StepModell, dt) -> list[Pmi]:
 # Verknuepfung Aspekt -> Geometrie (GISU ist Untertyp von IIRU)
 NUTZUNGEN = ("ITEM_IDENTIFIED_REPRESENTATION_USAGE", "GEOMETRIC_ITEM_SPECIFIC_USAGE")
 
-def flaechen_von_aspekt(datei: p21.P21Datei, modell: StepModell, aspekt_id: int,
-                        tiefe: int = 0) -> set[int]:
-    """Flaechen eines SHAPE_ASPECT ueber ITEM_IDENTIFIED_REPRESENTATION_USAGE (auch Gruppen)."""
+def _ist_grenzmerkmal(datei, aspekt_id, name):
+    aspekt = datei.get(aspekt_id)
+    return name in ("start feature", "end feature") and aspekt is not None and aspekt.is_a("BETWEEN_SHAPE_ASPECT")
+
+
+def _mengenflaechen(datei, modell, ziel):
+    args = ziel.args("CONNECTED_FACE_SET")
+    if not args or not isinstance(args[-1], list) or not args[-1]:
+        return None
+    flaechen = set()
+    for ref in args[-1]:
+        if not isinstance(ref, p21.Ref) or ref.id not in modell.step_zu_flaeche:
+            return None
+        flaeche = datei.get(ref)
+        if flaeche is None or not (flaeche.is_a("ADVANCED_FACE") or flaeche.is_a("FACE_SURFACE")):
+            return None
+        flaechen.add(ref.id)
+    return flaechen
+
+
+def geometrieziele_von_aspekt(datei, modell, aspekt_id, tiefe=0) -> set[int] | None:
+    """STEP-Ziele ohne Grenzmerkmale. Unvollstaendige Flaechenmengen bleiben offen."""
     if tiefe > 6:
         return set()
-    out: set[int] = set()
-    for rid in datei.referrers().get(aspekt_id, []):
+    out = set()
+    for rid in datei.referrers().get(aspekt_id, ()):
         e = datei.entities[rid]
         nutzung = next((t for t in NUTZUNGEN if e.is_a(t)), None)
         if nutzung:
             args = e.args(nutzung)
-            if isinstance(args[2], p21.Ref) and args[2].id == aspekt_id:
-                out |= _flaechen_aus_item(modell, args[4])
+            if len(args) < 5 or args[2] != p21.Ref(aspekt_id):
+                continue
+            for nr in _refs(args[4]):
+                ziel = datei.get(nr)
+                if ziel is None or not ziel.is_a("CONNECTED_FACE_SET"):
+                    out.add(nr)
+                    continue
+                flaechen = _mengenflaechen(datei, modell, ziel)
+                if flaechen is None:
+                    return None
+                out.update(flaechen)
         elif e.is_a("SHAPE_ASPECT_RELATIONSHIP") or e.is_a("SHAPE_ASPECT_DERIVING_RELATIONSHIP"):
-            args = e.args(next(iter(e.parts)))
-            # Gruppe/Verbund: relating = Gruppe, related = Teil
-            if args[2] == p21.Ref(aspekt_id) and isinstance(args[3], p21.Ref):
-                kind = datei.get(args[3])
-                if kind is not None and not kind.is_a("DATUM"):
-                    out |= flaechen_von_aspekt(datei, modell, args[3].id, tiefe + 1)
+            art = "SHAPE_ASPECT_RELATIONSHIP" if e.is_a("SHAPE_ASPECT_RELATIONSHIP") else "SHAPE_ASPECT_DERIVING_RELATIONSHIP"
+            args = e.args(art)
+            if (len(args) < 4 or args[2] != p21.Ref(aspekt_id) or not isinstance(args[3], p21.Ref)
+                    or _ist_grenzmerkmal(datei, aspekt_id, args[0])):
+                continue
+            kind = datei.get(args[3])
+            if kind is not None and not kind.is_a("DATUM"):
+                ziele = geometrieziele_von_aspekt(datei, modell, kind.id, tiefe + 1)
+                if ziele is None:
+                    return None
+                out.update(ziele)
     return out
 
 
-def _flaechen_aus_item(modell: StepModell, item) -> set[int]:
-    if isinstance(item, p21.Ref):
-        idx = modell.step_zu_flaeche.get(item.id)
-        return {idx} if idx is not None else set()
-    if isinstance(item, p21.Typed):
-        out = set()
-        for teil in item.args:
-            out |= _flaechen_aus_item(modell, teil)
-        return out
-    if isinstance(item, list):
-        out = set()
-        for teil in item:
-            out |= _flaechen_aus_item(modell, teil)
-        return out
-    return set()
+def flaechen_von_aspekt(datei: p21.P21Datei, modell: StepModell, aspekt_id: int, tiefe: int = 0) -> set[int]:
+    """Modellflaechen der einem Formaspekt zugeordneten Geometrie."""
+    ziele = geometrieziele_von_aspekt(datei, modell, aspekt_id, tiefe)
+    return {modell.step_zu_flaeche[n] for n in ziele or () if n in modell.step_zu_flaeche}
 
 
 TEILFORM_TYPEN = ("EDGE_CURVE", "ORIENTED_EDGE", "VERTEX_POINT", "TRIMMED_CURVE", "GEOMETRIC_CURVE_SET", "LINE",
@@ -267,7 +289,8 @@ def teilformen_von_aspekt(datei: p21.P21Datei, modell: StepModell, aspekt_id: in
                             out += _kurven_aus_datei(datei, eid)
         elif e.is_a("SHAPE_ASPECT_RELATIONSHIP"):
             args = e.args("SHAPE_ASPECT_RELATIONSHIP")
-            if args[2] == p21.Ref(aspekt_id) and isinstance(args[3], p21.Ref):
+            if (args[2] == p21.Ref(aspekt_id) and isinstance(args[3], p21.Ref)
+                    and not _ist_grenzmerkmal(datei, aspekt_id, args[0])):
                 kind = datei.get(args[3])
                 if kind is not None and not kind.is_a("DATUM"):
                     out += teilformen_von_aspekt(datei, modell, args[3].id, tiefe + 1)
