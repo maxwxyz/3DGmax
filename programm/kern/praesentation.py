@@ -455,12 +455,12 @@ def in_teillage(grafik: dict[int, Grafik], pmi: list, modell) -> None:
     in Baugruppenkoordinaten). Bei mehreren Instanzen: die der PMI."""
     datei = getattr(modell, "datei", None)
     step_von = {i: eid for eid, i in getattr(modell, "step_zu_flaeche", {}).items()}
-    je_id = {p.step_id: p for p in pmi if p.flaechen}
+    je_id = {p.step_id: p for p in pmi if p.traegerflaechen()}
     for g in grafik.values():
         p = next((je_id[i] for i in sorted(g.pmi_ids) if i in je_id), None)
         if datei is None or g.erzeugt or g.kontext is None or p is None:
             continue
-        idx = min(p.flaechen)
+        idx = min(p.traegerflaechen())
         if idx >= len(modell.flaechen) or idx not in step_von:
             continue
         lage = modell.flaechen[idx].Location()

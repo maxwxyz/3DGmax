@@ -1798,7 +1798,8 @@ class Hauptfenster(QtWidgets.QMainWindow):
         self.ansicht.zeige_bezugssystem(self._bezugssystem(liste))
         if len(liste) == 1:
             p = liste[0]
-            self.statusBar().showMessage(f"{p.nummer}: {p.wert_text()}  ({tr('{} Flächen').format(len(p.flaechen))})")
+            anzahl = len(p.flaechen) + len(getattr(p, "profilausschnitte", {}))
+            self.statusBar().showMessage(f"{p.nummer}: {p.wert_text()}  ({tr('{} Flächen').format(anzahl)})")
         self._zone_aktualisieren(liste)  # danach: die Erklaerung der Zone ersetzt die Auswahlmeldung
 
     def _flaeche_gewaehlt(self, idx):
@@ -1811,7 +1812,7 @@ class Hauptfenster(QtWidgets.QMainWindow):
         if not alle:
             self.pmi.waehle(lambda p: False)
             return
-        n = self.pmi.waehle(lambda p: bool(alle & p.flaechen))
+        n = self.pmi.waehle(lambda p: bool(alle & p.traegerflaechen()))
         self.ansicht.hebe_flaechen(self.ansicht.hervor | alle)
         text = tr("Fläche {}: {} PMI").format(next(iter(alle)), n) if len(alle) == 1 else \
             tr("{} Flächen gewählt: {} PMI").format(len(alle), n)
@@ -1857,7 +1858,7 @@ class Hauptfenster(QtWidgets.QMainWindow):
         from OCC.Core.TopLoc import TopLoc_Location
         blaetter = [k for k in self.erg.baum.blaetter() if not k.hilfsgeometrie and k.form is not None]
         lagen = self.ansicht.teil_lagen
-        if len(blaetter) < 2 and not lagen:
+        if len(blaetter) < 2 and not lagen and not self.ansicht.versteckt:
             return formen, rollen
         besitzer = self._flaechen_besitzer(blaetter)
         versteckt = self.ansicht.versteckt
@@ -1900,7 +1901,7 @@ class Hauptfenster(QtWidgets.QMainWindow):
 
     def _sichtbarkeit_zonen(self):
         """Alle Zonen folgen dem Aus-/Einblenden der Teile."""
-        if self.aktionen["toleranzzonen_alle"].isChecked():
+        if self.aktionen["toleranzzonen_alle"].isChecked() or self.aktionen["toleranzzone"].isChecked():
             self._zone_aktualisieren(self.pmi.gewaehlte())
 
     def _zone_aktualisieren(self, liste):
@@ -1915,12 +1916,12 @@ class Hauptfenster(QtWidgets.QMainWindow):
         sichtbar = self.ansicht.sichtbare_flaechen()  # ausgeblendete Teile zeigen keine Zonen
         if alle:
             liste = list(self.erg.pmi) if sichtbar is None else [
-                p for p in self.erg.pmi if p.flaechen & sichtbar or (not p.flaechen and (
+                p for p in self.erg.pmi if p.traegerflaechen() & sichtbar or (not p.traegerflaechen() and (
                     getattr(p, "teilformen", None) or getattr(p, "ganzes_teil", False)))]
             nur = sichtbar
         elif not liste and self.ansicht.auswahl3d:
             nur = {i for f in self.ansicht.auswahl3d for i in [self.erg.modell.flaechen_index(f)] if i is not None}
-            liste = [p for p in self.erg.pmi if p.flaechen & nur]
+            liste = [p for p in self.erg.pmi if p.traegerflaechen() & nur]
         else:
             allgemein = None  # gewaehlte PMI: nur deren Zonen
         from OCC.Core.Bnd import Bnd_Box

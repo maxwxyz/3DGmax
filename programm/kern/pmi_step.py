@@ -249,7 +249,7 @@ def _rahmengrund(e):
     return grund, grund[4] if len(grund) > 4 else None
 
 
-def _lies_rahmen(modell: StepModell, e: Entity, zonen: dict[int, list[Entity]]) -> Pmi:
+def _lies_rahmen(modell: StepModell, e: Entity, zonen: dict[int, list[Entity]], bereichsleser) -> Pmi:
     datei = modell.datei
     grund, bezug_refs = _rahmengrund(e)
     name, beschreibung, betrag, aspekt = grund[:4]
@@ -290,6 +290,9 @@ def _lies_rahmen(modell: StepModell, e: Entity, zonen: dict[int, list[Entity]]) 
         if ziel and ziel.is_a("BETWEEN_SHAPE_ASPECT"):
             from .pmi_zwischenbereich import lies_grenzen
             p.bereichsgrenzen = lies_grenzen(datei, ziel.id) or None
+            if not p.flaechen and p.typ == "ProfileOfSurface":
+                from .profilteilflaeche import lies_ausschnitte
+                lies_ausschnitte(modell, ziel, p, bereichsleser)
         if ziel is not None and ziel.is_a("PRODUCT_DEFINITION_SHAPE"):
             p.ganzes_teil = True  # Toleranz fuer das ganze Teil (z. B. Flaechenprofil "All Over")
         elif not p.flaechen:  # Toleranz an Kanten, Punkten oder Konstruktionsgeometrie
@@ -333,7 +336,15 @@ def lies_toleranzen(modell: StepModell) -> list[Pmi]:
     datei = modell.datei
     zonen = _zonen(datei)
     toleranzen = datei.of_types_by_id(("GEOMETRIC_TOLERANCE", *TOL_ARTEN))
-    rahmen = {e.id: _lies_rahmen(modell, e, zonen) for e in toleranzen}
+
+    from functools import cache
+
+    @cache
+    def bereichsleser():
+        from .profilteilflaeche import Bereichsleser
+        return Bereichsleser(modell)
+
+    rahmen = {e.id: _lies_rahmen(modell, e, zonen, bereichsleser) for e in toleranzen}
     basis = {}
     nachbarn = {}
     for link in datei.of_type("GEOMETRIC_TOLERANCE_RELATIONSHIP"):

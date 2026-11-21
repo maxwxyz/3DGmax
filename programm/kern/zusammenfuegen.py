@@ -111,6 +111,12 @@ def _pmi_umrechnen(pmi: list, flaechen_versatz: int, id_versatz: int, nummer_ver
         if p.mittenbezug is not None:
             p.mittenbezug += flaechen_versatz
         p.projektionsflaechen = [i + flaechen_versatz for i in p.projektionsflaechen]
+        if getattr(p, "profilausschnitte", None):
+            from OCC.Core.TopoDS import topods
+            p.profilausschnitte = {_id(nr, id_versatz): (idx + flaechen_versatz, topods.Face(f.Moved(lage)))
+                                   for nr, (idx, f) in p.profilausschnitte.items()}
+        if p.bereichsgrenzen:
+            p.bereichsgrenzen = [[name, _id(kante, id_versatz)] for name, kante in p.bereichsgrenzen]
         if getattr(p, "teilformen", None):
             p.teilformen = [form.Moved(lage) for form in p.teilformen]
         p.folgetoleranzen = [_id(i, id_versatz) for i in p.folgetoleranzen]

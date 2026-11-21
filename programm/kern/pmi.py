@@ -126,6 +126,10 @@ class Pmi:
 
     # --- Darstellung ---
 
+    def traegerflaechen(self) -> set[int]:
+        """Zum Auffinden der PMI am Bauteil, einschliesslich Traegern getrimmter Bereiche."""
+        return self.flaechen | {i for i, _ in getattr(self, "profilausschnitte", {}).values()}
+
     def wert_text(self) -> str:
         if self.art == MASS:
             return self._mass_text()

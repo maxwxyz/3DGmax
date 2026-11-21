@@ -1,6 +1,7 @@
 {
  "unreleased": {
   "de": [
+   "Bei einer importierten Flächenprofiltoleranz mit separat begrenztem Flächenausschnitt zeigt die PMI-Auswahl dessen tatsächliche Kontur. Auch die Toleranzzone folgt Innenlöchern und gekrümmten Flächen. Beim Ausblenden des Trägerbauteils verschwindet die zugehörige Zone. Der PMI-Bericht nennt die STEP-Fläche des Ausschnitts.",
    "Begrenzte Profiltoleranzen lesen und schreiben die zusammengehörigen Modellflächen als STEP-Flächenmenge. Beim Prüfen grafischer PMI bleiben die ausgewählten Flächen, die beiden Randkanten und die Originalgrafik erhalten.",
    "Der Revisionsvergleich erkennt hinzugefügte, entfernte und vertauschte Grenzen eines Profilbereichs. Anfangs- und Endkante werden nach der Modellausrichtung geometrisch zugeordnet. Tabelle und CSV zeigen Änderungen sowie ungeklärte Kantenzuordnungen.",
    "Die PMI-Prüfung liest den Profilbereich A ↔ B auch ohne gespeicherte Zeichenebenen aus Kurven, gefüllten Dreiecken und offenen Strichpfeilen. Sie prüft beide Randbuchstaben und die Pfeilspitzen an den zugehörigen Modellkanten.",
@@ -221,6 +222,7 @@
    "Grafische PMI aus unterstützten AP203e2-Kurvenmodellen lassen sich als STEP AP242 Edition 3 ausgeben. Facettierte STEP-Modelle behalten ihre Flächenbezüge. Gepackte STEP-Dateien lassen sich als unkomprimierte STEP-Kopie speichern."
   ],
   "en": [
+   "Selecting an imported surface profile tolerance with a separately trimmed patch highlights its actual contour. The tolerance zone follows holes and curved faces. Hiding the supporting part also hides its zone. The PMI report identifies the patch by its STEP face number.",
    "Bounded profile tolerances read and write the associated model faces as a STEP connected face set. Reviewing graphical PMI preserves the selected faces, both boundary edges and the original graphics.",
    "Revision comparison detects added, removed and swapped profile boundaries by matching the geometry of start and end edges after model alignment. The change table and CSV show changed extents and unresolved edge matches.",
    "PMI review can read the A ↔ B extent of a profile tolerance without stored writing planes, including curves, filled triangles and open line arrows. It checks both endpoint letters and the arrowheads on the associated model edges.",

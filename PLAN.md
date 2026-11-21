@@ -243,8 +243,11 @@ Throughout: tests (core, offscreen UI, stress test, on-screen test), `--selbstte
   An ambiguous edge correspondence remains open for review. An explicit CONNECTED_FACE_SET
   resolves to its original model faces during import and graphical review. Export groups the
   faces in a separate shape representation in the part context with a related area aspect.
-  Endpoint features stay separate from the toleranced geometry. Extents requiring new
-  trimmed subfaces remain open.
+  Endpoint features stay separate from the toleranced geometry. An imported bounded
+  surface profile may also reference separately trimmed faces. The reader verifies each
+  patch lies wholly on one original face of the specified part. Selection, zone display
+  and STEP value edits retain the trims, including holes. Comparing patch interiors
+  across revisions and converting graphical-only frames on such trims remain open.
   Single-row wide control frames preserve the characteristic, diameter zone, projected height or
   maximum material and the ordered datums. Closed cell borders can also be recovered from filled
   triangles. With no writing plane the outer edges of coplanar triangles supply candidate axes. Both FTC-07's original strokes and a

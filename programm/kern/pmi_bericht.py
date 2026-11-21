@@ -6,7 +6,7 @@ from ..i18n import tr
 
 import csv
 import io
-from collections import Counter
+from collections import defaultdict
 from dataclasses import dataclass, field
 
 from .pmi import BEZUG, HINWEIS, MASS, TOLERANZ, Pmi
@@ -45,6 +45,7 @@ def tabelle(pmi: list[Pmi], ansichten: list, modell=None) -> list[dict]:
             je_pmi.setdefault(nr, []).append(a.name)
     zeilen = []
     for p in pmi:
+        ausschnitte = getattr(p, "profilausschnitte", {})
         step = [modell.flaeche_zu_step.get(i) for i in sorted(p.flaechen)] if modell is not None else []
         hoechst, mindest = p.grenzen()
         werte = [("Nr", p.nummer), ("Art", tr(ART_TEXT.get(p.art, p.art))), ("Merkmal", tr(p.merkmal())),
@@ -55,7 +56,8 @@ def tabelle(pmi: list[Pmi], ansichten: list, modell=None) -> list[dict]:
                  ("Passung", p.passung),
                  ("Toleranzwert", _zahl(p.wert)), ("Zone", p.zone), ("Zonenwert", _zahl(p.zonen_wert)),
                  ("Material", p.material), ("Modifikatoren", ", ".join(p.modifikatoren)), ("Bezüge", p.bezug_text()),
-                 ("Flächen", len(p.flaechen)), ("Flächen (STEP-#ID)", " ".join(f"#{s}" for s in step if s)),
+                 ("Flächen", len(p.flaechen) + len(ausschnitte)),
+                 ("Flächen (STEP-#ID)", " ".join(f"#{s}" for s in [*step, *sorted(ausschnitte)] if s)),
                  ("Ansichten", ", ".join(je_pmi.get(p.nummer, []))),
                  ("Semantisch", tr(JA) if p.semantisch else tr(NEIN)), ("Grafisch", tr(JA) if p.grafisch else tr(NEIN)),
                  ("STEP-#ID", f"#{p.step_id}" if p.step_id else "")]
@@ -75,10 +77,10 @@ def als_csv(zeilen: list[dict]) -> str:
 
 def _flaechenarten(p: Pmi, modell) -> set[str]:
     """Arten der zugeordneten Flaechen ('Ebene', 'Zylinder', ...); leer ohne Modell."""
-    if modell is None or not p.flaechen:
+    if modell is None or not p.traegerflaechen():
         return set()
     from .messen import art_von
-    return {art_von(modell.flaechen[i]) for i in p.flaechen if i < len(modell.flaechen)}
+    return {art_von(modell.flaechen[i]) for i in p.traegerflaechen() if i < len(modell.flaechen)}
 
 
 def _norm_regeln(pmi: list[Pmi], modell) -> list[Befund]:
@@ -141,7 +143,7 @@ def pruefe(pmi: list[Pmi], ansichten: list | None = None, modell=None) -> list[B
         if name not in benutzt:
             out.append(Befund(WARNUNG, tr("Bezug {} wird von keiner Toleranz verwendet").format(name), [p.nummer]))
     for p in pmi:
-        if p.art in (MASS, TOLERANZ, BEZUG) and not p.flaechen and p.typ != "DatumTarget":
+        if p.art in (MASS, TOLERANZ, BEZUG) and not p.traegerflaechen() and p.typ != "DatumTarget":
             out.append(Befund(WARNUNG, tr("Keine Fläche zugeordnet"), [p.nummer]))
         if p.art == MASS and p.nennwert is None:
             out.append(Befund(WARNUNG, tr("Maß ohne Wert"), [p.nummer]))
@@ -152,13 +154,14 @@ def pruefe(pmi: list[Pmi], ansichten: list | None = None, modell=None) -> list[B
         ohne = [p.nummer for p in pmi if p.nummer not in in_ansicht and p.art != BEZUG]
         if ohne:
             out.append(Befund(INFO, tr("{} PMI in keiner gespeicherten Ansicht").format(len(ohne)), ohne))
-    schluessel = Counter((p.art, p.typ, p.wert_text(), p.bezug_text(), frozenset(p.flaechen))
-                         for p in pmi if p.art in (MASS, TOLERANZ) and p.flaechen)
-    for k, n in schluessel.items():
-        if n > 1:
-            nummern = [p.nummer for p in pmi if (p.art, p.typ, p.wert_text(), p.bezug_text(),
-                                                 frozenset(p.flaechen)) == k]
-            out.append(Befund(WARNUNG, tr("Doppelt: {} ({}×) an denselben Flächen").format(k[2], n), nummern))
+    gruppen = defaultdict(list)
+    for p in pmi:
+        teile = frozenset(getattr(p, "profilausschnitte", {}))
+        if p.art in (MASS, TOLERANZ) and (p.flaechen or teile):
+            gruppen[p.art, p.typ, p.wert_text(), p.bezug_text(), frozenset(p.flaechen), teile].append(p.nummer)
+    for k, nummern in gruppen.items():
+        if len(nummern) > 1:
+            out.append(Befund(WARNUNG, tr("Doppelt: {} ({}×) an denselben Flächen").format(k[2], len(nummern)), nummern))
     from . import plausibilitaet
     out += plausibilitaet.pruefe(pmi, modell)
     rang = {FEHLER: 0, WARNUNG: 1, INFO: 2}

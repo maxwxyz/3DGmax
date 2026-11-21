@@ -706,6 +706,32 @@ def _mittelebenenzone(p, flaechen, t: float, faktor: float) -> Zone | None:
     return z if z.formen else None
 
 
+def _profilteilzone(p, modell, t, faktor):
+    """Versatz mit den echten Randdraehten und Innenkonturen des Profilbereichs."""
+    from OCC.Core.BRepCheck import BRepCheck_Analyzer
+    from OCC.Core.BRepOffsetAPI import BRepOffsetAPI_MakeOffsetShape
+    zonengrenzen = _grenzen_aussen_innen(p, t)
+    z = Zone(breite=t, faktor=faktor, art="flaechen")
+    ganze = [(i, modell.flaechen[i]) for i in sorted(p.flaechen)]
+    for idx, f in [*ganze, *p.profilausschnitte.values()]:
+        for abstand in zonengrenzen:
+            grenze = f
+            if abstand:
+                versatz = BRepOffsetAPI_MakeOffsetShape()
+                try:
+                    versatz.PerformBySimple(f, abstand * faktor)
+                    if not versatz.IsDone():
+                        return None
+                    grenze = versatz.Shape()
+                    if grenze.IsNull() or not BRepCheck_Analyzer(grenze).IsValid():
+                        return None
+                except RuntimeError:
+                    return None
+            z.dazu(grenze, quelle=idx)
+    z.hinweise += _weitere_hinweise(p)
+    return z
+
+
 def _flaechenzone(p, flaechen, t: float, faktor: float) -> Zone | None:
     aussen, innen = _grenzen_aussen_innen(p, t)
     z = Zone(breite=t, faktor=faktor, art="flaechen")
@@ -857,7 +883,8 @@ def _ist_laengenmass(p) -> bool:
 
 def breite(p) -> float | None:
     """Breite, nach der die Ueberhoehung bemessen wird (Toleranzwert bzw. Radiusband einer Masstoleranz)."""
-    if not p.flaechen and not getattr(p, "teilformen", None) and not getattr(p, "ganzes_teil", False):
+    if not (p.flaechen or getattr(p, "profilausschnitte", None) or getattr(p, "teilformen", None)
+            or getattr(p, "ganzes_teil", False)):
         return None
     if p.art == "mass" and p.typ in GROESSE:
         g = _massgrenzen(p)
@@ -890,6 +917,8 @@ def _zone(p, modell, sichtbar_mindest: float = 0.0, alle_pmi=None, faktor: float
     if faktor is None:
         faktor = max(1.0, sichtbar_mindest / b) if sichtbar_mindest > 0 and b > 0 else 1.0
     flaechen = [modell.flaechen[i] for i in sorted(p.flaechen) if i < len(modell.flaechen)]
+    if getattr(p, "profilausschnitte", None):
+        return _profilteilzone(p, modell, b, faktor)
     if not flaechen and getattr(p, "ganzes_teil", False) and p.art != "mass":  # z. B. Flaechenprofil "All Over"
         flaechen = list(modell.flaechen)
     if not flaechen and getattr(p, "teilformen", None) and p.art != "mass":

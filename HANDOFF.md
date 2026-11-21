@@ -2,6 +2,43 @@
 
 ## Current state, 2026-11-21
 
+### Read and display separately trimmed surface-profile patches
+
+- Checked PLAN §8.4 and docs/Roadmap.md. A supplemental face in the bounded profile's
+  CONNECTED_FACE_SET now has its own STEP transfer session. The reader tests the patch's
+  full area for overlap with each candidate product face, checks the product definition
+  and representation context, and keeps a result only for a unique support. This also
+  works when the patch has a separately defined geometric surface. Product topology and
+  root count are unchanged. Partial overlap leaves the association unresolved.
+- The PMI selection draws the actual trimmed region on its part. Zone offsets preserve
+  boundary wires and holes. The report uses the STEP face number of the patch. Regression
+  files cover a 20 × 50 mm planar patch with a 10 × 10 mm hole (900 mm²) and a
+  cylindrical sector. Editing 1.25 mm to 0.8 mm and reopening the exported STEP keeps the
+  patch, its boundary labels and its original callout. A rectangle crossing the edge of
+  its support is a negative control. The signed local package and STEP examples are
+  in `dist/main-pmi-teilflaechen/`.
+- The edited 0.8 mm tolerance and the hole also survived a project save and reopen.
+  A native rendering check compared pixels on the material, inside the hole and beside
+  the trim. Only the material took the selection colour. The affected run passed 506 tests
+  with eight screen tests skipped. A separate native run passed all eight screen tests
+  and four profile checks. The final five profile tests cover project reload and a
+  translated model added to a second document. The full run passed 1,101 tests with
+  the eight native screen tests skipped.
+- Selected the 459-face reconstructed pinion in the tree and exported it again using this
+  build's source. Both the input and the reopened selection reported nine face teeth and
+  459 faces. The resulting `Ausgleichsrad-9Z.step` is next to the signed app. Testing the
+  original pictured part still requires its STEP geometry.
+- Next §8.4 graphical review case: a triangle-only copy of CTC-01 has a profile frame
+  and A/B leaders on two opposite edges of the 900 mm² perforated patch. A trial moved
+  the original A and B callout graphics by (10, 0, 0) and (-70, -50, 0) mm respectively,
+  then associated them with the patch edges. The raster reader recovered the 1.25 mm
+  A/B/C frame. Both letters and arrow contacts passed when given the supplementary
+  edges. Direct STEP transfer of those edges alone failed. Transferring their parent
+  face and reading its transfer binders supplied the correct edges. The normal review
+  still has no scoped proposal for this input. Preserve the patch reference, end edges
+  and original graphics through project storage and STEP confirmation. Revision comparison
+  of patch interiors is also open. QIF remains last.
+
 ### Use grouped model faces for scoped profile tolerances
 
 - Checked PLAN §8.4 and docs/Roadmap.md against CAx-IF PMI v4.1 §6.4.3, Figure 34.

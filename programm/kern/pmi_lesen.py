@@ -135,13 +135,13 @@ def _ist_grenzmerkmal(datei, aspekt_id, name):
     return name in ("start feature", "end feature") and aspekt is not None and aspekt.is_a("BETWEEN_SHAPE_ASPECT")
 
 
-def _mengenflaechen(datei, modell, ziel):
+def _mengenflaechen(datei, ziel):
     args = ziel.args("CONNECTED_FACE_SET")
     if not args or not isinstance(args[-1], list) or not args[-1]:
         return None
     flaechen = set()
     for ref in args[-1]:
-        if not isinstance(ref, p21.Ref) or ref.id not in modell.step_zu_flaeche:
+        if not isinstance(ref, p21.Ref):
             return None
         flaeche = datei.get(ref)
         if flaeche is None or not (flaeche.is_a("ADVANCED_FACE") or flaeche.is_a("FACE_SURFACE")):
@@ -150,7 +150,7 @@ def _mengenflaechen(datei, modell, ziel):
     return flaechen
 
 
-def geometrieziele_von_aspekt(datei, modell, aspekt_id, tiefe=0) -> set[int] | None:
+def geometrieziele_von_aspekt(datei, modell, aspekt_id, tiefe=0, *, bereichsdarstellungen=None) -> set[int] | None:
     """STEP-Ziele ohne Grenzmerkmale. Unvollstaendige Flaechenmengen bleiben offen."""
     if tiefe > 6:
         return set()
@@ -167,9 +167,15 @@ def geometrieziele_von_aspekt(datei, modell, aspekt_id, tiefe=0) -> set[int] | N
                 if ziel is None or not ziel.is_a("CONNECTED_FACE_SET"):
                     out.add(nr)
                     continue
-                flaechen = _mengenflaechen(datei, modell, ziel)
+                flaechen = _mengenflaechen(datei, ziel)
                 if flaechen is None:
                     return None
+                if bereichsdarstellungen is None:
+                    if not flaechen <= modell.step_zu_flaeche.keys():
+                        return None
+                elif isinstance(args[3], p21.Ref):
+                    for f in flaechen:
+                        bereichsdarstellungen.setdefault(f, set()).add(args[3].id)
                 out.update(flaechen)
         elif e.is_a("SHAPE_ASPECT_RELATIONSHIP") or e.is_a("SHAPE_ASPECT_DERIVING_RELATIONSHIP"):
             art = "SHAPE_ASPECT_RELATIONSHIP" if e.is_a("SHAPE_ASPECT_RELATIONSHIP") else "SHAPE_ASPECT_DERIVING_RELATIONSHIP"
@@ -179,7 +185,8 @@ def geometrieziele_von_aspekt(datei, modell, aspekt_id, tiefe=0) -> set[int] | N
                 continue
             kind = datei.get(args[3])
             if kind is not None and not kind.is_a("DATUM"):
-                ziele = geometrieziele_von_aspekt(datei, modell, kind.id, tiefe + 1)
+                ziele = geometrieziele_von_aspekt(datei, modell, kind.id, tiefe + 1,
+                                                 bereichsdarstellungen=bereichsdarstellungen)
                 if ziele is None:
                     return None
                 out.update(ziele)

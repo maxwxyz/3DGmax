@@ -59,6 +59,7 @@ class Szene:
         self.farben = farben  # Flaechenindex -> RGB
         self.grafik = grafik  # Callout-ID -> Grafik
         self.pmi = pmi
+        self.profilbereiche = {p.step_id: p.profilausschnitte for p in pmi if getattr(p, "profilausschnitte", None)}
         self.pmi_text = {p.step_id: p.wert_text() for p in pmi if p.step_id}
 
 
@@ -1082,6 +1083,7 @@ class OcctAnsicht(AnsichtBasis):
 
         ctx = self.d.Context
         ctx.RemoveAll(False)
+        self._profil_ais = []
         self._drehpunkt_ais = None
         self._zeige_wuerfel()
         self._teile, self._kanten, self._flaechen_ais, self._hilfe = {}, {}, {}, []
@@ -1134,6 +1136,7 @@ class OcctAnsicht(AnsichtBasis):
         self._legende_ais = []
         self._baue_entfernt()
         self._baue_grafik()
+        self._baue_profilbereiche()
         self._baue_abweichung()
         if self.ballone:
             self.zeige_ballone(self.ballone)
@@ -1504,6 +1507,15 @@ class OcctAnsicht(AnsichtBasis):
             else:
                 ctx.Display(ais, False)
                 self._setze_teiltransparenz(nr, ais)
+        for nr, a in self._profil_ais:
+            if nr not in teile:
+                continue
+            if nr in self.versteckt or (self.abweichung is not None and not self.abweichung_ueberlagert):
+                ctx.Erase(a, False)
+            else:
+                a.SetLocalTransformation(self._teile[nr].LocalTransformation())
+                ctx.Display(a, 1, -1, False)
+                ctx.Deactivate(a)
         self._aktiviere_auswahl(teile)
         if nummern is None:
             for ais in self._hilfe:
@@ -2167,8 +2179,40 @@ class OcctAnsicht(AnsichtBasis):
             c = c.Transformed(self.vergleich_trsf)
         return (c.X(), c.Y(), c.Z())
 
+    def _baue_profilbereiche(self):
+        from OCC.Core.AIS import AIS_Shape
+        from OCC.Core.Aspect import Aspect_POM_Fill, Aspect_TOL_SOLID
+        from OCC.Core.Graphic3d import Graphic3d_TOSM_UNLIT
+        from OCC.Core.Prs3d import Prs3d_LineAspect
+        ctx = self.d.Context
+        for _, a in self._profil_ais:
+            ctx.Remove(a, False)
+        self._profil_ais = []
+        bereiche = self.szene.profilbereiche
+        if not self.pmi_ids_hervor & bereiche.keys():
+            return
+        nummern = {id(teil): nr for nr, teil in self._teile.items()}
+        farbe = _farbe((self.thema or {}).get("hervor", (1, .45, 0)))
+        rand = Prs3d_LineAspect(_farbe((self.thema or {}).get("kante", (.15, .17, .2))), Aspect_TOL_SOLID, 1.0)
+        for nr in self.pmi_ids_hervor & bereiche.keys():
+            for idx, form in bereiche[nr].values():
+                zurueck = self.szene.modell.flaechen[idx].Location().Inverted()
+                for teil, vorkommen in self._flaechen_ais.get(idx, ()):
+                    a = AIS_Shape(form.Moved(vorkommen.Location().Multiplied(zurueck)))
+                    a.SetColor(farbe)
+                    a.Attributes().SetShadingModel(Graphic3d_TOSM_UNLIT, True)
+                    a.Attributes().SetFaceBoundaryDraw(True)
+                    a.Attributes().SetFaceBoundaryAspect(rand)
+                    a.SetPolygonOffsets(Aspect_POM_Fill, -1., -1.)
+                    self._profil_ais.append((nummern[id(teil)], a))
+
     def hebe_pmi(self, ids):
+        vorher = self.pmi_ids_hervor
         super().hebe_pmi(ids)
+        if (self._bereit and self.szene and (vorher ^ self.pmi_ids_hervor) & self.szene.profilbereiche.keys()
+                and getattr(self, "_szene_gebaut", None) is self.szene):
+            self._baue_profilbereiche()
+            self._wende_sichtbarkeit_an()
         self._aktualisiere_pmi_grafik()
 
     def setze_grafik(self, an, nur_auswahl=False, erzeugt=True):
@@ -3161,6 +3205,13 @@ class OcctAnsicht(AnsichtBasis):
             for _ais, f in self._flaechen_ais.get(idx, [])[:1]:
                 out.append(f.Moved(lage) if lage is not None else f)
         out += list(formen or [])
+        for nr in (pmi_ids or set()) & self.szene.profilbereiche.keys():
+            for idx, teil in self.szene.profilbereiche[nr].values():
+                zurueck = self.szene.modell.flaechen[idx].Location().Inverted()
+                for ais, f in self._flaechen_ais.get(idx, ()):
+                    if self.d.Context.IsDisplayed(ais):
+                        lage_teil = TopLoc_Location(ais.LocalTransformation()).Multiplied(f.Location()).Multiplied(zurueck)
+                        out.append(teil.Moved(lage_teil))
         for cid, liste in self._callouts.items():
             if pmi_ids and self.szene.grafik[cid].pmi_ids & set(pmi_ids):
                 for ais in liste:
