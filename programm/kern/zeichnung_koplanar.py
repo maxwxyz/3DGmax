@@ -149,6 +149,7 @@ def _faecher(m, skala, breite, rand):
 
 
 def _lesung(streifen, breite, hoehe):
+    from .zeichnung_musterzeile import musterzeile
     from .zeichnungsblatt import _box, _zeile
     rand = .22
     # Erst die Rahmenfaecher pruefen, dann nur bei lesbarem Rahmen den groesseren Hinweisbereich rendern.
@@ -159,7 +160,13 @@ def _lesung(streifen, breite, hoehe):
         return None
     texte = [_zeile(m[t+2:b-2,l+2:r-2]) for l,t,r,b in paar[1]]
     kopf = " | ".join(texte)
+    rahmen = streifen.blattecken(np.array([0,0,breite,1])*hoehe)
+    if not rahmen:
+        return None
     if texte[0] not in ("⌓", "⌖"):
+        # Eine eigenstaendige Masszeile behaelt ihre Bedeutung auch bei unlesbarem Rahmenzeichen.
+        if len(texte) >= 3 and texte[1].startswith("⌀") and (mass := musterzeile(streifen, breite, hoehe)):
+            return None, rahmen, mass
         return None
     skala = 140
     fenster[2:] = [max(15., breite+1), 3.9]
@@ -171,12 +178,8 @@ def _lesung(streifen, breite, hoehe):
     fein = [_zeile(m[t+2:b-2,l+2:r-2]) for l,t,r,b in reihe]
     if fein[0] != texte[0]:
         return None
-    rahmen = streifen.blattecken(np.array([0,0,breite,1])*hoehe)
-    if not rahmen:
-        return None
     mass = None
     if texte[0] == "⌖":
-        from .zeichnung_musterzeile import musterzeile
         mass = musterzeile(streifen, breite, hoehe)
     rahmenbox = (*reihe[0][:2], reihe[-1][2], reihe[0][3])
     fund = _schriftblock(m, rahmenbox, zellen, skala) if fein == texte and lese_angabe(kopf, 1.) else None

@@ -271,6 +271,14 @@ Throughout: tests (core, offscreen UI, stress test, on-screen test), `--selbstte
   resolution of the lettering. Verify the separate bent leader and read the entire
   remaining diameter row at two glyph resolutions. The exported Ø2.00 ±.01 inch
   bore agrees with AP242 #267 in limits, axis, radius and axial extent.
+  CTC-03 Rev C sheet 1 also reads this individual diameter above the projected
+  frame. All seven bore dimensions have distinct text boxes and leader starts.
+  The two single Ø.438 rows and the 2X Ø.438 pattern remain separate. Three
+  semantic PMI share their numeric limits, so assigning these requires further
+  feature evidence or review. Confirmed Ø2.00 on both the semantic reference
+  and the reopened graphical-to-semantic export through the comparison dialog
+  and CSV. FTC-06 illustrates a precision difference between drawing and STEP:
+  .562 ±.008 inch on the drawing and .5625 ±.008 inch on semantic PMI #271.
   Three other position control frames on the inch-based CTC-03 model identify the D/B/C datum
   order and a perpendicularity control identifies datum E. Previously the printed D could
   be read as B. Verified the six labelled datums A through F and four tolerance frames

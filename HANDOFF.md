@@ -2,6 +2,38 @@
 
 ## Current state, 2026-11-21
 
+### Compare individual bore sizes on projected drawings
+
+- Checked PLAN §8.4 and the oblique-view registration work against
+  docs/Roadmap.md. NIST CTC-03 Rev C sheet 1 yields all seven printed bore
+  dimensions with seven distinct vector leader starts. The app reads left-,
+  centre- and right-aligned text, including compressed lettering next to a
+  diameter symbol. Overlapping native PDF text and graphical readings are
+  reconciled. Conflicting values at the same location stay open.
+- The two Ø.438 ±.005 inch single bores and the 2X pattern each have their
+  own finding. Three AP242 dimensions share these limits. The dialog leaves
+  both singles unassigned without geometry evidence. Checked Ø2.00 ±.01
+  against #267 and again after graphical #3629 was reviewed, exported to STEP
+  and reopened. Both comparisons reach the confirmed equal result in CSV.
+- Across 42 reference sheets the inventory increased from 153 to 169, with
+  no previous row lost. Inspected all 16 additional readings against the PDF.
+  Fifteen have matching numeric limits in the model. FTC-06 sheet 1 actually
+  prints 2X Ø.562 ±.008 inch, while AP242 #271 stores .5625 ±.008 inch.
+  The nominal and both limits differ by 0.0127 mm. Comparing printed values
+  does not establish that the underlying physical bore changed.
+- Passed 49 affected tests, 84 regression cases and 31 native Cocoa tests.
+  The signed app rendered the reviewed export and passed its self-test.
+  Keep one main app in `dist/3DGmax.app`.
+- Next: geometric assignment of the CTC-03 projected bores. The current
+  vector reader reports four rings on sheet 1 and cannot follow the seven
+  leaders to a confirmed bore. The central rim is a closed 23-point stroked
+  vector path. Its fitted major and minor radii are 56.72 and 32.73 pixels,
+  but the largest normalised chord-midpoint error is 0.025. Compare chord
+  error to the actual printed line width and local contrast; check holes,
+  nearby partial back rims and intentionally polygonal contours separately.
+  The independent graphical CTC-03 #3634 linear pattern is still open.
+  QIF stays last.
+
 ### Recover the toleranced central bore beside a long bent leader
 
 - Checked PLAN §8.4 against docs/Roadmap.md. NIST CTC-03 AP203 #3629

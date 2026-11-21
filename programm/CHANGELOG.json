@@ -1,6 +1,7 @@
 {
  "unreleased": {
   "de": [
+   "Der Zeichnungsvergleich liest einzelne Durchmessermaße und Lochmuster über schräg dargestellten Toleranzrahmen. Auch bei gleichen Maßwerten bleiben getrennte Beschriftungen und ihre Hinweislinien einzeln prüfbar.",
    "Die PMI-Prüfung liest Durchmessermaße auch neben langen geknickten Maßpfeilen. Beim STEP-Export bleiben das geprüfte Maß, die zugehörige Bohrungsfläche und die Originalgrafik erhalten.",
    "Der Zeichnungsvergleich liest den projizierten Positionsrahmen für die Schalterbefestigung und führt das darüberstehende Bohrungsmaß mit Stückzahl separat. Fehlende Montagehinweise und abweichende PMI-Felder erscheinen im Dialog und in der CSV-Prüfliste.",
    "Die PMI-Prüfung liest den zweizeiligen Hinweis „SWITCH MOUNTING LOCATIONS“ unter einem Positionsrahmen auch aus Strichschrift und Dreiecksfüllungen. Beim STEP-Export bleiben Wortlaut, Maximum-Material-Bedingung, Bezüge, Bohrungsflächen und Originalgrafik erhalten.",
@@ -242,6 +243,7 @@
    "Grafische PMI aus unterstützten AP203e2-Kurvenmodellen lassen sich als STEP AP242 Edition 3 ausgeben. Facettierte STEP-Modelle behalten ihre Flächenbezüge. Gepackte STEP-Dateien lassen sich als unkomprimierte STEP-Kopie speichern."
   ],
   "en": [
+   "Drawing comparison reads individual bore diameters and counted patterns above projected tolerance frames. Separate callouts and their leaders can be reviewed individually even when their printed sizes match.",
    "PMI review reads diameter dimensions beside long bent leaders. STEP export preserves the reviewed dimension, its bore face and the original graphics.",
    "Drawing comparison reads the projected switch-mounting position control and lists the counted bore diameter above it separately. The dialog and CSV report identify missing mounting notes and differing PMI fields.",
    "PMI review reads the two-line “SWITCH MOUNTING LOCATIONS” caption below a position frame, including single strokes and triangle fills. STEP export preserves the wording, maximum material requirement, datums, bore faces and original graphics.",

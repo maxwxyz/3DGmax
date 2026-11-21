@@ -19,7 +19,7 @@ TEXT = KOPF+"\nSWITCH MOUNTING\nLOCATIONS"
 
 
 def _blatt(ziel, *, menge="4", ring=r"\330", zeilen=("SWITCH MOUNTING", "LOCATIONS"),
-           schraeg=True, steghoehe=20, hinweis=True, rahmenwert=".12"):
+           schraeg=True, steghoehe=20, hinweis=True, rahmenwert=".12", massbeginn=1):
     pdf = PdfWriter()
     seite = pdf.add_blank_page(560,320)
     font = DictionaryObject({NameObject(k): NameObject(v) for k,v in [
@@ -39,12 +39,13 @@ def _blatt(ziel, *, menge="4", ring=r"\330", zeilen=("SWITCH MOUNTING", "LOCATIO
     text(87,5,"C")
     for i,wort in enumerate(zeilen):
         text(1,-18*(i+1),wort)
-    mass = menge+"X "+ring+r".625 \261.005"
-    text(1,24,mass)
+    mass = (menge+"X " if menge is not None else "")+ring+r".625 \261.005"
+    text(massbeginn,24,mass)
     if hinweis == "links":
         daten.append("-3 29 m -15 29 l -30 40 l S")
     elif hinweis:
-        daten.append("100 29 m 109 29 l 130 43 l S")
+        x = massbeginn + (99 if menge is not None else 78)
+        daten.append(f"{x} 29 m {x+9} 29 l {x+30} 43 l S")
     stream = DecodedStreamObject()
     stream.set_data("\n".join([*daten, "Q"]).encode("ascii"))
     seite[NameObject("/Contents")] = pdf._add_object(stream)
@@ -115,6 +116,80 @@ def test_weitere_muster_mit_hinweisziel(kennung, blatt, wort, einheit, ids):
     assert a.modell is None
 
 
+def test_einzelmasse_und_muster_am_richtigen_blattort():
+    from programm.kern.zeichnungsansicht import Blattgeometrie
+    from programm.ui.lader import lade_alles
+    pdf = NIST/"PDF/nist_ctc_03_asme1_rc.pdf"
+    modell = NIST/"nist_ctc_03_asme1_ap242-e2.stp"
+    if not pdf.is_file() or not modell.is_file():
+        pytest.skip("Lokales NIST-Referenzpaar fehlt")
+    # Die zwei rechts uebereinander liegenden Einzelbohrungen tragen denselben Wert.
+    erwartet = [
+        ("2X⌀.438±.005",{263,264,266}), ("⌀2.00±.01",{267}),
+        ("4X⌀.625±.005",{265}), ("⌀.438±.005",{263,264,266}),
+        ("⌀1.065±.003",{271}), ("⌀.438±.005",{263,264,266}), ("⌀1.500±.005",{268})]
+    with pdfium.PdfDocument(pdf) as doc:
+        b = Zeichnungsblatt(doc,0)
+        try:
+            zeilen = sorted((a for a in b.fundstellen() if a.hinweisenden),key=lambda a:a.box[1])
+            geo = Blattgeometrie(b,mit_ellipsen=True)
+            starts = [geo._starts(a.box,None,True,a.hinweisenden) for a in zeilen]
+            assert all(len(st) == 1 for st in starts) and len({st[0] for st in starts}) == len(erwartet)
+        finally:
+            b.schliesse()
+    e = lade_alles(str(modell))
+    for a,(text,ids) in zip(zeilen,erwartet,strict=True):
+        assert a.text == text and a.modell is None and a.blattziel is None
+        p = za.lese_angabe(a.text,25.4)
+        assert {q.step_id for q in e.pmi if q.semantisch and not za.unterschiede(p,q)} == ids
+
+
+def test_gedruckter_wert_hat_weniger_dezimalstellen_als_step():
+    from programm.ui.lader import lade_alles
+    pdf = NIST/"PDF/nist_ftc_06_asme1_rd.pdf"
+    modell = NIST/"nist_ftc_06_asme1_ap242-e2.stp"
+    if not pdf.is_file() or not modell.is_file():
+        pytest.skip("Lokales NIST-Referenzpaar fehlt")
+    a, = [a for a in _funde(pdf) if a.text == "2X⌀.562±.008"]
+    p = za.lese_angabe(a.text,25.4)
+    ref = next(p for p in lade_alles(str(modell)).pmi if p.step_id == 271)
+    assert len(a.hinweisenden) == 1 and p.oben == pytest.approx(ref.oben)
+    assert ref.nennwert-p.nennwert == pytest.approx(.0005*25.4)
+    assert za.wertunterschiede(p, ref) == ["nennwert", "maximum", "minimum"]
+
+
+@pytest.mark.parametrize("optionen,erkannt", [
+    ({}, True), ({"schraeg":False}, True), ({"massbeginn":26}, True),
+    ({"massbeginn":65}, False), ({"ring":"8"}, False), ({"ring":"O"}, False),
+    ({"hinweis":False}, False), ({"rahmenwert":"XX"}, True),
+])
+def test_einzelmass_ohne_stueckzahl(tmp_path, optionen, erkannt):
+    pdf = tmp_path/"Einzelmass.pdf"
+    _blatt(pdf, menge=None, **optionen)
+    funde = _funde(pdf)
+    zeilen = [a for a in funde if a.hinweisenden and a.text.startswith("⌀")]
+    assert len(zeilen) == int(erkannt)
+    if erkannt:
+        assert zeilen[0].text == "⌀.625±.005"
+        assert sum(za.lese_angabe(a.text,1).typ == "Size_Diameter"
+                   for a in funde if za.lese_angabe(a.text,1)) == 1
+
+
+def test_abweichender_pdf_text_am_selben_ort():
+    from programm.kern.zeichnungsblatt import _mass_eintragen
+    grafik = za.Blattangabe(0,(.30,.10,.40,.14),"⌀2.00±.01",hinweisenden=((.42,.12),))
+    for text in ("Ø2.00±.01", "Ø2.00±.02", "2XØ2.00±.01"):
+        pdf = replace(grafik, box=(.301,.101,.401,.141),text=text,hinweisenden=())
+        andere = replace(pdf, box=(.45,.10,.55,.14))
+        funde = {a.box:a for a in (pdf,andere)}
+        _mass_eintragen(funde,grafik,1000,1000)
+        assert len(funde) == 2 and funde[andere.box].text == text
+        if text == "Ø2.00±.01":
+            assert funde[grafik.box] is grafik
+        else:
+            assert funde[pdf.box].text == "?"
+
+
 def test_felder_einzeln_und_ohne_zeichnungseinheit():
     angabe = za.Blattangabe(0,(0,0,1,1),TEXT)
     p = za.lese_angabe(TEXT,25.4)
@@ -142,7 +217,7 @@ def test_zeichnungsbefund_bis_csv(fenster, tmp_path, monkeypatch, reparieren):
         with gzip.open(pfad("nist_ctc_03_asme1_ap203.stp.gz"), "rb") as f:
             quelle.write_bytes(f.read())
         fenster.lade(str(quelle), warten=True)
-        for nr in (3643, 3632, 3624, 3627, 3638):
+        for nr in (3643, 3632, 3624, 3627, 3638, 3629):
             p = next(p for p in fenster.erg.pmi if p.step_id == nr)
             fenster._pmi_befehl("semantisch", p)
             dialog = fenster._semantik_dialog
@@ -173,6 +248,18 @@ def test_zeichnungsbefund_bis_csv(fenster, tmp_path, monkeypatch, reparieren):
         assert d._befund(position) == ("gleich" if reparieren else "geaendert")
         if not reparieren:
             assert HINWEIS in d.detail.text()
+        doppelt = [a for a in d.seiten[0] if a.text == "⌀.438±.005"]
+        assert len(doppelt) == 2 and doppelt[0].hinweisenden != doppelt[1].hinweisenden
+        for a in doppelt:
+            d.waehle(a)
+            assert d.zuordnung.currentData() is None and a.modell is None
+        bohrung, = [a for a in d.seiten[0] if a.text == "⌀2.00±.01"]
+        d.waehle(bohrung)
+        durchmesser = ziel_pmi(267,3629)
+        assert d.zuordnung.currentData() == d.modellindex[id(durchmesser)]
+        assert bohrung.modell is None
+        d.bestaetigen.click()
+        assert bohrung.modell is durchmesser and d._befund(bohrung) == "gleich"
         d._export()
         with ziel.open(encoding="utf-8-sig") as f:
             daten = list(csv.DictReader(f,delimiter=";"))
@@ -185,5 +272,8 @@ def test_zeichnungsbefund_bis_csv(fenster, tmp_path, monkeypatch, reparieren):
         else:
             assert HINWEIS in z["Vergleich der angegebenen Werte"] and "Im Modell: –" in z["Vergleich der angegebenen Werte"]
         assert any(z["Angabe"] == mass.text and z["Befund"] == "Zu prüfen" for z in daten)
+        bore, = [z for z in daten if z["Angabe"] == bohrung.text]
+        assert bore["Befund"] == "Werte gleich" and bore["Quell-ID der Modell-PMI"] == str(durchmesser.step_id)
+        assert sum(z["Angabe"] == doppelt[0].text and z["Befund"] == "Zu prüfen" for z in daten) == 2
     finally:
         d.close()

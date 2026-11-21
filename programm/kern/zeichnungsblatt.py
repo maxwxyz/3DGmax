@@ -103,16 +103,16 @@ def _enthaelt(bereich, x, y):
     return seiten.min() >= 0 or seiten.max() <= 0
 
 
-def _muster_eintragen(angaben, mass, w, h):
-    """PDF-Text und grafisch gelesene Menge am selben Ort nur einmal fuehren."""
+def _mass_eintragen(angaben, mass, w, h):
+    """PDF-Text und grafisch gelesenes Mass am selben Ort nur einmal fuehren."""
     raster = np.array([w,h,w,h])
-    gleiche = [a for a in angaben.values() if musteranzahl(a.text)
-               and np.max(np.abs(np.subtract(a.box,mass.box))*raster) <= 4]
+    gleiche = [a for a in angaben.values() if np.max(np.abs(np.subtract(a.box,mass.box))*raster) <= 4
+               and "|" not in a.text]
     if gleiche:
         from .zeichnungsabgleich import unterschiede
         gelesen = lese_angabe(mass.text, 1.)
-        if any(musteranzahl(a.text) != musteranzahl(mass.text) or
-               not (p := lese_angabe(a.text, 1.)) or unterschiede(p, gelesen) for a in gleiche):
+        if any(musteranzahl(a.text) != musteranzahl(mass.text)
+               or not (p := lese_angabe(a.text, 1., a.grundmass)) or unterschiede(p, gelesen) for a in gleiche):
             for a in gleiche:
                 a.text = "?"
             return
@@ -559,7 +559,7 @@ class Zeichnungsblatt:
         self._rahmenzusaetze(rahmen.values())
         for fund, _, mass in mit_hinweis:
             if mass:
-                _muster_eintragen(rahmen, mass, w, h)
+                _mass_eintragen(rahmen, mass, w, h)
             if not fund:
                 continue
             # Waagerechte Rahmen koennen schon durch die allgemeine Zellensuche belegt sein.
