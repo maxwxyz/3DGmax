@@ -1,24 +1,13 @@
 """Kreismuster einer orthogonalen PDF-Ansicht den Zylinderflaechen eines Einzelteils zuordnen."""
 
 from collections import defaultdict
-from dataclasses import dataclass
+from dataclasses import replace
 import math
 
 import numpy as np
 from scipy.spatial import cKDTree
 
-
-@dataclass(frozen=True)
-class Blattkreis:
-    x: float
-    y: float
-    r: float
-    flaechen: frozenset = frozenset()
-    tauschgruppe: frozenset = frozenset()
-
-    @property
-    def mitte(self):
-        return self.x, self.y
+from .blattring import Blattkreis, ellipse, ringmitte
 
 
 def _kreis(punkte):
@@ -122,7 +111,7 @@ def _sichtbar(mask, p):
 
 
 class Blattgeometrie:
-    def __init__(self, blatt, *, mit_rundungen=False):
+    def __init__(self, blatt, *, mit_rundungen=False, mit_ellipsen=False):
         import ctypes as ct
         from pypdfium2 import raw
         h, w = blatt.bild.shape[:2]
@@ -152,10 +141,10 @@ class Blattgeometrie:
             for pfad in _teilpfade(obj):
                 p = np.asarray(pfad) @ abbildung + verschiebung
                 if len(p) >= 12:
-                    k = _kreis(p)
+                    k = _kreis(p) or (ellipse(p) if mit_ellipsen else None)
                     if k and _sichtbar(mask, p[::max(1, len(p)//36)]):
                         if strich.value:
-                            kreise[tuple(round(v, 1) for v in (k.x, k.y, k.r))] = k
+                            kreise[tuple(round(v, 1) for v in k.form)] = k
                         elif fuellung.value:
                             x, y = p.T
                             ringraender.append((k, np.sign(x @ np.roll(y, 1) - y @ np.roll(x, 1))))
@@ -186,10 +175,10 @@ class Blattgeometrie:
                     self.rundungen.append(q)
             if len(ringraender) == 2:
                 (k, sinn), (j, sinn2) = ringraender
-                if (math.hypot(k.x-j.x, k.y-j.y) < .15 and abs(k.r-j.r) < min(4., .18*k.r)
-                        and (sinn != sinn2 or fuellung.value == raw.FPDF_FILLMODE_ALTERNATE)):
-                    ring = Blattkreis((k.x+j.x)/2, (k.y+j.y)/2, (k.r+j.r)/2)
-                    kreise[tuple(round(v, 1) for v in (ring.x, ring.y, ring.r))] = ring
+                if sinn != sinn2 or fuellung.value == raw.FPDF_FILLMODE_ALTERNATE:
+                    ring = ringmitte(k,j)
+                    if ring:
+                        kreise[tuple(round(v, 1) for v in ring.form)] = ring
         self.kreise = list(kreise.values())
         self.linien = np.array(linien).reshape(-1,2,2)
         self.enden = cKDTree(self.linien.reshape(-1,2))
@@ -228,7 +217,12 @@ class Blattgeometrie:
 
     def im_bereich(self, box):
         l, t, r, b = (np.array(box).reshape(2,2) * self.groesse).ravel()
-        return [k for k in self.kreise if l <= k.x-k.r and k.x+k.r <= r and t <= k.y-k.r and k.y+k.r <= b]
+        ringe = []
+        for k in self.kreise:
+            dx,dy = k.halbausdehnung()
+            if l <= k.x-dx and k.x+dx <= r and t <= k.y-dy and k.y+dy <= b:
+                ringe.append(k)
+        return ringe
 
     def hinweisziel(self, box, kreise, durchmesseranfang=None, musterzeile=False):
         """Ein einzelner unverzweigter Linienzug vom Beschriftungsrand zur Dreiecksspitze."""
@@ -358,10 +352,11 @@ class Blattgeometrie:
         quer = []
         if spitzen:
             x,y = spitzen[0][0]
-            alle = [a for a in self.kreise if abs(math.hypot(a.x-x, a.y-y)-a.r) < 1.6]
+            alle = [a for a in self.kreise if abs(a.x-x) <= a.r+1.6 and abs(a.y-y) <= a.r+1.6
+                    and a.randabstand(x,y) < 1.6]
             if len(alle) != 1:
                 return None
-            ziel = next((a for a in kreise if (a.x,a.y,a.r) == (alle[0].x,alle[0].y,alle[0].r)), None)
+            ziel = next((a for a in kreise if a.form == alle[0].form), None)
             if ziel is None:
                 return None
         else:
@@ -460,7 +455,8 @@ def modellkreise(modell, pruefe=lambda: None):
             schluessel = (richtung, *np.round(zentrum, 6), round(basis[2] @ mitte, 6), round(info[1]["r"], 6))
             boegen[schluessel].append((phi, phi + ende-start, i))
     ansichten = defaultdict(lambda: defaultdict(list))
-    for (k, x, y, _, r), teile in boegen.items():
+    tiefen = defaultdict(list)
+    for (k, x, y, tiefe, r), teile in boegen.items():
         intervalle = [(max(0., a-s), min(math.tau, b-s)) for a,b,_ in teile for s in (0., math.tau) if b >= s]
         bis = 0.
         for a, b in sorted(intervalle):
@@ -471,13 +467,14 @@ def modellkreise(modell, pruefe=lambda: None):
             # Getrennte koaxiale Sackloecher sind in der Projektion deckungsgleich.
             komponenten = ansichten[k][x, y, r]
             wand = {i for _, _, i in teile}
+            tiefen[k,x,y,r].append((tiefe,frozenset(wand)))
             for andere in komponenten.copy():
                 if wand & andere:
                     wand.update(andere)
                     komponenten.remove(andere)
             komponenten.append(wand)
-    return [[Blattkreis(*ort, frozenset(wand[0]) if len(wand) == 1 else frozenset())
-             for ort, wand in gruppe.items()] for gruppe in ansichten.values()]
+    return [[Blattkreis(*ort, frozenset(wand[0]) if len(wand) == 1 else frozenset(),raender=tuple(tiefen[k,*ort]))
+             for ort, wand in gruppe.items()] for k,gruppe in ansichten.items()]
 
 
 def _modellpunkte(mitten, radien):
@@ -613,17 +610,43 @@ def zuordnen(kreise, ansichten, pruefe=lambda: None, *, mit_gruppen=False):
     def daten(zeilen):
         return np.array([(k.x, k.y, k.r) for k in zeilen])
 
+    kreisfoermig = [k for k in kreise if not k.kurz]
+    if kreisfoermig and len(kreisfoermig) < len(kreise):
+        # Ovale Schriftzeichen im Rahmen duerfen eine axiale Ansicht nicht verdraengen.
+        kreise = kreisfoermig
+        if len(kreise) < 3:
+            return []
+    schraeg = not kreisfoermig
+    if schraeg:
+        from .schraegansicht import schraegbild, schraegpassungen
+        bild = schraegbild(kreise)
+        if bild is None:
+            return []
     z = daten(kreise)
     beste = (0, 0)
     verbunden = DisjointSet()
     immer = set()
+    feste_ellipsen = None
     for gruppe in ansichten:
-        if len(gruppe) < max(3, beste[0]):
+        if len(gruppe) < 3:
             continue
-        for rang, treffer in _passungen(daten(gruppe), z, pruefe, beste[0]):
+        if schraeg:
+            passungen = schraegpassungen(gruppe,bild,pruefe)
+        elif len(gruppe) >= beste[0]:
+            passungen = ((rang,[(int(j),gruppe[i].flaechen) for i,j in treffer])
+                         for rang,treffer in _passungen(daten(gruppe),z,pruefe,beste[0]))
+        else:
+            continue
+        for rang,paare in passungen:
             if rang < beste:
                 continue
-            paare = [(int(j), gruppe[i].flaechen) for i,j in treffer]
+            if schraeg:
+                # Beide sichtbaren Raender eines Durchgangs koennen dieselbe Bohrungswand bezeichnen.
+                eindeutig = {j:wand for j,wand in paare if wand}
+                if feste_ellipsen is None:
+                    feste_ellipsen = eindeutig
+                else:
+                    feste_ellipsen = {j:wand for j,wand in feste_ellipsen.items() if eindeutig.get(j) == wand}
             # Auch bei geteilten Mantelflaechen muss jeder Kreis eine eigene Bohrung treffen.
             belegt, doppelt = set(), set()
             for _, wand in paare:
@@ -652,7 +675,9 @@ def zuordnen(kreise, ansichten, pruefe=lambda: None, *, mit_gruppen=False):
             # Jede Passung bildet diese Blattmenge bijektiv auf dieselben Waende ab.
             for j in orte:
                 zuordnung[j] = (frozenset(), waende)
-    return [Blattkreis(kreise[j].x, kreise[j].y, kreise[j].r, *zuordnung[j]) for j in sorted(zuordnung)]
+    if feste_ellipsen:
+        zuordnung.update((j,(wand,frozenset())) for j,wand in feste_ellipsen.items())
+    return [replace(kreise[j],flaechen=zuordnung[j][0],tauschgruppe=zuordnung[j][1]) for j in sorted(zuordnung)]
 
 
 def muster_am_ziel(anker, anzahl, sichtbar, zugeordnet):
@@ -661,6 +686,12 @@ def muster_am_ziel(anker, anzahl, sichtbar, zugeordnet):
         return ()
     ringe = [k for k in sichtbar if abs(k.r-anker.r) <= .75]
     passend = tuple(k for k in zugeordnet if abs(k.r-anker.r) <= .75)
+    if anker.kurz and len(ringe) == len(passend) > anzahl and all(k.flaechen for k in passend):
+        # Zwei sichtbare Raender derselben vollstaendig zugeordneten Bohrung nur einmal zaehlen.
+        je_wand = {k.flaechen:k for k in passend}
+        je_wand[anker.flaechen] = anker
+        if len(je_wand) == anzahl:
+            return tuple(je_wand.values())
     if len(ringe) != anzahl or len(passend) != anzahl:
         return (anker,)
     if any(math.hypot(k.x-q.x, k.y-q.y) < 1.5 for i,k in enumerate(passend) for q in passend[:i]):

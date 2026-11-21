@@ -30,7 +30,7 @@ class Blattangabe:
     modell: Pmi | None = None
     nur_zeichnung: bool = False
     zielkonflikt: bool = False
-    blattziel: tuple | None = None  # bestaetigter Kreis: x/Breite, y/Hoehe, Radius/Breite
+    blattziel: tuple | None = None  # x/Breite, y/Hoehe, r/Breite; bei Ellipsen zusaetzlich b/Breite und Winkel
     musterziele: tuple[Musterziel, ...] = ()
     einzelpruefung: bool = False
 

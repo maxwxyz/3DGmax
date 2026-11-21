@@ -2,6 +2,37 @@
 
 ## Current state, 2026-11-21
 
+### Oblique orthographic hole views in drawing comparison
+
+- Checked PLAN §§8.35–8.37 and docs/Roadmap.md. File → Compare PMI with 2D drawing can register
+  complete vector ellipses in a hole pattern. It uses both semi-axes, the major-axis direction
+  and the axial station of each complete circular STEP boundary. Scale, rotation, tilt sign
+  and reflection must explain the entire selected oblique pattern. Shape ambiguity stays open.
+  Where the same through-bore wall is visible at both ends, an otherwise unambiguous quantity
+  dimension counts that bore once. Both existing axial-view matching and the reconstruction
+  dialogs retain their circular-rim behaviour.
+- Two generated PDF tests exercised fitted annular paths, same-size competing bores, a bent
+  leader, clicks on the minor-axis rim and CSV export. The second drawing reflected the pattern
+  and put the rims at different depths. The arrow selected the correct model PMI with the
+  changed nominal. Tests also covered coaxial openings at distinct depths, coincident candidate
+  walls, symmetric groups, inconsistent tilts, broken paths and projecting both rims of each bore.
+  The original NIST D2MI 904 sheet 1 and STEP file registered eight ellipses at four centres.
+  The four outer rims matched diameter #103256 (5.461 to 5.715 mm), with pairwise ambiguity
+  between individual bore walls.
+- In a seeded local experiment 120 six-hole patterns with varied depths, random rotations
+  and perturbed drawing data recovered all six intended faces. For a dense synthetic model with
+  320 equal-diameter holes (640 rims), vectorising the pose checks reduced one local run from
+  9.5 to 1.8 s; one of eight selected rims remained ambiguous. This measures geometry matching
+  only. All 58 affected tests and all 59 native comparison tests passed. The eight native
+  macOS screen tests also passed. All 2579 UI strings have English entries.
+- Next in §8.35, a PDF probe followed a sloping leader baseline and sampled an inclined
+  copy of the real D2MI graphical callout at three resolutions. It recovered the entire
+  “4X⌀.215-.225” row at 28°, −38° and 147°. At 147° a short strip reproducibly omitted
+  the upper limit. Production discovery therefore needs the whole printed row, both reading
+  directions, retained sheet coordinates and reconnection to the exact leader after review.
+  Partial rims, section geometry, composite controls and whole-drawing equivalence remain open.
+  QIF remains the final implementation item.
+
 ### Solid truncated cones from PDF drawings
 
 - Checked PLAN §§8.35–8.37 and docs/Roadmap.md. File → Shaft from 2D drawing also recognizes

@@ -1620,7 +1620,19 @@ adjacent row at multiple resolutions and adds a finding when the readings agree.
 text even when the view cannot be registered uniquely. Manually removed findings stay removed.
 The reviewer can also click a matched ring. The CSV stores the accepted circle in sheet coordinates.
 
-Remaining work includes views in which holes project as ellipses, sections, non-circular features and leaders on section or edge geometry, automatically
+For an oblique orthographic hole view, select full vector ellipses with a common major direction
+and foreshortening. Stroked curves and thin printed annuli supply the two semi-axes. Registration
+projects the 3D centres of complete circular boundaries, including their individual axial depths,
+into the sheet. It checks scale, both senses of tilt, in-plane rotations and reflections against
+the complete selected set. At least three model axes must form a triangle. A competing face
+assignment stays open. A symmetric group can retain its shared diameter assignment. When both rims
+of the same through bore are visible, a verified repeated-diameter pattern counts the wall once.
+On D2MI 904 sheet 1, eight ellipses identify four stepped bores. The four outer rims together match
+the eight cylindrical faces of STEP diameter PMI #103256. Highlighting,
+clicks and arrows follow the elliptical rim. The CSV retains the centre and major semi-axis in the
+existing columns and adds the minor semi-axis and clockwise angle for each accepted ellipse.
+
+Remaining work includes occluded rims, perspective views, sections, non-circular features and leaders on section or edge geometry, automatically
 finding other unframed and oblique graphical annotations, interpreting composite controls and establishing
 the scope required for a verified whole-drawing verdict. Confirmed matches currently apply to individual characteristics.
 

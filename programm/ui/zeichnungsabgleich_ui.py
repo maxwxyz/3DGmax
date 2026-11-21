@@ -93,7 +93,10 @@ class Blattansicht(QtWidgets.QGraphicsView):
             stift.setCosmetic(True)
             if k.tauschgruppe:
                 stift.setStyle(QtCore.Qt.PenStyle.DashLine)
-            item = self.scene().addEllipse(k.x-k.r, k.y-k.r, 2*k.r, 2*k.r, stift)
+            kurz = k.kurz or k.r
+            item = self.scene().addEllipse(-k.r,-kurz,2*k.r,2*kurz,stift)
+            item.setPos(k.x,k.y)
+            item.setRotation(k.winkel)
             self.kreismarken.append((k, item))
 
     def wheelEvent(self, e):
@@ -122,7 +125,7 @@ class Blattansicht(QtWidgets.QGraphicsView):
                     self.gewaehlt.emit(a)
                     return
             pos = self.mapToScene(ende)
-            abstand = [(abs(math.hypot(k.x-pos.x(), k.y-pos.y()) - k.r), k) for k, _ in self.kreismarken]
+            abstand = [(k.randabstand(pos.x(),pos.y()), k) for k, _ in self.kreismarken]
             treffer = sorted(abstand, key=lambda t: t[0])
             skala = self.transform().m11()
             if (treffer and treffer[0][0]*skala < 5
@@ -231,7 +234,7 @@ class Zeichnungsabgleich(QtWidgets.QDialog):
         self.registrieren = QtWidgets.QPushButton(tr("Bohrbild zuordnen"))
         self.registrieren.setCheckable(True)
         self.registrieren.setEnabled(einzelteil is not None)
-        self.registrieren.setToolTip(tr("Ein Bohrbild in Achsrichtung einrahmen. Mindestens drei Mittelpunkte müssen ein Dreieck bilden."))
+        self.registrieren.setToolTip(tr("Ein Bohrbild mit vollständigen Kreisen oder gleich geneigten Ellipsen einrahmen. Mindestens drei Bohrungsachsen müssen ein Dreieck bilden."))
         oben.addWidget(self.registrieren)
         oben.addStretch()
         oben.addWidget(QtWidgets.QLabel(tr("Zeichnungseinheit")))
@@ -400,7 +403,7 @@ class Zeichnungsabgleich(QtWidgets.QDialog):
         self._abbrechen()
         try:
             if self.blattgeometrie is None:
-                self.blattgeometrie = ansichtsabgleich.Blattgeometrie(self.blatt)
+                self.blattgeometrie = ansichtsabgleich.Blattgeometrie(self.blatt,mit_ellipsen=True)
                 self.geometrien[self.blatt.nummer] = self.blattgeometrie
         except (PdfiumError, ValueError, OSError) as e:
             QtWidgets.QMessageBox.warning(self, tr("Bohrbild zuordnen"), str(e))
@@ -494,7 +497,7 @@ class Zeichnungsabgleich(QtWidgets.QDialog):
     def _anderer_bereich(self, a):
         if not a.blattziel or a.seite not in self.bereiche:
             return False
-        x, y, _ = a.blattziel
+        x, y = a.blattziel[:2]
         l, t, r, b = self.bereiche[a.seite]
         return not (l <= x <= r and t <= y <= b)
 
@@ -506,14 +509,15 @@ class Zeichnungsabgleich(QtWidgets.QDialog):
         anker = self.zielvorschlaege.get(a)
         if not anker and a.musterziele and self._anderer_bereich(a):
             h, w = self.blatt.bild.shape[:2]
-            return tuple(ansichtsabgleich.Blattkreis(z.ort[0]*w, z.ort[1]*h, z.ort[2]*w, z.flaechen, z.tauschgruppe)
+            return tuple(ansichtsabgleich.Blattkreis(z.ort[0]*w, z.ort[1]*h, z.ort[2]*w, z.flaechen, z.tauschgruppe,
+                                                    z.ort[3]*w if len(z.ort)>3 else 0.,z.ort[4] if len(z.ort)>3 else 0.)
                          for z in a.musterziele)
         return ansichtsabgleich.muster_am_ziel(anker, anzahl,
                                                self.sichtkreise.get(a.seite, []), self.kreise.get(a.seite, []))
 
     def _blattziele(self, muster):
         h, w = self.blatt.bild.shape[:2]
-        return tuple(za.Musterziel((q.x/w, q.y/h, q.r/w), q.flaechen, tauschgruppe=q.tauschgruppe) for q in muster)
+        return tuple(za.Musterziel(q.blattort(w,h), q.flaechen, tauschgruppe=q.tauschgruppe) for q in muster)
 
     def _musterkreis_waehlen(self, k):
         a = self.aktiv
@@ -708,7 +712,7 @@ class Zeichnungsabgleich(QtWidgets.QDialog):
             a.musterziele = tuple(self.einzel.ziele) if a.einzelpruefung else self._blattziele(muster)
             self.nur_modell.difference_update(id(m) for m in a.zugeordnete_pmi())
             if k and (anzahl or (a.modell and k.flaechen & a.modell.flaechen)):
-                a.blattziel = (k.x/w, k.y/h, k.r/w)
+                a.blattziel = k.blattort(w,h)
             elif not (anzahl and muster and self._anderer_bereich(a)):
                 if a.modell is None or a.modell is not vorher or k or anzahl:
                     a.blattziel = None
@@ -750,7 +754,9 @@ class Zeichnungsabgleich(QtWidgets.QDialog):
                             tr("Eingerahmtes theoretisch genaues Maß"), tr("Quell-ID der Modell-PMI"),
                             tr("Hinweisziel (x/Breite, y/Höhe, Radius/Breite)"),
                             tr("Bohrbild (x/Breite, y/Höhe, Radius/Breite je Bohrung)"),
-                            tr("Bohrung im Muster"), tr("Gesamtbefund des Bohrbilds"), tr("Nur als Gruppe zugeordnet")])
+                            tr("Bohrung im Muster"), tr("Gesamtbefund des Bohrbilds"), tr("Nur als Gruppe zugeordnet"),
+                            tr("Hinweisellipse (kleine Halbachse/Breite, Drehwinkel in Grad)"),
+                            tr("Musterellipsen (kleine Halbachse/Breite, Drehwinkel in Grad je Bohrung)")])
                 verbunden = set()
                 for nr, angaben in sorted(self.seiten.items()):
                     for a in angaben:
@@ -769,16 +775,19 @@ class Zeichnungsabgleich(QtWidgets.QDialog):
                             w.writerow([*prefix, befund, m.nummer if m else "", m.wert_text() if m else "",
                                         sorted(m.flaechen) if m else "", int(a.grundmass),
                                         m.step_id if m and m.step_id > 0 else "",
-                                        " ".join(f"{v:.6f}" for v in a.blattziel) if a.blattziel else "",
-                                        " | ".join(" ".join(f"{v:.6f}" for v in z.ort) for z in orte),
+                                        " ".join(f"{v:.6f}" for v in a.blattziel[:3]) if a.blattziel else "",
+                                        " | ".join(" ".join(f"{v:.6f}" for v in z.ort[:3]) for z in orte),
                                         nummer, gesamt if a.einzelpruefung else "",
-                                        int(any(z.tauschgruppe for z in orte)) if orte else ""])
+                                        int(any(z.tauschgruppe for z in orte)) if orte else "",
+                                        " ".join(f"{v:.6f}" for v in a.blattziel[3:]) if a.blattziel else "",
+                                        " | ".join(" ".join(f"{v:.6f}" for v in z.ort[3:]) for z in orte)
+                                        if any(len(z.ort)>3 for z in orte) else ""])
                 for m in self.modell:
                     if id(m) not in verbunden:
                         w.writerow([*self.quellen, "", "", "", "", tr("Nur im Modell") if id(m) in self.nur_modell else
-                                    tr("Modell-PMI offen"), m.nummer, m.wert_text(), sorted(m.flaechen), "", m.step_id if m.step_id > 0 else "", "", "", "", "", ""])
+                                    tr("Modell-PMI offen"), m.nummer, m.wert_text(), sorted(m.flaechen), "", m.step_id if m.step_id > 0 else "", "", "", "", "", "", "", ""])
                 for nr in sorted(set(range(len(self.doc))) - self.seiten.keys()):
-                    w.writerow([*self.quellen, nr+1, "", "", "", tr("Blatt ungeprüft"), "", "", "", "", "", "", "", "", "", ""])
+                    w.writerow([*self.quellen, nr+1, "", "", "", tr("Blatt ungeprüft"), "", "", "", "", "", "", "", "", "", "", "", ""])
         except OSError as e:
             QtWidgets.QMessageBox.warning(self, tr("Prüfliste speichern"), str(e))
 
