@@ -4,8 +4,8 @@ import numpy as np
 
 from . import pmi_strichschrift as schrift
 from .ansichten import KAMERA_TYPEN, _items, darstellungskontext
-from .merkmalstext import texte_am_aspekt
-from .p21 import DMIA_PH, Ref
+from .merkmalstext import aspekte_am_callout, texte_am_aspekt
+from .p21 import Ref
 from .pmi_ableiten import KOPLANARHINWEIS
 from .pmi_rahmenzusatz import lies_hinweiszeile
 from .pmi_validierungstext import _validierungswerte
@@ -39,19 +39,6 @@ def _mitglieder(datei, ansichten):
                 for s in _ebenenitems(e):
                     if isinstance(s, Ref):
                         yield s.id
-
-
-def _aspekte(datei, nr):
-    ziel = set()
-    for i in datei.referrers().get(nr, ()):
-        e = datei.get(i)
-        a = e.parts.get("DRAUGHTING_MODEL_ITEM_ASSOCIATION", e.parts.get(DMIA_PH, ()))
-        if len(a) < 5 or a[4] != Ref(nr) or not isinstance(a[2], Ref):
-            continue
-        ent = datei.get(a[2])
-        if ent and any(t.endswith("SHAPE_ASPECT") or t in ("DATUM_FEATURE", "DATUM_TARGET") for t in ent.parts):
-            ziel.add(ent.id)
-    return ziel
 
 
 def _in_ebene(g, ebene):
@@ -125,7 +112,7 @@ def freier_hinweis(datei, rahmen, grafiken, lage):
     if not _in_ebene(rahmen, ebene):
         return None
     nachbarn, kandidaten = {}, []
-    ziel = _aspekte(datei, rahmen.callout_id)
+    ziel = aspekte_am_callout(datei, rahmen.callout_id)
     for nr in andere:
         g = grafiken[nr]
         if g.kontext not in (kontext, None):
@@ -143,7 +130,7 @@ def freier_hinweis(datei, rahmen, grafiken, lage):
     nr, box = kandidaten[0]
     if _ansichten(datei, nr) != ansichten:
         return None
-    notenziel = _aspekte(datei, nr)
+    notenziel = aspekte_am_callout(datei, nr)
     if ziel and notenziel and ziel != notenziel:
         return None
     pfade, _ = nachbarn.pop(nr)

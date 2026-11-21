@@ -2,6 +2,29 @@
 
 ## Current state, 2026-11-21
 
+### Match each gear note to its own wheel or toothed band
+
+- Checked PLAN §§8.22 and 8.27 against docs/Roadmap.md. The plausibility check keeps
+  every distinct stated value and note number. Explicit STEP callout-to-feature links
+  resolve to the model faces. Disconnected mesh bodies retain their source faces.
+  On one stepped shaft, the axial interval and measured root/tip radii distinguish
+  a flank of one band from the neighbouring band. Shared prototype faces, links across
+  bands and mesh faces covering multiple components stay open.
+- Verified using a generated AP242 solid with 14 and 21 teeth and five independent
+  annotations. Opening it in the native macOS app and double-clicking a finding
+  selected the source note and highlighted its linked faces. Reversing conflicting
+  notes on a 23-tooth gear reports the same source. Tests cover separate and common OBJ
+  face records, a small separate triangle sharing an STL face with a gear, repeated
+  B-rep occurrences and an unrelated housing face. A connected OBJ shaft with one
+  source face per selected flank identified both bands and left the shared remainder
+  unresolved. The 53 affected tests and the additional connected-OBJ test passed.
+- Next §§8.22 and 8.27: the regular gear analysis recognises a generated right-handed
+  14-tooth bevel gear with 0.55 tip taper and 0.008 radians of tooth rotation per mm.
+  On the same geometry, the PMI checker warns that no involute gear is recognisable
+  for both “z = 14” and “z = 15”. Check known tooth counts on conical and throated
+  gears against notes, distinguish worm starts from wheel teeth, and indicate which
+  parameters need a mating gear or independent specification. QIF remains last.
+
 ### Recover unframed graphical diameter and radius dimensions without a stored writing plane
 
 - Checked PLAN §8.4 against docs/Roadmap.md. A planar size callout can supply candidate axes

@@ -99,3 +99,96 @@ def test_hinweis_am_doppelrad_hat_keinen_eindeutigen_zahnbezug(doppelrad):
     hinweis = Pmi("hinweis", nur_grafik_text="z = 21, mn = 1.5", nummer=1)
     befund, = plausibilitaet.verzahnung([hinweis], SimpleNamespace(form=doppelrad))
     assert befund.stufe == INFO
+
+
+def test_zahnflanken_mit_eigenen_step_hinweisen(doppelrad, tmp_path, fenster):
+    from OCC.Core.Bnd import Bnd_Box
+    from OCC.Core.BRepBndLib import brepbndlib
+    from OCC.Core.IFSelect import IFSelect_RetDone
+    from OCC.Core.Interface import Interface_Static
+    from OCC.Core.STEPControl import STEPControl_AsIs, STEPControl_Writer
+    from programm.kern import pmi_bericht
+    from programm.kern.pmi_darstellung import Praesentation
+    from programm.kern.praesentation import Grafik
+    from programm.kern.step_schreiben import _Anhang
+    from programm.ui.lader import lade_alles
+
+    pfad = tmp_path / "Zahnbaender.stp"
+    writer = STEPControl_Writer()
+    schema = Interface_Static.CVal("write.step.schema")
+    try:
+        assert Interface_Static.SetCVal("write.step.schema", "AP242DIS")
+        assert writer.Transfer(doppelrad, STEPControl_AsIs) == IFSelect_RetDone
+        assert writer.Write(str(pfad)) == IFSelect_RetDone
+    finally:
+        Interface_Static.SetCVal("write.step.schema", schema)
+    m = lade_alles(str(pfad)).modell
+    flanken = {}
+    for i, f in enumerate(m.flaechen):
+        box = Bnd_Box()
+        brepbndlib.Add(f, box)
+        x, y, z, xx, yy, zz = box.Get()
+        if xx-x < 2 and yy-y < 2:
+            for zahl, start, breite in [(14, 1.1, .7), (21, 28., 6.)]:
+                if abs(z-start) < .001 and abs(zz-z-breite) < .001:
+                    flanken.setdefault(zahl, i)
+    assert flanken.keys() == {14, 21}
+    anhang = _Anhang(m.datei, m)
+    darst = Praesentation(anhang, m)
+    noten = [("z = 14", {flanken[14]}), ("z = 15", {flanken[14]}), ("z = 14", {flanken[21]}),
+             ("z = 20", set(flanken.values())), ("DEBURR", {flanken[14]})]
+    for text, fl in noten:
+        assert anhang.waehle(fl) is None
+        grafik = Grafik(0, name=text, linien=[np.array([[0., 0., 0.], [1., 2., 0.]])])
+        assert darst.callout(grafik, anhang.aspekt(fl), fl)
+    darst.abschliessen()
+    text = pfad.read_text()
+    pos = text.rindex("ENDSEC;")
+    pfad.write_text(text[:pos] + "\n".join(anhang.zeilen) + "\n" + text[pos:])
+    fenster.lade(str(pfad), warten=True)
+    erg = fenster.erg
+    assert len(erg.pmi) == 5 and all(p.art == "hinweis" for p in erg.pmi)
+    dialog = fenster.pruefe_pmi()
+    befunde = [b for b in dialog.befunde if b.kategorie == "geometrie"]
+    for b in befunde:
+        nummer, = b.nummern
+        quelle = erg.pmi[nummer-1]
+        assert b.flaechen == noten[nummer-1][1]
+        dialog.tabelle.cellDoubleClicked.emit(dialog.befunde.index(b), 0)
+        assert fenster.pmi.gewaehlte() == [quelle] and fenster.ansicht.hervor == b.flaechen
+        if b.stufe == pmi_bericht.FEHLER:
+            assert quelle.name in ("z = 15", "z = 14")
+            assert ("14" if quelle.name == "z = 15" else "21") in b.text.split(",")[-1]
+        else:
+            assert b.stufe == pmi_bericht.INFO and quelle.name == "z = 20"
+    assert [b.nummern for b in befunde] == [[2], [3], [4]]
+
+
+def test_zahnkranz_aus_einer_obj_flaeche_des_stufenrads(doppelrad, tmp_path):
+    from programm.kern.ausrichten import tesselliere
+    from programm.kern.laden import _alle_flaechen
+    from programm.kern.plausibilitaet import verzahnung
+    from programm.kern.pmi import Pmi
+    from programm.kern.pmi_bericht import FEHLER, INFO
+    from tests.test_verzahnung_mesh import _schreibe
+
+    # Zwei einzelne Flanken und die uebrige Oberflaeche gehoeren zum selben geschlossenen Netz.
+    gruppen = [[], [], []]
+    for punkte, ix in tesselliere(_alle_flaechen(doppelrad)):
+        dx, dy, dz = np.ptp(punkte, axis=0)
+        ziel = 2
+        for i, breite in enumerate((.7, 6.)):
+            if not gruppen[i] and max(dx, dy) < 2 and abs(dz - breite) < .001:
+                ziel = i
+                break
+        gruppen[ziel].append(punkte[ix])
+    netze = []
+    for g in gruppen:
+        punkte = np.vstack(g).reshape(-1, 3)
+        netze.append((punkte, np.arange(len(punkte)).reshape(-1, 3)))
+    modell = _schreibe(tmp_path / "Stufenrad.obj", netze, getrennt=True)
+    notizen = [Pmi("hinweis", name="z = 15", nummer=i+1, flaechen={i}) for i in range(3)]
+    klein, gross, rest = verzahnung(notizen, modell)
+    assert (klein.stufe, gross.stufe, rest.stufe) == (FEHLER, FEHLER, INFO)
+    assert "14" in klein.text.split(",")[-1] and "21" in gross.text.split(",")[-1]
+    assert (klein.flaechen, gross.flaechen, rest.flaechen) == ({0}, {1}, {2})

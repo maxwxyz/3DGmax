@@ -30,12 +30,14 @@ def _radnetz(z, x=0., axial=0., beta=0., flanke=12):
     return rot.apply(p) + [26, -45, 32], np.vstack(ix)
 
 
-def _schreibe(pfad, netze):
+def _schreibe(pfad, netze, *, getrennt=False):
     if pfad.suffix == ".obj":
         start = 1
         with pfad.open("w") as f:
             f.write("o Getriebe\n")
-            for p, ix in netze:
+            for i, (p, ix) in enumerate(netze):
+                if i and getrennt:
+                    f.write(f"o Rad{i+1}\n")
                 np.savetxt(f, p, fmt="v %.10f %.10f %.10f")
                 np.savetxt(f, ix + start, fmt="f %d %d %d")
                 start += len(p)
@@ -165,3 +167,32 @@ def test_planetengetriebe_mit_stirnradvorstufe_aus_einem_stl(tmp_path):
         drehzahlen = {w["id"]: w["drehzahl"] for w in ergebnis["wellen"]}
         assert drehzahlen[sonne] == pytest.approx(-600.)
         assert drehzahlen[ziel] == pytest.approx(soll)
+
+
+@pytest.mark.parametrize("getrennt", [False, True])
+def test_getriebehinweis_an_obj_quellflaechen(tmp_path, getrennt):
+    from programm.kern.plausibilitaet import verzahnung
+    from programm.kern.pmi import Pmi
+    from programm.kern.pmi_bericht import FEHLER, INFO
+    modell = _schreibe(tmp_path / "paar.obj", [_radnetz(14), _radnetz(20, 34)], getrennt=getrennt)
+    letzte = len(modell.flaechen)-1
+    notizen = [Pmi("hinweis", nummer=1, name="z = 15", flaechen={0}),
+               Pmi("hinweis", nummer=2, name="z = 19", flaechen={letzte})]
+    a, b = verzahnung(notizen, modell)
+    assert (a.nummern, b.nummern, a.flaechen, b.flaechen) == ([1], [2], {0}, {letzte})
+    if getrennt:
+        assert letzte == 1 and a.stufe == b.stufe == FEHLER
+        assert "14" in a.text.split(",")[-1] and "20" in b.text.split(",")[-1]
+    else:
+        assert letzte == 0 and a.stufe == b.stufe == INFO
+
+
+def test_gemeinsame_netzflaeche_mit_kleinem_nebenkoerper(tmp_path):
+    from programm.kern.plausibilitaet import verzahnung
+    from programm.kern.pmi import Pmi
+    from programm.kern.pmi_bericht import INFO
+    platte = np.array([[50., 50., 0.], [52., 50., 0.], [52., 52., 0.]])
+    modell = _schreibe(tmp_path / "RadUndPlatte.stl", [_radnetz(14), (platte, np.array([[0, 1, 2]]))])
+    hinweis = Pmi("hinweis", nummer=1, name="z = 15", flaechen={0})
+    b, = verzahnung([hinweis], modell)
+    assert b.stufe == INFO and b.flaechen == {0}

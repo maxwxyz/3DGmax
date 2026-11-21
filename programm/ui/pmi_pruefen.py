@@ -10,7 +10,7 @@ from .tabellen import spalten_anpassen, textbreite_hoechst
 
 class PruefFenster(QtWidgets.QDialog):
     pmi_waehlen = QtCore.Signal(list)  # Nummern
-    flaechen_waehlen = QtCore.Signal(set)  # Flaechen ohne PMI (z. B. nicht tolerierte)
+    flaechen_waehlen = QtCore.Signal(set)  # Modellflaechen des Befunds
 
     def __init__(self, befunde: list, parent=None):
         super().__init__(parent)
@@ -47,5 +47,5 @@ class PruefFenster(QtWidgets.QDialog):
         b = self.befunde[zeile]
         if b.nummern:
             self.pmi_waehlen.emit(list(b.nummern))
-        elif b.flaechen:
+        if b.flaechen:
             self.flaechen_waehlen.emit(set(b.flaechen))

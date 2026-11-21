@@ -1446,7 +1446,12 @@ tools (the user names MASTA as an example of a tool that needs these inputs), an
   Sufficient flank resolution is required. Mesh data sheets show the fit residual. Explicit cylindrical
   fillet measurements require an analytic surface. A continuous stepped shaft can have several
   toothed bands. Each identified band keeps its own axial position, width and tooth count, as well
-  as a reference to the common body. A note without a unique band association is flagged as ambiguous.
+  as a reference to the common body. The plausibility check (§8.22) evaluates the values in each
+  note separately. Explicit STEP feature links or mesh source faces identify a body; on a stepped
+  shaft the linked flank must belong to a single measured band. A general note on multiple gears,
+  a common face across occurrences, or a reference spanning bands remains open. Verified on a
+  STEP shaft with 14 and 21 teeth, on separate and shared OBJ source faces, and on repeated gear
+  occurrences. Double-clicking a finding selects its source note and highlights the linked faces.
 - The power-flow view traces cylindrical, candidate bevel and candidate worm stages through coaxial
   wheels. Each disconnected train has its own reference shaft. The user can change the reference.
   An inconsistent cycle suppresses cumulative ratios. Planetary sets retain explicit fixed-member cases.

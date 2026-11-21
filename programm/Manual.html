@@ -159,7 +159,10 @@ tab group).</li>
     values, nominals that do not match the model, basic dimensions with a tolerance, location toleranced twice
     (toleranced location dimension and position/profile to the same datum), pattern dimensions on features of
     different size and too few datum targets (plane as primary 3, secondary 2, tertiary 1) and gear data in notes
-    (z, m, αn, β, x) against the recognised gear. Double-click selects the PMI or the faces.</li>
+    (z, m, αn, β, x) against the recognised gear. When the model contains several gears, the check uses
+    the linked faces to identify the gear. On a shaft with several toothed bands, a linked flank can identify
+    the band. Shared faces and ambiguous notes remain open. Double-click a finding to select its note and
+    highlight the associated faces.</li>
 <li><b>Tools › Convert graphical PMI to semantic PMI …</b> walks through the graphical annotations in the open model.
     To review a subset, select the rows in the PMI list and use the context menu. The dialog shows the STEP validation text attached to the annotation, including
     printed quantities and stacked deviations. If the symbol cell is empty, the dialog identifies the source of

@@ -116,7 +116,16 @@ def test_verzahnung_gegen_hinweis():
     falsch = Pmi("hinweis", nur_grafik_text="number of teeth: 24, module 2.5", nummer=2)
     befunde = pl.verzahnung([falsch], modell)
     assert len(befunde) == 2 and befunde[0].stufe == "Fehler" and "24" in befunde[0].text
-    assert pl.verzahnung([Pmi("hinweis", nur_grafik_text="DEBURR", nummer=3)], modell) == []
+    ohne = Pmi("hinweis", nur_grafik_text="DEBURR", nummer=3)
+    assert pl.verzahnung([ohne], modell) == []
+    falsch.nur_grafik_text = "Number of teeth: 23; teeth = 24; teeth = 24"
+    zusatz = Pmi("hinweis", nur_grafik_text="pressure angle = 30", nummer=4)
+    for liste in ([gut, falsch, zusatz, ohne], [ohne, zusatz, falsch, gut]):
+        ergebnis = pl.verzahnung(liste, modell)
+        assert sorted((b.nummern, b.stufe) for b in ergebnis) == [([2], "Fehler"), ([4], "Warnung")]
+        assert "24" in next(b.text for b in ergebnis if b.nummern == [2])
+    assert pl.verzahnung_angaben("X = 8; Z = 24") == {}
+    assert pl.verzahnung_angaben("teeth = 23.5") == {}
 
 
 @pytest.mark.parametrize("innen", [False, True])
@@ -323,3 +332,32 @@ def test_schraegungswinkel_bei_grosser_verdrehung():
     v = vz.erkenne(zahnrad.zahnrad(60, 1.0, 60.0, beta=-30.0), "breit")
     assert v is not None and v.z == 60 and abs(v.beta - 30.0) < 0.05 and v.hand == "links"
     assert abs(v.mn - 1.0) < 0.003
+
+
+def test_getriebehinweis_an_gemeinsamer_instanzflaeche():
+    from OCC.Core.BRep import BRep_Builder
+    from OCC.Core.BRepPrimAPI import BRepPrimAPI_MakeBox
+    from OCC.Core.TopLoc import TopLoc_Location
+    from OCC.Core.TopoDS import TopoDS_Compound
+    from OCC.Core.gp import gp_Trsf, gp_Vec
+    from programm.kern import plausibilitaet as pl
+    from programm.kern.laden import StepModell, _alle_flaechen
+    from programm.kern.pmi import Pmi
+    from programm.kern.pmi_bericht import INFO
+    from werkzeuge.zahnrad import zahnrad
+
+    bau, form = BRep_Builder(), TopoDS_Compound()
+    bau.MakeCompound(form)
+    rad = zahnrad(16, 2., 6.)
+    gehaeuse = BRepPrimAPI_MakeBox(4., 5., 3.).Shape()
+    for f, x in [(rad, 0), (rad, 40), (gehaeuse, 80)]:
+        lage = gp_Trsf()
+        lage.SetTranslation(gp_Vec(x, 0, 0))
+        bau.Add(form, f.Moved(TopLoc_Location(lage)))
+    modell = StepModell("", None, None, form, _alle_flaechen(form))
+    modell._baue_index()
+    for teil in (rad, gehaeuse):
+        fl = {modell.flaechen_index(_alle_flaechen(teil)[0])}
+        hinweis = Pmi("hinweis", nummer=18, name="z = 21", flaechen=fl)
+        b, = pl.verzahnung([hinweis], modell)
+        assert (b.stufe, b.nummern, b.flaechen) == (INFO, [18], fl)

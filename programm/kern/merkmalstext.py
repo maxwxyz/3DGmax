@@ -31,6 +31,20 @@ class Merkmalstext:
         return "geaendert"
 
 
+def aspekte_am_callout(datei, nr):
+    """Nur explizite Zuordnungen des Callouts zu Formelementen."""
+    ziel = set()
+    for i in datei.referrers().get(nr, ()):
+        e = datei.get(i)
+        a = e.parts.get("DRAUGHTING_MODEL_ITEM_ASSOCIATION", e.parts.get(DMIA_PH, ()))
+        if len(a) < 5 or a[4] != Ref(nr) or not isinstance(a[2], Ref):
+            continue
+        ent = datei.get(a[2])
+        if ent and any(t.endswith("SHAPE_ASPECT") or t in ("DATUM_FEATURE", "DATUM_TARGET") for t in ent.parts):
+            ziel.add(ent.id)
+    return ziel
+
+
 def toleranzziel(datei, nr):
     e = datei.get(nr)
     if e is None or not (e.is_a("GEOMETRIC_TOLERANCE") or any(t in TOL_ARTEN for t in e.parts)):

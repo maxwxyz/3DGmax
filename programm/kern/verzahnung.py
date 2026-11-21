@@ -459,14 +459,18 @@ def _aus_form(form, teil, steckprofile, sonderprofile):
 
 def erkenne_koerper(form, teil="", *, steckprofile=False, sonderprofile=False):
     """Erkennergebnisse aller unabhaengigen Koerper eines Baumblatts in Modellkoordinaten."""
-    from . import verzahnung_netz
-    koerper = verzahnung_netz.koerper(form)
-    for i, k in enumerate(koerper, 1):
-        name = f"{teil} [{i}]" if len(koerper) > 1 else teil
-        if isinstance(k, np.ndarray):
-            yield from _aus_netz(k, name, steckprofile, sonderprofile)
-        else:
-            yield from _aus_form(k, name, steckprofile, sonderprofile)
+    for _, _, profile in profilgruppen(form, teil, steckprofile=steckprofile, sonderprofile=sonderprofile):
+        yield from profile
+
+
+def profilgruppen(form, teil="", *, steckprofile=False, sonderprofile=False, ohne_profil=None):
+    """Erkannte Profile mit ihrem physischen Koerper und den urspruenglichen Netzflaechen."""
+    from .verzahnung_netz import koerpergruppen
+    gruppen = koerpergruppen(form, ohne_profil)
+    for i, (k, quellen) in enumerate(gruppen, 1):
+        name = f"{teil} [{i}]" if len(gruppen) > 1 else teil
+        erkennung = _aus_netz if quellen is not None else _aus_form
+        yield k, quellen, erkennung(k, name, steckprofile, sonderprofile)
 
 
 def _aus_netz(dreiecke, teil, steckprofile, sonderprofile):

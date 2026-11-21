@@ -6,7 +6,12 @@ from scipy.sparse.csgraph import connected_components
 
 
 def koerper(form):
-    """B-Rep-Volumen und lose Netzflaechen desselben Baumblatts in ihrer Einbaulage."""
+    """B-Rep-Volumen und lose Netzkoerper desselben Baumblatts in ihrer Einbaulage."""
+    return [k for k, _ in koerpergruppen(form)]
+
+
+def koerpergruppen(form, ohne_profil=None):
+    """Je Koerper seine Netz-Quellflaechen; am B-Rep sind die Flaechen direkt abfragbar."""
     from OCC.Core.BRep import BRep_Builder, BRep_Tool
     from OCC.Core.TopAbs import TopAbs_FACE, TopAbs_SOLID
     from OCC.Core.TopExp import TopExp_Explorer
@@ -14,7 +19,7 @@ def koerper(form):
     teile = []
     ex = TopExp_Explorer(form, TopAbs_SOLID)
     while ex.More():
-        teile.append(ex.Current())
+        teile.append((ex.Current(), None))
         ex.Next()
     netz, frei = [], []
     ex = TopExp_Explorer(form, TopAbs_FACE, TopAbs_SOLID)
@@ -27,31 +32,38 @@ def koerper(form):
         ex.Next()
     if frei:
         if not teile and not netz:
-            return [form]
+            return [(form, None)]
         b = BRep_Builder()
         c = TopoDS_Compound()
         b.MakeCompound(c)
         for f in frei:
             b.Add(c, f)
-        teile.append(c)
+        teile.append((c, None))
     if netz:
-        teile.extend(komponenten(netz))
+        teile.extend(_netzgruppen(netz, ohne_profil))
     return teile
 
 
 def komponenten(flaechen):
     """Identische Nahtknoten verschweissen. Nur Kanten mit genau zwei Facetten verbinden Koerper."""
+    return [t for t, _ in _netzgruppen(flaechen)]
+
+
+def _netzgruppen(flaechen, ohne_profil=None):
     from .ausrichten import tesselliere
-    netze = [(p, ix) for p, ix in tesselliere(flaechen) if len(ix)]
-    if not netze:
+    netze = tesselliere(flaechen)
+    if not any(len(ix) for _, ix in netze):
         return []
     offset = np.cumsum([0] + [len(p) for p, _ in netze[:-1]])
     p, knoten = np.unique(np.vstack([p for p, _ in netze]), axis=0, return_inverse=True)
     ix = knoten[np.vstack([i + start for (_, i), start in zip(netze, offset)])]
     gueltig = (ix[:, 0] != ix[:, 1]) & (ix[:, 1] != ix[:, 2]) & (ix[:, 2] != ix[:, 0])
-    ix = ix[gueltig & np.isfinite(p).all(axis=1)[ix].all(axis=1)]
+    enden = np.cumsum([len(t) for _, t in netze])
+    original = np.flatnonzero(gueltig & np.isfinite(p).all(axis=1)[ix].all(axis=1))
+    ix = ix[original]
     kantenvektor = np.cross(p[ix[:, 1]] - p[ix[:, 0]], p[ix[:, 2]] - p[ix[:, 0]])
-    ix = ix[np.any(kantenvektor != 0, axis=1)]
+    regulaer = np.any(kantenvektor != 0, axis=1)
+    ix, original = ix[regulaer], original[regulaer]
     if not len(ix):
         return []
     kanten = np.sort(ix[:, [[0, 1], [1, 2], [2, 0]]].reshape(-1, 2), axis=1)
@@ -61,8 +73,21 @@ def komponenten(flaechen):
     a, b = folge[:-1][paar] // 3, folge[1:][paar] // 3
     graph = coo_matrix((np.ones(len(a), dtype=bool), (a, b)), shape=(len(ix), len(ix)))
     _, gruppe = connected_components(graph, directed=False)
+    if ohne_profil is not None:
+        # Eine Quellflaeche kann zugleich Dreiecke eines zu kleinen Nebenkoerpers enthalten.
+        klein = np.bincount(gruppe)[gruppe] < 8
+        fehlend = np.unique(enden.searchsorted(original[klein], side="right"))
+        ohne_profil.update(flaechen[i] for i in fehlend)
     folge = np.argsort(gruppe, kind="stable")
-    return [p[ix[g]] for g in np.split(folge, np.flatnonzero(np.diff(gruppe[folge])) + 1) if len(g) >= 8]
+    out = []
+    for g in np.split(folge, np.flatnonzero(np.diff(gruppe[folge])) + 1):
+        if len(g) >= 8:
+            quellen = flaechen
+            if len(flaechen) > 1:
+                ids = np.unique(enden.searchsorted(original[g], side="right"))
+                quellen = [flaechen[i] for i in ids]
+            out.append((p[ix[g]], quellen))
+    return out
 
 
 def achse(t):

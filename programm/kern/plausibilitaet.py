@@ -491,50 +491,139 @@ def bezugsstellen(pmi, modell) -> list:
 
 
 VERZAHNUNG_MUSTER = {  # Hinweistext -> Groesse (deutsch und englisch, wie in Zeichnungstabellen)
-    "z": r"(?:\bz\b|Z[äa]e?hnezahl|number of teeth|teeth)\s*[=:]?\s*(\d{1,4})\b",
+    "z": r"(?:(?-i:\bz\b)|Z[äa]e?hnezahl|number of teeth|teeth)\s*[=:]?\s*(\d{1,4})\b(?![.,]\d)",
     "mn": r"(?:\bm[n]?\b|Normalmodul|Modul|module)\s*[=:]?\s*(\d+(?:[.,]\d+)?)",
-    "alpha_n": r"(?:α[n]?|\balpha\b|Eingriffswinkel|pressure angle)\s*[=:]?\s*(\d+(?:[.,]\d+)?)",
+    "alpha_n": r"(?:α\s*n?|\balpha(?:[_ ]?n)?\b|Eingriffswinkel|pressure angle)\s*[=:]?\s*(\d+(?:[.,]\d+)?)",
     "beta": r"(?:β|\bbeta\b|Schr[äa]e?gungswinkel|helix angle)\s*[=:]?\s*(\d+(?:[.,]\d+)?)",
     "x": r"(?:\bx\b|Profilverschiebung(?:sfaktor)?|profile shift(?: coefficient)?)\s*[=:]?\s*([+-]?\d+(?:[.,]\d+)?)",
 }
 VERZAHNUNG_TOLERANZ = {"z": 0.0, "mn": 0.005, "alpha_n": 0.1, "beta": 0.1, "x": 0.03}  # mn relativ
 
 
-def verzahnung_angaben(texte: str) -> dict:
-    """Verzahnungsdaten aus Hinweistext; leer ohne Zaehnezahl oder Modul."""
+def _hinweiswerte(text):
     import re
-    out = {}
+    werte = []
     for name, muster in VERZAHNUNG_MUSTER.items():
-        m = re.search(muster, texte, re.IGNORECASE if name != "z" else 0)
-        if m:
-            out[name] = float(m.group(1).replace(",", "."))
-    return out if ("z" in out or "mn" in out) else {}
+        zahlen = dict.fromkeys(float(m[1].replace(",", ".")) for m in re.finditer(muster, text, re.IGNORECASE))
+        werte.extend((name, zahl) for zahl in zahlen)
+    return werte
+
+
+def verzahnung_angaben(texte: str) -> dict:
+    """Erster Wert jeder Groesse; leer ohne Zaehnezahl oder Modul."""
+    werte = {}
+    for name, zahl in _hinweiswerte(texte):
+        werte.setdefault(name, zahl)
+    return werte if "z" in werte or "mn" in werte else {}
+
+
+def _band_an_flaeche(flaeche, profile):
+    """Eine Flanke muss axial und radial in genau einem der Baender liegen."""
+    from .ausrichten import tesselliere
+    (punkte, dreiecke), = tesselliere([flaeche])
+    if not len(dreiecke):
+        return []
+    punkte = punkte[np.unique(dreiecke)]
+    treffer = []
+    for i, rad in enumerate(profile):
+        lokal = punkte - rad.punkt
+        axial = lokal @ rad.richtung
+        radial = np.linalg.norm(lokal - axial[:, None] * rad.richtung, axis=1)
+        innen, aussen = sorted((rad.df / 2, rad.da / 2))
+        # Kleine Messabweichungen der polygonalen Kopf- und Fusskreise zulassen.
+        eps = max(.001, .01 * (aussen - innen))
+        if (np.ptp(axial) > 1e-6 and np.max(np.abs(axial)) <= rad.b/2 + .001
+                and radial.min() >= innen - eps and radial.max() <= aussen + eps):
+            treffer.append(i)
+    return treffer
+
+
+def _profilziele(modell, gefragt):
+    from OCC.Extend.TopologyUtils import TopologyExplorer
+    from .verzahnung import profilgruppen
+    profile, ziele = [], {}
+    reste = set() if gefragt else None
+    for koerper, netzflaechen, gruppe in profilgruppen(modell.form, ohne_profil=reste):
+        start = len(profile)
+        profile.extend(gruppe)
+        if not gefragt:
+            if len(profile) > 1:
+                break
+            continue
+        flaechen = TopologyExplorer(koerper).faces() if netzflaechen is None else netzflaechen
+        for f in flaechen:
+            idx = modell.flaechen_index(f)
+            if idx not in gefragt:
+                continue
+            lokal = range(len(gruppe)) if len(gruppe) <= 1 else _band_an_flaeche(f, gruppe)
+            # Auch Vorkommen ohne eindeutige Verzahnung verhindern eine feste Zuordnung.
+            ziel = start + lokal[0] if len(lokal) == 1 else None
+            ziele.setdefault(idx, set()).add(ziel)
+    for f in reste or ():
+        idx = modell.flaechen_index(f)
+        if idx in gefragt:
+            ziele.setdefault(idx, set()).add(None)
+    return profile, ziele
+
+
+def _hinweisziel(p, modell):
+    from .merkmalstext import aspekte_am_callout
+    from .pmi_lesen import flaechen_von_aspekt
+    if p.flaechen or p.step_id is None or getattr(modell, "datei", None) is None:
+        return p.flaechen, True
+    gruppen = [flaechen_von_aspekt(modell.datei, modell, a)
+               for a in aspekte_am_callout(modell.datei, p.step_id)]
+    return set().union(*gruppen), all(gruppen)
+
+
+def _verzahnungsbefunde(ziel, profile, zeilen):
+    from .pmi_bericht import FEHLER, INFO, WARNUNG
+    if ziel is None:
+        if profile:
+            stufe, text = INFO, tr("Der Verzahnungshinweis lässt sich keinem einzelnen Zahnprofil zuordnen.")
+        else:
+            stufe, text = WARNUNG, tr("Hinweis nennt Verzahnungsdaten, im Modell ist keine Evolventenverzahnung erkennbar")
+        return [_befund(stufe, "geometrie", text, [nr], fl) for nr, fl, _, _ in zeilen]
+    out = []
+    for nummer, flaechen, werte, _ in zeilen:
+        for name, soll in werte:
+            ist = getattr(profile[ziel], name)
+            grenze = VERZAHNUNG_TOLERANZ[name] * (soll if name == "mn" else 1)
+            if abs(ist - soll) > grenze + 1e-9:
+                text = tr("Verzahnung: Hinweis {} = {:g}, Geometrie {:.4g}").format(name, soll, ist)
+                out.append(_befund(FEHLER if name == "z" else WARNUNG, "geometrie", text, [nummer], flaechen))
+    return out
 
 
 def verzahnung(pmi, modell) -> list:
-    """Hinweise mit Verzahnungsdaten gegen die Geometrie (nur wenn ein Hinweis sie nennt: die Erkennung kostet)."""
-    from . import verzahnung as vz
-    from .pmi_bericht import FEHLER, INFO, WARNUNG
-    hinweise = [p for p in pmi if p.art == "hinweis"]
-    angaben = verzahnung_angaben(" ".join(p.nur_grafik_text or p.name or "" for p in hinweise))
-    if not angaben or modell is None or getattr(modell, "form", None) is None:
+    """Nur Angaben mit Verzahnungsbezug pruefen; jeder Befund nennt seine eigene Quelle."""
+    if modell is None or getattr(modell, "form", None) is None:
         return []
-    nummern = [p.nummer for p in hinweise]
-    profile = vz.erkenne_koerper(modell.form)
-    v = next(profile, None)
-    if v is None:
-        return [_befund(WARNUNG, "geometrie", tr("Hinweis nennt Verzahnungsdaten, im Modell ist keine "
-                                                 "Evolventenverzahnung erkennbar"), nummern)]
-    if next(profile, None) is not None:
-        return [_befund(INFO, "geometrie", tr("Mehrere Zahnprofile im Modell. Die Zuordnung der "
-                                              "Hinweisangaben zu einem Zahnprofil ist offen."), nummern)]
+    notizen = []
+    for p in pmi:
+        if p.art == "hinweis" and (werte := _hinweiswerte(p.nur_grafik_text or p.name or "")):
+            anker = any(name in ("z", "mn") for name, _ in werte)
+            notizen.append((p, werte, anker))
+    if not any(anker for _, _, anker in notizen):
+        return []
+    bezuege = [_hinweisziel(p, modell) for p, _, _ in notizen]
+    profile, ziele = _profilziele(modell, set().union(*(fl for fl, _ in bezuege)))
+    gruppen = {}
+    for (p, werte, anker), (flaechen, komplett) in zip(notizen, bezuege, strict=True):
+        if not komplett:
+            ziel = None
+        elif flaechen:
+            ids = set().union(*(ziele.get(i, {None}) for i in flaechen))
+            ziel = ids.pop() if len(ids) == 1 else None
+        else:
+            ziel = 0 if len(profile) == 1 else None
+        # Zusatzzeilen ohne z/mn nur im Kontext desselben Profils oder derselben offenen Flaechen.
+        schluessel = (ziel, frozenset(flaechen) if ziel is None else None)
+        gruppen.setdefault(schluessel, []).append((p.nummer, flaechen, werte, anker))
     out = []
-    for name, soll in angaben.items():
-        ist = getattr(v, name)
-        grenze = VERZAHNUNG_TOLERANZ[name] * (soll if name == "mn" else 1)
-        if abs(ist - soll) > grenze + 1e-9:
-            out.append(_befund(FEHLER if name == "z" else WARNUNG, "geometrie", tr(
-                "Verzahnung: Hinweis {} = {:g}, Geometrie {:.4g}").format(name, soll, ist), nummern))
+    for (ziel, _), zeilen in gruppen.items():
+        if any(anker for _, _, _, anker in zeilen):
+            out.extend(_verzahnungsbefunde(ziel, profile, zeilen))
     return out
 
 
