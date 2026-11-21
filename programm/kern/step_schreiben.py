@@ -364,6 +364,8 @@ def _schreibe_toleranz(a: _Anhang, p, aspekt=None) -> str | None:
         gruppen = [b.modifikatoren, *b.element_modifikatoren.values()]
         if any(m not in BEZUG_MODS.values() for gruppe in gruppen for m in gruppe):
             return tr("Bezugsmodifikator nicht schreibbar")
+    if p.bereichsgrenzen is None:
+        return tr("Zuordnung der Grenzkanten offen")
     if p.bereichsgrenzen:
         from .pmi_zwischenbereich import begrenzter_verband
         grenzen = p.bereichsgrenzen

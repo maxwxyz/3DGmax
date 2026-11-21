@@ -2,6 +2,34 @@
 
 ## Current state, 2026-11-21
 
+### Compare the ordered boundary edges of scoped profile tolerances
+
+- Checked PLAN §8.4 and docs/Roadmap.md. A removed A ↔ B restriction or swapped endpoint
+  edges previously compared equal when the profile value and datums stayed the same.
+  The semantic comparison now includes the ordered endpoint labels and matched edges.
+  Spatial candidates come from the edges on the supporting face occurrences after model
+  alignment. OCCT checks that common edge intervals cover both trimmed curves. Coincident
+  candidates can be distinguished by their matched supporting faces. Ambiguity or missing
+  geometry is reported for review. An imported BETWEEN_SHAPE_ASPECT with unresolvable
+  endpoints remains recognizable as a bounded tolerance.
+- Tests used separately imported STEP revisions with an added or removed restriction,
+  swapped edges, reused numbers for changed geometry and a completely renumbered copy.
+  The change table, review navigation and CSV carry the old and new extents. Further
+  controls covered rigid assembly placement, independent numbering of duplicate frames,
+  opposite semicircles, a full circle with a shifted seam and ambiguous coincident edges.
+- All 394 affected tests passed, plus eleven checks on native macOS. The signed package
+  passed its bundled self-test and ZIP integrity check. The separately distributed STEPs
+  produced one semantic change for swapped edges and no changes for complete renumbering.
+  Build and comparison examples are in `dist/main-profilvergleich/`.
+- Remaining §8.4 case: profile extents that cut through the interior of a B-rep face.
+  The converter currently requires distinct original boundary edges of a connected set of
+  faces. A probe replaced the two direct face usages with a single usage referencing
+  CONNECTED_FACE_SET (#553, #554). OCCT recognized the set with the same diagnostics as
+  the input. The current PMI reader retained both endpoints but returned an empty face set.
+  Test this restricted-area representation before tackling trimmed subfaces. See
+  [CAx-IF PMI v4.1 §6.4.3](https://www.mbx-if.org/home/wp-content/uploads/2024/06/rec_pracs_pmi_v41.pdf#page=45).
+  QIF stays last.
+
 ### Recover bounded surface profiles without annotation planes
 
 - Checked PLAN §8.4 and docs/Roadmap.md. Removing all three annotation planes from the

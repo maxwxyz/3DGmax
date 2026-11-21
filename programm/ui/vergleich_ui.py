@@ -15,7 +15,7 @@ from .tabellen import spalten_anpassen
 
 STATUS_TEXT = {"geaendert": "geändert", "neu": "neu", "entfernt": "entfernt", "entfallen": "entfallen",
                "geometrie": "Geometrie unter PMI geändert", "verschoben": "verschoben",
-               "grafik": "Darstellung geändert"}
+               "grafik": "Darstellung geändert", "ungeklaert": "Zuordnung der Grenzkanten offen"}
 PRUEF_TEXT = {"offen": "offen", "geprueft": "geprüft", "abgelehnt": "abgelehnt"}
 KATEGORIE_TEXT = {"geometrie": "Geometrie", "pmi": "PMI", "baugruppe": "Baugruppe"}
 

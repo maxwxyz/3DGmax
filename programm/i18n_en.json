@@ -1,4 +1,7 @@
 {
+"{} von {} Flächen geändert": "{} of {} faces changed",
+"{} (Kante #{}, geometrisch geändert)": "{} (edge #{}, geometry changed)",
+"Zuordnung der Grenzkanten offen": "Boundary edge correspondence unresolved",
 "Begrenzter Profilbereich": "Profile extent",
 "{} (Kante #{})": "{} (edge #{})",
 "Die Bereichsgrenzen passen nicht zu den gewählten Flächen.": "The boundary edges do not match the selected faces.",

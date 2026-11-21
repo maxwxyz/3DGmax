@@ -122,7 +122,7 @@ class Pmi:
     simultan_offen: list[int] = field(default_factory=list)  # Verknuepfte Partner mit ungepruefter Bezugsbasis
 
     mittenbezug: int | None = None  # Bezugsflaeche beim Abstand zur Mittelebene eines Wandpaares
-    bereichsgrenzen: list = field(default_factory=list)  # [Kennbuchstabe, STEP-Kante] fuer Start und Ende
+    bereichsgrenzen: list | None = field(default_factory=list)  # [Name, Kante] je Ende; None bei unlesbarem Bereich
 
     # --- Darstellung ---
 
@@ -177,7 +177,9 @@ class Pmi:
         for b in sorted(self.bezuege, key=lambda b: b.stelle):
             teile.append(b.text())
         rahmen = " | ".join(teile)
-        if self.bereichsgrenzen:
+        if self.bereichsgrenzen is None:
+            rahmen += " · ? ↔ ?"
+        elif self.bereichsgrenzen:
             rahmen += " · " + " ↔ ".join(name or f"#{kante}" for name, kante in self.bereichsgrenzen)
         return rahmen
 

@@ -237,7 +237,12 @@ Throughout: tests (core, offscreen UI, stress test, on-screen test), `--selbstte
   frame plane to its strokes or triangle edges and checks the detached circular mark at its own
   depth. The frame and both endpoint letters must have unique readings across orientations.
   Verified contour lettering, triangle-only presentations and an open single-stroke double arrow
-  with independently drawn A/B markers. Extents requiring a new trimmed subface are open.
+  with independently drawn A/B markers. Revision comparison tracks the ordered boundary edges
+  on their supporting faces after model alignment. A changed or removed extent is a semantic
+  finding even when the old and new STEP numbers coincide. Renumbering alone is ignored.
+  An ambiguous edge correspondence remains open for review. An explicit CONNECTED_FACE_SET
+  for the restricted area still needs resolution to its member faces. Extents requiring a new
+  trimmed subface are also open.
   Single-row wide control frames preserve the characteristic, diameter zone, projected height or
   maximum material and the ordered datums. Closed cell borders can also be recovered from filled
   triangles. With no writing plane the outer edges of coplanar triangles supply candidate axes. Both FTC-07's original strokes and a

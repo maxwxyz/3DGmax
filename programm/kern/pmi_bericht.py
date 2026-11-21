@@ -167,7 +167,7 @@ def pruefe(pmi: list[Pmi], ansichten: list | None = None, modell=None) -> list[B
 
 KATEGORIE = {"geometrie": "Geometrie", "pmi": "PMI", "baugruppe": "Baugruppe"}
 STATUS = {"geaendert": "geändert", "neu": "neu", "entfernt": "entfernt", "entfallen": "entfallen",
-          "geometrie": "Geometrie unter PMI geändert", "verschoben": "verschoben", "grafik": "Darstellung geändert"}
+          "geometrie": "Geometrie unter PMI geändert", "verschoben": "verschoben", "grafik": "Darstellung geändert", "ungeklaert": "Zuordnung der Grenzkanten offen"}
 PRUEF = {"offen": "offen", "geprueft": "geprüft", "abgelehnt": "abgelehnt"}
 CSV_SPALTEN = ("Nr", "Art", "Merkmal", "Typ", "Name", "Wert", "Nennwert", "Oben", "Unten", "Grenzmaß", "Höchstmaß",
                "Mindestmaß", "Maßtoleranz", "Passung", "Toleranzwert",

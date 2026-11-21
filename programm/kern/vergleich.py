@@ -117,7 +117,7 @@ GEO_TITEL = {GEAENDERT: "Geometrie geändert", NEU: "Geometrie neu", ENTFERNT: "
 GRAFIK = "grafik"
 PMI_TITEL = {"geaendert": "PMI geändert", "neu": "PMI neu", "entfallen": "PMI entfallen",
              "geometrie": "Geometrie unter PMI geändert", "verschoben": "PMI verschoben",
-             GRAFIK: "PMI-Darstellung geändert"}
+             "ungeklaert": "Zuordnung der Grenzkanten offen", GRAFIK: "PMI-Darstellung geändert"}
 
 
 def _geo_aenderungen(geo, nachbarn_neu, nachbarn_alt) -> list[Aenderung]:
@@ -498,8 +498,10 @@ def vergleiche(alt, neu, toleranz: float = 0.01, suchweite: float = 2.0, ausrich
         geo.zuordnung.setdefault(f_neu, f_alt)
         geo.zuordnung_ab.setdefault(f_alt, f_neu)
     fortschritt(tr("PMI vergleichen …"))
+    from .vergleich_grenzkanten import grenzschluessel
+    kanten = grenzschluessel(alt, neu, ausrichtung, toleranz, geo.zuordnung)
     pmi = vergleich_pmi.vergleiche_pmi(alt.pmi, neu.pmi, geo.zuordnung, zuordnung_ab=geo.zuordnung_ab,
-                                       geo_status=geo.status_b)
+                                       geo_status=geo.status_b, kantenschluessel=kanten)
     pmi_liste = _pmi_aenderungen(pmi)
     # PMI, deren Flaechen nur verschoben wurden: "PMI verschoben" statt "Geometrie unter PMI geaendert"
     for a in pmi_liste:
