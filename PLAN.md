@@ -132,6 +132,13 @@ Throughout: tests (core, offscreen UI, stress test, on-screen test), `--selbstte
    vectors were reported in order. For the matching step alone, Python allocations peaked at
    0.66 MiB versus 49.71 MiB on the equivalent centre positions. These timings exclude file
    loading and surface comparison.
+   The Part 21 reader reuses parsed numbers for repeated short coordinates and reads common
+   geometry references directly. Each entity retains independently editable values and references.
+   The PMI reverse index collects source IDs directly, including repeated and nested references
+   in file order. The entity and type indices and ordered reverse links matched the previous reader
+   across 55 STEP inputs (594,731 entities). In four alternating fresh-process loads against
+   revision 19f4171 on the development Mac, the 42.85 MB assembly took 6.468 s versus 6.794 s,
+   and the 64-PMI NIST FTC-09 took 0.682 s versus 0.712 s (medians, before rendering).
    Comparisons and scan inspections
    refine coarse CAD meshes on separate topology and share the result across instances and repeated analyses of
    a loaded model. This also covers planar faces with curved trims. Persistent mesh caching and viewer levels

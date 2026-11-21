@@ -47,6 +47,44 @@ def test_p21_text_kommentare_und_typindex():
     assert d.referrers() == {90: [5]}
 
 
+def test_p21_geometriewerte_sind_je_entitaet_editierbar():
+    import math
+    d = p21.lese_text("""DATA;
+        #8=CARTESIAN_POINT('',(-0.,+12,.25E-2));
+        #3=DIRECTION('',(-0.,+12,.25E-2));
+        #4=LINE('',#8,#3); #5=LINE('',#8,#3);
+        #6=AXIS2_PLACEMENT_3D('',#8,#3,#3); #7=VERTEX_POINT('',#8);
+        ENDSEC;""")
+    punkt = d.get(8).args()[1]
+    assert punkt == [0., 12, .0025] and math.copysign(1., punkt[0]) == -1.
+    assert type(punkt[1]) is int
+    punkt[1] = 42
+    assert d.get(3).args()[1][1] == 12
+    d.get(4).args()[1].id = 3
+    assert d.get(5).args() == ["", p21.Ref(8), p21.Ref(3)]
+    assert d.referrers() == {3: [4, 4, 5, 6, 6], 8: [5, 6, 7]}
+
+
+def test_p21_geometrie_mit_kommentaren_text_und_fehlern():
+    d = p21.lese_text("""DATA; #1=CARTESIAN_POINT('a'';b/*;*/',(1,2E0));
+        #2=DIRECTION(/* ein ; ' */'',(3, /* noch ; */ 4));
+        #3=LINE('',#1, /* '; */ #2); #4=TEXT(''';'''); ENDSEC;""")
+    assert d.get(1).args() == ["a';b/*;*/", [1, 2.]]
+    assert d.get(2).args() == ["", [3, 4]]
+    assert d.get(3).args() == ["", p21.Ref(1), p21.Ref(2)]
+    assert d.get(4).args() == ["';'"]
+    for rumpf in ("DIRECTION('',(1,@2))", "LINE('',#1,#2)@"):
+        with pytest.raises(ValueError, match=f"bei {rumpf.index('@')}$"):
+            p21.lese_text(f"DATA; #1={rumpf}; ENDSEC;")
+
+
+def test_p21_rueckverweise_verschachtelter_und_komplexer_entitaeten():
+    datei = p21.lese_text("""DATA;
+        #21=(A((#4,TYP(#8,(#4)))) B(#4)); #3=C(TYP((#8,#2)),#4);
+        ENDSEC;""")
+    assert list(datei.referrers().items()) == [(4, [21, 21, 21, 3]), (8, [21, 3]), (2, [3])]
+
+
 def test_step_transferindex_entspricht_occt(ctc01):
     from OCC.Core.TransferBRep import transferbrep
     ws = ctc01._reader.ChangeReader().WS()

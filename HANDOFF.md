@@ -2,6 +2,29 @@
 
 ## Current state, 2026-11-21
 
+### Read repeated STEP geometry and build the PMI reverse index faster
+
+- Checked PLAN §6 against the viewing section of docs/Roadmap.md. The reader decodes
+  common two- and three-component point or direction tuples and short geometry references
+  directly. It caches only immutable numeric values. References, coordinates and argument
+  lists remain separately editable per entity. Quoted semicolons and comments still use
+  the string-aware scanner. The reverse index collects links directly from nested arguments.
+- Compared every entity and argument, the type index, and the reverse index including its
+  key order and repeated source IDs on 55 local STEP inputs (594,731 entities). All matched
+  the previous reader. On NIST FTC-09 the loaded PMI values, linked faces, drawing geometry
+  and saved-view membership also matched, including 64 PMI and 23 views.
+- Four alternating full loads per version in fresh processes on the Mac measured
+  6.794 to 6.468 s for the 42.85 MB assembly and 0.712 to 0.682 s for FTC-09 against
+  revision 19f4171. These timings include OCCT transfer and PMI extraction up to display.
+- In four alternating index builds, the 42.85 MB assembly with 991,221 references took
+  0.271 s versus 0.501 s with a collection before each build. FTC-07 took 8.93 ms versus
+  15.88 ms. These timings cover index construction only. In the full working-tree regression run
+  988 tests passed and the eight display tests were skipped. A separate run of all
+  eight display tests and eleven PMI and gear cases passed with the macOS window server.
+- Next §§8.22 and 8.27: check explicit worm and spiral hands in PMI against the measured
+  tooth trace. The two-start reference has a 14 mm left-hand lead. Keep shaft rotation,
+  ambiguous notes and a note about the wrong kind of profile distinct. QIF remains last.
+
 ### Accelerate occurrence matching in assembly revision comparisons
 
 - Checked PLAN §6 against the comparison section of docs/Roadmap.md. The matcher

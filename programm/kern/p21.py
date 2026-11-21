@@ -9,7 +9,7 @@ from __future__ import annotations
 
 import re
 from dataclasses import dataclass, field
-from functools import cached_property
+from functools import cached_property, lru_cache
 
 
 # Verknuepfung Semantik -> Annotation (mit Platzhalter ab AP242 e2)
@@ -88,15 +88,16 @@ class P21Datei:
         if getattr(self, "_rueck", None) is None:
             rueck: dict[int, list[int]] = {}
             for e in self.entities.values():
-                for r in _refs_in(list(e.parts.values())):
-                    rueck.setdefault(r, []).append(e.id)
+                for args in e.parts.values():
+                    _sammle_verweise(args, e.id, rueck)
             self._rueck = rueck
         return self._rueck
 
 
-_TOKEN = re.compile(r"""
+_ZAHL = r"[-+]?(?:\d++(?:\.\d*+)?|\.\d++)(?:[eE][-+]?\d++)?"
+_TOKEN = re.compile(rf"""
     ( '(?:[^']++|'')*' | \#\d+ | \.[A-Z_0-9]+\.
-    | [-+]?(?:\d+\.?\d*(?:[eE][-+]?\d+)?|\.\d+(?:[eE][-+]?\d+)?)
+    | {_ZAHL}
     | [A-Z_][A-Z_0-9]* | [(),$*] )
   | [^\x20\t\r\n]
 """, re.VERBOSE)
@@ -158,14 +159,14 @@ def _dekodiere(s: str) -> str:
     return _X.sub(lambda m: chr(int(m.group(1), 16)), s)
 
 
-def _refs_in(val):
-    if isinstance(val, Ref):
-        yield val.id
-    elif isinstance(val, list):
-        for v in val:
-            yield from _refs_in(v)
-    elif isinstance(val, Typed):
-        yield from _refs_in(val.args)
+def _sammle_verweise(werte, quelle, rueck):
+    for wert in werte:
+        if isinstance(wert, Ref):
+            rueck.setdefault(wert.id, []).append(quelle)
+        elif isinstance(wert, list):
+            _sammle_verweise(wert, quelle, rueck)
+        elif isinstance(wert, Typed):
+            _sammle_verweise(wert.args, quelle, rueck)
 
 
 _TRENNER = re.compile(r"'(?:[^']++|'')*'|/\*.*?\*/|;", re.S)
@@ -173,21 +174,37 @@ _TRENNER = re.compile(r"'(?:[^']++|'')*'|/\*.*?\*/|;", re.S)
 
 def _statements(text: str):
     """Liefert je eine Anweisung; Texte koennen Semikolons und Kommentarzeichen enthalten."""
-    start, teile = 0, []
-    for m in _TRENNER.finditer(text):
-        zeichen = text[m.start()]
-        if zeichen == "'":
-            continue
-        if zeichen == "/":
-            teile.append(text[start:m.start()])
-        else:
-            ende = text[start:m.start()]
-            yield (" ".join([*teile, ende]) if teile else ende).strip()
-            teile.clear()
-        start = m.end()
+    start = 0
+    while (ende := text.find(";", start)) >= 0:
+        st = text[start:ende]
+        if "/*" in st or st.count("'") % 2:
+            # Das erste Semikolon kann in einem Text oder Kommentar liegen.
+            teile = []
+            for m in _TRENNER.finditer(text, start):
+                zeichen = text[m.start()]
+                if zeichen == "/":
+                    teile.append(text[start:m.start()])
+                    start = m.end()
+                elif zeichen == ";":
+                    ende = m.start()
+                    teile.append(text[start:ende])
+                    st = " ".join(teile)
+                    break
+            else:
+                return
+        yield st.strip()
+        start = ende + 1
 
 
 _KOPF = re.compile(r"^#(\d+)\s*=\s*(.*)$", re.S)
+_VEKTOR = re.compile(rf"(CARTESIAN_POINT|DIRECTION)\('',\(({_ZAHL}(?:,{_ZAHL}){{1,2}})\)\)")
+_VERWEISFOLGE = re.compile(r"([A-Z_][A-Z_0-9]*)\('',#([0-9]+)(?:,#([0-9]+)(?:,#([0-9]+))?)?\)")
+
+
+@lru_cache(maxsize=2048)
+def _koordinaten(text):
+    """Wiederholte Zahlenfolgen teilen nur unveraenderliche Zahlen, keine Argumentlisten."""
+    return tuple(float(z) if "." in z or "E" in z or "e" in z else int(z) for z in text.split(","))
 
 
 def dateitext(pfad: str) -> str:
@@ -224,6 +241,16 @@ def lese_text(text: str) -> P21Datei:
         if not m:
             continue
         eid, rumpf = int(m.group(1)), m.group(2).strip()
+        # Im Cache bleiben nur kurze Zahlenfolgen in der ueblichen Schreibweise.
+        if len(rumpf) <= 160 and (m := _VEKTOR.fullmatch(rumpf)):
+            name, zahlen = m.groups()
+            entities[eid] = Entity(eid, {typnamen.setdefault(name, name): ["", list(_koordinaten(zahlen))]})
+            continue
+        if m := _VERWEISFOLGE.fullmatch(rumpf):
+            name, *nummern = m.groups()
+            args = ["", *(Ref(int(n)) for n in nummern if n is not None)]
+            entities[eid] = Entity(eid, {typnamen.setdefault(name, name): args})
+            continue
         toks = _tokenize(rumpf)
         ent = Entity(eid)
         if toks[0] == "(":
