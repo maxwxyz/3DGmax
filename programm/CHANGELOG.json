@@ -1,6 +1,7 @@
 {
  "unreleased": {
   "de": [
+   "Breite CAD-Strichschrift wird auch ohne hinterlegten Text als Radius- oder Durchmessermaß mit Menge und Abmaßen gelesen. Bei abweichenden Werten in Originalgrafik und STEP-Validierungstext zeigt der Prüfdialog beide Quellen. Ein Zahlenpaar mit Bindestrich lässt sich ausdrücklich als Grenzmaß übernehmen.",
    "Beim Umwandeln grafischer STEP-PMI liest der Prüfdialog auch den an der Beschriftung gespeicherten Validierungstext. Er erhält Mengen und Abmaße und zeigt, ob ein fehlendes Rahmensymbol aus der Zeichnung oder dem Namen stammt.",
    "Bei STEP-Modellen in Zoll stimmen jetzt Position und Größe der PMI-Grafik sowie Kamera und Schnitt der gespeicherten Ansichten. Gemischte Dateien verwenden die Längeneinheit der jeweiligen Darstellung.",
    "Die PMI-Erkennung liest R aus Strichen und reiner Dreiecksfüllung. Bestätigte Radiusmaße werden mit der ursprünglichen Grafik als STEP gespeichert. Im Zeichnungsvergleich lassen sich wiederholte R- und CR-Maße den zugehörigen Bohrungswänden zuordnen.",
@@ -162,6 +163,7 @@
    "Grafische PMI aus unterstützten AP203e2-Kurvenmodellen lassen sich als STEP AP242 Edition 3 ausgeben. Facettierte STEP-Modelle behalten ihre Flächenbezüge. Gepackte STEP-Dateien lassen sich als unkomprimierte STEP-Kopie speichern."
   ],
   "en": [
+   "Wide CAD stroke lettering can supply radius and diameter dimensions, quantities and deviations without stored text. When the graphic and its STEP validation text disagree, review shows both sources. Hyphen-separated values can be explicitly accepted as limits.",
    "Graphical STEP PMI review reads validation text attached to the annotation, preserves printed quantities and deviations, and identifies whether a missing frame symbol came from the graphic or the name.",
    "STEP files in inches now show PMI graphics, saved cameras and clipping planes at the correct position and size. Mixed-unit files use the length unit assigned to each representation.",
    "PMI recognition reads R in stroke lettering and solid triangle glyphs. Confirmed radius dimensions are saved to STEP with the original graphics. Drawing comparison matches repeated R and CR dimensions to the corresponding bore walls.",

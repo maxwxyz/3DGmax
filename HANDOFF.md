@@ -2,6 +2,30 @@
 
 ## Current state, 2026-11-21
 
+### Wide CAD stroke dimensions and conflicting presentation values
+
+- Checked PLAN §§8.4, 8.18, 8.28 and docs/Roadmap.md. A separate set of wide stroke glyphs
+  is applied to an entire dimension row, including its quantity and upper/lower deviations.
+  Original connected white regions distinguish open digits from 0/4/6/8/9. Ordinary and wide
+  interpretations must agree if both are legible. Filled glyphs keep their existing classifier.
+- From the vectors alone, FTC-07 yielded eleven of its twelve “Linear Size” callouts. Five
+  callouts other than those used for templates exercised symmetric and stacked deviations,
+  including four times diameter .250 with +.003/−.001. One annotation with a detached mark
+  still needs review. No file text or semantic data is required to read these rows.
+- On #15405 the actual lower deviation is plotted as −.001 inch; validation text #15416 gives
+  −.000. The review leaves the numeric fields empty, displays both sources and permits explicit
+  selection or entry. “R.022-.012” retains its printed hyphen until the reviewer chooses its
+  interpretation. Three graphical-only STEP round trips (with and without validation strings)
+  preserved all the source entities and verified both choices for the lower deviation. The radius
+  round trip retained limits of 0.3048 and 0.5588 mm on the reference faces. All 37 affected
+  tests, 29 native macOS repair tests and 75 drawing/validation regressions passed. All 2592 UI
+  strings have English translations.
+- Next §8.4: extend the same independent stroke reading to FTC-07's complete control frames.
+  #14558 and #14795 contain a position symbol, a diameter zone with maximum material and A/B/C.
+  The frame and many first symbols are already isolated correctly, while the value and datum
+  cells need glyphs for circled modifiers and the wide datum letters. #13999 includes a projected
+  height. Check the source cells and export without the validation property. QIF remains last.
+
 ### Graphical STEP validation text in semantic review
 
 - Checked PLAN §§8.4, 8.18, 8.28 and the implementation order against docs/Roadmap.md. The review

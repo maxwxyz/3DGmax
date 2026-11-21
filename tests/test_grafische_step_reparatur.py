@@ -13,7 +13,7 @@ from tests.conftest import pfad
 from tests.test_step_schreiben import _occt_darstellungen
 
 
-def _ohne_semantik(quelle, datei):
+def _ohne_semantik(quelle, datei, *, validierung=True):
     quelle = Path(quelle)
     ursprung = lade_alles(str(quelle))
     d = ursprung.modell.datei
@@ -22,6 +22,9 @@ def _ohne_semantik(quelle, datei):
     typen = (*pmi_step.MASS_TYPEN, *pmi_step.TOL_ARTEN, "GEOMETRIC_TOLERANCE", "DATUM",
              "DATUM_FEATURE", "DATUM_TARGET", "DRAUGHTING_MODEL_ITEM_ASSOCIATION", p21.DMIA_PH)
     entfernen = {e.id for e in d.of_types_by_id(typen)}
+    if not validierung:
+        entfernen.update(e.id for e in d.of_type("DESCRIPTIVE_REPRESENTATION_ITEM")
+                         if e.args()[0] == "equivalent unicode string")
     offen = list(entfernen)
     rueck = d.referrers()
     while offen:
@@ -725,3 +728,60 @@ def test_ftc07_validierungstext_aus_grafischer_datei_bis_step_export(fenster, tm
         else:
             assert p.nennwert == pytest.approx((.438 if nr == 15899 else .173)*25.4)
             assert (p.oben, p.unten) == pytest.approx((.254,-.254) if nr == 15899 else (.127,-.0254))
+
+
+@pytest.mark.parametrize("validierung,quelle",[(False,"grafik"),(True,"datei"),(True,"grafik")])
+def test_breite_strichschrift_mit_gepruefter_masslesart_bis_step(fenster,tmp_path,validierung,quelle):
+    datei,referenz,rein = _ohne_semantik(pfad("nist_ftc_07_asme1_ap242-e2.stp"), tmp_path/"Strichgrafik.stp",
+                                        validierung=validierung)
+    fenster.lade(datei, warten=True)
+    def oeffnen(nr):
+        original = next(p for p in fenster.erg.pmi if p.step_id == nr)
+        g = fenster.erg.grafik[nr]
+        assert not original.semantisch and g.linien and not g.dreiecke and not g.platzhalter
+        fenster._pmi_befehl("semantisch",original)
+        d = fenster._semantik_dialog
+        soll, = [p for p in referenz.pmi if p.art == "mass" and p.step_id in referenz.grafik[nr].pmi_ids]
+        fenster.ansicht.setze_auswahl([fenster.erg.modell.flaechen[i] for i in soll.flaechen])
+        d._auswahl_uebernehmen()
+        return d
+    d = oeffnen(15405)
+    if validierung:
+        assert set(d.massknoepfe) == {"grafik","datei"} and d.fehler()
+        assert not d.felder["nennwert"].text() and not d.felder["unten"].text()
+        assert [wahl[1] for wahl in d.v.masswahl] == ["4X⌀.250 +.003\n-.001", "4X ⌀.250 +.003\n-.000"]
+        d.massknoepfe[quelle].click()
+    else:
+        assert not d.v.validierungstexte and not d.massknoepfe and d.v.ocr_text == "4X⌀.250 +.003\n-.001"
+    assert not d.fehler()
+    d._pruefen()
+    d = oeffnen(16200)
+    assert not d.felder["nennwert"].text() and d.fehler() and set(d.massknoepfe) == {"grenzen"}
+    assert d.v.nur_grafik_text == "R.022-.012"
+    d.massknoepfe["grenzen"].click()
+    assert d.felder["grenzmass"].isChecked() and not d.fehler()
+    d._pruefen()
+    ziel = fenster.speichere_step_pmi(str(tmp_path/"Geprueft.stp"),melden=False)
+    assert len(fenster._step_bericht.repariert) == 2 and not fenster._step_bericht.uebersprungen
+    kopie = lade_alles(ziel)
+    assert all(kopie.modell.datei.get(i) == ent for i,ent in rein.modell.datei.entities.items())
+    for nr in (15405,16200):
+        neu, = [p for p in kopie.pmi if p.semantisch and p.step_id in kopie.grafik[nr].pmi_ids]
+        soll, = [p for p in referenz.pmi if p.art == "mass" and p.step_id in referenz.grafik[nr].pmi_ids]
+        assert neu.flaechen == soll.flaechen
+        if nr == 15405:
+            assert neu.typ == "Size_Diameter" and neu.nennwert == pytest.approx(6.35)
+            assert (neu.oben,neu.unten) == pytest.approx((.0762, -.0254 if quelle == "grafik" else 0))
+        else:
+            assert neu.typ == "Size_Radius" and neu.grenzmass and neu.nennwert == pytest.approx(.4318)
+            assert neu.grenzen() == pytest.approx((.5588,.3048))
+
+
+def test_weitere_breite_zeilen_ohne_dateitext_und_ungenauer_rest(ftc07):
+    from programm.kern.praesentation import lies_grafik
+    from programm.kern.pmi_strichschrift import lies_schrift
+    grafik = lies_grafik(ftc07.datei)
+    erwartet = {15669:"3X⌀.875±.010", 16020:"2X⌀.594 +.012\n-.002", 15254:"⌀.250 +.003\n-.000",
+                15807:"4X⌀.281 +.006\n-.001", 15146:""}
+    for nr, wort in erwartet.items():
+        assert lies_schrift(grafik[nr]) == wort

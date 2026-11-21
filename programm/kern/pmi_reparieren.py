@@ -96,6 +96,21 @@ def geometrie_nennmass(typ, flaechen, modell):
     return None
 
 
+def _grenzlesart(text, faktor, bekannt):
+    """Zwei mit Bindestrich gedruckte absolute Werte nur auf ausdrueckliche Wahl uebernehmen."""
+    from .pmi_ableiten import aus_text
+    zahl = r"(?:[0-9]+(?:[.,][0-9]+)?|[.,][0-9]+)"
+    vorsatz = r"(?:[1-9][0-9]*\s*[Xx×]\s*)?(?:S?[⌀Ø∅R]|CR)"
+    einheit = r'(?:\s*(?:mm|inch|in|"))?'
+    m = re.fullmatch(rf"({vorsatz}\s*{zahl})\s*-\s*({zahl}{einheit})", text)
+    if not m:
+        return None
+    daten = aus_text([f"{m[1]}–{m[2]}"], faktor)
+    if not daten or (bekannt and (bekannt[0] != MASS or bekannt[1] not in ("", daten["typ"]))):
+        return None
+    return daten
+
+
 def schriftvorschlag(g, bekannt):
     """Lesbare Angabe aus der Schrift, abgestimmt mit der bekannten Art des Callouts."""
     from .pmi import TOL_SYMBOL
@@ -107,6 +122,8 @@ def schriftvorschlag(g, bekannt):
     text = lies_schrift(g)
     felder = aus_text([text], g.textfaktor) if text else None
     art, typ = bekannt or (None, "")
+    if not felder and text and (grenzen := _grenzlesart(text, g.textfaktor, bekannt)):
+        return text, {"art": MASS, "typ": grenzen["typ"]}
     if felder and felder["art"] == MASS and art == TOLERANZ and typ in TOL_SYMBOL:
         felder = aus_text([TOL_SYMBOL[typ], text], g.textfaktor)
     if not felder or (art and felder["art"] != art) or (not bekannt and text.isalpha()):
@@ -120,29 +137,54 @@ def schriftvorschlag(g, bekannt):
     return text, felder
 
 
+def _druckschrift(g, bekannt, datei):
+    """Dateitext und Vektorschrift des Callouts fuer die Pruefung zusammenfuehren."""
+    from .pmi_validierungstext import validierungsvorschlag
+    from .zeichnungsabgleich import musteranzahl
+    dateitexte, gelesen, ergaenzung = validierungsvorschlag(datei, g, bekannt)
+    if len(dateitexte) > 1:
+        return dateitexte, "", gelesen, ergaenzung, []
+    dateitext = dateitexte[0] if dateitexte else ""
+    grenzen = _grenzlesart(dateitext, g.textfaktor, bekannt)
+    if dateitext and not grenzen and gelesen.get("art") != MASS:
+        return dateitexte, "", gelesen, ergaenzung, []
+
+    wort, grafikwerte = schriftvorschlag(g, bekannt)
+    grafikgrenzen = _grenzlesart(wort, g.textfaktor, bekannt)
+    original, dateiwerte = grafikgrenzen or grafikwerte, grenzen or gelesen
+    wahl = []
+    if not dateitext:
+        gelesen, grenzen = grafikwerte, grafikgrenzen
+    elif "nennwert" in original and (original != dateiwerte or musteranzahl(wort) != musteranzahl(dateitext)):
+        wahl = [("grafik", wort, original), ("datei", dateitext, dateiwerte)]
+        gelesen = {"art": MASS, "typ": original["typ"] if original["typ"] == dateiwerte["typ"] else ""}
+    if grenzen and not wahl:
+        wahl = [("grenzen", dateitext or wort, grenzen)]
+        gelesen = {"art": MASS, "typ": grenzen["typ"]}
+    return dateitexte, "" if dateitext else wort, gelesen, ergaenzung, wahl
+
+
 def vorschlag(p, g, modell) -> Pmi:
     """Eigene PMI als Startwert fuer die Pruefung: Art, Werte (soweit lesbar), Flaechen, Verweis auf den Callout."""
     bekannt = (p.art, p.typ) if p.art != HINWEIS else aus_name(p.name or (g.name if g else ""))
     art, typ = bekannt or (TOLERANZ, "")
     texte = [ph.text for ph in g.platzhalter if ph.text] if g is not None else []
-    dateitexte, ocr, gelesen, ergaenzung = (), "", {}, ""
+    dateitexte, ocr, gelesen, ergaenzung, masswahl = (), "", {}, "", []
     if g and not texte and not g.erzeugt and not p.semantisch:
-        from .pmi_validierungstext import validierungsvorschlag
-        dateitexte, gelesen, ergaenzung = validierungsvorschlag(getattr(modell, "datei", None), g, bekannt)
-        if not dateitexte:
-            ocr, gelesen = schriftvorschlag(g, bekannt)
+        dateitexte, ocr, gelesen, ergaenzung, masswahl = _druckschrift(g, bekannt, getattr(modell, "datei", None))
     if gelesen:
         art, typ = gelesen["art"], gelesen["typ"]
     neu = Pmi(art, typ=typ, norm=p.norm, name=p.name if art == BEZUG and re.fullmatch(r"[A-Z]{1,2}", p.name or "") else "")
     for k in ("name", *FELDER):
         if k in gelesen:
             setattr(neu, k, gelesen[k])
+    neu.masswahl = masswahl
     neu.ocr_text = ocr
     neu.validierungstexte = dateitexte
     neu.rahmensymbolquelle = ergaenzung
     neu.merkmalsname = g.name if ergaenzung == "name" else ""
     for k in FELDER:
-        if k not in gelesen and p.art == art and getattr(p, k, None) not in (None, "", []):
+        if not masswahl and k not in gelesen and p.art == art and getattr(p, k, None) not in (None, "", []):
             setattr(neu, k, deepcopy(getattr(p, k)))
     neu.flaechen = {i for i in p.flaechen if 0 <= i < len(modell.flaechen)}
     if not neu.flaechen and g is not None and getattr(modell, "datei", None) is not None:
@@ -153,10 +195,10 @@ def vorschlag(p, g, modell) -> Pmi:
                 neu.flaechen.update(flaechen_von_aspekt(modell.datei, modell, eid))
     if not neu.flaechen and g is not None:
         neu.flaechen = flaechen_vorschlag(g, modell)
-    if art == MASS and not typ and re.search(r"\bsize\b", g.name if g else p.name, re.I):
+    if art == MASS and not typ and not masswahl and re.search(r"\bsize\b", g.name if g else p.name, re.I):
         neu.typ = _form(neu.flaechen, modell)
     neu.nennwert_aus_geometrie = False
-    if art == MASS and neu.nennwert is None:
+    if art == MASS and neu.nennwert is None and not masswahl:
         neu.nennwert = geometrie_nennmass(neu.typ, neu.flaechen, modell)
         neu.nennwert_aus_geometrie = neu.nennwert is not None
     neu.callout, neu.nur_grafik_text = p.step_id, "\n".join(texte or dateitexte) or ocr or p.nur_grafik_text or p.name

@@ -175,7 +175,13 @@ Throughout: tests (core, offscreen UI, stress test, on-screen test), `--selbstte
   The reader tests both faces and reading directions, accepts a single complete interpretation and checks the
   value and each datum in their original cell. Eight real PRC frames in NIST STC-06 match the independent
   semantic STEP reference, including Ø0.025 inch at maximum material. FTC-08 distinguishes free state from
-  maximum material within the drawn circle. Open: additional fonts, composite controls and dimensions with
+  maximum material within the drawn circle. Wide single-stroke dimension rows can be read as a
+  complete font family. The original raster supplies enclosed regions to distinguish wide 3/8 and
+  5/6. Repeated diameters retain their quantity, symmetric or stacked deviations. A discrepancy
+  between a legible dimension and its STEP validation text leaves the numeric fields open until
+  the reviewer selects a source or enters the values. Two numbers separated by a hyphen can be
+  explicitly adopted as limit dimensions. Tested on FTC-07 with and without validation metadata.
+  Open: additional fonts, composite controls and dimensions with
   ambiguous leader or text placement.
 - Convert to semantic PMI: evaluate recognized text + frame structure; mark result as "derived (check)", never as
   genuine semantics.

@@ -74,6 +74,7 @@ class SemantikDialog(QtWidgets.QDialog):
         lay.addRow(tr("Merkmal"), self.typ)
         self.felder: dict[str, QtWidgets.QWidget] = {}
         self._zeilen(lay)
+        self._masswahl(lay)
         self.flaechen_text = QtWidgets.QLabel()
         uebernehmen = QtWidgets.QPushButton(tr("Auswahl übernehmen"))
         uebernehmen.setToolTip(tr("Die im Modell gewählten Flächen statt des Vorschlags verwenden"))
@@ -146,6 +147,38 @@ class SemantikDialog(QtWidgets.QDialog):
         self._lay = lay
         self.felder["grenzmass"].toggled.connect(self._massbeschriftung)
         self._massbeschriftung()
+
+    def _masswahl(self, lay):
+        self.massknoepfe = {}
+        self.masslesart = None
+        wahl = getattr(self.v, "masswahl", ())
+        if not wahl:
+            return
+        hinweis = (tr("Originalgrafik und STEP-Validierungstext weichen voneinander ab. Werte prüfen und eine Quelle wählen oder von Hand eingeben.")
+                   if len(wahl) > 1 else tr("Der Bindestrich ist mehrdeutig. Beide Zahlen können nach Prüfung als Grenzmaße übernommen werden."))
+        label = QtWidgets.QLabel(hinweis)
+        label.setWordWrap(True)
+        lay.addRow(label)
+        titel = {"grafik": tr("Originalgrafik"), "datei": tr("STEP-Validierungstext"), "grenzen": tr("Grenzmaße")}
+        for quelle, text, daten in wahl:
+            knopf = QtWidgets.QPushButton(tr("Als Grenzmaße übernehmen") if daten.get("grenzmass") else tr("Werte übernehmen"))
+            knopf.clicked.connect(lambda _=False, t=text, d=daten: self._masswerte_setzen(t, d))
+            zeile = QtWidgets.QHBoxLayout()
+            wort = QtWidgets.QLabel(text)
+            wort.setTextFormat(QtCore.Qt.TextFormat.PlainText)
+            zeile.addWidget(wort, 1)
+            zeile.addWidget(knopf)
+            lay.addRow(titel[quelle], zeile)
+            self.massknoepfe[quelle] = knopf
+
+    def _masswerte_setzen(self, text, daten):
+        self.masslesart = (text, daten)
+        self.art.setCurrentIndex(self.art.findData(MASS))
+        self.typ.setCurrentIndex(self.typ.findData(daten["typ"]))
+        self.felder["grenzmass"].setChecked(daten.get("grenzmass", False))
+        for k in ("nennwert", "oben", "unten"):
+            self.felder[k].setText(str(daten[k]) if k in daten else "")
+        self.felder["passung"].setText(daten.get("passung", ""))
 
     def _massbeschriftung(self):
         grenze = self.felder["grenzmass"].isChecked()
@@ -274,6 +307,10 @@ class SemantikDialog(QtWidgets.QDialog):
         f = self.felder
         p.art, p.typ, p.flaechen = self.art.currentData(), self.typ.currentData(), set(self.flaechen)
         if p.art == MASS:
+            if self.masslesart:
+                p.nur_grafik_text, daten = self.masslesart
+                if p.typ == daten["typ"]:
+                    p.modifikatoren = list(daten.get("modifikatoren", ()))
             p.nennwert, p.oben, p.unten = (_zahl(f[k].text()) for k in ("nennwert", "oben", "unten"))
             p.passung, p.grenzmass = f["passung"].text().strip(), f["grenzmass"].isChecked()
         elif p.art == TOLERANZ:

@@ -140,13 +140,16 @@ _STRICHE = {
 }
 
 
+def _musterbilder(muster):
+    import zlib
+    return [(z, np.unpackbits(np.frombuffer(zlib.decompress(bytes.fromhex(bits)), np.uint8)).reshape(32, 32) > 0)
+              for z, varianten in muster.items() for bits in varianten]
+
+
 @lru_cache(maxsize=1)
 def _vorlagen():
-    import zlib
     from .pmi_schriftmuster import MUSTER
-
-    muster = [(z, np.unpackbits(np.frombuffer(zlib.decompress(bytes.fromhex(bits)), np.uint8)).reshape(32, 32) > 0)
-              for z, varianten in MUSTER.items() for bits in varianten]
+    muster = _musterbilder(MUSTER)
     for z, zug in _STRICHE.items():
         linien = []
         for pfad in zug.split("/"):
@@ -156,22 +159,34 @@ def _vorlagen():
     return [(z, b, ndimage.distance_transform_edt(~b)) for z, b in muster]
 
 
+@lru_cache(maxsize=1)
+def _breitvorlagen():
+    from .pmi_schriftmuster import BREITSCHRIFT
+    return [(z, b, ndimage.distance_transform_edt(~b)) for z, b in _musterbilder(BREITSCHRIFT)]
+
+
+# In dieser Schrift ist der Punkt ein kleines, geschlossenes Rechteck.
+_INNENRAEUME = {z: n for n, gruppe in enumerate(("-+±X12357", ".0469R", "8⌀")) for z in gruppe}
+
+
 _Y, _X = np.ogrid[:32, :32]
 _KREIS_INNEN = (_Y - 15.5)**2 + (_X - 15.5)**2 <= 9**2
 
 
-def _lies_zeile(zeichen, vorlagen=None):
+def _lies_zeile(zeichen, vorlagen=None, innenraeume=None):
     if not 1 <= len(zeichen) <= 48:
         return ""
     oben = min(box[1] for _, box in zeichen)
     unten = max(box[3] for _, box in zeichen)
     hoehe = unten - oben
     ergebnis = ""
-    for bitmap, (_, y, _, u) in zeichen:
+    for i, (bitmap, (_, y, _, u)) in enumerate(zeichen):
         h = (u - y) / hoehe
         dist = ndimage.distance_transform_edt(~bitmap)
         je_zeichen = {}
         for z, vorlage, abstand in (_vorlagen() if vorlagen is None else vorlagen):
+            if innenraeume is not None and innenraeume[i] != _INNENRAEUME[z]:
+                continue
             if z == "." and (h > .38 or u < unten - .23 * hoehe):
                 continue
             if z == "°" and (h > .43 or y > oben + .27 * hoehe):
@@ -245,7 +260,17 @@ def _rahmentext(pfade, zellen):
     return " ".join(teile)
 
 
-def _gestapelt(mask):
+def _normale_zeile(mask):
+    return _lies_zeile(_bildzeichen(mask))
+
+
+def _breite_zeile(mask):
+    zeichen = _bildzeichen(mask)
+    innen = [ndimage.label(~np.pad(mask[t:b, l:r], 1))[1] - 1 for _, (l, t, r, b) in zeichen]
+    return _lies_zeile(zeichen, _breitvorlagen(), innen)
+
+
+def _gestapelt(mask, lesen=_normale_zeile):
     """Gemeinsamer Vorsatz links, zwei getrennte Zahlenzeilen rechts."""
     zahl = r"(?:[0-9]+(?:[.,][0-9]+)?|[.,][0-9]+)"
     gruppen = _gruppen(mask)
@@ -266,13 +291,13 @@ def _gestapelt(mask):
         mitte = (ly.min() + ly.max()) / 2
         if not (a+b)/2 < mitte < (c+d)/2 or rx.min() + trennung - lx.max() > 3*h:
             continue
-        vorsatz = _lies_zeile(_bildzeichen(links))
-        oben, unten = (_lies_zeile(_bildzeichen(rechts[y:v])) for y, v in zeilen)
+        vorsatz = lesen(links)
+        oben, unten = (lesen(rechts[y:v]) for y, v in zeilen)
         if vorsatz in ("⌀", "R") and re.fullmatch(zahl, oben) and re.fullmatch(zahl, unten):
             if float(oben.replace(",", ".")) >= float(unten.replace(",", ".")):
                 return f"{vorsatz}{oben}\n{unten}"
         abmass = rf"(?:[+-]{zahl}|0(?:[.,]0+)?)"
-        if re.fullmatch(rf"(?:⌀|R)?{zahl}", vorsatz) and all(re.fullmatch(abmass, t) for t in (oben, unten)):
+        if re.fullmatch(rf"(?:(?:[1-9][0-9]*X)?[⌀R])?{zahl}", vorsatz) and all(re.fullmatch(abmass, t) for t in (oben, unten)):
             return f"{vorsatz} {oben}\n{unten}"
     return ""
 
@@ -303,7 +328,13 @@ def _freitext(pfade):
                 mask[y, x] &= ~teil
     if not mask.any():
         return ""
-    return _lies_zeile(_bildzeichen(mask)) or _gestapelt(mask)
+    normal = _normale_zeile(mask) or _gestapelt(mask)
+    if any(voll for _, voll in pfade):
+        return normal
+    breit = _breite_zeile(mask) or _gestapelt(mask, _breite_zeile)
+    if not re.match(r"^(?:[1-9][0-9]*X)?[⌀R][0-9.]", breit):
+        return normal
+    return breit if not normal or breit == normal else ""
 
 
 def _zellen(pfade):
