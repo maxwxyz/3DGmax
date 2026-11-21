@@ -2210,6 +2210,12 @@ deviations. A specified diametral loss reduces effective interference, with zero
 The result includes the required minimum geometric interference and torque margin. The common nominal
 assembly exports with separate AP242 limit dimensions on the shaft cylinder and hub bore, both engagement
 lengths and the hub outside diameter. The original effective-interference method remains available.
+In the gearbox seat table, a selected pair can supply the four manufacturing deviations from
+its semantic diameter dimensions. The association follows the source faces of the selected
+occurrences and accepts limit dimensions, signed deviations or applicable shaft/bore fit classes.
+A unique coaxial outer cylinder spanning the bore can supply the hub outside diameter.
+The design file retains the source occurrence, PMI identity and original values alongside edits.
+If the two sides specify different basic sizes, the user chooses their common design basis.
 [SKF basic rating life](https://cdn.skfmediahub.skf.com/api/public/0901d196802809de/pdf_preview_medium/Rolling_bearings_-_17000_1_EN_pdf_preview_medium.pdf) · [Autodesk press fit calculation](https://help.autodesk.com/cloudhelp/2025/ENU/Inventor-Help/files/GUID-6411393F-5391-467D-8234-D14DD8B5348C.htm)
 
 | Planned module family | Initial design scope and output |

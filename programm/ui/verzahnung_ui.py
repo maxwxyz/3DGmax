@@ -24,9 +24,10 @@ class VerzahnungLader(Modellauftrag):
     fehler = QtCore.Signal(str)
     stand = QtCore.Signal(int)
 
-    def __init__(self, teile: list, parent=None, *, teilnummern=(), mit_sitzen=False):
+    def __init__(self, teile: list, parent=None, *, teilnummern=(), mit_sitzen=False, flaechen_index=None):
         super().__init__(parent)
         self.teile = teile  # [(Name, Form)]
+        self.flaechen_index = flaechen_index
         self.mit_sitzen = mit_sitzen
         self.sitze = []
         self.sitzpaare = []
@@ -47,7 +48,7 @@ class VerzahnungLader(Modellauftrag):
                     from ..kern import zylindersitze
                     nr = self.teilnummern[i] if self.teilnummern else i
                     try:
-                        self.sitze.extend(zylindersitze.erkenne(form, nr, name, pruefe))
+                        self.sitze.extend(zylindersitze.erkenne(form, nr, name, pruefe, self.flaechen_index))
                     except RuntimeError:
                         # Defekte analytische Flaechen duerfen die Zahnpruefung nicht unterbrechen.
                         pass
@@ -75,7 +76,7 @@ class VerzahnungLader(Modellauftrag):
 class VerzahnungFenster(QtWidgets.QDialog):
     teile_gewaehlt = QtCore.Signal(set)
 
-    def __init__(self, liste: list, basis: str, parent=None, *, quellen=None, umfang="", getriebe=False, sitze=(), sitzpaare=()):
+    def __init__(self, liste: list, basis: str, parent=None, *, quellen=None, umfang="", getriebe=False, sitze=(), sitzpaare=(), pmi=()):
         super().__init__(parent)
         self.quellen = quellen or {}
         self.setWindowTitle(tr("Getriebe – Stufen und Kraftfluss") if getriebe else tr("Verzahnung – Raddaten"))
@@ -134,7 +135,7 @@ class VerzahnungFenster(QtWidgets.QDialog):
                 if getattr(v, "ruecksitze", None) and id(v) in self.quellen:
                     kegel[self.quellen[id(v)]].append(v)
             self.sitzseite = Sitzanalyse(sitze, sitzpaare, set(self.quellen.values()), basis,
-                                         kragensitze(sitze, sitzpaare, kegel))
+                                         kragensitze(sitze, sitzpaare, kegel), pmi=pmi)
             self.sitzseite.teile_gewaehlt.connect(self.teile_gewaehlt)
             self.reiter.addTab(self.sitzseite, tr("Wellen und Sitze"))
         self.hinweise = QtWidgets.QLabel("")

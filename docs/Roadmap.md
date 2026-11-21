@@ -300,6 +300,7 @@
 | Face-toothed bevel gear candidates from repeated axial relief on concentric circles, with tooth count, radial span and measured inclination. Verified on a pinion with a raised inner collar and a flat-clutch control. Adaptive CAD mass integration for periodic spline surfaces | ✅ |
 | Export tree selection through File or right-click: STEP geometry with names, installed positions, hierarchy and face colours, or STL for CAD and meshes | ✅ |
 | Differential bevel pinions with a rear shoulder and a collared thrust washer: independent tooth-band, counterbore and bore-crown measurements, including a two-part STEP fixture | ✅ |
+| Measured seat pair to interference-fit sizing with face-linked diameter PMI, signed shaft and bore limits, separate occurrence provenance, and editable fields for missing or ambiguous inputs | ✅ |
 | Shaft/hub interference fit from signed manufacturing limits and diametral loss, pressure range, required interference, torque margin and assembled AP242 round-trip with individual seat limit dimensions | ✅ |
 | Target ratio and centre distance to editable spur tooth-count candidates with nominal contact checks, signed deviations and saved targets | ✅ |
 | Straight spur-pair sizing to a two-component AP242 assembly with independently editable face widths and six face-linked graphical and semantic dimensions | ✅ |

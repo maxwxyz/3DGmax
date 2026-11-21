@@ -5,6 +5,7 @@ from dataclasses import asdict
 from PySide6 import QtCore, QtWidgets
 
 from ..i18n import tr
+from ..kern.sitzpassung import passungsvorgaben, sitzmasse
 from .maschinenelemente_ui import zeige_auslegung
 from .tabellen import spalten_anpassen
 
@@ -12,10 +13,11 @@ from .tabellen import spalten_anpassen
 class Sitzanalyse(QtWidgets.QWidget):
     teile_gewaehlt = QtCore.Signal(set)
 
-    def __init__(self, sitze, paare, radnummern, basis, kragen=()):
+    def __init__(self, sitze, paare, radnummern, basis, kragen=(), *, pmi=()):
         super().__init__()
         self.sitze = sitze
         self.paare = paare
+        self.sitzmasse = sitzmasse(sitze, pmi)
         self.kragen = set(kragen)
         self.basis = basis
         self.radnummern = radnummern
@@ -47,8 +49,14 @@ class Sitzanalyse(QtWidgets.QWidget):
         self.auslegen.setToolTip(tr("Durchmesser und gemessene Länge mit Bauteilbezug in die Auslegung übernehmen"))
         self.auslegen.setEnabled(False)
         self.auslegen.clicked.connect(self._auslegen)
+        self.pressverband = QtWidgets.QPushButton(tr("Pressverband aus Sitzpaar und PMI auslegen …"))
+        self.pressverband.setToolTip(tr("Fertigungsabmaße aus den Durchmesser-PMI von Welle und Bohrung übernehmen"))
+        self.pressverband.setEnabled(False)
+        self.pressverband.clicked.connect(self._pressverband)
         self.tabelle.itemSelectionChanged.connect(self._auswahl)
         lay.addWidget(self.auslegen, alignment=QtCore.Qt.AlignmentFlag.AlignLeft)
+        lay.addWidget(self.pressverband, alignment=QtCore.Qt.AlignmentFlag.AlignLeft)
+        self.pressverband.setVisible(bool(paare))
 
     def _name(self, sitz):
         text = f"{sitz.teil} (#{sitz.nummer})"
@@ -65,6 +73,7 @@ class Sitzanalyse(QtWidgets.QWidget):
     def _auswahl(self):
         auswahl = self.tabelle.selectionModel().selectedRows()
         self.auslegen.setEnabled(bool(auswahl))
+        self.pressverband.setEnabled(bool(auswahl and self.belege[auswahl[0].row()][1]))
         if auswahl:
             a, b, _ = self.belege[auswahl[0].row()]
             self.teile_gewaehlt.emit({s.nummer for s in (a, b) if s})
@@ -77,6 +86,16 @@ class Sitzanalyse(QtWidgets.QWidget):
         return zeige_auslegung(self, art="reibsitz" if b else "buchse" if a.innen else "welle",
                                messwerte={"d": a.d_mm, "l": laenge},
                                quelle=f"{self.basis} · {self.zeilen[r][1]}")
+
+    def _pressverband(self):
+        r = self.tabelle.currentRow()
+        if r < 0 or not self.belege[r][1]:
+            return
+        werte, belege, hinweis = passungsvorgaben(*self.belege[r], self.sitze, self.sitzmasse)
+        quelle = f"{self.basis} · {self.zeilen[r][1]}"
+        if hinweis:
+            quelle += "\n" + hinweis
+        return zeige_auslegung(self, art="sitzgrenzen", messwerte=werte, quelle=quelle, feldquellen=belege)
 
     def daten(self):
         return {"zylinder": [asdict(s) for s in self.sitze],

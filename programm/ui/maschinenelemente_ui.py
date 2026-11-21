@@ -7,7 +7,7 @@ from pathlib import Path
 from PySide6 import QtCore, QtWidgets
 
 from ..i18n import tr
-from ..kern.maschinenelemente import FELDER, SITZGEOMETRIE, VERFAHREN, berechne, pruefe_sitzmasse
+from ..kern.maschinenelemente import FELDER, SITZABMASSE, SITZGEOMETRIE, VERFAHREN, berechne, pruefe_sitzmasse
 from .lader import Abbruch, Modellauftrag
 
 
@@ -40,13 +40,14 @@ def beschriftung(feld):
 
 
 class AuslegungFenster(QtWidgets.QDialog):
-    def __init__(self, parent=None, *, art="stirnrad", messwerte=None, quelle=""):
+    def __init__(self, parent=None, *, art="stirnrad", messwerte=None, quelle="", feldquellen=None):
         super().__init__(parent)
         self.setWindowTitle(tr("Maschinenelement auslegen"))
         self.resize(510, 430)
         self.werte = {}
         self.stirnradziel = {}
         self.messwerte = dict(messwerte or {})
+        self.feldquellen = dict(feldquellen or {})
         self.quelle = quelle
         self.felder = {}
         self.zusatz = {}
@@ -63,6 +64,7 @@ class AuslegungFenster(QtWidgets.QDialog):
         self.annahme.setWordWrap(True)
         lay.addWidget(self.annahme)
         self.vorschlagen = QtWidgets.QPushButton(tr("Zähnezahlen vorschlagen …"))
+        self.vorschlagen.setToolTip(tr("Zähnezahlpaare für die gewünschte Übersetzung und den Achsabstand suchen"))
         self.vorschlagen.clicked.connect(self._vorschlagen)
         lay.addWidget(self.vorschlagen, alignment=QtCore.Qt.AlignmentFlag.AlignLeft)
         bereich = QtWidgets.QScrollArea()
@@ -130,7 +132,8 @@ class AuslegungFenster(QtWidgets.QDialog):
             feld.setText(wert or "")
             feld.setToolTip(beschriftung(k))
             if k in self.messwerte:
-                feld.setToolTip(tr("Ursprünglich übernommen: {}").format(self.messwerte[k]))
+                tipp = tr("Ursprünglich übernommen: {}").format(self.messwerte[k])
+                feld.setToolTip("\n".join(filter(None, (tipp, self.feldquellen.get(k)))))
             self.form.addRow(beschriftung(k), feld)
             self.felder[k] = feld
             feld.textChanged.connect(self._rechnen)
@@ -141,6 +144,7 @@ class AuslegungFenster(QtWidgets.QDialog):
                 if wert is not None:
                     feld.setText(str(wert))
                 feld.setPlaceholderText(tr("Für den STEP-Export"))
+                feld.setToolTip(text)
                 if k in self.messwerte:
                     feld.setToolTip(tr("Ursprünglich übernommen: {}").format(self.messwerte[k]))
                 self.form.addRow(text, feld)
@@ -215,6 +219,8 @@ class AuslegungFenster(QtWidgets.QDialog):
         self.daten = dict(format="3dgmax-auslegung", version=1, verfahren=self.art, eingaben=eingaben,
                           ergebnisse=ausgaben, einheiten=einheiten, modellquelle=self.quelle,
                           uebernommene_masse=self.messwerte, geometrie=self.zusatz.get(self.art, {}))
+        if self.feldquellen:
+            self.daten["feldquellen"] = self.feldquellen.copy()
         if self.art == "stirnrad" and self.stirnradziel:
             self.daten["auslegungsziel"] = self.stirnradziel.copy()
             self.ergebnis.setText(self.ergebnis.text() + "\n" + tr("Abweichung zum Ziel: Δi = {}, Δa = {} mm").format(
@@ -350,8 +356,15 @@ class AuslegungFenster(QtWidgets.QDialog):
             if not isinstance(messwerte, dict) or not isinstance(d.get("modellquelle", ""), str):
                 raise ValueError
             geometrie = d.get("geometrie", {})
-            if not all(isinstance(v, dict) and all(type(x) in (int, float) and isfinite(x) and x >= 0
-                                                   for x in v.values()) for v in (messwerte, geometrie)):
+            if not isinstance(geometrie, dict) or not all(type(x) in (int, float) and isfinite(x) and x >= 0
+                                                          for x in geometrie.values()):
+                raise ValueError
+            if not all(type(v) in (int, float) and isfinite(v) and (v >= 0 or k in SITZABMASSE)
+                       for k, v in messwerte.items()):
+                raise ValueError
+            feldquellen = d.get("feldquellen", {})
+            if not isinstance(feldquellen, dict) or not all(k in messwerte and isinstance(v, str)
+                                                             for k, v in feldquellen.items()):
                 raise ValueError
             ziel = d.get("auslegungsziel", {})
             if not isinstance(ziel, dict) or (ziel and (art != "stirnrad" or set(ziel) != {"a", "i", "da"}
@@ -361,6 +374,7 @@ class AuslegungFenster(QtWidgets.QDialog):
         except (KeyError, ValueError, TypeError, ArithmeticError, OSError):
             QtWidgets.QMessageBox.warning(self, self.windowTitle(), tr("Die Datei enthält keine gültige Auslegung."))
             return
+        self.feldquellen = feldquellen
         self.stirnradziel = ziel
         self.zusatz = {art: geometrie}
         self.quelle, self.messwerte = d.get("modellquelle", ""), messwerte

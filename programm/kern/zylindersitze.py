@@ -1,7 +1,7 @@
 """Zylinderabschnitte und moegliche Sitzpartner in Einbaulage."""
 
 from bisect import bisect_left, bisect_right
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from math import pi
 
 import numpy as np
@@ -26,6 +26,7 @@ class Sitz:
     mitte_mm: tuple
     richtung: tuple
     laenge_mm: float
+    flaechen: tuple[int, ...] = ()
 
 
 @dataclass(frozen=True)
@@ -36,7 +37,7 @@ class Sitzpaar:
     differenz_mm: float
 
 
-def erkenne(form, nummer, name, pruefe=None):
+def erkenne(form, nummer, name, pruefe=None, flaechen_index=None):
     gruppen = {}
     ex = TopExp_Explorer(form, TopAbs_FACE)
     anzahl = 0
@@ -67,9 +68,14 @@ def erkenne(form, nummer, name, pruefe=None):
         key = (innen, *np.round((*mitte, *u, r, laenge), 6))
         prop = GProp_GProps()
         brepgprop.SurfaceProperties(f, prop)
-        alt = gruppen.get(key)
-        gruppen[key] = (sitz, (alt[1] if alt else 0) + prop.Mass() / (2 * pi * r * laenge))
-    return [s for s, anteil in gruppen.values() if abs(anteil - 1) < 1e-5]
+        alt, anteil, ids = gruppen.get(key, (sitz, 0., []))
+        if flaechen_index is not None:
+            nr = flaechen_index(f)
+            if nr is not None:
+                ids.append(nr)
+        gruppen[key] = (alt, anteil + prop.Mass() / (2 * pi * r * laenge), ids)
+    return [replace(s, flaechen=tuple(sorted(set(ids)))) for s, anteil, ids in gruppen.values()
+            if abs(anteil - 1) < 1e-5]
 
 
 def paare(sitze, pruefe=None):

@@ -2,6 +2,32 @@
 
 ## Current state, 2026-11-21
 
+### Carry the diameter PMI of both installed seats into fit sizing
+
+- Checked PLAN §§8.27 and 8.38 against docs/Roadmap.md. In Gearbox analysis, select a
+  shaft/bore pair in the seats table to open interference-fit sizing. Each deviation
+  comes from the semantic diameter PMI on the corresponding occurrence's cylinder.
+  Split cylinder faces contribute to the same seat. A complete coaxial hub OD over
+  the same seat length supplies the outside diameter when unique.
+- A Ø20 mm assembly transferred +20/+30 µm from the shaft and −4/+2 µm from the
+  bore. Editing the bore to −3 µm, saving, reopening and exporting preserved the
+  original value and PMI identifier in the design and attached the revised limits to
+  the correct STEP faces. Compound limits, signed deviations and H7/p6 are covered.
+  Missing, conflicting and multiply associated dimensions leave the affected inputs
+  open. Reviewed triangle-only and stroke/contour Ø35 mm limits from the NIST CTC-01
+  model also reached their cylinder through graphic-to-semantic STEP export and reimport.
+- The full run initially had 1,302 passes, eight skips and a tooltip failure. Added
+  the missing tooth-count and face-width tooltips. All 176 affected tests then passed,
+  including the tooltip check. All 20 sizing and graphic-limit tests passed on native
+  Cocoa and with the English UI. The translation inventory is complete.
+- The signed app at `dist/3DGmax.app` passed its packaged self-test and rendered the
+  exported seat pair. Both versioned release ZIPs remain. No `main-*` build folders
+  remain. GitHub and local Git both list only `main`, with one local worktree.
+- Open in §8.4 for a later session: a filled-triangle test using independent OCCT
+  glyphs for Ø20 H7, h7 and p6 found that geometric OCR misses those fit callouts.
+  Verified semantic fit classes can already supply the seat calculation. QIF remains
+  last. Work pauses after sizing at the user's request.
+
 ### Size and export a shaft/hub interference fit from manufacturing limits
 
 - Checked PLAN §8.38 and docs/Roadmap.md. Tools › Size machine element now offers a fit

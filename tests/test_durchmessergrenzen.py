@@ -81,6 +81,16 @@ def test_grenzwahl_am_zylinder_bis_step(fuellung, wahl, fenster, tmp_path):
         np.testing.assert_array_equal(a, b)
         np.testing.assert_array_equal(t, u)
 
+    # Die gepruefte Originalgrafik bleibt erhalten und das Sitzmass ist jetzt semantisch nutzbar.
+    from programm.kern.zylindersitze import erkenne
+    from programm.kern.sitzpassung import sitzmasse
+    sitze = [s for k in neu.baum.blaetter() for s in erkenne(k.form, k.nummer, k.name,
+                                                             flaechen_index=neu.modell.flaechen_index)]
+    (sitz, mass), = sitzmasse(sitze, neu.pmi).items()
+    assert sitz.innen and sitz.d_mm == pytest.approx(35.)
+    assert (mass.oben, mass.unten) == pytest.approx(sem.grenzen())
+    assert f"STEP #{sem.step_id}" in mass.beleg
+
 
 def test_konkreter_typ_bleibt_bei_unvereinbaren_grenzen_offen(app):
     e = lade_alles(pfad("nist_ctc_01_asme1_ap203.stp.gz"))

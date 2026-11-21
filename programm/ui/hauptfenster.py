@@ -3371,7 +3371,8 @@ class Hauptfenster(QtWidgets.QMainWindow):
         self._verzahnung_abbrechen()
         if not teile:
             return None
-        lader = VerzahnungLader(teile, teilnummern=[k.nummer for k in knoten], mit_sitzen=alle_sichtbaren)
+        lader = VerzahnungLader(teile, teilnummern=[k.nummer for k in knoten], mit_sitzen=alle_sichtbaren,
+                                flaechen_index=ansicht.szene.modell.flaechen_index if alle_sichtbaren and ansicht.szene.pmi else None)
         lader.ansicht = ansicht
         lader.quellmodell = weakref.ref(ansicht.szene.modell)
         lader.umfang = (tr("Sichtbare Bauteile: {}") if alle_sichtbaren else
@@ -3432,7 +3433,7 @@ class Hauptfenster(QtWidgets.QMainWindow):
             self._baum_auswaehlen(panel)
         self._verzahnung = VerzahnungFenster(liste, os.path.splitext(ansicht.szene.modell.pfad)[0], self,
                                              quellen=lader.quellen, umfang=lader.umfang, getriebe=self._verzahnung_getriebe,
-                                             sitze=lader.sitze, sitzpaare=lader.sitzpaare)
+                                             sitze=lader.sitze, sitzpaare=lader.sitzpaare, pmi=ansicht.szene.pmi)
         self._verzahnung.teile_gewaehlt.connect(waehle)
         if self._verzahnung_getriebe and self._verzahnung.getriebe_tabelle.rowCount():
             self._verzahnung.reiter.setCurrentWidget(self._verzahnung.getriebeseite)
