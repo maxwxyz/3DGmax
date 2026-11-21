@@ -2,6 +2,29 @@
 
 ## Current state, 2026-11-21
 
+### Simultaneous tolerance groups across PDF sheets
+
+- Checked PLAN §§8.4 and 8.35 against docs/Roadmap.md. The drawing review can compare a
+  user-confirmed set of sheet regions with an explicit STEP group. Numbered native PDF captions
+  suggest other matching rows. Unnumbered captions require the reviewer to select the partners.
+  An early review stays open until confirmed with all sheets available. Revising the transcription
+  or removing a member clears the previous group. Editing a model assignment recalculates it.
+- Tested the File menu with a generated two-sheet PDF. Each sheet has a surface-profile tolerance
+  of .070 inch against A/B/C. A modified NIST FTC-07 links actual controls #14614 and #15076.
+  Both rows matched. Adding #14472 to the STEP group changed the two group findings while all
+  printed values remained the same. The CSV identifies both PDF regions, mapped STEP IDs, expected
+  IDs and the membership finding independently of the values.
+- Tests also cover repeated group numbers in separately confirmed views, duplicate or unresolved
+  assignments, extra drawing-only members and unverified model datum systems. Bare simultaneous
+  wording in a STEP description does not establish membership. The whole-drawing verdict is open.
+- The next lettering case is a numbered group suffix drawn as strokes or pure triangle fill on
+  a 3D control frame. On FTC-07 #15098 the original seven letters and both tolerance rows read
+  correctly. Moving that frame's own digit 1 (curves 10 and 11) after the T with a shift of
+  +24.65 and -13.21 mm along its writing axes produced an empty OCR result. This gives a
+  reproducible next case. The 2D number proposal currently reads native or reviewed PDF text.
+- All 82 affected tests passed, as did 24 tests with native macOS Qt. All 2,630 interface
+  strings have English translations. QIF remains last.
+
 ### Part 21 loading and filtering annotations in the 3D viewer
 
 - Checked PLAN §§6, 8.4 and 8.13 against the Viewing section in docs/Roadmap.md. Compared the

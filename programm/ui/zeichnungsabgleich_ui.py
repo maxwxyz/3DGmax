@@ -279,6 +279,9 @@ class Zeichnungsabgleich(QtWidgets.QDialog):
         panel.addWidget(self.zuordnung)
         self.einzel = Einzelmasse()
         panel.addWidget(self.einzel)
+        self.gruppenknopf = QtWidgets.QPushButton(tr("Gemeinsam geltende Toleranzen prüfen …"))
+        self.gruppenknopf.clicked.connect(self._blattgruppe)
+        panel.addWidget(self.gruppenknopf)
         self.detail = QtWidgets.QLabel()
         self.detail.setWordWrap(True)
         panel.addWidget(self.detail)
@@ -364,6 +367,7 @@ class Zeichnungsabgleich(QtWidgets.QDialog):
 
     def _liste(self, wahl=None):
         self.zeilen = list(self.seiten[self.blatt.nummer])
+        self._gruppen_aktualisieren()
         zugeordnet = {id(m) for angaben in self.seiten.values() for a in angaben for m in a.zugeordnete_pmi()}
         self.zeilen.extend(p for p in self.modell if id(p) not in zugeordnet)
         befunde = self._befunde()
@@ -373,7 +377,7 @@ class Zeichnungsabgleich(QtWidgets.QDialog):
             self.tabelle.setCurrentCell(-1, -1)
             for i, a in enumerate(self.zeilen):
                 if isinstance(a, za.Blattangabe):
-                    daten = (str(a.seite+1), a.text or "?", befunde[za.befund(a, self.einheit.currentData())])
+                    daten = (str(a.seite+1), a.text or "?", befunde[self._befund(a)])
                 else:
                     daten = ("–", f"#{a.nummer}  {a.wert_text()}",
                              tr("Nur im Modell") if id(a) in self.nur_modell else tr("Modell-PMI offen"))
@@ -383,6 +387,75 @@ class Zeichnungsabgleich(QtWidgets.QDialog):
         self.tabelle.resizeColumnToContents(2)
         self._status()
         self.waehle(wahl if wahl is not None else next(iter(self.zeilen), None))
+
+    def _gruppen_aktualisieren(self):
+        angaben = [a for seite in self.seiten.values() for a in seite]
+        self.gruppen = za.gruppenbefunde(angaben, self.modell, self.einheit.currentData())
+
+    def _befund(self, a):
+        return za.befund(a, self.einheit.currentData(), self.gruppen.get(a))
+
+    def _aktualisiere_befunde(self):
+        self._gruppen_aktualisieren()
+        befunde = self._befunde()
+        for i, a in enumerate(self.seiten[self.blatt.nummer]):
+            self.tabelle.item(i, 2).setText(befunde[self._befund(a)])
+
+    def _blattgruppe(self):
+        a = self.aktiv
+        if not isinstance(a, za.Blattangabe):
+            return
+        dialog = QtWidgets.QDialog(self)
+        dialog.setWindowTitle(tr("Gemeinsam geltende Toleranzen prüfen"))
+        layout = QtWidgets.QVBoxLayout(dialog)
+        vollstaendig = len(self.seiten) == len(self.doc)
+        text = tr("Alle Fundstellen auswählen, die laut Zeichnung gemeinsam mit der aktuellen Toleranz gelten. Für eine einzeln geltende Toleranz nur die aktuelle Zeile auswählen.")
+        if not vollstaendig:
+            text += " " + tr("Für einen abschließenden Gruppenbefund alle Blätter öffnen und die Gruppe erneut prüfen.")
+        info = QtWidgets.QLabel(text)
+        info.setWordWrap(True)
+        layout.addWidget(info)
+        liste = QtWidgets.QListWidget()
+        layout.addWidget(liste)
+        kennung = za.gruppenkennung(a.text)
+        fundstellen = []
+        for nr, zeilen in sorted(self.seiten.items()):
+            for z in zeilen:
+                p = za.lese_angabe(z.text, self.einheit.currentData(), z.grundmass)
+                if not p or p.art != TOLERANZ:
+                    continue
+                fundstellen.append(z)
+                name = tr("Blatt {} · {} % von links, {} % von oben").format(nr+1, round(100*z.box[0]), round(100*z.box[1]))
+                ziel = tr("PMI {}").format(z.modell.nummer) if z.modell else tr("Nur in Zeichnung") if z.nur_zeichnung else tr("Zuordnung offen")
+                item = QtWidgets.QListWidgetItem(f"{name} · {ziel}\n{z.text}", liste)
+                markiert = bool(kennung and kennung == za.gruppenkennung(z.text))
+                if z.simultan and z.simultan is not a.simultan and z.simultan.alle_blaetter:
+                    markiert = False
+                if a.simultan and (a.simultan.alle_blaetter or not markiert):
+                    markiert = z in a.simultan.zeilen
+                item.setCheckState(QtCore.Qt.CheckState.Checked if z is a or markiert else QtCore.Qt.CheckState.Unchecked)
+                if z is a:
+                    item.setFlags(item.flags() & ~QtCore.Qt.ItemFlag.ItemIsUserCheckable)
+                    liste.setCurrentItem(item)
+        knoepfe = QtWidgets.QDialogButtonBox(QtWidgets.QDialogButtonBox.StandardButton.Ok | QtWidgets.QDialogButtonBox.StandardButton.Cancel)
+        layout.addWidget(knoepfe)
+        knoepfe.accepted.connect(dialog.accept)
+        knoepfe.rejected.connect(dialog.reject)
+        zurueck = knoepfe.addButton(tr("Gruppenprüfung zurücksetzen"), QtWidgets.QDialogButtonBox.ButtonRole.ResetRole)
+        zurueck.setEnabled(a.simultan is not None)
+        zurueck.clicked.connect(lambda: dialog.done(2))
+        dialog.resize(610, 420)
+        antwort = dialog.exec()
+        dialog.deleteLater()
+        if antwort == QtWidgets.QDialog.DialogCode.Accepted:
+            gewaehlt = [z for i, z in enumerate(fundstellen) if liste.item(i).checkState() == QtCore.Qt.CheckState.Checked]
+            za.setze_blattgruppe(gewaehlt, vollstaendig)
+        elif antwort == 2:
+            za.loese_blattgruppen([a])
+        else:
+            return
+        self._aktualisiere_befunde()
+        self._vorschau()
 
     def _status(self):
         if self.registrieren.isChecked():
@@ -491,8 +564,7 @@ class Zeichnungsabgleich(QtWidgets.QDialog):
                 p = za.lese_angabe(a.text, self.einheit.currentData(), a.grundmass)
                 a.zielkonflikt = any(za.muster_deckt(anzahl, self._muster(a, anzahl), m, p.typ) if anzahl else m.flaechen & k.flaechen
                                      for m in za.kandidaten(p, self.modell))
-        for i, a in enumerate(self.seiten[nr]):
-            self.tabelle.item(i, 2).setText(self._befunde()[za.befund(a, self.einheit.currentData())])
+        self._aktualisiere_befunde()
         if isinstance(self.aktiv, za.Blattangabe) and self.manuelle_wahl and self.zuordnung.currentData() != -2:
             muster = self._muster(self.aktiv, za.musteranzahl(self.text.toPlainText()))
             self.ansicht.zeige_kreise(arbeit.treffer, self.zielvorschlaege.get(self.aktiv), muster)
@@ -657,6 +729,9 @@ class Zeichnungsabgleich(QtWidgets.QDialog):
     def _vorschau(self):
         a = self.aktiv
         self.detail.clear()
+        gespeichert = isinstance(a, za.Blattangabe) and za.lese_angabe(a.text, self.einheit.currentData(), a.grundmass)
+        self.gruppenknopf.setVisible(bool(gespeichert and gespeichert.art == TOLERANZ))
+        self.gruppenknopf.setEnabled(bool(gespeichert and self.text.toPlainText().strip() == a.text.strip()))
         einzelmodus = isinstance(a, za.Blattangabe) and self.zuordnung.currentData() == -2
         vorher_einzeln = not self.einzel.isHidden()
         self.einzel.setVisible(einzelmodus)
@@ -705,16 +780,39 @@ class Zeichnungsabgleich(QtWidgets.QDialog):
             if k and not anzahl and not k.flaechen & m.flaechen:
                 self.detail.setText(tr("Die gewählte Modell-PMI gehört zu einer anderen Fläche als das erkannte Hinweisziel."))
                 return
-            detail = self._wertdetails(p, m)
+            gruppe = self.gruppen.get(a) if a.modell is m and self.text.toPlainText().strip() == a.text.strip() else None
+            detail = self._wertdetails(p, m, gruppe)
+            if gruppe:
+                detail += "\n" + tr("Toleranzgruppe auf dem Blatt: {} · Im Modell: {} · {}").format(
+                    self._ids(gruppe.blatt_ids), self._ids(gruppe.modell_ids), self._gruppentext(gruppe))
             if any(z.tauschgruppe for z in muster):
                 detail = tr("Modellflächen als Bohrbild zugeordnet.") + " " + detail
             self.detail.setText(detail)
 
     @staticmethod
-    def _wertdetails(p, m):
+    def _ids(ids):
+        return ", ".join(f"#{i}" for i in sorted(ids)) or "–"
+
+    @staticmethod
+    def _gruppentext(gruppe):
+        return {
+            "gleich": tr("Gruppenmitglieder stimmen überein"),
+            "geaendert": tr("Gruppenmitglieder weichen ab"),
+            "offen": tr("Zu prüfen"),
+            "blaetter": tr("Nach Öffnen aller Blätter erneut prüfen"),
+            "kennung": tr("Auswahl und gedruckte Gruppenkennungen prüfen"),
+            "doppelt": tr("Mehrere Fundstellen sind derselben Modell-PMI zugeordnet"),
+            "zuordnung": tr("Zuordnung der einzelnen Toleranzzeilen prüfen"),
+            "partner": tr("Weitere Fundstelle der gemeinsamen Anforderung prüfen"),
+            "bezug": tr("Bezugsbasis oder Verknüpfung der STEP-Gruppe ungeklärt"),
+            "modellpartner": tr("Geltungshinweis im Modell ohne explizite Partner"),
+        }[gruppe.grund or gruppe.status]
+
+    @staticmethod
+    def _wertdetails(p, m, gruppe=None):
         if za.grenzen_vertauscht(m):
             return tr("Das Mindestmaß im Modell liegt über dem Höchstmaß.")
-        felder = za.unterschiede(p, m)
+        felder = za.wertunterschiede(p, m, gruppe)
         namen = dict(FELD_TEXT, typ=tr("Typ"), art=tr("Art"), minimum=tr("Mindestmaß"), maximum=tr("Höchstmaß"))
         if felder:
             text = tr("Abweichende Felder: {}").format(", ".join(tr(namen[k]) for k in felder))
@@ -722,13 +820,15 @@ class Zeichnungsabgleich(QtWidgets.QDialog):
                 text += "\n" + tr("Geltungshinweis auf dem Blatt: {} · Im Modell: {}").format(
                     p.beschreibung or "–", za.modellhinweis(m) or "–")
             return text
-        if m.simultan_mit or m.simultan_offen:
+        if gruppe is None and za.gruppe_zu_pruefen(p, m):
             return tr("Werte stimmen überein. Gemeinsam geltende Toleranzen auf der Zeichnung prüfen.")
         return tr("Angegebene Werte stimmen überein.")
 
     def uebernehmen(self):
         a = self.aktiv
         if isinstance(a, za.Blattangabe):
+            if a.simultan and a.text != self.text.toPlainText().strip():
+                za.loese_blattgruppen([a])
             a.text, a.grundmass = self.text.toPlainText().strip(), self.grundmass.isChecked()
             idx = self.zuordnung.currentData()
             vorher = a.modell
@@ -763,6 +863,7 @@ class Zeichnungsabgleich(QtWidgets.QDialog):
         self._liste(a)
 
     def _entferne(self):
+        za.loese_blattgruppen([self.aktiv])
         self.entfernte_bereiche.setdefault(self.aktiv.seite, []).append(self.aktiv.zeilenecken or self.aktiv.box)
         self.musterwahl.pop(self.aktiv, None)
         self.zielvorschlaege.pop(self.aktiv, None)
@@ -790,7 +891,9 @@ class Zeichnungsabgleich(QtWidgets.QDialog):
                             tr("Hinweisellipse (kleine Halbachse/Breite, Drehwinkel in Grad)"),
                             tr("Musterellipsen (kleine Halbachse/Breite, Drehwinkel in Grad je Bohrung)"),
                             tr("Ecken der Maßzeile in Leserichtung (x/Breite, y/Höhe)"),
-                            tr("Textseitige Hinweisenden (x/Breite, y/Höhe)")])
+                            tr("Textseitige Hinweisenden (x/Breite, y/Höhe)"),
+                            tr("Toleranzgruppe auf der Zeichnung (Blatt und Bereich)"), tr("Der Blattgruppe zugeordnete Quell-IDs"),
+                            tr("Quell-IDs der Modellgruppe"), tr("Befund der Toleranzgruppe")])
                 def modellwert(m):
                     return "\n".join(filter(None, (m.wert_text(), za.modellhinweis(m))))
 
@@ -798,7 +901,13 @@ class Zeichnungsabgleich(QtWidgets.QDialog):
                 for nr, angaben in sorted(self.seiten.items()):
                     for a in angaben:
                         faktor = self.einheit.currentData()
-                        gesamt = self._befunde()[za.befund(a, faktor)]
+                        gesamt = self._befunde()[self._befund(a)]
+                        gruppe = self.gruppen.get(a)
+                        nachweis = [""] * 4
+                        if gruppe:
+                            orte = sorted((z.seite + 1, z.box) for z in a.simultan.zeilen)
+                            nachweis = [" | ".join(f"{seite}: " + " ".join(f"{x:.6f}" for x in box) for seite,box in orte),
+                                        self._ids(gruppe.blatt_ids), self._ids(gruppe.modell_ids), self._gruppentext(gruppe)]
                         prefix = [*self.quellen, nr+1, " ".join(f"{v:.6f}" for v in a.box), a.text, self.einheit.currentText()]
                         ziele = a.musterziele
                         if a.einzelpruefung:
@@ -820,13 +929,13 @@ class Zeichnungsabgleich(QtWidgets.QDialog):
                                         " | ".join(" ".join(f"{v:.6f}" for v in z.ort[3:]) for z in orte)
                                         if any(len(z.ort)>3 for z in orte) else "",
                                         " | ".join(f"{x:.6f} {y:.6f}" for x,y in a.zeilenecken),
-                                        " | ".join(f"{x:.6f} {y:.6f}" for x,y in a.hinweisenden)])
+                                        " | ".join(f"{x:.6f} {y:.6f}" for x,y in a.hinweisenden), *nachweis])
                 for m in self.modell:
                     if id(m) not in verbunden:
                         w.writerow([*self.quellen, "", "", "", "", tr("Nur im Modell") if id(m) in self.nur_modell else
-                                    tr("Modell-PMI offen"), m.nummer, modellwert(m), sorted(m.flaechen), "", m.step_id if m.step_id > 0 else "", *([""]*9)])
+                                    tr("Modell-PMI offen"), m.nummer, modellwert(m), sorted(m.flaechen), "", m.step_id if m.step_id > 0 else "", *([""]*13)])
                 for nr in sorted(set(range(len(self.doc))) - self.seiten.keys()):
-                    w.writerow([*self.quellen, nr+1, "", "", "", tr("Blatt ungeprüft"), *([""]*14)])
+                    w.writerow([*self.quellen, nr+1, "", "", "", tr("Blatt ungeprüft"), *([""]*18)])
         except OSError as e:
             QtWidgets.QMessageBox.warning(self, tr("Prüfliste speichern"), str(e))
 

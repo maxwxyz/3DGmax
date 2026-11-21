@@ -1,11 +1,14 @@
 """Gepruefte Zeichnungsangaben mit den semantischen Modell-PMI vergleichen."""
 
+from __future__ import annotations
+
 from dataclasses import dataclass
 import math
 import re
 
 from . import pmi_ableiten
-from .pmi import BEZUG, MASS, Pmi
+from .pmi import BEZUG, MASS, TOLERANZ, Pmi
+from .vergleich_pmi import simultangruppen
 
 
 @dataclass(frozen=True)
@@ -37,11 +40,102 @@ class Blattangabe:
     zeilenecken: tuple = ()  # Vier Ecken einer geneigten Zeile in Leserichtung
 
     rahmenbox: tuple | None = None  # Urspruengliche Rahmenkante fuer die Hinweislinie bei Text darunter
+    simultan: Blattgruppe | None = None
 
     def zugeordnete_pmi(self):
         if self.einzelpruefung:
             return [z.modell for z in self.musterziele if z.modell is not None]
         return [self.modell] if self.modell is not None else []
+
+
+@dataclass(frozen=True)
+class Blattgruppe:
+    zeilen: frozenset[Blattangabe]
+    alle_blaetter: bool
+
+
+@dataclass(frozen=True)
+class Gruppenbefund:
+    status: str
+    blatt_ids: frozenset[int]
+    modell_ids: frozenset[int]
+    grund: str = ""
+
+
+_SIMULTAN = re.compile(r"SIM REQT(?: ([1-9][0-9]*))?")
+
+
+def gruppenkennung(text):
+    """Nur eine vollstaendige nummerierte Angabe am Toleranzrahmen identifiziert Partner."""
+    _, _, zusatz = text.strip().partition("\n")
+    m = _SIMULTAN.fullmatch(" ".join(zusatz.split()))
+    return (m[1] or "") if m else ""
+
+
+def loese_blattgruppen(zeilen):
+    for alt in {a.simultan for a in zeilen if a.simultan}:
+        for a in alt.zeilen:
+            a.simultan = None
+
+
+def setze_blattgruppe(zeilen, alle_blaetter):
+    gruppe = Blattgruppe(frozenset(zeilen), alle_blaetter)
+    loese_blattgruppen(gruppe.zeilen)
+    for a in gruppe.zeilen:
+        a.simultan = gruppe
+
+
+def _pruefgrund(gruppe, ids, nummeriert, faktor, nach_id):
+    if not gruppe.alle_blaetter:
+        return "blaetter"
+    zeilen = gruppe.zeilen
+    kennungen = {k for a in zeilen if (k := gruppenkennung(a.text))}
+    if len(kennungen) > 1 or any(not z.simultan or not z.simultan.alle_blaetter
+                                 for k in kennungen for z in nummeriert.get(k, set()) - zeilen):
+        return "kennung"
+    for a in zeilen:
+        p = lese_angabe(a.text, faktor, a.grundmass)
+        if not p or p.art != TOLERANZ or a.zielkonflikt:
+            return "zuordnung"
+        if a.modell is None and not a.nur_zeichnung:
+            return "zuordnung"
+        if a.modell and (a.modell.step_id <= 0 or nach_id.get(a.modell.step_id) is not a.modell
+                         or a.modell.art != TOLERANZ or a.modell.typ != p.typ):
+            return "zuordnung"
+        if len(zeilen) == 1 and _SIMULTAN.fullmatch(p.beschreibung):
+            return "partner"
+    return "doppelt" if len(ids) != sum(a.modell is not None for a in zeilen) else ""
+
+
+def gruppenbefunde(angaben, modelle, faktor):
+    """Gepruefte Blattzeilen mit den zusammenhaengenden STEP-Gruppen vergleichen."""
+    gruppen = {a.simultan for a in angaben if a.simultan}
+    if not gruppen:
+        return {}
+    erwartet = simultangruppen(modelle)
+    nach_id = {p.step_id: p for p in modelle}
+    unklar = {p.step_id for p in modelle if p.simultan_offen or any(
+        n not in nach_id or p.step_id not in nach_id[n].simultan_mit for n in p.simultan_mit)}
+    nummeriert = {}
+    for a in angaben:
+        if kennung := gruppenkennung(a.text):
+            nummeriert.setdefault(kennung, set()).add(a)
+    ergebnis = {}
+    for gruppe in gruppen:
+        zeilen = gruppe.zeilen
+        ids = frozenset(a.modell.step_id for a in zeilen if a.modell and a.modell.step_id > 0)
+        blattgrund = _pruefgrund(gruppe, ids, nummeriert, faktor, nach_id)
+        for a in zeilen:
+            m = a.modell
+            soll = erwartet.get(m.step_id, frozenset({m.step_id})) if m and m.step_id > 0 else frozenset()
+            grund = blattgrund
+            if not grund and (ids & unklar or soll & unklar):
+                grund = "bezug"
+            if not grund and m and m.step_id not in erwartet and _SIMULTAN.fullmatch(modellhinweis(m)):
+                grund = "modellpartner"
+            status = "offen" if grund or not m else "gleich" if soll == ids and len(ids) == len(zeilen) else "geaendert"
+            ergebnis[a] = Gruppenbefund(status, ids, soll, grund)
+    return ergebnis
 
 
 _MENGE = re.compile(r"^\s*([1-9][0-9]{0,3})\s*[xX×]\s*(?=(?:[Ø∅⌀]|C?R)\s*[0-9.,])")
@@ -89,7 +183,11 @@ def lese_angabe(text, faktor, grundmass=False):
     zusatz = ""
     if "|" in text:
         kopf, _, folge = text.strip().partition("\n")
-        if folge and (zusatz := pmi_ableiten.geltungshinweis(folge)):
+        if kennung := gruppenkennung(text):
+            zusatz = "SIM REQT " + kennung
+        else:
+            zusatz = pmi_ableiten.geltungshinweis(folge)
+        if zusatz:
             text = kopf
         teile = [t.strip().translate(str.maketrans({"Ø": "⌀", "∅": "⌀"})) for t in text.split("|")]
         if len(teile) >= 2:
@@ -164,15 +262,31 @@ def grenzen_vertauscht(p):
     return oben is not None and unten is not None and unten > oben
 
 
-def wertebefund(p, modell):
+def wertunterschiede(p, modell, gruppe=None):
+    felder = unterschiede(p, modell)
+    gedruckt = _SIMULTAN.fullmatch(p.beschreibung)
+    pruefen = gruppe or modell.simultan_mit or modell.simultan_offen or (gedruckt and gedruckt[1])
+    if (pruefen and "beschreibung" in felder and (not p.beschreibung or gedruckt)
+            and (not modellhinweis(modell) or _SIMULTAN.fullmatch(modellhinweis(modell)))):
+        felder.remove("beschreibung")  # Der Gruppenbefund prueft diese Anforderung.
+    return felder
+
+
+def gruppe_zu_pruefen(p, modell):
+    return bool(modell.simultan_mit or modell.simultan_offen or _SIMULTAN.fullmatch(p.beschreibung))
+
+
+def wertebefund(p, modell, gruppe=None):
     if p is None or modell is None or grenzen_vertauscht(modell):
         return "offen"
-    felder = unterschiede(p, modell)
+    if gruppe and gruppe.status == "geaendert":
+        return "geaendert"
+    felder = wertunterschiede(p, modell, gruppe)
     if felder == ["beschreibung"] and (hinweis := modellhinweis(modell)) and not pmi_ableiten.geltungshinweis(hinweis):
         return "offen"
     if felder:
         return "geaendert"
-    if modell.simultan_mit or modell.simultan_offen:
+    if (gruppe and gruppe.status == "offen") or (not gruppe and gruppe_zu_pruefen(p, modell)):
         return "offen"  # Die einzelne Blattzeile belegt keine Verknuepfung zu einer anderen Toleranz.
     if p.zone == "Projected":
         return "offen"  # Projektionsursprung auf dem Blatt noch nicht geometrisch zugeordnet.
@@ -190,7 +304,7 @@ def einzelbefund(p, ziel):
     return wertebefund(p, m)
 
 
-def befund(angabe, faktor):
+def befund(angabe, faktor, gruppe=None):
     p = lese_angabe(angabe.text, faktor, angabe.grundmass)
     if p is None or angabe.zielkonflikt:
         return "offen"
@@ -210,4 +324,4 @@ def befund(angabe, faktor):
         return befunde.pop() if len(befunde) == 1 else "geaendert"
     if anzahl and not muster_deckt(anzahl, angabe.musterziele, angabe.modell, p.typ):
         return "offen"
-    return wertebefund(p, angabe.modell)
+    return wertebefund(p, angabe.modell, gruppe)

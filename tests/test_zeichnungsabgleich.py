@@ -54,7 +54,7 @@ def test_gezeichnete_rahmenzeile_vergleicht_den_vollen_geltungshinweis(hinweis):
     text = "⌓ | .030 | A | B | C"
     modell = replace(za.lese_angabe(text, 25.4), beschreibung=" ".join(hinweis.split()))
     blatt = za.Blattangabe(0, (0, 0, .1, .1), text+"\n"+hinweis, modell=modell)
-    assert za.befund(blatt, 25.4) == "gleich"
+    assert za.befund(blatt, 25.4) == ("offen" if hinweis == "SIM REQT" else "gleich")
     blatt.text = text
     assert za.befund(blatt, 25.4) == "geaendert"
     assert za.unterschiede(za.lese_angabe(blatt.text, 25.4), modell) == ["beschreibung"]

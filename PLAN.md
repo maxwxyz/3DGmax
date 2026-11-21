@@ -212,8 +212,7 @@ Throughout: tests (core, offscreen UI, stress test, on-screen test), `--selbstte
   E/B/C. A blank modifier circle is distinguished from a trailing zero. All six FTC-07 composite
   frames have now passed graphical-only STEP round trips, including “SIM REQT” and the full
   “INNER AND OUTER WALL OF ENTIRE GROOVE” note. Recognised notes are stored on both tolerances.
-  Two filled endpoints can share one leader. Other lettering and explicit cross-control
-  membership of simultaneous requirements on drawings remain open. For an imported STEP
+  Two filled endpoints can share one leader. Other lettering remains open. Reviewed drawing groups are compared with explicit STEP membership (§8.35). For an imported STEP
   `simultaneity` relationship, each tolerance now retains its explicit partners. Identical
   referenced datum systems establish the common basis. Other bases stay visible for review.
   The PMI list can select a connected set of confirmed tolerances. The revision comparison
@@ -1707,6 +1706,12 @@ existing columns and adds the minor semi-axis and clockwise angle for each accep
 For individual reviewed tolerance rows the PDF reader joins aligned scope wording below the frame.
 A two-sheet drawing with and without “OF ENTIRE GROOVE” produced equal and changed findings against
 one model tolerance. The CSV retains both texts. Ambiguous ownership and unresolved text stay open.
+For simultaneous requirements, reviewers can select the member controls across sheets. An identical
+numbered caption such as “SIM REQT 1” preselects rows. Unnumbered captions need an explicit
+selection. Confirming the set compares its mapped STEP IDs with the connected model group.
+A group checked before all sheets were opened needs another review. Duplicate mappings, missing
+assignments, conflicting printed numbers and unverified datum systems leave membership open.
+The CSV reports each selected sheet region, the mapped and expected source IDs and the group finding.
 
 Remaining work includes occluded rims, perspective views, sections, non-circular features and leaders on section or edge geometry, automatically
 finding additional types of unframed graphical annotations, interpreting composite controls and establishing

@@ -77,7 +77,8 @@
 | Compare the scope note below a PDF tolerance row with the model and include the printed and model wording in the CSV review | ✅ |
 | Read and select explicit simultaneous STEP tolerances with a common datum system, flag unconfirmed bases and compare partners across revisions | ✅ |
 | Match large semantic PMI lists by indexed faces, values and names; distinguish reordered equal-nominal dimensions with different deviations | ✅ |
-| Read additional lettering and further composite layouts, and match simultaneous group membership on the drawing | 💡 |
+| Compare reviewed simultaneous tolerance groups across PDF sheets with explicit STEP group membership; suggest matching numbered captions and export sheet regions, source IDs and findings | ✅ |
+| Read additional lettering and further composite layouts | 💡 |
 | Semantic-only PMI: optional generated display in the view (see generated PMI stage 2) | ✅ |
 | Show tolerance zones as envelope surfaces (offsets ±t/2, ⌀ zone cylinder, exaggeration) | ✅ |
 | Tolerance zones stage 2: unequal zones (UZ/Ⓤ), projected zones, Ⓜ/Ⓛ bonus zone, space of the surface (size + location), size envelopes, patterns per feature | ✅ |
