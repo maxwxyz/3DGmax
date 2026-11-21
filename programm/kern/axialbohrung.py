@@ -55,7 +55,22 @@ class Stufenbohrspur:
     spitzenhoehe: float = 0.
 
 
+@dataclass(frozen=True)
+class Gegenbohrungen:
+    links: tuple
+    rechts: tuple
+    kern: object = None  # Durchmesser der gemeinsamen Kernbohrung
+
+    @property
+    def stufen(self):
+        return self.links+self.rechts+(((self.kern,None),) if self.kern is not None else ())
+
+
 def bohrdurchmesser_am_absatz(spur, x, grenzen):
+    if isinstance(spur,Gegenbohrungen):
+        a = bohrdurchmesser_am_absatz(Stufenbohrspur(spur.links,False),x,grenzen)
+        b = bohrdurchmesser_am_absatz(Stufenbohrspur(spur.rechts,True),x,grenzen)
+        return max(a[0],b[0],spur.kern or 0.),max(a[1],b[1],spur.kern or 0.)
     if isinstance(spur,Sacklochspur):
         stufen = ((spur.durchmesser,spur.tiefe),)
     elif isinstance(spur,Stufenbohrspur):
@@ -98,6 +113,19 @@ def _absatzkante(spur, breite, luecke):
     return abs(pause-luecke) <= max(1,.2*luecke) and max(laeufe[0,0],len(spur)-laeufe[-1,1]) <= luecke+1
 
 
+def _geteilter_grund(spalte, oben, unten, achse, breite, luecke):
+    # Zwei zum Zentrum gezeichnete Halbkanten koennen dort in einer Strichpause enden.
+    if luecke is None:
+        return False
+    for halb in (spalte[oben-1:achse+1],spalte[achse:unten+1][::-1]):
+        laeufe = tintenlaeufe(halb)
+        if len(laeufe) < 2 or len(halb)-laeufe[-1,1] > luecke+breite/2+1:
+            return False
+        if not _absatzkante(halb[:laeufe[-1,1]],breite,luecke):
+            return False
+    return True
+
+
 def _stufenspuren(tinte, rest, baender, grenzen, mitte, stift, spitze):
     # Zwischen zwei Wandpaaren muss auf beiden Seiten derselbe ebene Absatz liegen.
     haelfte = len(baender)//2
@@ -117,6 +145,7 @@ def _stufenspuren(tinte, rest, baender, grenzen, mitte, stift, spitze):
     if rest[:baender[0,0]].any() or rest[baender[-1,1]:].any():
         return ()
     stufen = []
+    luecke = None
     for i, (dm,breite,bild,pixel) in enumerate(waende):
         innen = waende[i+1][0] if i+1 < len(waende) else 0.
         if (dm-innen)/2 <= (breite+stift)/2+1:
@@ -128,7 +157,7 @@ def _stufenspuren(tinte, rest, baender, grenzen, mitte, stift, spitze):
         else:
             flanken = [(o[1],u[0])]
         rand = np.vstack([rest[lo:hi] for lo,hi in flanken])
-        luecke = _strichluecke(bild[0][pixel[0]:pixel[-1]+1],breite)
+        luecke = _strichluecke(bild[0][pixel[0]:pixel[-1]+1],breite) or luecke
         if not innen and spitze is not None:
             kern,ende,_ = spitze
             if abs(dm-kern) > 1 or rand.any():
@@ -138,7 +167,10 @@ def _stufenspuren(tinte, rest, baender, grenzen, mitte, stift, spitze):
         lagen = []
         for x in _bodenlagen(rand,grenzen,breite):
             spalte = tinte[:,round(x-stift/2):round(x+stift/2)+1].any(axis=1)
-            if all(_absatzkante(spalte[lo-1:hi+1],breite,luecke) for lo,hi in flanken):
+            belegt = all(_absatzkante(spalte[lo-1:hi+1],breite,luecke) for lo,hi in flanken)
+            if not belegt and not innen:
+                belegt = _geteilter_grund(spalte,o[1],u[0],round(mitte),breite,luecke)
+            if belegt:
                 lagen.append(x)
         if not innen and not rand.any():
             lagen.extend((grenzen[0],grenzen[-1]))
@@ -160,6 +192,7 @@ def _zylinderspur(tinte, rest, grenzen, mitte, radien, stift, spitze=None):
         if spitze is not None and (spitze[2] < spitze[1]) != rechts:
             continue
         profil = []
+        luecke = None
         start = eintritt
         for dm,breite,bild,pixel,lagen in stufen:
             passend = []
@@ -173,11 +206,14 @@ def _zylinderspur(tinte, rest, grenzen, mitte, radien, stift, spitze=None):
                 if not beruehrt or min(beruehrt)-dm/2 <= (stift+breite)/2+1:
                     continue
                 l,h = int(np.floor(a+rand))+1, int(np.ceil(b-rand))
-                if all(_wand_durchgehend(w[l:h],breite) for w in bild):
+                if all(_absatzkante(w[l:h],breite,luecke) for w in bild):
                     passend.append(x)
             if len(passend) != 1:
                 break
-            start, = passend
+            ziel, = passend
+            a,b = sorted((round(start),round(ziel)))
+            luecke = _strichluecke(bild[0][a:b+1],breite) or luecke
+            start = ziel
             tiefe = None if start in (grenzen[0],grenzen[-1]) else abs(start-eintritt)
             profil.append((dm,tiefe))
         if len(profil) == len(stufen):
@@ -268,12 +304,73 @@ def _kegelspur(tinte, rest, grenzen, mitte, radien, stift):
     return None
 
 
+def _teilprofil(tinte, rest, grenzen, mitte, radien, stift, rechts):
+    erg = _zylinderspur(tinte,rest.copy(),grenzen,mitte,radien,stift)
+    if erg:
+        spur,breite = erg
+        if isinstance(spur,(Stufenbohrspur,Sacklochspur)) and spur.von_rechts == rechts:
+            stufen = spur.stufen if isinstance(spur,Stufenbohrspur) else ((spur.durchmesser,spur.tiefe),)
+            return stufen,breite
+    return None
+
+
+def _gemeinsamer_kern(tinte, mitte, grenzen, links, rechts, breite):
+    dm = links[-1][0]
+    if abs(dm-rechts[-1][0]) > 1 or len(links) < 2 or len(rechts) < 2:
+        return None
+    a = int(np.ceil(grenzen[0]+links[-2][1]+breite/2+1))
+    b = int(np.floor(grenzen[-1]-rechts[-2][1]-breite/2-1))
+    for y in (mitte-dm/2,mitte+dm/2):
+        lo,hi = int(np.ceil(y-breite/2)),int(np.floor(y+breite/2))+1
+        if not _wand_durchgehend(tinte[lo:hi,a:b+1].any(axis=0),breite):
+            return None
+    return Gegenbohrungen(links[:-1],rechts[:-1],dm)
+
+
+def _gegenspur(tinte, rest, grenzen, mitte, radien, stift):
+    # Zwischen zwei Absatzen muss entweder ein durchgehender Zylinder oder ein Materialsteg liegen.
+    waende = rest.sum(axis=1) > 2*(stift+2)
+    from scipy.ndimage import minimum_filter1d
+    laenge = int(np.ceil(2*(stift+2)))+1
+    senkrecht = minimum_filter1d(rest,size=laenge,axis=0,mode="constant").any(axis=0)
+    lagen = [*tintenlaeufe(rest[~waende].any(axis=0)),*tintenlaeufe(senkrecht)]
+    stationen = sorted(set(grenzen) | {b.mean()-.5 for b in lagen if grenzen[0] < b.mean()-.5 < grenzen[-1]})
+    treffer = {}
+    for a,b in zip(stationen,stationen[1:]):
+        if b-a <= 2*stift+4:
+            continue
+        schnitt = round((a+b)/2)
+        k = int(np.searchsorted(grenzen,schnitt))
+        # Blattkoordinaten in beiden Teilbildern beibehalten bzw. um den Schnitt verschieben.
+        l = _teilprofil(tinte[:,:schnitt+1],rest[:,:schnitt+1],[*grenzen[:k],schnitt],
+                        mitte,radien[:k],stift,False)
+        if not l:
+            continue
+        r = _teilprofil(tinte[:,schnitt:],rest[:,schnitt:],[0,*[x-schnitt for x in grenzen[k:]]],
+                        mitte,radien[k-1:],stift,True)
+        if not r:
+            continue
+        links,wl = l
+        rechts,wr = r
+        breite = max(wl,wr)
+        if links[-1][1] is None and rechts[-1][1] is None:
+            erg = _gemeinsamer_kern(tinte,mitte,grenzen,links,rechts,breite)
+        elif links[-1][1] is not None and rechts[-1][1] is not None:
+            erg = Gegenbohrungen(links,rechts)
+        else:
+            continue
+        if erg:
+            treffer[erg] = breite
+    return next(iter(treffer.items())) if len(treffer) == 1 else None
+
+
 def bohrspur(tinte, erlaubt, grenzen, mitte, radien, stift):
     rest = tinte & ~erlaubt
     if not rest.any():
         return 0., 0.
     return (_zylinderspur(tinte,rest.copy(),grenzen,mitte,radien,stift)
-            or _kegelspur(tinte,rest,grenzen,mitte,radien,stift))
+            or _kegelspur(tinte,rest,grenzen,mitte,radien,stift)
+            or _gegenspur(tinte,rest,grenzen,mitte,radien,stift))
 
 
 def stirnringe(bild, box, kreise):
@@ -306,7 +403,7 @@ def stirnringe(bild, box, kreise):
         y = np.rint(mitte[1]-t+radius*np.sin(phi)).astype(int)
         if min(x) < 1 or min(y) < 1 or max(x) >= r-l-1 or max(y) >= b-t-1 or not bedeckt[y,x].all():
             return ()
-        toleranz = max(2.,np.median(strich[y,x])+1.)
+        toleranz = max(2.,np.median(strich[y,x])+1.)+np.sqrt(.5)
         if 2*toleranz >= min(np.diff(radien)) or toleranz >= radius/2:
             return ()
         strichbreiten.append(toleranz)

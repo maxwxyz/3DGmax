@@ -2,6 +2,26 @@
 
 ## Current state, 2026-11-21
 
+### Bores entering from both shaft ends
+
+- Checked PLAN §§8.35–8.37 and docs/Roadmap.md. The longitudinal view can contain
+  cylindrical bores from both ends of the same shaft. Two flat floors bound a material web.
+  A shared through core requires both printed walls across the whole intervening length.
+  The review table identifies the entry end of each diameter and depth. Optional end views
+  are checked separately. Each side retains its own fits, shoulders and entry reference.
+- Four PDF-to-STEP tests covered both drawing orientations, solid and dashed walls, identical
+  and different entry diameters, a shared through core and two blind cores. Both STEP readers
+  recovered the individual fits, depth limits and their target faces. Checked the depth graphics
+  and removed volume. Missing floors, overlapping depth limits and disappearing shoulders
+  block export. All 39 affected tests and 42 native macOS tests passed. All 2565 UI strings
+  have English entries.
+- For the outer-taper item, an isolated solid with Ø20 and Ø12 seats joined by an 8 mm taper
+  round-tripped in both axial directions. Its included angle was 53.1301024° and its volume
+  6542.890300 mm³. Both STEP readers recovered the angle on the cone, the seat fits and the
+  12 mm and 20 mm stations from the end plane to the corresponding circular edges. The
+  graphical leader tips reached those circles. Drawing recognition and review of external
+  tapers, opposed drill points, fillets and whole-drawing comparison remain open. QIF stays last.
+
 ### Conical drill points in shaft drawings
 
 - Checked PLAN §§8.16, 8.28 and 8.35–8.37 against docs/Roadmap.md. File → Shaft from 2D drawing

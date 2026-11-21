@@ -409,7 +409,14 @@ def test_sackloch_braucht_flachen_grund_und_eine_geschlossene_rueckseite():
     bild[36:48,8:10] = 255
     sitze,spur = drehprofil(bild.transpose(1,0,2),box,True)
     assert len(sitze) == 3 and spur == Sacklochspur(14,52,False)
-    for fehler in ("rueckseite offen","boden unterbrochen","kegel","wanderndes ende","zweite bohrung"):
+    from programm.kern.axialbohrung import Gegenbohrungen
+    zweite = bild.copy()
+    for y in (34,48):
+        zweite[y:y+2,115:138] = 0
+    zweite[34:50,115:117] = 0
+    _,gegen = drehprofil(zweite,box)
+    assert gegen == Gegenbohrungen(((14,52),),((14,21),))
+    for fehler in ("rueckseite offen","boden unterbrochen","kegel","wanderndes ende","zweite bohrung ohne grund"):
         kopie = bild.copy()
         if fehler == "rueckseite offen":
             kopie[36:48,136:138] = 255
@@ -425,7 +432,6 @@ def test_sackloch_braucht_flachen_grund_und_eine_geschlossene_rueckseite():
         else:
             for y in (34,48):
                 kopie[y:y+2,115:138] = 0
-            kopie[34:50,115:117] = 0
         assert drehprofil(kopie,box) == ([],None), fehler
 
 

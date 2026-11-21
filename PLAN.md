@@ -1719,8 +1719,11 @@ flanks must reach the cylinder wall and the apex. Select or enter the included a
 the printed depth reference (end of full diameter or apex). Both positions must reproject at the
 scale of the longitudinal view. The angle PMI references the conical face; the depth references
 the entry plane and the cylinder-end circle or apex vertex. Size, angle and depth limits must
-preserve the cylinder and material around and behind the cone. Opposed counterbores, chamfers,
-outer tapers and fillets remain open. Pocket center-position PMI, inclined slots, unequal corner radii,
+preserve the cylinder and material around and behind the cone. Cylindrical bores may enter from both ends. Check each printed wall and shoulder and either two
+flat floors or a continuous wall pair on the shared through core. Each end can have its own end view,
+diameters, fits and depths. Opposing maximum depths must leave a central segment or material between
+the floors at minimum shaft length. STEP uses each bore's own entry face and assigns a single
+diameter to the common cylinder. Opposed conical points, chamfers, outer tapers and fillets remain open. Pocket center-position PMI, inclined slots, unequal corner radii,
 other profiles, automatic cross-view association and datum/GD&T transfer remain open.
 
 ### 8.37 QIF extensions (last in the implementation order)
