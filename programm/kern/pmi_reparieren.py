@@ -282,14 +282,14 @@ def flaechen_vorschlag(g, modell, max_punkte: int = 400) -> set[int]:
     return out
 
 
-def verbundvorschlaege(v, g, modell):
+def verbundvorschlaege(v, g, modell, grafiken=None):
     """Zwei getrennt pruefbare Toleranzen mit gemeinsamem Symbol und gemeinsamer Zielflaechenauswahl."""
     from .pmi_ableiten import aus_text
     from .pmi_validierungstext import verbundtext_abgleich
-    from .pmi_verbundschrift import lies_verbund
+    from .pmi_verbundschrift import lies_verbund_mit_lage
     if v.art != TOLERANZ or v.ocr_text or g.erzeugt or any(p.text for p in g.platzhalter):
         return ()
-    gelesen = lies_verbund(g)
+    gelesen, lage = lies_verbund_mit_lage(g)
     if not gelesen:
         return ()
     zeilen = gelesen[:2]
@@ -298,9 +298,14 @@ def verbundvorschlaege(v, g, modell):
     if not all(d and d.get("wert") is not None and (not v.typ or d["typ"] == v.typ) for d in daten):
         return ()
     passt, kurztext = verbundtext_abgleich(getattr(modell, "datei", None), g, zeilen, daten, zusatz)
+    hinweis = None
+    if passt and not zusatz and grafiken:
+        from .pmi_freier_hinweis import freier_hinweis
+        hinweis = freier_hinweis(getattr(modell, "datei", None), g, grafiken, lage)
     vorschlaege = []
     for wort, felder in zip(zeilen, daten):
         neu = Pmi(**felder, norm=v.norm, callout=v.callout, flaechen=set(v.flaechen), nur_grafik_text=wort)
+        neu.freier_hinweis = hinweis
         neu.beschreibung = zusatz
         neu.ocr_text = wort
         if not passt:

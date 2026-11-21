@@ -49,6 +49,12 @@ class SemantikDialog(QtWidgets.QDialog):
         info.setTextFormat(QtCore.Qt.TextFormat.PlainText)
         info.setObjectName("leise")
         lay.addRow(info)
+        self.hinweiswahl = None
+        if hinweis := getattr(vorschlag, "freier_hinweis", None):
+            nr, wortlaut = hinweis
+            self.hinweiswahl = QtWidgets.QCheckBox(tr("Hinweis aus Grafik #{} für beide Zeilen übernehmen").format(nr))
+            lay.addRow(self.hinweiswahl)
+            lay.addRow(QtWidgets.QLabel(wortlaut))
         if vorschlag.beschreibung:
             zusatz = QtWidgets.QLabel(vorschlag.beschreibung)
             zusatz.setTextFormat(QtCore.Qt.TextFormat.PlainText)
@@ -318,6 +324,8 @@ class SemantikDialog(QtWidgets.QDialog):
         """Die gepruefte PMI (art, typ, Werte, Flaechen; Verweis auf den Callout bleibt)."""
         p = replace(self.v) if self.v.art == self.art.currentData() else Pmi(self.art.currentData(),
                 callout=self.v.callout, nur_grafik_text=self.v.nur_grafik_text)
+        if self.hinweiswahl and self.hinweiswahl.isChecked():
+            p.beschreibung = self.v.freier_hinweis[1]
         f = self.felder
         p.art, p.typ, p.flaechen = self.art.currentData(), self.typ.currentData(), set(self.flaechen)
         if p.art == MASS:
@@ -399,11 +407,13 @@ def semantisch_machen(fenster, auswahl=None):
                 if v.nennwert_aus_geometrie:
                     v.nennwert = None
             v.projektionsflaechen = [i for i in v.projektionsflaechen if 0 <= i < limit]
-            paar = pmi_reparieren.verbundvorschlaege(v, erg.grafik[p.step_id], erg.modell)
+            paar = pmi_reparieren.verbundvorschlaege(v, erg.grafik[p.step_id], erg.modell, erg.grafik)
             if paar:
                 v, folge = paar
         else:
             v = folge
+        if hinweis := getattr(v, "freier_hinweis", None):
+            fenster.ansicht.zeige_pmi({p.step_id, hinweis[0]})
         d = SemantikDialog(v, flaechen, fenster.ansicht.hebe_flaechen, fenster, position=k+1,
                            anzahl=0 if einzeln else len(liste), step=erg.pfad.lower().endswith(ENDUNGEN_STEP + ENDUNGEN_STEPZ),
                            geometriewert=lambda typ, indices: pmi_reparieren.geometrie_nennmass(typ, indices, erg.modell))
@@ -434,6 +444,8 @@ def semantisch_machen(fenster, auswahl=None):
                 if folge is not None and erste is None:
                     folge.flaechen = set(geprueft.flaechen)
                     folge.typ = geprueft.typ
+                    folge.freier_hinweis = None
+                    folge.beschreibung = geprueft.beschreibung
                     weiter(k, folge, geprueft)
                     return
                 if erste is not None:

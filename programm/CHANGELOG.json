@@ -1,6 +1,7 @@
 {
  "unreleased": {
   "de": [
+   "Beim Umwandeln eines grafischen Verbundrahmens lässt sich ein freistehender Hinweis wie „4 COPLANAR SURFACES / SIM REQT“ aus Strichen oder gefüllten Dreiecken übernehmen. STEP erhält den bestätigten Wortlaut auf beiden Toleranzen sowie beide Originalgrafiken in ihrer Ansicht.",
    "Bei Verbundrahmen vergleicht die App den Zeichnungshinweis auch mit semantischen Texten am gemeinsamen STEP-Formelement. Dialog und CSV zeigen den Wortlaut und die STEP-IDs der Quelle. Die Befunde zu den beiden Toleranzbeschreibungen und ihren Verknüpfungen bleiben einzeln sichtbar.",
    "Der Zeichnungsvergleich prüft die Partner der oberen und unteren Zeile eines Verbundrahmens getrennt. Dialog und CSV zeigen, wenn eine STEP-Verknüpfung nur auf einer der beiden Ebenen vorhanden ist. Ein nummerierter SIM-REQT-Hinweis schlägt Partner derselben Rahmenzeile vor.",
    "Bei „4 COPLANAR SURFACES“ und anderen angegebenen Anzahlen prüft der Zeichnungsvergleich die zugeordneten STEP-Flächen auf Anzahl, Ebenheit und gemeinsame Ebene. Berührende Flächen und mehrdeutige Bauteilvorkommen bleiben zur Prüfung offen.",
@@ -182,6 +183,7 @@
    "Grafische PMI aus unterstützten AP203e2-Kurvenmodellen lassen sich als STEP AP242 Edition 3 ausgeben. Facettierte STEP-Modelle behalten ihre Flächenbezüge. Gepackte STEP-Dateien lassen sich als unkomprimierte STEP-Kopie speichern."
   ],
   "en": [
+   "When converting a graphical composite frame, a separate note such as “4 COPLANAR SURFACES / SIM REQT” can be read from strokes or filled triangles. STEP retains the approved wording on both tolerances and both original annotations in their saved view.",
    "For composite frames, the drawing comparison also checks scope wording against semantic text attached to the shared STEP feature. The dialog and CSV show the wording and its STEP source IDs alongside separate findings for the tolerance descriptions and relationships.",
    "The drawing comparison checks simultaneous partners separately for the upper and lower rows of composite frames. The dialog and CSV identify a STEP relationship present on only one row. Numbered SIM REQT captions suggest partners at the same row position.",
    "For “4 COPLANAR SURFACES” and other printed counts, the drawing comparison checks the number, planarity and common plane of the assigned STEP faces. Touching faces and ambiguous part occurrences remain open for review.",

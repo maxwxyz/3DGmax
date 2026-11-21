@@ -1,4 +1,5 @@
 {
+"Hinweis aus Grafik #{} für beide Zeilen übernehmen": "Apply the note from annotation #{} to both rows",
 " · Grafik {}": " · Annotation {}",
 "Text am Formelement #{} · Eigenschaft #{} · Darstellung #{}{} · {}": "Text on feature #{} · Property #{} · Representation #{}{} · {}",
 "Blattgruppe der unteren Zeile (Blatt und Bereich)": "Lower row drawing group (sheet and region)",

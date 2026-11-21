@@ -64,7 +64,6 @@ def _lesarten(pfade, richtungen):
     faecher = schrift._rechteckfaecher(m, .32)
     if len(faecher) < 3:
         return ()
-    ergebnisse = set()
     h, w = m.shape
     for x, y in richtungen:
         # Erst die Rahmenlage spiegeln. Nur eine passende Zellfolge braucht Schrifterkennung.
@@ -77,17 +76,22 @@ def _lesarten(pfade, richtungen):
         zeilen = _verbundzellen(gespiegelt, m[::y, ::x], nur_anordnung=(x, y) != (1, 1))
         if not zeilen:
             continue
-        if (x, y) == (1, 1):
-            ergebnisse.update(_zeilentexte(pfade, *zeilen, box, k))
-        else:
+        orientiert, lage = pfade, box
+        if (x, y) != (1, 1):
             # Das Rastern gespiegelter Kanten kann um einen Pixel vom gespiegelten Raster abweichen.
             orientiert = [(p * [x, y], voll) for p, voll in pfade]
             bild, lage = schrift._gesamtbild(orientiert, k)
-            faecher_neu = schrift._rechteckfaecher(bild, .32)
-            reihen = _verbundzellen(faecher_neu, bild)
-            if reihen:
-                ergebnisse.update(_zeilentexte(orientiert, *reihen, lage, k))
-    return ergebnisse
+            zeilen = _verbundzellen(schrift._rechteckfaecher(bild, .32), bild)
+            if not zeilen:
+                continue
+        for text in _zeilentexte(orientiert, *zeilen, lage, k):
+            yield text, (x, y), rahmenanker(zeilen, lage, k)
+
+
+def rahmenanker(zeilen, box, k):
+    """Rechte untere Symbolecke und Hoehe einer Wertzeile in der Schreibebene."""
+    _, t, r, b = zeilen[0][0][0]
+    return box[0]+(r-2)/k, box[3]-(b-2)/k, (b-t)/(2*k)
 
 
 def _zeilentexte(pfade, zeilen, zusatz, box, k):
@@ -116,17 +120,26 @@ def _lese_faecher(pfade, zeilen, box, k, pixelhoehe):
     return lesarten
 
 
-def lies_verbund(g):
-    """Zwei Zeilen und gegebenenfalls ihr gemeinsamer Geltungshinweis in eindeutiger Leserichtung."""
+def lies_verbund_mit_lage(g):
+    """Wortlaut und eindeutige Schreibebene mit Bezugspunkt fuer freistehende Hinweise."""
     if not schrift._lesbar(g):
-        return ()
+        return (), None
     ebenen = (g.ebene,) if g.ebene is not None else schrift._rahmenrichtungen(g)
     richtungen = ((1, 1),) if g.ebene is not None else ((1, 1), (-1, 1), (1, -1), (-1, -1))
-    ergebnisse = set()
+    gelesen, lagen = (), []
     for ebene in ebenen:
         pfade = schrift._pfade(g, ebene)
-        if pfade:
-            ergebnisse.update(_lesarten(pfade, richtungen))
-        if len(ergebnisse) > 1:
-            return ()
-    return ergebnisse.pop() if ergebnisse else ()
+        if not pfade:
+            continue
+        for text, (x, y), anker in _lesarten(pfade, richtungen):
+            if gelesen and gelesen != text:
+                return (), None
+            gelesen = text
+            o, u, v, n = ebene
+            lagen.append(((o, u*x, v*y, n*x*y), anker))
+    return gelesen, lagen[0] if len(lagen) == 1 else None
+
+
+def lies_verbund(g):
+    """Beide Rahmenzeilen und gegebenenfalls ihr gemeinsamer Geltungshinweis."""
+    return lies_verbund_mit_lage(g)[0]

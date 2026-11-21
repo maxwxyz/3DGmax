@@ -2,6 +2,23 @@
 
 ## Current state, 2026-11-21
 
+### Review detached 3D lettering with its composite frame
+
+- Checked PLAN §§8.4 and 8.35 against docs/Roadmap.md. FTC-07 annotation #16461 now supplies
+  “4 COPLANAR SURFACES SIM REQT” directly from its lettering. Captions must align below the first
+  value cell in the same saved view and plane. A second owner or caption, conflicting explicit
+  targets, or contradictory source text withholds the proposal. Selecting the optional checkbox
+  on the upper row includes the note on both controls. Skipping it keeps the descriptions empty.
+- The graphical-only fixture strips target links, semantic PMI and validation text. Both original
+  strokes and solid triangles without any writing planes on either annotation passed review,
+  export and reload. The original STEP entities, MBD_C, target faces and composite relationship
+  survive. Open CASCADE independently read both descriptions. The lettering creates no simultaneity
+  relationship. 20 lettering regressions and 11 native macOS tests passed.
+- Next §8.35: reviewing one independent drawing row against the newly exported combined caption
+  can report matching group membership despite the model requesting SIM REQT with no explicit
+  partner. Reproduced an incorrect “gleich” on both FTC-07 rows. Keep wording, target-face
+  geometry and the group membership finding distinct. QIF remains last.
+
 ### Find separately stored semantic text on the STEP target feature
 
 - Checked PLAN §§8.4 and 8.35 against docs/Roadmap.md. Both tolerances of the four-face
