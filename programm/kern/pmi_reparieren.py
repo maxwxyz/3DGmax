@@ -129,6 +129,11 @@ def schriftvorschlag(g, bekannt, modell=None, flaechen=()):
     art, typ = bekannt or (None, "")
     abstand = None
     linear = not bekannt or (art == MASS and typ in ("", "Size_Thickness", "Location_LinearDistance"))
+    if linear and typ in ("", "Size_Thickness") and modell and len(flaechen) > 2:
+        from .pmi_dickenschrift import dickenmass
+        dicke = dickenmass(g, modell, flaechen)
+        if dicke:
+            return dicke
     if linear and modell and len(flaechen) == 2:
         abstand = geometrie_nennmass("Location_LinearDistance", flaechen, modell)
     linearmass = abstand is not None and (not bekannt or g.ebene is None)

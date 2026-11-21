@@ -2996,5 +2996,6 @@
 "Der Messpunkt liegt auf der Achse, die radiale Messrichtung ist unbestimmt": "The measuring point lies on the axis and the radial measuring direction is undefined",
 "Kontaktpunkt X / Y / Z (mm)": "Contact point X / Y / Z (mm)",
 "Die Bezugsstelle benötigt die Fläche am Zielkreuz.": "The datum target requires the face at the target cross.",
+"Für das wiederholte Dickenmaß die Grundfläche und alle bezeichneten Auflagen wählen.": "Select the base face and all indicated pads for the repeated thickness dimension.",
 "Bezugsstellen noch offen: {}": "Datum targets still awaiting review: {}"
 }

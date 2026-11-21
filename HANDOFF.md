@@ -2,6 +2,27 @@
 
 ## Current state, 2026-11-21
 
+### Recover a repeated thickness from graphical STEP
+
+- Checked PLAN §8.4 and §8.35 against docs/Roadmap.md. CTC-03 AP203 #3634
+  prints 4X .82 ±.06 inch. The callout references one plane and four separate
+  coplanar pads. Its two additional edge targets belong to these faces. The
+  review recovers 20.828 ±1.524 mm and checks the quantity, both witness
+  levels and the end marks before proposing a thickness. All five surface
+  normals point the same way in this model.
+- Tested original outlines, single strokes and filled triangles, with and
+  without annotation axes. The review, project reload and STEP export retain
+  the numeric limits, five face references, original graphic and view. The
+  separate AP242 #270 agrees. The four pads in the reference lie 0.00254 mm
+  higher than in AP203. The measured AP203 separation is 20.83054 mm.
+- All 22 affected tests and eight native Cocoa checks passed. Native OCCT
+  recovered the dimension with the same model volume and diagnostics as the
+  input. The signed app passed its self-test and rendered the triangle-only
+  export. The local main build is solely at `dist/3DGmax.app`.
+- Next in §8.35: read the counted linear dimension on CTC-03 sheet 1 and
+  compare it with the reviewed thickness. The existing drawing quantity
+  comparison covers bores and radii. QIF stays last.
+
 ### Distinguish equal drawing dimensions by their projected bore walls
 
 - Checked PLAN §8.4 and oblique registration against docs/Roadmap.md. CTC-03

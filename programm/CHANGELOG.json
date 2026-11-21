@@ -1,6 +1,7 @@
 {
  "unreleased": {
   "de": [
+   "Bei einem grafischen Dickenmaß mit Stückzahl prüft die App die Grundfläche und die Anzahl der bezeichneten Auflagen. Beim STEP-Export bleiben das bestätigte Druckmaß, seine Toleranz und die Originalgrafik erhalten.",
    "Im Zeichnungsvergleich können Sie getrennte Lochgruppen einer Ansicht mit Umschalt und Ziehen gemeinsam auswählen. Der Vergleich erkennt fein facettierte elliptische Bohrungsränder und verfolgt Maßpfeile auch bei gleich bemaßten Bohrungen zur jeweiligen Modellfläche.",
    "Der Zeichnungsvergleich liest einzelne Durchmessermaße und Lochmuster über schräg dargestellten Toleranzrahmen. Auch bei gleichen Maßwerten bleiben getrennte Beschriftungen und ihre Hinweislinien einzeln prüfbar.",
    "Die PMI-Prüfung liest Durchmessermaße auch neben langen geknickten Maßpfeilen. Beim STEP-Export bleiben das geprüfte Maß, die zugehörige Bohrungsfläche und die Originalgrafik erhalten.",
@@ -244,6 +245,7 @@
    "Grafische PMI aus unterstützten AP203e2-Kurvenmodellen lassen sich als STEP AP242 Edition 3 ausgeben. Facettierte STEP-Modelle behalten ihre Flächenbezüge. Gepackte STEP-Dateien lassen sich als unkomprimierte STEP-Kopie speichern."
   ],
   "en": [
+   "For a graphical thickness dimension with a quantity, the app checks the base face and the number of indicated pads. STEP export preserves the reviewed printed size, tolerance and original graphics.",
    "In drawing comparison, Shift-drag to select separate groups of bores from one view. The comparison recognises finely faceted elliptical rims and follows dimension leaders to the corresponding model faces, including bores of equal size.",
    "Drawing comparison reads individual bore diameters and counted patterns above projected tolerance frames. Separate callouts and their leaders can be reviewed individually even when their printed sizes match.",
    "PMI review reads diameter dimensions beside long bent leaders. STEP export preserves the reviewed dimension, its bore face and the original graphics.",

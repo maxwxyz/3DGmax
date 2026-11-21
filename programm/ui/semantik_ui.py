@@ -305,6 +305,10 @@ class SemantikDialog(QtWidgets.QDialog):
         if self.typ.currentIndex() < 0:
             return tr("Bitte das Merkmal wählen")
         if art == MASS:
+            if (self.typ.currentData() == self.v.typ == "Size_Thickness" and len(self.v.flaechen) > 2
+                    and re.match(r"^[1-9][0-9]*X", getattr(self.v, "ocr_text", ""))
+                    and self.flaechen != self.v.flaechen):
+                return tr("Für das wiederholte Dickenmaß die Grundfläche und alle bezeichneten Auflagen wählen.")
             n = _zahl(self.felder["nennwert"].text())
             if n is None or n < 0:
                 return tr("Bitte das Nennmaß angeben")

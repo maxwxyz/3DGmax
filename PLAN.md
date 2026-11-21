@@ -271,6 +271,13 @@ Throughout: tests (core, offscreen UI, stress test, on-screen test), `--selbstte
   resolution of the lettering. Verify the separate bent leader and read the entire
   remaining diameter row at two glyph resolutions. The exported Ø2.00 ±.01 inch
   bore agrees with AP242 #267 in limits, axis, radius and axial extent.
+  AP203 #3634 has one annotated base face and four separate coplanar pads. The
+  printed “4X .82 ±.06” must agree with the pad count and with the separation
+  at the indicated precision. Read the value and tolerance from the graphic.
+  Check both witness lines and their end marks before proposing a thickness.
+  AP242 #270 independently agrees with the reviewed size and tolerances.
+  The corresponding pad elevations differ by 0.00254 mm between the two
+  source models. Comparing this counted linear callout to the PDF remains open.
   CTC-03 Rev C sheet 1 also reads this individual diameter above the projected
   frame. All seven bore dimensions have distinct text boxes and leader starts.
   The two single Ø.438 rows and the 2X Ø.438 pattern remain separate. Three
