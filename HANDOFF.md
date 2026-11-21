@@ -2,6 +2,32 @@
 
 ## Current state, 2026-11-21
 
+### Single-entry stepped axial bores in shaft drawings
+
+- Checked PLAN §§8.16, 8.28, 8.35–8.37 and docs/Roadmap.md. File → Shaft from 2D drawing now
+  follows successive coaxial wall pairs from either entry end. The printed annular shoulder must
+  connect each pair to the next on both sides. Continuous and dashed walls, horizontal and vertical
+  longitudinal views, a through core and a flat-bottom core are supported. The review table starts
+  at the entry face. Each diameter and each depth from that face can be selected on another sheet.
+  All dimensions must fit a single longitudinal scale. Optional entry-view rings are checked at
+  their own scale. The tolerance limits must preserve the internal shoulders and remaining material.
+- PDF-to-STEP tests covered two and three cylindrical stages, including a bore shoulder coplanar
+  with an outside shoulder. Both STEP readers recovered every bore fit on its own cylinder and every
+  depth with the shared entry plane and its respective internal shoulder or floor. Confirmed the
+  graphic depth spans and the volume for all four PDF round trips. Negative cases covered a broken
+  wall, a missing shoulder flank, a sloped step, an unclosed rear face, an inconsistent end view,
+  a depth on a through core and limits at which shoulders disappear. Reselecting the outline
+  clears the previous bore table. All 25 affected tests and 30 native macOS tests (eight screen
+  tests and 22 shaft tests) passed. All 2549 UI strings have English entries.
+- For the next §8.36 package, a local shaft probe added a 118° point to an Ø6 H8 core beneath
+  a 6 mm deep Ø10 counterbore. Both STEP readers recovered the angle on the cone. For the 14 mm
+  depth the entry plane and cylinder-end circle or apex vertex round-tripped from both directions.
+  The corresponding reconstructed volumes were 5091.240721 and 5142.207522 mm³. A second PDF probe
+  fitted each point flank separately in both orientations of entry, recovering 90° from continuous
+  strokes and 117.63–117.68° from dashed 118° strokes. Production recognition, review of the depth
+  convention and tolerance-limit checks for the cone remain open. Opposed counterbores, outer
+  tapers and fillets, datum transfer and whole-drawing comparison also remain open. QIF stays last.
+
 ### Flat-bottom axial blind bores in dimensioned shaft drawings
 
 - Checked PLAN §§8.16, 8.28, 8.35–8.37 and docs/Roadmap.md. The shaft dialog recognises paired

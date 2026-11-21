@@ -3,8 +3,8 @@
 from PySide6 import QtCore, QtWidgets
 
 from ..i18n import tr
-from ..kern.axialbohrung import Sacklochspur, stirnringe
-from ..kern.drehzeichnung import axiale_tiefe, axiales_bohrmass, drehprofil, drehmasse, schreibe_drehteil
+from ..kern.axialbohrung import Sacklochspur, Stufenbohrspur, stirnringe
+from ..kern.drehzeichnung import axiale_tiefe, axiales_bohrmass, drehprofil, drehmasse, schreibe_drehteil, stufenmasse
 from ..kern.zeichnungsansicht import Blattgeometrie
 from ..kern.zeichnungsabgleich import Blattangabe
 from .zeichnungsabgleich_ui import Blattansicht
@@ -45,7 +45,7 @@ class Drehteildialog(Koerperdialog):
         layout.addWidget(self.ansicht,1)
         hinweis = QtWidgets.QLabel(tr("Die Längsansicht mit zylindrischen Abschnitten und rechtwinkligen Schultern einrahmen. "
                                       "Je Abschnitt Länge und Ø-Maß eingeben oder einrahmen. Für ein Sackloch die Tiefe bis zum "
-                                      "flachen Grund angeben. Für einen Durchgang ohne Wandlinien die Stirnansicht und das Durchgangsmaß angeben."))
+                                      "flachen Grund angeben. Bei Stufenbohrungen alle Tiefen ab der Eintrittsfläche eintragen. Für einen Durchgang ohne Wandlinien die Stirnansicht und das Durchgangsmaß angeben."))
         hinweis.setWordWrap(True)
         layout.addWidget(hinweis)
         self.tabelle = QtWidgets.QTableWidget(0,2)
@@ -67,6 +67,13 @@ class Drehteildialog(Koerperdialog):
         self.stirn_entfernen = QtWidgets.QPushButton(tr("Stirnansicht entfernen"))
         self.stirn_entfernen.clicked.connect(self._ohne_stirnansicht)
         bohrzeile.addWidget(self.stirn_entfernen)
+        self.bohrstufen = QtWidgets.QTableWidget(0,2)
+        self.bohrstufen.setHorizontalHeaderLabels([tr("Stufendurchmesser"),tr("Tiefe ab Eintrittsfläche")])
+        self.bohrstufen.horizontalHeader().setSectionResizeMode(QtWidgets.QHeaderView.ResizeMode.Stretch)
+        self.bohrstufen.setMaximumHeight(140)
+        self.bohrstufen.cellChanged.connect(self._pruefen)
+        self.bohrstufen.currentCellChanged.connect(self._pruefen)
+        layout.addWidget(self.bohrstufen)
         self.bohrtext.textChanged.connect(self._pruefen)
         self.status = QtWidgets.QLabel()
         self.status.setWordWrap(True)
@@ -105,12 +112,28 @@ class Drehteildialog(Koerperdialog):
         sichtbar = [m for m in (*self.sitze,*self.massmarken.values()) if m.seite == self.blatt.nummer]
         self.ansicht.markiere(sichtbar,marke,auswaehlbar=self.sitze)
 
+    def _stufentabelle(self):
+        stufen = self.spur.stufen if isinstance(self.spur,Stufenbohrspur) else ()
+        with QtCore.QSignalBlocker(self.bohrstufen):
+            self.bohrstufen.setRowCount(0)
+            self.bohrstufen.setRowCount(len(stufen))
+            for i,(_,tiefe) in enumerate(stufen):
+                self.bohrstufen.setItem(i,0,QtWidgets.QTableWidgetItem())
+                item = QtWidgets.QTableWidgetItem()
+                if tiefe is None:
+                    item.setText(tr("Durchgang"))
+                    item.setFlags(QtCore.Qt.ItemFlag.NoItemFlags)
+                self.bohrstufen.setItem(i,1,item)
+            if stufen:
+                self.bohrstufen.setCurrentCell(0,0)
+
     def _bereich(self, box):
         i = self.auswahl.currentIndex()
         if i < 2:
             self.senkrecht = bool(i)
             self.kontur, self.spur = drehprofil(self.blatt.bild,box,senkrecht=self.senkrecht)
             self.stirn = None
+            self._stufentabelle()
             with QtCore.QSignalBlocker(self.bohrtext):
                 self.bohrtext.clear()
             with QtCore.QSignalBlocker(self.tiefentext):
@@ -133,9 +156,16 @@ class Drehteildialog(Koerperdialog):
             if self.stirn:
                 self.massmarken["stirn"] = Blattangabe(self.blatt.nummer,box,self.auswahl.currentText())
         elif i in (5,6):
-            feld, marke = (self.bohrtext,"bohrung") if i == 5 else (self.tiefentext,"tiefe")
             wert = self.blatt.lies(box)
-            feld.setText(wert)
+            if isinstance(self.spur, Stufenbohrspur):
+                zeile = self.bohrstufen.currentRow()
+                if zeile < 0 or (i == 6 and self.spur.stufen[zeile][1] is None):
+                    return
+                self.bohrstufen.item(zeile,i-5).setText(wert)
+                marke = ("stufe",zeile,i-5)
+            else:
+                feld, marke = (self.bohrtext,"bohrung") if i == 5 else (self.tiefentext,"tiefe")
+                feld.setText(wert)
             self.massmarken.pop(marke,None)
             if wert:
                 self.massmarken[marke] = Blattangabe(self.blatt.nummer,box,wert)
@@ -155,15 +185,34 @@ class Drehteildialog(Koerperdialog):
         zeilen = [(self.tabelle.item(i,0).text(), self.tabelle.item(i,1).text()) for i in range(len(self.kontur))]
         faktor = self.einheit.currentData()
         masse = drehmasse(self.kontur, zeilen, faktor)
+        if isinstance(self.spur, Stufenbohrspur):
+            texte = [(self.bohrstufen.item(i,0).text(), self.bohrstufen.item(i,1).text() if t is not None else "")
+                     for i,(_,t) in enumerate(self.spur.stufen)]
+            profil = stufenmasse(self.kontur,masse,self.spur,self.stirn,texte,faktor)
+            dm,tiefe = profil[-1]
+            return masse,dm,tiefe,self.spur.von_rechts,profil[:-1]
         tiefe = axiale_tiefe(self.spur, self.tiefentext.text(), faktor)
         bohrung = axiales_bohrmass(self.kontur, masse, self.spur, self.stirn, self.bohrtext.text(), faktor, tiefe)
-        return masse, bohrung, tiefe, isinstance(self.spur,Sacklochspur) and self.spur.von_rechts
+        return masse, bohrung, tiefe, isinstance(self.spur,Sacklochspur) and self.spur.von_rechts,()
 
     def _pruefen(self):
         blind = isinstance(self.spur, Sacklochspur)
+        gestuft = isinstance(self.spur, Stufenbohrspur)
+        self.bohrstufen.setVisible(gestuft)
+        self.bohrtext.setVisible(not gestuft)
         self.tiefentext.setVisible(blind)
-        self.auswahl.model().item(6).setEnabled(blind)
-        if blind:
+        zeile = self.bohrstufen.currentRow()
+        mit_tiefe = blind or (gestuft and zeile >= 0 and self.spur.stufen[zeile][1] is not None)
+        self.auswahl.model().item(6).setEnabled(mit_tiefe)
+        if not mit_tiefe and self.auswahl.currentIndex() == 6:
+            self.auswahl.setCurrentIndex(5)
+        if gestuft:
+            if self.senkrecht:
+                seite = tr("Stufenbohrung von unten") if self.spur.von_rechts else tr("Stufenbohrung von oben")
+            else:
+                seite = tr("Stufenbohrung von rechts") if self.spur.von_rechts else tr("Stufenbohrung von links")
+            self.bohrart.setText(seite)
+        elif blind:
             if self.senkrecht:
                 seite = tr("Sackloch von unten") if self.spur.von_rechts else tr("Sackloch von oben")
             else:
@@ -176,13 +225,15 @@ class Drehteildialog(Koerperdialog):
         for i in (2,3,4,5):
             self.auswahl.model().item(i).setEnabled(bool(self.kontur))
         try:
-            masse, bohrung, tiefe, _ = self._masse()
+            masse, bohrung, tiefe, _, _ = self._masse()
         except ValueError as e:
             self.status.setText(str(e))
             self.speichern.setEnabled(False)
             return
         status = tr("Hohlwelle mit {} Abschnitten, Gesamtlänge {} mm.") if bohrung else tr("Vollwelle mit {} Abschnitten, Gesamtlänge {} mm.")
-        if tiefe:
+        if gestuft:
+            status = tr("Welle mit Stufenbohrung und {} Außenabschnitten, Gesamtlänge {} mm.")
+        elif tiefe:
             status = tr("Welle mit Sackloch und {} Abschnitten, Gesamtlänge {} mm.")
         self.status.setText(status.format(len(masse), f"{sum(p.nennwert for p,_ in masse):g}"))
         self.speichern.setEnabled(True)

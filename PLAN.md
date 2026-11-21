@@ -1707,8 +1707,14 @@ A straight axial blind bore requires paired wall lines ending at a flat floor an
 from the open end. The optional end view must correspond to the entry side. Depth and diameter
 share the scale of the outside profile. Tolerance limits must leave material behind the floor and
 inside every seat the bore can reach. STEP attaches the depth to the two planes adjacent to its
-inner cylinder, including when the floor is coplanar with an outside shoulder. Stepped axial bores,
-conical drill points on shafts, chamfers, tapers and fillets remain open. Pocket center-position PMI, inclined slots, unequal corner radii,
+inner cylinder, including when the floor is coplanar with an outside shoulder.
+Multiple concentric bore steps can start from one end. Each pair of walls must connect to the next
+pair at a printed annular shoulder. The core can be through or flat-bottomed. Each diameter and
+each depth from the entry face must match the drawing at a common scale. The optional entry end view
+must show all bore rings and the visible outside seats. Size limits must preserve the wall,
+successive shoulders and material behind a blind core. Each STEP diameter references the
+corresponding cylinder and each depth references the same entry plane and its own shoulder or
+floor. Opposed counterbores, conical drill points on shafts, chamfers, tapers and fillets remain open. Pocket center-position PMI, inclined slots, unequal corner radii,
 other profiles, automatic cross-view association and datum/GD&T transfer remain open.
 
 ### 8.37 QIF extensions (last in the implementation order)
