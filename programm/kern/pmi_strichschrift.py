@@ -251,12 +251,12 @@ def _lies_zeile(zeichen, vorlagen=None, innenraeume=None):
                 continue
             if z not in ".°±-" and (h < .46 or not y < (oben + unten) / 2 < u):
                 continue
-            if z in "ⓂⒻⓁⓅ":
+            if z in "ⓂⒻⓁⓅⓊ":
                 # Der gemeinsame Aussenkreis sagt nichts ueber die Materialbedingung aus.
                 innen = np.r_[dist[vorlage & _KREIS_INNEN], abstand[bitmap & _KREIS_INNEN]]
                 if not innen.size or np.quantile(innen, .9) > 1.7:
                     continue
-            if z == "Ⓛ" and (dist[vorlage].max() > 2.3 or abstand[bitmap].max() > 2.3):
+            if z in "ⓁⓊ" and (dist[vorlage].max() > 2.3 or abstand[bitmap].max() > 2.3):
                 # Beide Schenkel und der Ring muessen vollstaendig sein. Ein zusaetzlicher
                 # kurzer Aufstrich kann im mittleren Abstand des grossen Rings untergehen.
                 continue
@@ -367,7 +367,21 @@ def _rahmentext(pfade, zellen, masken=None):
     breit = rahmenwort(lambda m: _breite_zeile(m, rahmen=True))
     if breit and normal and breit != normal:
         return ""
-    return breit or normal
+    if breit or normal or len(zellen) < 2 or not any(voll for _, voll in pfade):
+        return breit or normal
+    profil = _normale_zeile(masken[0])
+    if profil not in ("⌓", "⌒"):
+        return ""
+    # Bei gefuellten Profilwerten kann die Innenkante der Null um ein Pixel
+    # springen. Zwei feinere Raster muessen denselben ganzen Wert mit Symbol lesen.
+    wert = ""
+    for hoehe in (120, 150):
+        maske = _fachmaske(pfade, zellen[1], hoehe)
+        lesung = _normale_zeile(maske) if maske is not None else ""
+        if "Ⓤ" not in lesung or (wert and wert != lesung):
+            return ""
+        wert = lesung
+    return _rahmenwort([profil, wert, *(_bezugswort(m, _normale_zeile) for m in masken[2:])])
 
 
 def _normale_zeile(mask):

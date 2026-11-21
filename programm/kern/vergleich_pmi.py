@@ -21,8 +21,8 @@ from .vergleich_profilbereich import bereichsfeld, hat_ausschnitt
 GLEICH, GEAENDERT, NEU, ENTFALLEN = "gleich", "geaendert", "neu", "entfallen"
 GEOMETRIE = "geometrie"  # PMI unveraendert, aber Geometrie der zugeordneten Flaechen geaendert
 FELDER = ("nennwert", "oben", "unten", "passung", "wert", "zone", "zonen_wert", "projektionsversatz",
-          "maximum_toleranz", "material", "beschreibung", "einheitslaenge", "einheitsbreite", "einheitsdurchmesser")
-FELD_TEXT = {"beschreibung": "Toleranzbeschreibung", "nennwert": "Nennwert", "oben": "oberes Abmaß/Höchstmaß", "unten": "unteres Abmaß/Mindestmaß",
+          "maximum_toleranz", "material", "beschreibung", "einheitslaenge", "einheitsbreite", "einheitsdurchmesser", "profilzonensymbol")
+FELD_TEXT = {"profilzonensymbol": "Angabe zur Profilzone", "beschreibung": "Toleranzbeschreibung", "nennwert": "Nennwert", "oben": "oberes Abmaß/Höchstmaß", "unten": "unteres Abmaß/Mindestmaß",
              "passung": "Passung", "wert": "Toleranzwert", "zone": "Zone", "zonen_wert": "Zonenwert",
              "projektionsversatz": "Projektionsversatz", "projektionsflaechen": "Projektionsursprung",
              "einheitslaenge": "Länge der Einheitsfläche (mm)", "einheitsbreite": "Breite der Einheitsfläche (mm)",

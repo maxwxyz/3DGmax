@@ -20,6 +20,7 @@ _ZAHL = r"(?:\d+(?:[.,]\d+)?|[.,]\d+)"
 LINEARMASS = re.compile(rf"{_ZAHL}(?:±{_ZAHL})?")
 _RECHTECK = re.compile(rf"({_ZAHL})\s*/\s*({_ZAHL})\s*[Xx×]\s*({_ZAHL})")
 _KREIS = re.compile(rf"({_ZAHL})\s*/\s*⌀\s*({_ZAHL})")
+_PROFILANTEIL = re.compile(rf"({_ZAHL})\s*Ⓤ\s*({_ZAHL})")
 _MATERIAL = {"Ⓜ": "MaximumMaterialRequirement", "Ⓛ": "LeastMaterialRequirement"}
 _GLIED = r"[A-Z]{1,2}[ⓂⓁ]?"
 _RAHMENWERT = re.compile(rf"(?P<zone>S?⌀)?\s*(?P<wert>{_ZAHL})(?P<mods>(?:\s*[ⓂⓁⓉⒻ])*)"
@@ -84,6 +85,9 @@ def gueltige_rahmenwerte(werte):
 
 def gueltige_rahmenzellen(teile):
     """Vollstaendiger Rahmen mit geometrischem Merkmal im ersten Fach."""
+    if len(teile) >= 2 and _PROFILANTEIL.fullmatch(teile[1]):
+        return (teile[0] in ("⌒", "⌓") and len(teile) <= 5
+                and all(bezugsreferenz(t, i) for i, t in enumerate(teile[2:], 1)))
     if len(teile) == 2 and teile[0] == TOL_SYMBOL["Flatness"]:
         if _RECHTECK.fullmatch(teile[1]) or _KREIS.fullmatch(teile[1]):
             return True
@@ -93,6 +97,18 @@ def gueltige_rahmenzellen(teile):
 def _toleranz(text, typ, faktor):
     art = {"art": TOLERANZ, "typ": typ}
     # Ein zusammengesetzter Rahmen braucht mehrere Toleranzen; keine Einzelzeile als Gesamtergebnis ausgeben.
+    if "Ⓤ" in text:
+        m = _PROFILANTEIL.match(text)
+        if not m or typ not in ("ProfileOfSurface", "ProfileOfLine") or faktor is None:
+            return art
+        rest = text[m.end():]
+        if rest and not rest[0].isspace():
+            return art
+        refs = [bezugsreferenz(t, i) for i, t in enumerate(rest.split(), 1)]
+        wert, anteil = (faktor * _zahl(z) for z in m.groups())
+        if len(refs) > 3 or None in refs or not all(map(math.isfinite, (wert, anteil))):
+            return art
+        return dict(art, wert=wert, bezuege=refs, modifikatoren=[f"UZ {anteil}"], profilzonenart="asme")
     gebiet = _RECHTECK.fullmatch(text) or _KREIS.fullmatch(text)
     if typ == "Flatness" and gebiet and faktor is not None:
         wert, *masse = (faktor*_zahl(z) for z in gebiet.groups())

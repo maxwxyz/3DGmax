@@ -438,11 +438,8 @@ def _im_material(modell, punkt) -> bool:
 
 def unsymmetrisch(p) -> float | None:
     """Wert der unsymmetrischen Zone (Modifikator "UZ u") oder None."""
-    for m in p.modifikatoren:
-        treffer = re.match(r"UZ\s*([-+]?\d*\.?\d+)", str(m))
-        if treffer:
-            return float(treffer.group(1))
-    return None
+    return p.profilversatz()
+
 
 
 def _grenzen_aussen_innen(p, t: float) -> tuple[float, float]:
@@ -450,7 +447,7 @@ def _grenzen_aussen_innen(p, t: float) -> tuple[float, float]:
     u = unsymmetrisch(p)
     if u is None:
         return t / 2, -t / 2
-    if p.norm == "asme":  # U: Anteil ausserhalb des Materials
+    if (p.profilzonenart or p.norm) == "asme":  # U: Anteil ausserhalb des Materials
         return u, u - t
     return u + t / 2, u - t / 2  # ISO UZ: Verschiebung der Zonenmitte
 

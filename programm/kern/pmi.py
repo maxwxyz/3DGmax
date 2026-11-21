@@ -5,6 +5,7 @@ Dieses Modell ist die Grundlage fuer Liste, Hervorhebung und den semantischen Ve
 
 from __future__ import annotations
 
+import math
 from dataclasses import dataclass, field
 
 # Arten
@@ -131,6 +132,24 @@ class Pmi:
     einheitsbreite: float | None = None
     einheitsdurchmesser: float | None = None
 
+    profilzonenart: str = ""  # Eindeutige Lesart am Profil selbst, sonst Norm des Modells.
+
+    def profilversatz(self):
+        werte = [m[2:].strip() for m in self.modifikatoren if m.startswith("UZ")]
+        if len(werte) != 1:
+            return None
+        try:
+            wert = float(werte[0])
+        except ValueError:
+            return None
+        return wert if math.isfinite(wert) else None
+
+    @property
+    def profilzonensymbol(self):
+        if self.profilversatz() is None:
+            return ""
+        return "Ⓤ" if (self.profilzonenart or self.norm) == "asme" else "UZ"
+
     def hat_einheitskreis(self):
         return self.einheitsdurchmesser is not None or "CIRCULAR" in self.modifikatoren
 
@@ -182,7 +201,7 @@ class Pmi:
             return f"{txt} ±{_zahl(o)}"
         return f"{txt} {_vz(o)}/{_vz(u)}"
 
-    def _rahmen_text(self) -> str:
+    def rahmenfelder(self) -> list[str]:
         teile = [TOL_SYMBOL.get(self.typ, self.typ)]
         zone = ""
         if "SphericalDiameter" in self.modifikatoren or self.zone == "SphericalDiameter":
@@ -191,6 +210,9 @@ class Pmi:
             zone = "⌀"
         wert = f"{zone}{_zahl(self.wert)}" if self.wert is not None else "?"
         wert += MAT_SYMBOL.get(self.material, "")
+        u = self.profilversatz()
+        if u is not None:
+            wert += f" {self.profilzonensymbol} {_zahl(u)}"
         if self.maximum_toleranz is not None:
             wert += f" MAX {_zahl(self.maximum_toleranz)}"
         if self.zone == "Projected":
@@ -202,7 +224,10 @@ class Pmi:
         teile.append(wert)
         for b in sorted(self.bezuege, key=lambda b: b.stelle):
             teile.append(b.text())
-        rahmen = " | ".join(teile)
+        return teile
+
+    def _rahmen_text(self) -> str:
+        rahmen = " | ".join(self.rahmenfelder())
         if self.bereichsgrenzen is None:
             rahmen += " · ? ↔ ?"
         elif self.bereichsgrenzen:

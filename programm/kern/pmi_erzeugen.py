@@ -20,7 +20,7 @@ from __future__ import annotations
 
 import numpy as np
 
-from .pmi import BEZUG, HINWEIS, MASS, TOLERANZ, TOL_SYMBOL, MAT_SYMBOL, _zahl
+from .pmi import BEZUG, HINWEIS, MASS, TOLERANZ
 from .praesentation import Grafik, Platzhalter
 
 ACHSEN = np.eye(3)
@@ -101,15 +101,7 @@ def ansicht_ebene(ansicht) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
 def felder(p) -> list[str]:
     """Texte der Felder: Toleranzrahmen (Symbol, Wert, Bezuege), Bezug (Buchstabe), sonst ein Feld."""
     if p.art == TOLERANZ:
-        zone = "⌀" if ("Diameter" in p.modifikatoren or p.zone == "Diameter") else ""
-        wert = f"{zone}{_zahl(p.wert)}" if p.wert is not None else "?"
-        wert += MAT_SYMBOL.get(p.material, "")
-        if p.zone == "Projected":
-            wert += " Ⓟ" + (_zahl(p.zonen_wert) if p.zonen_wert else "")
-        if flaeche := p.einheitsflaeche_text():
-            wert += f" / {flaeche}"
-        bez = [b.text() for b in sorted(p.bezuege, key=lambda b: b.stelle)]
-        return [TOL_SYMBOL.get(p.typ, p.typ), wert] + bez
+        return p.rahmenfelder()
     if p.art == BEZUG:
         return [p.name or "?"]
     if p.art == MASS and p.nennwert is None:

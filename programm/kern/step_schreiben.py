@@ -367,6 +367,12 @@ def _schreibe_toleranz(a: _Anhang, p, aspekt=None) -> str | None:
                 or p.zonen_wert <= 0 or p.projektionsversatz is None or not math.isfinite(p.projektionsversatz)):
             return tr("Projektionsursprung, Länge oder Versatz nicht eindeutig")
         flaechen.update(p.projektionsflaechen)
+    versatz = p.profilversatz()
+    if p.profilzonenart or any(m.startswith("UZ") for m in p.modifikatoren):
+        if (p.typ not in ("ProfileOfLine", "ProfileOfSurface") or versatz is None
+                or (p.profilzonenart or p.norm) not in ("iso", "asme")
+                or ((p.profilzonenart or p.norm) == "asme" and versatz < 0)):
+            return tr("Angabe zur ungleich verteilten Profilzone ungültig")
     rechteck = (p.einheitslaenge, p.einheitsbreite)
     if p.hat_einheitskreis() and (p.einheitsdurchmesser is None or not math.isfinite(p.einheitsdurchmesser)
             or p.einheitsdurchmesser <= 0 or p.einheitsrechteck_text()):
@@ -420,6 +426,13 @@ def _schreibe_toleranz(a: _Anhang, p, aspekt=None) -> str | None:
         return tr("Flächen ohne Entsprechung in der Datei")
     betrag = a.mass(p.wert)
     teile = {entitaet: "()"}
+    if versatz is not None:
+        from .pmi_step import PROFILQUALIFIKATOR
+        art = PROFILQUALIFIKATOR[p.profilzonenart or p.norm]
+        messung = a.mass(versatz)
+        qualifier = a.neu(f"TYPE_QUALIFIER('{art}')")
+        a.neu(f"MEASURE_QUALIFICATION('','',#{messung},(#{qualifier}))")
+        teile["UNEQUALLY_DISPOSED_GEOMETRIC_TOLERANCE"] = f"(#{messung})"
     if p.bezuege:
         abteile = [a.neu(f"DATUM_REFERENCE_COMPARTMENT('',$,#{a.pds},.F.,{_bezug_basis(a, b)},{_bezug_mods(b.modifikatoren)})")
                    for b in sorted(p.bezuege, key=lambda b: b.stelle)]

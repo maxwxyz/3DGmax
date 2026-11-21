@@ -1,4 +1,8 @@
 {
+"Angabe zur Profilzone": "Profile zone notation",
+"Angabe zur ungleich verteilten Profilzone ungültig": "Invalid unequal profile zone specification",
+"Abstand der äußeren Profilgrenze Ⓤ (mm)": "Distance to the outer profile boundary Ⓤ (mm)",
+"Versatz der Profilzonenmitte UZ (mm)": "Offset of the profile zone centre UZ (mm)",
 "Kronenrad-Kandidat": "Crown gear candidate",
 "Abweichende Profilteilfläche": "Changed profile patch",
 "Vergleich der Profilteilflächen offen": "Profile patch comparison unresolved",

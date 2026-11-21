@@ -1,6 +1,7 @@
 {
  "unreleased": {
   "de": [
+   "Grafische Profiltoleranzen mit Ⓤ lassen sich aus Strichschrift und gefüllten STEP-Grafiken übernehmen. Der Prüfdialog zeigt den Abstand der äußeren Profilgrenze. STEP-Export und Vergleich erhalten die Unterscheidung zum ISO-Versatz der Zonenmitte. Eine Bezugsstelle mit unlesbarer Nummer bleibt zur Prüfung offen.",
    "Ein eingekreistes L in grafischen STEP-Toleranzrahmen wird als Minimum-Material-Bedingung vorgeschlagen. Die Prüfung und der STEP-Export erhalten die Zuordnung zum tolerierten Merkmal oder zum einzelnen Bezug, auch bei mehreren markierten Bezügen.",
    "Grafische Toleranzrahmen für Geradheit, Rundheit, Konzentrizität, Rundlauf und Gesamtlauf lassen sich als semantische STEP-PMI übernehmen. Der Export erhält die Originalgrafik, den gemeinsamen Bezug A-B und die zugeordneten Flächen.",
    "Die Verzahnungserkennung misst die Innensteckverzahnung und die Außenverzahnung eines Rades getrennt. Bei Kronenrad-Kandidaten zeigt sie die Zähnezahl, die axiale Zahnhöhe und den radialen Messbereich. STEP und Netzmodelle werden unterstützt.",
@@ -232,6 +233,7 @@
    "Grafische PMI aus unterstützten AP203e2-Kurvenmodellen lassen sich als STEP AP242 Edition 3 ausgeben. Facettierte STEP-Modelle behalten ihre Flächenbezüge. Gepackte STEP-Dateien lassen sich als unkomprimierte STEP-Kopie speichern."
   ],
   "en": [
+   "Graphical profile tolerances with Ⓤ can be reviewed from stroked or filled STEP annotations. The review dialog shows the distance to the outer profile boundary. STEP export and comparison distinguish it from an ISO zone-centre offset. A datum target with an unreadable number stays open for review.",
    "Graphical STEP tolerance frames now recognise circled L as a least-material modifier. Review and STEP export preserve its position on the toleranced feature or individual datum, including frames with two modified datums.",
    "Graphical straightness, roundness, concentricity, circular runout and total runout controls can be reviewed and exported as semantic STEP PMI together with their source graphics, common datum A-B and target faces.",
    "Gear recognition measures a splined bore and the external teeth on the same wheel independently. Crown gear candidates show tooth count, axial relief and the measured radial range in both CAD and mesh models.",

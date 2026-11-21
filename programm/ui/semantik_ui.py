@@ -150,6 +150,10 @@ class SemantikDialog(QtWidgets.QDialog):
         formen = [s for s in ("Diameter", "SphericalDiameter") if s in v.modifikatoren or v.zone == s]
         form.setCurrentIndex(form.findData(formen[0]) if len(formen) == 1 else (-1 if formen else 0))
         lay.addRow(tr("Zonenform"), form)
+        if v.profilzonenart or any(m.startswith("UZ") for m in v.modifikatoren):
+            label = (tr("Abstand der äußeren Profilgrenze Ⓤ (mm)") if (v.profilzonenart or v.norm) == "asme"
+                     else tr("Versatz der Profilzonenmitte UZ (mm)"))
+            zahl("profilversatz", label, v.profilversatz())
         if v.hat_einheitskreis():
             zahl("einheitsdurchmesser", tr("Durchmesser der Einheitsfläche (mm)"), v.einheitsdurchmesser)
         if v.einheitsrechteck_text():
@@ -226,7 +230,7 @@ class SemantikDialog(QtWidgets.QDialog):
         self.typ.setCurrentIndex(0 if art == BEZUG and alt != "DatumTarget" else self.typ.findData(alt))
         sichtbar = {MASS: {"nennwert", "oben", "unten", "grenzmass", "passung"},
                     TOLERANZ: {"wert", "zonenform", "maximum_toleranz", "material", "bezuege", "zonen_wert", "projektionsversatz",
-                               "projektionsende", "einheitslaenge", "einheitsbreite", "einheitsdurchmesser"}, BEZUG: {"name"}}[art]
+                               "projektionsende", "profilversatz", "einheitslaenge", "einheitsbreite", "einheitsdurchmesser"}, BEZUG: {"name"}}[art]
         for name, f in self.felder.items():
             self._lay.setRowVisible(f, name in sichtbar)
 
@@ -300,6 +304,11 @@ class SemantikDialog(QtWidgets.QDialog):
             wert = _zahl(self.felder["wert"].text())
             if wert is None or wert < 0:
                 return tr("Bitte den Toleranzwert angeben")
+            if "profilversatz" in self.felder:
+                u = _zahl(self.felder["profilversatz"].text())
+                if (self.typ.currentData() not in ("ProfileOfSurface", "ProfileOfLine") or u is None
+                        or ((self.v.profilzonenart or self.v.norm) == "asme" and u < 0)):
+                    return tr("Angabe zur ungleich verteilten Profilzone ungültig")
             if "einheitsdurchmesser" in self.felder and (_zahl(self.felder["einheitsdurchmesser"].text()) or 0) <= 0:
                 return tr("Für die kreisförmige Einheitsfläche einen positiven Durchmesser angeben")
             if "einheitslaenge" in self.felder and any(
@@ -365,6 +374,9 @@ class SemantikDialog(QtWidgets.QDialog):
             p.wert, p.material = _zahl(f["wert"].text()), f["material"].currentData()
             form = f["zonenform"].currentData()
             p.modifikatoren = [m for m in p.modifikatoren if m not in ("Diameter", "SphericalDiameter", "Maximum_Tolerance")]
+            if "profilversatz" in f:
+                p.modifikatoren = [m for m in p.modifikatoren if not m.startswith("UZ")]
+                p.modifikatoren.append(f"UZ {_zahl(f['profilversatz'].text())}")
             if form:
                 p.modifikatoren.append(form)
             if p.zone in ("Diameter", "SphericalDiameter"):

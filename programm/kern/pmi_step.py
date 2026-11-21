@@ -25,6 +25,10 @@ TOL_ARTEN = {
     "TOTAL_RUNOUT_TOLERANCE": "TotalRunout",
 }
 
+# Die Messwertqualifikation dokumentiert die Lesart lokal am Merkmal.
+PROFILQUALIFIKATOR = {"asme": "distance to outer profile boundary (ASME U)",
+                  "iso": "offset of profile zone centre (ISO UZ)"}
+
 # Modifikatoren nach den Namen in pmi.py / XCAF
 TOL_MODS = {
     "MAXIMUM_MATERIAL_REQUIREMENT": "Maximum_Material_Requirement",
@@ -104,6 +108,19 @@ def _gesicherte_laenge(datei, ref):
     if faktor is not None and isinstance(wert, (int, float)) and math.isfinite(wert):
         return wert * faktor
     return None
+
+
+def _profilzonenart(datei, messung):
+    arten = set()
+    for nr in datei.referrers().get(messung, ()):
+        args = datei.get(nr).parts.get("MEASURE_QUALIFICATION", ())
+        if len(args) != 4 or args[2] != Ref(messung) or not isinstance(args[3], list):
+            continue
+        for ref in args[3]:
+            q = datei.get(ref) if isinstance(ref, Ref) else None
+            if q:
+                arten.update(art for art, text in PROFILQUALIFIKATOR.items() if q.parts.get("TYPE_QUALIFIER") == [text])
+    return arten.pop() if len(arten) == 1 else ""
 
 
 def _einheitsmass(datei, ref):
@@ -287,7 +304,13 @@ def _lies_rahmen(modell: StepModell, e: Entity, zonen: dict[int, list[Entity]], 
     elif "Least_Material_Requirement" in p.modifikatoren:
         p.material = "L"
     if e.is_a("UNEQUALLY_DISPOSED_GEOMETRIC_TOLERANCE"):
-        p.modifikatoren.append(f"UZ {laenge_mm(datei, e.args('UNEQUALLY_DISPOSED_GEOMETRIC_TOLERANCE')[0])}")
+        args = e.args("UNEQUALLY_DISPOSED_GEOMETRIC_TOLERANCE")
+        ref = args[0] if len(args) == 1 and isinstance(args[0], Ref) else None
+        messung = datei.get(ref) if ref else None
+        u = _gesicherte_laenge(datei, ref) if messung else None
+        p.modifikatoren.append(f"UZ {u}" if u is not None else "UZ")
+        if messung:
+            p.profilzonenart = _profilzonenart(datei, messung.id)
     if e.is_a("GEOMETRIC_TOLERANCE_WITH_DEFINED_UNIT"):
         refs = e.args("GEOMETRIC_TOLERANCE_WITH_DEFINED_UNIT")
         einheit = refs[0] if len(refs) == 1 else None

@@ -357,6 +357,11 @@ Throughout: tests (core, offscreen UI, stress test, on-screen test), `--selbstte
   frame needs semantic datums A, B and C. Rounded STEP coordinates at a compartment boundary
   also occur in #8707. It reads as separate datums A, B and C. Recovering the datum targets
   is still open.
+  Graphical CTC-02 profile controls #8688, #8694 and #8714 recover 2.5 mm tolerance
+  with ASME outer boundary distances of 2.5, 0.5 and 0 mm. The accepted value and
+  convention survive project reload and AP242 export with the original graphics.
+  Export writes the displacement measure and qualifies its interpretation at the feature.
+  The drawing and revision checks distinguish this boundary from the ISO zone centre.
   Open: additional fonts, further composite layouts and dimensions with
   ambiguous leader or text placement.
 - Convert to semantic PMI: evaluate recognized text + frame structure; mark result as "derived (check)", never as

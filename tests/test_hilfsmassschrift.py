@@ -55,7 +55,7 @@ def _als_dreiecke(text, g, klammer=True, toleriert=False):
 
 def _mit_fuellsatz(text, netze, callout, stil, name):
     datei = p21.lese_text(text)
-    if datei.schema != step_ap242.SCHEMA:
+    if not datei.schema.startswith(step_ap242.AP242):
         text = step_ap242.aus_ap203(text, datei)
     punktliste = max(90001, max(datei.entities)+1)
     netz, gruppe, vorkommen = range(punktliste+1, punktliste+4)

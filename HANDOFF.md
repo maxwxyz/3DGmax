@@ -2,6 +2,37 @@
 
 ## Current state, 2026-11-21
 
+### Recover graphical unequally disposed profile tolerances
+
+- Checked PLAN §8.4 and docs/Roadmap.md. CTC-02 AP203 frames #8688, #8694 and #8714
+  have 2.5 mm surface profile tolerances with outer boundary distances of 2.5, 0.5
+  and 0 mm. All three match the independent AP242 controls #58, #57 and #56. The
+  review distinguishes ASME Ⓤ from the ISO zone-centre displacement even if the
+  source and its exported copy have neutral filenames.
+- Tested contours, an independently drawn single-stroke U, pure triangle fills and
+  reading without stored writing axes. Only the three CTC-02 readings changed
+  in the six-model, 194-callout comparison. Review, project reopen and STEP export
+  preserve target faces, datum order, graphics and saved views. The displacement
+  is a LENGTH_MEASURE_WITH_UNIT on UNEQUALLY_DISPOSED_GEOMETRIC_TOLERANCE. A
+  MEASURE_QUALIFICATION records the convention locally. Verified signed ISO offsets,
+  ASME boundary distances and inch-to-mm conversion on readback.
+- The AP242 test removes the three original semantic controls and keeps the real
+  datum targets. OCCT reads the new tolerances and their displacement without an
+  error. Its existing limitation with the compound draughting model #1208 also
+  applies to the three new presentation links. A separate wholly graphical model
+  variant uses the existing G/H/J datum graphics from the neighbouring CTC-02 frame.
+  It round-trips with the same OCCT diagnostics and volume as its input.
+- All 460 affected cases passed. The separate graphical regression set passed 68 cases,
+  followed by 22 checks for the datum-target safeguard and nine native Cocoa tests. The
+  signed arm64 build passed its self-test and rendered the exported triangle-only variant.
+  Local main builds still use the single app in dist.
+- Next in §8.4: recover the point datum targets needed by the unmodified AP203
+  A/B/C frames. The AP242 reference locates A1/A2/A3, B1/B2/B3/B4 and C1. The
+  cross positions are within 0.05 mm of the reference anchors. #8674 corresponds
+  to B2. Its partial reading “B” now leaves the target unresolved. #8713 is a
+  separate circular datum target K1 with 85 mm diameter. Validate the contact
+  points, individual target numbers and full datum sets before use. QIF stays last.
+
 ### Read least-material requirements in graphical CTC-02 frames
 
 - Checked PLAN §8.4 against docs/Roadmap.md. The six circled-L frames match the values,

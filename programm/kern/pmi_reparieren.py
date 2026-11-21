@@ -44,7 +44,7 @@ NAMEN = [
     (r"distance|linear dimension|dimension", MASS, "Location_LinearDistance"),
 ]
 FELDER = ("nennwert", "oben", "unten", "grenzmass", "passung", "wert", "zone", "zonen_wert", "material",
-          "modifikatoren", "bezuege", "maximum_toleranz", "einheitslaenge", "einheitsbreite", "einheitsdurchmesser",
+          "modifikatoren", "bezuege", "profilzonenart", "maximum_toleranz", "einheitslaenge", "einheitsbreite", "einheitsdurchmesser",
           "projektionsversatz", "projektionsflaechen")
 
 
@@ -187,6 +187,9 @@ def vorschlag(p, g, modell) -> Pmi:
     if g and not texte and not g.erzeugt and not p.semantisch:
         schriftart = aus_name(name, druckschrift=True) if p.art == HINWEIS else bekannt
         dateitexte, ocr, gelesen, ergaenzung, masswahl = _druckschrift(g, schriftart, modell, flaechen)
+        if schriftart == (BEZUG, "DatumTarget") and gelesen.get("typ") == "Datum":
+            # Eine verlorene Stellennummer darf aus B2 kein vollflaechiges Bezugsmerkmal B machen.
+            gelesen = {}
         if gelesen:
             art = gelesen["art"]
             typ = gelesen["typ"] or (typ if schriftart != bekannt and not masswahl else "")
