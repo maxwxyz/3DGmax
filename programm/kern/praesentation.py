@@ -15,6 +15,7 @@ from dataclasses import dataclass, field
 
 import numpy as np
 
+from .ansichten import darstellungskontext
 from .p21 import DMIA_PH, Entity, P21Datei, Ref
 
 ANNOTATIONEN = ("TESSELLATED_ANNOTATION_OCCURRENCE", "ANNOTATION_CURVE_OCCURRENCE", "ANNOTATION_TEXT_OCCURRENCE",
@@ -211,7 +212,6 @@ class _Leser:
             if box is not None and box.is_a("PLANAR_EXTENT"):
                 b, h = (float(w) * self.skala for w in _eig(box, "PLANAR_EXTENT")[:2])
         g.platzhalter.append(Platzhalter(o, x, y, b, h, text=text))
-        g.textfaktor = self.skala
         if g.ebene is None:
             g.ebene = (o, x, y, z)
 
@@ -283,21 +283,72 @@ def eigenstaendige_annotation(datei: P21Datei, e: Entity) -> bool:
                     or r.is_a("DRAUGHTING_MODEL_ITEM_ASSOCIATION") or r.is_a(DMIA_PH) for r in eltern))
 
 
-def lies_grafik(datei: P21Datei, skala: float = 1.0) -> dict[int, Grafik]:
-    """Callout-ID -> Grafik (mit verknuepften PMI-#IDs)."""
-    from .ansichten import _semantik_von
-    leser = _Leser(datei, skala)
+def _grafikkontexte(datei):
+    """Definitionskontext aus der PMI-Verknuepfung, sonst aus der zugehoerigen Ansicht."""
+    from .ansichten import _items, _semantik_von
+    von_ansicht, von_link, pmi_ids = {}, {}, {}
+    grafiktypen = {"DRAUGHTING_CALLOUT", *ANNOTATIONEN}
+    for m in datei.of_type("DRAUGHTING_MODEL"):
+        kontext = darstellungskontext(m)
+        if kontext is None:
+            continue
+        for ref in _items(datei, m):
+            e = datei.get(ref)
+            if e is None:
+                continue
+            if e.parts.keys() & grafiktypen:
+                von_ansicht.setdefault(e.id, set()).add(kontext)
+            if e.is_a("ANNOTATION_PLANE"):
+                args = e.args("ANNOTATION_PLANE")
+                if args and isinstance(args[-1], list):
+                    for kind in args[-1]:
+                        if isinstance(kind, Ref):
+                            von_ansicht.setdefault(kind.id, set()).add(kontext)
+    for d in datei.of_types_by_id(("DRAUGHTING_MODEL_ITEM_ASSOCIATION", DMIA_PH)):
+        args = d.args()
+        if len(args) < 5 or not isinstance(args[4], Ref):
+            continue
+        ziel = datei.get(args[4])
+        if ziel is None or not ziel.parts.keys() & grafiktypen:
+            continue
+        if isinstance(args[2], Ref):
+            pmi_ids.setdefault(ziel.id, set()).add(_semantik_von(datei, args[2].id))
+        kontext = darstellungskontext(datei.get(args[3]))
+        if kontext is not None:
+            von_link.setdefault(ziel.id, set()).add(kontext)
+    return von_ansicht, von_link, pmi_ids
+
+
+def lies_grafik(datei: P21Datei, skala: float | None = None) -> dict[int, Grafik]:
+    """Grafik je Callout in mm. skala dient als Ersatz bei fehlender Laengeneinheit."""
+    from .ansichten import _laengen_skala, kontext_skalen
+    skalen = kontext_skalen(datei)
+    ersatz = _laengen_skala(datei, skalen) if skala is None else skala
+    ansichten, definitionen, pmi_ids = _grafikkontexte(datei)
+    texteinheit = ersatz if len(set(skalen.values())) <= 1 else None
+    leser_je_skala = {s: _Leser(datei, s) for s in {*skalen.values(), ersatz}}
+
+    def grafik(e, name):
+        definition = definitionen.get(e.id, ())
+        werte = {skalen.get(k) for k in definition or ansichten.get(e.id, ())}
+        faktor = texteinheit
+        if werte:
+            faktor = werte.pop() if len(werte) == 1 else None
+        kontext = next(iter(definition)) if len(definition) == 1 else None
+        g = Grafik(e.id, name or "", textfaktor=faktor, kontext=kontext, pmi_ids=pmi_ids.get(e.id, set()))
+        return g, leser_je_skala[faktor or ersatz]
+
     out: dict[int, Grafik] = {}
     for e in datei.of_types_by_id(ANNOTATIONEN):
         if eigenstaendige_annotation(datei, e):
             name = e.args("REPRESENTATION_ITEM")[0] if e.is_a("REPRESENTATION_ITEM") else e.args()[0]
-            g = Grafik(e.id, name or "", textfaktor=skala)
+            g, leser = grafik(e, name)
             leser.annotation(Ref(e.id), g)
             g.linien.extend(g.hinweislinien)
             out[e.id] = g
     for c in datei.of_type("DRAUGHTING_CALLOUT"):
         name, teile = c.args("DRAUGHTING_CALLOUT")[:2]
-        g = Grafik(c.id, name or "", textfaktor=skala)
+        g, leser = grafik(c, name)
         for r in teile:
             leser.annotation(r, g)
         # Platzhalter nur, wenn es keine fertige Grafik gibt (NIST liefert oft beides)
@@ -323,25 +374,11 @@ def lies_grafik(datei: P21Datei, skala: float = 1.0) -> dict[int, Grafik]:
         for ref in args[-1]:
             g = out.get(ref.id) if isinstance(ref, Ref) else None
             if g is not None and g.ebene is None:
-                g.ebene = leser.platzierung(platz[0])
-    for d in datei.of_type("DRAUGHTING_MODEL_ITEM_ASSOCIATION") + datei.of_type(DMIA_PH):
-        args = d.args(next(iter(d.parts)))
-        if isinstance(args[2], Ref) and isinstance(args[4], Ref) and args[4].id in out:
-            out[args[4].id].pmi_ids.add(_semantik_von(datei, args[2].id))
-            out[args[4].id].kontext = out[args[4].id].kontext or _kontext(datei, args[3])
+                g.ebene = leser_je_skala[g.textfaktor or ersatz].platzierung(platz[0])
     mit_grafik = set().union(*(g.pmi_ids for g in out.values() if g.fertig)) if out else set()
     for g in out.values():
         g.doppelt = not g.fertig and bool(g.pmi_ids) and g.pmi_ids <= mit_grafik
     return out
-
-
-def _kontext(datei: P21Datei, ref) -> int | None:
-    """Darstellungskontext einer Darstellung (REPRESENTATION.context_of_items)."""
-    e = datei.get(ref) if isinstance(ref, Ref) else None
-    if e is None:
-        return None
-    args = e.args("REPRESENTATION") if "REPRESENTATION" in e.parts else e.args(next(iter(e.parts)))
-    return args[2].id if len(args) > 2 and isinstance(args[2], Ref) else None
 
 
 def netz_darstellungen(datei: P21Datei, flaeche_step: int) -> set[int]:
@@ -410,7 +447,7 @@ def in_teillage(grafik: dict[int, Grafik], pmi: list, modell) -> None:
         if idx >= len(modell.flaechen) or idx not in step_von:
             continue
         lage = modell.flaechen[idx].Location()
-        if lage.IsIdentity() or _kontext(datei, Ref(darstellung_der_flaeche(datei, step_von[idx]) or 0)) != g.kontext:
+        if lage.IsIdentity() or darstellungskontext(datei.get(darstellung_der_flaeche(datei, step_von[idx]))) != g.kontext:
             continue
         _bewege(g, lage.Transformation())
 

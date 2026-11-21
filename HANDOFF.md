@@ -2,6 +2,30 @@
 
 ## Current state, 2026-11-21
 
+### Inch and mixed-unit STEP presentation contexts
+
+- Checked PLAN §§8.18, 8.25 and 8.28 against docs/Roadmap.md. The STEP presentation reader now
+  uses the length unit assigned to the defining draughting model. Without a definition link it
+  checks direct view and annotation-plane membership. Saved cameras use each view's own unit.
+  Mixed contexts can still draw the geometry using the fallback scale, but an ambiguous unit
+  does not supply a numeric length from unqualified printed text. Explicit text units still apply.
+- Original NIST FTC-07 callout #16200 now has plane x = −91.44 mm and text factor 25.4. Its saved
+  camera MBD_A has width 444.13419428 mm, as specified by a 17.4855982 inch planar box. A second
+  fixture exercises mm and inch views in one file, the same literal in both, ambiguous membership
+  and a defining link whose unit differs from a view that also shows the callout. All 153 affected
+  tests and 34 native macOS tests passed, including the 3D screen checks.
+- Next §8.18 evidence: FTC-07 has 102 “equivalent unicode string” records on graphical callouts
+  and semantic characteristics. For example #15635 describes the graphical callout #15623 through
+  CHARACTERIZED_ITEM_WITHIN_REPRESENTATION, whereas #15614 describes the semantic DIMENSIONAL_SIZE.
+  When using such file text in review, follow the callout-specific property through its actual
+  references, retain quantities and rich-text fields, keep unsupported syntax open and distinguish
+  the source text from OCR. The verified property for #15623 reads “3X ⌀.875±.020” and parses
+  to 22.225 ±0.508 mm. Callout #13706 has datum A. A local parsing probe recovered five datum
+  names and eleven dimensions, including stacked signed deviations. The 21 graphical frame
+  descriptions did not pass the strict complete-cell check. #16212 contains “R.022-.012” with
+  an ambiguous hyphen.
+  Whole-drawing equivalence is still open. QIF remains last.
+
 ### Graphical radius lettering and repeated radius dimensions
 
 - Checked PLAN §§8.18, 8.35–8.37 and docs/Roadmap.md. Single strokes and filled letters use

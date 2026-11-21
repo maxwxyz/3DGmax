@@ -7,10 +7,13 @@ ergeben sich aus DRAUGHTING_MODEL_ITEM_ASSOCIATION: Semantik -> Annotation, die 
 from __future__ import annotations
 
 from dataclasses import dataclass, field
+from typing import TYPE_CHECKING
 
-from .laden import StepModell
 from .p21 import DMIA_PH, Entity, P21Datei, Ref
 from .pmi import Pmi
+
+if TYPE_CHECKING:
+    from .laden import StepModell
 
 KAMERA_TYPEN = ("CAMERA_MODEL_D3", "CAMERA_MODEL_D3_MULTI_CLIPPING")
 
@@ -44,9 +47,26 @@ def _punkt(datei: P21Datei, ref, skala=1.0):
     return tuple(v[:3])
 
 
-def _laengen_skala(datei: P21Datei) -> float:
-    """Faktor Datei-Laengeneinheit -> mm (aus dem ersten LENGTH_UNIT)."""
+def kontext_skalen(datei: P21Datei) -> dict[int, float]:
+    """Zugewiesene Laengeneinheiten der Darstellungskontexte in mm."""
+    from .pmi_step import _laengenfaktor
+    skalen = {}
+    for kontext in datei.of_type("GLOBAL_UNIT_ASSIGNED_CONTEXT"):
+        args = kontext.args("GLOBAL_UNIT_ASSIGNED_CONTEXT")
+        if args and isinstance(args[0], list):
+            werte = {_laengenfaktor(datei, ref) for ref in args[0]
+                     if (e := datei.get(ref)) is not None and e.is_a("LENGTH_UNIT")}
+            if len(werte) == 1 and None not in werte:
+                skalen[kontext.id] = werte.pop()
+    return skalen
+
+
+def _laengen_skala(datei: P21Datei, skalen=None) -> float:
+    """Dateiweiter Ersatz fuer Darstellungen ohne eigenen Kontext."""
     from .pmi_step import einheit_mm
+    werte = set((kontext_skalen(datei) if skalen is None else skalen).values())
+    if len(werte) == 1:
+        return werte.pop()
     for e in datei.of_type("LENGTH_UNIT"):
         if e.is_a("SI_UNIT") or e.is_a("CONVERSION_BASED_UNIT"):
             return einheit_mm(datei, Ref(e.id))
@@ -118,6 +138,14 @@ def _items(datei: P21Datei, modell_e: Entity) -> list:
     return args[1] if len(args) > 1 and isinstance(args[1], list) else []
 
 
+def darstellungskontext(e: Entity | None) -> int | None:
+    """Kontext-ID einer einfachen oder komplexen Darstellung."""
+    if e is None:
+        return None
+    args = e.args("REPRESENTATION") if e.is_a("REPRESENTATION") else e.args()
+    return args[2].id if len(args) > 2 and isinstance(args[2], Ref) else None
+
+
 def _semantik_von(datei: P21Datei, definition: int) -> int:
     """DMIA-Definition auf die PMI-#ID abbilden (Bezugsmerkmal -> DATUM)."""
     e = datei.get(definition)
@@ -168,7 +196,8 @@ def lies_ansichten(modell: StepModell, pmi: list[Pmi] | None = None) -> list[Ans
         return ansichten
     if datei is None:
         return []
-    skala = _laengen_skala(datei)
+    skalen = kontext_skalen(datei)
+    ersatz = _laengen_skala(datei, skalen)
     # Annotation -> semantische PMI
     zu_pmi: dict[int, set[int]] = {}
     for d in datei.of_type("DRAUGHTING_MODEL_ITEM_ASSOCIATION") + datei.of_type(DMIA_PH):
@@ -183,7 +212,7 @@ def lies_ansichten(modell: StepModell, pmi: list[Pmi] | None = None) -> list[Ans
         for k in kameras:
             name = k.args(next(t for t in KAMERA_TYPEN if k.is_a(t)))[0]
             a = Ansicht(name, k.id)
-            _kamera(datei, k, a, skala)
+            _kamera(datei, k, a, skalen.get(darstellungskontext(m), ersatz))
             for i in items:
                 # Callouts ohne Semantik (Hinweise) stehen mit ihrer eigenen #ID in der Liste
                 ohne = {i} if datei.entities[i].is_a("DRAUGHTING_CALLOUT") else set()

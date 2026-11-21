@@ -1,6 +1,7 @@
 {
  "unreleased": {
   "de": [
+   "Bei STEP-Modellen in Zoll stimmen jetzt Position und Größe der PMI-Grafik sowie Kamera und Schnitt der gespeicherten Ansichten. Gemischte Dateien verwenden die Längeneinheit der jeweiligen Darstellung.",
    "Die PMI-Erkennung liest R aus Strichen und reiner Dreiecksfüllung. Bestätigte Radiusmaße werden mit der ursprünglichen Grafik als STEP gespeichert. Im Zeichnungsvergleich lassen sich wiederholte R- und CR-Maße den zugehörigen Bohrungswänden zuordnen.",
    "Der Zeichnungsvergleich findet gezeichnete Durchmessermaße an schrägen Hinweislinien. Mengenangabe und Grenzmaße bleiben zusammen. Die Vorschau richtet den Text zum Lesen aus, die CSV erhält die Ecken auf dem Blatt und den Anschluss der Hinweislinie.",
    "Der Zeichnungsvergleich ordnet elliptisch dargestellte Bohrungen in schrägen Parallelansichten den Modellflächen zu. Die Prüfung berücksichtigt die Tiefe jedes Bohrungsrands. Pfeile und Klicks folgen der Ellipse, die CSV hält Lage, Halbachsen und Drehwinkel fest.",
@@ -160,6 +161,7 @@
    "Grafische PMI aus unterstützten AP203e2-Kurvenmodellen lassen sich als STEP AP242 Edition 3 ausgeben. Facettierte STEP-Modelle behalten ihre Flächenbezüge. Gepackte STEP-Dateien lassen sich als unkomprimierte STEP-Kopie speichern."
   ],
   "en": [
+   "STEP files in inches now show PMI graphics, saved cameras and clipping planes at the correct position and size. Mixed-unit files use the length unit assigned to each representation.",
    "PMI recognition reads R in stroke lettering and solid triangle glyphs. Confirmed radius dimensions are saved to STEP with the original graphics. Drawing comparison matches repeated R and CR dimensions to the corresponding bore walls.",
    "Drawing comparison finds plotted diameter dimensions along inclined leaders, keeping their quantity and limits together. The detail shows the row in reading direction. CSV retains the original sheet corners and leader connection.",
    "Drawing comparison matches elliptical hole rims in oblique orthographic views to model faces using each rim’s depth. Leaders and clicks follow the ellipse. CSV records its position, semi-axes and rotation.",

@@ -23,7 +23,7 @@ class Ergebnis:
 
 def lade_alles(pfad: str, fortschritt=lambda text: None) -> Ergebnis:
     from ..i18n import tr
-    from ..kern.ansichten import _laengen_skala, lies_ansichten
+    from ..kern.ansichten import lies_ansichten
     from ..kern.baum import lies_baum
     from ..kern.farben import flaechen_farben
     from ..kern.laden import lade_modell
@@ -39,7 +39,7 @@ def lade_alles(pfad: str, fortschritt=lambda text: None) -> Ergebnis:
     pmi = lies_pmi(modell)
     fortschritt(tr("Struktur und Grafik …"))
     if modell.datei:
-        grafik = lies_grafik(modell.datei, _laengen_skala(modell.datei))
+        grafik = lies_grafik(modell.datei)
     elif getattr(modell, "qif", None) is not None:
         from ..kern import qif_grafik
         grafik = qif_grafik.grafik(modell.qif)

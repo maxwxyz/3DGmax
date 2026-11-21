@@ -882,7 +882,10 @@ print annotations. Today 3DGmax writes generated texts only into the placeholder
   the original callout and OCCT no longer lists the callout as a presentation-only dimension.
   Radius lettering uses stroke and filled R references from NIST FTC-07. A graphical-only STEP
   fixture verifies the review and export of an unnamed R2 both as polylines and as pure triangles.
-  Reloading recovers the radius semantics and retains every original STEP entity.
+  Reloading recovers the radius semantics and retains every original STEP entity. STEP presentation
+  units come from the defining draughting model or its sheet membership, including annotation planes.
+  Cameras, clip planes, glyph geometry and unitless printed values use the assigned length unit.
+  Conflicting units for the same unqualified annotation leave its textual length unresolved.
   **Done (2026-11-20): model-wide conversion and combined STEP export.** The Tools command reviews the graphical
   entries of the source model in sequence. The PMI list also supports a selection. Each review shows the original
   annotation and suggested faces. It reads explicit STEP text literals and recognises dimension limits, deviations
