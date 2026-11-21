@@ -246,8 +246,12 @@ Throughout: tests (core, offscreen UI, stress test, on-screen test), `--selbstte
   Endpoint features stay separate from the toleranced geometry. An imported bounded
   surface profile may also reference separately trimmed faces. The reader verifies each
   patch lies wholly on one original face of the specified part. Selection, zone display
-  and STEP value edits retain the trims, including holes. Comparing patch interiors
-  across revisions and converting graphical-only frames on such trims remain open.
+  and STEP value edits retain the trims, including holes. Graphical review transfers the patch
+  and its boundary edges before checking the drawn A/B leader contacts. Verified an open
+  single-stroke arrow and letters, and a triangle-only version, on a patch with an interior
+  hole. Project reload and STEP export retain the restricted area, datum order and original
+  callouts. STEP links each original end label to its named boundary feature. Comparing patch
+  interiors across revisions remains open.
   Single-row wide control frames preserve the characteristic, diameter zone, projected height or
   maximum material and the ordered datums. Closed cell borders can also be recovered from filled
   triangles. With no writing plane the outer edges of coplanar triangles supply candidate axes. Both FTC-07's original strokes and a

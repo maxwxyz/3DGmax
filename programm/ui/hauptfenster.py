@@ -1794,7 +1794,7 @@ class Hauptfenster(QtWidgets.QMainWindow):
         for p in liste:
             flaechen |= p.flaechen
         self.ansicht.hebe_flaechen(flaechen)
-        self.ansicht.hebe_pmi({p.step_id for p in liste if p.step_id})
+        self.ansicht.hebe_pmi({nr for p in liste for nr in (p.step_id, *p.grenzgrafiken) if nr})
         self.ansicht.zeige_bezugssystem(self._bezugssystem(liste))
         if len(liste) == 1:
             p = liste[0]
@@ -3891,6 +3891,9 @@ class Hauptfenster(QtWidgets.QMainWindow):
         paare = verbundpaare(neue)
         ersatz = {}
         for i, p in enumerate(neue, 1):
+            if p.profilteil_ids and not getattr(p, "profilausschnitte", None):
+                from ..kern.profilteilflaeche import stelle_grafikbereich_her
+                stelle_grafikbereich_her(self.erg.modell, p)
             p.nummer, p.step_id, p.quelle, p.norm = start + i, kleinste - i, "eigen", norm
             p.semantisch, p.grafisch = True, bool(p.callout)  # semantisch gemachte Grafik der Datei behaelt sie
             if not p.name:

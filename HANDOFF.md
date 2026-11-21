@@ -2,6 +2,37 @@
 
 ## Current state, 2026-11-21
 
+### Convert graphical profiles on separately trimmed STEP faces
+
+- Checked the implementation against PLAN §8.4 and docs/Roadmap.md. The review uses
+  the explicit face set on the callout and checks the two graphical leaders against
+  the transferred edges of that set. The chosen area appears in the scene and in the
+  dialog. Confirmed records persist the supplementary STEP face numbers in the project.
+  Reopening the project resolves those numbers against the source callout and recovers
+  the trims. STEP writes the supplementary faces and relates their boundary edges to
+  the area representation.
+- Fixed the previous supplemental reader's ownership of the STEP entity table.
+  Releasing a secondary OCCT session with the same StepData_StepModel erased all 17,310
+  entries in the live product reader in the triangle-only reproduction. Each secondary
+  session now owns its entity table and retains the original transfer order, entities,
+  header and length unit. Its release preserves the product transfer and labels.
+- The planar example contains 900 mm² of material inside a 20 × 50 mm patch with a
+  10 × 10 mm hole. The 1.25 mm frame, the A/B/C datum order, both boundary edges, the
+  original graphics and their saved views survived project reload and STEP export.
+  Both original endpoint drawings are explicitly linked to their named start and end
+  features in the STEP copy. Selecting the reopened profile highlights both labels and
+  the trimmed region. A wrong association pointing to the hole edge instead
+  of the drawn leader tip yields no scope proposal. Tests exercise both triangle-only
+  graphics and single-stroke endpoints and arrow.
+- The affected run passed 469 tests and the full run passed 1,105, with eight native
+  screen checks skipped in each. All 16 focused and screen checks passed separately on Cocoa.
+- Reproduced the next revision-comparison case on this export. The original 900 mm²
+  patch, the same file with all STEP identifiers renumbered, a patch without the hole
+  (1,000 mm²), and a patch with its 10 mm hole translated by 3 mm currently all yield
+  unresolved endpoints. The latter two 900 mm² regions share only 870 mm². Compare the
+  aligned region coverage on the matched supports, together with the oriented boundary
+  edges. QIF remains the final item.
+
 ### Read and display separately trimmed surface-profile patches
 
 - Checked PLAN §8.4 and docs/Roadmap.md. A supplemental face in the bounded profile's

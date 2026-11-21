@@ -124,6 +124,9 @@ class Pmi:
     mittenbezug: int | None = None  # Bezugsflaeche beim Abstand zur Mittelebene eines Wandpaares
     bereichsgrenzen: list | None = field(default_factory=list)  # [Name, Kante] je Ende; None bei unlesbarem Bereich
 
+    grenzgrafiken: list[int] = field(default_factory=list)  # Originalbeschriftungen der beiden Randkanten
+    profilteil_ids: list[int] = field(default_factory=list)  # Gepruefte Zusatzflaechen der Originalgrafik
+
     # --- Darstellung ---
 
     def traegerflaechen(self) -> set[int]:

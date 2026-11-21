@@ -241,12 +241,16 @@ class AnsichtBasis(QtWidgets.QWidget):
 
     def entferne_grafik(self, pmi_ids: set):
         if self.szene is not None:
+            for nr in pmi_ids:
+                self.szene.profilbereiche.pop(nr, None)
             for cid in [c for c, g in self.szene.grafik.items() if g.pmi_ids & pmi_ids]:
                 del self.szene.grafik[cid]
 
     def ergaenze_grafik(self, neue: dict, pmi: list):
         """Weitere Callouts in die Szene aufnehmen (Grafik und Texte)."""
         if self.szene is not None:
+            self.szene.profilbereiche.update({p.step_id: p.profilausschnitte for p in pmi
+                                             if getattr(p, "profilausschnitte", None)})
             self.szene.grafik.update(neue)
             self.szene.pmi_text.update({p.step_id: p.wert_text() for p in pmi if p.step_id})
 
@@ -1415,6 +1419,8 @@ class OcctAnsicht(AnsichtBasis):
             cids = [c for c, g in self.szene.grafik.items() if g.pmi_ids & pmi_ids]
             self._entferne_callouts(cids)
         super().entferne_grafik(pmi_ids)
+        if self._bereit and self._profil_ais and pmi_ids & self.pmi_ids_hervor:
+            self._baue_profilbereiche()
         if cids:
             self._neu_zeichnen()
 
@@ -1424,6 +1430,9 @@ class OcctAnsicht(AnsichtBasis):
             return
         AnsichtBasis.ergaenze_grafik(self, neue, pmi)
         if self._bereit:
+            if any(p.step_id in self.pmi_ids_hervor and getattr(p, "profilausschnitte", None) for p in pmi):
+                self._baue_profilbereiche()
+                self._wende_sichtbarkeit_an()
             self._entferne_callouts(neue)
             for cid, g in neue.items():
                 self._baue_callout(cid, g)

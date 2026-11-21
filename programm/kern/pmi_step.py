@@ -289,7 +289,7 @@ def _lies_rahmen(modell: StepModell, e: Entity, zonen: dict[int, list[Entity]], 
         ziel = datei.get(aspekt)
         if ziel and ziel.is_a("BETWEEN_SHAPE_ASPECT"):
             from .pmi_zwischenbereich import lies_grenzen
-            p.bereichsgrenzen = lies_grenzen(datei, ziel.id) or None
+            p.bereichsgrenzen = lies_grenzen(datei, ziel.id, p.grenzgrafiken) or None
             if not p.flaechen and p.typ == "ProfileOfSurface":
                 from .profilteilflaeche import lies_ausschnitte
                 lies_ausschnitte(modell, ziel, p, bereichsleser)

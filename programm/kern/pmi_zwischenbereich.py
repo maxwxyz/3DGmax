@@ -350,7 +350,7 @@ def ergaenze(v, g, modell, grafiken):
     from .merkmalstext import aspekte_am_callout
     from .pmi_freier_hinweis import _ansichten, _mitglieder
     if (not modell.datei or v.art != "toleranz" or v.typ not in ("", "ProfileOfSurface", "ProfileOfLine")
-            or v.wert is not None or v.validierungstexte or g.erzeugt or g.platzhalter or not v.flaechen):
+            or v.wert is not None or v.validierungstexte or g.erzeugt or g.platzhalter):
         return
     ergebnis = _bereichstext(g)
     if not ergebnis:
@@ -359,16 +359,23 @@ def ergaenze(v, g, modell, grafiken):
     if v.typ and v.typ != daten["typ"]:
         return
     d = modell.datei
-    flaechen = {modell.flaeche_zu_step.get(i) for i in v.flaechen}
-    from .pmi_lesen import geometrieziele_von_aspekt
-    zielgruppen = [geometrieziele_von_aspekt(d, modell, a) for a in aspekte_am_callout(d, g.callout_id)]
-    if any(gruppe is None for gruppe in zielgruppen) or set().union(*zielgruppen) != flaechen:
+    from .profilteilflaeche import grafikbereich
+    from .step_schreiben import randkanten
+    bereich = grafikbereich(modell, g.callout_id)
+    if not bereich:
+        return
+    ganze, teile, leser = bereich
+    if (not teile and ganze != v.flaechen) or (teile and daten["typ"] != "ProfileOfSurface"):
+        return
+    flaechen = {modell.flaeche_zu_step[i] for i in ganze} | teile.keys()
+    if not flaechen:
         return
     ansichten = defaultdict(set)
     for ansicht in _ansichten(d, g.callout_id):
         for nr in _mitglieder(d, [ansicht]):
             ansichten[nr].add(ansicht)
     grenzen = {}
+    teilkanten = {k for f in teile for k in randkanten(d, f)}
     for nr in grafiken.keys() & ansichten.keys():
         ziel = {z for a in aspekte_am_callout(d, nr) for z in _ziele(d, a)}
         if len(ziel) != 1:
@@ -376,7 +383,8 @@ def ergaenze(v, g, modell, grafiken):
         k = ziel.pop()
         if not d.get(k) or not d.get(k).is_a("EDGE_CURVE"):
             continue
-        name = _endzeichen(grafiken[nr], modell.form_von_step(k))
+        kante = leser.randkante(k) if k in teilkanten else modell.form_von_step(k)
+        name = _endzeichen(grafiken[nr], kante)
         if name in namen:
             if name in grenzen:
                 return
@@ -392,12 +400,37 @@ def ergaenze(v, g, modell, grafiken):
     for feld, wert in daten.items():
         setattr(v, feld, wert)
     v.bereichsgrenzen = [[n, k] for n, k in zip(namen, kanten)]
+    if teile:
+        v.flaechen = ganze
+        v.profilteil_ids = sorted(teile)
+        v.profilausschnitte = teile
     v.grenzgrafiken = marken
     v.ocr_text = v.nur_grafik_text = wort + "\n" + " ↔ ".join(namen)
 
 
-def lies_grenzen(datei, aspekt):
-    grenzen = {}
+def endmarken_in_datei(datei, p):
+    """Gepruefte Randgrafiken in derselben Ansicht und an ihren urspruenglichen Kanten wiederfinden."""
+    from .merkmalstext import aspekte_am_callout
+    from .pmi_darstellung import _modell_von
+    from .pmi_freier_hinweis import _ansichten
+    if len(p.grenzgrafiken) != 2 or len(set(p.grenzgrafiken)) != 2 or not p.callout:
+        return None
+    ansichten = set(_ansichten(datei, p.callout))
+    marken = []
+    for nr, (_, kante) in zip(p.grenzgrafiken, p.bereichsgrenzen):
+        ziele = {z for a in aspekte_am_callout(datei, nr) for z in _ziele(datei, a)}
+        modell = _modell_von(datei, nr)
+        if ziele != {kante} or modell is None:
+            return None
+        ansichten.intersection_update(_ansichten(datei, nr))
+        marken.append((modell, nr))
+    return marken if ansichten else None
+
+
+def lies_grenzen(datei, aspekt, grenzgrafiken=None):
+    from .p21 import DMIA_PH
+    from .praesentation import eigenstaendige_annotation
+    grenzen, marken = {}, {}
     for i in datei.referrers().get(aspekt, ()):
         rel = datei.get(i).parts.get("SHAPE_ASPECT_RELATIONSHIP", ())
         if len(rel) != 4 or rel[0] not in ("start feature", "end feature") or rel[2] != Ref(aspekt):
@@ -416,5 +449,21 @@ def lies_grenzen(datei, aspekt):
         args = kind.args("SHAPE_ASPECT")
         if not args or not isinstance(args[0], str):
             return []
-        grenzen[rel[0]] = [args[0], ziel]
-    return [grenzen["start feature"], grenzen["end feature"]] if len(grenzen) == 2 else []
+        rolle = rel[0]
+        grenzen[rolle] = [args[0], ziel]
+        grafiken = set()
+        for link in datei.referrers().get(kind.id, ()):
+            e = datei.get(link)
+            a = e.parts.get("DRAUGHTING_MODEL_ITEM_ASSOCIATION", e.parts.get(DMIA_PH, ()))
+            if len(a) == 5 and a[2] == Ref(kind.id) and isinstance(a[4], Ref):
+                g = datei.get(a[4])
+                if g and (g.is_a("DRAUGHTING_CALLOUT") or eigenstaendige_annotation(datei, g)):
+                    grafiken.add(g.id)
+        if len(grafiken) == 1:
+            marken[rolle] = grafiken.pop()
+    if len(grenzen) != 2:
+        return []
+    rollen = ("start feature", "end feature")
+    if grenzgrafiken is not None and len(set(marken.values())) == 2:
+        grenzgrafiken.extend(marken[r] for r in rollen)
+    return [grenzen[r] for r in rollen]

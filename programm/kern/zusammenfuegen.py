@@ -115,6 +115,8 @@ def _pmi_umrechnen(pmi: list, flaechen_versatz: int, id_versatz: int, nummer_ver
             from OCC.Core.TopoDS import topods
             p.profilausschnitte = {_id(nr, id_versatz): (idx + flaechen_versatz, topods.Face(f.Moved(lage)))
                                    for nr, (idx, f) in p.profilausschnitte.items()}
+        p.grenzgrafiken = [_id(nr, id_versatz) for nr in p.grenzgrafiken]
+        p.profilteil_ids = [_id(nr, id_versatz) for nr in p.profilteil_ids]
         if p.bereichsgrenzen:
             p.bereichsgrenzen = [[name, _id(kante, id_versatz)] for name, kante in p.bereichsgrenzen]
         if getattr(p, "teilformen", None):
@@ -200,4 +202,4 @@ def zusatz_von(erg, knoten_nummer: int) -> Zusatz | None:
 def pmi_der_ersten_datei(erg) -> list:
     """PMI ohne die der hinzugefuegten Dateien (z. B. zum Schreiben der ersten STEP-Datei)."""
     return [p for p in erg.pmi if p.step_id < ID_VERSATZ and not any(
-        z.erste_flaeche <= i < z.erste_flaeche + z.flaechen for z in zusaetze(erg) for i in p.flaechen)]
+        z.erste_flaeche <= i < z.erste_flaeche + z.flaechen for z in zusaetze(erg) for i in p.traegerflaechen())]

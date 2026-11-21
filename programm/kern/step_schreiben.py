@@ -278,7 +278,7 @@ class _Anhang:
         self.neu(f"GEOMETRIC_ITEM_SPECIFIC_USAGE('','',#{teil},#{bereich},#{menge})")
         aspekt = self.neu(f"BETWEEN_SHAPE_ASPECT('',$,#{self.pds},.T.)")
         self.neu(f"SHAPE_ASPECT_RELATIONSHIP('','',#{aspekt},#{teil})")
-        return aspekt
+        return aspekt, bereich
 
     def verbundaspekt(self, flaechen):
         sa = self.neu(f"COMPOSITE_SHAPE_ASPECT('','DIMENSION',#{self.pds},.F.)")
@@ -355,6 +355,13 @@ def _schreibe_toleranz(a: _Anhang, p, aspekt=None) -> str | None:
     if entitaet is None or p.wert is None:
         return tr("Toleranzart nicht schreibbar")
     flaechen = set(p.flaechen)
+    if p.profilteil_ids:
+        from .profilteilflaeche import grafikbereich
+        bereich = grafikbereich(a.modell, p.callout) if p.callout else None
+        if (not bereich or p.typ != "ProfileOfSurface" or not p.bereichsgrenzen or
+                bereich[0] != flaechen or set(p.profilteil_ids) != bereich[1].keys()):
+            return tr("Die Bereichsgrenzen passen nicht zu den gewählten Flächen.")
+        flaechen.update(idx for idx, _ in bereich[1].values())
     if p.zone == "Projected":
         if (len(p.projektionsflaechen) != 1 or p.zonen_wert is None or not math.isfinite(p.zonen_wert)
                 or p.zonen_wert <= 0 or p.projektionsversatz is None or not math.isfinite(p.projektionsversatz)):
@@ -378,19 +385,28 @@ def _schreibe_toleranz(a: _Anhang, p, aspekt=None) -> str | None:
     if p.bereichsgrenzen is None:
         return tr("Zuordnung der Grenzkanten offen")
     if p.bereichsgrenzen:
-        from .pmi_zwischenbereich import begrenzter_verband
+        from .pmi_zwischenbereich import begrenzter_verband, endmarken_in_datei
+        from .pmi_darstellung import verknuepfe_im_modell
         grenzen = p.bereichsgrenzen
-        fl = {a.flaeche_zu_step.get(i) for i in p.flaechen}
+        fl = {a.flaeche_zu_step.get(i) for i in p.flaechen} | set(p.profilteil_ids)
         if (aspekt is not None or len(grenzen) != 2 or
                 not all(isinstance(g, (tuple, list)) and len(g) == 2 and isinstance(g[1], int)
                         and isinstance(g[0], str) and re.fullmatch("[A-Z]", g[0]) for g in grenzen)
                 or grenzen[0][0] == grenzen[1][0] or not begrenzter_verband(a.datei, fl, [g[1] for g in grenzen])):
             return tr("Die Bereichsgrenzen passen nicht zu den gewählten Flächen.")
-        sa = a.bereichsaspekt(fl)
-        for (name, kante), rolle in zip(grenzen, ("start feature", "end feature")):
+        marken = endmarken_in_datei(a.datei, p) if p.grenzgrafiken else []
+        if marken is None:
+            return tr("Die Bereichsgrenzen passen nicht zu den gewählten Flächen.")
+        sa, gebiet = a.bereichsaspekt(fl)
+        teilkanten = {k for f in p.profilteil_ids for k in randkanten(a.datei, f)}
+        for i, ((name, kante), rolle) in enumerate(zip(grenzen, ("start feature", "end feature"))):
             grenze = a.neu(f"SHAPE_ASPECT('{name}','',#{a.pds},.T.)")
-            a.neu(f"GEOMETRIC_ITEM_SPECIFIC_USAGE('','',#{grenze},#{a.darst},#{kante})")
+            rep = gebiet if kante in teilkanten else a.darst
+            a.neu(f"GEOMETRIC_ITEM_SPECIFIC_USAGE('','',#{grenze},#{rep},#{kante})")
             a.neu(f"SHAPE_ASPECT_RELATIONSHIP('{rolle}','',#{sa},#{grenze})")
+            if marken:
+                modell, callout = marken[i]
+                verknuepfe_im_modell(a, modell, grenze, callout)
     else:
         sa = a.aspekt(p.flaechen) if aspekt is None else aspekt
     if sa is None:

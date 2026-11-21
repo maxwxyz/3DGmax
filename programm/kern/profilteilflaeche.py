@@ -1,5 +1,6 @@
 """Separat getrimmte Flaechen eines STEP-Profilbereichs dem Produkt zuordnen."""
 
+from functools import cache
 from math import isclose
 
 from OCC.Core.Bnd import Bnd_Box
@@ -10,9 +11,11 @@ from OCC.Core.BRepBndLib import brepbndlib
 from OCC.Core.BRepCheck import BRepCheck_Analyzer
 from OCC.Core.BRepGProp import BRepGProp_Face, brepgprop
 from OCC.Core.GProp import GProp_GProps
+from OCC.Core.StepData import StepData_StepModel
 from OCC.Core.STEPControl import STEPControl_Reader
 from OCC.Core.ShapeAnalysis import ShapeAnalysis_Surface
 from OCC.Core.gp import gp_Pnt, gp_Vec
+from OCC.Core.TransferBRep import transferbrep
 from OCC.Core.TopAbs import TopAbs_FACE
 from OCC.Core.TopoDS import topods
 from OCC.Core.TopTools import TopTools_ListOfShape
@@ -68,7 +71,15 @@ class Bereichsleser:
     def __init__(self, modell):
         self.modell = modell
         self.reader = STEPControl_Reader()
-        self.reader.WS().SetModel(modell._reader.ChangeReader().StepModel())
+        self.quelle = modell._reader.ChangeReader().WS()
+        original = modell._reader.ChangeReader().StepModel()
+        # Die Sitzung leert ihr Modell beim Freigeben. Nur die Entitaeten teilen, nicht deren Verzeichnis.
+        kopie = StepData_StepModel()
+        kopie.GetFromTransfer(original.Entities())
+        kopie.GetFromAnother(original)
+        if original.IsInitializedUnit():
+            kopie.SetLocalLengthUnit(original.LocalLengthUnit())
+        self.reader.WS().SetModel(kopie)
         self.kontext = _Anhang(modell.datei, modell)
         self.boxen = {}
         self.ergebnisse = {}
@@ -79,8 +90,17 @@ class Bereichsleser:
             self.ergebnisse[key] = self._lies(nr, rep, pds)
         return self.ergebnisse[key]
 
+    def randkante(self, nr):
+        rang = self.quelle.NumberFromLabel(f"#{nr}")
+        if rang > 0:
+            prozess = self.reader.WS().TransferReader().TransientProcess()
+            form = transferbrep.ShapeResult(prozess, self.reader.StepModel().Value(rang))
+            if not form.IsNull():
+                return form
+        return None
+
     def _lies(self, nr, rep, pds):
-        rang = self.reader.WS().NumberFromLabel(f"#{nr}")
+        rang = self.quelle.NumberFromLabel(f"#{nr}")
         if rang <= 0 or not self.reader.TransferOne(rang):
             return None
         form = self.reader.Shape(self.reader.NbShapes())
@@ -114,14 +134,17 @@ class Bereichsleser:
         return None
 
 
-def lies_ausschnitte(modell, aspekt, p, leser):
+def _bereich(modell, aspekt, leser):
     """Nur vollstaendig zugeordnete Bereiche uebernehmen; das Produktmodell bleibt unveraendert."""
     d = modell.datei
     reps = {}
     ziele = geometrieziele_von_aspekt(d, modell, aspekt.id, bereichsdarstellungen=reps)
     unbekannt = (ziele or set()) - modell.step_zu_flaeche.keys()
-    if not unbekannt or any(len(reps.get(n, ())) != 1 for n in unbekannt):
+    if ziele is None or any(len(reps.get(n, ())) != 1 for n in unbekannt):
         return
+    ganze = {modell.step_zu_flaeche[n] for n in ziele - unbekannt}
+    if not unbekannt:
+        return ganze, {}
     args = aspekt.args("SHAPE_ASPECT") if aspekt.is_a("SHAPE_ASPECT") else aspekt.args("BETWEEN_SHAPE_ASPECT")
     if len(args) < 3 or not isinstance(args[2], Ref):
         return
@@ -137,8 +160,38 @@ def lies_ausschnitte(modell, aspekt, p, leser):
             ausschnitte[nr] = ziel
     except RuntimeError:
         return  # OCCT konnte die getrimmte Geometrie nicht sicher auswerten.
-    ganze = {modell.step_zu_flaeche[n] for n in ziele - unbekannt}
     if ganze and (reader.kontext.waehle(ganze) or reader.kontext.pds != args[2].id):
         return
-    p.flaechen = ganze
-    p.profilausschnitte = ausschnitte
+    return ganze, ausschnitte
+
+
+def lies_ausschnitte(modell, aspekt, p, leser):
+    bereich = _bereich(modell, aspekt, leser)
+    if bereich and bereich[1]:
+        p.flaechen, p.profilausschnitte = bereich
+
+
+def grafikbereich(modell, callout):
+    """Alle Aspektziele eines Callouts aufloesen, inklusive der Kanten der Zusatzflaechen."""
+    from .merkmalstext import aspekte_am_callout
+
+    @cache
+    def leser():
+        return Bereichsleser(modell)
+
+    ganze, ausschnitte = set(), {}
+    for nr in aspekte_am_callout(modell.datei, callout):
+        bereich = _bereich(modell, modell.datei.get(nr), leser)
+        if bereich is None:
+            return None
+        ganze.update(bereich[0])
+        ausschnitte.update(bereich[1])
+    if ausschnitte and leser().kontext.waehle(ganze | {idx for idx, _ in ausschnitte.values()}):
+        return None
+    return ganze, ausschnitte, leser() if ausschnitte else None
+
+
+def stelle_grafikbereich_her(modell, p):
+    bereich = grafikbereich(modell, p.callout)
+    if bereich and set(p.profilteil_ids) == bereich[1].keys() and p.flaechen == bereich[0]:
+        p.profilausschnitte = bereich[1]

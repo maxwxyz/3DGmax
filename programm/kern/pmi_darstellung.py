@@ -223,9 +223,13 @@ class Praesentation:
         for kontext, items in self.modelle.items():
             modell_id[kontext] = a.neu(f"DRAUGHTING_MODEL('',({','.join(f'#{i}' for i in items)}),#{kontext})")
         for kontext, semantik, callout in self.dmia:
-            a.neu(f"DRAUGHTING_MODEL_ITEM_ASSOCIATION('{DMIA_NAME}','',#{semantik},#{modell_id[kontext]},#{callout})")
+            verknuepfe_im_modell(a, modell_id[kontext], semantik, callout)
         for modell, semantik, callout in self.dmia_fest:
-            a.neu(f"DRAUGHTING_MODEL_ITEM_ASSOCIATION('{DMIA_NAME}','',#{semantik},#{modell},#{callout})")
+            verknuepfe_im_modell(a, modell, semantik, callout)
+
+
+def verknuepfe_im_modell(a, modell, semantik, callout):
+    a.neu(f"DRAUGHTING_MODEL_ITEM_ASSOCIATION('{DMIA_NAME}','',#{semantik},#{modell},#{callout})")
 
 
 def _modell_von(datei, callout: int) -> int | None:

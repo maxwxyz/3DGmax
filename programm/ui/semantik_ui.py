@@ -100,6 +100,7 @@ class SemantikDialog(QtWidgets.QDialog):
         self.flaechen_text = QtWidgets.QLabel()
         uebernehmen = QtWidgets.QPushButton(tr("Auswahl übernehmen"))
         uebernehmen.setToolTip(tr("Die im Modell gewählten Flächen statt des Vorschlags verwenden"))
+        uebernehmen.setEnabled(not vorschlag.profilteil_ids)
         uebernehmen.clicked.connect(self._auswahl_uebernehmen)
         zeile = QtWidgets.QHBoxLayout()
         zeile.addWidget(self.flaechen_text, 1)
@@ -117,6 +118,9 @@ class SemantikDialog(QtWidgets.QDialog):
         lay.addRow(knoepfe)
         self.art.currentIndexChanged.connect(self._art_gewechselt)
         self._art_gewechselt()
+        if vorschlag.profilteil_ids:
+            self.art.setEnabled(False)
+            self.typ.setEnabled(False)
         self.typ.currentIndexChanged.connect(self._geometriewert_aktualisieren)
         self.felder["nennwert"].textEdited.connect(self.geometriehinweis.hide)
         self._flaechen_gesetzt()
@@ -243,6 +247,9 @@ class SemantikDialog(QtWidgets.QDialog):
     def _flaechen_gesetzt(self):
         self.flaechen_text.setText(tr("{} gewählt").format(len(self.flaechen)) if self.flaechen else
                                    tr("keine – Flächen im Modell wählen und übernehmen"))
+        if self.v.profilteil_ids:
+            teile = ", ".join(f"#{nr}" for nr in self.v.profilteil_ids)
+            self.flaechen_text.setText(tr("Teilflächen {} · ganze Flächen {}").format(teile, len(self.flaechen)))
         self.zeigen(self.flaechen)
 
     def _projektionsende_text(self):
@@ -262,7 +269,7 @@ class SemantikDialog(QtWidgets.QDialog):
 
     def fehler(self) -> str:
         art = self.art.currentData()
-        if not self.flaechen:
+        if not self.flaechen and not self.v.profilteil_ids:
             return tr("Bitte Flächen wählen")
         if self.bereichspruefung and art == TOLERANZ and not self.bereichspruefung(self.flaechen):
             return tr("Die Bereichsgrenzen passen nicht zu den gewählten Flächen.")
@@ -332,6 +339,8 @@ class SemantikDialog(QtWidgets.QDialog):
                 callout=self.v.callout, nur_grafik_text=self.v.nur_grafik_text)
         if self.hinweiswahl and self.hinweiswahl.isChecked():
             p.beschreibung = self.v.freier_hinweis[1]
+        if self.v.profilteil_ids:
+            p.profilausschnitte = self.v.profilausschnitte
         f = self.felder
         p.art, p.typ, p.flaechen = self.art.currentData(), self.typ.currentData(), set(self.flaechen)
         if p.art == MASS:
@@ -424,6 +433,9 @@ def semantisch_machen(fenster, auswahl=None):
             fenster.ansicht.zeige_pmi({p.step_id, hinweis[0]})
         if grenzgrafiken := getattr(v, "grenzgrafiken", None):
             fenster.ansicht.zeige_pmi({p.step_id, *grenzgrafiken})
+        if v.profilteil_ids:
+            p.profilausschnitte = v.profilausschnitte
+            fenster.ansicht.ergaenze_grafik({}, [p])
         d = SemantikDialog(v, flaechen, fenster.ansicht.hebe_flaechen, fenster, position=k+1,
                            anzahl=0 if einzeln else len(liste), step=erg.pfad.lower().endswith(ENDUNGEN_STEP + ENDUNGEN_STEPZ),
                            geometriewert=lambda typ, indices: pmi_reparieren.geometrie_nennmass(typ, indices, erg.modell))
@@ -431,7 +443,7 @@ def semantisch_machen(fenster, auswahl=None):
             from ..kern.pmi_zwischenbereich import begrenzter_verband
             kanten = [kante for _, kante in v.bereichsgrenzen]
             d.bereichspruefung = lambda indices: begrenzter_verband(
-                erg.modell.datei, {erg.modell.flaeche_zu_step.get(i) for i in indices}, kanten)
+                erg.modell.datei, {erg.modell.flaeche_zu_step.get(i) for i in indices} | set(v.profilteil_ids), kanten)
         if folge is not None:
             if erste is not None:
                 d.projektionsflaechen_oben = set(erste.projektionsflaechen)

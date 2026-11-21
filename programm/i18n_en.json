@@ -1,4 +1,5 @@
 {
+"Teilflächen {} · ganze Flächen {}": "Trimmed faces {} · whole faces {}",
 "{} von {} Flächen geändert": "{} of {} faces changed",
 "{} (Kante #{}, geometrisch geändert)": "{} (edge #{}, geometry changed)",
 "Zuordnung der Grenzkanten offen": "Boundary edge correspondence unresolved",
