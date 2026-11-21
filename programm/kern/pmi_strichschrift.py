@@ -133,7 +133,7 @@ _STRICHE = {
     "8": "20 40 61 63 44 24 03 01 20 / 24 44 65 67 48 28 07 05 24",
     "9": "61 50 20 01 03 14 44 63 66 48 18",
     "A": "08 30 68 / 15 55",
-    "B": "08 00 40 61 63 44 04 / 44 65 67 48 08",
+    "B": "08 00 40 61 63 44 04 / 44 65 67 48 08 | 08 00 30 51 53 34 04 / 34 55 57 38 08",
     "C": "61 50 20 01 07 18 48 67",
     "D": "08 00 30 51 62 66 57 38 08",
     "E": "60 00 08 68 / 04 54",
@@ -145,6 +145,7 @@ _STRICHE = {
     "R": "08 00 40 61 63 44 04 / 34 68",
     "±": "30 36 / 03 63 / 08 68",
     "⟂": "30 38 / 08 68",
+    "∠": "63 08 88",
     "⏥": "23 73 57 07 23",
 }
 
@@ -159,12 +160,13 @@ def _musterbilder(muster):
 def _vorlagen():
     from .pmi_schriftmuster import MUSTER
     muster = _musterbilder(MUSTER)
-    for z, zug in _STRICHE.items():
-        linien = []
-        for pfad in zug.split("/"):
-            p = np.array([(int(a), 8 - int(b)) for a, b in pfad.split()])
-            linien.append((p, False))
-        muster.append((z, _merkmal(_bild(linien, (0, 0, 8, 8), 8))))
+    for z, varianten in _STRICHE.items():
+        for zug in varianten.split("|"):
+            linien = []
+            for pfad in zug.split("/"):
+                p = np.array([(int(a), 8 - int(b)) for a, b in pfad.split()])
+                linien.append((p, False))
+            muster.append((z, _merkmal(_bild(linien, (0, 0, 8, 8), 8))))
     return [(z, b, ndimage.distance_transform_edt(~b)) for z, b in muster]
 
 
@@ -259,6 +261,7 @@ def _einzelrahmen(pfade, zellen):
     y1, y2 = (round((box[3] - y) * skala) + 2 for y in (oben, unten))
     rahmenlabels = np.unique(labels[max(0, y1-2):y2+3, max(0, x1-2):x2+3])
     ausserhalb = np.setdiff1d(np.unique(labels), rahmenlabels)
+    ferne_spalte = None
     if len(ausserhalb):
         # AP203 erlaubt eine kurze Luecke zwischen Zellkante und Fuehrungslinie.
         if len(ausserhalb) != 1:
@@ -266,10 +269,21 @@ def _einzelrahmen(pfade, zellen):
         y, x = np.nonzero(labels == ausserhalb[0])
         mitte = (y1 + y2) / 2
         enden = ((x1, mitte), (x2, mitte))
-        if (np.ptp(x) < 80 or min(np.min(np.hypot(x-a, y-b)) for a, b in enden) > 32
-                or len(x) / ((np.ptp(x)+1)*(np.ptp(y)+1)) > .15):
+        abstand = min(np.min(np.hypot(x-a, y-b)) for a, b in enden)
+        if abstand > 32:
+            ferne_spalte = x[0]
+        elif np.ptp(x) < 80 or len(x) / ((np.ptp(x)+1)*(np.ptp(y)+1)) > .15:
             return False
-    return True
+    from .pmi_hinweislinie import hat_rundmarke, punkt_hinweislinie
+    # Rahmenstriche abtrennen, auch wenn der Ansatz ohne Luecke anschliesst.
+    h = y2-y1
+    for rest, rand, erforderlich in (
+            (mask[:, :max(0, x1-2)], x1, ferne_spalte is not None and ferne_spalte < x1),
+            (mask[:, x2+3:][:, ::-1], mask.shape[1]-1-x2, ferne_spalte is not None and ferne_spalte > x2)):
+        if erforderlich or (rest.shape[1] > .1*h and hat_rundmarke(rest, h)):
+            if not punkt_hinweislinie(rest, (rand, y1, rand, y2), h, rundes_ziel=True):
+                return False
+    return ferne_spalte is None or ferne_spalte < x1 or ferne_spalte > x2
 
 
 def _rahmenwort(teile):
@@ -643,6 +657,11 @@ def _ohne_schreibebene(g, linearmass=False):
             ausgerichtet = [(p * achsen, voll) for p, voll in pfade]
             boxen = sorted((min(x*l, x*r), min(y*b, y*t), max(x*l, x*r), max(y*b, y*t))
                            for l, b, r, t in zellen)
+            if g.dreiecke and not g.linien and (x < 0 or y < 0):
+                # Beim Spiegeln liegt die gerasterte Innenkante bis zu ein Pixel anders.
+                boxen = _zellen(ausgerichtet)
+                if not 2 <= len(boxen) <= 6:
+                    continue
             text = _rahmentext(ausgerichtet, boxen)
             if text and "wert" in (aus_text([text], g.textfaktor) or {}):
                 if ergebnis and ergebnis != text:

@@ -260,6 +260,12 @@ Throughout: tests (core, offscreen UI, stress test, on-screen test), `--selbstte
   modifiers on E and F in the four D/E/F surface-profile frames. Its older AP203e2
   schema identifier is accepted for the verified entity signatures. Confirmed STEP
   preserves the drawing units, values, source face references and original callouts.
+  In CTC-03 a gap of about two thirds of the frame height separates a surface-profile
+  frame from its leader. Validate its two segments and circular endpoint to read both
+  A/B/C profile frames and the angularity frame to A. A circle at the bend and
+  external scope text remain distinct. Triangle-only frames without a writing plane
+  measure their cell borders in the recovered reading direction. STEP export preserves the original presentations
+  and assigns the controls to the independently identified support faces.
   Single-row wide control frames preserve the characteristic, diameter zone, projected height or
   maximum material and the ordered datums. Closed cell borders can also be recovered from filled
   triangles. With no writing plane the outer edges of coplanar triangles supply candidate axes. Both FTC-07's original strokes and a

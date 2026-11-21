@@ -1,12 +1,16 @@
 """Normalisierte Einzelglyphen aus NIST CTC-01 AP203e2/AP242, STC-06 PRC und FTC-08 AP242 (Public Domain).
 
-D, E und F aus den einzelnen Bezugsrahmen von CTC-03 AP203e2 (Kontur und Fuellung).
+D, E und F aus den Bezugsrahmen, Neigung aus Rahmen #3644 von CTC-03 AP203e2.
 G, H und J aus den CTC-02-Bezugszeichen, K aus dem Rechtwinkligkeitsrahmen, Dezimalpunkt aus #8690.
 R aus FTC-07 AP242 (#16200) und dem Schriftfeld des FTC-07-Referenzblatts.
 Je Muster 32 x 32 Bit, zeilenweise gepackt und mit zlib komprimiert.
 """
 
 MUSTER = {
+    "∠": (
+        "78da6360000336209603623320fec3c0c0b8012874808181b7012274828181192a240f5575032894001402aa90feffff5f3d103390010036f20e7a",
+        "78da6360000336209603623320fec3c0c0bc012874808141be8181c10e2874838181510122240de4d64084983f3030f0038524ffffff57c0c0c0540fa4194804006ba80f9f",
+    ),
     "R": (
         "78da63606060a8ffff87c18181b9c181812101881588c0071c181881fafe01f5f100310b14334131230c83cc8461a01e060764738056330000e47411b6",
         "78da63606060a8ffff81c181410688d918dcff1f667061300462890617060e2c5810881f02d53501d5f301710583fb8f030c2e7c090c2ecc020c2e8c1c40bd3d407c0c8893805819645e03d4bc032e0c3c0e2e0c2c0a350ccc0f805633000019681a9f",

@@ -1,6 +1,7 @@
 {
  "unreleased": {
   "de": [
+   "Grafische Profil- und Neigungstoleranzen mit abgesetzter Hinweislinie und rundem Ziel lassen sich in semantische STEP-PMI umwandeln. Die Prüfung unterscheidet den Zielkreis am Linienende von einem Kreis am Knick. Bauteilfläche, Bezüge und Originalgrafik bleiben im Export erhalten.",
    "Bei einem stirnseitig verzahnten Ausgleichsrad darf die Zahnfläche gerundet in den Bund an der Bolzenbohrung übergehen. Die Erkennung ermittelt Zähnezahl und Neigung am zusammenhängenden äußeren Zahnband.",
    "Grafische Positionsrahmen mit D/B/C und Profilrahmen mit G/H/J oder D/E/F lassen sich mit ihren Bezugsflächen prüfen und als semantische STEP-PMI ausgeben. Die Bezugsreihenfolge, Materialbedingungen und Originalbeschriftungen bleiben erhalten. Auch die ältere AP203e2-Variante des NIST-Modells CTC-02 wird unterstützt.",
    "Eine grafische Flächenprofiltoleranz mit A ↔ B lässt sich auch auf einer separat begrenzten STEP-Teilfläche prüfen und als Semantik übernehmen. Die Prüfung ordnet die gezeichneten Pfeile den Randkanten zu. Projekt und STEP-Kopie behalten den Ausschnitt mit Innenlöchern und die Originalgrafik. STEP verknüpft beide Randbeschriftungen mit Anfang und Ende.",
@@ -225,6 +226,7 @@
    "Grafische PMI aus unterstützten AP203e2-Kurvenmodellen lassen sich als STEP AP242 Edition 3 ausgeben. Facettierte STEP-Modelle behalten ihre Flächenbezüge. Gepackte STEP-Dateien lassen sich als unkomprimierte STEP-Kopie speichern."
   ],
   "en": [
+   "Graphical surface-profile and angularity frames with a detached leader and round endpoint can be reviewed and exported as semantic STEP PMI. Review distinguishes the endpoint from a circle at the bend. The export retains the target face, datums and original graphics.",
    "Face-toothed differential pinions can have teeth blending into a raised collar around the pin bore. Recognition measures the tooth count and inclination on the continuous outer tooth band.",
    "Review graphical D/B/C position controls and G/H/J or D/E/F surface-profile controls on their associated faces and export them as semantic STEP PMI. The copy preserves datum order, material modifiers and original labels. The older AP203e2 variant used by NIST CTC-02 is supported.",
    "Review a drawn A ↔ B surface profile on a separately trimmed STEP face and confirm its semantics. Review checks the leader tips against the boundary edges. The project and exported STEP retain the trimmed area, its holes and the original graphics. STEP links both endpoint labels to their boundary features.",

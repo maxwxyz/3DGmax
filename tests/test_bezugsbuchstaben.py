@@ -1,6 +1,8 @@
 """Bezugsbuchstaben der NIST CTC-02/03 mit Kontur, Strichschrift und Dreiecksfuellung."""
 
 import gzip
+import re
+from dataclasses import replace
 
 import numpy as np
 import pytest
@@ -12,7 +14,8 @@ from tests.conftest import pfad
 from tests.test_hilfsmassschrift import _fuellgrafik, _mit_fuellsatz
 
 BEZUEGE_03 = {3624: "C", 3628: "A", 3632: "B", 3635: "E", 3639: "F", 3643: "D"}
-RAHMEN_03 = {3633: ("Position", 2.032, "DBC"), 3646: ("Position", .762, "DBC"),
+RAHMEN_03 = {3631: ("ProfileOfSurface", 1.524, "ABC"), 3651: ("ProfileOfSurface", .762, "ABC"),
+             3644: ("Angularity", 1.016, "A"), 3633: ("Position", 2.032, "DBC"), 3646: ("Position", .762, "DBC"),
              3647: ("Perpendicularity", .254, "E"), 3650: ("Position", 1.524, "DBC")}
 BEZUEGE_02 = {8676: "F", 8683: "J", 8697: "G", 8704: "H", 8708: "D", 8715: "E"}
 RAHMEN_02 = {8682: ("Perpendicularity", .05, "D"), 8690: ("Position", .05, "DE"),
@@ -22,7 +25,6 @@ RAHMEN_02 = {8682: ("Perpendicularity", .05, "D"), 8690: ("Position", .05, "DE")
 
 
 def _gefuellt(g):
-    from dataclasses import replace
     pfade = schrift._pfade(g, g.ebene)
     o, x, y, _ = g.ebene
     # Die Originalkurven der schraegen Bezugszeichen sind um wenige Mikrometer windschief.
@@ -44,8 +46,12 @@ def _gefuellt(g):
 
 def _strichbuchstaben(text, e, bezuege, rahmen):
     """Offene Mittellinien in die urspruenglichen Bezugsfelder der Zeichnung setzen."""
-    import re
-    zuege = {"D": [[(0,0), (0,1), (.44,1), (.80,.88), (1,.63), (1,.38), (.84,.13), (.45,0), (0,0)]],
+    zuege = {"A": [[(0,0), (.5,1), (1,0)], [(.2,.39), (.8,.39)]],
+             "B": [[(0,0), (0,1), (.65,1), (.94,.87), (.94,.66), (.69,.52), (0,.52)],
+                   [(.69,.52), (1,.38), (1,.16), (.69,0), (0,0)]],
+             "C": [[(1,.86), (.78,1), (.28,1), (0,.81), (0,.2), (.25,0), (.76,0), (1,.14)]],
+             "∠": [[(.78,1), (0,0), (1,0)]],
+             "D": [[(0,0), (0,1), (.44,1), (.80,.88), (1,.63), (1,.38), (.84,.13), (.45,0), (0,0)]],
              "E": [[(1,1), (0,1), (0,0), (1,0)], [(0,.52), (.87,.52)]],
              "F": [[(1,1), (0,1), (0,0)], [(0,.54), (.86,.54)]],
              "G": [[(.99,.84), (.78,1), (.3,1), (0,.77), (0,.21), (.25,0), (.78,0), (1,.18), (1,.46), (.55,.46)]],
@@ -55,6 +61,8 @@ def _strichbuchstaben(text, e, bezuege, rahmen):
     naechste = max(e.modell.datei.entities) + 1
     for cid in (*bezuege, *rahmen):
         zeichen = bezuege[cid] if cid in bezuege else "  " + rahmen[cid][2]
+        if cid == 3644:
+            zeichen = "∠ A"
         if "Ⓜ" in zeichen:
             continue  # Die Originalrahmen mit eingekreisten Modifikatoren bleiben als Gegenprobe.
         g = e.grafik[cid]
@@ -89,8 +97,8 @@ def _strichbuchstaben(text, e, bezuege, rahmen):
     return text[:pos] + "\n".join(neue) + "\n" + text[pos:]
 
 
-@pytest.mark.parametrize("schriftart", ["kontur", "fuellung", "strich"])
-@pytest.mark.parametrize("modell", ["02", "03"])
+@pytest.mark.parametrize("modell,schriftart", [(nr, art) for nr in ("02", "03")
+                         for art in ("kontur", "fuellung", "strich")] + [("03", "fuellung_ohne_ebene")])
 def test_datum_und_rahmen_mit_originalgrafik(fenster, tmp_path, schriftart, modell):
     from programm.kern.pmi_freier_hinweis import _ansichten
     from tests.test_step_ap242 import _occt
@@ -98,7 +106,7 @@ def test_datum_und_rahmen_mit_originalgrafik(fenster, tmp_path, schriftart, mode
     bezuege, rahmen = (BEZUEGE_03, RAHMEN_03) if modell == "03" else (BEZUEGE_02, RAHMEN_02)
     with gzip.open(quelle, "rt", encoding="ascii") as f:
         text = f.read()
-    fuellung = schriftart == "fuellung"
+    fuellung = schriftart.startswith("fuellung")
     if schriftart == "strich":
         text = _strichbuchstaben(text, lade_alles(quelle), bezuege, rahmen)
     if fuellung:
@@ -106,6 +114,11 @@ def test_datum_und_rahmen_mit_originalgrafik(fenster, tmp_path, schriftart, mode
         for nr in (*bezuege, *rahmen):
             stil = e.modell.datei.get(nr).args("ANNOTATION_OCCURRENCE")[1][0].id
             text = _mit_fuellsatz(text, _gefuellt(e.grafik[nr]), nr, stil, "datum" if nr in bezuege else "fcf")
+    if schriftart == "fuellung_ohne_ebene":
+        for nr in (3398, 3411, 3418):
+            text, anzahl = re.subn(rf"#{nr}=ANNOTATION_PLANE\([^;]+;", "", text)
+            assert anzahl == 1 and text.count(f"#{nr},") == 1
+            text = text.replace(f"#{nr},", "")
     eingang = tmp_path / f"CTC{modell}.step"
     eingang.write_text(text, encoding="ascii")
     fenster.lade(str(eingang), warten=True)
@@ -116,6 +129,10 @@ def test_datum_und_rahmen_mit_originalgrafik(fenster, tmp_path, schriftart, mode
     for nr in (*bezuege, *rahmen):
         p = next(p for p in erg.pmi if p.step_id == nr)
         assert not p.semantisch
+        if nr in (3631, 3651, 3644):
+            g = erg.grafik[nr]
+            assert (g.ebene is None) == (schriftart == "fuellung_ohne_ebene")
+            assert schrift.lies_schrift(replace(g, ebene=None)) == schrift.lies_schrift(g) != ""
         fenster._pmi_befehl("semantisch", p)
         d = fenster._semantik_dialog
         assert not d.fehler(), (nr, d.fehler())
@@ -127,6 +144,8 @@ def test_datum_und_rahmen_mit_originalgrafik(fenster, tmp_path, schriftart, mode
             assert "".join(b.text() for b in d.v.bezuege) == bez
         flaechen[nr] = {erg.modell.flaeche_zu_step[i] for i in d.flaechen}
         assert flaechen[nr]
+        if nr in (3631, 3651, 3644):
+            assert flaechen[nr] == {481 if nr == 3651 else 479}
         d._pruefen()
     kopie = fenster.speichere_step_pmi(str(tmp_path / "Geprueft.step"), melden=False)
     assert kopie and not fenster._step_bericht.uebersprungen
@@ -152,3 +171,23 @@ def test_datum_und_rahmen_mit_originalgrafik(fenster, tmp_path, schriftart, mode
         for (p1, t1), (p2, t2) in zip(a.dreiecke, b.dreiecke):
             np.testing.assert_array_equal(p1, p2)
             np.testing.assert_array_equal(t1, t2)
+
+
+def test_abgesetzte_hinweislinie_mit_eindeutigem_ziel():
+    e = lade_alles(pfad("nist_ctc_03_asme1_ap203.stp.gz"))
+    for nr, text in ((3631, "⌓ .06 A B C"), (3651, "⌓ .03 A B C"), (3644, "∠ .04 A")):
+        g = e.grafik[nr]
+        assert schrift.lies_schrift(replace(g, ebene=None)) == text
+        for abstand in (0., -.25, -.5, -.68) if nr == 3631 else (0.,):
+            linien = list(g.linien)
+            zelle = schrift._zellen(schrift._pfade(g, g.ebene))[0]
+            dx = abstand * (zelle[3]-zelle[1]) * g.ebene[1]
+            linien[:3] = [p + dx for p in linien[:3]]
+            assert schrift.lies_schrift(replace(g, linien=linien)) == text
+            knick, ende = linien[1]
+            # Der gleiche Kreis am Knick kann eine Rundumforderung sein.
+            linien[2] = linien[2] + knick - ende
+            assert not schrift.lies_schrift(replace(g, linien=linien))
+    # Zusatzangaben unter den beiden Rahmen duerfen nicht mit der Linie verschwinden.
+    for nr in (3627, 3636):
+        assert not schrift.lies_schrift(e.grafik[nr])

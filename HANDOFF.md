@@ -2,6 +2,37 @@
 
 ## Current state, 2026-11-21
 
+### Convert frames with a detached round-ended leader
+
+- Checked PLAN §8.4 and docs/Roadmap.md. CTC-03 callouts #3631 and #3651 have a
+  horizontal gap of about 0.69 frame heights before the first leader segment. Check
+  the approach, bend, second segment and circular endpoint. The contour must reach
+  the centre of the endpoint. The same circle attached at the bend prevents the
+  plain frame proposal in the tests, including a leader touching the frame.
+- The two profiles read 1.524 and 0.762 mm with A/B/C on source faces #479 and
+  #481. The angularity control #3644 reads 1.016 mm to A on #479. The inch-based
+  file matches the NIST semantic reference in values and datum order. Its equivalent
+  support faces have matching surface areas and centres to within the differences
+  between the two NIST revisions. Across 141 graphical callouts in CTC-01 to CTC-05,
+  the one other changed reading was CTC-05 #3184, perpendicularity 0.254 mm to D,
+  also present in its semantic reference.
+- Checked original polylines, independently drawn single-stroke letters and angularity
+  symbol, triangle-only graphics, and triangle-only frames exported without writing
+  planes. Reflecting the reading axes can move the inner border of a rasterised cell
+  by one pixel. Re-measure it in reading direction before evaluating the lettering.
+  Reopened STEP retained exact graphic coordinates, view membership, face IDs,
+  values, datums, volume and the OCCT diagnostic list of the input.
+- All 33 affected tests, 32 additional profile/lettering checks, and eight native
+  Cocoa cases passed. The signed local app is at `dist/3DGmax.app`. The package
+  and before/after CTC-03 STEP files are in `dist/main-profilrahmen/`.
+- Next graphical case is CTC-03 #3623. Its complete value field reads
+  “.005 / .25 X .25”. The reference AP242 #37 has RECTANGULAR,
+  GEOMETRIC_TOLERANCE_WITH_DEFINED_UNIT(#233) and a second length #234, both
+  6.35 mm. Current OCR lacks the slash and X in this font. The semantic reader
+  currently exposes only the first side as a modifier. Retain both lengths in
+  review, project, STEP and comparison, and test unequal sides. Revision comparison
+  of independently trimmed regions remains open. QIF is last.
+
 ### Recognise a face-toothed pinion blending into an inner collar
 
 - Checked PLAN §8.27 and docs/Roadmap.md. Raising the inner edge of the nine-tooth

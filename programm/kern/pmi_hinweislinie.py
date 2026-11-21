@@ -147,8 +147,27 @@ def _punktradien(punkte, zentrum, radius):
     return radien
 
 
-def punkt_hinweislinie(rest, symbol, rand):
-    """Eine zweigliedrige Hinweislinie vom Symbolfach zu einem gefuellten oder schraffierten Punkt."""
+def hat_rundmarke(rest, hoehe):
+    """Einen runden Kopf neben dem Rahmen auch bei durchgehender Hinweislinie pruefen."""
+    from scipy import ndimage
+    if not rest.any():
+        return False
+    innen = np.pad(ndimage.binary_fill_holes(rest), 1)
+    abstand = ndimage.distance_transform_edt(innen)
+    cy, cx = np.unravel_index(abstand.argmax(), abstand.shape)
+    radius = abstand[cy, cx]
+    if not .045*hoehe < radius < .19*hoehe:
+        return False
+    # Um den Kopf darf nur der schmale Schaft ueber den Kreis hinausreichen.
+    phi = np.arange(24) * (2*np.pi/24)
+    richtung = np.column_stack((np.cos(phi), np.sin(phi)))
+    x, y = np.rint([cx, cy] + 1.25*radius*richtung).astype(int).T
+    im = (x >= 0) & (x < innen.shape[1]) & (y >= 0) & (y < innen.shape[0])
+    return np.count_nonzero(innen[y[im], x[im]]) <= 4
+
+
+def punkt_hinweislinie(rest, symbol, rand, *, rundes_ziel=False):
+    """Eine zweigliedrige Hinweislinie vom Symbolfach zu einem Punkt oder einem Kreis am Ziel."""
     from scipy import ndimage
     y, x = np.nonzero(rest)
     links, oben, _, unten = symbol
@@ -172,9 +191,21 @@ def punkt_hinweislinie(rest, symbol, rand):
         return False
     zentrum = np.array([cx+x.min()-1, cy+y.min()-1])
     punkte = np.column_stack((x, y))
-    radien = _punktradien(punkte, zentrum, radius)
-    if radien is None:
-        return False
+    if rundes_ziel:
+        # Ein Zielkreis sitzt am Ende der Linie. Ein Ring am Knick kann eine Rundumangabe sein.
+        luft = ndimage.distance_transform_edt(~ausschnitt)
+        phi = np.arange(24) * (2*np.pi/24)
+        kreis = zentrum + (radius-.5)*np.column_stack((np.cos(phi), np.sin(phi)))
+        k = np.rint(kreis - [x.min(), y.min()]).astype(int)
+        if np.any(k < 0) or np.any(k >= ausschnitt.shape[::-1]) or luft[k[:, 1], k[:, 0]].max() > 2:
+            return False
+        if luft[cy-1, cx-1] > 1.5:
+            return False
+        radien = np.linalg.norm(punkte-zentrum, axis=1)
+    else:
+        radien = _punktradien(punkte, zentrum, radius)
+        if radien is None:
+            return False
     schaft = punkte[(radien > radius+breite+1.5) & (np.abs(y-anschluss[1]) > 2*breite)]
     if len(schaft) < 3 or np.linalg.norm(zentrum-anschluss) < 1.2*h:
         return False
