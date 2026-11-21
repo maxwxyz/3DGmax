@@ -2,6 +2,23 @@
 
 ## Current state, 2026-11-21
 
+### Large STEP loading and standard detection
+
+- Checked PLAN §8.13 against the Viewing section in docs/Roadmap.md. Candidate detection for
+  ISO, ASME, ANSI and DOCUMENT now uses overlapping 256 KiB character blocks. The complete
+  expression is evaluated in the original text, including mixed case and multiline references.
+- The detected standard, explanation and fallback flag matched the previous implementation on
+  all 60 local STEP and QIF test files. Regression cases cover overlapping prefixes, Unicode
+  case equivalents, block boundaries, repeated notes and the precedence of declared standards.
+  All 80 affected tests passed.
+- On the 42.85 MB STEP assembly with 2,400 solids and 14,400 faces, three alternating runs of
+  the original and revised loader gave medians of 9.77 s and 7.33 s respectively. Standards
+  detection including file reading took 2.55 s and 0.16 s. Measurements used `lade_alles`
+  with warm filesystem caches and exclude painting the first frame.
+- The STEP loader still reopens the path for text detection. Packed STEP and declarations after
+  the raw scanner's 60 MB limit need the already decoded Part 21 text. Part 21 tokenization is
+  the next measured loading bottleneck. QIF extensions remain last.
+
 ### Explicit simultaneous STEP tolerances and PMI comparison
 
 - Checked PLAN §§8.1, 8.4 and 8.35 against docs/Roadmap.md. A modified FTC-07 fixture links three

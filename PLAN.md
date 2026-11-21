@@ -820,6 +820,8 @@ Standard-dependent are [knowledge]:
 - **General tolerances:** ISO 2768 / ISO 22081 vs. title block tolerances – only as notes in STEP.
 Plan: detect the standard from notes/modifiers, otherwise a per-model setting (ISO GPS / ASME, default from settings);
 show it in model properties; standard-specific rules and terms switch with it.
+On import, the text search locates ISO, ANSI, ASME and DOCUMENT prefixes in bounded blocks.
+It checks each candidate against the original text, including declarations split over lines.
 Test data: the NIST test cases are ASME based (Y14.5-1994/2009); no free ISO GPS AP242 set is known. Options: own
 ISO variants of the NIST models (built in a CAD system and exported), CAx-IF test models (members only), vendor samples.
 

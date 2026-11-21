@@ -20,6 +20,23 @@ _TEXT = [
     (r"ISO\s*8015", ISO, 10), (r"ISO\s*1101", ISO, 10), (r"ISO\s*GPS", ISO, 10), (r"ISO\s*14405", ISO, 10),
     (r"ISO\s*2768(?:-\w{1,2})?", ISO, 8), (r"ISO\s*22081", ISO, 8), (r"ISO\s*5459", ISO, 8), (r"ISO\s*16792", ISO, 2),
 ]
+_DOKUMENT = re.compile(r"DOCUMENT\s*\(\s*'([^']*)'\s*,\s*'Geometric Tolerancing Standard'", re.I)
+_TEXTMUSTER = re.compile("|".join(f"({muster})" for muster, _, _ in _TEXT), re.I)
+_ANFANG = re.compile(r"D(?=OCUMENT)|A(?=SME|NSI)|I(?=SO)")
+_ANFANG_UNICODE = re.compile(_ANFANG.pattern, re.I)
+_BLOCK = 256 * 1024
+
+
+def _fundstellen(text):
+    """Nur Kennwoerter suchen. Ueberlappung erhaelt Treffer, die im naechsten Block enden."""
+    for start in range(0, len(text), _BLOCK):
+        block = text[start:start + _BLOCK + len("DOCUMENT") - 1]
+        treffer = _ANFANG.finditer(block.upper()) if block.isascii() else _ANFANG_UNICODE.finditer(block)
+        for wort in treffer:
+            if wort.start() < _BLOCK:
+                yield start + wort.start()
+
+
 # Groessenmodifikatoren nach ISO 14405 (gibt es so nur in ISO GPS) und ASME-typische
 _ISO_MODS = {"TwoPointSize", "LocalSizeDefinedBySphere", "LeastSquaresAssociationCriterion",
              "MaximumInscribedAssociation", "MinimumCircumscribedAssociation", "CircumferenceDiameter",
@@ -64,17 +81,20 @@ def erkenne(pfad: str, pmi: list | None = None, text: str | None = None) -> Norm
             punkte[art] += 20
             gruende[art] = gruende[art] or f"{org} {bez} (QIF)"
     # Empfohlene Praxis AP242: DOCUMENT('<Norm>','Geometric Tolerancing Standard', ...) nennt die Norm ausdruecklich
-    for treffer in re.finditer(r"DOCUMENT\s*\(\s*'([^']*)'\s*,\s*'Geometric Tolerancing Standard'", text, re.I):
-        name = treffer.group(1)
-        art = ASME if re.search(r"ASME|ANSI", name, re.I) else (ISO if re.search(r"ISO|DIN", name, re.I) else None)
-        if art:
-            punkte[art] += 20
-            gruende[art] = gruende[art] or f"{name} (Geometric Tolerancing Standard)"
-    for muster, art, gewicht in _TEXT:
-        treffer = re.search(muster, text, re.I)
-        if treffer:
+    textfunde = {}
+    for stelle in _fundstellen(text):
+        if dokument := _DOKUMENT.match(text, stelle):
+            name = dokument.group(1)
+            art = ASME if re.search(r"ASME|ANSI", name, re.I) else (ISO if re.search(r"ISO|DIN", name, re.I) else None)
+            if art:
+                punkte[art] += 20
+                gruende[art] = gruende[art] or f"{name} (Geometric Tolerancing Standard)"
+        elif fund := _TEXTMUSTER.match(text, stelle):
+            textfunde.setdefault(fund.lastindex - 1, fund.group().strip())
+    for nr, (_, art, gewicht) in enumerate(_TEXT):
+        if nr in textfunde:
             punkte[art] += gewicht
-            gruende[art] = gruende[art] or treffer.group(0).strip()
+            gruende[art] = gruende[art] or textfunde[nr]
     mods = {m for p in (pmi or []) for m in p.modifikatoren}
     if mods & _ISO_MODS:
         punkte[ISO] += 5

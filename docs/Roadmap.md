@@ -49,6 +49,7 @@
 | ISO 286: letters a/A, j/J (j5–j7, J6–J8), fits as pair (H7/g6) with clearance and type | ✅ |
 | ISO 286: letters b, t–zc, sizes above 500 mm (needs a verifiable free source) | ⬜ |
 | Standard awareness ASME Y14.5 / ISO GPS (detect, fallback ISO, per-model override, terms, rule, envelope note) | ✅ |
+| Locate standards declarations in large model files using a single prefix scan, including mixed-case and multiline notes | ✅ |
 | ISO 14405 modifier display | ✅ |
 | Standard- and geometry-dependent check rules (stage 1) | ✅ |
 | PMI color: high contrast / from file / custom | ✅ |

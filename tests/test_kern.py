@@ -170,6 +170,26 @@ def test_normerkennung_asme_iso_rueckfall(ctc01, ftc10):
     assert norm.erkenne("teil_asme.stp", text="NOTE('ISO 8015 APPLIES')").art == norm.ISO  # Text schlaegt Dateiname
 
 
+def test_normerkennung_an_blockgrenzen_und_gewichtung(monkeypatch):
+    from programm.kern import norm
+    monkeypatch.setattr(norm, "_BLOCK", 32)
+    for kennung, art, grund in (
+        ("dOcUment  ( 'DIN 42' , 'geometric tolerancing standard'", norm.ISO,
+         "DIN 42 (Geometric Tolerancing Standard)"),
+        ("AsMe\n y 14.5M-2009", norm.ASME, "AsMe\n y 14.5M-2009"),
+        ("İſo\t8015", norm.ISO, "İſo\t8015"),
+        ("ANSISO 1101", norm.ISO, "ISO 1101"),
+    ):
+        for position in range(24, 35):
+            assert norm.erkenne("x", text=" " * position + kennung) == norm.Norm(art, grund, True)
+    # Jedes Textmuster zaehlt einmal. Die Rangfolge fuer den angezeigten Grund bleibt erhalten.
+    text = " ASME Y14.5 " * 40 + " iso 1101; IsO 8015"
+    assert norm.erkenne("x", text=text) == norm.Norm(norm.ISO, "IsO 8015", True)
+    dokument = "DOCUMENT('ANSI 42','Geometric Tolerancing Standard') "
+    assert norm.erkenne("x", text=text + dokument * 2) == norm.Norm(
+        norm.ASME, "ANSI 42 (Geometric Tolerancing Standard)", True)
+
+
 def test_norm_begriffe_huelle_und_regel():
     from programm.kern import pmi_bericht
     from programm.kern.pmi import MASS, TOLERANZ, Pmi
