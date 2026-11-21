@@ -38,10 +38,14 @@ def _strichtext(text, e, g):
               ([(0,.75),(.7,1),(.7,0)], 202,-89.9,8)]
     for zug, links, unten, breite in formen:
         schrift.append([o+(links+a*breite)*x+(unten+b*15)*y for a,b in zug])
+    return _ersetze_schrift(text, e, g, 4, schrift)
+
+
+def _ersetze_schrift(text, e, g, behalten, schrift):
     nr = max(e.modell.datei.entities)+1
     zeilen = []
-    gruppe = e.modell.datei.get(e.modell.datei.get(8713).args()[2])
-    linien = [f"#{r.id}" for r in gruppe.args()[1][:4]]
+    gruppe = e.modell.datei.get(e.modell.datei.get(g.callout_id).args()[2])
+    linien = [f"#{r.id}" for r in gruppe.args()[1][:behalten]]
     for linie in schrift:
         punkte = []
         for xyz in linie:

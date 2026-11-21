@@ -34,6 +34,7 @@ class SemantikDialog(QtWidgets.QDialog):
     def __init__(self, vorschlag, auswahl, zeigen, parent=None, *, position=0, anzahl=0, step=True, geometriewert=None):
         super().__init__(parent)
         self.v, self.auswahl, self.zeigen = vorschlag, auswahl, zeigen
+        self.koplanarpruefung = None
         self.bereichspruefung = None
         self.geometriewert = geometriewert
         self.flaechen = set(vorschlag.flaechen)
@@ -60,7 +61,7 @@ class SemantikDialog(QtWidgets.QDialog):
             zusatz = QtWidgets.QLabel(vorschlag.beschreibung)
             zusatz.setTextFormat(QtCore.Qt.TextFormat.PlainText)
             zusatz.setWordWrap(True)
-            lay.addRow(tr("Geltungshinweis für beide Zeilen"), zusatz)
+            lay.addRow(tr("Geltungshinweis") if vorschlag.koplanare_anzahl else tr("Geltungshinweis für beide Zeilen"), zusatz)
         if vorschlag.bereichsgrenzen:
             grenzen = " ↔ ".join(tr("{} (Kante #{})").format(name, k) for name, k in vorschlag.bereichsgrenzen)
             lay.addRow(tr("Begrenzter Profilbereich"), QtWidgets.QLabel(grenzen))
@@ -75,6 +76,9 @@ class SemantikDialog(QtWidgets.QDialog):
             if getattr(vorschlag, "ocr_text", "") and vorschlag.wert is None:
                 herkunft = tr("Grafik und STEP-Validierung stimmen nicht überein. Beide Rahmenzeilen prüfen. Dateitext: {}").format(
                     " / ".join(validierung))
+                if vorschlag.koplanare_anzahl:
+                    herkunft = tr("Grafik und STEP-Validierung widersprechen sich. Profilwert und Geltungshinweis prüfen. Dateitext: {}").format(
+                        " / ".join(validierung))
             if kurztext := getattr(vorschlag, "kurzer_geltungshinweis", ""):
                 herkunft = tr("Im STEP-Validierungstext steht „{}“. Beim Übernehmen gilt der vollständige "
                               "Geltungshinweis aus der Grafik.").format(kurztext)
@@ -118,7 +122,7 @@ class SemantikDialog(QtWidgets.QDialog):
         lay.addRow(knoepfe)
         self.art.currentIndexChanged.connect(self._art_gewechselt)
         self._art_gewechselt()
-        if vorschlag.profilteil_ids:
+        if vorschlag.profilteil_ids or vorschlag.koplanare_anzahl:
             self.art.setEnabled(False)
             self.typ.setEnabled(False)
         self.typ.currentIndexChanged.connect(self._geometriewert_aktualisieren)
@@ -291,6 +295,9 @@ class SemantikDialog(QtWidgets.QDialog):
         art = self.art.currentData()
         if not self.flaechen and not self.v.profilteil_ids:
             return tr("Bitte Flächen wählen")
+        if self.koplanarpruefung and not self.koplanarpruefung(self.flaechen):
+            return tr("Der Geltungshinweis verlangt {} getrennte, koplanare Flächen der Originalgrafik.").format(
+                self.v.koplanare_anzahl)
         if self.bereichspruefung and art == TOLERANZ and not self.bereichspruefung(self.flaechen):
             return tr("Die Bereichsgrenzen passen nicht zu den gewählten Flächen.")
         if self.flaechen & self.projektionsflaechen_oben:
@@ -483,6 +490,10 @@ def semantisch_machen(fenster, auswahl=None):
         d = SemantikDialog(v, flaechen, fenster.ansicht.hebe_flaechen, fenster, position=k+1,
                            anzahl=0 if einzeln else len(liste), step=erg.pfad.lower().endswith(ENDUNGEN_STEP + ENDUNGEN_STEPZ),
                            geometriewert=lambda typ, indices: pmi_reparieren.geometrie_nennmass(typ, indices, erg.modell))
+        if v.koplanare_anzahl:
+            from ..kern.pmi_koplanarschrift import passende_flaechen
+            d.koplanarpruefung = lambda indices: passende_flaechen(erg.grafik[p.step_id], v.koplanare_anzahl,
+                                                                   indices, erg.modell)
         if v.bereichsgrenzen:
             from ..kern.pmi_zwischenbereich import begrenzter_verband
             kanten = [kante for _, kante in v.bereichsgrenzen]

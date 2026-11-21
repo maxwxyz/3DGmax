@@ -1,6 +1,7 @@
 {
  "unreleased": {
   "de": [
+   "Die PMI-Prüfung liest den Geltungshinweis „4 COPLANAR SURFACES“ unter einer Flächenprofiltoleranz aus Strichschrift, Konturen und Dreiecksfüllungen. Sie gleicht die Anzahl mit den zugeordneten koplanaren Flächen ab. Beim STEP-Export bleiben Hinweis, Flächen und Originalgrafik erhalten.",
    "Die PMI-Erkennung liest den offenen Halbkreis einer Linienprofiltoleranz auch aus Strichschrift und reiner Dreiecksfüllung. Toleranzwert, Bezugsreihenfolge und Zielfläche bleiben beim STEP-Export erhalten.",
    "Kreisförmige Bezugsstellen auf ebenen Ringflächen lassen sich aus grafischer STEP-PMI mit Kennung, Durchmesser, Kreismitte und Flächennormale übernehmen. Der STEP-Export erhält die Originalgrafik. Der Revisionsvergleich berücksichtigt die Ausrichtung der Modelle.",
    "Grafische Punktbezugsstellen wie B2 lassen sich mit Kontaktpunkt und zugehöriger Fläche prüfen und als STEP speichern. Nach Bestätigung aller Bezugsstellen eines Bezugs können auch die zugehörigen Toleranzrahmen mit ihrer Originalgrafik exportiert werden.",
@@ -236,6 +237,7 @@
    "Grafische PMI aus unterstützten AP203e2-Kurvenmodellen lassen sich als STEP AP242 Edition 3 ausgeben. Facettierte STEP-Modelle behalten ihre Flächenbezüge. Gepackte STEP-Dateien lassen sich als unkomprimierte STEP-Kopie speichern."
   ],
   "en": [
+   "PMI review reads the scope note “4 COPLANAR SURFACES” below a surface profile from strokes, outlines and triangle fills. It checks the printed count against the linked coplanar faces. STEP export preserves the note, faces and original presentation.",
    "PMI recognition reads the open semicircle of a line-profile tolerance from single strokes and triangle fills. STEP export retains the tolerance value, datum order and target face.",
    "Graphical STEP PMI on flat annular faces can supply a circular datum target with its identifier, diameter, centre and face normal. STEP export preserves the original graphics. Revision comparison accounts for model alignment.",
    "Graphical point datum targets such as B2 can be reviewed with their contact point and supporting face and saved to STEP. Once all targets for a referenced datum have been confirmed, its tolerance frames can also be exported with their original graphics.",

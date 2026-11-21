@@ -366,8 +366,11 @@ Throughout: tests (core, offscreen UI, stress test, on-screen test), `--selbstte
   dependent perpendicularity frame against K using the 0.25 mm printed on the AP203.
   A revision comparison aligns target centres and normals before comparing them.
   The open semicircle in #8712 recovers the 0.25 mm line-profile control with datums
-  A/B/C. The remaining frame #8709 includes the scope text “4 COPLANAR SURFACES”.
-  Verify this against the four target faces and retain it with the 0.1 mm surface profile.
+  A/B/C. The single-row surface profile #8709 reads 0.1 mm and “4 COPLANAR SURFACES”.
+  Review and export verify the four distinct linked planar patches. Project and STEP
+  retain the printed scope, original strokes or fills, and saved view. All 22 CTC-02
+  graphical tolerance frames now yield a value. The 2D comparison still needs to verify
+  coplanar face counts under a single-row drawing frame, including wrapped scope text.
   Graphical CTC-02 profile controls #8688, #8694 and #8714 recover 2.5 mm tolerance
   with ASME outer boundary distances of 2.5, 0.5 and 0 mm. The accepted value and
   convention survive project reload and AP242 export with the original graphics.

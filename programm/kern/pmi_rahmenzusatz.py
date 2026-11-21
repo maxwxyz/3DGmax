@@ -79,7 +79,7 @@ def _buchstabe(teil, nummer=False):
     return "?" if nummer and treffer else ""
 
 
-def lies_hinweiszeile(zeile, *, anzahl=False):
+def lies_hinweiszeile(zeile, *, anzahl=False, null_pruefen=False):
     gruppen = _gruppen(zeile)
     zeichen = []
     rechts = gruppen[0][0]
@@ -101,7 +101,7 @@ def lies_hinweiszeile(zeile, *, anzahl=False):
             ziffer = _breite_zeile(teil, rahmen=True)
             if len(ziffer) == 1 and ziffer in "123456789":
                 z = ziffer
-        if not z:
+        if not z or (null_pruefen and z == "O" and _buchstabe(teil, True) != "O"):
             return None
         zeichen.append(z)
         rechts = r

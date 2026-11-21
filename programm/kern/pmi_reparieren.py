@@ -101,6 +101,20 @@ def geometrie_nennmass(typ, flaechen, modell):
     return None
 
 
+def _koplanares_profil(g, bekannt):
+    from .pmi_ableiten import aus_text
+    from .pmi_koplanarschrift import profil_mit_hinweis
+    if bekannt and (bekannt[0] != TOLERANZ or bekannt[1] not in ("", "ProfileOfSurface")):
+        return "", {}
+    fund = profil_mit_hinweis(g)
+    if fund:
+        rahmen, hinweis = fund
+        daten = aus_text([rahmen], g.textfaktor)
+        if daten and "wert" in daten:
+            return rahmen + "\n" + hinweis, dict(daten, beschreibung=hinweis, koplanare_anzahl=int(hinweis.split()[0]))
+    return "", {}
+
+
 def schriftvorschlag(g, bekannt, modell=None, flaechen=()):
     """Lesbare Angabe aus der Schrift, abgestimmt mit der bekannten Art des Callouts."""
     from .pmi import TOL_SYMBOL
@@ -116,6 +130,8 @@ def schriftvorschlag(g, bekannt, modell=None, flaechen=()):
         abstand = geometrie_nennmass("Location_LinearDistance", flaechen, modell)
     linearmass = abstand is not None and (not bekannt or g.ebene is None)
     text = lies_schrift(g, linearmass=linearmass)
+    if not text:
+        return _koplanares_profil(g, bekannt)
     felder = aus_text([text], g.textfaktor) if text else None
     if not felder and text and (grenzen := grenzlesart(text, g.textfaktor, bekannt)):
         return text, {"art": MASS, "typ": grenzen["typ"]}
@@ -159,6 +175,17 @@ def _druckschrift(g, bekannt, modell, flaechen):
         name, punkt = fund
         return dateitexte, name, {"art": BEZUG, "typ": "DatumTarget", "name": name,
                                   "modifikatoren": ["point"], "bezugspunkt": punkt.tolist()}, "", []
+    if dateitexte:
+        wort, profil = _koplanares_profil(g, bekannt)
+        if profil:
+            rahmen = {k: v for k, v in profil.items() if k not in ("beschreibung", "koplanare_anzahl")}
+            if gelesen != rahmen:
+                from .pmi_validierungstext import verbundtext_abgleich
+                korrekt, kurz = verbundtext_abgleich(getattr(modell, "datei", None), g, [wort.splitlines()[0]],
+                                                      [rahmen], profil["beschreibung"])
+                if not korrekt or kurz:
+                    profil.pop("wert")
+            return dateitexte, wort, profil, ergaenzung, []
     if len(dateitexte) > 1:
         return dateitexte, "", gelesen, ergaenzung, []
     dateitext = dateitexte[0] if dateitexte else ""
@@ -208,7 +235,7 @@ def vorschlag(p, g, modell) -> Pmi:
             art = gelesen["art"]
             typ = gelesen["typ"] or (typ if schriftart != bekannt and not masswahl else "")
     neu = Pmi(art, typ=typ, norm=p.norm, name=p.name if art == BEZUG and re.fullmatch(r"[A-Z]{1,2}", p.name or "") else "")
-    for k in ("name", "bezugspunkt", "bezugsdurchmesser", "bezugsnormale", *FELDER):
+    for k in ("name", "beschreibung", "koplanare_anzahl", "bezugspunkt", "bezugsdurchmesser", "bezugsnormale", *FELDER):
         if k in gelesen:
             setattr(neu, k, gelesen[k])
     neu.masswahl = masswahl

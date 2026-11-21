@@ -727,6 +727,12 @@ def _haenge_an(text: str, datei, modell, pmi, bericht: Bericht, grafik=None, sch
             if p.callout in belegt:
                 bericht.uebersprungen.extend((q.nummer, "neu", tr("Originalgrafik bereits mit Semantik verknüpft")) for q in gruppe)
                 continue
+        if any(q.koplanare_anzahl is not None for q in gruppe):
+            from .pmi_koplanarschrift import passt_zur_quelle
+            if paar or not passt_zur_quelle(p, modell, datei):
+                grund = tr("Geltungshinweis und Zielflächen der Originalgrafik stimmen nicht überein.")
+                bericht.uebersprungen.extend((q.nummer, "neu", grund) for q in gruppe)
+                continue
         vorher = (len(a.zeilen), a.naechste)
         schreiber = {"bezug": _schreibe_bezug, "toleranz": _schreibe_toleranz, "mass": _schreibe_mass}[p.art]
         if paar:

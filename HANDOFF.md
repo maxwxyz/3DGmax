@@ -2,6 +2,39 @@
 
 ## Current state, 2026-11-21
 
+### Single-row coplanar profile and the local main build
+
+- Checked PLAN §8.4 and docs/Roadmap.md. AP203 CTC-02 #8709 gives a 0.1 mm
+  surface profile followed by “4 COPLANAR SURFACES”. Review and export check
+  faces #1127, #1198, #1187 and #1132. The duplicate source link to #1187 counts
+  once. All four patch centres match the independent semantic AP242 control #53
+  within 0.0001 mm. The scope stays on the same single control through project
+  reopen and STEP export. Its saved view #8309 and original presentation survive.
+- Covered contour letters, single strokes and filled triangles, both with and
+  without writing axes. Different printed counts and the distinction between
+  O and 0 are checked. Missing letters, incomplete links, wrong selections and
+  displaced notes are rejected. Conflicting STEP validation leaves the numeric
+  value open for review. Of 194 graphical callouts in six NIST models, only
+  #8709 matched this additional layout in either orientation test.
+- A complete pass through the review dialog on the graphical CTC-02 source
+  wrote 44 confirmed annotations, including all 22 tolerance frames, seven
+  dimensions, six datums and nine datum targets. The two other callouts #8696
+  and #8701 retained all their original curves. Native OCCT reread the individual
+  contour, stroke and filled exports with the original volume and diagnostics.
+- The final affected run passed 386 tests and five dedicated native Cocoa
+  cases passed. All 2,857 UI strings have English entries. The signed bundle
+  passed its self-test and rendered the complete 44-annotation export. OCCT
+  reported the same diagnostics and volume as for the source.
+- Main uses a single signed arm64 app at `dist/3DGmax.app`. Removed the old
+  temporary main build for 77f1b70 and the binaries and caches from twelve more
+  superseded staging directories, accounting for 29.1 GB in the latter twelve
+  by directory size. Compared their source files with main history. Kept the
+  nonmatching handoff and plan snapshots and the two versioned release ZIPs.
+- The drawing comparison still needs a geometry check for a coplanar note under
+  a single row. Its current parser leaves “⌓ | 0.1” followed by “4 COPLANAR /
+  SURFACES” open. The existing two-row comparison already checks the count,
+  coplanarity and disjoint faces. QIF remains last.
+
 ### Circular datum target K1 and the line-profile control in graphical CTC-02
 
 - Checked PLAN §8.4 and docs/Roadmap.md. The divided circle in AP203 #8713 reads

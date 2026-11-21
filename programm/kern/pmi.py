@@ -139,6 +139,8 @@ class Pmi:
     bezugsdurchmesser: float | None = None
     bezugsnormale: list[float] | None = None
 
+    koplanare_anzahl: int | None = None  # Gelesene Anzahl im Geltungshinweis eines Einzelrahmens.
+
     def profilversatz(self):
         werte = [m[2:].strip() for m in self.modifikatoren if m.startswith("UZ")]
         if len(werte) != 1:
