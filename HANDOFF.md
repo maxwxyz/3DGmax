@@ -2,6 +2,30 @@
 
 ## Current state, 2026-11-21
 
+### Recover bounded surface profiles without annotation planes
+
+- Checked PLAN §8.4 and docs/Roadmap.md. Removing all three annotation planes from the
+  CTC-01 AP203 profile frame and its boundary notes prevented a proposal. The source
+  contains a small round mark parallel to the main frame but at a different depth.
+  Within-path edge directions now supply the plane normal, and the main lettering plane
+  supplies candidate reading axes. Reprojecting the original geometry validates the mark
+  separately. Endpoint lettering can have its own rotation and plane.
+- The graphical review and STEP round trip passed for original contour glyphs, pure triangle
+  fill and independently drawn A/B lettering with an open four-arm double arrow. In each
+  case the profile remained 1.25 mm against A/B/C on faces #553 and #554, bounded by edges
+  #2023 and #2025. The original three callouts, their saved view and absence of stored
+  writing planes survived. OCCT recognized the semantic entity. A real digit 8, an incomplete
+  arrow, and marks at conflicting depths were checked separately. Seven additional rigid
+  rotations of the filled frame gave the same reading.
+- All 12 affected tests and all nine native macOS profile tests passed. The signed app passed
+  its packaged self-test. The build and the before/after STEP files for the triangle-only
+  and single-stroke examples are in `dist/main-pmi-ohne-ebenen/`.
+- Next comparison case: removing the restriction from an imported profile, or exchanging the
+  two boundary edges while retaining the labels, currently yields `gleich` in the semantic
+  comparison. Match the ordered ends after geometry alignment, independently of local STEP
+  numbers. Include a renumbered but geometrically identical revision as a control. Handling
+  scopes requiring new trimmed surfaces remains open. QIF stays last.
+
 ### Convert a graphical surface profile bounded by two named edges
 
 - Checked PLAN §8.4 and docs/Roadmap.md. CTC-01 AP203 #3422 contains a 1.25 mm

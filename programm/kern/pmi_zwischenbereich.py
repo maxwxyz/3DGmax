@@ -2,6 +2,7 @@
 
 import re
 from collections import defaultdict
+from dataclasses import replace
 
 import numpy as np
 from scipy import ndimage
@@ -15,10 +16,13 @@ def _doppelpfeil(maske):
     y, x = np.nonzero(maske)
     if not len(x) or ndimage.label(maske, np.ones((3, 3)))[1] != 1:
         return False
-    bild = ndimage.binary_fill_holes(maske[y.min():y.max()+1, x.min():x.max()+1])
-    h, w = bild.shape
+    tinte = maske[y.min():y.max()+1, x.min():x.max()+1]
+    h, w = tinte.shape
     if not 2.5*h < w < 12*h or h < 9:
         return False
+    if _offener_doppelpfeil(tinte):
+        return True
+    bild = ndimage.binary_fill_holes(tinte)
     pos = np.arange(w)
     dicke = bild.sum(axis=0)
     breit = pos[dicke > .76*h]
@@ -34,6 +38,33 @@ def _doppelpfeil(maske):
     soll = np.where(pos <= a, 1+(h-1)*pos/a, np.where(pos >= b, 1+(h-1)*(w-1-pos)/(w-1-b), kern))
     raster = abs(np.arange(h)[:, None]-(h-1)/2) <= soll/2
     return (raster & bild).sum() > .86*(raster | bild).sum()
+
+
+def _offener_doppelpfeil(tinte):
+    """Durchgehender Mittelstrich mit vier offenen, paarweise symmetrischen Pfeilarmen."""
+    h, w = tinte.shape
+    if tinte.mean() > .26:
+        return False
+    rand = max(1, round(h*.06))
+    oben, unten = [np.flatnonzero(band.any(axis=0)) for band in (tinte[:rand], tinte[-rand:])]
+    schulter = []
+    for links in (True, False):
+        enden = [xs[xs < w/2] if links else xs[xs >= w/2] for xs in (oben, unten)]
+        if any(not len(xs) for xs in enden):
+            return False
+        a, b = (np.median(xs) for xs in enden)
+        breite = (a+b)/2 if links else w-1-(a+b)/2
+        if abs(a-b) > .12*h or not .10*w < breite < .40*w:
+            return False
+        schulter.append(breite)
+    x = np.arange(w)
+    y = abs(np.arange(h)[:, None]-(h-1)/2)
+    muster = np.broadcast_to(y <= .5, (h, w)).copy()
+    for abstand, breite in zip((x, w-1-x), schulter):
+        muster |= (abstand <= breite+.5) & (abs(y-abstand*(h-1)/(2*breite)) <= 1)
+    toleranz = max(1.5, .055*h)
+    return (np.max(ndimage.distance_transform_edt(~muster)[tinte]) <= toleranz
+            and np.max(ndimage.distance_transform_edt(~tinte)[muster]) <= toleranz)
 
 
 def _zeile(pfade, hoehe):
@@ -78,28 +109,85 @@ def _fuehrung(pfade, links, rechts, mitte, h):
                for q, _ in pfade)
 
 
-def _bereichstext(g):
-    from . import pmi_strichschrift as schrift
-    if g.ebene is None or not schrift._lesbar(g):
+def _hauptgrafik(g):
+    """Schreiblage aus Kantenrichtungen, auch bei einer abgesetzten parallelen Zielmarke."""
+    kanten = [np.diff(l, axis=0) for l in g.linien if len(l) >= 2]
+    for xyz, t in g.dreiecke:
+        if len(t):
+            kanten.extend((xyz[t[:, 1]]-xyz[t[:, 0]], xyz[t[:, 2]]-xyz[t[:, 0]]))
+    if not kanten:
         return None
-    pfade = schrift._pfade(g, g.ebene)
+    kanten = np.vstack(kanten)
+    if not np.isfinite(kanten).all():
+        return None
+    werte, achsen = np.linalg.eigh(kanten.T @ kanten)
+    if werte[1] <= werte[2]*1e-10 or abs(werte[0]) > werte[1]*1e-9:
+        return None
+    normal = achsen[:, 0]
+    punkte = [l for l in g.linien if len(l) >= 2]
+    punkte.extend(xyz[np.unique(t)] for xyz, t in g.dreiecke if len(t))
+    lage = np.median(np.vstack(punkte) @ normal)
+    linien = [l for l in g.linien if len(l) >= 2 and np.all(abs(l @ normal-lage) <= .001)]
+    netze = []
+    for xyz, t in g.dreiecke:
+        if not len(t):
+            continue
+        innen = abs(xyz @ normal-lage) <= .001
+        dreiecke = t[innen[t].all(axis=1)]
+        if dreiecke.size:
+            ids, index = np.unique(dreiecke, return_inverse=True)
+            netze.append((xyz[ids], index.reshape(-1, 3)))
+    return replace(g, linien=linien, dreiecke=netze)
+
+
+def _leseebenen(g):
+    from .pmi_strichschrift import _rahmenrichtungen
+    for o, x, y, z in _rahmenrichtungen(g):
+        for sx, sy in ((1, 1), (-1, 1), (1, -1), (-1, -1)):
+            yield o, sx*x, sy*y, sx*sy*z
+
+
+def _bereichstext(g):
+    from .pmi_strichschrift import _lesbar
+    if not _lesbar(g):
+        return None
+    if g.ebene is not None:
+        return _rahmen_auf_ebene(g, g.ebene)
+    haupt = _hauptgrafik(g)
+    if haupt is None:
+        return None
+    lesart = None
+    for ebene in _leseebenen(haupt):
+        text = _rahmen_auf_ebene(g, ebene)
+        if text:
+            if lesart and (text[0], text[2]) != (lesart[0], lesart[2]):
+                return None
+            lesart = text
+    return lesart
+
+
+def _rahmen_auf_ebene(g, ebene):
+    from . import pmi_strichschrift as schrift
+    pfade = schrift._pfade(g, ebene)
     if not pfade:
         return None
     # Ausserhalb der Zeichenebene darf nur eine kleine, geschlossene runde Zielmarke liegen.
-    o, _, _, n = g.ebene
+    o, _, _, n = ebene
     tiefen = [(linie-o) @ n for linie in g.linien if len(linie) >= 2]
     for xyz, indices in g.dreiecke:
         if len(indices):
             tiefen.extend(((xyz-o) @ n)[indices])
     auf, marke = [], []
+    markentiefen = []
     for pfad, tiefe in zip(pfade, tiefen, strict=True):
         if np.max(abs(tiefe)) <= .001:
             auf.append(pfad)
         elif np.ptp(tiefe) <= .001:
             marke.append(pfad)
+            markentiefen.extend((tiefe.min(), tiefe.max()))
         else:
             return None
-    if not auf:
+    if not auf or (markentiefen and np.ptp(markentiefen) > .001):
         return None
     zellen = schrift._zellen(auf)
     if not 2 <= len(zellen) <= 5:
@@ -145,10 +233,24 @@ def _runde_marke(pfade, breite):
 
 
 def _endzeichen(g, kante):
-    from . import pmi_strichschrift as schrift
-    if g.ebene is None or g.erzeugt or g.platzhalter or not schrift._lesbar(g):
+    from .pmi_strichschrift import _lesbar
+    if kante is None or kante.IsNull() or g.erzeugt or g.platzhalter or not _lesbar(g):
         return ""
-    pfade = schrift._pfade(g, g.ebene)
+    if g.ebene is not None:
+        return _endzeichen_auf_ebene(g, kante, g.ebene)
+    zeichen = set()
+    for ebene in _leseebenen(g):
+        name = _endzeichen_auf_ebene(g, kante, ebene)
+        if name:
+            zeichen.add(name)
+            if len(zeichen) > 1:
+                return ""
+    return zeichen.pop() if zeichen else ""
+
+
+def _endzeichen_auf_ebene(g, kante, ebene):
+    from . import pmi_strichschrift as schrift
+    pfade = schrift._pfade(g, ebene)
     if not pfade:
         return ""
     groesse = np.ptp(np.vstack([p for p, _ in pfade]), axis=0).max()
@@ -170,12 +272,22 @@ def _endzeichen(g, kante):
     if fuehrung.mean() >= .15:
         return ""
     def am_schenkel(punkte):
-        o, x, y, _ = g.ebene
+        o, x, y, _ = ebene
         u = np.rint(((punkte-o) @ x - grenzen[0])*skala+2).astype(int)
         v = np.rint((grenzen[3] - (punkte-o) @ y)*skala+2).astype(int)
         return np.all(umriss[v, u])
 
-    buchstabe = schrift._normale_zeile(bild & (labels != nr))
+    glyph = bild & (labels != nr)
+    buchstabe = schrift._normale_zeile(glyph)
+    if buchstabe == "8":
+        # Ein gespiegeltes einliniges B hat einen durchgehenden Stamm am aeusseren Rand.
+        y, x = np.nonzero(glyph)
+        tinte = glyph[y.min():y.max()+1, x.min():x.max()+1]
+        rand = max(1, round(.12*tinte.shape[1]))
+        links = np.max(tinte[:, :rand].mean(axis=0)) > .92
+        rechts = np.max(tinte[:, -rand:].mean(axis=0)) > .92
+        if links != rechts:
+            return ""
     umriss = ndimage.binary_dilation(labels == nr)
     return buchstabe if buchstabe and _pfeil_an_kante(g, kante, am_schenkel) else ""
 
@@ -185,8 +297,6 @@ def _pfeil_an_kante(g, kante, am_schenkel):
     from OCC.Core.BRepBuilderAPI import BRepBuilderAPI_MakeVertex
     from OCC.Core.BRepExtrema import BRepExtrema_DistShapeShape
     from OCC.Core.gp import gp_Pnt
-    if kante is None or kante.IsNull():
-        return False
     dreiecke = [l[:3] for l in g.linien if len(l) == 4 and np.allclose(l[0], l[-1], rtol=0, atol=1e-6)]
     for xyz, indices in g.dreiecke:
         dreiecke.extend(xyz[indices])

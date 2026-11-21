@@ -1,6 +1,7 @@
 {
  "unreleased": {
   "de": [
+   "Die PMI-Prüfung liest den Profilbereich A ↔ B auch ohne gespeicherte Zeichenebenen aus Kurven, gefüllten Dreiecken und offenen Strichpfeilen. Sie prüft beide Randbuchstaben und die Pfeilspitzen an den zugehörigen Modellkanten.",
    "Bei einer gezeichneten Profiltoleranz mit A ↔ B zeigt die PMI-Prüfung die zugehörige Anfangs- und Endkante. Nach Bestätigung speichert STEP die Bereichsgrenzen, die Bezugsreihenfolge und die Originalgrafik.",
    "Die PMI-Suche und die Umwandlung erkennen gezeichnete Durchmessergrenzen auch unter dem STEP-Namen „linear dimension“. Nach Prüfung lassen sich Höchst- und Mindestmaß mit der ursprünglichen Grafik und ihrem Zylinder exportieren.",
    "Die PMI-Umwandlung liest ungerahmte Längenmaße mit und ohne Plusminus-Toleranz zwischen Maßhilfslinien auch ohne gespeicherte Schriftebene aus Strichschrift und Dreiecksfüllung. Bei unbenannten Angaben prüft sie den gedruckten Wert gegen den Abstand der beiden zugeordneten ebenen Flächen.",
@@ -218,6 +219,7 @@
    "Grafische PMI aus unterstützten AP203e2-Kurvenmodellen lassen sich als STEP AP242 Edition 3 ausgeben. Facettierte STEP-Modelle behalten ihre Flächenbezüge. Gepackte STEP-Dateien lassen sich als unkomprimierte STEP-Kopie speichern."
   ],
   "en": [
+   "PMI review can read the A ↔ B extent of a profile tolerance without stored writing planes, including curves, filled triangles and open line arrows. It checks both endpoint letters and the arrowheads on the associated model edges.",
    "For a drawn profile tolerance marked A ↔ B, PMI review shows the associated start and end edges. After confirmation, STEP retains the extent, datum order and original graphics.",
    "PMI search and conversion recognise drawn diameter limits under the generic STEP name “linear dimension”. After review, the limits can be exported with their original presentation and cylinder association.",
    "Graphical PMI conversion reads an unframed nominal length with or without a plus/minus tolerance between dimension and extension lines from strokes or triangle fill without a stored writing plane. An unnamed dimension is checked against the spacing of its two associated planar faces.",

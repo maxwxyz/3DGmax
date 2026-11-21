@@ -233,8 +233,11 @@ Throughout: tests (core, offscreen UI, stress test, on-screen test), `--selbstte
   A complete frame and two edge-linked letter notes in the same saved view supply a review
   proposal when both arrowheads touch distinct outer edges of the connected target faces.
   Reviewed STEP copies carry a BETWEEN_SHAPE_ASPECT with start and end features alongside
-  the three original callouts. This case covers whole connected B-rep faces and a stored writing
-  plane. Extents requiring a new trimmed subface are open.
+  the three original callouts. When all three writing planes are absent, the reader fits the
+  frame plane to its strokes or triangle edges and checks the detached circular mark at its own
+  depth. The frame and both endpoint letters must have unique readings across orientations.
+  Verified contour lettering, triangle-only presentations and an open single-stroke double arrow
+  with independently drawn A/B markers. Extents requiring a new trimmed subface are open.
   Single-row wide control frames preserve the characteristic, diameter zone, projected height or
   maximum material and the ordered datums. Closed cell borders can also be recovered from filled
   triangles. With no writing plane the outer edges of coplanar triangles supply candidate axes. Both FTC-07's original strokes and a
