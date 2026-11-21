@@ -1,6 +1,7 @@
 {
  "unreleased": {
   "de": [
+   "Der Zeichnungsvergleich ordnet auch offene Pfeilspitzen aus zwei Strichen dem Bohrungsrand im 3D-Modell zu. So lässt sich ein geändertes Maß auch dann der richtigen Bohrung zuweisen, wenn eine andere Bohrung den gedruckten Wert hat.",
    "Grafische Hilfsmaße wie (85) lassen sich auch ohne Schreibebene aus Strichen oder gefüllten Zeichen lesen. Der STEP-Export erhält die Kennzeichnung als Hilfsmaß, die zugeordneten Flächen und die Originalgrafik.",
    "Die grafische PMI-Erkennung liest ebene Winkelmaße mit Gradzeichen auch ohne gespeicherte Schreibebene. Nach Prüfung der Zielflächen lassen sich der Winkel und seine Abmaße gemeinsam mit der Strich- oder Dreiecksgrafik als STEP speichern.",
    "Bei Schnecken prüft die App Axialteilung und Vorschub je Umdrehung aus PMI-Hinweisen. Sie berücksichtigt metrische und zöllige Angaben sowie die Einheit der jeweiligen STEP-Beschriftung. Unklare Einheiten bleiben im Prüfbericht offen.",
@@ -195,6 +196,7 @@
    "Grafische PMI aus unterstützten AP203e2-Kurvenmodellen lassen sich als STEP AP242 Edition 3 ausgeben. Facettierte STEP-Modelle behalten ihre Flächenbezüge. Gepackte STEP-Dateien lassen sich als unkomprimierte STEP-Kopie speichern."
   ],
   "en": [
+   "The drawing comparison now follows open two-wing arrowheads to the bore rim in the 3D model. A changed dimension can be matched to the correct bore even when another bore has the printed value.",
    "Reference dimensions such as (85) can be read from strokes or solid lettering without a writing plane. STEP export retains the auxiliary qualifier, associated faces and original presentation.",
    "Graphical PMI recognition reads planar angular dimensions with degree signs without a stored writing plane. Review the target faces and save the angle and its deviations with the original stroke or triangle presentation in STEP.",
    "The PMI check compares the axial pitch and lead of a screw with the geometry. It reads metric and inch values and uses the individual STEP annotation’s unit when available. Ambiguous units remain open in the report.",

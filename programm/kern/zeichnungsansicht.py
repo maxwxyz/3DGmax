@@ -102,6 +102,45 @@ def _duenner_balken(p):
     return np.array([[(oben[0]+unten[0])/2, z] for z in (unten[1], oben[1])]) @ basis.T + mitte
 
 
+def _gedrucktes_v(p):
+    """Die Mittellinien zweier duenn gedruckter, zusammenhaengender Pfeilfluegel."""
+    if not 7 <= len(p) <= 20 or np.linalg.norm(p[0]-p[-1]) > .15:
+        return ()
+    laengen = np.linalg.norm(np.diff(p, axis=0), axis=1)
+    lang = np.flatnonzero(laengen > .65 * laengen.max())
+    if len(lang) != 4 or not 3 <= laengen.max() < 45:
+        return ()
+    if np.any((laengen > .18*laengen.max()) & (laengen <= .65*laengen.max())):
+        return ()
+    # Jeder Fluegel hat zwei lange, entgegengesetzt durchlaufene Raender gleicher Breite.
+    i = lang[0]
+    for j in lang[1:]:
+        k, l = [n for n in lang[1:] if n != j]
+        fluegel, inhalt = [], 0.
+        for a, b in ((i, j), (k, l)):
+            rand, gegen = p[a:a+2], p[b:b+2][::-1]
+            breite = np.linalg.norm(rand-gegen, axis=1)
+            if breite.min() < .02 or breite.max() > min(3., .1*laengen[a]) or breite.min() < .7*breite.max():
+                break
+            fluegel.append((rand+gegen)/2)
+            inhalt += laengen[a]*breite.mean()
+        if len(fluegel) != 2:
+            continue
+        x,y = (p-p[0]).T
+        if not .80*inhalt < abs(x @ np.roll(y,1) - y @ np.roll(x,1))/2 < 1.20*inhalt:
+            continue
+        a, b = fluegel
+        d = np.linalg.norm(a[:, None] - b, axis=2)
+        u,v = np.unravel_index(d.argmin(), d.shape)
+        if d[u,v] > .85:
+            continue
+        spitze = (a[u]+b[v])/2
+        kopf = _pfeil(np.array([a[1-u], spitze, b[1-v]]))
+        if kopf is not None and np.array_equal(kopf[0], spitze):
+            return ((a[1-u], spitze), (spitze, b[1-v]))
+    return ()
+
+
 def _sichtbar(mask, p):
     h, w = mask.shape
     x, y = np.rint(np.asarray(p)).astype(int).T
@@ -162,6 +201,10 @@ class Blattgeometrie:
                     balken = _duenner_balken(p)
                     if balken is not None and _sichtbar(mask, np.linspace(*balken, 9)):
                         linien.append(balken)
+                if fuellung.value and not strich.value and 7 <= len(p) <= 20:
+                    fluegel = _gedrucktes_v(p)
+                    if fluegel and all(_sichtbar(mask, np.linspace(*l, 9)) for l in fluegel):
+                        linien.extend(fluegel)
                 if 3 <= len(p) <= 5:
                     pfeil = _pfeil(p)
                     if pfeil is not None:
@@ -214,6 +257,40 @@ class Blattgeometrie:
         eindeutig = {tuple(np.round(np.concatenate(p[:2]), 1)): p for p in pfeile}
         self.pfeile = list(eindeutig.values())
         self.pfeilenden = cKDTree(np.array([eintrag[:2] for eintrag in self.pfeile]).reshape(-1,2))
+        self.offene_pfeile = self._offene_pfeile(laengen)
+
+    def _offene_pfeile(self, laengen):
+        """Zwei freie Fluegel und ein laengerer, mittig an der Spitze endender Schaft."""
+        pfeile = {}
+        kurz = np.flatnonzero(laengen < 45)
+        if not len(kurz):
+            return pfeile
+        anzahl = self.enden.query_ball_point(self.linien[kurz].reshape(-1, 2), .85, return_length=True).reshape(-1, 2)
+        for zeile, seite in zip(*np.where((anzahl == 3) & (anzahl[:, ::-1] == 1))):
+            i = kurz[zeile]
+            spitze = self.linien[i, seite]
+            nachbarn = sorted(self.enden.query_ball_point(spitze, .85), key=lambda j: (laengen[j//2], j))
+            if len(nachbarn) != 3 or nachbarn[0] != 2*i+seite:
+                continue
+            a, b, schaft = nachbarn
+            if laengen[schaft//2] < 1.5 * laengen[b//2]:
+                continue
+            links, rechts, start = (self.linien[j//2, 1-j%2] for j in nachbarn)
+            if len(self.enden.query_ball_point(rechts, .85)) != 1:
+                continue
+            kopf = _pfeil(np.array([links, spitze, rechts]))
+            if kopf is None or not np.array_equal(kopf[0], spitze):
+                continue
+            achse = (spitze-start) / np.linalg.norm(spitze-start)
+            mitte = kopf[1] - spitze
+            quer = mitte - (mitte @ achse) * achse
+            if mitte @ achse >= 0 or np.linalg.norm(quer) > .15 * np.linalg.norm(links-rechts):
+                continue
+            if next(self._schaefte_am_punkt(spitze), None) is not None:
+                continue
+            linie, ende = divmod(schaft, 2)
+            pfeile[2*linie + (1-ende)] = spitze, (a//2, b//2)
+        return pfeile
 
     def im_bereich(self, box):
         l, t, r, b = (np.array(box).reshape(2,2) * self.groesse).ravel()
@@ -226,7 +303,7 @@ class Blattgeometrie:
 
     def hinweisziel(self, box, kreise, durchmesseranfang=None, musterzeile=False, hinweisenden=()):
         """Ein einzelner unverzweigter Linienzug vom Beschriftungsrand zur Dreiecksspitze."""
-        if not self.pfeile or not kreise:
+        if not kreise or not (self.pfeile or self.offene_pfeile):
             return None
         starts = self._starts(box, durchmesseranfang, musterzeile, hinweisenden)
         ziele = self._verfolge(starts, kreise, 1)
@@ -234,7 +311,7 @@ class Blattgeometrie:
 
     def hinweisgruppe(self, box, kreise, anzahl, hinweisenden=()):
         """Ein gezeichnetes Pfeilende pro gedruckter Wiederholung."""
-        if anzahl < 2 or anzahl > len(kreise) or not self.pfeile:
+        if anzahl < 2 or anzahl > len(kreise) or not (self.pfeile or self.offene_pfeile):
             return ()
         ziele = self._verfolge(self._starts(box, None, True, hinweisenden), kreise, anzahl)
         if len(ziele) != anzahl or max(k.r for k in ziele)-min(k.r for k in ziele) > .75:
@@ -245,7 +322,7 @@ class Blattgeometrie:
 
     def schriftenden(self, kreise, pruefe=lambda: None):
         """Freie Enden mit Richtung zur Masszeile und Pfeilziel im gewaehlten Bohrbild."""
-        if not kreise or not self.pfeile:
+        if not kreise or not (self.pfeile or self.offene_pfeile):
             return []
         orte = []
         laengen = np.linalg.norm(self.linien[:,1]-self.linien[:,0],axis=1)
@@ -334,7 +411,8 @@ class Blattgeometrie:
         laenge = np.linalg.norm(ende-start)
         richtung = (ende-start) / laenge
         nahe = {j//2 for j in self.pfeilenden.query_ball_point(ende, 2)}
-        spitzen = []
+        offen = self.offene_pfeile.get(index)
+        spitzen = [(offen[0], None)] if offen else []
         for j in nahe:
             s, basis, kontur = self.pfeile[j]
             if richtung @ (s-basis) > .94*np.linalg.norm(s-basis):
@@ -350,7 +428,9 @@ class Blattgeometrie:
             am_ende = np.linalg.norm(v-(ende-start)) <= 1.5
             auf_linie = 1.5 < dist < laenge-1.5 and np.linalg.norm(v-dist*richtung) < 1.5
             if am_ende or auf_linie:
-                if spitzen and _im_dreieck(self.linien[j//2], spitzen[0][1]):
+                if offen and j//2 in offen[1]:
+                    continue
+                if spitzen and not offen and _im_dreieck(self.linien[j//2], spitzen[0][1]):
                     continue
                 if spitzen and am_ende:
                     return None

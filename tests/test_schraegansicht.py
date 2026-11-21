@@ -12,7 +12,7 @@ from programm.kern.zeichnungsansicht import modellkreise,zuordnen
 from programm.kern.pmi import Pmi
 
 
-def _blatt(pfad, gruppe, tiefen, spiegel):
+def _blatt(pfad, gruppe, tiefen, spiegel, offen=False):
     pdf = QtGui.QPdfWriter(str(pfad))
     pdf.setResolution(72)
     pdf.setPageSize(QtGui.QPageSize(QtCore.QSizeF(320,220),QtGui.QPageSize.Unit.Point))
@@ -39,14 +39,17 @@ def _blatt(pfad, gruppe, tiefen, spiegel):
         richtung = (ziel-knick)/math.hypot((ziel-knick).x(),(ziel-knick).y())
         basis = ziel-3.6*richtung
         quer = QtCore.QPointF(-richtung.y(),richtung.x())*.65
-        p.setPen(QtCore.Qt.PenStyle.NoPen)
-        p.setBrush(QtCore.Qt.GlobalColor.black)
-        p.drawPolygon(QtGui.QPolygonF([ziel,basis+quer,basis-quer]))
+        if offen:
+            p.drawPolyline(QtGui.QPolygonF([basis+quer, ziel, basis-quer]))
+        else:
+            p.setPen(QtCore.Qt.PenStyle.NoPen)
+            p.setBrush(QtCore.Qt.GlobalColor.black)
+            p.drawPolygon(QtGui.QPolygonF([ziel,basis+quer,basis-quer]))
     return ort,ziel
 
 
-@pytest.mark.parametrize("z,spiegel",[((0,0,0,0),1),((0,9,9,0),-1)])
-def test_schraege_bohrungen_mit_hinweispfeil_und_csv(app,tmp_path,monkeypatch,z,spiegel):
+@pytest.mark.parametrize("z,spiegel,offen", [((0,0,0,0),1,False), ((0,9,9,0),-1,False), ((0,9,9,0),-1,True)])
+def test_schraege_bohrungen_mit_hinweispfeil_und_csv(app,tmp_path,monkeypatch,z,spiegel,offen):
     from pypdfium2 import PdfDocument
     from test_zeichnungsansicht import _teil
     from programm.ui.zeichnungsabgleich_ui import Zeichnungsabgleich
@@ -58,7 +61,7 @@ def test_schraege_bohrungen_mit_hinweispfeil_und_csv(app,tmp_path,monkeypatch,z,
     richtig = Pmi("mass","Size_Diameter",nennwert=4.,flaechen=set(a.flaechen),nummer=1)
     falsch = replace(richtig,nennwert=4.1,flaechen=set(gruppe[2].flaechen),nummer=2)
     pdf = tmp_path/"Schraeg.pdf"
-    _blatt(pdf,gruppe,z,spiegel)
+    _blatt(pdf,gruppe,z,spiegel,offen)
     with PdfDocument(pdf) as doc:
         dlg = Zeichnungsabgleich(doc,[richtig,falsch],lambda _:None,(str(pdf),"Teil.stp"),einzelteil=teil)
         try:

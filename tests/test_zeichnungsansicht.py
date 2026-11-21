@@ -28,7 +28,7 @@ def _teil(zusatz=(), bohrungen=_BOHRUNGEN):
     return SimpleNamespace(form=form, flaechen=_alle_flaechen(form))
 
 
-def _blatt(pfad, verzweigt=False, text="Ø4.1", fremdkreis=False, gabel=None, bohrungen=_BOHRUNGEN):
+def _blatt(pfad, verzweigt=False, text="Ø4.1", fremdkreis=False, gabel=None, bohrungen=_BOHRUNGEN, pfeilart="voll"):
     pdf = QtGui.QPdfWriter(str(pfad))
     pdf.setResolution(72)
     with QtGui.QPainter(pdf) as maler:
@@ -86,11 +86,23 @@ def _blatt(pfad, verzweigt=False, text="Ø4.1", fremdkreis=False, gabel=None, bo
             v /= np.linalg.norm(v)
             basis = np.array([nach.x(), nach.y()]) - 6*v
             n = np.array([-v[1], v[0]])
-            maler.drawPolygon(QtGui.QPolygonF([nach, QtCore.QPointF(*(basis+n)), QtCore.QPointF(*(basis-n))]))
+            oben, unten = QtCore.QPointF(*(basis+n)), QtCore.QPointF(*(basis-n))
+            if pfeilart == "voll":
+                maler.drawPolygon(QtGui.QPolygonF([nach, oben, unten]))
+            else:
+                maler.setBrush(QtCore.Qt.BrushStyle.NoBrush)
+                maler.setPen(QtCore.Qt.GlobalColor.black)
+                if pfeilart == "zug":
+                    maler.drawPolyline(QtGui.QPolygonF([oben, nach, unten]))
+                else:
+                    maler.drawLine(nach, oben)
+                    maler.drawLine(unten, nach)
 
 
-@pytest.mark.parametrize(("verzweigt", "drehung"), [(False, 0), (True, 0), ("innen", 0), (False, 90)])
-def test_hinweisziel_zugeordnet_bei_geaendertem_mass(app, tmp_path, monkeypatch, verzweigt, drehung):
+@pytest.mark.parametrize(("verzweigt", "drehung", "pfeilart"), [
+    (False, 0, "voll"), (True, 0, "voll"), ("innen", 0, "voll"), (False, 90, "voll"),
+    (False, 0, "zug"), (False, 90, "einzeln"), (True, 0, "einzeln")])
+def test_hinweisziel_zugeordnet_bei_geaendertem_mass(app, tmp_path, monkeypatch, verzweigt, drehung, pfeilart):
     import pypdfium2 as pdf
     from programm.ui.zeichnungsabgleich_ui import Zeichnungsabgleich
     teil = _teil()
@@ -101,7 +113,7 @@ def test_hinweisziel_zugeordnet_bei_geaendertem_mass(app, tmp_path, monkeypatch,
     gut = Pmi("mass", "Size_Diameter", nennwert=4., flaechen=set(erste.flaechen), nummer=1)
     falsch = replace(gut, nennwert=4.1, flaechen=set(zweite.flaechen), nummer=2)
     pfad = tmp_path / "Bohrbild.pdf"
-    _blatt(pfad, verzweigt)
+    _blatt(pfad, verzweigt, pfeilart=pfeilart)
     with pdf.PdfDocument(pfad) as doc:
         if drehung:
             doc[0].set_rotation(drehung)
@@ -258,19 +270,34 @@ def test_wechsel_des_blatts_verwirft_laufende_zuordnung(app, tmp_path, monkeypat
             d.close()
 
 
-@pytest.mark.parametrize(("geschlossen", "abzweig", "einzeln"),
-                         [(True, False, False), (True, False, True), (False, False, True), (True, True, False)])
-def test_pfeil_aus_getrennten_strichen_braucht_geschlossene_kontur(app, tmp_path, geschlossen, abzweig, einzeln):
+@pytest.mark.parametrize(("kopf", "abzweig", "erkannt"), [
+    ("kontur", False, True), ("einzeln", False, True), ("unvollstaendig", False, False),
+    ("kontur", True, False), ("offen", False, True), ("offen", True, False),
+    ("ein_fluegel", False, False), ("schief", False, False), ("richtung", False, False),
+    ("kreuzung", False, False), ("weiterlaufend", False, False)])
+def test_gezeichnete_pfeilspitze_am_bohrungsrand(app, tmp_path, kopf, abzweig, erkannt):
     from pypdf import PdfWriter
     from pypdf.generic import DecodedStreamObject, NameObject
     import pypdfium2 as pdf
     w = PdfWriter()
     seite = w.add_blank_page(400, 200)
-    # Der Kreis rechts wird links vom Pfeil getroffen. Die Schraffur beruehrt den Hinweisstrich.
-    linien = ["0.45 w", "90 100 m 240 100 l S",
-              "232 101.3 m 232 98.7 l S 232 98.7 m 240 100 l S" if einzeln else "232 101.3 m 232 98.7 l 240 100 l S", "232 100.1 m 236 100.1 l S"]
-    if geschlossen:
-        linien.append("240 100 m 232 101.3 l S")
+    linien = ["0.45 w", "90 100 m 240 100 l S"]
+    if kopf in ("kontur", "einzeln", "unvollstaendig"):
+        # Die Schraffur des geschlossenen Dreiecks beruehrt den Hinweisstrich.
+        linien.extend(["232 101.3 m 232 98.7 l S 232 98.7 m 240 100 l S" if kopf != "kontur"
+                       else "232 101.3 m 232 98.7 l 240 100 l S", "232 100.1 m 236 100.1 l S"])
+        if kopf != "unvollstaendig":
+            linien.append("240 100 m 232 101.3 l S")
+    else:
+        x = 248 if kopf == "richtung" else 232
+        y = 1.4 if kopf == "schief" else 0.
+        linien.append(f"{x} {101.3+y} m 240 100 l S")
+        if kopf != "ein_fluegel":
+            linien.append(f"240 100 m {x} {98.7+y} l S")
+        if kopf == "kreuzung":
+            linien.append("240 96 m 240 104 l S")
+        if kopf == "weiterlaufend":
+            linien.append("240 100 m 246 100 l S")
     if abzweig:
         linien.append("235 100 m 235 102 l S")
     phi = np.linspace(0., 2*np.pi, 65)
@@ -288,7 +315,7 @@ def test_pfeil_aus_getrennten_strichen_braucht_geschlossene_kontur(app, tmp_path
         kreis, = g.kreise
         ring = replace(kreis, flaechen=frozenset([42]))
         ziel = g.hinweisziel((50/400, .45, 90/400, .55), [ring])
-        assert ziel == (ring if geschlossen and not abzweig else None)
+        assert ziel == (ring if erkannt else None)
         blatt.schliesse()
 
 
@@ -537,8 +564,11 @@ def test_einzel_pmi_aus_ap242_pro_bohrung_pruefen_und_exportieren(app, tmp_path,
             d.blatt.schliesse()
             d.close()
 
-@pytest.mark.parametrize("gabel", ["knick", "schaft", "quer", "kreuzung", "drei", "offen", "gleiches_ziel", "fremdkreis", "schleife"])
-def test_gegabelte_hinweislinie_im_zeichnungsabgleich(app, tmp_path, gabel):
+@pytest.mark.parametrize(("gabel", "pfeilart"),
+                         [(g, "voll") for g in ("knick", "schaft", "quer", "kreuzung", "drei", "offen",
+                                                "gleiches_ziel", "fremdkreis", "schleife")]
+                         + [("schaft", "zug"), ("quer", "einzeln"), ("offen", "einzeln")])
+def test_gegabelte_hinweislinie_im_zeichnungsabgleich(app, tmp_path, gabel, pfeilart):
     import pypdfium2 as pdf
     from programm.ui.zeichnungsabgleich_ui import Zeichnungsabgleich
     anzahl = 3 if gabel == "drei" else 2
@@ -548,7 +578,7 @@ def test_gegabelte_hinweislinie_im_zeichnungsabgleich(app, tmp_path, gabel):
     masse = [Pmi("mass", "Size_Diameter", nennwert=4., flaechen=set(k.flaechen), nummer=i)
              for i, k in enumerate(gruppe, 1)]
     pfad = tmp_path / "Pfeilzweige.pdf"
-    _blatt(pfad, text=f"{anzahl}X Ø4", fremdkreis=True, gabel=gabel)
+    _blatt(pfad, text=f"{anzahl}X Ø4", fremdkreis=True, gabel=gabel, pfeilart=pfeilart)
     with pdf.PdfDocument(pfad) as doc:
         d = Zeichnungsabgleich(doc, masse, lambda _: None, (str(pfad), ""), einzelteil=teil)
         try:

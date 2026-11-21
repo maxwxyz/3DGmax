@@ -1710,9 +1710,11 @@ The fit checks all printed radii and centers, including reflections and arbitrar
 At least three non-collinear centers must agree. Only face associations common to
 all best fits are proposed. Coaxial blind holes at separate depths remain ambiguous. A direct or
 bent, unbranched leader can suggest the PMI on its target ring. Arrowheads may be filled, hatched or
-outlined in separate strokes. For a control frame below a diameter annotation, the review follows
-the upper row’s leader when it begins with a diameter symbol and a number. A quantity prefix or an
-open arrowhead leaves the frame’s association unresolved. A repeated diameter dimension is reviewed
+outlined in separate strokes. An open V can also identify the target when both free wings meet
+a longer, centred shaft at its tip on one registered rim. A missing wing, off-centre shaft or
+crossing at the tip leaves the target open. For a control frame below a diameter annotation, the
+review follows the upper row’s leader when it begins with a diameter symbol and a number. A
+quantity prefix leaves the frame’s association unresolved. A repeated diameter dimension is reviewed
 as its own annotation. Native PDF text and supported plotted rows (including a row above a frame)
 retain the printed count and limits. An arrow or manual selection identifies the first hole. The
 review proposes the remaining visible rings only when the size and count agree and all are

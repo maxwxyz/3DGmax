@@ -2,6 +2,23 @@
 
 ## Current state, 2026-11-21
 
+### Follow open drawing arrows to their model bore walls
+
+- Checked PLAN §8.35 against docs/Roadmap.md. Two free, symmetric arrow wings can
+  identify a bore when their common tip meets the centred leader shaft on one
+  registered rim. PDF inputs tested include a polyline, separate strokes and a
+  thin filled outline emitted by the Qt PDF printer in a mirrored oblique view.
+- In the four-hole drawing, the printed Ø4.1 points to a model Ø4.0. The dialog
+  selects that wall even with a competing PMI of Ø4.1 elsewhere. Confirmation
+  and CSV retain the difference and the correct circular or elliptical target.
+  Branched quantity leaders can use open heads on each target. Missing wings,
+  crossed tips, dangling branches and off-centre or reversed shafts stay unresolved.
+  The 74 affected tests and 33 additional native macOS checks passed.
+- Next §8.35: a PDF probe draws three complete, identical 13-point-radius rims.
+  The one-path circle registers. When two semicircle paths or four quarter-circle
+  paths meet on the page, neither registers yet. Check unambiguous closed chains
+  and reject partial or branching paths. QIF remains last.
+
 ### Recover parenthesised reference dimensions without a writing plane
 
 - Checked PLAN §8.4 against docs/Roadmap.md. CTC-01 AP203 #3418 was opened with its
