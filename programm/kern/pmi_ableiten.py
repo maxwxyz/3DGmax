@@ -51,6 +51,13 @@ def bezugsreferenz(text, stelle):
     return BezugsRef("-".join(namen), stelle, mods, elemente)
 
 
+def geltungshinweis(text):
+    """Vollstaendige, unterstuetzte Rahmenzusaetze mit vereinheitlichten Wortabstaenden."""
+    text = " ".join(text.split())
+    muster = r"SIM REQT|(?:INNER AND OUTER|INNER|OUTER) WALLS?(?: OF ENTIRE GROOVE)?"
+    return text if re.fullmatch(muster, text) else ""
+
+
 def gueltige_rahmenwerte(werte):
     """Genau ein Wertfach mit bis zu drei getrennten Bezugsfaechern."""
     return (1 <= len(werte) <= 4 and _RAHMENWERT.fullmatch(werte[0]) is not None

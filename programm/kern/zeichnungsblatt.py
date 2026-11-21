@@ -1,6 +1,7 @@
 """PDF-Blatt in Leselage, mit Fundstellen aus Schrift und gezeichneten Toleranzrahmen."""
 
 from functools import cached_property, lru_cache
+import re
 import zlib
 
 import numpy as np
@@ -465,6 +466,43 @@ class Zeichnungsblatt:
     def zellen(self):
         return _zellen(self.bild.min(axis=2) < 195)
 
+    def _rahmenzusaetze(self, angaben):
+        """Buendige PDF-Textzeilen direkt unter einem waagerechten Rahmen zusammen pruefen."""
+        from bisect import bisect_left
+        zeilen = sorted(_einzelzeichen_verbinden(self.textbereiche, self.bild.shape[:2]), key=lambda z: z[0][1])
+        anfaenge = [box[1] for box, _ in zeilen]
+        vorschlaege, belegt = [], {}
+        for a in angaben:
+            if "|" not in a.text:
+                continue
+            l, t, r, b = a.box
+            h = b-t
+            if (r-l)*self.breite < 1.4*h*self.hoehe:
+                continue
+            ende, teile = b, []
+            start = bisect_left(anfaenge, b-.05*h)
+            for j in range(start, len(zeilen)):
+                (x, y, _, unten), text = zeilen[j]
+                if y-ende > 1.4*h:
+                    break
+                if abs(x-l)*self.breite > .65*h*self.hoehe or not .25*h <= unten-y <= 1.45*h:
+                    continue
+                if not teile and not re.match(r"^(?:SIM|INNER|OUTER)\b", text):
+                    break
+                if teile and lese_angabe(text, 1.) is not None:
+                    break
+                teile.append(j)
+                belegt[j] = belegt.get(j, 0)+1
+                ende = unten
+            if teile:
+                vorschlaege.append((a, teile))
+        for a, teile in vorschlaege:
+            boxen, texte = zip(*(zeilen[j] for j in teile))
+            a.rahmenbox = a.box
+            l, t, r, b = a.box
+            a.box = (min(l, *(q[0] for q in boxen)), t, max(r, *(q[2] for q in boxen)), max(b, *(q[3] for q in boxen)))
+            a.text += "\n" + ("\n".join(texte) if all(belegt[j] == 1 for j in teile) else "?")
+
     def fundstellen(self):
         h, w = self.bild.shape[:2]
         rahmen, einzeln = {}, []
@@ -493,4 +531,5 @@ class Zeichnungsblatt:
                            m.box[0] <= (ortsangabe.box[0]+ortsangabe.box[2])/2 <= m.box[2] and
                            m.box[1] <= (ortsangabe.box[1]+ortsangabe.box[3])/2 <= m.box[3] for ortsangabe in rahmen.values()):
                     rahmen[m.box] = m
+        self._rahmenzusaetze(rahmen.values())
         return sorted(rahmen.values(), key=lambda a: (a.box[1], a.box[0]))

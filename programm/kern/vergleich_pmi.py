@@ -16,8 +16,8 @@ from .pmi import Pmi
 GLEICH, GEAENDERT, NEU, ENTFALLEN = "gleich", "geaendert", "neu", "entfallen"
 GEOMETRIE = "geometrie"  # PMI unveraendert, aber Geometrie der zugeordneten Flaechen geaendert
 FELDER = ("nennwert", "oben", "unten", "passung", "wert", "zone", "zonen_wert", "projektionsversatz",
-          "maximum_toleranz", "material")
-FELD_TEXT = {"nennwert": "Nennwert", "oben": "oberes Abmaß/Höchstmaß", "unten": "unteres Abmaß/Mindestmaß",
+          "maximum_toleranz", "material", "beschreibung")
+FELD_TEXT = {"beschreibung": "Toleranzbeschreibung", "nennwert": "Nennwert", "oben": "oberes Abmaß/Höchstmaß", "unten": "unteres Abmaß/Mindestmaß",
              "passung": "Passung", "wert": "Toleranzwert", "zone": "Zone", "zonen_wert": "Zonenwert",
              "projektionsversatz": "Projektionsversatz", "projektionsflaechen": "Projektionsursprung",
              "maximum_toleranz": "Höchstwert der geometrischen Toleranz",

@@ -203,8 +203,11 @@ Throughout: tests (core, offscreen UI, stress test, on-screen test), `--selbstte
   FTC-07's position frame with .060 inch against A/B/C and .015 inch against A. Two surface-profile
   frames with a straight and an inclined leader segment ending in a filled dot pass the same
   round trip. A second FTC-07 position frame retains maximum material on both rows and datums
-  E/B/C. A blank modifier circle is distinguished from a trailing zero. Additional text outside
-  the frame keeps the complete control under manual review.
+  E/B/C. A blank modifier circle is distinguished from a trailing zero. All six FTC-07 composite
+  frames have now passed graphical-only STEP round trips, including “SIM REQT” and the full
+  “INNER AND OUTER WALL OF ENTIRE GROOVE” note. Recognised notes are stored on both tolerances.
+  Two filled endpoints can share one leader. Other lettering and explicit cross-control
+  membership of simultaneous requirements remain open.
   Open: additional fonts, further composite layouts and dimensions with
   ambiguous leader or text placement.
 - Convert to semantic PMI: evaluate recognized text + frame structure; mark result as "derived (check)", never as
@@ -921,7 +924,9 @@ print annotations. Today 3DGmax writes generated texts only into the placeholder
   reads supported stacked deviations, datum letters and control-frame cells. For a missing symbol
   it checks the original first cell of a single frame or uses a specific callout name. The dialog
   identifies the source. For supported two-row frames, both validation rows must agree with the
-  plot or the reviewer must enter the values. Other composite layouts and unknown qualifiers remain open.
+  plot or the reviewer must enter the values. When only the shared scope note is truncated, the
+  dialog shows both wordings and keeps the checked values. Accepting retains the complete graphical note.
+  Other layouts and qualifiers remain open.
   A graphical-only copy of FTC-07 was converted and reloaded with six confirmed characteristics,
   including a rounded printed diameter that differs from the original semantic value.
   **Done (2026-11-20): model-wide conversion and combined STEP export.** The Tools command reviews the graphical
@@ -1681,6 +1686,10 @@ On D2MI 904 sheet 1, eight ellipses identify four stepped bores. The four outer 
 the eight cylindrical faces of STEP diameter PMI #103256. Highlighting,
 clicks and arrows follow the elliptical rim. The CSV retains the centre and major semi-axis in the
 existing columns and adds the minor semi-axis and clockwise angle for each accepted ellipse.
+
+For individual reviewed tolerance rows the PDF reader joins aligned scope wording below the frame.
+A two-sheet drawing with and without “OF ENTIRE GROOVE” produced equal and changed findings against
+one model tolerance. The CSV retains both texts. Ambiguous ownership and unresolved text stay open.
 
 Remaining work includes occluded rims, perspective views, sections, non-circular features and leaders on section or edge geometry, automatically
 finding additional types of unframed graphical annotations, interpreting composite controls and establishing

@@ -4,7 +4,8 @@ import numpy as np
 
 from . import pmi_strichschrift as schrift
 from .pmi_ableiten import gueltige_rahmenzellen
-from .pmi_hinweislinie import punkt_hinweislinie
+from .pmi_hinweislinie import doppelte_punktlinie, punkt_hinweislinie
+from .pmi_rahmenzusatz import lies_zusatz
 
 
 def _fachreihe(teile, symbol, grenze):
@@ -19,7 +20,7 @@ def _fachreihe(teile, symbol, grenze):
     return reihe
 
 
-def _verbundzellen(faecher, maske):
+def _verbundzellen(faecher, maske, *, nur_anordnung=False):
     if len(faecher) < 3:
         return []
     symbol = max(faecher, key=lambda f: f[3]-f[1])
@@ -32,6 +33,9 @@ def _verbundzellen(faecher, maske):
     if (not oben or not unten or len(oben)+len(unten) != len(zeilen)
             or not 0 < unten[0][1]-oben[0][3] <= grenze):
         return []
+    zeilen = [[symbol, *oben], [symbol, *unten]]
+    if nur_anordnung:
+        return zeilen, ""
     # Auch im freien Bereich neben einer kuerzeren Zeile koennte ein Zusatz stehen.
     rest = maske.copy()
     stege = [unten[0][1]-oben[0][3], oben[0][0]-r, unten[0][0]-r]
@@ -39,9 +43,13 @@ def _verbundzellen(faecher, maske):
     rand = max(stege)+1
     for x, y, u, v in [symbol, *oben, *unten]:
         rest[max(0,y-rand):v+rand, max(0,x-rand):u+rand] = False
+    zusatz = ""
     if rest.any() and not punkt_hinweislinie(rest, symbol, rand):
-        return []
-    return [[symbol, *oben], [symbol, *unten]]
+        zusatz = lies_zusatz(rest, symbol, rand)
+        if not zusatz or (rest.any() and not (punkt_hinweislinie(rest, symbol, rand)
+                                              or doppelte_punktlinie(rest, symbol, rand))):
+            return []
+    return zeilen, zusatz
 
 
 def _lesarten(pfade, richtungen):
@@ -66,11 +74,11 @@ def _lesarten(pfade, richtungen):
             links, rechts = (l, r) if x == 1 else (w-r, w-l)
             oben, unten = (t, b) if y == 1 else (h-b, h-t)
             gespiegelt.append((links, oben, rechts, unten))
-        zeilen = _verbundzellen(gespiegelt, m[::y, ::x])
+        zeilen = _verbundzellen(gespiegelt, m[::y, ::x], nur_anordnung=(x, y) != (1, 1))
         if not zeilen:
             continue
         if (x, y) == (1, 1):
-            ergebnisse.update(_zeilentexte(pfade, zeilen, box, k))
+            ergebnisse.update(_zeilentexte(pfade, *zeilen, box, k))
         else:
             # Das Rastern gespiegelter Kanten kann um einen Pixel vom gespiegelten Raster abweichen.
             orientiert = [(p * [x, y], voll) for p, voll in pfade]
@@ -78,16 +86,16 @@ def _lesarten(pfade, richtungen):
             faecher_neu = schrift._rechteckfaecher(bild, .32)
             reihen = _verbundzellen(faecher_neu, bild)
             if reihen:
-                ergebnisse.update(_zeilentexte(orientiert, reihen, lage, k))
+                ergebnisse.update(_zeilentexte(orientiert, *reihen, lage, k))
     return ergebnisse
 
 
-def _zeilentexte(pfade, zeilen, box, k):
+def _zeilentexte(pfade, zeilen, zusatz, box, k):
     lesarten = set()
     # Zwei Rasteraufloesungen trennen duenne Glyphen; jede komplette Lesart muss uebereinstimmen.
     for pixelhoehe in (100, 150):
         lesarten.update(_lese_faecher(pfade, zeilen, box, k, pixelhoehe))
-    return lesarten
+    return {(*paar, zusatz) for paar in lesarten} if zusatz else lesarten
 
 
 def _lese_faecher(pfade, zeilen, box, k, pixelhoehe):
@@ -109,7 +117,7 @@ def _lese_faecher(pfade, zeilen, box, k, pixelhoehe):
 
 
 def lies_verbund(g):
-    """Beide Rahmenzeilen muessen in allen lesbaren Ausrichtungen uebereinstimmen."""
+    """Zwei Zeilen und gegebenenfalls ihr gemeinsamer Geltungshinweis in eindeutiger Leserichtung."""
     if not schrift._lesbar(g):
         return ()
     ebenen = (g.ebene,) if g.ebene is not None else schrift._rahmenrichtungen(g)

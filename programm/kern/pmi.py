@@ -116,6 +116,8 @@ class Pmi:
 
     folgetoleranzen: list[int] = field(default_factory=list)  # STEP-Ids nachgeordneter Verbundtoleranzen
 
+    beschreibung: str = ""  # Wortlaut der STEP-Toleranzbeschreibung
+
     # --- Darstellung ---
 
     def wert_text(self) -> str:

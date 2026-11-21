@@ -285,23 +285,28 @@ def flaechen_vorschlag(g, modell, max_punkte: int = 400) -> set[int]:
 def verbundvorschlaege(v, g, modell):
     """Zwei getrennt pruefbare Toleranzen mit gemeinsamem Symbol und gemeinsamer Zielflaechenauswahl."""
     from .pmi_ableiten import aus_text
-    from .pmi_validierungstext import verbundtext_passt
+    from .pmi_validierungstext import verbundtext_abgleich
     from .pmi_verbundschrift import lies_verbund
     if v.art != TOLERANZ or v.ocr_text or g.erzeugt or any(p.text for p in g.platzhalter):
         return ()
-    zeilen = lies_verbund(g)
-    if not zeilen:
+    gelesen = lies_verbund(g)
+    if not gelesen:
         return ()
+    zeilen = gelesen[:2]
+    zusatz = gelesen[2] if len(gelesen) == 3 else ""
     daten = [aus_text([z], g.textfaktor) for z in zeilen]
     if not all(d and d.get("wert") is not None and (not v.typ or d["typ"] == v.typ) for d in daten):
         return ()
-    passt = verbundtext_passt(getattr(modell, "datei", None), g, zeilen, daten)
+    passt, kurztext = verbundtext_abgleich(getattr(modell, "datei", None), g, zeilen, daten, zusatz)
     vorschlaege = []
     for wort, felder in zip(zeilen, daten):
         neu = Pmi(**felder, norm=v.norm, callout=v.callout, flaechen=set(v.flaechen), nur_grafik_text=wort)
+        neu.beschreibung = zusatz
         neu.ocr_text = wort
         if not passt:
             neu.wert = None
+        if kurztext or not passt:
+            neu.kurzer_geltungshinweis = kurztext
             neu.validierungstexte = v.validierungstexte
             neu.rahmensymbolquelle = ""
             neu.merkmalsname = ""

@@ -2,6 +2,36 @@
 
 ## Current state, 2026-11-21
 
+### Scope notes on graphical composite frames
+
+- Checked PLAN §§8.4, 8.18 and 8.28 against docs/Roadmap.md. The FTC-07 frame #15050 has a
+  two-branch leader with two filled endpoints. Two lines of plotted lettering say “INNER AND
+  OUTER WALL OF ENTIRE GROOVE”. The validation property #15064 drops the final three words.
+  The reviewer sees its abbreviated wording alongside the complete graphical note. The numeric
+  values agree and remain prefilled. Accepting uses the full graphical wording on both rows.
+- #15098 has a single leader and the plotted note “SIM REQT”. The lettering is checked glyph
+  by glyph, including spaces and complete lines. Both tolerances carry the complete note in
+  GEOMETRIC_TOLERANCE.description. The model comparison includes that description. The text
+  alone does not identify the membership of a simultaneous group of other controls.
+- PLAN §8.35 also compares known scope wording on individual PDF rows. A two-sheet PDF
+  with the same tolerance value and different groove-wall notes returns one equal and one
+  changed finding. Both wordings survive CSV export. The NIST D2MI-904 description
+  “Geometric tolerance for feature” is a general CAD label. It does not occur on the drawing.
+  An unclassified model description remains unresolved in the drawing comparison.
+- Verified all six frames in the same STEP export, including twelve tolerance rows and four
+  reviewed datums. Original strokes and generated triangle-only versions both passed. For
+  the two scope-bearing frames the triangle variant also passed with their planes removed,
+  after saving and reopening the project. Open CASCADE's independent STEP entity reader
+  returned the full descriptions on all four affected rows. The affected suite passed 263
+  tests, the follow-up selection passed 142, and the combined native macOS run passed 24.
+  All 2606 interface strings have English translations.
+- For an explicit membership test, FTC-07 upper rows #14614 and #15076 reference the very same
+  datum system #13915. The fixture has no explicit simultaneity link between them. A test copy
+  can add one to verify the distinction between the text and explicit STEP membership.
+  CAx-IF describes the legacy relationship name `simultaneity` and recommends against generating
+  it. See [PMI Recommended Practices v4.1](https://www.mbx-if.org/home/wp-content/uploads/2024/06/rec_pracs_pmi_v41.pdf).
+  Other lettering and explicit membership across controls remain open. QIF stays last.
+
 ### Semantic STEP composite frame relationships
 
 - Checked PLAN §§8.1, 8.4 and 8.18 against docs/Roadmap.md. Imported composite tolerances

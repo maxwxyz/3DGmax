@@ -641,6 +641,8 @@ def spalten_menue(tabelle, pos, standard: set[str] | None = None, gespeichert=No
 
 def _tooltip(p) -> str:
     teile = [p.name or p.typ, tr("Typ: {}").format(p.typ)]
+    if p.beschreibung:
+        teile.append(p.beschreibung)
     if p.modifikatoren:
         teile.append(tr("Modifikatoren: {}").format(", ".join(p.modifikatoren)))
     teile.append(tr("Flächen: {}").format(len(p.flaechen)))

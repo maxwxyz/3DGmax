@@ -375,10 +375,11 @@ def _schreibe_toleranz(a: _Anhang, p, aspekt=None) -> str | None:
     if p.maximum_toleranz is not None:
         teile["GEOMETRIC_TOLERANCE_WITH_MAXIMUM_TOLERANCE"] = f"(#{a.mass(p.maximum_toleranz)})"
     name = (p.name or p.typ).replace("'", "''")
+    beschreibung = p.beschreibung.replace("'", "''")
     if len(teile) == 1:
-        tol = a.neu(f"{entitaet}('{name}','',#{betrag},#{sa})")
+        tol = a.neu(f"{entitaet}('{name}','{beschreibung}',#{betrag},#{sa})")
     else:
-        teile["GEOMETRIC_TOLERANCE"] = f"('{name}','',#{betrag},#{sa})"
+        teile["GEOMETRIC_TOLERANCE"] = f"('{name}','{beschreibung}',#{betrag},#{sa})"
         tol = a.neu("( " + " ".join(f"{k}{teile[k]}" for k in sorted(teile)) + " )")
     zonenform = ("spherical" if "SphericalDiameter" in p.modifikatoren else
                  "cylindrical or circular" if "Diameter" in p.modifikatoren else "")

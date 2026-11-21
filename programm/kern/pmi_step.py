@@ -246,9 +246,10 @@ def _lies_rahmen(modell: StepModell, e: Entity, zonen: dict[int, list[Entity]]) 
         # einfache Entitaet, z. B. FLATNESS_TOLERANCE(name, beschr, betrag, aspekt[, bezuege])
         grund = e.args()
         bezug_refs = grund[4] if len(grund) > 4 else None
-    name, _, betrag, aspekt = grund[:4]
+    name, beschreibung, betrag, aspekt = grund[:4]
     typ = next((TOL_ARTEN[t] for t in e.parts if t in TOL_ARTEN), "None")
     p = Pmi(TOLERANZ, typ=typ, name=name or "", quelle="step", step_id=e.id)
+    p.beschreibung = beschreibung if isinstance(beschreibung, str) else ""
     p.wert = laenge_mm(datei, betrag)
     if bezug_refs:
         p.bezuege = _bezugssystem(datei, bezug_refs)

@@ -49,6 +49,11 @@ class SemantikDialog(QtWidgets.QDialog):
         info.setTextFormat(QtCore.Qt.TextFormat.PlainText)
         info.setObjectName("leise")
         lay.addRow(info)
+        if vorschlag.beschreibung:
+            zusatz = QtWidgets.QLabel(vorschlag.beschreibung)
+            zusatz.setTextFormat(QtCore.Qt.TextFormat.PlainText)
+            zusatz.setWordWrap(True)
+            lay.addRow(tr("Geltungshinweis für beide Zeilen"), zusatz)
         validierung = getattr(vorschlag, "validierungstexte", ())
         if validierung:
             herkunft = (tr("Mehrere STEP-Validierungstexte sind dieser Grafik zugeordnet. Werte an der Grafik prüfen.")
@@ -60,6 +65,9 @@ class SemantikDialog(QtWidgets.QDialog):
             if getattr(vorschlag, "ocr_text", "") and vorschlag.wert is None:
                 herkunft = tr("Grafik und STEP-Validierung stimmen nicht überein. Beide Rahmenzeilen prüfen. Dateitext: {}").format(
                     " / ".join(validierung))
+            if kurztext := getattr(vorschlag, "kurzer_geltungshinweis", ""):
+                herkunft = tr("Im STEP-Validierungstext steht „{}“. Beim Übernehmen gilt der vollständige "
+                              "Geltungshinweis aus der Grafik.").format(kurztext)
             label = QtWidgets.QLabel(herkunft)
             label.setTextFormat(QtCore.Qt.TextFormat.PlainText)
             label.setWordWrap(True)

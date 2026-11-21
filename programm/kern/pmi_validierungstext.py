@@ -126,23 +126,32 @@ def validierungsvorschlag(datei, g, bekannt):
     return (druck,), felder, ergaenzung
 
 
-def verbundtext_passt(datei, g, zeilen, daten):
-    """Ein gespeicherter mehrzeiliger Validierungstext muss beide Zeilen in dieser Folge bestaetigen."""
+def verbundtext_abgleich(datei, g, zeilen, daten, zusatz=""):
+    """Werte beider Zeilen pruefen und einen eindeutig verkuerzten gemeinsamen Hinweis melden."""
     roh = _validierungswerte(datei, g.callout_id) if datei is not None else set()
     if not roh:
-        return True
+        return True, ""
     if len(roh) != 1:
-        return False
+        return False, ""
     quelle = roh.pop().split(r"\n")
     if len(quelle) != len(zeilen):
-        return False
+        return False, ""
     symbol = zeilen[0].split()[0]
+    hinweise = set()
     for i, (text, soll) in enumerate(zip(quelle, daten)):
-        zellen = text.split(r"\w")
+        inhalt, _, hinweis = text.partition(r"\xTXT\w")
+        hinweise.add(hinweis)
+        zellen = inhalt.split(r"\w")
         if i == 0:
             if zellen.pop(0) != "FCF" or not zellen or zellen.pop(0) not in ("", symbol):
-                return False
+                return False, ""
         zellen.insert(0, symbol)
         if not gueltige_rahmenzellen(zellen) or aus_text(zellen, g.textfaktor) != soll:
-            return False
-    return True
+            return False, ""
+    if hinweise == {zusatz}:
+        return True, ""
+    if len(hinweise) == 1:
+        kurz = hinweise.pop()
+        if kurz and zusatz.startswith(kurz + " "):
+            return True, kurz
+    return False, ""

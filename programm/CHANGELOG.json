@@ -1,6 +1,7 @@
 {
  "unreleased": {
   "de": [
+   "Bei zweizeiligen Toleranzrahmen liest die App die Hinweise „SIM REQT“ und „INNER AND OUTER WALL OF ENTIRE GROOVE“ aus Strichen und gefüllter Schrift. Prüfdialog, STEP-Export und Modellvergleich erhalten den vollständigen Wortlaut für beide Zeilen. Abweichende STEP-Validierungstexte werden angezeigt. Der PDF-Abgleich prüft den Geltungshinweis pro zugeordneter Rahmenzeile und übernimmt beide Wortlaute in die CSV-Prüfliste.",
    "Zweizeilige Toleranzrahmen mit gemeinsamem Symbol lassen sich aus Strichen und gefüllten Dreiecken semantisch machen. Auch Flächenprofilrahmen mit geknickter Hinweislinie und gefülltem Endpunkt werden gelesen. Beide Zeilen werden zusammen bestätigt. Im STEP bleiben die Originalgrafik, die gemeinsamen Flächen, beide Bezugsfolgen und die Verknüpfung der Toleranzen erhalten.",
    "Bei semantischen STEP-Verbundrahmen zeigt die PMI-Liste die Nummern der zugehörigen Toleranzzeilen. Der Modellvergleich meldet gelöste, umgekehrte und geänderte Verknüpfungen auch bei gleichen Toleranzwerten.",
    "Bei grafischen Durchmessermaßen erkennt die App einen abgesetzten Kreisbogen an der Pfeilspitze. Maß und Abmaße lassen sich aus Strichen und reinen Dreiecksfüllungen lesen und mit der Originalgrafik als STEP speichern.",
@@ -169,6 +170,7 @@
    "Grafische PMI aus unterstützten AP203e2-Kurvenmodellen lassen sich als STEP AP242 Edition 3 ausgeben. Facettierte STEP-Modelle behalten ihre Flächenbezüge. Gepackte STEP-Dateien lassen sich als unkomprimierte STEP-Kopie speichern."
   ],
   "en": [
+   "Two-row tolerance frames now recognise the notes “SIM REQT” and “INNER AND OUTER WALL OF ENTIRE GROOVE” from strokes or filled lettering. Review, STEP export and model comparison retain the full wording on both rows. The review shows conflicting STEP validation text. PDF comparison checks scope wording on each matched row and includes both texts in the CSV review.",
    "Two-row tolerance frames with a shared symbol can be converted from strokes or filled triangles. This includes surface-profile frames with a bent leader ending in a filled dot. Both rows are confirmed together. STEP preserves the original graphics, shared faces, each datum sequence and the relationship between the tolerances.",
    "For semantic STEP composite frames, the PMI list shows the numbers of the linked tolerance rows. Model comparison reports removed, reversed and redirected relationships even when the individual tolerance values are unchanged.",
    "Graphical diameter dimensions can now be read when a detached circular arc is present at the arrow tip. Dimensions and deviations from strokes or filled triangles can be saved as STEP with the original graphics.",

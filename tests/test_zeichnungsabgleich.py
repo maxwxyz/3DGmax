@@ -49,6 +49,25 @@ def test_semantische_felder_einheiten_grenzen_und_offene_zuordnung():
     assert "bezuege" in za.unterschiede(p, replace(p, bezuege=[BezugsRef("A", 2)]))
 
 
+@pytest.mark.parametrize("hinweis", ["SIM REQT", "INNER AND OUTER WALL\nOF ENTIRE GROOVE"])
+def test_gezeichnete_rahmenzeile_vergleicht_den_vollen_geltungshinweis(hinweis):
+    text = "⌓ | .030 | A | B | C"
+    modell = replace(za.lese_angabe(text, 25.4), beschreibung=" ".join(hinweis.split()))
+    blatt = za.Blattangabe(0, (0, 0, .1, .1), text+"\n"+hinweis, modell=modell)
+    assert za.befund(blatt, 25.4) == "gleich"
+    blatt.text = text
+    assert za.befund(blatt, 25.4) == "geaendert"
+    assert za.unterschiede(za.lese_angabe(blatt.text, 25.4), modell) == ["beschreibung"]
+    blatt.text = text+"\nOUTER WALL"
+    assert za.befund(blatt, 25.4) == "geaendert"
+    blatt.modell = replace(modell, beschreibung="Geometric tolerance for feature")
+    assert za.befund(blatt, 25.4) == "geaendert"
+    blatt.modell = replace(modell, beschreibung="INSPECT IN ASSEMBLY")
+    assert za.befund(blatt, 25.4) == "offen"
+    blatt.text = text+"\nSIM ?"
+    assert za.befund(blatt, 25.4) == "offen"
+
+
 def test_pdf_aus_dem_dateimenue_zuordnen_und_exportieren(fenster_ctc01, tmp_path, monkeypatch):
     f = fenster_ctc01
     pfad = _zeichnung(tmp_path / "Zeichnung.pdf")
@@ -230,3 +249,61 @@ def test_hinweislinie_und_zwei_beschriftungen_bleiben_offen(app):
     linie = np.pad(np.ones((1, 200), bool), ((10, 10), (5, 5)))
     for maske in (linie, zwei_zeilen):
         assert not _geneigte_angabe(ndimage.rotate(maske, 33, order=0))
+
+
+def test_pdf_geltungsbereich_vergleichen_und_exportieren(fenster_ctc01, tmp_path, monkeypatch):
+    f = fenster_ctc01
+    hinweis = "INNER AND OUTER WALL OF ENTIRE GROOVE"
+    m, = f.fuege_pmi_hinzu([Pmi("toleranz", "ProfileOfSurface", wert=.03, flaechen={0}, beschreibung=hinweis)])
+    pfad = tmp_path/"Profil.pdf"
+    pdf = QtGui.QPdfWriter(str(pfad))
+    pdf.setResolution(72)
+    maler = QtGui.QPainter(pdf)
+    maler.setFont(QtGui.QFont("Helvetica", 14))
+    for i in range(2):
+        if i:
+            pdf.newPage()
+        maler.drawText(90, 80, "⌓ | .030")
+        maler.drawText(90, 102, "INNER AND OUTER WALL")
+        if i == 0:
+            maler.drawText(90, 124, "OF ENTIRE GROOVE")
+    maler.end()
+    ziel = tmp_path/"Geltungsbereich.csv"
+    monkeypatch.setattr(QtWidgets.QFileDialog, "getOpenFileName", lambda *args: (str(pfad), "PDF"))
+    monkeypatch.setattr(QtWidgets.QFileDialog, "getSaveFileName", lambda *args: (str(ziel), "CSV"))
+    f.aktionen["zeichnungsabgleich"].trigger()
+    d = f.zeichnungsabgleich
+    try:
+        d.einheit.setCurrentIndex(1)
+        for i, erwartet in enumerate(("gleich", "geaendert")):
+            d.seite.setValue(i+1)
+            a, = [a for a in d.seiten[i] if a.text.startswith("⌓ | .030")]
+            d.waehle(a)
+            assert a.rahmenbox and a.rahmenbox[3] < a.box[3]
+            assert a.text.splitlines()[0] == "⌓ | .030" and (hinweis in " ".join(a.text.split())) == (i == 0)
+            d.zuordnung.setCurrentIndex(d.zuordnung.findData(d.modellindex[id(m)]))
+            d.bestaetigen.click()
+            assert za.befund(a, 1.) == erwartet
+        assert "Im Modell: "+hinweis in d.detail.text()
+        d._export()
+    finally:
+        d.close()
+    with ziel.open(encoding="utf-8-sig") as datei:
+        zeilen = [z for z in csv.DictReader(datei, delimiter=";") if z["Modell-PMI"] == str(m.nummer)]
+    assert [z["Befund"] for z in zeilen] == ["Werte gleich", "Abweichend"]
+    assert all(z["Modellwert"].endswith(hinweis) for z in zeilen)
+
+
+def test_geltungshinweis_braucht_einen_eindeutigen_nahen_rahmen():
+    from types import SimpleNamespace
+    import numpy as np
+    from programm.kern.zeichnungsblatt import Zeichnungsblatt
+
+    hinweis = ((.10, .17, .28, .20), "SIM REQT")
+    blatt = SimpleNamespace(bild=np.zeros((100, 100)), breite=100, hoehe=100, textbereiche=[hinweis])
+    a = za.Blattangabe(0, (.10,.10,.39,.15), "⌓ | .030")
+    b = za.Blattangabe(0, (.11,.09,.40,.14), "⌓ | .015")
+    fern = za.Blattangabe(0, (.60,.10,.90,.15), "⌓ | .005")
+    Zeichnungsblatt._rahmenzusaetze(blatt, [a,b,fern])
+    assert all(za.lese_angabe(k.text, 1.) is None for k in (a,b))
+    assert fern.text == "⌓ | .005"

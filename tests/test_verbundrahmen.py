@@ -111,3 +111,31 @@ def test_unlesbare_materialbedingung_wird_keine_zusaetzliche_null(ftc07, tmp_pat
             defekt = lies_grafik(lade_step(datei).datei)[14735]
             assert defekt.dreiecke and not defekt.linien
         assert not lies_verbund(defekt)
+
+
+def test_unvollstaendige_geltungshinweise_und_zusaetzlicher_zweig(ftc07):
+    from dataclasses import replace
+    from programm.kern.pmi_verbundschrift import lies_verbund
+    from programm.kern.praesentation import lies_grafik
+
+    grafik = lies_grafik(ftc07.datei)
+    for nr, strich in ((15050, 51), (15098, 20)):
+        g = grafik[nr]
+        assert len(lies_verbund(g)) == 3
+        assert not lies_verbund(replace(g, linien=g.linien[:strich]+g.linien[strich+1:]))
+    g = grafik[15050]
+    # Ohne die vollstaendige zweite Textzeile enthaelt auch der Vorschlag nur die erste.
+    kurz = replace(g, linien=g.linien[:44]+g.linien[67:])
+    assert lies_verbund(kurz) == ("⌓ .030 A B C", "⌓ .005 A B C", "INNER AND OUTER WALL")
+    zweig = g.linien[-1] + 2*g.ebene[1]
+    assert not lies_verbund(replace(g, linien=[*g.linien, zweig]))
+
+
+def test_vergleich_zeigt_geaenderten_geltungshinweis():
+    from dataclasses import replace
+    from programm.kern.pmi import Pmi
+    from programm.kern.vergleich_pmi import GEAENDERT, vergleiche_pmi
+
+    p = Pmi("toleranz", "ProfileOfSurface", wert=.5, beschreibung="INNER AND OUTER WALL OF ENTIRE GROOVE")
+    a, = vergleiche_pmi([p], [replace(p, beschreibung="INNER AND OUTER WALL")])
+    assert a.status == GEAENDERT and a.felder == [("beschreibung", p.beschreibung, "INNER AND OUTER WALL")]

@@ -1,4 +1,8 @@
 {
+"Geltungshinweis auf dem Blatt: {} · Im Modell: {}": "Scope note on the drawing: {} · In the model: {}",
+"Im STEP-Validierungstext steht „{}“. Beim Übernehmen gilt der vollständige Geltungshinweis aus der Grafik.": "The STEP validation text reads “{}”. Accepting uses the full scope note from the graphic.",
+"Geltungshinweis für beide Zeilen": "Scope note for both rows",
+"Toleranzbeschreibung": "Tolerance description",
 "Untere Zeile prüfen": "Review lower row",
 "Grafik und STEP-Validierung stimmen nicht überein. Beide Rahmenzeilen prüfen. Dateitext: {}": "The graphics and STEP validation disagree. Check both frame rows. File text: {}",
 "Verbundrahmen prüfen · Zeile {} von 2": "Review composite frame · row {} of 2",

@@ -845,7 +845,8 @@ def _als_fuellung(datei, rein, ziel, callouts, ohne_ebene=False):
         if ohne_ebene:
             start = text.index(f"#{ebene}=ANNOTATION_PLANE(")
             text = text[:start] + text[text.index(";", start)+1:]
-            text = text.replace(f"#{ebene},", "")
+            # Der Callout bleibt direktes Mitglied des Zeichenmodells.
+            text = text.replace(f"#{ebene},", f"#{nr},")
     ziel.write_text(text, encoding="utf-8")
     return str(ziel)
 
@@ -1083,19 +1084,27 @@ def test_verbundrahmen_widerspruch_und_zusatzgrafik(tmp_path):
     assert not lies_verbund(gedreht)
 
 
-@pytest.mark.parametrize("fuellung", [False, True], ids=["striche", "dreiecke"])
-def test_verbundrahmen_mit_material_und_profilhinweisen(fenster, tmp_path, fuellung):
+@pytest.mark.parametrize("darstellung", ["striche", "dreiecke", "dreiecke_ohne_ebene_mit_dateitext"])
+def test_verbundrahmen_mit_material_und_profilhinweisen(fenster, tmp_path, darstellung):
+    from PySide6 import QtWidgets
     from programm.kern.pmi_verbundschrift import lies_verbund
 
+    fuellung = darstellung != "striche"
+    mit_dateitext = darstellung == "dreiecke_ohne_ebene_mit_dateitext"
     quelle, ref, rein = _ohne_semantik(pfad("nist_ftc_07_asme1_ap242-e2.stp"), tmp_path/"Profil.stp",
-                                       validierung=False)
+                                       validierung=mit_dateitext)
     if fuellung:
-        callouts = [(nr, nr-3, None) for nr in (14143, 14636, 14735, 15050, 15098)]
+        callouts = [(nr, nr-3, None) for nr in (14143, 14498, 14636, 14735)]
         quelle = _als_fuellung(quelle, rein, tmp_path/"Profil gefuellt.stp", callouts)
+        quelle = _als_fuellung(quelle, rein, tmp_path/"Hinweise gefuellt.stp",
+                               [(nr, nr-3, nr+8) for nr in (15050, 15098)], ohne_ebene=mit_dateitext)
     f = fenster
     f.lade(quelle, warten=True)
     druck = {14143: ("⌓ .04 A B C", "⌓ .01 A"), 14636: ("⌓ .070 A B C", "⌓ .015 A"),
-             14735: ("⌖ ⌀.06Ⓜ E B C", "⌖ ⌀.02Ⓜ E B C")}
+             14498: ("⌖ ⌀.060 A B C", "⌖ ⌀.015 A"),
+             14735: ("⌖ ⌀.06Ⓜ E B C", "⌖ ⌀.02Ⓜ E B C"),
+             15050: ("⌓ .030 A B C", "⌓ .005 A B C", "INNER AND OUTER WALL OF ENTIRE GROOVE"),
+             15098: ("⌓ .070 A B C", "⌓ .015 A", "SIM REQT")}
     for nr in (13706, 13747, 13788, 13887, *druck):
         referenzen = [p for p in ref.pmi if p.step_id in ref.grafik[nr].pmi_ids and
                       p.art == ("toleranz" if nr in druck else "bezug")]
@@ -1108,14 +1117,29 @@ def test_verbundrahmen_mit_material_und_profilhinweisen(fenster, tmp_path, fuell
             d = f._semantik_dialog
             if nr in druck:
                 assert d.v.ocr_text == druck[nr][i]
+                if len(druck[nr]) == 3:
+                    assert (g.ebene is None) == mit_dateitext
+                    assert d.v.beschreibung == druck[nr][2]
+                    assert any(w.text() == d.v.beschreibung for w in d.findChildren(QtWidgets.QLabel))
+                if mit_dateitext and nr == 15050:
+                    assert d.v.wert == pytest.approx(soll.wert) and d.felder["wert"].text()
+                    assert d.v.kurzer_geltungshinweis == "INNER AND OUTER WALL"
+                    assert any("Beim Übernehmen gilt" in w.text() for w in d.findChildren(QtWidgets.QLabel))
+                    assert "INNER AND OUTER WALL" in d.v.validierungstexte[0]
+                    assert "OF ENTIRE GROOVE" not in d.v.validierungstexte[0]
+                else:
+                    assert d.v.wert == pytest.approx(soll.wert)
             f.ansicht.setze_auswahl([f.erg.modell.flaechen[j] for j in soll.flaechen])
             d._auswahl_uebernehmen()
             assert not d.fehler()
             d._pruefen()
-    for nr in (15050, 15098):
-        assert not lies_verbund(f.erg.grafik[nr])
+    if mit_dateitext:
+        projekt = f.speichere_projekt(str(tmp_path/"Geprüfte Geltungshinweise"))
+        f.lade(projekt, warten=True)
+        for nr in (15050, 15098):
+            assert [p.beschreibung for p in f.erg.pmi if p.callout == nr] == [druck[nr][2]]*2
     ziel = f.speichere_step_pmi(str(tmp_path/"Profil geprueft.stp"), melden=False)
-    assert len(f._step_bericht.repariert) == 10 and not f._step_bericht.uebersprungen
+    assert len(f._step_bericht.repariert) == 16 and not f._step_bericht.uebersprungen
     neu = lade_alles(ziel)
     assert all(neu.modell.datei.get(i) == ent for i, ent in f.erg.modell.datei.entities.items())
     for nr in druck:
@@ -1123,6 +1147,42 @@ def test_verbundrahmen_mit_material_und_profilhinweisen(fenster, tmp_path, fuell
         ist = [p for p in neu.pmi if p.art == "toleranz" and p.step_id in neu.grafik[nr].pmi_ids]
         assert len(ist) == 2 and ist[0].folgetoleranzen == [ist[1].step_id]
         for a, b in zip(soll, ist, strict=True):
+            assert b.beschreibung == (druck[nr][2] if len(druck[nr]) == 3 else "")
+            assert neu.modell.datei.get(b.step_id).args("GEOMETRIC_TOLERANCE")[1] == b.beschreibung
             assert b.typ == a.typ and b.wert == pytest.approx(a.wert)
             assert b.material == a.material and b.modifikatoren == a.modifikatoren
             assert b.bezug_text() == a.bezug_text() and b.flaechen == a.flaechen
+    if mit_dateitext:
+        from OCC.Core.STEPControl import STEPControl_Reader
+        from OCC.Core.StepDimTol import StepDimTol_GeometricTolerance
+        leser = STEPControl_Reader()
+        assert leser.ReadFile(ziel) == 1
+        modell = leser.StepModel()
+        erwartet = {p.step_id: p.beschreibung for p in neu.pmi if p.beschreibung}
+        gelesen = {}
+        for i in range(1, modell.NbEntities()+1):
+            e = modell.Value(i)
+            nr = modell.IdentLabel(e)
+            if nr in erwartet:
+                gelesen[nr] = StepDimTol_GeometricTolerance.DownCast(e).Description().ToCString()
+        assert len(gelesen) == 4 and gelesen == erwartet
+
+
+def test_geltungshinweise_mit_abweichender_bedeutung_bleiben_offen(tmp_path):
+    from programm.kern import pmi_reparieren
+
+    quelle, _, _ = _ohne_semantik(pfad("nist_ftc_07_asme1_ap242-e2.stp"), tmp_path/"Nut.stp")
+    data = Path(quelle).read_text(encoding="utf-8")
+    assert data.count("INNER AND OUTER WALL") == 2
+    for text in ("OUTER WALL ONLY", "INNER AND OUTER WALLS"):
+        Path(quelle).write_text(data.replace("INNER AND OUTER WALL", text), encoding="utf-8")
+        erg = lade_alles(quelle)
+        g = erg.grafik[15050]
+        p = next(p for p in erg.pmi if p.step_id == 15050)
+        v = pmi_reparieren.vorschlag(p, g, erg.modell)
+        paar = pmi_reparieren.verbundvorschlaege(v, g, erg.modell)
+        assert len(paar) == 2
+        for zeile in paar:
+            assert zeile.wert is None and not zeile.kurzer_geltungshinweis
+            assert zeile.beschreibung == "INNER AND OUTER WALL OF ENTIRE GROOVE"
+            assert text in zeile.validierungstexte[0]

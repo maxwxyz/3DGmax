@@ -99,6 +99,18 @@ def _an_strecke(punkte, start, ende, toleranz):
     return np.linalg.norm(punkte - (start + anteil[:, None]*richtung), axis=1) <= toleranz
 
 
+def _punktradien(punkte, zentrum, radius):
+    """In jedem Viertel des Endpunkts muss Tinte stehen, auch bei Schraffur."""
+    lokal = punkte - zentrum
+    radien = np.linalg.norm(lokal, axis=1)
+    kern = lokal[radien < .75*radius]
+    viertel = np.pi*(.75*radius)**2/4
+    if any(np.sum((a*kern[:, 0] > 0) & (b*kern[:, 1] > 0)) < .30*viertel
+           for a in (-1, 1) for b in (-1, 1)):
+        return None
+    return radien
+
+
 def punkt_hinweislinie(rest, symbol, rand):
     """Eine zweigliedrige Hinweislinie vom Symbolfach zu einem gefuellten oder schraffierten Punkt."""
     from scipy import ndimage
@@ -124,12 +136,8 @@ def punkt_hinweislinie(rest, symbol, rand):
         return False
     zentrum = np.array([cx+x.min()-1, cy+y.min()-1])
     punkte = np.column_stack((x, y))
-    lokal = punkte - zentrum
-    radien = np.linalg.norm(lokal, axis=1)
-    kern = lokal[radien < .75*radius]
-    viertel = np.pi*(.75*radius)**2/4
-    if any(np.sum((a*kern[:, 0] > 0) & (b*kern[:, 1] > 0)) < .30*viertel
-           for a in (-1, 1) for b in (-1, 1)):
+    radien = _punktradien(punkte, zentrum, radius)
+    if radien is None:
         return False
     schaft = punkte[(radien > radius+breite+1.5) & (np.abs(y-anschluss[1]) > 2*breite)]
     if len(schaft) < 3 or np.linalg.norm(zentrum-anschluss) < 1.2*h:
@@ -146,3 +154,46 @@ def punkt_hinweislinie(rest, symbol, rand):
     toleranz = breite + 1.5
     return bool(np.all((radien <= radius+1.5) | _an_strecke(punkte, zentrum, knick, toleranz)
                        | _an_strecke(punkte, knick, anschluss, toleranz)))
+
+
+def doppelte_punktlinie(rest, symbol, rand):
+    """Zwei belegte Zielpunkte an einem gemeinsamen, bis ans Rahmenfach reichenden Knick."""
+    from scipy import ndimage
+    y, x = np.nonzero(rest)
+    l, oben, _, unten = symbol
+    h = unten-oben
+    mitte = (oben+unten-1)/2
+    if not len(y) or ndimage.label(rest, np.ones((3, 3)))[1] != 1:
+        return False
+    # Am Anschluss muss genau ein kurzer waagerechter Schaft ankommen.
+    anschluss = (abs(y-mitte) <= .04*h) & (abs(x-l) <= rand+2)
+    if not anschluss.any():
+        return False
+    ende = np.array([x[anschluss].max(), y[anschluss].mean()])
+    breite = max(1.5, np.ptp(y[anschluss])+1)
+    band = abs(y-ende[1]) <= breite
+    knick = np.array([x[band].min(), ende[1]])
+    if not .05*h < ende[0]-knick[0] < 2*h:
+        return False
+    abstand = ndimage.distance_transform_edt(ndimage.binary_fill_holes(rest))
+    marken, anzahl = ndimage.label(abstand > .045*h)
+    if anzahl != 2:
+        return False
+    punkte = np.column_stack((x, y))
+    gedeckt = _an_strecke(punkte, knick, ende, breite+1.5)
+    luft = ndimage.distance_transform_edt(~rest)
+    for i in (1, 2):
+        cy, cx = ndimage.maximum_position(abstand, labels=marken, index=i)
+        radius = abstand[cy, cx]
+        zentrum = np.array([cx, cy])
+        if radius >= .19*h or np.linalg.norm(zentrum-knick) <= h:
+            return False
+        radien = _punktradien(punkte, zentrum, radius)
+        if radien is None:
+            return False
+        # Auch jeder erwartete Strahl muss vom Knick bis zum Punkt durchgehend gezeichnet sein.
+        sx, sy = np.rint(np.linspace(knick, zentrum, int(np.linalg.norm(zentrum-knick))+1)).astype(int).T
+        if luft[sy, sx].max() > breite+1.5:
+            return False
+        gedeckt |= (radien <= radius+1.5) | _an_strecke(punkte, knick, zentrum, breite+1.5)
+    return bool(gedeckt.all())

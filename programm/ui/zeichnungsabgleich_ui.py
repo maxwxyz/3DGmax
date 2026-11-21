@@ -504,15 +504,16 @@ class Zeichnungsabgleich(QtWidgets.QDialog):
             self.status.setText(f"{self.status.text()} {meldung}")
 
     def _hinweisziel(self, a):
+        box = a.rahmenbox or a.box
         pruefe = self.blatt.durchmesseranfang if "|" in a.text else None
         kreise = self.kreise.get(a.seite, [])
         anzahl = za.musteranzahl(a.text)
         if anzahl > 1:
-            gruppe = self.blattgeometrie.hinweisgruppe(a.box, kreise, anzahl, a.hinweisenden)
+            gruppe = self.blattgeometrie.hinweisgruppe(box, kreise, anzahl, a.hinweisenden)
             if gruppe:
                 self.musterwahl[a] = gruppe
                 return gruppe[0]
-        return self.blattgeometrie.hinweisziel(a.box, kreise, pruefe, hinweisenden=a.hinweisenden, musterzeile=bool(anzahl) or a.text.lstrip().startswith(("⌀", "Ø", "∅", "R", "CR")))
+        return self.blattgeometrie.hinweisziel(box, kreise, pruefe, hinweisenden=a.hinweisenden, musterzeile=bool(anzahl) or a.text.lstrip().startswith(("⌀", "Ø", "∅", "R", "CR")))
 
     def _anderer_bereich(self, a):
         if not a.blattziel or a.seite not in self.bereiche:
@@ -716,7 +717,11 @@ class Zeichnungsabgleich(QtWidgets.QDialog):
         felder = za.unterschiede(p, m)
         namen = dict(FELD_TEXT, typ=tr("Typ"), art=tr("Art"), minimum=tr("Mindestmaß"), maximum=tr("Höchstmaß"))
         if felder:
-            return tr("Abweichende Felder: {}").format(", ".join(tr(namen[k]) for k in felder))
+            text = tr("Abweichende Felder: {}").format(", ".join(tr(namen[k]) for k in felder))
+            if "beschreibung" in felder:
+                text += "\n" + tr("Geltungshinweis auf dem Blatt: {} · Im Modell: {}").format(
+                    p.beschreibung or "–", za.modellhinweis(m) or "–")
+            return text
         return tr("Angegebene Werte stimmen überein.")
 
     def uebernehmen(self):
@@ -784,6 +789,9 @@ class Zeichnungsabgleich(QtWidgets.QDialog):
                             tr("Musterellipsen (kleine Halbachse/Breite, Drehwinkel in Grad je Bohrung)"),
                             tr("Ecken der Maßzeile in Leserichtung (x/Breite, y/Höhe)"),
                             tr("Textseitige Hinweisenden (x/Breite, y/Höhe)")])
+                def modellwert(m):
+                    return "\n".join(filter(None, (m.wert_text(), za.modellhinweis(m))))
+
                 verbunden = set()
                 for nr, angaben in sorted(self.seiten.items()):
                     for a in angaben:
@@ -799,7 +807,7 @@ class Zeichnungsabgleich(QtWidgets.QDialog):
                             zeilen = [(a.modell, gesamt, ziele, "")]
                         for m, befund, orte, nummer in zeilen:
                             verbunden.add(id(m))
-                            w.writerow([*prefix, befund, m.nummer if m else "", m.wert_text() if m else "",
+                            w.writerow([*prefix, befund, m.nummer if m else "", modellwert(m) if m else "",
                                         sorted(m.flaechen) if m else "", int(a.grundmass),
                                         m.step_id if m and m.step_id > 0 else "",
                                         " ".join(f"{v:.6f}" for v in a.blattziel[:3]) if a.blattziel else "",
@@ -814,7 +822,7 @@ class Zeichnungsabgleich(QtWidgets.QDialog):
                 for m in self.modell:
                     if id(m) not in verbunden:
                         w.writerow([*self.quellen, "", "", "", "", tr("Nur im Modell") if id(m) in self.nur_modell else
-                                    tr("Modell-PMI offen"), m.nummer, m.wert_text(), sorted(m.flaechen), "", m.step_id if m.step_id > 0 else "", *([""]*9)])
+                                    tr("Modell-PMI offen"), m.nummer, modellwert(m), sorted(m.flaechen), "", m.step_id if m.step_id > 0 else "", *([""]*9)])
                 for nr in sorted(set(range(len(self.doc))) - self.seiten.keys()):
                     w.writerow([*self.quellen, nr+1, "", "", "", tr("Blatt ungeprüft"), *([""]*14)])
         except OSError as e:

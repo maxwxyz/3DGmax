@@ -36,6 +36,8 @@ class Blattangabe:
     hinweisenden: tuple = ()  # Freie Strichenden der automatisch gefundenen Angabe in Blattkoordinaten
     zeilenecken: tuple = ()  # Vier Ecken einer geneigten Zeile in Leserichtung
 
+    rahmenbox: tuple | None = None  # Urspruengliche Rahmenkante fuer die Hinweislinie bei Text darunter
+
     def zugeordnete_pmi(self):
         if self.einzelpruefung:
             return [z.modell for z in self.musterziele if z.modell is not None]
@@ -84,7 +86,11 @@ def lese_angabe(text, faktor, grundmass=False):
     grenzen = re.fullmatch(rf'((?:[⌀Ø∅]|C?R)\s*)({zahl})\s*-\s*({zahl})(\s*(?:mm|in|inch|")?)\s*', text, re.I)
     if grenzen and float(grenzen[2].replace(",", ".")) < float(grenzen[3].replace(",", ".")):
         text = f"{grenzen[1]}{grenzen[2]}–{grenzen[3]}{grenzen[4]}"
+    zusatz = ""
     if "|" in text:
+        kopf, _, folge = text.strip().partition("\n")
+        if folge and (zusatz := pmi_ableiten.geltungshinweis(folge)):
+            text = kopf
         teile = [t.strip().translate(str.maketrans({"Ø": "⌀", "∅": "⌀"})) for t in text.split("|")]
         if len(teile) >= 2:
             teile[1] = pmi_ableiten._EINHEIT.sub("", teile[1]).strip()
@@ -93,7 +99,7 @@ def lese_angabe(text, faktor, grundmass=False):
     daten = pmi_ableiten.aus_text([text], faktor or 1.)
     if not daten:
         return None
-    p = Pmi(**daten)
+    p = Pmi(**daten, beschreibung=zusatz)
     if p.art == BEZUG:
         return p if re.fullmatch(r"\s*\[[A-Z]{1,2}\]\s*", text) else None
     if p.wert is None and p.nennwert is None:
@@ -103,6 +109,12 @@ def lese_angabe(text, faktor, grundmass=False):
     if grundmass and p.art == MASS:
         p.modifikatoren.append("Theoretisch")
     return p
+
+
+def modellhinweis(p):
+    """Sichtbarer Wortlaut ohne den generischen STEP-Exporttext in NIST D2MI-904."""
+    text = " ".join(p.beschreibung.split())
+    return "" if text.casefold() == "geometric tolerance for feature" else text
 
 
 def _felder(p):
@@ -122,7 +134,7 @@ def _felder(p):
         mods.discard("Maximum_Material_Requirement")
     if p.material == "L":
         mods.discard("Least_Material_Requirement")
-    return {"typ": p.typ, "wert": p.wert, "zone": zone, "zonen_wert": p.zonen_wert,
+    return {"typ": p.typ, "beschreibung": modellhinweis(p), "wert": p.wert, "zone": zone, "zonen_wert": p.zonen_wert,
             "material": p.material, "maximum_toleranz": p.maximum_toleranz,
             "modifikatoren": sorted(mods), "bezuege": [(b.stelle, b.name, sorted(b.modifikatoren),
                 {k: sorted(v) for k, v in b.element_modifikatoren.items()})
@@ -155,7 +167,10 @@ def grenzen_vertauscht(p):
 def wertebefund(p, modell):
     if p is None or modell is None or grenzen_vertauscht(modell):
         return "offen"
-    if unterschiede(p, modell):
+    felder = unterschiede(p, modell)
+    if felder == ["beschreibung"] and (hinweis := modellhinweis(modell)) and not pmi_ableiten.geltungshinweis(hinweis):
+        return "offen"
+    if felder:
         return "geaendert"
     if p.zone == "Projected":
         return "offen"  # Projektionsursprung auf dem Blatt noch nicht geometrisch zugeordnet.
