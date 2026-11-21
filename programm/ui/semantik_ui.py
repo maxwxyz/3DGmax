@@ -181,7 +181,14 @@ class SemantikDialog(QtWidgets.QDialog):
         if v.bezugspunkt is not None:
             self.felder["name"].setReadOnly(True)
             self.felder["kontakt"] = QtWidgets.QLabel(" / ".join(f"{w:.4f}" for w in v.bezugspunkt))
-            lay.addRow(tr("Kontaktpunkt X / Y / Z (mm)"), self.felder["kontakt"])
+            if v.bezugsdurchmesser is None:
+                lay.addRow(tr("Kontaktpunkt X / Y / Z (mm)"), self.felder["kontakt"])
+            else:
+                lay.addRow(tr("Kreismitte aus den Flächenrändern (mm)"), self.felder["kontakt"])
+                self.felder["kreismass"] = QtWidgets.QLabel(f"⌀{v.bezugsdurchmesser:g}")
+                lay.addRow(tr("Durchmesser der Bezugsstelle (mm)"), self.felder["kreismass"])
+                self.felder["kreisachse"] = QtWidgets.QLabel(" / ".join(f"{w:.4g}" for w in v.bezugsnormale))
+                lay.addRow(tr("Flächennormale X / Y / Z"), self.felder["kreisachse"])
         lay.addRow(tr("Bezugsstelle") if v.bezugspunkt is not None else tr("Buchstabe"), self.felder["name"])
         self._lay = lay
         self.felder["grenzmass"].toggled.connect(self._massbeschriftung)
@@ -234,7 +241,7 @@ class SemantikDialog(QtWidgets.QDialog):
         self.typ.setCurrentIndex(0 if art == BEZUG and alt != "DatumTarget" else self.typ.findData(alt))
         sichtbar = {MASS: {"nennwert", "oben", "unten", "grenzmass", "passung"},
                     TOLERANZ: {"wert", "zonenform", "maximum_toleranz", "material", "bezuege", "zonen_wert", "projektionsversatz",
-                               "projektionsende", "profilversatz", "einheitslaenge", "einheitsbreite", "einheitsdurchmesser"}, BEZUG: {"name", "kontakt"}}[art]
+                               "projektionsende", "profilversatz", "einheitslaenge", "einheitsbreite", "einheitsdurchmesser"}, BEZUG: {"name", "kontakt", "kreismass", "kreisachse"}}[art]
         for name, f in self.felder.items():
             self._lay.setRowVisible(f, name in sichtbar)
 
@@ -336,7 +343,8 @@ class SemantikDialog(QtWidgets.QDialog):
                     return tr("Eine eigene Austrittsfläche für die Projektion wählen")
         if art == BEZUG and self.typ.currentData() == "DatumTarget":
             if self.flaechen != self.v.flaechen:
-                return tr("Die Bezugsstelle benötigt die Fläche am Zielkreuz.")
+                return (tr("Die Kreisbezugsstelle benötigt die zugehörige Ringfläche.") if self.v.bezugsdurchmesser is not None
+                        else tr("Die Bezugsstelle benötigt die Fläche am Zielkreuz."))
             return ""
         if art == BEZUG and not re.fullmatch(r"[A-Z]{1,2}", self.felder["name"].text().strip()):
             return tr("Bitte den Bezugsbuchstaben angeben")

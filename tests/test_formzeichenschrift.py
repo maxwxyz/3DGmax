@@ -166,3 +166,30 @@ def test_raumlinie_braucht_zusammenhaengenden_schaft_und_ziel():
     for falsch in ([g.linien[0], *g.linien[2:]], [*g.linien[:2], g.linien[2]+3*g.ebene[3], *g.linien[3:]],
                    [*g.linien, g.linien[2]+2*g.ebene[1]]):
         assert not schrift.lies_schrift(replace(g, ebene=None, linien=falsch))
+
+
+def test_linienprofil_halbbogen_braucht_offene_fuesse():
+    from programm.kern import pmi_strichschrift as schrift
+    from programm.kern.pmi_formzeichen import formzeichen
+    g = lade_alles(pfad("nist_ctc_02_asme1_ap203.stp.gz")).grafik[8712]
+    phi = np.linspace(0, np.pi, 61)
+    bogen = np.column_stack((np.cos(phi), np.sin(phi)))
+    pfade = schrift._pfade(g, g.ebene)
+    fach = schrift._zellen(pfade)[0]
+    o, x, y, _ = g.ebene
+    ort = np.array([(fach[0]+fach[2])/2, (fach[1]+fach[3])/2])
+    r = .48*(fach[3]-fach[1])
+    def glyph(zug):
+        return o + (ort[0]+r*zug[:,0,None])*x + (ort[1]+r*(zug[:,1,None]-.5))*y
+    innen = [i for i,(a,_) in enumerate(pfade) if np.all(a.min(axis=0)>fach[:2])
+             and np.all(a.max(axis=0)<fach[2:])]
+    assert innen
+    linien = [v for i,v in enumerate(g.linien) if i not in innen]
+    for ebenen in (None, g.ebene):
+        bild = replace(g, linien=linien+[glyph(bogen)], ebene=ebenen)
+        assert schrift.lies_schrift(bild) == "⌒ 0.25 A B C"
+    for zuege in ([bogen[11:]], [bogen[:25], bogen[35:]], [bogen, bogen[[0,-1]]],
+                  [bogen*[1,-1]], [bogen*[1,.56]]):
+        p = [(zug, False) for zug in zuege]
+        mask = schrift._bild(p, (-1.3,-.5,1.3,1.5), 65)
+        assert formzeichen(mask) != "⌒"

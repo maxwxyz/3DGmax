@@ -146,6 +146,13 @@ def _druckschrift(g, bekannt, modell, flaechen):
     if bekannt == (BEZUG, "DatumTarget"):
         from .pmi_bezugspunkt import grafischer_punkt, hat_kontakt
         fund = grafischer_punkt(g)
+        if fund is None:
+            from .pmi_bezugskreis import grafischer_kreis
+            kreis = grafischer_kreis(g, modell, flaechen)
+            if kreis and (not dateitexte or tuple(dateitexte) == (kreis.name,)):
+                return dateitexte, kreis.name, {"art": BEZUG, "typ": "DatumTarget", "name": kreis.name,
+                        "modifikatoren": ["circle"], "bezugspunkt": kreis.mitte.tolist(),
+                        "bezugsdurchmesser": kreis.durchmesser, "bezugsnormale": kreis.normale.tolist()}, "", []
         if (not fund or dateitexte and tuple(dateitexte) != (fund[0],)
                 or not hat_kontakt(modell, flaechen, fund[1])):
             return dateitexte, "", {}, "", []
@@ -195,12 +202,13 @@ def vorschlag(p, g, modell) -> Pmi:
     dateitexte, ocr, gelesen, ergaenzung, masswahl = (), "", {}, "", []
     if g and not texte and not g.erzeugt and not p.semantisch:
         schriftart = aus_name(name, druckschrift=True) if p.art == HINWEIS else bekannt
-        dateitexte, ocr, gelesen, ergaenzung, masswahl = _druckschrift(g, schriftart, modell, flaechen)
+        if schriftart != (BEZUG, "DatumTarget") or p.step_id == g.callout_id:
+            dateitexte, ocr, gelesen, ergaenzung, masswahl = _druckschrift(g, schriftart, modell, flaechen)
         if gelesen:
             art = gelesen["art"]
             typ = gelesen["typ"] or (typ if schriftart != bekannt and not masswahl else "")
     neu = Pmi(art, typ=typ, norm=p.norm, name=p.name if art == BEZUG and re.fullmatch(r"[A-Z]{1,2}", p.name or "") else "")
-    for k in ("name", "bezugspunkt", *FELDER):
+    for k in ("name", "bezugspunkt", "bezugsdurchmesser", "bezugsnormale", *FELDER):
         if k in gelesen:
             setattr(neu, k, gelesen[k])
     neu.masswahl = masswahl

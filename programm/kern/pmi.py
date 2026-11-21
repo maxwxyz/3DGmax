@@ -134,7 +134,10 @@ class Pmi:
 
     profilzonenart: str = ""  # Eindeutige Lesart am Profil selbst, sonst Norm des Modells.
 
-    bezugspunkt: list[float] | None = None  # Kontakt der Punktbezugsstelle in Modellkoordinaten (mm).
+    bezugspunkt: list[float] | None = None  # Kontaktpunkt oder Kreismitte in Modellkoordinaten (mm).
+
+    bezugsdurchmesser: float | None = None
+    bezugsnormale: list[float] | None = None
 
     def profilversatz(self):
         werte = [m[2:].strip() for m in self.modifikatoren if m.startswith("UZ")]
@@ -178,6 +181,8 @@ class Pmi:
             # aus der Grafik abgeleitet ohne lesbaren Wert: Text der Grafik statt eines leeren Rahmens
             return self._rahmen_text() if self.wert is not None or not self.nur_grafik_text else self.nur_grafik_text
         if self.art == BEZUG:
+            if self.bezugsdurchmesser is not None:
+                return f"[{self.name}] ⌀{_zahl(self.bezugsdurchmesser)}"
             return f"[{self.name}]" if self.name else self.nur_grafik_text
         return self.nur_grafik_text or self.name
 

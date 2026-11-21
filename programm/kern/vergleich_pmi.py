@@ -11,7 +11,7 @@ from bisect import bisect_left, bisect_right
 from collections import defaultdict
 from dataclasses import dataclass, field
 from functools import cache
-from math import inf, isfinite, nextafter
+from math import dist, inf, isfinite, nextafter
 
 from ..i18n import tr
 
@@ -21,11 +21,13 @@ from .vergleich_profilbereich import bereichsfeld, hat_ausschnitt
 GLEICH, GEAENDERT, NEU, ENTFALLEN = "gleich", "geaendert", "neu", "entfallen"
 GEOMETRIE = "geometrie"  # PMI unveraendert, aber Geometrie der zugeordneten Flaechen geaendert
 FELDER = ("nennwert", "oben", "unten", "passung", "wert", "zone", "zonen_wert", "projektionsversatz",
-          "maximum_toleranz", "material", "beschreibung", "einheitslaenge", "einheitsbreite", "einheitsdurchmesser", "profilzonensymbol")
+          "maximum_toleranz", "material", "beschreibung", "einheitslaenge", "einheitsbreite", "einheitsdurchmesser", "bezugsdurchmesser", "profilzonensymbol")
 FELD_TEXT = {"profilzonensymbol": "Angabe zur Profilzone", "beschreibung": "Toleranzbeschreibung", "nennwert": "Nennwert", "oben": "oberes Abmaß/Höchstmaß", "unten": "unteres Abmaß/Mindestmaß",
              "passung": "Passung", "wert": "Toleranzwert", "zone": "Zone", "zonen_wert": "Zonenwert",
              "projektionsversatz": "Projektionsversatz", "projektionsflaechen": "Projektionsursprung",
              "einheitslaenge": "Länge der Einheitsfläche (mm)", "einheitsbreite": "Breite der Einheitsfläche (mm)",
+             "bezugspunkt": "Lage der Bezugsstelle (mm)", "bezugsnormale": "Flächennormale X / Y / Z",
+             "bezugsdurchmesser": "Durchmesser der Bezugsstelle (mm)",
              "einheitsdurchmesser": "Durchmesser der Einheitsfläche (mm)",
              "maximum_toleranz": "Höchstwert der geometrischen Toleranz",
              "grenzmass": "Grenzmaße", "bereichsgrenzen": "Begrenzter Profilbereich",
@@ -344,7 +346,8 @@ def vergleiche_pmi(alt: list[Pmi], neu: list[Pmi], zuordnung: dict[int, int] | N
             frei_b.discard(j)
             fest.append(paar)
     out = [_vergleiche_felder(alt[i], neu[j], zuordnung, zuordnung_ab, geo_status, kantenschluessel,
-                              profilfeld(i, j) if hat_ausschnitt(alt[i]) or hat_ausschnitt(neu[j]) else None)
+                              profilfeld(i, j) if hat_ausschnitt(alt[i]) or hat_ausschnitt(neu[j]) else None,
+                              lage, toleranz)
            for *_, i, j in sorted(fest, reverse=True)]
     if any(a.rolle for a in merk_a) or any(b.rolle for b in merk_b):
         _vergleiche_verbund(out, alt, neu, gruppe_a, gruppe_b)
@@ -387,9 +390,27 @@ def _bereichsfeld(a, b, kantenschluessel):
     return feld, _bereichstext(a), _bereichstext(b, anderer_verlauf)
 
 
+def _stellenlage(a, b, lage, toleranz):
+    """Koordinaten von B in die Vergleichslage von A bringen; Richtung ohne Translation."""
+    from OCC.Core.gp import gp_Dir, gp_Pnt
+    felder = []
+    for feld, typ, eps in (("bezugspunkt", gp_Pnt, max(toleranz, _WERT_EPS)),
+                           ("bezugsnormale", gp_Dir, _WERT_EPS)):
+        alt, neu = getattr(a, feld), getattr(b, feld)
+        if neu is not None and lage is not None:
+            neu = typ(*neu).Transformed(lage.Transformation()).Coord()
+        if alt is None and neu is None or alt is not None and neu is not None and dist(alt, neu) <= eps:
+            continue
+        werte = [" / ".join(f"{x:.8g}" for x in v) if v is not None else "–" for v in (alt, neu)]
+        felder.append((feld, *werte))
+    return felder
+
+
 def _vergleiche_felder(a: Pmi, b: Pmi, zuordnung, zuordnung_ab=None, geo_status=None,
-                       kantenschluessel=(None, None), profilfeld=None) -> PmiAenderung:
+                       kantenschluessel=(None, None), profilfeld=None, lage=None, toleranz=1e-7) -> PmiAenderung:
     felder = [profilfeld] if profilfeld else []
+    if a.typ == b.typ == "DatumTarget":
+        felder.extend(_stellenlage(a, b, lage, toleranz))
     for f in FELDER:
         va, vb = getattr(a, f), getattr(b, f)
         if not _gleich(va, vb):

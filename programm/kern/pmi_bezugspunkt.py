@@ -1,11 +1,17 @@
 """Punktbezugsstelle aus geteiltem Schriftkreis, Hinweislinie und Zielkreuz."""
 
+from __future__ import annotations
+
 from dataclasses import dataclass
 from itertools import combinations
 import re
+from typing import TYPE_CHECKING
 
 import numpy as np
 from scipy import ndimage
+
+if TYPE_CHECKING:
+    from .pmi_bezugskreis import Bezugskreis
 
 
 def _netzstriche(punkte, netz):
@@ -49,8 +55,8 @@ def _verbindungen(striche, start, laenge):
         wege = neue
 
 
-def _nummer(pfade, *, mit_flaechenmass=False):
-    """Kennung unten lesen; beim Punktziel muss der obere Halbkreis leer sein."""
+def _halbkreistext(pfade, *, oben=False, zweites_feld=False):
+    """Angewaehlte Haelfte eines vollstaendigen, geteilten Schriftkreises lesen."""
     from . import pmi_strichschrift as schrift
     maske = schrift._bild(pfade, (-1.1,-1.1,1.1,1.1), 64)
     if maske is None:
@@ -67,9 +73,10 @@ def _nummer(pfade, *, mit_flaechenmass=False):
             continue
         if np.all(np.abs(np.linalg.norm(p,axis=1)-1) < .06) or np.max(abs(p[:,1])) < .025:
             continue
-        if mit_flaechenmass and np.min(p[:,1]) > .015:
+        y = -p[:,1] if oben else p[:,1]
+        if zweites_feld and np.min(y) > .015:
             continue
-        if np.max(p[:,1]) >= -.015:
+        if np.max(y) >= -.015:
             return ""
         glyphen.append((p, voll))
     if not glyphen:
@@ -82,11 +89,12 @@ def _nummer(pfade, *, mit_flaechenmass=False):
         mask, _ = schrift._gesamtbild(glyphen, pixel/hoehe)
         if mask is not None and (text := schrift._normale_zeile(mask)):
             namen.add(text)
-    if len(namen) == 1:
-        name = namen.pop()
-        if re.fullmatch(r"[A-Z]{1,2}[1-9][0-9]*", name):
-            return name
-    return ""
+    return namen.pop() if len(namen) == 1 else ""
+
+
+def _nummer(pfade, *, mit_flaechenmass=False):
+    name = _halbkreistext(pfade, zweites_feld=mit_flaechenmass)
+    return name if re.fullmatch(r"[A-Z]{1,2}[1-9][0-9]*", name) else ""
 
 
 def grafischer_punkt(g):
@@ -178,6 +186,7 @@ class _Stellengrafik:
     produktformen: set[int]
     kennung: str
     kreuz: np.ndarray | None
+    kreis: Bezugskreis | None
     flaechen: set[int]
 
 
@@ -216,6 +225,7 @@ class Stellenbestand:
             if not ids:
                 return self.offen
             from .pmi_lesen import flaechen_von_aspekt
+            from .pmi_bezugskreis import grafischer_kreis
             for nr, g in lies_grafik(self.datei, ids=ids).items():
                 formen, flaechen = set(), set()
                 for i in g.pmi_ids:
@@ -224,8 +234,9 @@ class Stellenbestand:
                         formen.add(e.args("SHAPE_ASPECT")[2].id)
                         flaechen.update(flaechen_von_aspekt(self.datei, self.modell, i))
                 fund = grafischer_punkt(g)
-                name = fund[0] if fund else kennung_im_kreis(g)
-                self.offen[nr] = _Stellengrafik(formen, name, fund[1] if fund else None, flaechen)
+                kreis = None if fund else grafischer_kreis(g, self.modell, flaechen)
+                name = fund[0] if fund else kreis.name if kreis else kennung_im_kreis(g)
+                self.offen[nr] = _Stellengrafik(formen, name, fund[1] if fund else None, kreis, flaechen)
         return self.offen
 
     def fehlende(self, pds, buchstabe):
@@ -234,11 +245,9 @@ class Stellenbestand:
                 and (not g.kennung or g.kennung.rstrip("0123456789") == buchstabe)]
 
 
-def lese_kontakt(datei, target, flaeche, skalen):
-    """Position aus der Parameterdarstellung mit Einheiten und Bauteillage lesen."""
-    from OCC.Core.gp import gp_Pnt
+def parameterdarstellungen(datei, target, skalen):
+    """Nur die Parameterdarstellungen genau dieser Bezugsstelle samt Laengenfaktor."""
     from .p21 import Ref
-    punkte = set()
     verweise = datei.referrers()
     for i in verweise.get(target, ()):
         eig = datei.get(i)
@@ -253,16 +262,23 @@ def lese_kontakt(datei, target, flaeche, skalen):
                 continue
             _, elemente, kontext = rep.args("SHAPE_REPRESENTATION_WITH_PARAMETERS")
             faktor = skalen.get(kontext.id) if isinstance(kontext, Ref) else None
-            if not faktor:
+            if faktor:
+                yield elemente, faktor
+
+
+def lese_kontakt(datei, target, flaeche, skalen):
+    """Position aus der Parameterdarstellung mit Einheiten und Bauteillage lesen."""
+    from OCC.Core.gp import gp_Pnt
+    punkte = set()
+    for elemente, faktor in parameterdarstellungen(datei, target, skalen):
+        for ref in elemente:
+            ax = datei.get(ref)
+            if ax is None or not ax.is_a("AXIS2_PLACEMENT_3D"):
                 continue
-            for ref in elemente:
-                ax = datei.get(ref)
-                if ax is None or not ax.is_a("AXIS2_PLACEMENT_3D"):
-                    continue
-                pos = datei.get(ax.args("AXIS2_PLACEMENT_3D")[1])
-                if pos is not None and pos.is_a("CARTESIAN_POINT"):
-                    xyz = pos.args("CARTESIAN_POINT")[1]
-                    if len(xyz) == 3 and np.isfinite(xyz).all():
-                        p = gp_Pnt(*(w*faktor for w in xyz)).Transformed(flaeche.Location().Transformation())
-                        punkte.add(tuple(p.Coord()))
+            pos = datei.get(ax.args("AXIS2_PLACEMENT_3D")[1])
+            if pos is not None and pos.is_a("CARTESIAN_POINT"):
+                xyz = pos.args("CARTESIAN_POINT")[1]
+                if len(xyz) == 3 and np.isfinite(xyz).all():
+                    p = gp_Pnt(*(w*faktor for w in xyz)).Transformed(flaeche.Location().Transformation())
+                    punkte.add(tuple(p.Coord()))
     return list(punkte.pop()) if len(punkte) == 1 else None

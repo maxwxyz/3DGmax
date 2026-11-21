@@ -376,6 +376,11 @@ def lies_bezugsstellen(modell: StepModell) -> list[Pmi]:
             if art:
                 p.modifikatoren.append(art)
             p.flaechen = flaechen_von_aspekt(datei, modell, e.id) | stuetzflaechen
+            if art == "circle" and len(p.flaechen) == 1:
+                from .pmi_bezugskreis import lese_kreis
+                face = modell.flaechen[next(iter(p.flaechen))]
+                if kreis := lese_kreis(datei, e.id, face, skalen):
+                    p.bezugspunkt, p.bezugsnormale, p.bezugsdurchmesser = kreis
             if art == "point" and len(p.flaechen) == 1:
                 face = modell.flaechen[next(iter(p.flaechen))]
                 p.bezugspunkt = lese_kontakt(datei, e.id, face, skalen)

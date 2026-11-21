@@ -2,6 +2,44 @@
 
 ## Current state, 2026-11-21
 
+### Circular datum target K1 and the line-profile control in graphical CTC-02
+
+- Checked PLAN §8.4 and docs/Roadmap.md. The divided circle in AP203 #8713 reads
+  Ø85 over K1. Its leader projects onto the material of planar annular face #1158.
+  Two complete concentric trims, with radii 20 and 60 mm, give the centre
+  (0, 812, −140) mm. The oriented normal is +Y. The AP242 reference #110 independently
+  confirms centre, normal, diameter, identifier and circular target type.
+- Review shows the centre inferred from the trim, the normal and the diameter.
+  Export revalidates the source graphic, face and parameters. AP242 stores the
+  target diameter with its unit, its oriented local placement and supporting face.
+  Verified the wholly graphical model, true single-stroke lettering and filled
+  triangles with the original graphics after project reload. Native OCCT reads
+  each export with the same diagnostics and volume as its input. Its dependent
+  perpendicularity #8680 retains the printed 0.25 mm relative to K. The separate
+  AP242 edition uses 0.254 mm. Tested inch units and aligned revision comparisons of
+  position, diameter and orientation.
+- The open semicircle of #8712 now yields a 0.25 mm line-profile tolerance with
+  A/B/C, matching AP242 control #83. Verified outlines, a single-stroke arc,
+  triangle fills and missing writing axes. Reviewing the eight point targets
+  enables export of this control as well as the three unequal surface profiles.
+- The remaining AP203 CTC-02 frame #8709 in §8.4 carries a 0.1 mm surface
+  profile and a two-line scope note “4 COPLANAR SURFACES”. The two FCF cells
+  already read correctly on their own. Validate the separate scope and the actual
+  four faces before emitting semantics. AP203 aspects #274–278 link to distinct
+  faces #1127, #1198, #1187 and #1132 in the plane Z = 40 mm, with #1187 linked
+  twice. AP242 callout #1207 refers to control #53. The existing freestanding-note
+  recognizer rejects this font in both contour and filled form. An isolated
+  glyph comparison using independently rendered sans-serif letters and digits
+  read both lines in both representations. Validate count changes, lookalikes,
+  missing glyphs and spacing before integrating this reading.
+- The open-arc recognizer changed only #8712 in a comparison of 194 graphic
+  callouts in six models, with and without supplied writing axes.
+  The full suite passed 1164 tests and skipped eight. The final affected run
+  passed 422 tests. The focused form and target run passed 15 cases, and all
+  nine native Cocoa target tests passed. The signed arm64 build passed its
+  self-test and rendered both exported models. QIF stays last. Local main uses
+  one app in dist.
+
 ### Point target datums from the graphical CTC-02 source
 
 - Checked PLAN §8.4 and docs/Roadmap.md. Original AP203 annotations for A1–A3,

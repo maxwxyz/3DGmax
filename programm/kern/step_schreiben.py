@@ -319,7 +319,7 @@ def _schreibe_bezug(a: _Anhang, p) -> str | None:
     if fehler:
         return fehler
     if p.typ == "DatumTarget":
-        return _schreibe_punkt(a, p)
+        return _schreibe_bezugsstelle(a, p)
     if a.bezug(p.name) is not None:
         return tr("Bezug {} gibt es in der Datei schon").format(p.name)
     df = a.aspekt(p.flaechen, "DATUM_FEATURE")
@@ -333,14 +333,20 @@ def _schreibe_bezug(a: _Anhang, p) -> str | None:
     return None
 
 
-def _schreibe_punkt(a, p):
+def _schreibe_bezugsstelle(a, p):
     from .pmi_bezugspunkt import hat_kontakt
     from .pmi_darstellung import _Teillage
     from .pmi_step import einheit_mm
     fund = a.stellen.originalgrafiken().get(p.callout)
     name = re.fullmatch(r"([A-Z]{1,2})([1-9][0-9]*)", p.name)
-    if (not name or not fund or fund.produktformen != {a.pds} or fund.kennung != p.name or fund.kreuz is None
-            or fund.flaechen != p.flaechen or not hat_kontakt(a.modell, p.flaechen, p.bezugspunkt)
+    if not name or not fund or fund.produktformen != {a.pds} or fund.kennung != p.name or fund.flaechen != p.flaechen:
+        return tr("Bezugsstelle und Originalgrafik stimmen nicht überein.")
+    kreis = fund.kreis
+    if kreis is not None:
+        if not kreis.passt(p):
+            return tr("Kreismitte, Flächennormale oder Durchmesser weichen von der Bezugsstelle ab.")
+    elif (fund.kreuz is None or p.bezugsdurchmesser is not None or p.bezugsnormale is not None
+            or p.modifikatoren != ["point"] or not hat_kontakt(a.modell, p.flaechen, p.bezugspunkt)
             or math.dist(p.bezugspunkt, fund.kreuz) > .001):
         return tr("Die Bezugsstelle benötigt die Fläche am Zielkreuz.")
     buchstabe, nummer = name.groups()
@@ -348,11 +354,28 @@ def _schreibe_punkt(a, p):
     if d is not None and (d not in a.stellen.nummern or nummer in a.stellen.nummern[d]):
         return tr("Bezug {} gibt es in der Datei schon").format(p.name)
     face = a.modell.flaechen[next(iter(p.flaechen))]
-    xyz = _Teillage(face, einheit_mm(a.datei, Ref(a.einheit_laenge))).punkte(p.bezugspunkt)
+    lage = _Teillage(face, einheit_mm(a.datei, Ref(a.einheit_laenge)))
+    xyz = lage.punkte(p.bezugspunkt)
     punkt = a.neu(f"CARTESIAN_POINT('',({','.join(map(_real, xyz))}))")
-    achse = a.neu(f"AXIS2_PLACEMENT_3D('orientation',#{punkt},$,$)")
-    rep = a.neu(f"SHAPE_REPRESENTATION_WITH_PARAMETERS('',(#{achse}),#{a.kontext})")
-    stelle = a.neu(f"PLACED_DATUM_TARGET_FEATURE('','point',#{a.pds},.T.,'{nummer}')")
+    if kreis is None:
+        parameter = [a.neu(f"AXIS2_PLACEMENT_3D('orientation',#{punkt},$,$)")]
+        art = "point"
+    else:
+        import numpy as np
+        normal = lage.richtung(kreis.normale)
+        x = np.eye(3)[np.argmin(abs(normal))]
+        x -= (x @ normal) * normal
+        x /= np.linalg.norm(x)
+        n, ref = [a.neu(f"DIRECTION('',({','.join(map(_real, v))}))") for v in (normal, x)]
+        achse = a.neu(f"AXIS2_PLACEMENT_3D('orientation',#{punkt},#{n},#{ref})")
+        durchmesser = _real(a.laengen_dateiwert(kreis.durchmesser))
+        mass = a.neu(f"( LENGTH_MEASURE_WITH_UNIT() MEASURE_REPRESENTATION_ITEM() MEASURE_WITH_UNIT("
+                     f"LENGTH_MEASURE({durchmesser}),#{a.einheit_laenge}) REPRESENTATION_ITEM('target diameter') )")
+        parameter = [achse, mass]
+        art = "circle"
+    refs = ",".join(f"#{i}" for i in parameter)
+    rep = a.neu(f"SHAPE_REPRESENTATION_WITH_PARAMETERS('',({refs}),#{a.kontext})")
+    stelle = a.neu(f"PLACED_DATUM_TARGET_FEATURE('','{art}',#{a.pds},.T.,'{nummer}')")
     prop = a.neu(f"PROPERTY_DEFINITION('',$,#{stelle})")
     a.neu(f"SHAPE_DEFINITION_REPRESENTATION(#{prop},#{rep})")
     aspekt = a.aspekt(p.flaechen)

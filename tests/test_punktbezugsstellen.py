@@ -67,6 +67,9 @@ def test_bezugsstellen_projekt_und_step(fenster, tmp_path, gefuellt):
         text = f.read()
     if gefuellt:
         erg = lade_alles(pfad(QUELLE))
+        profil = erg.grafik[8712]
+        stil = erg.modell.datei.get(8712).args()[1][0].id
+        text = _mit_fuellsatz(text, _gefuellt(profil), 8712, stil, profil.name)
         for nr in STELLEN:
             g = erg.grafik[nr]
             stil = erg.modell.datei.get(nr).args()[1][0].id
@@ -78,7 +81,7 @@ def test_bezugsstellen_projekt_und_step(fenster, tmp_path, gefuellt):
     quelle = {p.step_id: p for p in e.pmi}
     referenz = _referenz()
     zielwerte = {}
-    for nr in (8688, 8694, 8714, *sorted(STELLEN, key=lambda n: n == 8674)):
+    for nr in (8688, 8694, 8714, 8712, *sorted(STELLEN, key=lambda n: n == 8674)):
         fenster._pmi_befehl("semantisch", quelle[nr])
         d = fenster._semantik_dialog
         assert not d.fehler(), (nr, d.fehler())
@@ -88,7 +91,7 @@ def test_bezugsstellen_projekt_und_step(fenster, tmp_path, gefuellt):
             zielwerte[nr] = (d.pmi().bezugspunkt, {e.modell.flaeche_zu_step[i] for i in d.flaechen})
             if nr == 8674:
                 teil = fenster.speichere_step_pmi(str(tmp_path / "Teil.step"), melden=False)
-                assert teil and len(fenster._step_bericht.uebersprungen) == 3
+                assert teil and len(fenster._step_bericht.uebersprungen) == 4
                 assert all("B2" in grund for _, _, grund in fenster._step_bericht.uebersprungen)
         d._pruefen()
     projekt = fenster.speichere_projekt(str(tmp_path / "Modell.3dgmax"))
@@ -113,6 +116,11 @@ def test_bezugsstellen_projekt_und_step(fenster, tmp_path, gefuellt):
     for nr in (8688, 8694, 8714):
         p, = [p for p in neu.pmi if p.semantisch and p.step_id in neu.grafik[nr].pmi_ids]
         assert p.bezug_text() == "A|B|C" and p.wert == 2.5
+    profil, = [p for p in neu.pmi if p.semantisch and p.step_id in neu.grafik[8712].pmi_ids]
+    assert (profil.typ, profil.wert, profil.bezug_text()) == ("ProfileOfLine", .25, "A|B|C")
+    assert "GeoTolAndGeoTolWthDatRef" in typen[profil.step_id]
+    assert {neu.modell.flaeche_zu_step[i] for i in profil.flaechen} == {e.modell.flaeche_zu_step[i]
+            for i in vorschlag(quelle[8712], e.grafik[8712], e.modell).flaechen}
     if not gefuellt:
         from programm.kern.step_schreiben import schreibe
         offen = lade_alles(teil)

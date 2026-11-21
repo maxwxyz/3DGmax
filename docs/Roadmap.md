@@ -73,7 +73,9 @@
 | Read R from single-stroke or filled graphical PMI and save the confirmed radius with its STEP callout. Compare repeated R and CR drawing rows with radius PMI on the matching bore walls | ✅ |
 | Use a graphical STEP callout's own validation text for supported dimensions, datums and tolerance frames. Read an omitted symbol from its plotted cell or specific callout name and show its source in review | ✅ |
 | Recover point datum targets from graphical STEP balloons and crosses, review their identifiers, contact points and faces, and export the associated tolerances with their original presentation. Verified eight CTC-02 point targets and the A/B/C profile frames | ✅ |
-| Recover the 85 mm circular area target K1 and its contact region from graphical CTC-02 | Planned |
+| Recover circular datum targets on a planar annulus. Verified CTC-02 K1 with Ø85 from outlines, single-stroke lettering and triangle fills, including the supporting face, exported orientation, perpendicularity relative to K and aligned revision comparison | ✅ |
+| Read the open semicircle of a line-profile control from strokes, outlines or fills. CTC-02 retains the 0.25 mm tolerance, its controlled face and datums A/B/C through graphical review and STEP export | ✅ |
+| Read the coplanar scope printed with CTC-02 surface profile #8709 and check its four supporting faces before export | Planned |
 | Review Ⓤ in graphical line and surface profile values. The ASME outer boundary and ISO zone-centre offset are distinguished in review, comparison and STEP export. Verified on NIST CTC-02 with 0, 0.5 and 2.5 mm outer boundaries | ✅ |
 | Read circled L in graphical tolerance values and individual datum compartments. Verified six NIST CTC-02 frames against their semantic reference, including a frame with modifiers on both H and J | ✅ |
 | Recover straightness, roundness, concentricity, circular runout and total runout from graphical STEP controls. Eight NIST CTC-05 frames retain original graphics, faces, diameter zones and common datums through semantic review and export, including leaders leaving the text plane | ✅ |

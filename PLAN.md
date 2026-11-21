@@ -359,7 +359,15 @@ Throughout: tests (core, offscreen UI, stress test, on-screen test), `--selbstte
   Review requires a complete target identifier, a connected cross and contact with the
   referenced trimmed face. AP242 export retains the exact cross position and support
   face. A tolerance can use a restored datum once all its identified targets have been
-  reviewed. Circular area target K1 (85 mm diameter) remains open.
+  reviewed. Circular target K1 is recoverable from the divided balloon, leader and
+  referenced planar annulus. The lower field identifies K1, the upper field gives Ø85.
+  Review shows the inferred concentric centre and oriented face normal. AP242 carries the
+  target diameter, placement, supporting face and original presentation. Verified the
+  dependent perpendicularity frame against K using the 0.25 mm printed on the AP203.
+  A revision comparison aligns target centres and normals before comparing them.
+  The open semicircle in #8712 recovers the 0.25 mm line-profile control with datums
+  A/B/C. The remaining frame #8709 includes the scope text “4 COPLANAR SURFACES”.
+  Verify this against the four target faces and retain it with the 0.1 mm surface profile.
   Graphical CTC-02 profile controls #8688, #8694 and #8714 recover 2.5 mm tolerance
   with ASME outer boundary distances of 2.5, 0.5 and 0 mm. The accepted value and
   convention survive project reload and AP242 export with the original graphics.

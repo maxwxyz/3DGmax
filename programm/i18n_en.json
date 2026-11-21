@@ -1,4 +1,11 @@
 {
+"Lage der Bezugsstelle (mm)": "Datum target location (mm)",
+"Kreismitte aus den Flächenrändern (mm)": "Centre inferred from the face boundaries (mm)",
+"Durchmesser der Bezugsstelle (mm)": "Datum target diameter (mm)",
+"Flächennormale X / Y / Z": "Face normal X / Y / Z",
+"Die Kreisbezugsstelle benötigt die zugehörige Ringfläche.": "The circular datum target requires its supporting annular face.",
+"Bezugsstelle und Originalgrafik stimmen nicht überein.": "The datum target does not match the original annotation.",
+"Kreismitte, Flächennormale oder Durchmesser weichen von der Bezugsstelle ab.": "The centre, face normal or diameter differs from the original target.",
 "Angabe zur Profilzone": "Profile zone notation",
 "Angabe zur ungleich verteilten Profilzone ungültig": "Invalid unequal profile zone specification",
 "Abstand der äußeren Profilgrenze Ⓤ (mm)": "Distance to the outer profile boundary Ⓤ (mm)",

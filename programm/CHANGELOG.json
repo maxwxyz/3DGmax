@@ -1,6 +1,8 @@
 {
  "unreleased": {
   "de": [
+   "Die PMI-Erkennung liest den offenen Halbkreis einer Linienprofiltoleranz auch aus Strichschrift und reiner Dreiecksfüllung. Toleranzwert, Bezugsreihenfolge und Zielfläche bleiben beim STEP-Export erhalten.",
+   "Kreisförmige Bezugsstellen auf ebenen Ringflächen lassen sich aus grafischer STEP-PMI mit Kennung, Durchmesser, Kreismitte und Flächennormale übernehmen. Der STEP-Export erhält die Originalgrafik. Der Revisionsvergleich berücksichtigt die Ausrichtung der Modelle.",
    "Grafische Punktbezugsstellen wie B2 lassen sich mit Kontaktpunkt und zugehöriger Fläche prüfen und als STEP speichern. Nach Bestätigung aller Bezugsstellen eines Bezugs können auch die zugehörigen Toleranzrahmen mit ihrer Originalgrafik exportiert werden.",
    "Grafische Profiltoleranzen mit Ⓤ lassen sich aus Strichschrift und gefüllten STEP-Grafiken übernehmen. Der Prüfdialog zeigt den Abstand der äußeren Profilgrenze. STEP-Export und Vergleich erhalten die Unterscheidung zum ISO-Versatz der Zonenmitte. Eine Bezugsstelle mit unlesbarer Nummer bleibt zur Prüfung offen.",
    "Ein eingekreistes L in grafischen STEP-Toleranzrahmen wird als Minimum-Material-Bedingung vorgeschlagen. Die Prüfung und der STEP-Export erhalten die Zuordnung zum tolerierten Merkmal oder zum einzelnen Bezug, auch bei mehreren markierten Bezügen.",
@@ -234,6 +236,8 @@
    "Grafische PMI aus unterstützten AP203e2-Kurvenmodellen lassen sich als STEP AP242 Edition 3 ausgeben. Facettierte STEP-Modelle behalten ihre Flächenbezüge. Gepackte STEP-Dateien lassen sich als unkomprimierte STEP-Kopie speichern."
   ],
   "en": [
+   "PMI recognition reads the open semicircle of a line-profile tolerance from single strokes and triangle fills. STEP export retains the tolerance value, datum order and target face.",
+   "Graphical STEP PMI on flat annular faces can supply a circular datum target with its identifier, diameter, centre and face normal. STEP export preserves the original graphics. Revision comparison accounts for model alignment.",
    "Graphical point datum targets such as B2 can be reviewed with their contact point and supporting face and saved to STEP. Once all targets for a referenced datum have been confirmed, its tolerance frames can also be exported with their original graphics.",
    "Graphical profile tolerances with Ⓤ can be reviewed from stroked or filled STEP annotations. The review dialog shows the distance to the outer profile boundary. STEP export and comparison distinguish it from an ISO zone-centre offset. A datum target with an unreadable number stays open for review.",
    "Graphical STEP tolerance frames now recognise circled L as a least-material modifier. Review and STEP export preserve its position on the toleranced feature or individual datum, including frames with two modified datums.",

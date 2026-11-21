@@ -23,6 +23,23 @@ def _ring(x, y, radii, r):
     return np.ptp((lo+hi)/2) <= max(1.5, .055*r) and max(hi-lo) <= max(2., .19*r)
 
 
+def _profilbogen(glyph):
+    """Oberer Halbkreis mit zwei offenen Fuessen, auch als schmaler Strichumriss."""
+    h, w = glyph.shape
+    if not 1.8*h < w < 2.14*h:
+        return False
+    y, x = np.nonzero(glyph)
+    r = (w-1)/2
+    dx, dy = x-r, h-1-y
+    radial = np.hypot(dx,dy)/r
+    if radial.min() < .82 or radial.max() > 1.1:
+        return False
+    sektor = np.minimum(23, (np.arctan2(dy,dx)*24/np.pi).astype(int))
+    saum = max(2, round(.07*h))
+    return (len(np.unique(sektor)) == 24 and glyph[-saum:,:saum].any() and glyph[-saum:,-saum:].any()
+            and ndimage.label(glyph, np.ones((3,3)))[1] == 1)
+
+
 def _kreiszeichen(glyph):
     h, w = glyph.shape
     if abs(w-h) > .06*max(w,h):
@@ -88,6 +105,8 @@ def formzeichen(maske):
             return "⏤"
     if not .4*fach < h < .94*fach:
         return ""
+    if _profilbogen(glyph):
+        return "⌒"
     if rund := _kreiszeichen(glyph):
         return rund
     from .pmi_strichschrift import _merkmal
