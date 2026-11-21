@@ -3000,6 +3000,7 @@
 "Das Modell kennzeichnet das Maß als Hilfsmaß. In der Zeichnung fehlt die Klammerung.": "The model marks the dimension as a reference dimension. The drawing has no parentheses.",
 "Maßhilfslinien (Start und Ende, x/Breite, y/Höhe)": "Extension lines (start and end, x/width, y/height)",
 "Stückzahl in der Zeichnung {} · Auflagen im Modell {} · {}": "Quantity on drawing {} · Pads in model {} · {}",
+"Für dieses Hilfsmaß die von den Maßhilfslinien berührte Zylinderfläche wählen.": "Select the cylinder wall touched by the extension lines for this reference dimension.",
 "Für das wiederholte Dickenmaß die Grundfläche und alle bezeichneten Auflagen wählen.": "Select the base face and all indicated pads for the repeated thickness dimension.",
 "Bezugsstellen noch offen: {}": "Datum targets still awaiting review: {}"
 }

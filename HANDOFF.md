@@ -2,6 +2,33 @@
 
 ## Current state, 2026-11-21
 
+### Recover the CTC-03 reference diameter from tangent extension lines
+
+- Checked PLAN §8.4 and docs/Roadmap.md. AP203 #3625 prints “(1.5)” without
+  a diameter symbol. Both extension lines start at opposite tangencies of the
+  complete rim of face #545. The shaft connects both arrow tips and runs up
+  to the lettering. The reader checks the linked rim edges at the annotation
+  depth, reads at two resolutions and checks the value in the source unit.
+- Project and STEP readback preserve the 38.1 mm reference diameter, linked
+  wall, saved view and original graphics. The separate working diameter
+  (#3642, 38.1 ±0.127 mm) on the same wall survives in the same file.
+  OCCT/XCAF reads both records. Independent AP242 #269 identifies a diameter
+  on two half-cylinder faces of radius 19.05 mm and has no nominal value
+  representation. Tested original contours, open strokes and pure triangle
+  fills. A supplementary link to the other rim, a missing arrow, displaced
+  witness, remote text or mismatched unit leaves the inference open.
+- All 41 affected tests, 71 further regression cases and five native Cocoa
+  checks passed. The signed app passed its self-test and rendered the
+  reviewed triangle-only STEP. Local main uses one app at `dist/3DGmax.app`.
+  Verified zero `main-*` directories under build or dist. The two versioned
+  release archives are retained.
+- Next in §8.27: measure the axial position of the crown tooth band as well
+  as its inner and outer radii. Then check mating straight pinions against
+  the installed band, shaft directions and tooth depth. Verify a paired
+  assembly, a pinion translated to the back face, and a pinion clear of the
+  ring before adding any stage ratio to the gearbox report. Existing crown
+  references with 15 and 32 teeth provide the wheel geometry. QIF stays last.
+
 ### Compare projected reference dimensions and retain both witness lines
 
 - Checked PLAN §8.35 and the graphical STEP repair in §8.4 against

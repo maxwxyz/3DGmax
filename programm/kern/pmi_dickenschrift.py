@@ -10,26 +10,29 @@ from .pmi_ableiten import LINEARMASS, aus_text
 from . import pmi_strichschrift as schrift
 
 
-def _verknuepft(g, modell, ids):
+def verknuepfte_randkanten(g, modell, ids):
+    """Zusaetzliche Randkanten liefern, wenn die Flaechen der Grafik genau zur Auswahl passen."""
     from .pmi_lesen import geometrieziele_von_aspekt
     from .step_schreiben import randkanten
 
     datei = getattr(modell, "datei", None)
     if datei is None:
-        return False
+        return None
     ziele = set()
     for nr in g.pmi_ids:
         aspekt = datei.get(nr)
         if aspekt and aspekt.is_a("SHAPE_ASPECT"):
             gruppe = geometrieziele_von_aspekt(datei, modell, nr)
             if not gruppe:
-                return False
+                return None
             ziele.update(gruppe)
     flaechen = ziele & modell.step_zu_flaeche.keys()
     if {modell.step_zu_flaeche[nr] for nr in flaechen} != set(ids):
-        return False
+        return None
     kanten = ziele - flaechen
-    return not kanten or kanten <= set().union(*(randkanten(datei, f) for f in flaechen))
+    if kanten and not kanten <= set().union(*(randkanten(datei, f) for f in flaechen)):
+        return None
+    return kanten
 
 
 def auflagenlage(modell, ids):
@@ -139,7 +142,7 @@ def _massangabe(band, anzahl, abstand, faktor):
 
 def dickenmass(g, modell, ids):
     """Nur vollstaendige Masslinien auf den verknuepften Ebenen und den gedruckten Wert vorschlagen."""
-    if not schrift._lesbar(g) or not _verknuepft(g, modell, ids) or not (lagen := auflagenlage(modell, ids)):
+    if not schrift._lesbar(g) or verknuepfte_randkanten(g, modell, ids) is None or not (lagen := auflagenlage(modell, ids)):
         return None
     normale, unten, abstand, anzahl = lagen
     rahmen = g.ebene if g.ebene is not None else next(schrift._rahmenrichtungen(g), None)

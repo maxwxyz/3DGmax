@@ -607,7 +607,7 @@ def _projektion(richtung, ebenen):
     return schluessel, ebenen[schluessel]
 
 
-def modellkreise(modell, pruefe=lambda: None):
+def modellkreise(modell, pruefe=lambda: None, *, flaechen=None):
     """Kreisraender aus zusammengehoerenden Zylindermantelflaechen, getrennt nach Achsrichtung."""
     from OCC.Core.BRep import BRep_Tool
     from OCC.Core.BRepAdaptor import BRepAdaptor_Curve
@@ -618,8 +618,10 @@ def modellkreise(modell, pruefe=lambda: None):
     from .pmi_vorschlag import _flaeche_info
     boegen = defaultdict(list)
     ebenen = {}
-    for i, f in enumerate(modell.flaechen):
-        if i % 32 == 0:
+    auswahl = range(len(modell.flaechen)) if flaechen is None else flaechen
+    for k, i in enumerate(auswahl):
+        f = modell.flaechen[i]
+        if k % 32 == 0:
             pruefe()
         info = _flaeche_info(f)
         if not info or info[0] != "zylinder":

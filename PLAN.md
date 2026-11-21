@@ -271,6 +271,12 @@ Throughout: tests (core, offscreen UI, stress test, on-screen test), `--selbstte
   resolution of the lettering. Verify the separate bent leader and read the entire
   remaining diameter row at two glyph resolutions. The exported Ø2.00 ±.01 inch
   bore agrees with AP242 #267 in limits, axis, radius and axial extent.
+  On CTC-03 AP203 #3625, two extension lines touch opposite tangents of
+  the linked circular rim. The complete dimension line and both arrows support
+  interpreting the printed “(1.5)” as a reference diameter. The reviewed
+  export records 38.1 mm separately from the toleranced size on the same bore.
+  Independent AP242 #269 supplies the diameter type and two cylindrical
+  half-faces of radius 19.05 mm. It has no nominal value representation.
   AP203 #3634 has one annotated base face and four separate coplanar pads. The
   printed “4X .82 ±.06” must agree with the pad count and with the separation
   at the indicated precision. Read the value and tolerance from the graphic.

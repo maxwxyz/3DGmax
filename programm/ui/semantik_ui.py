@@ -309,6 +309,10 @@ class SemantikDialog(QtWidgets.QDialog):
                     and re.match(r"^[1-9][0-9]*X", getattr(self.v, "ocr_text", ""))
                     and self.flaechen != self.v.flaechen):
                 return tr("Für das wiederholte Dickenmaß die Grundfläche und alle bezeichneten Auflagen wählen.")
+            if (self.typ.currentData() == self.v.typ == "Size_Diameter"
+                    and getattr(self.v, "tangentendurchmesser", False)
+                    and self.flaechen != self.v.flaechen):
+                return tr("Für dieses Hilfsmaß die von den Maßhilfslinien berührte Zylinderfläche wählen.")
             n = _zahl(self.felder["nennwert"].text())
             if n is None or n < 0:
                 return tr("Bitte das Nennmaß angeben")

@@ -129,6 +129,11 @@ def schriftvorschlag(g, bekannt, modell=None, flaechen=()):
     art, typ = bekannt or (None, "")
     abstand = None
     linear = not bekannt or (art == MASS and typ in ("", "Size_Thickness", "Location_LinearDistance"))
+    if (not bekannt or (art == MASS and typ in ("", "Size_Diameter"))) and modell and flaechen:
+        from .pmi_durchmesserschrift import tangentendurchmesser
+        durchmesser = tangentendurchmesser(g, modell, flaechen)
+        if durchmesser:
+            return durchmesser
     if linear and typ in ("", "Size_Thickness") and modell and len(flaechen) > 2:
         from .pmi_dickenschrift import dickenmass
         dicke = dickenmass(g, modell, flaechen)
@@ -235,8 +240,8 @@ def vorschlag(p, g, modell) -> Pmi:
     texte = [ph.text for ph in g.platzhalter if ph.text] if g is not None else []
     flaechen = _verknuepfte_flaechen(p, g, modell)
     dateitexte, ocr, gelesen, ergaenzung, masswahl = (), "", {}, "", []
+    schriftart = aus_name(name, druckschrift=True) if p.art == HINWEIS else bekannt
     if g and not texte and not g.erzeugt and not p.semantisch:
-        schriftart = aus_name(name, druckschrift=True) if p.art == HINWEIS else bekannt
         if schriftart != (BEZUG, "DatumTarget") or p.step_id == g.callout_id:
             dateitexte, ocr, gelesen, ergaenzung, masswahl = _druckschrift(g, schriftart, modell, flaechen)
         if gelesen:
@@ -247,6 +252,8 @@ def vorschlag(p, g, modell) -> Pmi:
         if k in gelesen:
             setattr(neu, k, gelesen[k])
     neu.masswahl = masswahl
+    neu.tangentendurchmesser = (typ == "Size_Diameter" and bool(re.fullmatch(r"\([\d.,]+\)", ocr))
+                               and (not schriftart or not schriftart[1]))
     neu.ocr_text = ocr
     neu.validierungstexte = dateitexte
     neu.rahmensymbolquelle = ergaenzung
