@@ -2,6 +2,26 @@
 
 ## Current state, 2026-11-21
 
+### Reconstruct and dimension opposed drill points from a shaft drawing
+
+- Checked PLAN §8.36 against docs/Roadmap.md. A clear material gap lets the reader evaluate
+  each entry side independently. Two cones with different angles or one cone and one flat
+  floor are supported. Each terminal table row has its own included angle and depth reference.
+  The drawing scale checks both the full-diameter length and the apex position. The limiting
+  axial reaches include angle and diameter tolerances when depth ends at the full diameter.
+- Checked horizontal and vertical PDFs, simple and stepped cores, with solid and dashed walls.
+  Two Ø6 cores from opposite sides retain different fits, angle targets and depth origins. The
+  native review and both STEP readers verified the axial depths and cone association. The
+  graphical witness, circular edge, apex location, cone angle and actual solid volume were
+  measured after export. A missing flank or tolerance intervals exhausting the central material
+  block the result. 49 affected tests and 28 native macOS tests passed.
+- Next §8.36: preserve approved pocket-center coordinates as graphical and semantic PMI. A
+  60 × 40 × 8 plate with a 12 × 8 pocket at (15, 16), depth 3, currently reloads with six
+  dimensions (60, 40, 8, 12, 8, 3). The entered X and Y are missing. The same normal input
+  with X = 15 ±0.1 is rejected before export. Verify the distance from the left or bottom
+  plate face to the derived median plane of the associated pocket walls and the original
+  coordinate limits, including equal-sized pockets at different locations. QIF remains last.
+
 ### Review the second detached FTC-07 surface count
 
 - Checked PLAN §8.4 against docs/Roadmap.md. MBD_B's separate #16374 wraps “4 COPLANAR

@@ -13,6 +13,21 @@ from .zeichnungsabgleich_ui import Blattansicht
 from .zeichnungsdialog import Koerperdialog
 
 
+def _tiefenbezug():
+    feld = QtWidgets.QComboBox()
+    feld.addItem(tr("Tiefenbezug wählen"),None)
+    feld.addItem(tr("Tiefe bis zum Zylinderende"),False)
+    feld.addItem(tr("Tiefe bis zur Bohrspitze"),True)
+    return feld
+
+
+def _bohrspitze(text, bezug):
+    winkel = kegelwinkelmass(text)
+    if not winkel or bezug is None:
+        raise ValueError(tr("Für die gezeichnete Bohrspitze Spitzenwinkel und Tiefenbezug angeben."))
+    return Bohrspitze(winkel,bezug)
+
+
 class Drehteildialog(Koerperdialog):
     def __init__(self, doc, pfad, parent=None):
         super().__init__(doc, pfad, tr("Welle aus 2D-Zeichnung"), parent)
@@ -71,7 +86,6 @@ class Drehteildialog(Koerperdialog):
         self.stirn_entfernen.clicked.connect(self._ohne_stirnansicht)
         bohrzeile.addWidget(self.stirn_entfernen)
         self.bohrstufen = QtWidgets.QTableWidget(0,2)
-        self.bohrstufen.setHorizontalHeaderLabels([tr("Stufendurchmesser"),tr("Tiefe ab Eintrittsfläche")])
         self.bohrstufen.horizontalHeader().setSectionResizeMode(QtWidgets.QHeaderView.ResizeMode.Stretch)
         self.bohrstufen.setMaximumHeight(140)
         self.bohrstufen.cellChanged.connect(self._pruefen)
@@ -84,10 +98,7 @@ class Drehteildialog(Koerperdialog):
         self.winkeltext = QtWidgets.QLineEdit()
         self.winkeltext.textChanged.connect(self._pruefen)
         spitzenlayout.addWidget(self.winkeltext)
-        self.tiefenbezug = QtWidgets.QComboBox()
-        self.tiefenbezug.addItem(tr("Tiefenbezug wählen"),None)
-        self.tiefenbezug.addItem(tr("Tiefe bis zum Zylinderende"),False)
-        self.tiefenbezug.addItem(tr("Tiefe bis zur Bohrspitze"),True)
+        self.tiefenbezug = _tiefenbezug()
         self.tiefenbezug.currentIndexChanged.connect(self._pruefen)
         spitzenlayout.addWidget(self.tiefenbezug)
         layout.addWidget(self.spitzenzeile)
@@ -137,6 +148,14 @@ class Drehteildialog(Koerperdialog):
         stufen = self.spur.stufen if isinstance(self.spur,(Stufenbohrspur,Gegenbohrungen)) else ()
         with QtCore.QSignalBlocker(self.bohrstufen):
             self.bohrstufen.setRowCount(0)
+            kopf = [tr("Stufendurchmesser"),tr("Tiefe ab Eintrittsfläche")]
+            spitzzeilen = set()
+            if isinstance(self.spur,Gegenbohrungen) and any(self.spur.spitzen):
+                kopf.extend((tr("Spitzenwinkel (°)"),tr("Tiefenbezug")))
+                enden = (len(self.spur.links)-1, len(self.spur.links)+len(self.spur.rechts)-1)
+                spitzzeilen = {z for z,h in zip(enden,self.spur.spitzen,strict=True) if h}
+            self.bohrstufen.setColumnCount(len(kopf))
+            self.bohrstufen.setHorizontalHeaderLabels(kopf)
             self.bohrstufen.setRowCount(len(stufen))
             for i,(_,tiefe) in enumerate(stufen):
                 if isinstance(self.spur,Gegenbohrungen):
@@ -153,6 +172,16 @@ class Drehteildialog(Koerperdialog):
                     item.setText(tr("Durchgang"))
                     item.setFlags(QtCore.Qt.ItemFlag.NoItemFlags)
                 self.bohrstufen.setItem(i,1,item)
+                if i in spitzzeilen:
+                    self.bohrstufen.setItem(i,2,QtWidgets.QTableWidgetItem())
+                    bezug = _tiefenbezug()
+                    self.bohrstufen.setCellWidget(i,3,bezug)
+                    bezug.currentIndexChanged.connect(self._pruefen)
+                elif spitzzeilen:
+                    for j in (2,3):
+                        leer = QtWidgets.QTableWidgetItem()
+                        leer.setFlags(QtCore.Qt.ItemFlag.NoItemFlags)
+                        self.bohrstufen.setItem(i,j,leer)
             if stufen:
                 self.bohrstufen.setCurrentCell(0,0)
 
@@ -205,10 +234,18 @@ class Drehteildialog(Koerperdialog):
                 self.massmarken[marke] = Blattangabe(self.blatt.nummer,box,self.auswahl.currentText())
         elif i == 7:
             wert = self.blatt.lies(box)
-            self.winkeltext.setText(wert)
-            self.massmarken.pop("winkel",None)
+            marke = "winkel"
+            if isinstance(self.spur,Gegenbohrungen):
+                zeile = self.bohrstufen.currentRow()
+                if self.bohrstufen.cellWidget(zeile,3) is None:
+                    return
+                self.bohrstufen.item(zeile,2).setText(wert)
+                marke = ("winkel",zeile)
+            else:
+                self.winkeltext.setText(wert)
+            self.massmarken.pop(marke,None)
             if wert:
-                self.massmarken["winkel"] = Blattangabe(self.blatt.nummer,box,wert)
+                self.massmarken[marke] = Blattangabe(self.blatt.nummer,box,wert)
         elif i in (5,6):
             wert = self.blatt.lies(box)
             if isinstance(self.spur,(Stufenbohrspur,Gegenbohrungen)):
@@ -249,15 +286,15 @@ class Drehteildialog(Koerperdialog):
             texte = [(self.bohrstufen.item(i,0).text(), self.bohrstufen.item(i,1).text() if t is not None else "")
                      for i,(_,t) in enumerate(self.spur.stufen)]
             if isinstance(self.spur,Gegenbohrungen):
-                gegen = gegenbohrmasse(self.kontur,masse,self.spur,(self.stirn,self.stirn2),texte,faktor)
+                spitzen = []
+                for zeile in (len(self.spur.links)-1, len(self.spur.links)+len(self.spur.rechts)-1):
+                    bezug = self.bohrstufen.cellWidget(zeile,3)
+                    spitzen.append(_bohrspitze(self.bohrstufen.item(zeile,2).text(),bezug.currentData()) if bezug else None)
+                gegen = gegenbohrmasse(self.kontur,masse,self.spur,(self.stirn,self.stirn2),texte,faktor,tuple(spitzen))
                 return masse,dict(gegen=gegen)
             spitze = None
             if self.spur.spitzenhoehe:
-                winkel = kegelwinkelmass(self.winkeltext.text())
-                bezug = self.tiefenbezug.currentData()
-                if not winkel or bezug is None:
-                    raise ValueError(tr("Für die gezeichnete Bohrspitze Spitzenwinkel und Tiefenbezug angeben."))
-                spitze = Bohrspitze(winkel,bezug)
+                spitze = _bohrspitze(self.winkeltext.text(),self.tiefenbezug.currentData())
             profil = stufenmasse(self.kontur,masse,self.spur,self.stirn,texte,faktor,spitze)
             dm,tiefe = profil[-1]
             return masse,dict(bohrung=dm,tiefe=tiefe,rechts=self.spur.von_rechts,stufen=profil[:-1],spitze=spitze)
@@ -278,7 +315,10 @@ class Drehteildialog(Koerperdialog):
             self.auswahl.setItemText(4,tr("Stirnansicht der Hohlwelle"))
             self.auswahl.setItemText(8,tr("Zweite Stirnansicht"))
         self.spitzenzeile.setVisible(spitz)
-        self.auswahl.model().item(7).setEnabled(spitz)
+        mit_winkel = spitz or (gegen and self.bohrstufen.cellWidget(self.bohrstufen.currentRow(),3) is not None)
+        self.auswahl.model().item(7).setEnabled(mit_winkel)
+        if not mit_winkel and self.auswahl.currentIndex() == 7:
+            self.auswahl.setCurrentIndex(5)
         self.bohrstufen.setVisible(gestuft)
         kegel = self._kegel()
         self.bohrart.setVisible(not kegel)

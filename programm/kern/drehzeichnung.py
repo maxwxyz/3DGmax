@@ -272,22 +272,27 @@ def _bohrzeile(dmtext, tiefentext, blind, faktor, i):
     return dm,tiefe
 
 
-def stufenmasse(kontur, masse, spur, stirn, zeilen, faktor, spitze=None):
-    if bool(spur.spitzenhoehe) != bool(spitze):
+def _profilmessungen(stufen, zeilen, faktor, hoehe=None, spitze=None):
+    if bool(hoehe) != bool(spitze):
         raise ValueError(tr("Für die gezeichnete Bohrspitze Spitzenwinkel und Tiefenbezug angeben."))
     profil, messungen = [], []
-    for i,((dm_px,tiefe_px),(dmtext,tiefentext)) in enumerate(zip(spur.stufen,zeilen,strict=True),1):
+    for i,((dm_px,tiefe_px),(dmtext,tiefentext)) in enumerate(zip(stufen,zeilen,strict=True),1):
         dm,tiefe = _bohrzeile(dmtext,tiefentext,tiefe_px is not None,faktor,i)
         messungen.append((dm_px,dm.nennwert))
-        if spitze and i == len(spur.stufen):
+        if spitze and i == len(stufen):
             zylinder,scheitel = spitze.tiefen(dm,tiefe)
             if zylinder <= 0:
                 raise ValueError(tr("Die Gesamttiefe lässt mit ihren Grenzmaßen keinen zylindrischen Abschnitt übrig."))
-            messungen.extend(((tiefe_px,zylinder),(tiefe_px+spur.spitzenhoehe,scheitel),
-                              (spur.spitzenhoehe,scheitel-zylinder)))
+            messungen.extend(((tiefe_px,zylinder),(tiefe_px+hoehe,scheitel),
+                              (hoehe,scheitel-zylinder)))
         elif tiefe:
             messungen.append((tiefe_px,tiefe.nennwert))
         profil.append((dm,tiefe))
+    return profil, messungen
+
+
+def stufenmasse(kontur, masse, spur, stirn, zeilen, faktor, spitze=None):
+    profil, messungen = _profilmessungen(spur.stufen,zeilen,faktor,spur.spitzenhoehe,spitze)
     _pruefe_bohrprofil(masse,profil,spur.von_rechts,spitze)
     _massstab(kontur,masse,messungen)
     if stirn is not None:
@@ -295,18 +300,18 @@ def stufenmasse(kontur, masse, spur, stirn, zeilen, faktor, spitze=None):
     return profil
 
 
-def gegenbohrmasse(kontur, masse, spur, stirnseiten, zeilen, faktor):
-    werte, messungen = [], []
-    for i,((dm_px,tiefe_px),(dmtext,tiefentext)) in enumerate(zip(spur.stufen,zeilen,strict=True),1):
-        dm,tiefe = _bohrzeile(dmtext,tiefentext,tiefe_px is not None,faktor,i)
-        messungen.append((dm_px,dm.nennwert))
-        if tiefe:
-            messungen.append((tiefe_px,tiefe.nennwert))
-        werte.append((dm,tiefe))
-    links = tuple(werte[:len(spur.links)])
-    rechts = tuple(werte[len(links):len(links)+len(spur.rechts)])
-    kern = werte[-1][0] if spur.kern is not None else None
-    gegen = Gegenbohrungen(links,rechts,kern)
+def gegenbohrmasse(kontur, masse, spur, stirnseiten, zeilen, faktor, spitzen=(None,None)):
+    n, m = len(spur.links),len(spur.rechts)
+    links, messungen = _profilmessungen(spur.links,zeilen[:n],faktor,spur.spitzen[0],spitzen[0])
+    rechts, zweite = _profilmessungen(spur.rechts,zeilen[n:n+m],faktor,spur.spitzen[1],spitzen[1])
+    messungen.extend(zweite)
+    kern = None
+    kernprofil = ((spur.kern,None),) if spur.kern is not None else ()
+    rest, gemeinsam = _profilmessungen(kernprofil,zeilen[n+m:],faktor)
+    if rest:
+        kern = rest[0][0]
+        messungen.extend(gemeinsam)
+    gegen = Gegenbohrungen(tuple(links),tuple(rechts),kern,spitzen)
     _pruefe_gegenbohrungen(masse,gegen)
     _massstab(kontur,masse,messungen)
     for rev,(profil,stirn) in enumerate(zip((links,rechts),stirnseiten,strict=True)):
@@ -365,32 +370,39 @@ def _pruefe_spitzenwand(masse, dm, tiefe, rechts, spitze):
         station += min(_groessen(laenge))
     if station-spitze_max <= 1e-9:
         raise ValueError(tr("Die Tiefe muss auch bei Grenzmaß Material hinter dem Bohrungsgrund lassen."))
-    return zyl_min
+    return zyl_min,spitze_max
 
 
 def _pruefe_bohrprofil(masse, profil, rechts, spitze=None):
+    reichweite = 0.
     for i,(dm,tiefe) in enumerate(profil):
         if spitze and i == len(profil)-1:
-            zyl_min = _pruefe_spitzenwand(masse,dm,tiefe,rechts,spitze)
+            zyl_min,reichweite = _pruefe_spitzenwand(masse,dm,tiefe,rechts,spitze)
         else:
             _pruefe_wand(masse,dm,tiefe,rechts)
-            zyl_min = min(_groessen(tiefe)) if tiefe else np.inf
+            if tiefe:
+                tiefen = _groessen(tiefe)
+                zyl_min,reichweite = min(tiefen),max(tiefen)
+            else:
+                zyl_min = np.inf
         if i:
             vorher, absatz = profil[i-1]
             if absatz is None or min(_groessen(vorher)) <= max(_groessen(dm)):
                 raise ValueError(tr("Die Durchmessergrenzen müssen jede innere Schulter erhalten."))
             if zyl_min <= max(_groessen(absatz)):
                 raise ValueError(tr("Die Tiefen ab Eintritt müssen auch bei Grenzmaß von Stufe zu Stufe zunehmen."))
+    return reichweite
 
 
 def _pruefe_gegenbohrungen(masse, gegen):
     reichweite = 0.
-    for rechts,seite in ((False,gegen.links),(True,gegen.rechts)):
+    if gegen.kern and any(gegen.spitzen):
+        raise ValueError(tr("Eine durchgehende Kernbohrung kann keine Bohrspitze haben."))
+    for rechts,(seite,spitze) in enumerate(zip((gegen.links,gegen.rechts),gegen.spitzen,strict=True)):
         if not seite or any(t is None for _,t in seite):
             raise ValueError(tr("Für jedes Wellenende mindestens einen Durchmesser mit Tiefe angeben."))
         profil = [*seite,(gegen.kern,None)] if gegen.kern else seite
-        _pruefe_bohrprofil(masse,profil,rechts)
-        reichweite += max(_groessen(seite[-1][1]))
+        reichweite += _pruefe_bohrprofil(masse,profil,rechts,spitze)
     if sum(min(_groessen(l)) for l,_ in masse)-reichweite <= 1e-9:
         raise ValueError(tr("Zwischen beiden Bohrungsenden muss auch bei Grenzmaß ein Kernabschnitt oder Materialsteg bleiben."))
 
@@ -420,8 +432,8 @@ def _drehform(masse, bohrprofil, rechts, spitze, gegen):
         x += laenge.nennwert
         profil.Add(gp_Pnt(x,0,dm.nennwert/2))
     if gegen:
-        links,a = _bohrweg(gegen.links,x)
-        rechtspunkte,b = _bohrweg(gegen.rechts,x)
+        links,a = _bohrweg(gegen.links,x,gegen.spitzen[0])
+        rechtspunkte,b = _bohrweg(gegen.rechts,x,gegen.spitzen[1])
         radius = gegen.kern.nennwert/2 if gegen.kern else 0.
         innen = [*links,(a,radius),(x-b,radius),*((x-ort,r) for ort,r in reversed(rechtspunkte))]
     else:
@@ -474,14 +486,16 @@ def _sitzmasse(modell, masse, bohrprofil, rechts, spitze, gegen):
         for j,(dm,tiefe) in enumerate(bohrprofil):
             if spitze and j == len(bohrprofil)-1:
                 from .zeichnungskoerper import _spitzenziel
-                wand = {i for i,d in zylinder.items() if abs(d-dm.nennwert) < 1e-6 and kegel & nachbarn[i]}
-                if len(wand) != 1 or len(kegel) != 1:
+                wand = {i for i,d in zylinder.items() if abs(d-dm.nennwert) < 1e-6 and kegel & nachbarn[i]
+                        and any(abs(ebenen[f]-start) < 1e-6 for f in nachbarn[i] if f in ebenen)}
+                spitzenflaechen = kegel & nachbarn[next(iter(wand))] if len(wand) == 1 else set()
+                if len(spitzenflaechen) != 1:
                     raise ValueError(tr("Die Bohrspitze und das Ende der Zylinderwand sind nicht eindeutig."))
                 if bezug is None:
                     f, = wand
                     bezug, = (i for i in nachbarn[f] if i in ebenen and abs(ebenen[i]-eintritt) < 1e-6)
-                ziel, referenz = _spitzenziel(modell,wand,kegel,spitze.bis_spitze)
-                ziele.extend(((dm,wand),(replace(tiefe,massziel_step=ziel),{bezug}|referenz),(spitze.winkel,kegel)))
+                ziel, referenz = _spitzenziel(modell,wand,spitzenflaechen,spitze.bis_spitze)
+                ziele.extend(((dm,wand),(replace(tiefe,massziel_step=ziel),{bezug}|referenz),(spitze.winkel,spitzenflaechen)))
                 break
             laenge = tiefe.nennwert if tiefe else x
             ende = eintritt-laenge if rechts else laenge
@@ -496,8 +510,8 @@ def _sitzmasse(modell, masse, bohrprofil, rechts, spitze, gegen):
         return start
 
     if gegen:
-        a = bohrungsziele(gegen.links,False)
-        b = bohrungsziele(gegen.rechts,True)
+        a = bohrungsziele(gegen.links,False,gegen.spitzen[0])
+        b = bohrungsziele(gegen.rechts,True,gegen.spitzen[1])
         if gegen.kern:
             wand,_ = flaechen(gegen.kern.nennwert,a,b)
             ziele.append((gegen.kern,wand))

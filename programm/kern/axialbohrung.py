@@ -61,6 +61,8 @@ class Gegenbohrungen:
     rechts: tuple
     kern: object = None  # Durchmesser der gemeinsamen Kernbohrung
 
+    spitzen: tuple = (None, None)  # Im Bild Kegelhoehen, beim Export gepruefte Bohrspitzen
+
     @property
     def stufen(self):
         return self.links+self.rechts+(((self.kern,None),) if self.kern is not None else ())
@@ -68,8 +70,8 @@ class Gegenbohrungen:
 
 def bohrdurchmesser_am_absatz(spur, x, grenzen):
     if isinstance(spur,Gegenbohrungen):
-        a = bohrdurchmesser_am_absatz(Stufenbohrspur(spur.links,False),x,grenzen)
-        b = bohrdurchmesser_am_absatz(Stufenbohrspur(spur.rechts,True),x,grenzen)
+        a = bohrdurchmesser_am_absatz(Stufenbohrspur(spur.links,False,spur.spitzen[0] or 0.),x,grenzen)
+        b = bohrdurchmesser_am_absatz(Stufenbohrspur(spur.rechts,True,spur.spitzen[1] or 0.),x,grenzen)
         return max(a[0],b[0],spur.kern or 0.),max(a[1],b[1],spur.kern or 0.)
     if isinstance(spur,Sacklochspur):
         stufen = ((spur.durchmesser,spur.tiefe),)
@@ -304,13 +306,15 @@ def _kegelspur(tinte, rest, grenzen, mitte, radien, stift):
     return None
 
 
-def _teilprofil(tinte, rest, grenzen, mitte, radien, stift, rechts):
+def _teilprofil(tinte, rest, grenzen, mitte, radien, stift, rechts, im_steg):
     erg = _zylinderspur(tinte,rest.copy(),grenzen,mitte,radien,stift)
+    if not erg and im_steg:
+        erg = _kegelspur(tinte,rest,grenzen,mitte,radien,stift)
     if erg:
         spur,breite = erg
         if isinstance(spur,(Stufenbohrspur,Sacklochspur)) and spur.von_rechts == rechts:
             stufen = spur.stufen if isinstance(spur,Stufenbohrspur) else ((spur.durchmesser,spur.tiefe),)
-            return stufen,breite
+            return stufen,breite,getattr(spur,"spitzenhoehe",0.) or None
     return None
 
 
@@ -335,28 +339,33 @@ def _gegenspur(tinte, rest, grenzen, mitte, radien, stift):
     senkrecht = minimum_filter1d(rest,size=laenge,axis=0,mode="constant").any(axis=0)
     lagen = [*tintenlaeufe(rest[~waende].any(axis=0)),*tintenlaeufe(senkrecht)]
     stationen = sorted(set(grenzen) | {b.mean()-.5 for b in lagen if grenzen[0] < b.mean()-.5 < grenzen[-1]})
+    # Ein zusammenhaengender Materialsteg trennt auch ungleich tiefe Spitzen eindeutig.
+    stegmitten = set()
+    schnitte = {round((a+b)/2) for a,b in zip(stationen,stationen[1:]) if b-a > 2*stift+4}
+    for a,b in tintenlaeufe(~rest.any(axis=0)):
+        if grenzen[0] < a < b < grenzen[-1] and b-a > 2*stift+4:
+            schnitte.difference_update(range(a,b))
+            stegmitten.add((a+b)//2)
     treffer = {}
-    for a,b in zip(stationen,stationen[1:]):
-        if b-a <= 2*stift+4:
-            continue
-        schnitt = round((a+b)/2)
+    for schnitt in sorted(schnitte | stegmitten):
+        im_steg = schnitt in stegmitten
         k = int(np.searchsorted(grenzen,schnitt))
         # Blattkoordinaten in beiden Teilbildern beibehalten bzw. um den Schnitt verschieben.
         l = _teilprofil(tinte[:,:schnitt+1],rest[:,:schnitt+1],[*grenzen[:k],schnitt],
-                        mitte,radien[:k],stift,False)
+                        mitte,radien[:k],stift,False,im_steg)
         if not l:
             continue
         r = _teilprofil(tinte[:,schnitt:],rest[:,schnitt:],[0,*[x-schnitt for x in grenzen[k:]]],
-                        mitte,radien[k-1:],stift,True)
+                        mitte,radien[k-1:],stift,True,im_steg)
         if not r:
             continue
-        links,wl = l
-        rechts,wr = r
+        links,wl,sl = l
+        rechts,wr,sr = r
         breite = max(wl,wr)
         if links[-1][1] is None and rechts[-1][1] is None:
             erg = _gemeinsamer_kern(tinte,mitte,grenzen,links,rechts,breite)
         elif links[-1][1] is not None and rechts[-1][1] is not None:
-            erg = Gegenbohrungen(links,rechts)
+            erg = Gegenbohrungen(links,rechts,spitzen=(sl,sr))
         else:
             continue
         if erg:

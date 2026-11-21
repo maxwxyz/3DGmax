@@ -1,4 +1,6 @@
 {
+"Tiefenbezug": "Depth reference",
+"Eine durchgehende Kernbohrung kann keine Bohrspitze haben.": "A through core bore cannot have a drill point.",
 "Hinweis aus Grafik #{} für beide Zeilen übernehmen": "Apply the note from annotation #{} to both rows",
 " · Grafik {}": " · Annotation {}",
 "Text am Formelement #{} · Eigenschaft #{} · Darstellung #{}{} · {}": "Text on feature #{} · Property #{} · Representation #{}{} · {}",
