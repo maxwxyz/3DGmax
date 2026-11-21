@@ -2,6 +2,29 @@
 
 ## Current state, 2026-11-21
 
+### Recover unframed angles from strokes and solid lettering
+
+- Checked PLAN §8.4 against docs/Roadmap.md. The OCR reader checks the closed centre
+  of a raised degree sign, including the double outlines in CTC-01 AP203. If the long
+  edges of a planar callout do not explain its lettering, recurrent glyph edges can
+  supply the writing axes. Two long non-parallel witness lines with closed arrowheads
+  can be separated from sparse stroked text before reading it at higher resolution.
+- CTC-01 AP242 callout #618 was reopened without semantics, validation text, placeholders,
+  a name, a positioning transform or a writing plane. The original mixed source and the
+  triangle-only variant recovered 60° ±0.5°. An independent stroke-only 60° preserved
+  the absence of deviations. The reviewer selected the angular location and the two
+  source faces. Both STEP readers recovered those faces and values. All source entities
+  survived the export, and MBD_0 displayed the new semantic dimension. A rotated
+  stroke-only control with an open degree ring stayed unresolved. The 25 affected
+  tests, four native macOS tests and a 64-case graphical STEP regression run passed.
+  Extra glyph axes are checked on demand. In a three-run median, routine no-plane
+  diameter #607 took 232 ms (previously 235 ms) and flatness #611 took 21 ms in both versions.
+- Next §8.4: CTC-01 AP203 callout #3418 is a parenthesised reference dimension. With
+  its stored plane the same strokes read “(85)”; removing the plane currently leaves
+  the proposal empty. The orientation search yielded only “(85)”. Verify the auxiliary
+  modifier, the length unit and both target faces through STEP review and reimport.
+  QIF remains last.
+
 ### Compare screw axial pitch and lead in PMI notes
 
 - Verified PLAN §§8.22 and 8.27 against docs/Roadmap.md. The geometry check uses the

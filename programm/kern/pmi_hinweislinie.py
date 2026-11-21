@@ -3,6 +3,42 @@
 import numpy as np
 
 
+def winkelbeschriftung(pfade, box, skala, labels, objekte):
+    """Zwei lange, nicht parallele Hilfslinien mit je einem geschlossenen Pfeilkopf abtrennen."""
+    if any(voll for _, voll in pfade) or not 4 <= len(objekte) <= 48:
+        return []
+    gruppen = {}
+    for p, _ in pfade:
+        x, y = np.rint((p[0] - [box[0], box[3]]) * [skala, -skala] + 2).astype(int)
+        nr = labels[y, x]
+        if nr == 0:
+            return []
+        gruppen.setdefault(nr, []).append(p)
+    hoehen = sorted(y.stop - y.start for y, _ in objekte)
+    zeichenhoehe = np.median(hoehen[:-2]) / skala
+    achsen = []
+    schrift = []
+    for zuege in gruppen.values():
+        schaefte = [p for p in zuege if len(p) == 2 and np.linalg.norm(p[1]-p[0]) > 4*zeichenhoehe]
+        if len(schaefte) != 1:
+            schrift.extend((p, False) for p in zuege)
+            continue
+        a, b = schaefte[0]
+        koepfe = [p[:3] for p in zuege if len(p) == 4 and np.allclose(p[0], p[-1], rtol=0, atol=1e-6)]
+        if len(koepfe) != 1 or not _an_strecke(koepfe[0], a, b, .05*zeichenhoehe).any():
+            return []
+        kopf = koepfe[0]
+        seiten = np.linalg.norm(kopf - np.roll(kopf, 1, axis=0), axis=1)
+        flaeche = abs(np.linalg.det(kopf[1:] - kopf[0])) / 2
+        if min(seiten) < .08*zeichenhoehe or max(seiten) > 2.5*zeichenhoehe or flaeche < .03*max(seiten)**2:
+            return []
+        if any(np.linalg.norm(p - kopf.mean(axis=0), axis=1).max() > 3*zeichenhoehe
+               for p in zuege if p is not schaefte[0]):
+            return []
+        achsen.append((b-a) / np.linalg.norm(b-a))
+    return schrift if len(achsen) == 2 and abs(achsen[0] @ achsen[1]) < .985 else []
+
+
 def _kreisbogen(punkte):
     punkte = np.unique(punkte, axis=0)
     if len(punkte) < 10:

@@ -1,6 +1,7 @@
 {
  "unreleased": {
   "de": [
+   "Die grafische PMI-Erkennung liest ebene Winkelmaße mit Gradzeichen auch ohne gespeicherte Schreibebene. Nach Prüfung der Zielflächen lassen sich der Winkel und seine Abmaße gemeinsam mit der Strich- oder Dreiecksgrafik als STEP speichern.",
    "Bei Schnecken prüft die App Axialteilung und Vorschub je Umdrehung aus PMI-Hinweisen. Sie berücksichtigt metrische und zöllige Angaben sowie die Einheit der jeweiligen STEP-Beschriftung. Unklare Einheiten bleiben im Prüfbericht offen.",
    "Die PMI-Prüfung gleicht die Zähnezahl konischer und taillierter Räder sowie die Gangzahl von Schraubprofilen mit dem Modell ab. Angaben ohne passenden Messwert bleiben als Hinweis sichtbar.",
    "Die PMI-Prüfung vergleicht Verzahnungshinweise einzeln mit dem zugehörigen Rad oder Zahnkranz. Ein widersprüchlicher Wert bleibt unabhängig von der Lesereihenfolge sichtbar. Ein Doppelklick zeigt den Hinweis und seine verknüpften Flächen.",
@@ -193,6 +194,7 @@
    "Grafische PMI aus unterstützten AP203e2-Kurvenmodellen lassen sich als STEP AP242 Edition 3 ausgeben. Facettierte STEP-Modelle behalten ihre Flächenbezüge. Gepackte STEP-Dateien lassen sich als unkomprimierte STEP-Kopie speichern."
   ],
   "en": [
+   "Graphical PMI recognition reads planar angular dimensions with degree signs without a stored writing plane. Review the target faces and save the angle and its deviations with the original stroke or triangle presentation in STEP.",
    "The PMI check compares the axial pitch and lead of a screw with the geometry. It reads metric and inch values and uses the individual STEP annotation’s unit when available. Ambiguous units remain open in the report.",
    "The PMI check verifies the tooth count of conical and throated wheels and the number of starts on screw profiles. Values without a matching measurement are listed for review.",
    "The PMI check compares each gear note with its gear or toothed band. A conflicting value is reported regardless of the order of the notes. Double-clicking a finding selects the note and highlights its linked faces.",

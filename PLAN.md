@@ -212,6 +212,10 @@ Throughout: tests (core, offscreen UI, stress test, on-screen test), `--selbstte
   and reimport with both readers in their stroked and triangle-only forms. A separate anonymous
   Helvetica R2 made solely of filled triangles passed the same no-plane workflow. Hyphenated
   limits still require an explicit choice in the review dialog.
+  Repeated edges in the lettering also provide candidate axes for unframed angles. A raised
+  closed degree sign distinguishes an angle from a number. Tested CTC-01's 60° ±0.5° with
+  its two selected faces and the original presentation through STEP export and reimport,
+  including a triangle-only annotation without a writing plane.
   A detached witness arc at a radial arrow tip can be separated from the printed dimension. The
   arc must fit a circle through the tip, with the shaft radial to the circle and both arrow flanks
   present. All twelve FTC-07 linear size callouts can now be transcribed from their strokes. The

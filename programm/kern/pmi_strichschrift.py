@@ -8,6 +8,9 @@ import numpy as np
 from PySide6 import QtCore, QtGui
 from scipy import ndimage
 
+_WINKELZAHL = r"(?:\d+(?:[.,]\d+)?|[.,]\d+)"
+_WINKELZEILE = re.compile(rf"{_WINKELZAHL}°(?:\s*±\s*{_WINKELZAHL}°?)?")
+
 
 def _pfade(g, ebene):
     o, x, y, _ = ebene
@@ -280,7 +283,15 @@ def _rahmentext(pfade, zellen, masken=None):
 
 
 def _normale_zeile(mask):
-    return _lies_zeile(_bildzeichen(mask))
+    zeichen = _bildzeichen(mask)
+    wort = _lies_zeile(zeichen)
+    for z, (_, (l, t, r, b)) in zip(wort, zeichen):
+        if z == "°":
+            glyph = mask[t:b, l:r]
+            mitte = ((b-t)//2, (r-l)//2)
+            if glyph[mitte] or not ndimage.binary_fill_holes(glyph)[mitte]:
+                return ""  # Auch zwei gezeichnete Kreisraender umschliessen eine freie Mitte.
+    return wort
 
 
 def _breite_zeile(mask, rahmen=False):
@@ -358,6 +369,17 @@ def _freitext(pfade):
     if not mask.any():
         return ""
     wort = _masszeile(mask)
+    if not wort and not any(voll for _, voll in pfade):
+        from .pmi_hinweislinie import winkelbeschriftung
+        schrift = winkelbeschriftung(pfade, box, skala, labels, objekte)
+        if schrift:
+            punkte = np.vstack([p for p, _ in schrift])
+            dx, dy = np.ptp(punkte, axis=0)
+            if min(dx, dy) > 0:
+                ausschnitt, _ = _gesamtbild(schrift, min(720/dy, 2000/dx))
+                winkel = _normale_zeile(ausschnitt) if ausschnitt is not None else ""
+                if _WINKELZEILE.fullmatch(winkel):
+                    return winkel
     if wort or len(fuehrungen) != 1:
         return wort
     from .pmi_hinweislinie import zielbogen
@@ -435,6 +457,25 @@ def _netzrandrichtungen(dreiecke):
             yield koordinaten[rand[:, 1]] - koordinaten[rand[:, 0]]
 
 
+def _haeufige_schriftkanten(g, x, y):
+    """Wiederkehrende Glyphenkanten liefern Achsen auch bei langen schraegen Masshilfslinien."""
+    kanten = [np.diff(l, axis=0) for l in g.linien if len(l) >= 2]
+    kanten.extend(_netzrandrichtungen(g.dreiecke))
+    if not kanten:
+        return
+    kanten = np.vstack(kanten)
+    kanten = kanten[np.linalg.norm(kanten, axis=1) > 1e-7]
+    winkel = np.rad2deg(np.arctan2(kanten @ y, kanten @ x)) % 90
+    klassen = np.rint(winkel).astype(int) % 90
+    anzahl = np.bincount(klassen, minlength=90)
+    for k in np.argsort(anzahl)[-3:][::-1]:
+        if anzahl[k] < 4:
+            break
+        delta = (winkel[klassen == k] - k + 45) % 90 - 45
+        a = np.deg2rad(k + np.median(delta))
+        yield np.cos(a) * x + np.sin(a) * y
+
+
 def _rahmenrichtungen(g):
     """Moegliche Schreibachsen aus der Ebene und den laengsten geraden Kanten."""
     kanten = [np.diff(l, axis=0) for l in g.linien if 2 <= len(l) <= 6]
@@ -481,21 +522,34 @@ def _schriftachsen(pfade):
     return min(np.count_nonzero(dx < .035*dy), np.count_nonzero(dy < .035*dx)) >= anzahl
 
 
-def _mass_ohne_ebene(g, richtungen):
+def _mass_ohne_ebene(g, richtungen, ergebnis=""):
     from .pmi_ableiten import aus_text, grenzlesart
-    ergebnis = ""
     for ebene in richtungen:
         pfade = _pfade(g, ebene)
         for spiegelung in ((1, 1), (1, -1), (-1, 1), (-1, -1)):
             wort = _freitext([(p * spiegelung, voll) for p, voll in pfade])
-            if not wort or not re.match(r"^(?:[1-9][0-9]*X)?[⌀R][0-9.]", wort):
+            if not wort or not (re.match(r"^(?:[1-9][0-9]*X)?[⌀R][0-9.]", wort)
+                                or _WINKELZEILE.match(wort)):
                 continue
             daten = aus_text([wort], g.textfaktor) or grenzlesart(wort, g.textfaktor)
-            if daten and daten["typ"] in ("Size_Diameter", "Size_Radius"):
+            if daten and daten["typ"] in ("Size_Diameter", "Size_Radius", "Size_Angular"):
                 if ergebnis and ergebnis != wort:
-                    return ""
+                    return None
                 ergebnis = wort
     return ergebnis
+
+
+def _weitere_massrichtungen(g, ebenen):
+    """Nur ungeloeste bzw. als Winkel gelesene Angaben brauchen weitere Glyphenachsen."""
+    o, x, y, z = ebenen[0]
+    for v in _haeufige_schriftkanten(g, x, y):
+        if any(abs(v @ e[1]) > .999999 for e in ebenen):
+            continue
+        quer = np.cross(z, v)
+        for ebene in ((o, v, quer, z), (o, quer, v, -z)):
+            pfade = _pfade(g, ebene)
+            if _schriftachsen(pfade) and not _zellen(pfade):
+                yield ebene
 
 
 def _ohne_schreibebene(g):
@@ -505,7 +559,8 @@ def _ohne_schreibebene(g):
     ergebnis = ""
     massrichtungen = []
     hat_rahmen = False
-    for ebene in _rahmenrichtungen(g):
+    ebenen = list(_rahmenrichtungen(g))
+    for ebene in ebenen:
         pfade = _pfade(g, ebene)
         zellen = _zellen(pfade)
         if pfade and len(zellen) <= 6 and _schriftachsen(pfade):
@@ -526,7 +581,12 @@ def _ohne_schreibebene(g):
                 if ergebnis and ergebnis != text:
                     return ""
                 ergebnis = text
-    return ergebnis if ergebnis or hat_rahmen else _mass_ohne_ebene(g, massrichtungen)
+    if ergebnis or hat_rahmen or not ebenen:
+        return ergebnis
+    mass = _mass_ohne_ebene(g, massrichtungen)
+    if mass is None or (mass and "°" not in mass):
+        return mass or ""
+    return _mass_ohne_ebene(g, _weitere_massrichtungen(g, ebenen), mass) or ""
 
 
 def _lesbar(g):
