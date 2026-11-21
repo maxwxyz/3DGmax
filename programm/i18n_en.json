@@ -1,4 +1,13 @@
 {
+"Zusätzliche Anforderung auf der Zeichnung prüfen.": "Check the additional requirement on the drawing.",
+"Geometrie ungeklärt": "Geometry unresolved",
+"Flächenanzahl weicht ab": "Face count differs",
+"Flächen liegen in verschiedenen Ebenen": "Faces lie on different planes",
+"Gekrümmte Fläche": "Curved face",
+"Berührende Flächen, Aufteilung prüfen": "Faces touch, check how the surface is divided",
+"Getrennte Flächen in derselben Ebene": "Separate faces on the same plane",
+"Koplanare Flächen · Zeichnung {} · Modellflächen {} · {}": "Coplanar faces · Drawing {} · Model faces {} · {}",
+"Bauteilvorkommen ungeklärt": "Part occurrence unresolved",
 "Untere Rahmenzeile": "Lower frame row",
 "Untere Rahmenzeile zuordnen": "Assign lower frame row",
 "Obere Rahmenzeile zuordnen": "Assign upper frame row",

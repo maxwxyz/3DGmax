@@ -2,6 +2,23 @@
 
 ## Current state, 2026-11-21
 
+### Check the printed number of coplanar target surfaces
+
+- Checked PLAN §8.35 against docs/Roadmap.md. The right frame on FTC-07 sheet 3 names four coplanar
+  surfaces. Both assigned STEP tolerances #14614 and #14623 cover faces 3, 265, 266 and 267. Open CASCADE
+  confirms four separate patches in one nominal plane. Selecting the other pair (#15076 and #15085)
+  still matches both numeric rows but reports one target face instead of four in the preview.
+- The geometric result appears separately from the STEP descriptions in the review and CSV.
+  Rotated normals, plane offsets, opposite normals, a placed planar Bézier face, intersecting
+  bounding boxes with disjoint faces, touching patches, curved faces and missing geometry have
+  regression coverage. Reused face prototypes with several placements need occurrence selection.
+  Unknown additional scope wording stays open even when the printed and model descriptions agree.
+- Verification: 69 affected tests passed, and 31 tests passed with native macOS Qt. For the next
+  §8.35 case, independent STEP links added to an FTC-07 copy yielded two confirmed simultaneous
+  groups: #14614 with #15076 against A/B/C, and #14623 with #15085 against A. Compare the selected
+  drawing partners per row. A link on the upper row alone cannot prove the lower row's membership.
+  QIF remains the final package.
+
 ### Compare the two drawing rows with the directed STEP pair
 
 - Checked PLAN §8.35 against docs/Roadmap.md. Open FTC-07 sheet 3, choose inches and assign

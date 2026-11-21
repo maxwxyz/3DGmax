@@ -207,7 +207,7 @@ class Einzelmasse(QtWidgets.QWidget):
 
 
 class Zeichnungsabgleich(QtWidgets.QDialog):
-    def __init__(self, doc, modell_pmi, zeige_modell, quellen, parent=None, *, einzelteil=None):
+    def __init__(self, doc, modell_pmi, zeige_modell, quellen, parent=None, *, einzelteil=None, modellgeometrie=None):
         super().__init__(parent)
         self.doc, self.zeige_modell = doc, zeige_modell
         self.quellen = quellen
@@ -216,6 +216,7 @@ class Zeichnungsabgleich(QtWidgets.QDialog):
         self.entfernte_bereiche = {}
         self.auftrag = None
         self.einzelteil = einzelteil
+        self.modellgeometrie = modellgeometrie if modellgeometrie is not None else einzelteil
         self.modellkreise = self.blattgeometrie = None
         self.kreise = {}
         self.sichtkreise = {}
@@ -326,7 +327,7 @@ class Zeichnungsabgleich(QtWidgets.QDialog):
     def setze_modell(self, pmi):
         vorher = getattr(self, "modellindex", {})
         self.modell = [p for p in pmi if p.semantisch and p.art in (MASS, BEZUG, TOLERANZ)]
-        self.verbundindex = Verbundindex(self.modell)
+        self.verbundindex = Verbundindex(self.modell, self.modellgeometrie)
         self.modellindex = {id(p): i for i, p in enumerate(self.modell)}
         self.nur_modell.intersection_update(self.modellindex)
         for angaben in self.seiten.values():
@@ -838,6 +839,16 @@ class Zeichnungsabgleich(QtWidgets.QDialog):
         status = {"gleich": tr("Übereinstimmung"), "geaendert": tr("Abweichend"), "offen": tr("Zu prüfen")}
         text = tr("Obere Zeile: {} · Untere Zeile: {}\n{} · Gemeinsame STEP-Flächen: {} · Wortlaut: {}").format(
             *zeilen, bindung, status[bericht.flaechen], status[bericht.wortlaut])
+        if k := bericht.koplanar:
+            grund = {"geometrie": tr("Geometrie ungeklärt"), "anzahl": tr("Flächenanzahl weicht ab"),
+                     "ebenen": tr("Flächen liegen in verschiedenen Ebenen"), "gekruemmt": tr("Gekrümmte Fläche"),
+                     "vorkommen": tr("Bauteilvorkommen ungeklärt"),
+                     "beruehrung": tr("Berührende Flächen, Aufteilung prüfen"),
+                     "getrennt": tr("Getrennte Flächen in derselben Ebene")}[k.grund]
+            text += "\n" + tr("Koplanare Flächen · Zeichnung {} · Modellflächen {} · {}").format(
+                k.soll, k.ist if k.ist is not None else "–", grund)
+        if bericht.zusatz_offen:
+            text += "\n" + tr("Zusätzliche Anforderung auf der Zeichnung prüfen.")
         if bericht.gruppe_offen:
             text += "\n" + tr("Mitgeltende Partner des Verbundrahmens sind ungeprüft.")
         return text
@@ -1021,7 +1032,8 @@ def oeffne_zeichnung(fenster, pfad):
         quellen = (str(pfad), str(fenster.erg.pfad))
         blaetter = (k for k in fenster.erg.baum.blaetter() if not k.hilfsgeometrie)
         einzelteil = fenster.erg.modell if next(blaetter, None) is not None and next(blaetter, None) is None else None
-        dialog = Zeichnungsabgleich(doc, fenster.erg.pmi, markiere, quellen, fenster, einzelteil=einzelteil)
+        dialog = Zeichnungsabgleich(doc, fenster.erg.pmi, markiere, quellen, fenster, einzelteil=einzelteil,
+                                     modellgeometrie=fenster.erg.modell)
     except (pdf.PdfiumError, OSError, ValueError) as e:
         if doc is not None:
             doc.close()

@@ -185,6 +185,10 @@ def test_zuordnung_beider_step_zeilen_auf_originalblatt(fenster, tmp_path, monke
             assert "Obere Zeile: Werte gleich · Untere Zeile: Werte gleich" in d.detail.text()
             assert "Obere Zeile verweist auf die untere" in d.detail.text()
             assert "Wortlaut: Abweichend" in d.detail.text()
+            if a is rechts:
+                assert "Modellflächen 4 · Getrennte Flächen in derselben Ebene" in d.detail.text()
+            else:
+                assert "Koplanare Flächen" not in d.detail.text()
         d._export()
         with ausgabe.open(encoding="utf-8-sig") as f:
             zeilen = list(csv.DictReader(f, delimiter=";"))
@@ -193,6 +197,12 @@ def test_zuordnung_beider_step_zeilen_auf_originalblatt(fenster, tmp_path, monke
             ("15076","15085"), ("14614","14623")]
         assert all(z["Befund"] == "Abweichend" and z["Modellwert der unteren Rahmenzeile"] for z in paare)
         assert all(z["Quell-ID der Modell-PMI"] not in ("14623","15085") for z in zeilen)
+        assert "Zeichnung 4 · Modellflächen 4" in paare[1]["Prüfung des Verbundrahmens"]
+        d.waehle(rechts)
+        for combo, nr in ((d.zuordnung,15076), (d.untere_zeile,15085)):
+            combo.setCurrentIndex(combo.findData(d.modellindex[id(pmis[nr])]))
+        assert "Zeichnung 4 · Modellflächen 1 · Flächenanzahl weicht ab" in d.detail.text()
+        assert "Obere Zeile: Werte gleich · Untere Zeile: Werte gleich" in d.detail.text()
         d.setze_modell([p for p in d.modell if p.step_id != 14623])
         assert rechts.unten is None and d._befund(rechts) == "offen"
     finally:

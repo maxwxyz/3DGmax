@@ -1724,8 +1724,11 @@ caption. The right frame also names four coplanar surfaces. Assigning both rows 
 values and datums, the STEP relationship direction and membership, their model face sets and the
 wording attached to both semantic tolerances. The CSV identifies both source entities. On the original
 STEP both pairs match in values, datums and relationship, and both descriptions are empty. The drawing
-includes SIM REQT on both. Cross-frame partner membership and verification of the four coplanar
-drawing targets against the B-rep are open.
+includes SIM REQT on both. For a printed count of coplanar surfaces, check the nominal B-rep support of the assigned pair.
+The right frame covers four disjoint planar faces. Assigning the same-valued single-face pair
+reports a count of one. A parallel offset, tilted plane or analytically curved face produces
+a separate geometric finding. Touching face patches or an ambiguous repeated occurrence need
+review. Cross-frame partner membership is still open.
 
 Remaining work includes occluded rims, perspective views, sections, non-circular features and leaders on section or edge geometry, automatically
 finding additional types of unframed graphical annotations, interpreting composite controls and establishing

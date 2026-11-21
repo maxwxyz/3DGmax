@@ -1,7 +1,10 @@
 """Gepruefte Zeilen eines gemeinsamen Zeichnungsrahmens mit zwei STEP-Toleranzen vergleichen."""
 
+from collections import Counter
 from dataclasses import dataclass
+from functools import cached_property
 
+from .koplanare_ziele import Koplanarbefund, pruefe_koplanar, zielanzahl
 from .pmi import TOLERANZ
 from .pmi_ableiten import SIMULTANHINWEIS
 from .zeichnungsabgleich import lese_angabe, modellhinweis, unterschiede
@@ -18,7 +21,9 @@ def rahmenzeilen(text, faktor):
 
 
 class Verbundindex:
-    def __init__(self, modelle):
+    def __init__(self, modelle, geometrie=None):
+        self.geometrie = geometrie
+        self.koplanare_ziele = {}
         self.quellen = {}
         self.eltern = {}
         for m in modelle:
@@ -27,6 +32,28 @@ class Verbundindex:
             self.quellen[m.step_id] = None if m.step_id in self.quellen else m
             for n in m.folgetoleranzen:
                 self.eltern.setdefault(n, set()).add(m.step_id)
+
+    @cached_property
+    def mehrfach_verbaut(self):
+        # Erst bei einer geometrischen Pruefung alle Vorkommen mit ihrer Lage aufloesen.
+        from .vergleich_geo import _instanzen
+        if self.geometrie is None:
+            return set()
+        _, basis = _instanzen(self.geometrie)
+        return {i for i,n in Counter(basis).items() if n > 1} if basis is not None else set()
+
+    def koplanar(self, text, oben, unten):
+        soll = zielanzahl(text)
+        if soll is None:
+            return None
+        if oben.flaechen != unten.flaechen:
+            return Koplanarbefund(soll, None, "geometrie")
+        if self.mehrfach_verbaut & oben.flaechen:
+            return Koplanarbefund(soll, None, "vorkommen")
+        schluessel = (soll, frozenset(oben.flaechen))
+        if schluessel not in self.koplanare_ziele:
+            self.koplanare_ziele[schluessel] = pruefe_koplanar(soll, oben.flaechen, self.geometrie)
+        return self.koplanare_ziele[schluessel]
 
     def verknuepfung(self, oben, unten):
         a, b = oben.step_id, unten.step_id
@@ -48,7 +75,9 @@ class Rahmenbefund:
     verknuepfung: str
     flaechen: str
     wortlaut: str
+    koplanar: Koplanarbefund | None
     gruppe_offen: bool
+    zusatz_offen: bool
     status: str
 
 
@@ -68,9 +97,13 @@ def pruefe_rahmen(angabe, faktor, index):
     gruppe = (any(SIMULTANHINWEIS.fullmatch(z.strip()) for z in angabe.text.splitlines()[2:])
               or any(m.simultan_mit or m.simultan_offen or SIMULTANHINWEIS.fullmatch(modellhinweis(m))
                      for m in (oben, unten)))
+    koplanar = index.koplanar(angabe.text, oben, unten)
+    weitere_zeilen = [z.strip() for z in angabe.text.splitlines()[2:] if z.strip() and not SIMULTANHINWEIS.fullmatch(z.strip())]
+    zusatz_offen = len(weitere_zeilen) > int(koplanar is not None)
+    geometrie = koplanar.status if koplanar else ""
     status = "gleich"
-    if any(felder) or bindung in ("fehlt", "umgekehrt", "weitere") or flaechen == "geaendert" or wortlaut == "geaendert":
+    if any(felder) or bindung in ("fehlt", "umgekehrt", "weitere") or "geaendert" in (flaechen, wortlaut, geometrie):
         status = "geaendert"
-    elif gruppe or "offen" in (bindung, flaechen) or any(p.zone == "Projected" for p in (zeile1, zeile2)):
+    elif gruppe or zusatz_offen or "offen" in (bindung, flaechen, geometrie) or any(p.zone == "Projected" for p in (zeile1, zeile2)):
         status = "offen"
-    return Rahmenbefund(felder, bindung, flaechen, wortlaut, bool(gruppe), status)
+    return Rahmenbefund(felder, bindung, flaechen, wortlaut, koplanar, bool(gruppe), zusatz_offen, status)
