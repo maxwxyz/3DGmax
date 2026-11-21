@@ -2,6 +2,31 @@
 
 ## Current state, 2026-11-21
 
+### Accelerate occurrence matching in assembly revision comparisons
+
+- Checked PLAN §6 against the comparison section of docs/Roadmap.md. The matcher
+  groups parts by base name, consumes coincident centres in file order and uses
+  spatial searches for moved occurrences and renames. Mutually closest pairs
+  preserve the previous greedy ordering. A row shifted by half its spacing can
+  resolve equal minimum distances together. Mass properties no longer compute a
+  bounding box or count topology for each compared occurrence.
+- Two generated AP242 revisions were reopened, each with 640 instances of one pin.
+  The occurrence stage took 0.453 s before and 0.122 s after (three alternating
+  runs, median). Both returned the same twenty 1 mm moves, IDs, order and vectors.
+  For the matching step on equivalent centres the traced Python allocation peak
+  fell from 49.71 to 0.66 MiB. The 2,400 differently named parts of the 42.85 MB
+  reference took 0.928 s versus 0.668 s. These component timings exclude import
+  and surface comparison. Findings also matched on 1,500 generated groups with
+  ties, geometry changes, renames and unequal counts. All 19 affected tests, 36
+  comparison regressions and the native macOS assembly-dialog check passed.
+- Next §6: opening the same 847,220-entity STEP attributed 5.25 s of a profiled
+  load to Part 21 reading. Of 242,403 point and direction statements, 180,374
+  use just 64 distinct argument strings. Instrumenting Entity.args during a
+  normal load recorded no calls for those two types. Optimise repeated geometry
+  records and measure total opening time. Check mutable arguments, reference
+  graphs, malformed input, annotations and export against the existing reader.
+  QIF remains last.
+
 ### Read bore arcs printed as filled strips
 
 - Checked PLAN §§8.35–8.36 against docs/Roadmap.md. The print contour provides

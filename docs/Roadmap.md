@@ -218,7 +218,7 @@
 | Detect rotated/mirrored elements (angle and axis, mirror plane) | ✅ |
 | Graphical PMI comparison: moved or reshaped presentation of equal PMI | ✅ |
 | Graphical-only PMI (notes) matched and compared by text | ✅ |
-| Assembly comparison (parts new/removed/moved/changed/renamed) | ✅ |
+| Assembly comparison (parts new/removed/moved/changed/renamed) with spatial matching of repeated occurrences and file-order tie handling | ✅ |
 | Change table with characteristic, old, new, Δ, tendency (tighter/looser), also in PDF/CSV | ✅ |
 | Comparison modes: comparison, old, new, overlay, side by side (coupled cameras), blink; tree follows the mode | ✅ |
 | Comparison modes stage 2: tree with part status colours | ✅ |

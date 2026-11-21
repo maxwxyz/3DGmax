@@ -125,6 +125,13 @@ Throughout: tests (core, offscreen UI, stress test, on-screen test), `--selbstte
    assembly, the median of ten native macOS toggles including redraw fell from 41.83 to 25.02 ms.
    Transparency took 17.14 ms versus 38.33 ms. With one box hidden, finding the 14,394 visible
    tolerance-zone face indices from the existing display index took 9.86 ms versus 62.20 ms.
+   Assembly revision comparison groups occurrences by base name, matches coincident centres in
+   file order and uses a spatial index for the remaining centres. On two imported AP242 revisions
+   with 640 pins, including twenty displaced by 1 mm, the occurrence comparison took a median
+   of 0.122 s versus 0.453 s on the same Mac. The same twenty occurrence pairs and displacement
+   vectors were reported in order. For the matching step alone, Python allocations peaked at
+   0.66 MiB versus 49.71 MiB on the equivalent centre positions. These timings exclude file
+   loading and surface comparison.
    Comparisons and scan inspections
    refine coarse CAD meshes on separate topology and share the result across instances and repeated analyses of
    a loaded model. This also covers planar faces with curved trims. Persistent mesh caching and viewer levels

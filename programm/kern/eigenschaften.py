@@ -51,13 +51,19 @@ def _zaehle(form, art) -> int:
     return n
 
 
-def berechne(form) -> Eigenschaften:
-    """Kennwerte einer Form (Modell oder gewaehlte Teile)."""
+def masseneigenschaften(form):
+    """Volumen, Oberflaeche und Schwerpunkt in der Lage der Form."""
     vp, fp = GProp_GProps(), GProp_GProps()
     brepgprop.VolumeProperties(form, vp)
     brepgprop.SurfaceProperties(form, fp)
     volumen = vp.Mass()
     sp = vp.CentreOfMass() if abs(volumen) > 1e-12 else fp.CentreOfMass()
+    return abs(volumen), fp.Mass(), (sp.X(), sp.Y(), sp.Z())
+
+
+def berechne(form) -> Eigenschaften:
+    """Kennwerte einer Form (Modell oder gewaehlte Teile)."""
+    volumen, oberflaeche, schwerpunkt = masseneigenschaften(form)
     box = Bnd_Box()
     brepbndlib.Add(form, box, False)  # ohne Netz, auf der exakten Geometrie
     box.SetGap(0.0)
@@ -65,7 +71,7 @@ def berechne(form) -> Eigenschaften:
         x0 = y0 = z0 = x1 = y1 = z1 = 0.0
     else:
         x0, y0, z0, x1, y1, z1 = box.Get()
-    return Eigenschaften(abs(volumen), fp.Mass(), (sp.X(), sp.Y(), sp.Z()), (x1 - x0, y1 - y0, z1 - z0),
+    return Eigenschaften(volumen, oberflaeche, schwerpunkt, (x1 - x0, y1 - y0, z1 - z0),
                          (x0, y0, z0), _zaehle(form, TopAbs_SOLID), _zaehle(form, TopAbs_FACE))
 
 
