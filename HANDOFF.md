@@ -2,6 +2,29 @@
 
 ## Current state, 2026-11-21
 
+### Read least-material requirements in graphical CTC-02 frames
+
+- Checked PLAN §8.4 against docs/Roadmap.md. The six circled-L frames match the values,
+  types, material conditions and ordered datum references of semantic CTC-02. Three profile
+  frames mark H, J or both. Two position controls and one perpendicularity control mark
+  the toleranced feature. Tested the original contours, separately drawn single strokes
+  and pure triangle fills, including recognition without a writing plane.
+- Five reviewed controls round-trip through the project and semantic STEP with the correct
+  faces, saved views and original graphics. The remaining 1 mm position control is read
+  with A/B/C. Export keeps it graphical and reports the missing semantic datums when only
+  G/H/J were reviewed. CTC-02 contains graphical datum targets for A, B and C.
+- Rounded compartment endpoints previously obscured #8707 (1.5 mm position at maximum
+  material, to A/B/C). Adjacent datum references stay separate after projection.
+  A damaged separator must leave the frame unresolved.
+- Across 194 graphical callouts the six circled-L frames and #8707 were the only changed
+  readings, with and without saved writing axes. All 29 affected tests, 77 related
+  regression cases and five native Cocoa checks passed. The signed arm64 build passed
+  its self-test and rendered the exported triangle-only callouts.
+- Next in §8.4: the three unequally disposed profile controls in CTC-02 (#8688, #8694
+  and #8714). Their 2.5 mm profile values accompany offsets of 2.5, 0.5 and 0 mm,
+  respectively (semantic controls #58, #57 and #56). Check how the exporter writes
+  UNEQUALLY_DISPOSED_GEOMETRIC_TOLERANCE before enabling semantic review. Reconstruction of datum-target sets is also open. QIF remains last.
+
 ### Recover CTC-05 form and runout controls from their graphical STEP presentation
 
 - Checked PLAN §8.4 against docs/Roadmap.md. In CTC-05 AP203 the eight previously unread

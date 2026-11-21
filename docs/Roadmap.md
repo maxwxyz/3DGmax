@@ -72,6 +72,7 @@
 | Read supported STEP dimension strings, datum letters and tolerance frames from single strokes, curves or filled triangle glyphs in the conversion dialog; export confirmed semantics with the original presentation | ✅ |
 | Read R from single-stroke or filled graphical PMI and save the confirmed radius with its STEP callout. Compare repeated R and CR drawing rows with radius PMI on the matching bore walls | ✅ |
 | Use a graphical STEP callout's own validation text for supported dimensions, datums and tolerance frames. Read an omitted symbol from its plotted cell or specific callout name and show its source in review | ✅ |
+| Read circled L in graphical tolerance values and individual datum compartments. Verified six NIST CTC-02 frames against their semantic reference, including a frame with modifiers on both H and J | ✅ |
 | Recover straightness, roundness, concentricity, circular runout and total runout from graphical STEP controls. Eight NIST CTC-05 frames retain original graphics, faces, diameter zones and common datums through semantic review and export, including leaders leaving the text plane | ✅ |
 | Read rectangular unit-area flatness from a complete graphical frame. Recover both lengths through review, project save and AP242 export with original callout; compare the side lengths independently. Local scan evaluation remains open | ✅ |
 | Read flatness per circular unit area in graphical STEP, review the circle diameter, preserve it in projects and STEP with original graphics, and compare it independently in model revisions and drawing rows | ✅ |

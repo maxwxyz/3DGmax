@@ -351,6 +351,12 @@ Throughout: tests (core, offscreen UI, stress test, on-screen test), `--selbstte
   A straightness bar must span the characteristic cell. The common datum A-B, the diameter
   zone and the target faces survive AP242 export. For a leader extending out of the text plane,
   the inferred plane must contain the frame and the inclined shaft must reach the separate target.
+  In CTC-02 the reading preserves the compartment of each least-material modifier (Ⓛ).
+  Six graphical frames agree with the semantic reference on type, value, material condition
+  and datum order. Five can be exported after reviewing G, H and J. The remaining position
+  frame needs semantic datums A, B and C. Rounded STEP coordinates at a compartment boundary
+  also occur in #8707. It reads as separate datums A, B and C. Recovering the datum targets
+  is still open.
   Open: additional fonts, further composite layouts and dimensions with
   ambiguous leader or text placement.
 - Convert to semantic PMI: evaluate recognized text + frame structure; mark result as "derived (check)", never as

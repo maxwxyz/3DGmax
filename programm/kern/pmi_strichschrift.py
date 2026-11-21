@@ -33,15 +33,28 @@ def _rahmen(pfade):
             continue
         for a, b in zip(p, p[1:]):
             dx, dy = abs(b - a)
-            if dx < 1e-6 * dy:
+            if dx < 1e-5 * dy:
                 senk.append((a[0], min(a[1], b[1]), max(a[1], b[1])))
-            elif dy < 1e-6 * dx:
+            elif dy < 1e-5 * dx:
                 waag.append((a[1], min(a[0], b[0]), max(a[0], b[0])))
     if len(senk) > 140 or len(waag) > 140:
         return []
+    # Eine verschobene Schreibebene darf gemeinsame Zellgrenzen nicht an einer
+    # Rundungsgrenze trennen. Jede Gruppe bleibt innerhalb der Koordinatentoleranz.
+    def vereinige(werte):
+        zuordnung = {}
+        start = -np.inf
+        for wert in sorted(set(werte)):
+            if wert-start > 1e-5:
+                start = wert
+            zuordnung[wert] = round(start, 5)
+        return zuordnung
+
+    xs = vereinige(x for x, _, _ in senk)
+    ys = vereinige(y for _, unten, oben in senk for y in (unten, oben))
     gruppen = {}
     for x, unten, oben in senk:
-        gruppen.setdefault((round(unten, 5), round(oben, 5)), set()).add(round(x, 5))
+        gruppen.setdefault((ys[unten], ys[oben]), set()).add(xs[x])
     rahmen = []
     for (unten, oben), kanten in gruppen.items():
         h = oben - unten
@@ -106,8 +119,21 @@ def _fachmaske(pfade, box, pixelhoehe=100):
     x, y, r, t = box
     h = t - y
     rand = .003 * h
-    innen = [(p, voll) for p, voll in pfade if np.min(p[:, 0]) > x + rand and np.max(p[:, 0]) < r - rand
-             and np.min(p[:, 1]) > y + rand and np.max(p[:, 1]) < t - rand]
+    innen = []
+    for p, voll in pfade:
+        links = np.min(p[:, 0])
+        if links <= x + rand:
+            continue
+        rechts = np.max(p[:, 0])
+        if rechts >= r - rand:
+            continue
+        unten, oben = np.min(p[:, 1]), np.max(p[:, 1])
+        if unten > y + rand and oben < t - rand:
+            innen.append((p, voll))
+        elif (not voll and unten <= y + rand and oben >= t - rand
+              and x + .1*h < links and rechts < r - .1*h):
+            # Eine unerkannte Trennkante darf zwei Bezugsfelder nicht zu "BC" verbinden.
+            return None
     return _bild(innen, box, pixelhoehe / h) if innen and h > 0 else None
 
 
@@ -230,6 +256,10 @@ def _lies_zeile(zeichen, vorlagen=None, innenraeume=None):
                 innen = np.r_[dist[vorlage & _KREIS_INNEN], abstand[bitmap & _KREIS_INNEN]]
                 if not innen.size or np.quantile(innen, .9) > 1.7:
                     continue
+            if z == "Ⓛ" and (dist[vorlage].max() > 2.3 or abstand[bitmap].max() > 2.3):
+                # Beide Schenkel und der Ring muessen vollstaendig sein. Ein zusaetzlicher
+                # kurzer Aufstrich kann im mittleren Abstand des grossen Rings untergehen.
+                continue
             fehler = (dist[vorlage].mean() + abstand[bitmap].mean()) / 2
             je_zeichen[z] = min(je_zeichen.get(z, np.inf), fehler)
         sortiert = sorted(je_zeichen, key=je_zeichen.get)
