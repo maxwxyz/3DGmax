@@ -77,6 +77,7 @@
 | Recover CTC-03 graphical surface profiles and angularity with a detached leader ending in a round target. Review and STEP export preserve the measured value, ordered datums, target face and graphic | ✅ |
 | Read CTC-03 position controls with D/B/C and CTC-02 profiles with G/H/J or D/E/F and their material modifiers. Preserve datum labels, source graphics and face references through STEP export | ✅ |
 | Convert a drawn A ↔ B profile tolerance on a separately trimmed STEP face. Confirm the patch, retain holes and original lettering through project reload, and link both original endpoint callouts to the STEP boundary features | ✅ |
+| Compare trimmed profile coverage after alignment. Report the area unique to each revision, including changes to holes. Cylindrical seam splits and overlapping trims retain their shared coverage | ✅ |
 | Select an imported surface profile on a separately trimmed patch and show its two offset faces. Verified on a planar patch with a hole and a cylindrical sector, including saved STEP edits | ✅ |
 | Import and export the connected face set of a bounded profile in a separate STEP representation. Graphic review resolves all member faces and keeps the original callouts | ✅ |
 | Compare the ordered boundary edges of a profile tolerance after model alignment. The change table and CSV distinguish added, removed or changed extents from unresolved edge correspondence | ✅ |
@@ -276,6 +277,7 @@
 | Bevel-pair dimensions from confirmed tooth-band ends: outer/mean transverse module, cone distance, face width, width ratio and shared width (STEP and STL controls) | ✅ |
 | Spherical-backed differential bevel gears in STEP and STL. Tooth count and cone angles use intact tooth sections, including short spherical backs. The gear data sheet reports the back radius and, for a crowned pin bore, its curvature radius and diameter at the extremum. Gear pairs and differentials are recognised in assemblies | ✅ |
 | Bevel gears: tooth hand on an individual gear and mean spiral angle on the pitch cone of a compatible pair, tested with STEP and STL | ✅ |
+| Separate external teeth and internal splines on a single spur or bevel gear in CAD and mesh imports. Crown gear candidates from a planar tooth root, repeated axial relief and radially changing flank width. Verified with FreeCAD Gears reference models | ✅ |
 | Face-toothed bevel gear candidates from repeated axial relief on concentric circles, with tooth count, radial span and measured inclination. Verified on a pinion with a raised inner collar and a flat-clutch control. Adaptive CAD mass integration for periodic spline surfaces | ✅ |
 | Export tree selection through File or right-click: STEP geometry with names, installed positions, hierarchy and face colours, or STL for CAD and meshes | ✅ |
 | Differential bevel pinions with a rear shoulder and a collared thrust washer: independent tooth-band, counterbore and bore-crown measurements, including a two-part STEP fixture | ✅ |

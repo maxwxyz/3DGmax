@@ -206,6 +206,8 @@ class Steckpaar:
 
 
 def _paar(w, n):
+    if w.koerper_id is not None and w.koerper_id is n.koerper_id:
+        return None
     if w.art != n.art or w.z != n.z or abs(w.achse @ n.achse) < 0.99999:
         return None
     versatz = n.mitte - w.mitte

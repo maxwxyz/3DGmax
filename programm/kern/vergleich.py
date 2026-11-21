@@ -432,7 +432,7 @@ def _pmi_aenderungen(liste) -> list[Aenderung]:
         p = x.neu or x.alt
         art = {"mass": "Maß", "toleranz": "Toleranz", "bezug": "Bezug", "hinweis": "Hinweis"}.get(p.art, p.art)
         out.append(Aenderung(0, PMI, x.status, f"{tr(PMI_TITEL[x.status])}: {tr(art)} {p.wert_text()}", x.text(),
-                             set(x.neu.flaechen) if x.neu else set(), set(x.alt.flaechen) if x.alt else set(),
+                             x.neu.traegerflaechen() if x.neu else set(), x.alt.traegerflaechen() if x.alt else set(),
                              x.alt, x.neu, spalten=pmi_spalten(x.alt, x.neu, x.felder)))
     return out
 
@@ -499,9 +499,11 @@ def vergleiche(alt, neu, toleranz: float = 0.01, suchweite: float = 2.0, ausrich
         geo.zuordnung_ab.setdefault(f_alt, f_neu)
     fortschritt(tr("PMI vergleichen …"))
     from .vergleich_grenzkanten import grenzschluessel
+    from OCC.Core.TopLoc import TopLoc_Location
     kanten = grenzschluessel(alt, neu, ausrichtung, toleranz, geo.zuordnung)
     pmi = vergleich_pmi.vergleiche_pmi(alt.pmi, neu.pmi, geo.zuordnung, zuordnung_ab=geo.zuordnung_ab,
-                                       geo_status=geo.status_b, kantenschluessel=kanten)
+                                       geo_status=geo.status_b, kantenschluessel=kanten, modelle=(alt.modell, neu.modell),
+                                       lage=TopLoc_Location(ausrichtung.gp_trsf()), toleranz=toleranz)
     pmi_liste = _pmi_aenderungen(pmi)
     # PMI, deren Flaechen nur verschoben wurden: "PMI verschoben" statt "Geometrie unter PMI geaendert"
     for a in pmi_liste:

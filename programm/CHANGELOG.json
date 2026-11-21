@@ -1,6 +1,8 @@
 {
  "unreleased": {
   "de": [
+   "Die Verzahnungserkennung misst die Innensteckverzahnung und die Außenverzahnung eines Rades getrennt. Bei Kronenrad-Kandidaten zeigt sie die Zähnezahl, die axiale Zahnhöhe und den radialen Messbereich. STEP und Netzmodelle werden unterstützt.",
+   "Der Revisionsvergleich weist Änderungen an begrenzten Profilflächen in mm² je Stand aus. Er berücksichtigt Innenlöcher, überlappende Flächen und Aufteilungen an Zylindernähten.",
    "Ebenheit je Kreisfläche lässt sich aus Strichschrift und gefüllten STEP-Grafiken übernehmen. Der Prüfdialog zeigt den Kreisdurchmesser. Er bleibt mit der Originalgrafik im STEP erhalten und ist im Zeichnungs- und Revisionsvergleich einzeln prüfbar.",
    "Ebenheit je rechteckiger Einheitsfläche lässt sich aus einer grafischen Angabe wie .005 / .25 X .25 übernehmen. Beide Seitenlängen erscheinen in der Prüfung und bleiben im Projekt, STEP-Export und Vergleich erhalten. Eine ungeprüfte lokale Ebenheit bleibt im Scanbericht offen.",
    "Grafische Profil- und Neigungstoleranzen mit abgesetzter Hinweislinie und rundem Ziel lassen sich in semantische STEP-PMI umwandeln. Die Prüfung unterscheidet den Zielkreis am Linienende von einem Kreis am Knick. Bauteilfläche, Bezüge und Originalgrafik bleiben im Export erhalten.",
@@ -228,6 +230,8 @@
    "Grafische PMI aus unterstützten AP203e2-Kurvenmodellen lassen sich als STEP AP242 Edition 3 ausgeben. Facettierte STEP-Modelle behalten ihre Flächenbezüge. Gepackte STEP-Dateien lassen sich als unkomprimierte STEP-Kopie speichern."
   ],
   "en": [
+   "Gear recognition measures a splined bore and the external teeth on the same wheel independently. Crown gear candidates show tooth count, axial relief and the measured radial range in both CAD and mesh models.",
+   "Revision comparison reports the area unique to each trimmed profile in mm². It accounts for holes, overlapping patches and splits at cylindrical seams.",
    "Recover flatness per circular unit area from stroked or filled graphical STEP controls. Review the circle diameter, retain it with the original graphics in STEP, and compare it independently against a drawing or another revision.",
    "Review local flatness per rectangular unit area from a graphical frame such as .005 / .25 X .25. Both side lengths survive project save, STEP export and revision comparison. The scan report leaves unevaluated local flatness open.",
    "Graphical surface-profile and angularity frames with a detached leader and round endpoint can be reviewed and exported as semantic STEP PMI. Review distinguishes the endpoint from a circle at the bend. The export retains the target face, datums and original graphics.",

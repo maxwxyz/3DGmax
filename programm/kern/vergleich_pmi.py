@@ -10,11 +10,13 @@ from __future__ import annotations
 from bisect import bisect_left, bisect_right
 from collections import defaultdict
 from dataclasses import dataclass, field
+from functools import cache
 from math import inf, isfinite, nextafter
 
 from ..i18n import tr
 
 from .pmi import Pmi
+from .vergleich_profilbereich import bereichsfeld, hat_ausschnitt
 
 GLEICH, GEAENDERT, NEU, ENTFALLEN = "gleich", "geaendert", "neu", "entfallen"
 GEOMETRIE = "geometrie"  # PMI unveraendert, aber Geometrie der zugeordneten Flaechen geaendert
@@ -28,6 +30,8 @@ FELD_TEXT = {"beschreibung": "Toleranzbeschreibung", "nennwert": "Nennwert", "ob
              "maximum_toleranz": "Höchstwert der geometrischen Toleranz",
              "grenzmass": "Grenzmaße", "bereichsgrenzen": "Begrenzter Profilbereich",
              "grenzen_offen": "Zuordnung der Grenzkanten offen",
+             "profilbereich_offen": "Vergleich der Profilteilflächen offen",
+             "profilteilflaeche": "Abweichende Profilteilfläche",
              "simultan_mit": "Gleichzeitig geltende Toleranzen",
              "simultan_offen": "Gleichzeitige Anforderung mit ungeprüfter Bezugsbasis",
              "folgetoleranzen": "Nachgeordnete Toleranz im Verbundrahmen",
@@ -90,9 +94,10 @@ def _punkte(a: Pmi, b: Pmi, fb, gleicher_bezug) -> float:
     if a.art != b.art or a.typ != b.typ:
         return -1.0
     s = 0.0
-    if a.flaechen and fb:
-        gemeinsam = len(a.flaechen & fb)
-        s += 4.0 * gemeinsam / (len(a.flaechen) + len(fb) - gemeinsam)
+    fa = a.traegerflaechen()
+    if fa and fb:
+        gemeinsam = len(fa & fb)
+        s += 4.0 * gemeinsam / (len(fa) + len(fb) - gemeinsam)
     wert_a = a.nennwert if a.nennwert is not None else a.wert
     wert_b = b.nennwert if b.nennwert is not None else b.wert
     if wert_a is not None and _gleich(wert_a, wert_b):
@@ -146,7 +151,7 @@ def _kandidaten(alt, neu, merkmale_b, schwelle, offen_a, offen_b):
         else:
             # Das gleiche Bezugssystem allein zaehlt nur einen halben Punkt.
             kandidaten = set(namen.get((typ, a.name), ()))
-            for f in a.flaechen:
+            for f in a.traegerflaechen():
                 kandidaten.update(orte.get((typ, f), ()))
             wert = a.nennwert if a.nennwert is not None else a.wert
             zahlen = werte.get(typ, ())
@@ -180,10 +185,11 @@ def _paarmerkmale(liste, zuordnung=None, simultan=None, kanten=None):
     rollen, gruppen = _verbundrollen(liste, simultan or {})
     ergebnis = []
     for p in liste:
+        traeger = p.traegerflaechen()
         if zuordnung is None:
-            flaechen, projektion = frozenset(p.flaechen), frozenset(p.projektionsflaechen)
+            flaechen, projektion = frozenset(traeger), frozenset(p.projektionsflaechen)
         else:
-            flaechen = frozenset(zuordnung[n] for n in p.flaechen if n in zuordnung)
+            flaechen = frozenset(zuordnung[n] for n in traeger if n in zuordnung)
             projektion = frozenset(zuordnung[n] for n in p.projektionsflaechen if n in zuordnung)
         bezug = p.bezug_text()
         ursprung = p.mittenbezug if zuordnung is None else zuordnung.get(p.mittenbezug)
@@ -191,7 +197,7 @@ def _paarmerkmale(liste, zuordnung=None, simultan=None, kanten=None):
         inhalt = (grenzen, ursprung, tuple(getattr(p, f) for f in FELDER), p.grenzmass, p.mittenabstand,
                   tuple(sorted(p.modifikatoren)), p.name, p.nur_grafik_text if p.art == "hinweis" else "")
         exakt = None
-        if (p.step_id not in rollen and grenzen is not None and all(k is not None for _, k in grenzen) and
+        if (not hat_ausschnitt(p) and p.step_id not in rollen and grenzen is not None and all(k is not None for _, k in grenzen) and
                 len(flaechen) == len(p.flaechen) and len(projektion) == len(p.projektionsflaechen)):
             exakt = (p.art, p.typ, flaechen, projektion, bezug, inhalt)
         ergebnis.append(_Paarmerkmal(flaechen, bezug, inhalt, exakt, rollen.get(p.step_id), gruppen.get(p.step_id)))
@@ -212,7 +218,7 @@ def _exakte_paare(alt, neu, merkmale_a, merkmale_b, schwelle):
             s = _punkte(alt[i], neu[j], merkmale_b[j].flaechen, True)
             if s >= schwelle:
                 gruppe.pop()
-                paare.append((s, True, True, True, i, j))
+                paare.append((s, True, True, True, True, i, j))
     return paare
 
 
@@ -307,11 +313,15 @@ def _vergleiche_verbund(paare, alt, neu, gruppe_a, gruppe_b):
 
 def vergleiche_pmi(alt: list[Pmi], neu: list[Pmi], zuordnung: dict[int, int] | None = None,
                    schwelle: float = 1.0, zuordnung_ab: dict[int, int] | None = None,
-                   geo_status: dict[int, str] | None = None, kantenschluessel=(None, None)) -> list[PmiAenderung]:
+                   geo_status: dict[int, str] | None = None, kantenschluessel=(None, None),
+                   modelle=(None, None), lage=None, toleranz=1e-7) -> list[PmiAenderung]:
     """zuordnung: Flaeche neu -> Flaeche alt (aus dem Geometrievergleich), zuordnung_ab die Gegenrichtung;
     ohne: gleiche Indizes. Ohne Kantenschluessel beziehen sich beide PMI-Listen auf denselben Nummernraum."""
     if zuordnung is None:
-        zuordnung = {f: f for p in neu for f in (*p.flaechen, *p.projektionsflaechen)}
+        zuordnung = {f: f for p in neu for f in (*p.traegerflaechen(), *p.projektionsflaechen)}
+    @cache
+    def profilfeld(i, j):
+        return bereichsfeld(alt[i], neu[j], zuordnung, zuordnung_ab, modelle, lage, toleranz)
     gruppe_a, gruppe_b = simultangruppen(alt), simultangruppen(neu)
     kanten_a, kanten_b = kantenschluessel
     merk_a = _paarmerkmale(alt, simultan=gruppe_a, kanten=kanten_a)
@@ -324,7 +334,8 @@ def vergleiche_pmi(alt: list[Pmi], neu: list[Pmi], zuordnung: dict[int, int] | N
         a, b = merk_a[i], merk_b[j]
         s = _punkte(alt[i], neu[j], b.flaechen, a.bezug == b.bezug)
         if s >= schwelle:
-            paare.append((s, a.rolle == b.rolle, a.inhalt == b.inhalt, a.gruppe == b.gruppe, i, j))
+            deckung = not (hat_ausschnitt(alt[i]) or hat_ausschnitt(neu[j])) or profilfeld(i, j) is None
+            paare.append((s, a.rolle == b.rolle, deckung, a.inhalt == b.inhalt, a.gruppe == b.gruppe, i, j))
     paare.sort(reverse=True)
     for paar in paare:
         i, j = paar[-2:]
@@ -332,7 +343,8 @@ def vergleiche_pmi(alt: list[Pmi], neu: list[Pmi], zuordnung: dict[int, int] | N
             frei_a.discard(i)
             frei_b.discard(j)
             fest.append(paar)
-    out = [_vergleiche_felder(alt[i], neu[j], zuordnung, zuordnung_ab, geo_status, kantenschluessel)
+    out = [_vergleiche_felder(alt[i], neu[j], zuordnung, zuordnung_ab, geo_status, kantenschluessel,
+                              profilfeld(i, j) if hat_ausschnitt(alt[i]) or hat_ausschnitt(neu[j]) else None)
            for *_, i, j in sorted(fest, reverse=True)]
     if any(a.rolle for a in merk_a) or any(b.rolle for b in merk_b):
         _vergleiche_verbund(out, alt, neu, gruppe_a, gruppe_b)
@@ -376,8 +388,8 @@ def _bereichsfeld(a, b, kantenschluessel):
 
 
 def _vergleiche_felder(a: Pmi, b: Pmi, zuordnung, zuordnung_ab=None, geo_status=None,
-                       kantenschluessel=(None, None)) -> PmiAenderung:
-    felder = []
+                       kantenschluessel=(None, None), profilfeld=None) -> PmiAenderung:
+    felder = [profilfeld] if profilfeld else []
     for f in FELDER:
         va, vb = getattr(a, f), getattr(b, f)
         if not _gleich(va, vb):
@@ -403,13 +415,15 @@ def _vergleiche_felder(a: Pmi, b: Pmi, zuordnung, zuordnung_ab=None, geo_status=
     if a.art == "hinweis" and (a.nur_grafik_text or "").strip() != (b.nur_grafik_text or "").strip():
         felder.append(("text", a.nur_grafik_text or "–", b.nur_grafik_text or "–"))
     fb = _flaechen_in_a(b, zuordnung)
-    if (a.flaechen or b.flaechen) and not _gleiche_flaechen(a, b, zuordnung, zuordnung_ab):
+    mit_ausschnitt = hat_ausschnitt(a) or hat_ausschnitt(b)
+    if (not mit_ausschnitt and (a.flaechen or b.flaechen)
+            and not _gleiche_flaechen(a, b, zuordnung, zuordnung_ab)):
         felder.append(("flaechen", str(len(a.flaechen)),
                        tr("{} ({} gleich)").format(len(b.flaechen), len(a.flaechen & fb))))
     if a.bereichsgrenzen != [] or b.bereichsgrenzen != []:
         if grenze := _bereichsfeld(a, b, kantenschluessel):
             felder.append(grenze)
-    if felder and (len(felder) > 1 or felder[0][0] != "grenzen_offen"):
+    if any(f not in ("grenzen_offen", "profilbereich_offen") for f, _, _ in felder):
         return PmiAenderung(GEAENDERT, a, b, felder)
     geaendert = [f for f in b.flaechen if (geo_status or {}).get(f, "gleich") != "gleich"]
     if felder:

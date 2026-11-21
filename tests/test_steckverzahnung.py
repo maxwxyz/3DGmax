@@ -80,3 +80,55 @@ def test_durchmesserzentrierung_und_unklare_spiele(d_min, d_max, erwartet):
     nabe = vz.erkenne(zr.steckteil(zr.keil_steck(6, d_min, d_max, 6.1), 8.0, innen=True), steckprofile=True)
     paar, = pv.paare([welle, nabe])
     assert paar.zentrierung == erwartet
+
+
+def _rad_mit_steckbohrung(kegel):
+    from OCC.Core.BRepAlgoAPI import BRepAlgoAPI_Cut
+    from OCC.Core.BRepBuilderAPI import BRepBuilderAPI_MakeFace
+    from OCC.Core.BRepPrimAPI import BRepPrimAPI_MakePrism
+    from OCC.Core.TopoDS import topods
+    from OCC.Core.gp import gp_Vec
+
+    if kegel:
+        from tests.test_verzahnung_sonder import _referenz
+        rad = _referenz(14, 9., 1.7, 8., 0., kegel=.55, lagen=2, tiefenzuwachs=.06)
+        bohrung = BRepBuilderAPI_MakeFace(zr._draht(zr.keil_steck(6, 6., 7.6, 1.5), -1)).Face()
+        return BRepAlgoAPI_Cut(rad, BRepPrimAPI_MakePrism(bohrung, gp_Vec(0, 0, 10)).Shape()).Shape()
+    fl = BRepBuilderAPI_MakeFace(zr._draht(zr.stirnschnitt(23, 2.), 0))
+    profil = zr.evolventen_steck(24, .5, 30., 0., 12.48, 11.4)
+    fl.Add(topods.Wire(zr._draht(profil, 0).Reversed()))
+    return BRepPrimAPI_MakePrism(fl.Face(), gp_Vec(0, 0, 8)).Shape()
+
+
+@pytest.mark.parametrize("kegel", [False, True])
+@pytest.mark.parametrize("format_", ["step", "stl"])
+def test_steckbohrung_im_zahnrad(tmp_path, kegel, format_):
+    from OCC.Core.BRepMesh import BRepMesh_IncrementalMesh
+    from OCC.Core.StlAPI import StlAPI_Writer
+    from programm.kern.laden import lade_modell
+    from programm.kern.verzahnung_daten import datenblatt
+    from programm.ui.verzahnung_ui import VerzahnungLader
+
+    pf = str(tmp_path / ("Kombirad." + format_))
+    form = _rad_mit_steckbohrung(kegel)
+    if format_ == "step":
+        zr.speichere(form, pf, "Kombirad")
+    else:
+        BRepMesh_IncrementalMesh(form, .005, False, .06)
+        assert StlAPI_Writer().Write(form, pf)
+    lader = VerzahnungLader([("Kombirad", lade_modell(pf).form)])
+    liste = []
+    lader.fertig.connect(liste.extend)
+    lader.run()
+    rad, bohrung = liste
+    assert isinstance(bohrung, pv.Steckprofil) and bohrung.innen
+    assert bohrung.art == ("keil" if kegel else "evolvente")
+    assert (rad.z, bohrung.z) == ((14, 6) if kegel else (23, 24))
+    if kegel:
+        assert rad.art == "konisch"
+    else:
+        assert isinstance(rad, vz.Verzahnung)
+    assert rad.koerper_id is bohrung.koerper_id and rad.koerper_id is not None
+    export = datenblatt(liste, [])
+    assert export["steckprofile"][0]["koerper"] == "Kombirad"
+    assert len(export["sonderprofile"] if kegel else export["zahnraeder"]) == 1

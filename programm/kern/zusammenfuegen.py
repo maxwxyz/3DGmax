@@ -115,6 +115,8 @@ def _pmi_umrechnen(pmi: list, flaechen_versatz: int, id_versatz: int, nummer_ver
             from OCC.Core.TopoDS import topods
             p.profilausschnitte = {_id(nr, id_versatz): (idx + flaechen_versatz, topods.Face(f.Moved(lage)))
                                    for nr, (idx, f) in p.profilausschnitte.items()}
+            p.profilrandkanten = [(_id(nr, id_versatz), idx + flaechen_versatz, k.Moved(lage))
+                                   for nr, idx, k in getattr(p, "profilrandkanten", ())]
         p.grenzgrafiken = [_id(nr, id_versatz) for nr in p.grenzgrafiken]
         p.profilteil_ids = [_id(nr, id_versatz) for nr in p.profilteil_ids]
         if p.bereichsgrenzen:

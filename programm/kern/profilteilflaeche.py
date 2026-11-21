@@ -169,6 +169,25 @@ def lies_ausschnitte(modell, aspekt, p, leser):
     bereich = _bereich(modell, aspekt, leser)
     if bereich and bereich[1]:
         p.flaechen, p.profilausschnitte = bereich
+        merke_randkanten(p, leser())
+    elif bereich is None:
+        p.profilbereich_offen = True
+
+
+def merke_randkanten(p, leser):
+    """Nur Endkanten am tatsaechlichen getrimmten Flaechenvorkommen festhalten."""
+    from OCC.Core.TopAbs import TopAbs_EDGE, TopAbs_FORWARD
+    from OCC.Core.TopExp import TopExp_Explorer
+    gesucht = {nr: leser.randkante(nr) for _, nr in p.bereichsgrenzen or ()}
+    p.profilrandkanten = []
+    for idx, teil in p.profilausschnitte.values():
+        ex = TopExp_Explorer(teil, TopAbs_EDGE)
+        while ex.More():
+            k = ex.Current().Oriented(TopAbs_FORWARD)
+            for nr, quelle in gesucht.items():
+                if quelle is not None and k.IsPartner(quelle):
+                    p.profilrandkanten.append((nr, idx, k))
+            ex.Next()
 
 
 def grafikbereich(modell, callout):
@@ -195,3 +214,5 @@ def stelle_grafikbereich_her(modell, p):
     bereich = grafikbereich(modell, p.callout)
     if bereich and set(p.profilteil_ids) == bereich[1].keys() and p.flaechen == bereich[0]:
         p.profilausschnitte = bereich[1]
+        if bereich[1]:
+            merke_randkanten(p, bereich[2])

@@ -404,6 +404,8 @@ def ergaenze(v, g, modell, grafiken):
         v.flaechen = ganze
         v.profilteil_ids = sorted(teile)
         v.profilausschnitte = teile
+        from .profilteilflaeche import merke_randkanten
+        merke_randkanten(v, leser)
     v.grenzgrafiken = marken
     v.ocr_text = v.nur_grafik_text = wort + "\n" + " ↔ ".join(namen)
 

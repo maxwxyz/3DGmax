@@ -1,4 +1,9 @@
 {
+"Kronenrad-Kandidat": "Crown gear candidate",
+"Abweichende Profilteilfläche": "Changed profile patch",
+"Vergleich der Profilteilflächen offen": "Profile patch comparison unresolved",
+"Flächendeckung nicht eindeutig": "Area coverage is ambiguous",
+"Nur in diesem Stand: {:.6g} mm²": "Only in this revision: {:.6g} mm²",
 "Lokale Prüfung je Kreis {} mm erforderlich": "Local evaluation per {} mm circle required",
 "gilt je Kreis {} mm": "applies per {} mm circle",
 "Durchmesser der Einheitsfläche (mm)": "Unit area diameter (mm)",

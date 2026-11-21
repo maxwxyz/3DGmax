@@ -100,3 +100,27 @@ def test_stirnseitiges_rad_aus_step(fenster, tmp_path, bund):
         erneut, = fenster._verzahnung.liste
         assert (erneut.art, erneut.z) == (v.art, v.z)
         assert erneut.radien == pytest.approx(v.radien)
+
+
+@pytest.mark.parametrize("netz", [False, True])
+def test_kronenrad_aus_freecad_gears(tmp_path, netz):
+    from OCC.Core.BRepMesh import BRepMesh_IncrementalMesh
+    from OCC.Core.StlAPI import StlAPI_Writer
+    from programm.kern.laden import lade_modell
+    from programm.kern.verzahnung import erkenne_koerper
+    from programm.kern.verzahnung_daten import datenblatt
+    from tests.conftest import pfad
+
+    # Unabhaengiger FreeCAD-Gears-Export, m=1, Gegenritzel 15, radial 7.5 bis 9.5 mm.
+    form = lade_modell(pfad("kronenrad_15.stp.gz")).form
+    if netz:
+        ziel = str(tmp_path / "Krone.stl")
+        BRepMesh_IncrementalMesh(form, .012, False, .12)
+        assert StlAPI_Writer().Write(form, ziel)
+        form = lade_modell(ziel).form
+    rad, = erkenne_koerper(form, "Rad", steckprofile=True, sonderprofile=True)
+    assert rad.art == "kronenrad" and rad.z == 15
+    assert rad.relief == pytest.approx(2., abs=.1)
+    assert 7.45 <= rad.radien[0] < 8 < 9 < rad.radien[1] <= 9.55
+    assert rad.zeilen()[0][1] == "Kronenrad-Kandidat"
+    assert datenblatt([rad], [])["sonderprofile"][0]["art"] == "kronenrad"

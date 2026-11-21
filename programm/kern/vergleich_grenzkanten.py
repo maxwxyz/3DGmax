@@ -30,6 +30,11 @@ def _kanten(erg):
         if form is not None and form.ShapeType() == TopAbs_EDGE:
             basis[nr] = form.Located(TopLoc_Location()).Oriented(TopAbs_FORWARD)
     grenzt_an = defaultdict(set)
+    for p in erg.pmi:
+        for nr, idx, k in getattr(p, "profilrandkanten", ()):
+            if nr in orte:
+                orte[nr].add(k)
+                grenzt_an[nr].add(idx)
     for f, am_rand in gesucht.items():
         if not 0 <= f < len(erg.modell.flaechen):
             continue

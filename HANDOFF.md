@@ -2,6 +2,35 @@
 
 ## Current state, 2026-11-21
 
+### Recognise crown gears and splined wheel bores, and compare trimmed profile regions
+
+- Checked PLAN §§8.4 and 8.27 against docs/Roadmap.md. The recognition command now
+  keeps inner and outer transverse-section contours on a single body. Verified a
+  23-tooth spur gear with a 24-tooth involute spline and a 14-tooth bevel gear with a
+  six-groove parallel-sided bore in both STEP and STL. The data sheet has two columns.
+  Selecting either column identifies the same occurrence. JSON retains both profiles.
+- Verified crown gear candidates on independent 15- and 32-tooth models from
+  [FreeCAD Gears](https://github.com/looooo/freecad.gears/blob/master/freecad/gears/crowngear.py)
+  in STEP and STL. The committed 15-tooth test file uses module 1 mm, a 15-tooth
+  pinion, 20° pressure angle, 2 mm radial face width, 5 mm stock thickness, and four
+  generating profiles. Tested an additional STEP solid combining this face gear with
+  a six-groove hub. Both profiles were recovered. A flat dog clutch remains a negative
+  control. The tooth form needs sufficient radial and angular sampling. Pair contact,
+  transmission ratio for an identified crown stage, and tooth strength remain open.
+- Revision comparison measures the areas unique to each trimmed face set after
+  alignment. A translated hole leaves 30 mm² unique to each revision and closing the
+  hole adds 100 mm². Renumbering is equivalent. A cylindrical patch can be split at
+  the seam or overlap a second trim. Its covered area stays equal after a rigid change
+  of coordinates. An unresolved patch is reported as such.
+- All 159 affected tests and three native Cocoa selection/display tests passed.
+  Local ad-hoc-signed arm64 test build at `dist/3DGmax.app`. Its self-test passed.
+  It rendered the combined crown gear with the native Cocoa/OpenGL viewer. The user's
+  original differential pinion is represented only by screenshots. QIF stays last.
+- Keep one local main build at `dist/3DGmax.app`. Historical references below to
+  `dist/main-*` describe disposable build and test output. Once changes are on
+  main, discard those directories. Stage future builds outside dist and replace the
+  canonical app after verification. Versioned release archives are separate.
+
 ### Recover flatness per circular unit area in FTC-07
 
 - Checked PLAN §8.4 and docs/Roadmap.md. The FTC-07 callout #14269 reads

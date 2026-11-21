@@ -351,6 +351,7 @@ class SemantikDialog(QtWidgets.QDialog):
             p.beschreibung = self.v.freier_hinweis[1]
         if self.v.profilteil_ids:
             p.profilausschnitte = self.v.profilausschnitte
+            p.profilrandkanten = self.v.profilrandkanten
         f = self.felder
         p.art, p.typ, p.flaechen = self.art.currentData(), self.typ.currentData(), set(self.flaechen)
         if p.art == MASS:
@@ -449,6 +450,7 @@ def semantisch_machen(fenster, auswahl=None):
             fenster.ansicht.zeige_pmi({p.step_id, *grenzgrafiken})
         if v.profilteil_ids:
             p.profilausschnitte = v.profilausschnitte
+            p.profilrandkanten = v.profilrandkanten
             fenster.ansicht.ergaenze_grafik({}, [p])
         d = SemantikDialog(v, flaechen, fenster.ansicht.hebe_flaechen, fenster, position=k+1,
                            anzahl=0 if einzeln else len(liste), step=erg.pfad.lower().endswith(ENDUNGEN_STEP + ENDUNGEN_STEPZ),

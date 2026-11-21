@@ -232,21 +232,29 @@ def _zahn_harmonische(r: np.ndarray) -> tuple[int, complex, float]:
     return k, complex(f[k]), float(2 * abs(f[k]) * k / (2 * np.pi * r.mean()))  # Amplitude je Teilung
 
 
-def _verzahnt(schnitte: _Schnitte, s: float):
-    """(Kontur, r(theta), z, Harmonische, innen) der verzahnten Kontur bei s oder None."""
+def _zahnkonturen(schnitte: _Schnitte, s: float):
+    """Je Materialseite die staerkste umlaufende Zahnkontur bei s."""
     konturen = schnitte.konturen(s)
-    beste = None
-    for q in konturen:
+    radien = [np.hypot(*q.T).max() for q in konturen]
+    aussen = max(radien, default=0.)
+    beste, staerke = {}, {}
+    for q, radius in zip(konturen, radien):
+        innen = bool(aussen > 1.01 * radius)
+        if innen:
+            # Eine exzentrische Nebenbohrung umlaeuft die Radachse nicht.
+            winkel = np.sort(np.arctan2(q[:, 1], q[:, 0]))
+            if np.diff(winkel, append=winkel[0]+2*np.pi).max() > .1:
+                continue
         _, r = _r_theta(q)
         z, h, rel = _zahn_harmonische(r)
-        if rel >= schnitte.min_amplitude and (beste is None or rel > beste[4]):
-            beste = (q, r, z, h, rel)
-    if beste is None:
-        return None
-    q, r, z, h, _ = beste
-    # innen: eine andere Kontur liegt weiter aussen (Hohlrad) -> die verzahnte ist eine Bohrung
-    innen = any(np.hypot(*k.T).max() > np.hypot(*q.T).max() * 1.01 for k in konturen if k is not q)
-    return q, r, z, h, innen
+        if rel >= schnitte.min_amplitude and rel > staerke.get(innen, 0.):
+            beste[innen] = (q, r, z, h, innen)
+            staerke[innen] = rel
+    return beste
+
+
+def _verzahnt(schnitte, s, innen=False):
+    return _zahnkonturen(schnitte, s).get(innen)
 
 
 def _evolventen_fit(r: np.ndarray, z: int, r_lo: float, r_hi: float) -> tuple[float, float]:
@@ -319,12 +327,12 @@ def _bandgrenze(netz, innen, aussen, kennung, lagen):
     for k in sorted(zwischen, key=lambda x: abs(x - innen)):
         delta = min(abs(innen - k) / 4, max(1e-7, (hi - lo) * 1e-5))
         innenprobe = k + np.sign(innen - k) * delta
-        if _signatur(_verzahnt(netz, innenprobe)) == kennung:
-            if k == aussen or _signatur(_verzahnt(netz, 2 * k - innenprobe)) != kennung:
+        if _signatur(_verzahnt(netz, innenprobe, kennung[1])) == kennung:
+            if k == aussen or _signatur(_verzahnt(netz, 2 * k - innenprobe, kennung[1])) != kennung:
                 return k
     for _ in range(16):
         m = (innen + aussen) / 2
-        if _signatur(_verzahnt(netz, m)) == kennung:
+        if _signatur(_verzahnt(netz, m, kennung[1])) == kennung:
             innen = m
         else:
             aussen = m
@@ -333,7 +341,6 @@ def _bandgrenze(netz, innen, aussen, kennung, lagen):
 
 def _bandbreiten(netz, schritte=12):
     """Zusammenhaengende Zahnbaender; je Band nur Schnitte derselben Zaehnezahl und Materialseite."""
-    from itertools import groupby
     lagen = _stirnlagen(netz)
     eps = max(1e-8, np.ptp(lagen) * 3e-6)
     raster = np.linspace(lagen[0], lagen[-1], schritte + 2)[1:-1]
@@ -341,7 +348,14 @@ def _bandbreiten(netz, schritte=12):
     for lo, hi in zip(lagen, lagen[1:]):
         innen = raster[(raster > lo + eps) & (raster < hi - eps)]
         werte.extend(innen if len(innen) else [(lo + hi) / 2])
-    proben = [(s, _verzahnt(netz, s)) for s in werte]
+    konturen = [_zahnkonturen(netz, s) for s in werte]
+    for seite in (False, True):
+        proben = [(s, k.get(seite)) for s, k in zip(werte, konturen)]
+        yield from _baender_einer_seite(netz, lagen, werte, proben, schritte)
+
+
+def _baender_einer_seite(netz, lagen, werte, proben, schritte):
+    from itertools import groupby
     for kennung, gruppe in groupby(range(len(proben)), key=lambda i: _signatur(proben[i][1])):
         if kennung is None:
             continue
@@ -352,7 +366,7 @@ def _bandbreiten(netz, schritte=12):
         schnitte = proben[i:j + 1]
         if len(schnitte) != schritte or i or j + 1 < len(werte):
             schnitte = [(s, t) for s in np.linspace(a, b, schritte + 2)[1:-1]
-                        if _signatur(t := _verzahnt(netz, s)) == kennung]
+                        if _signatur(t := _verzahnt(netz, s, kennung[1])) == kennung]
         if schnitte:
             yield a, b, schnitte
 
@@ -399,7 +413,7 @@ def _drehung(schnitte_netz, s0: float, mitte, a: float, b: float, z: int, r: flo
     p0 = float(np.angle(mitte[3]))
     punkte = [(s0, p0)]
     for s_neu in (s0 + delta, s0 - delta):
-        t = _verzahnt(schnitte_netz, s_neu) if a < s_neu < b else None
+        t = _verzahnt(schnitte_netz, s_neu, mitte[4]) if a < s_neu < b else None
         if _signatur(t) == _signatur(mitte):  # so nah, dass sich die Phase um weniger als pi/4 dreht: auf p0 legen
             dp = (float(np.angle(t[3])) - p0 + np.pi) % (2 * np.pi) - np.pi
             punkte.append((s_neu, p0 + dp))
@@ -416,7 +430,7 @@ def _drehung(schnitte_netz, s0: float, mitte, a: float, b: float, z: int, r: flo
     for s_neu in kandidaten:
         if not a < s_neu < b or any(abs(s_neu - s) < 1e-9 for s, _ in punkte):
             continue
-        t = _verzahnt(schnitte_netz, s_neu)
+        t = _verzahnt(schnitte_netz, s_neu, mitte[4])
         if _signatur(t) != _signatur(mitte):
             continue
         vorhersage = punkte[0][1] + steigung * (s_neu - s0)
@@ -491,37 +505,36 @@ def _aus_netz(dreiecke, teil, steckprofile, sonderprofile):
 def _aus_schnitten(form, teil, punkt, n, dreiecke, steckprofile, sonderprofile):
     schnitte_netz = _Schnitte(dreiecke, punkt, n, min_amplitude=0.025 if steckprofile else MIN_AMPLITUDE)
     profile = []
-    band_gefunden = False
+    aussenband_gefunden = False
     for a, b, schnitte in _bandbreiten(schnitte_netz):
-        band_gefunden = True
+        aussenband_gefunden |= not schnitte[0][1][4]
         v = _aus_band(form, teil, punkt, n, schnitte_netz, steckprofile, sonderprofile, a, b, schnitte)
         if v is not None:
             profile.append(v)
+    if not aussenband_gefunden and sonderprofile:
+        from .verzahnung_sonder import schraube
+        v = schraube(teil, punkt, n, schnitte_netz)
+        if v is not None:
+            profile.insert(0, v)
+    aussen = [v for v in profile if not getattr(v, "innen", False)]
+    schmales_band = (len(aussen) == 1 and isinstance(aussen[0], Verzahnung)
+                     and aussen[0].b < .75 * np.ptp(dreiecke @ n))
+    if sonderprofile and (not aussen or schmales_band):
+        from . import stirnzahnband
+        kandidat = stirnzahnband.erkenne(schnitte_netz, teil, punkt, n)
+        if kandidat and not aussen:
+            profile.insert(0, kandidat)
+        elif kandidat and kandidat.z == aussen[0].z:
+            klein, gross = sorted((aussen[0].da/2, aussen[0].df/2))
+            luecke = max(kandidat.radien[0]-gross, klein-kandidat.radien[1])
+            if luecke < .04*schnitte_netz.r_max:
+                profile[0] = kandidat  # Aussenbaender stehen vor den Innenbaendern.
     if len(profile) > 1:
-        kennung = object()  # Unabhaengig vom Anzeigenamen, der in Baugruppen mehrfach vorkommen kann.
+        kennung = object()
         for i, v in enumerate(profile, 1):
             v.teil = f"{teil} [{i}/{len(profile)}]"
             v.koerper = teil
             v.koerper_id = kennung
-    elif not band_gefunden and sonderprofile:
-        from .verzahnung_sonder import schraube
-        v = schraube(teil, punkt, n, schnitte_netz)
-        if v is not None:
-            profile.append(v)
-    # Der Umfang eines Stirnzahns kann in einem kurzen Axialband einer zylindrischen Verzahnung gleichen.
-    schmales_band = (len(profile) == 1 and isinstance(profile[0], Verzahnung)
-                     and profile[0].b < .35 * np.ptp(dreiecke @ n))
-    if sonderprofile and (not profile or schmales_band):
-        from . import stirnzahnband
-        kandidat = stirnzahnband.erkenne(schnitte_netz, teil, punkt, n)
-        if kandidat and not profile:
-            return [kandidat]
-        if kandidat and kandidat.z == profile[0].z:
-            klein, gross = sorted((profile[0].da/2, profile[0].df/2))
-            # Zwischen letztem ganzen Messkreis und Fuss kann ein Radialschritt fehlen.
-            luecke = max(kandidat.radien[0]-gross, klein-kandidat.radien[1])
-            if luecke < .04*schnitte_netz.r_max:
-                return [kandidat]
     return profile
 
 
@@ -532,7 +545,7 @@ def _aus_band(form, teil, punkt, n, schnitte_netz, steckprofile, sonderprofile, 
         if zahnprofil is not None:
             return zahnprofil
     mitte_s = (a + b) / 2
-    mitte = _verzahnt(schnitte_netz, mitte_s)
+    mitte = _verzahnt(schnitte_netz, mitte_s, schnitte[0][1][4])
     if _signatur(mitte) != _signatur(schnitte[0][1]):  # Mitte nicht verzahnt (z. B. Nut): der mittlere verzahnte Schnitt samt seiner Lage
         mitte_s, mitte = schnitte[len(schnitte) // 2]
     q, r, z, _h, innen = mitte

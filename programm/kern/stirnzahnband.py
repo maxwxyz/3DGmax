@@ -1,4 +1,4 @@
-"""Stirnseitiges konisches Zahnband aus dem axialen Hoehenprofil konzentrischer Messkreise."""
+"""Stirnseitiges konisches oder ebenes Zahnband aus dem axialen Hoehenprofil konzentrischer Messkreise."""
 
 from dataclasses import dataclass
 
@@ -18,17 +18,18 @@ class Stirnzahnband:
     neigung: float
     koerper: str | None = None
     koerper_id: object = None
-    art = "kegelrad_stirnseitig"
+    art: str = "kegelrad_stirnseitig"
 
     def als_dict(self):
-        return {"art": self.art, "teil": self.teil, "anzahl": self.z,
+        return {"art": self.art, "teil": self.teil, "koerper": self.koerper, "anzahl": self.z,
                 "achse": {"punkt": self.punkt.tolist(), "richtung": self.richtung.tolist()},
                 "messradien_mm": list(self.radien), "axiale_zahnhoehe_mitte_mm": self.relief,
                 "neigung_mittelflaeche_grad": self.neigung, "einstufung": "kandidat"}
 
     def zeilen(self):
         quelle = tr("Axiale Höhenprofile auf Messkreisen")
-        return [(tr("Art"), tr("Kegelrad-Kandidat mit stirnseitiger Verzahnung"), quelle),
+        art = tr("Kronenrad-Kandidat") if self.art == "kronenrad" else tr("Kegelrad-Kandidat mit stirnseitiger Verzahnung")
+        return [(tr("Art"), art, quelle),
                 (tr("Zähnezahl z"), str(self.z), quelle),
                 (tr("Radialer Messbereich"), f"{self.radien[0]:.3f} – {self.radien[1]:.3f} mm", quelle),
                 (tr("Axiale Zahnhöhe am mittleren Messkreis"), f"{self.relief:.3f} mm", quelle),
@@ -92,11 +93,37 @@ def _messband(r, ringe, z, aussenradius):
     return None
 
 
+def _kronenband(r, ringe, z):
+    """Ebener Zahngrund mit nach aussen schmaler werdenden Koepfen und geneigten Flanken."""
+    kopf, fuss = np.percentile(ringe, (97, 3), axis=1)
+    hub = kopf - fuss
+    hoehe = float(np.median(hub))
+    if min(hub) < .75 * hoehe or np.ptp(fuss) > .12 * hoehe or np.ptp(kopf) > .25 * hoehe:
+        return None
+    phase = np.fft.rfft(ringe, axis=1)[:, z]
+    if max(abs(np.angle(phase / phase[0]))) > .45:
+        return None
+    norm = (ringe - fuss[:, None]) / hub[:, None]
+    # Auf dem Messkreis die Laenge oberhalb der Schwelle zwischen den Stuetzpunkten interpolieren.
+    def anteil(grenze):
+        a, b = norm - grenze, np.roll(norm, -1, axis=1) - grenze
+        bruch = np.divide(a, a-b, out=np.zeros_like(a), where=(a > 0) != (b > 0))
+        return np.where(a > 0, np.where(b > 0, 1., bruch), np.where(b > 0, 1.-bruch, 0.)).mean(axis=1)
+    breit = anteil(.85)
+    flanke = anteil(.15) - breit
+    if min(flanke) < .15 or breit[0]-breit[-1] < .065 or flanke[-1]-flanke[0] < .045:
+        return None
+    if max(np.diff(breit)) > .035:
+        return None
+    steigung = np.polyfit(r, (kopf+fuss)/2, 1)[0]
+    return (float(r[0]), float(r[-1])), float(hub[len(r)//2]), float(np.degrees(np.arctan(abs(steigung))))
+
+
 def erkenne(netz, teil, punkt, achse):
     from itertools import groupby
     from .verzahnung import _zahn_harmonische
-    radien = np.linspace(.40, .96, 17) * netz.r_max
-    winkel = (np.arange(360) + .37) * (2*np.pi/360)
+    radien = np.linspace(.40, .995, 35) * netz.r_max
+    winkel = (np.arange(720) + .37) * (2*np.pi/720)
     kreis = np.column_stack([np.cos(winkel), np.sin(winkel)])
     punkte = (radien[:, None, None] * kreis).reshape(-1, 2)
     seiten = _hoehen(netz, punkte).reshape(2, len(radien), -1)
@@ -114,6 +141,13 @@ def erkenne(netz, teil, punkt, achse):
         for z, gruppe in groupby(range(len(radien)), key=signatur.__getitem__):
             ids = list(gruppe)
             if not z or len(ids) < 4:
+                continue
+            krone = _kronenband(radien[ids], profil[ids], z)
+            if krone:
+                return Stirnzahnband(teil, z, punkt.copy(), sinn*achse, *krone, art="kronenrad")
+            # Bisherige Messkreise fuer das konische Band. Der aeusserste Rundungsbereich entfaellt.
+            ids = [i for i in ids if i % 2 == 0 and i <= 32]
+            if len(ids) < 4:
                 continue
             messung = _messband(radien[ids], profil[ids], z, netz.r_max)
             if messung:

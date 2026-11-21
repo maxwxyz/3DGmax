@@ -250,8 +250,9 @@ Throughout: tests (core, offscreen UI, stress test, on-screen test), `--selbstte
   and its boundary edges before checking the drawn A/B leader contacts. Verified an open
   single-stroke arrow and letters, and a triangle-only version, on a patch with an interior
   hole. Project reload and STEP export retain the restricted area, datum order and original
-  callouts. STEP links each original end label to its named boundary feature. Comparing patch
-  interiors across revisions remains open.
+  callouts. STEP links each original end label to its named boundary feature. Revision comparison
+  now measures the area covered only by each revision after alignment. It accounts for holes,
+  overlapping trims and cylindrical seams. Unresolved support or invalid geometry stays open.
   On the inch-based CTC-03 model, three position control frames identify the D/B/C datum
   order and a perpendicularity control identifies datum E. Previously the printed D could
   be read as B. Verified the six labelled datums A through F and four tolerance frames
@@ -1478,6 +1479,12 @@ tools (the user names MASTA as an example of a tool that needs these inputs), an
   blending into the toes can distort the cone fit. Up to the inner third of the sampled
   band may be trimmed if the remaining tip and root still slope together toward the
   same cone end. A flat dog clutch with the same collar is a negative control.
+- Implemented independent inner and outer contour measurements on one body. A wheel and
+  its splined bore have separate data sheets and share one component selection. Verified
+  on spur and bevel gears in STEP and STL. A crown gear candidate requires one-sided axial
+  relief, a nearly planar root, stable tooth phase and tooth tips narrowing toward the
+  outside. FreeCAD Gears models with 15 and 32 teeth were recovered as STEP and STL.
+  Meshing with a mating pinion and loaded contact analysis remain open.
 - The tree can export selected occurrences and groups in installed positions via its context menu
   and File › Export. STEP geometry retains the selected structure, names and face colours. STL
   handles imported mesh parts and tessellated CAD. This also permits isolating a failed recognition

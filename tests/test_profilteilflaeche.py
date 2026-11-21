@@ -53,11 +53,13 @@ def bereiche(tmp_path_factory):
     vorlage = ziel.read_text(encoding="ascii")
     out = {"Ganz": ziel}
     for name, nr, uv in (("Innenloch", 553, (10., 30., 20., 70.)), ("Rand", 553, (40., 65., 20., 70.)),
-                         ("Zylinder", 554, (5., 6., 15., 45.))):
+                         ("Zylinder", 554, (5., 6., 15., 45.)), ("Versetzt", 553, (10., 30., 20., 70.)),
+                         ("Geschlossen", 553, (10., 30., 20., 70.))):
         basis = BRep_Tool.Surface(m.form_von_step(nr))
         mf = BRepBuilderAPI_MakeFace(basis, *uv, 1e-7)
-        if name == "Innenloch":
-            loch = BRepBuilderAPI_MakeFace(basis, 15., 25., 30., 40., 1e-7).Face()
+        if name in ("Innenloch", "Versetzt"):
+            u = 18. if name == "Versetzt" else 15.
+            loch = BRepBuilderAPI_MakeFace(basis, u, u + 10., 30., 40., 1e-7).Face()
             mf.Add(topods.Wire(breptools.OuterWire(loch).Reversed()))
         assert BRepCheck_Analyzer(mf.Face()).IsValid()
         f, kanten, zusatz = _flaeche_als_step(mf.Face(), ordner / "Geometrie.step")
@@ -322,3 +324,54 @@ def test_teilbereich_braucht_beide_randpfeile(bereiche, tmp_path):
     v = pmi_reparieren.vorschlag(original, g, e.modell)
     pmi_zwischenbereich.ergaenze(v, g, e.modell, e.grafik)
     assert not v.profilteil_ids and not v.bereichsgrenzen and v.wert is None
+
+
+@pytest.mark.parametrize("name,erwartet", [("Innenloch", None), ("Versetzt", (30, 30)), ("Geschlossen", (0, 100))])
+def test_vergleich_getrimmter_step_flaechen(bereiche, tmp_path, name, erwartet):
+    from programm.kern import pmi_bericht, vergleich
+    ziel = tmp_path / "Revision.step"
+    ziel.write_text(re.sub(r"#(\d+)", lambda m: f"#{700000 + int(m[1])}", bereiche[name].read_text()))
+    v = vergleich.vergleiche(lade_alles(str(bereiche["Innenloch"])), lade_alles(str(ziel)))
+    assert vergleich.ist_gleich(v) == (erwartet is None)
+    if erwartet:
+        befund, = v.aenderungen
+        feld, alt, neu, _, _ = vergleich.spalten(befund)
+        assert feld == "Abweichende Profilteilfläche"
+        assert (alt, neu) == tuple(f"Nur in diesem Stand: {n} mm²" for n in erwartet)
+        assert all(text in pmi_bericht.vergleich_csv(v) for text in (feld, alt, neu))
+
+
+def test_zylindernaht_und_ueberlappende_profilflaechen():
+    from math import tau
+    from OCC.Core.Geom import Geom_CylindricalSurface
+    from OCC.Core.TopLoc import TopLoc_Location
+    from OCC.Core.gp import gp_Ax1, gp_Ax3, gp_Dir, gp_Pnt, gp_Trsf, gp_Vec
+    from programm.kern.vergleich_pmi import vergleiche_pmi
+
+    t = gp_Trsf()
+    t.SetRotation(gp_Ax1(gp_Pnt(), gp_Dir(.5, .1, .7)), 1.3)
+    t.SetTranslationPart(gp_Vec(87., -19., 24.))
+    lage = TopLoc_Location(t)
+
+    def patch(teile, versetzt):
+        p = Pmi("toleranz", "ProfileOfSurface", wert=.2)
+        p.profilausschnitte = {}
+        for i, uv in enumerate(teile):
+            zyl = Geom_CylindricalSurface(gp_Ax3(), 10.)
+            f = BRepBuilderAPI_MakeFace(zyl, *uv, 1e-7).Face()
+            assert BRepCheck_Analyzer(f).IsValid() and _inhalt(f) > 0
+            p.profilausschnitte[10+i] = (0, f.Moved(lage.Inverted()) if versetzt else f)
+        return p
+
+    alt = patch([(tau-.3, tau+.3, 2., 12.)], False)
+    for uv, rest in (([(-.3, 0., 2., 12.), (0., .3, 2., 12.)], 0),
+                     ([(-.3, .1, 2., 12.), (0., .3, 2., 12.)], 0),
+                     ([(-.3, .3, 3., 13.)], 6)):
+        neu = patch(uv, True)
+        befund, = vergleiche_pmi([alt], [neu], lage=lage)
+        assert befund.status == ("geaendert" if rest else "gleich")
+        if rest:
+            assert befund.felder == [("profilteilflaeche", "Nur in diesem Stand: 6 mm²", "Nur in diesem Stand: 6 mm²")]
+    neu.profilbereich_offen = True
+    offen, = vergleiche_pmi([alt], [neu], lage=lage)
+    assert offen.status == "ungeklaert" and offen.felder[0][0] == "profilbereich_offen"
