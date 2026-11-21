@@ -187,13 +187,13 @@ class Messmerkmale:
             keys = [(v.teil, v.flaeche), (v.gegen_teil, v.gegen_flaeche)]
             self.verbunden.update(keys)
             self.formen.update(zip(keys, bg.formen.get(v.nummer, ())))
-        self.pmi, self.datum, self.groessen = defaultdict(list), defaultdict(set), defaultdict(list)
+        self.pmi, self.datum, self.groessen = defaultdict(list), defaultdict(list), defaultdict(list)
         for p in pmi:
+            if p.art == "bezug" and p.typ == "Datum" and getattr(p, "semantisch", True):
+                self.datum[p.name].append(p.flaechen)
             for idx in p.flaechen:
                 if p.art == "toleranz":
                     self.pmi[idx].append(p)
-                elif p.art == "bezug" and p.typ == "Datum" and getattr(p, "semantisch", True):
-                    self.datum[p.name].add(idx)
                 elif p.art == "mass" and p.typ in ("Size_Diameter", "Size_Radius"):
                     self.groessen[idx].append(p)
         self.zonen, self.hinweise = {}, []
@@ -212,27 +212,48 @@ class Messmerkmale:
         if meldung not in self.hinweise:
             self.hinweise.append(meldung)
 
+    def _bezugsflaechen(self, teil, buchstabe, lage, belegt):
+        elemente = []
+        for gruppe in self.datum[buchstabe]:
+            formen = [(i, self._form(teil, i)) for i in sorted(gruppe)]
+            if not any(f is not None for _, f in formen):
+                continue
+            if elemente or any(f is None or i in belegt for i, f in formen):
+                return []
+            for i, f in formen:
+                g = _merkmal(f, lage)
+                if g is None or any(f.IsSame(alt) for _, alt, _ in elemente):
+                    return []
+                elemente.append((i, f, g))
+        return elemente
+
     def _bezugsfach(self, teil, name, lage, belegt):
         elemente = []
         for buchstabe in name.split("-"):
-            if not buchstabe.strip():
+            gruppe = self._bezugsflaechen(teil, buchstabe.strip(), lage, belegt)
+            if not gruppe or any(f.IsSame(alt) for _, f, _ in gruppe for alt in belegt.values()):
                 return None
-            kandidaten = [(i, f) for i in self.datum[buchstabe.strip()] if (f := self._form(teil, i)) is not None]
-            if len(kandidaten) != 1:
-                return None
-            i, f = kandidaten[0]
-            g = _merkmal(f, lage)
-            if g is None or i in belegt or any(f.IsSame(andere) for _, andere, _ in elemente):
-                return None
-            belegt.add(i)
-            elemente.append((i, f, g))
+            belegt.update((i, f) for i, f, _ in gruppe)
+            if len(gruppe) > 1:
+                if len({g[0] for _, _, g in gruppe}) != 1:
+                    return None
+                if gruppe[0][2][0] == "achse":
+                    achse = gemeinsamer_bezug.schalenachse(gruppe)
+                    # Getrennte Toleranzen je Halbschale definieren noch keine starre Bezugsachse.
+                    idx, form, _ = gruppe[0]
+                    rahmen = {id(p) for p in self.pmi[idx]}
+                    if achse is None or any({id(p) for p in self.pmi[i]} != rahmen for i, _, _ in gruppe):
+                        return None
+                    gruppe = [(idx, form, achse)]
+            elemente.extend(gruppe)
         if len(elemente) == 1:
             i, _, g = elemente[0]
             return g, {i: np.eye(6)}
         return gemeinsamer_bezug.aufloesen(elemente, self.punkt, lage)
 
-    def _bezugssystem(self, teil, idx, refs):
-        merkmale, abbildungen, belegt = [], {}, set()
+    def _bezugssystem(self, key, refs):
+        teil, idx = key[:2]
+        merkmale, abbildungen, belegt = [], {}, {}
         for rang, name in enumerate(refs):
             fach = self._bezugsfach(teil, name, self.bg.lage(teil), belegt)
             if fach is None:
@@ -243,7 +264,9 @@ class Messmerkmale:
             if len(abbildungen[rang]) > 1:
                 text = (tr("Gemeinsamer Bezug {}: Achse aus Sitzmitten") if merkmal[0] == "achse" else
                         tr("Gemeinsamer Bezug {}: flächengewichtete Ausgleichsebene"))
-                self.bezugsmodelle[teil, idx].add(text.format(name))
+                if "-" not in name:
+                    text = tr("Bezug {}: flächengewichtete Ausgleichsebene")
+                self.bezugsmodelle[key].add(text.format(name))
         return merkmale, abbildungen
 
     def verfolge(self, teil, idx, kraft, besucht=()):
@@ -303,7 +326,7 @@ class Messmerkmale:
             anteil = kraft[3:] @ d if art == "ebene" else np.linalg.norm(np.cross(kraft[3:], d))
             if abs(anteil) > 1e-9:
                 self._unvollstaendig(teil, idx, tr("Lage des nur richtungstolerierten Merkmals"))
-        self._bezugsanteile(teil, key[1], merkmal, kraft, lage, next(iter(systeme)), (*besucht, idx))
+        self._bezugsanteile(key, merkmal, kraft, lage, next(iter(systeme)), (*besucht, idx))
 
     def verfolge_konstruktion(self, teil, idx, kraft, p, zone):
         """Eigenes Merkmal der Schraubachse, auch bei spielfrei verbundener Kernbohrung."""
@@ -316,13 +339,14 @@ class Messmerkmale:
         self.zonen[key] = (zone, lage, neigung, angaben, None)
         self.kraefte[key] += kraft
         self.bezugsmodelle[key].add(tr("Konstruktionsachse #{}").format(p.step_id))
-        self._bezugsanteile(teil, idx, zone, kraft, lage, refs, ())
+        self._bezugsanteile(key, zone, kraft, lage, refs, ())
 
-    def _bezugsanteile(self, teil, idx, merkmal, kraft, lage, refs, besucht):
+    def _bezugsanteile(self, key, merkmal, kraft, lage, refs, besucht):
+        teil, idx = key[:2]
         art, o, d, _ = merkmal
         if not refs:
             return
-        merkmale, abbildungen = self._bezugssystem(teil, idx, refs)
+        merkmale, abbildungen = self._bezugssystem(key, refs)
         if not merkmale:
             return
         # Nur die von der Zone gebundenen Bewegungen ihres zugeordneten Bezugsrahmens weitergeben.

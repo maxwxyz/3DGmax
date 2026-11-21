@@ -14,6 +14,69 @@ def _kreuz(v):
     return np.cross(v, np.eye(3)).T
 
 
+def _getrennte_flaechen(elemente):
+    """Geteilte Kanten sind erlaubt, doppelte Flaechenanteile wuerden die Gewichte verfaelschen."""
+    from OCC.Core.Bnd import Bnd_Box
+    from OCC.Core.BRepAlgoAPI import BRepAlgoAPI_Common
+    from OCC.Core.BRepBndLib import brepbndlib
+    from OCC.Core.BRepGProp import brepgprop
+    from OCC.Core.GProp import GProp_GProps
+
+    bisher = []
+    for _, form, _ in elemente:
+        box = Bnd_Box()
+        brepbndlib.Add(form, box)
+        for andere, rahmen in bisher:
+            if box.IsOut(rahmen):
+                continue
+            gemeinsam = BRepAlgoAPI_Common(form, andere)
+            if not gemeinsam.IsDone():
+                return False
+            props = GProp_GProps()
+            brepgprop.SurfaceProperties(gemeinsam.Shape(), props)
+            if props.Mass() > 1e-10:
+                return False
+        bisher.append((form, box))
+    return True
+
+
+def schalenachse(elemente):
+    """Eine physisch zusammenhaengende Zylinderwand kann aus verschieden getrimmten Flaechen bestehen."""
+    from OCC.Core.BRepAdaptor import BRepAdaptor_Surface
+    from OCC.Core.GeomAbs import GeomAbs_Cylinder
+    from .projektionszone import _beruehren, _kanten
+    from .toleranzzone import _ist_innen
+
+    _, _, (_, mitte, d, _) = elemente[0]
+    netz, stationen = [], []
+    radius, innen = None, None
+    for _, form, (art, o, n, laenge) in elemente:
+        sf = BRepAdaptor_Surface(form)
+        if art != "achse" or sf.GetType() != GeomAbs_Cylinder:
+            return None
+        zyl = sf.Cylinder()
+        r = zyl.Radius()
+        seite = _ist_innen(form, np.array(zyl.Location().Coord()), np.array(zyl.Axis().Direction().Coord()))
+        if radius is None:
+            radius, innen = r, seite
+        if (seite != innen or abs(radius - r) > 1e-6 or np.linalg.norm(np.cross(d, n)) > 1e-8
+                or np.linalg.norm(np.cross(o - mitte, d)) > 1e-6):
+            return None
+        s = (o - mitte) @ d
+        stationen.extend((s - laenge / 2, s + laenge / 2))
+        netz.append(_kanten(form))
+    if not _getrennte_flaechen(elemente):
+        return None
+    rand = netz.pop(0)
+    while netz:
+        i = next((i for i, kanten in enumerate(netz) if _beruehren(rand, kanten)), None)
+        if i is None:
+            return None
+        rand.extend(netz.pop(i))
+    lo, hi = min(stationen), max(stationen)
+    return ("achse", mitte + d * ((lo + hi) / 2), d, hi - lo)
+
+
 def _lager(elemente, mitte, d, punkt):
     from OCC.Core.BRepAdaptor import BRepAdaptor_Surface
     from OCC.Core.GeomAbs import GeomAbs_Cylinder
@@ -49,6 +112,8 @@ def _auflagen(elemente, mitte, d, punkt, lage):
     from OCC.Core.GProp import GProp_GProps
     from OCC.Core.gp import gp_Pnt
 
+    if not _getrennte_flaechen(elemente):
+        return None
     tangenten = np.asarray(_senkrechte(d))
     gewichte = {}
     for idx, form, (_, o, normale, _) in elemente:

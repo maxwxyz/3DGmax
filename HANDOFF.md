@@ -2,6 +2,29 @@
 
 ## Current state, 2026-11-21
 
+### Resolve a single STEP datum with several faces
+
+- Checked PLAN §8.20 and docs/Roadmap.md. The three coplanar pads of FTC-10 D
+  resolve to one area-weighted datum plane. B and E each resolve to a connected
+  cylindrical datum, including the small difference in E's axial trim limits.
+  Model #19580 with these three datums at nominal evaluates to 3.6–4.4 mm at
+  the same 4 mm radial measuring point on either core wall. The original file
+  retains the local Ø0.8 contribution and reports open lower-level controls.
+- In the two-pad test, the individual contributions are 0.1 mm each. Missing
+  pads, duplicate STEP definitions, overlapping faces, a foreign cylindrical
+  wall and one half with its own control leave the assessment open. The assembly
+  measure and exported 3D chain give the same diagnostics, including after moving
+  and rotating the part. All 74 focused regressions and 20 affected tests passed.
+- Next §8.20: apply the joint axial extent consistently when a native position
+  tolerance controls the entire split cylinder. An isolated Ø0.2 control on E
+  referencing B is currently rejected because E's two trim lengths differ by
+  0.000063 mm. A direct 4 mm measurement normal to plane #5 with a synthetic
+  reference to that plane yields 0.26478594 or 0.26478553 mm width when just
+  one half is controlled at y = 28.6 mm. Assigning the same source to both
+  halves currently yields an incomplete verdict. Check the whole-span result
+  separately from the support supplied by the lower-level datum frame. Distinct frames, multi-hole controls and material
+  contact need separate checks. QIF remains last.
+
 ### Local macOS main build for testing
 
 - Built the committed source of main at 77f1b70 for Apple Silicon, with the local
@@ -9,6 +32,8 @@
   The bundled self-test read 117 faces, 23 PMI and one saved view. A native Cocoa
   window rendered NIST FTC-10 from the packaged executable. All 57 selected tests
   for graphical PMI and projected tolerances passed from the same source snapshot.
+  The packaged executable also rendered the 2,400-part, 42.85 MB STEP in 13.58 s
+  from process launch through image export, including the 1.5 s capture delay.
 - Checked PLAN §§8.3, 8.20 and docs/Roadmap.md. This is a local build of version 0.2.
   The construction-axis changes described below were in progress when it was built.
 
@@ -31,6 +56,8 @@
 - The native macOS run passed the project/chain round trip, three construction
   geometry checks and all eight display tests. The round trip used a second STEP
   file added to the first one, preserving occurrence, PMI ID and both limit values.
+  The full suite passed 994 tests with eight display tests skipped there. The
+  affected suite passed all 162 tests.
 - Next §8.20: resolve the nominal geometry of a datum with several representation
   faces. FTC-10 D has three coplanar pads facing the same way. B and E each have two
   cylindrical wall patches. E's UV limits differ by 0.000063 mm at their trimmed

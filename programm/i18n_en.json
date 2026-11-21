@@ -2816,6 +2816,7 @@
 "Punkt zu Konstruktionsachse #{}": "Point to construction axis #{}",
 "Konstruktionsachse #{}": "Construction axis #{}",
 "Mehrere Toleranzrahmen an der Konstruktionsgeometrie": "Multiple tolerance frames on the construction geometry",
+"Bezug {}: flächengewichtete Ausgleichsebene": "Datum {}: area-weighted fitted plane",
 "Konstruktionsachse an B": "Construction axis on B",
 "Vom Klickpunkt auf A zur projizierten STEP-Konstruktionsachse messen. Auf B die zugehörige Kernbohrungswand wählen.": "Measure from the clicked point on A to the projected STEP construction axis. Select the associated core bore wall on B.",
 "Für die Konstruktionsachse einen Messpunkt auf A und eine Bohrungswand auf B wählen": "Select a measuring point on A and a bore wall on B for the construction axis",

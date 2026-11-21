@@ -1039,6 +1039,12 @@ Current coverage (2026-11-20), superseding the earlier progress notes below:
   weight per seat. For coplanar pads facing the same way it fits a plane weighted by surface area.
   Each member retains its own tolerance contribution at the measurement location. This model
   describes nominal rigid feature variation. Physical datum simulator contact needs a separate model.
+- A single STEP datum may reference several faces in one occurrence. Coplanar, disjoint
+  support areas define an area-weighted plane. Connected cylindrical patches of equal radius
+  define one nominal axis over their combined axial extent when their controls agree.
+  Each named datum needs a complete, unambiguous set of faces. FTC-10 #19580 resolves D
+  from three pads and E and B from two wall patches each. In the full file, lower-level
+  controls still leave the requirement verdict open.
 - For measured cylindrical features with Ⓜ or Ⓛ, worst case and Monte Carlo use one actual size for
   the surface displacement and the size-dependent bonus. A stated maximum geometric tolerance
   caps the combined zone diameter. Each Monte Carlo sample draws the actual diameter inside the

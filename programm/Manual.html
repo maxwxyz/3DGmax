@@ -468,6 +468,10 @@ For two coaxial bearing seats, the datum axis passes through their displaced cen
 seats have equal weight in the line fit. Coplanar pads facing the same way define an area-weighted
 fitted plane. The table shows each face's contribution at the measuring point. This calculation
 models rigid features. Unresolved datum geometry leaves the requirement verdict open.</li>
+<li>A <b>single STEP datum</b> can span several faces. Coplanar pads facing the same way
+contribute to the fitted plane according to their area. Connected patches of the same cylinder
+define a datum axis when they share the same controls. Missing faces and ambiguous definitions
+leave the requirement verdict open.</li>
 <li>For <b>Ⓜ or Ⓛ on a toleranced cylinder</b>, the analysis needs associated size limits. Actual
 size determines both the available zone diameter and the position of the cylindrical surface.
 Worst case and Monte Carlo use the same size for both effects. A specified maximum geometric
