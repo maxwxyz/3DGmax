@@ -2,6 +2,23 @@
 
 ## Current state, 2026-11-21
 
+### Recover parenthesised reference dimensions without a writing plane
+
+- Checked PLAN §8.4 against docs/Roadmap.md. CTC-01 AP203 #3418 was opened with its
+  plane removed. A second, anonymous AP242 variant contains only filled triangles,
+  including the holes in the eight. Both proposed “(85)” as an auxiliary linear
+  dimension on faces #568 and #572. The anonymous proposal requires the two
+  explicitly linked planes to agree with the printed value in its drawing unit.
+- Review and STEP export preserved the source graphics and saved-view association.
+  Both readers recovered 85 mm and the same two face IDs. The 3DGmax reader also
+  recovered the auxiliary qualifier. A half-turn ambiguity such as (66)/(99)
+  leaves the text unresolved without a writing direction. All 33 affected tests,
+  four native macOS checks and 64 additional graphical PMI regression cases passed.
+- Next §8.35: a generated PDF of the four-hole test part currently misses the wall
+  at the tip of a centred open arrow, both as a single polyline and as two separate
+  wings on a rotated sheet. The closed-arrow and dangling-branch controls passed.
+  QIF remains last.
+
 ### Recover unframed angles from strokes and solid lettering
 
 - Checked PLAN §8.4 against docs/Roadmap.md. The OCR reader checks the closed centre

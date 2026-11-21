@@ -10,6 +10,7 @@ from scipy import ndimage
 
 _WINKELZAHL = r"(?:\d+(?:[.,]\d+)?|[.,]\d+)"
 _WINKELZEILE = re.compile(rf"{_WINKELZAHL}°(?:\s*±\s*{_WINKELZAHL}°?)?")
+_HALBDREHUNG = str.maketrans("69", "96")
 
 
 def _pfade(g, ebene):
@@ -340,6 +341,30 @@ def _masszeile(mask):
     return breit if not normal or breit == normal else ""
 
 
+def _klammerzeile(labels, objekte):
+    """Schrift zwischen zwei grossen, abgesetzten Masslinien mitsamt Pfeilkopf lesen."""
+    if len(objekte) < 5:
+        return ""
+    def groesse(box):
+        return max(s.stop - s.start for s in box)
+    reihe = sorted(enumerate(objekte, 1), key=lambda eintrag: groesse(eintrag[1]))
+    schrift, linien = reihe[:-2], reihe[-2:]
+    if groesse(linien[0][1]) <= 3.5 * max(groesse(box) for _, box in schrift):
+        return ""
+    for nr, box in linien:
+        maske = labels[box] == nr
+        # Masslinie und Hilfslinie belegen je eine fast durchgehende Zeile bzw. Spalte.
+        if maske.mean() >= .12 or min(maske.mean(0).max(), maske.mean(1).max()) < .85:
+            return ""
+    bereich = tuple(slice(min(b[i].start for _, b in schrift), max(b[i].stop for _, b in schrift)) for i in (0, 1))
+    for i, s in enumerate(bereich):
+        links, rechts = sorted((b[i] for _, b in linien), key=lambda rand: rand.start)
+        if links.stop <= s.start and s.stop <= rechts.start:
+            wort = _normale_zeile(labels[bereich] > 0)
+            return wort if wort.startswith("(") and wort.endswith(")") else ""
+    return ""
+
+
 def _freitext(pfade):
     punkte = np.vstack([p for p, _ in pfade])
     spannweite = np.ptp(punkte, axis=0)
@@ -369,6 +394,8 @@ def _freitext(pfade):
     if not mask.any():
         return ""
     wort = _masszeile(mask)
+    if not wort:
+        wort = _klammerzeile(labels, objekte)
     if not wort and not any(voll for _, voll in pfade):
         from .pmi_hinweislinie import winkelbeschriftung
         schrift = winkelbeschriftung(pfade, box, skala, labels, objekte)
@@ -528,11 +555,15 @@ def _mass_ohne_ebene(g, richtungen, ergebnis=""):
         pfade = _pfade(g, ebene)
         for spiegelung in ((1, 1), (1, -1), (-1, 1), (-1, -1)):
             wort = _freitext([(p * spiegelung, voll) for p, voll in pfade])
-            if not wort or not (re.match(r"^(?:[1-9][0-9]*X)?[⌀R][0-9.]", wort)
-                                or _WINKELZEILE.match(wort)):
+            geklammert = wort.startswith("(") and wort.endswith(")")
+            if not (geklammert or re.match(r"^(?:[1-9][0-9]*X)?[⌀R][0-9.]", wort) or _WINKELZEILE.match(wort)):
                 continue
             daten = aus_text([wort], g.textfaktor) or grenzlesart(wort, g.textfaktor)
-            if daten and daten["typ"] in ("Size_Diameter", "Size_Radius", "Size_Angular"):
+            if daten and (daten["typ"] in ("Size_Diameter", "Size_Radius", "Size_Angular")
+                          or "Hilfsmass" in daten.get("modifikatoren", ())):
+                # Bei (66) kann die Gegenrichtung auch (99) sein, selbst wenn die zweite Lesung scheitert.
+                if (m := re.fullmatch(r"\(([01689]+)\)", wort)) and m[1][::-1].translate(_HALBDREHUNG) != m[1]:
+                    return None
                 if ergebnis and ergebnis != wort:
                     return None
                 ergebnis = wort
@@ -540,7 +571,7 @@ def _mass_ohne_ebene(g, richtungen, ergebnis=""):
 
 
 def _weitere_massrichtungen(g, ebenen):
-    """Nur ungeloeste bzw. als Winkel gelesene Angaben brauchen weitere Glyphenachsen."""
+    """Glyphenachsen fuer ungeloeste Angaben, Winkel und geklammerte Hilfsmasse."""
     o, x, y, z = ebenen[0]
     for v in _haeufige_schriftkanten(g, x, y):
         if any(abs(v @ e[1]) > .999999 for e in ebenen):
@@ -584,7 +615,7 @@ def _ohne_schreibebene(g):
     if ergebnis or hat_rahmen or not ebenen:
         return ergebnis
     mass = _mass_ohne_ebene(g, massrichtungen)
-    if mass is None or (mass and "°" not in mass):
+    if mass is None or (mass and "°" not in mass and not mass.startswith("(")):
         return mass or ""
     return _mass_ohne_ebene(g, _weitere_massrichtungen(g, ebenen), mass) or ""
 

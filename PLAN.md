@@ -216,6 +216,12 @@ Throughout: tests (core, offscreen UI, stress test, on-screen test), `--selbstte
   closed degree sign distinguishes an angle from a number. Tested CTC-01's 60° ±0.5° with
   its two selected faces and the original presentation through STEP export and reimport,
   including a triangle-only annotation without a writing plane.
+  Parenthesised reference dimensions can also be recovered without stored axes. For an
+  unnamed linear annotation, two explicitly associated parallel faces can confirm the
+  printed distance. Otherwise its transcription stays available for review. A number
+  such as (66) with a competing half-turn reading stays unresolved. Verified CTC-01's
+  (85) as original AP203 curves and as solid AP242 glyphs. The STEP copy retains its
+  auxiliary qualifier, both face references, original graphics and saved view.
   A detached witness arc at a radial arrow tip can be separated from the printed dimension. The
   arc must fit a circle through the tip, with the shaft radial to the circle and both arrow flanks
   present. All twelve FTC-07 linear size callouts can now be transcribed from their strokes. The

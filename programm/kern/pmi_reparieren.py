@@ -97,7 +97,7 @@ def geometrie_nennmass(typ, flaechen, modell):
     return None
 
 
-def schriftvorschlag(g, bekannt):
+def schriftvorschlag(g, bekannt, modell=None, flaechen=()):
     """Lesbare Angabe aus der Schrift, abgestimmt mit der bekannten Art des Callouts."""
     from .pmi import TOL_SYMBOL
     from .pmi_ableiten import aus_text
@@ -117,17 +117,23 @@ def schriftvorschlag(g, bekannt):
     if felder["art"] == TOLERANZ and ("wert" not in felder or (typ and typ != felder["typ"])):
         return "", {}
     if felder["typ"] == "Location_LinearDistance":
-        if art != MASS or typ in ("Size_Angular", "Location_Angular"):
+        if not bekannt and "Hilfsmass" in felder.get("modifikatoren", ()):
+            # Die Klammerzahl kann auch eine Positionsnummer sein. Nur belegte Massflaechen verwenden.
+            from .plausibilitaet import GEOMETRIE_TOLERANZ
+            abstand = geometrie_nennmass(felder["typ"], flaechen, modell) if modell and len(flaechen) == 2 else None
+            if abstand is None or abs(abstand - felder["nennwert"]) > GEOMETRIE_TOLERANZ:
+                return text, {}
+        elif art != MASS or typ in ("Size_Angular", "Location_Angular"):
             return "", {}
         felder["typ"] = typ or felder["typ"]
     return text, felder
 
 
-def _druckschrift(g, bekannt, datei):
+def _druckschrift(g, bekannt, modell, flaechen):
     """Dateitext und Vektorschrift des Callouts fuer die Pruefung zusammenfuehren."""
     from .pmi_validierungstext import validierungsvorschlag
     from .zeichnungsabgleich import musteranzahl
-    dateitexte, gelesen, ergaenzung = validierungsvorschlag(datei, g, bekannt)
+    dateitexte, gelesen, ergaenzung = validierungsvorschlag(getattr(modell, "datei", None), g, bekannt)
     if len(dateitexte) > 1:
         return dateitexte, "", gelesen, ergaenzung, []
     dateitext = dateitexte[0] if dateitexte else ""
@@ -135,7 +141,7 @@ def _druckschrift(g, bekannt, datei):
     if dateitext and not grenzen and gelesen.get("art") != MASS:
         return dateitexte, "", gelesen, ergaenzung, []
 
-    wort, grafikwerte = schriftvorschlag(g, bekannt)
+    wort, grafikwerte = schriftvorschlag(g, bekannt, modell, flaechen)
     grafikgrenzen = grenzlesart(wort, g.textfaktor, bekannt)
     original, dateiwerte = grafikgrenzen or grafikwerte, grenzen or gelesen
     wahl = []
@@ -150,14 +156,26 @@ def _druckschrift(g, bekannt, datei):
     return dateitexte, "" if dateitext else wort, gelesen, ergaenzung, wahl
 
 
+def _verknuepfte_flaechen(p, g, modell):
+    flaechen = {i for i in p.flaechen if 0 <= i < len(modell.flaechen)}
+    if not flaechen and g is not None and getattr(modell, "datei", None) is not None:
+        from .pmi_lesen import flaechen_von_aspekt
+        for eid in g.pmi_ids:
+            aspekt = modell.datei.get(eid)
+            if aspekt is not None and (aspekt.is_a("SHAPE_ASPECT") or aspekt.is_a("DATUM_FEATURE")):
+                flaechen.update(flaechen_von_aspekt(modell.datei, modell, eid))
+    return flaechen
+
+
 def vorschlag(p, g, modell) -> Pmi:
     """Eigene PMI als Startwert fuer die Pruefung: Art, Werte (soweit lesbar), Flaechen, Verweis auf den Callout."""
     bekannt = (p.art, p.typ) if p.art != HINWEIS else aus_name(p.name or (g.name if g else ""))
     art, typ = bekannt or (TOLERANZ, "")
     texte = [ph.text for ph in g.platzhalter if ph.text] if g is not None else []
+    flaechen = _verknuepfte_flaechen(p, g, modell)
     dateitexte, ocr, gelesen, ergaenzung, masswahl = (), "", {}, "", []
     if g and not texte and not g.erzeugt and not p.semantisch:
-        dateitexte, ocr, gelesen, ergaenzung, masswahl = _druckschrift(g, bekannt, getattr(modell, "datei", None))
+        dateitexte, ocr, gelesen, ergaenzung, masswahl = _druckschrift(g, bekannt, modell, flaechen)
     if gelesen:
         art, typ = gelesen["art"], gelesen["typ"]
     neu = Pmi(art, typ=typ, norm=p.norm, name=p.name if art == BEZUG and re.fullmatch(r"[A-Z]{1,2}", p.name or "") else "")
@@ -172,13 +190,7 @@ def vorschlag(p, g, modell) -> Pmi:
     for k in FELDER:
         if not masswahl and k not in gelesen and p.art == art and getattr(p, k, None) not in (None, "", []):
             setattr(neu, k, deepcopy(getattr(p, k)))
-    neu.flaechen = {i for i in p.flaechen if 0 <= i < len(modell.flaechen)}
-    if not neu.flaechen and g is not None and getattr(modell, "datei", None) is not None:
-        from .pmi_lesen import flaechen_von_aspekt
-        for eid in g.pmi_ids:
-            aspekt = modell.datei.get(eid)
-            if aspekt is not None and (aspekt.is_a("SHAPE_ASPECT") or aspekt.is_a("DATUM_FEATURE")):
-                neu.flaechen.update(flaechen_von_aspekt(modell.datei, modell, eid))
+    neu.flaechen = flaechen
     if not neu.flaechen and g is not None:
         neu.flaechen = flaechen_vorschlag(g, modell)
     if art == MASS and not typ and not masswahl and re.search(r"\bsize\b", g.name if g else p.name, re.I):
