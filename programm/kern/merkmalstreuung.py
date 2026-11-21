@@ -303,10 +303,26 @@ class Messmerkmale:
             anteil = kraft[3:] @ d if art == "ebene" else np.linalg.norm(np.cross(kraft[3:], d))
             if abs(anteil) > 1e-9:
                 self._unvollstaendig(teil, idx, tr("Lage des nur richtungstolerierten Merkmals"))
-        refs = next(iter(systeme))
+        self._bezugsanteile(teil, key[1], merkmal, kraft, lage, next(iter(systeme)), (*besucht, idx))
+
+    def verfolge_konstruktion(self, teil, idx, kraft, p, zone):
+        """Eigenes Merkmal der Schraubachse, auch bei spielfrei verbundener Kernbohrung."""
+        lage, neigung, angaben, fehlt = _angaben([p], "achse", lambda _: True)
+        refs = _bezuege(p)
+        if fehlt or not lage or refs is None or p.material or p.simultan_mit or p.simultan_offen:
+            self._unvollstaendig(teil, idx, tr("Konstruktionsachse #{}").format(p.step_id))
+            return
+        key = (teil, idx, p.step_id)
+        self.zonen[key] = (zone, lage, neigung, angaben, None)
+        self.kraefte[key] += kraft
+        self.bezugsmodelle[key].add(tr("Konstruktionsachse #{}").format(p.step_id))
+        self._bezugsanteile(teil, idx, zone, kraft, lage, refs, ())
+
+    def _bezugsanteile(self, teil, idx, merkmal, kraft, lage, refs, besucht):
+        art, o, d, _ = merkmal
         if not refs:
             return
-        merkmale, abbildungen = self._bezugssystem(teil, key[1], refs)
+        merkmale, abbildungen = self._bezugssystem(teil, idx, refs)
         if not merkmale:
             return
         # Nur die von der Zone gebundenen Bewegungen ihres zugeordneten Bezugsrahmens weitergeben.
@@ -320,7 +336,7 @@ class Messmerkmale:
             self._unvollstaendig(teil, idx, tr("Offener Freiheitsgrad im Bezugssystem"))
         for rang, k in anteile.items():
             for i, abbildung in abbildungen[rang].items():
-                self.verfolge(teil, i, k @ abbildung, (*besucht, idx))
+                self.verfolge(teil, i, k @ abbildung, besucht)
 
     def groesse_am_punkt(self, teil, idx, kraft):
         """Groessentoleranz eines Zylinders am angeklickten Mantelpunkt; die Achse bleibt dabei ortsfest."""
@@ -369,14 +385,15 @@ class Messmerkmale:
 
     def beitraege(self):
         out = []
-        for (teil, idx), (merkmal, lage, neigung, angaben, intervalle) in self.zonen.items():
+        for key, (merkmal, lage, neigung, angaben, intervalle) in self.zonen.items():
+            teil, idx = key[:2]
             art, o, d, laenge = merkmal
-            k = self.kraefte[teil, idx]
+            k = self.kraefte[key]
             moment = k[:3] + np.cross(self.punkt - o, k[3:])
             material = None
             if art == "ebene":
                 grenzen = _planar(self._form(teil, idx), self.bg.lage(teil), o, d, k[3:], moment, lage, neigung)
-            elif (teil, idx) in self.masse:
+            elif key in self.masse:
                 material = self._materialstreuung(teil, idx, d, laenge, k[3:], moment, angaben, intervalle)
                 grenzen = material.grenzen()
             elif intervalle is not None:
@@ -390,7 +407,7 @@ class Messmerkmale:
             if grenzen is None:
                 self._unvollstaendig(teil, idx, tr("Geometrie der Toleranzzone"))
             elif max(abs(w) for w in grenzen) > 1e-12:
-                texte = [p.wert_text() for p in angaben] + sorted(self.bezugsmodelle[teil, idx])
+                texte = [p.wert_text() for p in angaben] + sorted(self.bezugsmodelle[key])
                 if material is not None:
                     mass = material.mass
                     texte.append(tr("Istmaß ⌀{:.4g} bis {:.4g} mm mit gekoppeltem Bonus").format(mass.klein, mass.gross))

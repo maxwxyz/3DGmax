@@ -53,6 +53,7 @@ class Messgroesse:
     name: str = ""
     punkt: list[float] | None = None  # Messpunkt auf A in Dateilage des Teils (None: Flaechenschwerpunkt)
     freigabe: dict = field(default_factory=dict)  # manuelle Freigabe {"geprueft", "name", "datum", "kommentar"}
+    konstruktions_pmi: int | None = None  # STEP-ID der gewaehlt projizierten Achse an B
 
 
 @dataclass
@@ -147,9 +148,10 @@ def _empfindlichkeit(punkt: np.ndarray, normale: np.ndarray) -> np.ndarray:
 class Analyse:
     """Lineares Modell aller Verbindungen einer Baugruppe fuer eine oder mehrere Messgroessen."""
 
-    def __init__(self, baugruppe, pmi: list | None = None, form_fuer=None):
+    def __init__(self, baugruppe, pmi: list | None = None, form_fuer=None, basis_fuer=None):
         self.bg = baugruppe
         self.form_fuer = form_fuer
+        self.basis_fuer = basis_fuer
         self.pmi = list(pmi or [])  # fuer die Toleranzen der gemessenen Flaechen
         self.teile = [t for t in baugruppe.teile() if not baugruppe.fest(t)]
         self._spalte = {t: 6 * i for i, t in enumerate(self.teile)}
@@ -224,7 +226,10 @@ class Analyse:
             if m.art == PUNKT_ACHSE:
                 q, d = achse(fb, lb)
                 quer = (p - q) - d * float((p - q) @ d)
-                n = quer / np.linalg.norm(quer)
+                abstand = np.linalg.norm(quer)
+                if abstand < 1e-9:
+                    return p, p, np.zeros(3), m.teil_a, m.teil_b
+                n = quer / abstand
             else:
                 q, n = ebene(fb, lb)
             return p, q, n, m.teil_a, m.teil_b
@@ -342,7 +347,7 @@ class Analyse:
         gemeinsam = next((t for t in weg_a if t in weg_b), None)
         seite_b = weg_b[:weg_b.index(gemeinsam)] if gemeinsam in weg_b else weg_b
         seite_a = list(reversed(weg_a[:weg_a.index(gemeinsam)] if gemeinsam in weg_a else weg_a))
-        r = _rahmen(n)  # Spalten: Achsen der Basis in Welt
+        r = _rahmen(n) if np.any(n) else np.eye(3)  # Spalten: Achsen der Basis in Welt
         weg = [(t, vz) for t, vz in [(t, -1.0) for t in seite_b] + [(t, 1.0) for t in seite_a] if not self.bg.fest(t)]
         ursprung = self._kettenpunkt(weg[0][0]) if weg else p  # Bezugsglied endet am ersten Teil, nicht in 0,0,0
         glieder = [k3.glied(tr("Bezug"), **_lage_komponenten(r.T, r.T @ (ursprung - q)))]
@@ -463,15 +468,32 @@ class Analyse:
             k += len(zeilen)
         return teile
 
+    def konstruktionsziel(self, teil, idx, wand):
+        from .konstruktionsachse import projektionsziel
+        basis = self.basis_fuer(idx) if self.basis_fuer else wand
+        return projektionsziel(self.pmi, wand, basis, lambda i: self.form_fuer(teil, i) if self.form_fuer else None,
+                               self.bg.lage(teil))
+
     def _merkmalbeitraege(self, m, fa, fb):
         from .merkmalstreuung import Messmerkmale
-        if not self.pmi:
+        if not self.pmi and m.art != PUNKT_ACHSE:
             return [], []
         p, _, n, tp, _ = self._geometrie(m, fa, fb)
+        if not np.any(n):
+            return [], [tr("Der Messpunkt liegt auf der Achse, die radiale Messrichtung ist unbestimmt")]
         merkmale = Messmerkmale(self.bg, m, fa, fb, self.pmi, p, self.form_fuer)
         plus = np.r_[np.zeros(3), n if tp == m.teil_a else -n]
         merkmale.verfolge(m.teil_a, m.flaeche_a, plus)
-        merkmale.verfolge(m.teil_b, m.flaeche_b, -plus)
+        if m.konstruktions_pmi is None:
+            merkmale.verfolge(m.teil_b, m.flaeche_b, -plus)
+        else:
+            quelle, zone, fehler = self.konstruktionsziel(m.teil_b, m.flaeche_b, fb)
+            if not fehler and quelle.step_id != m.konstruktions_pmi:
+                fehler = tr("Zugeordnete Konstruktions-PMI hat sich geändert")
+            if fehler:
+                merkmale.hinweise.append(fehler)
+            else:
+                merkmale.verfolge_konstruktion(m.teil_b, m.flaeche_b, -plus, quelle, zone)
         groessen = []
         if m.punkt is not None:
             groessen = merkmale.groesse_am_punkt(m.teil_a, m.flaeche_a, plus[3:])
@@ -592,8 +614,9 @@ def beitrag_art(b: Beitrag, arten: dict) -> str:
 
 
 def text(m: Messgroesse, namen: dict) -> str:
-    return m.name or "{} {} – {}".format(tr(ART_TEXT[m.art]), namen.get(m.teil_a, m.teil_a),
-                                         namen.get(m.teil_b, m.teil_b))
+    art = (tr("Punkt zu Konstruktionsachse #{}").format(m.konstruktions_pmi) if m.konstruktions_pmi is not None
+           else tr(ART_TEXT[m.art]))
+    return m.name or "{} {} – {}".format(art, namen.get(m.teil_a, m.teil_a), namen.get(m.teil_b, m.teil_b))
 
 
 def soll_text(m: Messgroesse) -> str:

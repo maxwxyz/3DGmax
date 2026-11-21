@@ -351,38 +351,6 @@ def _gemeinsame_ebenenzone(p, flaechen, t: float, faktor: float) -> "Zone | None
     return z if z.formen else None
 
 
-def _kreisachsen(formen) -> list[tuple]:
-    """Achsen aus Konstruktionsgeometrie (z. B. Gewindezylinder): je Kreis Mitte und Richtung, die dazu parallelen
-    Linien im Abstand des Radius geben die Laenge; [(Start, Richtung, Laenge)]."""
-    from OCC.Core.BRepAdaptor import BRepAdaptor_Curve
-    from OCC.Core.GeomAbs import GeomAbs_Circle, GeomAbs_Line
-    from OCC.Core.TopAbs import TopAbs_EDGE
-    from OCC.Core.TopoDS import topods
-    kreise, linien = [], []
-    for f in formen:
-        if f.ShapeType() != TopAbs_EDGE:
-            continue
-        c = BRepAdaptor_Curve(topods.Edge(f))
-        if c.GetType() == GeomAbs_Circle:
-            ax = c.Circle().Axis()
-            kreise.append((np.array([ax.Location().X(), ax.Location().Y(), ax.Location().Z()]),
-                           np.array([ax.Direction().X(), ax.Direction().Y(), ax.Direction().Z()]), c.Circle().Radius()))
-        elif c.GetType() == GeomAbs_Line:
-            linien.append([np.array([q.X(), q.Y(), q.Z()]) for q in (c.Value(c.FirstParameter()),
-                                                                     c.Value(c.LastParameter()))])
-    out = []
-    for mitte, n, r in kreise:
-        lagen = [0.0]
-        for a, b in linien:  # Mantellinie dieses Kreises: parallel zur Achse im Abstand r
-            v = a - mitte
-            if abs(abs(float((b - a) @ n)) - float(np.linalg.norm(b - a))) < 1e-6 and \
-                    abs(float(np.linalg.norm(v - n * (v @ n))) - r) < 1e-3:
-                lagen += [float((a - mitte) @ n), float((b - mitte) @ n)]
-        lo, hi = min(lagen), max(lagen)
-        out.append((mitte + n * lo, n, hi - lo))
-    return out
-
-
 def _projektionsabschnitt(z, p, modell, start, d, laenge, form=None):
     from . import projektionszone
     flaechen = getattr(modell, "flaechen", ())
@@ -409,11 +377,12 @@ def _teilform_zone(p, t: float, faktor: float, modell=None) -> "Zone | None":
     """Toleranz an Konstruktionsgeometrie, Kanten oder Punkten (ohne Flaechen): Achszone um einen Gewinde- bzw.
     Konstruktionszylinder (mit projizierter Zone Ⓟ ausserhalb des Materials), sonst Rohr Ø t um jede Kante und Kugel
     Ø t um jeden Punkt."""
+    from .konstruktionsachse import kreisachsen
     formen = getattr(p, "teilformen", [])
-    achsen = _kreisachsen(formen) if ("Diameter" in p.modifikatoren or p.zone == "Diameter") else []
+    achsen = list(kreisachsen(formen)) if ("Diameter" in p.modifikatoren or p.zone == "Diameter") else []
     if achsen:
         z = Zone(breite=t, faktor=faktor, art="zylinder")
-        for start, d, laenge in achsen:
+        for start, d, laenge, _ in achsen:
             z.dazu(_zylinder(start, d, t / 2 * faktor, max(laenge, t)))
             if p.zone == "Projected":
                 basis, richtung, hoehe = _projektionsabschnitt(z, p, modell, start, d, laenge)

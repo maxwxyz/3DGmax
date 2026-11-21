@@ -2279,8 +2279,8 @@ class Hauptfenster(QtWidgets.QMainWindow):
                                  [{"step_id": p.step_id, "werte": {k: getattr(p, k) for k in p.original}}
                                   for p in self.erg.pmi if p.quelle != "eigen" and p.bearbeitet and p.original],
                                  self._kette_daten(),
-                                 self.baugruppe.als_dict() if self.baugruppe.verbindungen or self.baugruppe.lagen
-                                 else None, self._kollision_daten(),
+                                 self.baugruppe.als_dict() if (self.baugruppe.verbindungen or self.baugruppe.lagen
+                                                               or self.baugruppe.masse) else None, self._kollision_daten(),
                                  self._funktion.zustand() if getattr(self, "_funktion", None) is not None
                                  and self._funktion.rollen else None, self._raumketten(),
                                  [(z.pfad, z.versatz) for z in getattr(self.erg, "zusaetze", [])])
@@ -4422,7 +4422,8 @@ class Hauptfenster(QtWidgets.QMainWindow):
         def form_fuer(teil, idx):
             return flaeche_im_teil(teile[teil], idx, modell) if teil in teile else None
 
-        return Analyse(self.baugruppe, self.erg.pmi, form_fuer)
+        from ..kern.konstruktionsachse import quellwand
+        return Analyse(self.baugruppe, self.erg.pmi, form_fuer, lambda idx: quellwand(self.erg, idx))
 
     def messgroessen_ergebnisse(self) -> dict:
         """Nummer der Messgroesse -> Ergebnis (Worst Case, Monte Carlo, Beitragende) ueber alle Verbindungen; mit
@@ -4455,7 +4456,15 @@ class Hauptfenster(QtWidgets.QMainWindow):
             if punkt is None:
                 self.statusBar().showMessage(tr("Die gemessene Fläche zuerst an der gewünschten Stelle anklicken"), 6000)
                 return None
-        x = self.baugruppe.neue_messgroesse(ta, fa, m.flaechen_index(fa), tb, fb, m.flaechen_index(fb), punkt)
+        quelle = None
+        if punkt is not None and self.zusammenbau.konstruktionsachse.isChecked():
+            ziel, _, fehler = self._massanalyse().konstruktionsziel(tb, m.flaechen_index(fb), fb)
+            if fehler:
+                self.statusBar().showMessage(fehler, 8000)
+                return None
+            quelle = ziel.step_id
+        x = self.baugruppe.neue_messgroesse(ta, fa, m.flaechen_index(fa), tb, fb, m.flaechen_index(fb), punkt,
+                                            konstruktions_pmi=quelle)
         if isinstance(x, str):
             self.statusBar().showMessage(x, 6000)
             return None

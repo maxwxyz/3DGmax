@@ -2810,5 +2810,14 @@
 "Schneckenhand": "Worm hand",
 "Spiralrichtung": "Spiral hand",
 "{}: Hinweis „{}“, Geometrie {}": "{}: note “{}”, geometry {}",
-"{}: Hinweis {} ({} mm), Geometrie {:.4g} mm": "{}: note {} ({} mm), geometry {:.4g} mm"
+"{}: Hinweis {} ({} mm), Geometrie {:.4g} mm": "{}: note {} ({} mm), geometry {:.4g} mm",
+"Keine eindeutige projizierte Konstruktionsachse an dieser Bohrungswand": "No unique projected construction axis on this bore wall",
+"Zugeordnete Konstruktions-PMI hat sich geändert": "The assigned construction PMI has changed",
+"Punkt zu Konstruktionsachse #{}": "Point to construction axis #{}",
+"Konstruktionsachse #{}": "Construction axis #{}",
+"Mehrere Toleranzrahmen an der Konstruktionsgeometrie": "Multiple tolerance frames on the construction geometry",
+"Konstruktionsachse an B": "Construction axis on B",
+"Vom Klickpunkt auf A zur projizierten STEP-Konstruktionsachse messen. Auf B die zugehörige Kernbohrungswand wählen.": "Measure from the clicked point on A to the projected STEP construction axis. Select the associated core bore wall on B.",
+"Für die Konstruktionsachse einen Messpunkt auf A und eine Bohrungswand auf B wählen": "Select a measuring point on A and a bore wall on B for the construction axis",
+"Der Messpunkt liegt auf der Achse, die radiale Messrichtung ist unbestimmt": "The measuring point lies on the axis and the radial measuring direction is undefined"
 }

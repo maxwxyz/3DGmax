@@ -227,6 +227,11 @@ class BaugruppePanel(QtWidgets.QWidget):
         self.am_punkt.setToolTip(tr("Statt in der Flächenmitte am angeklickten Punkt der gemessenen Fläche messen "
                                     "(beliebige Fläche zur Ebene oder Achse der Bezugsfläche), z. B. den Spalt an "
                                     "einer Ecke"))
+        self.konstruktionsachse = QtWidgets.QCheckBox(tr("Konstruktionsachse an B"))
+        self.konstruktionsachse.setToolTip(tr("Vom Klickpunkt auf A zur projizierten STEP-Konstruktionsachse "
+                                             "messen. Auf B die zugehörige Kernbohrungswand wählen."))
+        self.konstruktionsachse.hide()
+        self.am_punkt.toggled.connect(self.konstruktionsachse.setVisible)
         reihe.addWidget(self.mass_knopf)
         reihe.addWidget(self.am_punkt)
         self.mass_kette_knopf = QtWidgets.QPushButton(tr("Als 3D-Kette"))
@@ -237,6 +242,7 @@ class BaugruppePanel(QtWidgets.QWidget):
                                               self.mass_kette.emit(nr))
         reihe.addStretch(1)
         lay.addLayout(reihe)
+        lay.addWidget(self.konstruktionsachse)
         waerme = QtWidgets.QHBoxLayout()
         self.waerme = QtWidgets.QCheckBox(tr("Wärmeausdehnung bei"))
         self.waerme.setToolTip(tr("Messgrößen zusätzlich bei einer Betriebstemperatur: jedes Teil dehnt sich um seinen "

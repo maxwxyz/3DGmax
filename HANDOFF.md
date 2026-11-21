@@ -2,6 +2,42 @@
 
 ## Current state, 2026-11-21
 
+### Local macOS main build for testing
+
+- Built the committed source of main at 77f1b70 for Apple Silicon, with the local
+  JT converter. The ad-hoc signed app and verified ZIP are under dist/main-77f1b70/.
+  The bundled self-test read 117 faces, 23 PMI and one saved view. A native Cocoa
+  window rendered NIST FTC-10 from the packaged executable. All 57 selected tests
+  for graphical PMI and projected tolerances passed from the same source snapshot.
+- Checked PLAN §§8.3, 8.20 and docs/Roadmap.md. This is a local build of version 0.2.
+  The construction-axis changes described below were in progress when it was built.
+
+### Measure a projected STEP construction axis in the assembly
+
+- Checked PLAN §8.20 against the assembly variation section of docs/Roadmap.md. In
+  the Measures tab, choose a point on A, the associated core wall on B, and the
+  construction-axis option. The selected occurrence, bore wall and STEP control
+  identify the axis when the project is reopened. The nominal radial distance,
+  source ID, projected tolerance contribution and open constraints carry through
+  to the 3D chain. A project previously lost all measures if it had no assembly
+  connections or poses. The normal project save now covers that case.
+- FTC-10 #19580 defines two 10 mm construction axes around 12 mm core holes.
+  Both half walls identified the correct axis, also after rotating and translating
+  an occurrence and applying a second assembly pose. The projection was 3.2 mm high
+  and centred at y = 28.6 mm. The isolated Ø0.8 control with a fully supporting
+  radial datum gave a 0.8 mm range there and 5.8 mm at y = 17 mm. Sampling stayed
+  within the limits. The original D/E/B frame retains its local contribution and
+  reports the unresolved datum. A coincident point has no radial measurement direction.
+- The native macOS run passed the project/chain round trip, three construction
+  geometry checks and all eight display tests. The round trip used a second STEP
+  file added to the first one, preserving occurrence, PMI ID and both limit values.
+- Next §8.20: resolve the nominal geometry of a datum with several representation
+  faces. FTC-10 D has three coplanar pads facing the same way. B and E each have two
+  cylindrical wall patches. E's UV limits differ by 0.000063 mm at their trimmed
+  ends. Preserve the distinction between one named feature and separate datums with
+  the same letter. Check the influence of lower-level controls independently. QIF
+  remains last.
+
 ### Resolve projected zone origins across split cylinder walls
 
 - Checked PLAN §8.20 against docs/Roadmap.md. On a cylinder fused from two

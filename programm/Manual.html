@@ -475,6 +475,11 @@ tolerance limits the bonus.</li>
 <li>For a <b>projected axis tolerance Ⓟ</b>, the controlled interval starts at the specified exit
 face plus any offset. The tolerance applies within that interval. The same tilt can produce a
 larger deviation at a measuring point outside it. An ambiguous exit side leaves the assessment open.</li>
+<li>For a tapped hole, select the clicked-point option and <b>Construction axis on B</b>.
+Click the measuring point on part A, add the cylindrical core bore wall on part B to the
+selection, and choose <b>Measure from selection</b>. The application resolves the associated
+projected STEP construction axis. The report and 3D chain identify its tolerance frame by STEP ID.
+Ambiguous axes, thread material conditions and unresolved datums remain open for review.</li>
 <li>If the measure depends on open degrees of freedom, a note says so: connect the parts completely first.
 <b>As PDF …</b> saves connections, results and contributors. Example: <b>File › Examples › Assembly variation</b>.</li>
 </ul>

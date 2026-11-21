@@ -1061,6 +1061,14 @@ Current coverage (2026-11-20), superseding the earlier progress notes below:
   own length. The measurement, Monte Carlo model and saved 3D chain retain all intervals and share a
   single actual diameter per feature. An independent four-variable constrained optimisation checked
   the directional bounds on 200 generated combinations of controls.
+- Point-to-axis measures can explicitly use a projected STEP construction axis at a tapped hole.
+  The selected inner cylindrical wall identifies the hole. A complete coaxial construction circle,
+  its connected axial generators and the linked exit face establish the thread axis and interval.
+  The source stage checks the construction radius and depth against the selected core and resolves
+  the chosen occurrence. The measure records the source PMI ID. Worst case, sampling and the 3D
+  chain use the projected interval. A lost source, multiple attached controls, thread material
+  conditions and unresolved datums leave the assessment open. FTC-10 supplies two 10 mm axes at
+  each of three controls. The 3.2 mm projections start at y = 27 mm on cores 12 mm deep.
 - Incomplete measures suppress the requirement verdict. Remaining cases include deformable form,
   other common datum geometries and physical datum simulators under material boundary conditions.
   Curved boundaries are sampled.

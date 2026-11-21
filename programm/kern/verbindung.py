@@ -704,19 +704,26 @@ class Baugruppe:
         self._eingriff(v)
         return None
 
-    def neue_messgroesse(self, teil_a: int, fa, ia: int, teil_b: int, fb, ib: int, punkt=None):
+    def neue_messgroesse(self, teil_a: int, fa, ia: int, teil_b: int, fb, ib: int, punkt=None, *, konstruktions_pmi=None):
         """Spalt, Buendigkeit, Achse zu Ebene oder Achsabstand zwischen Flaechen verschiedener Teile; mit punkt
         (Weltlage, auf A angeklickt) am Punkt zur Ebene oder Achse von B; Fehlertext sonst."""
         from . import baugruppe_mass as bm
         if teil_a == teil_b:
             return tr("Die zwei Flächen müssen zu verschiedenen Teilen gehören")
         art = bm.art_fuer(fa, fb, punkt is not None)
+        if konstruktions_pmi is not None:
+            if art != bm.PUNKT_ACHSE or punkt is None:
+                return tr("Für die Konstruktionsachse einen Messpunkt auf A und eine Bohrungswand auf B wählen")
+            o, d = bm.achse(fb, self.lage(teil_b))
+            if np.linalg.norm(np.cross(np.asarray(punkt) - o, d)) < 1e-9:
+                return tr("Der Messpunkt liegt auf der Achse, die radiale Messrichtung ist unbestimmt")
         if art is None and punkt is not None:
             return tr("Am Punkt: die Bezugsfläche muss eine Ebene oder ein Zylinder sein")
         if art is None:
             return tr("Messgrößen gehen zwischen zwei parallelen Ebenen (Spalt, Bündigkeit), einer Achse und einer "
                       "dazu parallelen Ebene oder zwei parallelen Achsen")
-        m = bm.Messgroesse(max((x.nummer for x in self.masse), default=0) + 1, teil_a, ia, teil_b, ib, art)
+        m = bm.Messgroesse(max((x.nummer for x in self.masse), default=0) + 1, teil_a, ia, teil_b, ib, art,
+                           konstruktions_pmi=konstruktions_pmi)
         if punkt is not None:  # in Dateilage des Teils A speichern
             la = self.lage(teil_a)
             m.punkt = [float(x) for x in la[:3, :3].T @ (np.asarray(punkt, float) - la[:3, 3])]
