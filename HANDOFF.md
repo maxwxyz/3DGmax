@@ -2,6 +2,28 @@
 
 ## Current state, 2026-11-21
 
+### Register and reconstruct bore rims drawn as separate PDF arcs
+
+- Checked PLAN §§8.35 and 8.36 against docs/Roadmap.md. Stroked arcs may appear
+  in any order or direction. Each endpoint needs one partner and the resulting
+  loop must fit a circular or elliptical rim. The rendered outline is checked at
+  pixel spacing. Missing arcs, competing branches, clipped or dashed strokes,
+  retraced semicircles and a twelve-sided polygon stayed unresolved.
+- The drawing dialog matched four split bore rims in an axial view and on a
+  rotated oblique sheet. Selecting the leader on the Ø4.1 drawing selected the
+  Ø4.0 bore wall and exported the difference to CSV. The plate dialog rebuilt two
+  through bores from semicircles. Both STEP readers recovered the diameters, wall
+  associations, bilateral tolerance and H7 fit. The solid volume matched the two
+  subtracted holes and all nine semantic dimensions retained their graphics.
+- The 22 affected tests, five native macOS tests and 87 additional drawing
+  comparison and reconstruction cases passed. All eleven sheets of NIST D2MI
+  904–908 kept their previous ring counts, including small elliptical rims. The
+  controls for split arcs are generated PDFs.
+- Next §§8.35–8.36: Qt's PDF printer can emit each quarter as a closed, thin
+  filled strip. Four such quarters form a visible circle but currently yield
+  zero registered rims. The same four quarters emitted as ordinary strokes yield
+  one. Test strip centre lines, including their cap geometry. QIF remains last.
+
 ### Follow open drawing arrows to their model bore walls
 
 - Checked PLAN §8.35 against docs/Roadmap.md. Two free, symmetric arrow wings can

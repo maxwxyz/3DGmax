@@ -4,6 +4,7 @@ from dataclasses import dataclass, field, replace
 import math
 
 import numpy as np
+from scipy.spatial import cKDTree
 
 
 @dataclass(frozen=True)
@@ -54,6 +55,35 @@ class Blattkreis:
             else:
                 hi = t
         return math.hypot(a*c-u,b*s-v)
+
+
+def geschlossene_bogenzuege(boegen):
+    """Getrennt gezeichnete Boegen nur ueber eindeutige gemeinsame Endpunkte verbinden."""
+    if len(boegen) < 2:
+        return
+    enden = np.array([p[[0, -1]] for p in boegen]).reshape(-1, 2)
+    # Drei Nachbarn genuegen, auch bei vielen deckungsgleichen Pfaden.
+    abstand, nachbarn = cKDTree(enden).query(enden, k=3, distance_upper_bound=.25)
+    paar = np.isfinite(abstand[:, 1]) & ~np.isfinite(abstand[:, 2])
+    partner = np.full(len(enden), -1)
+    for i in np.flatnonzero(paar):
+        a, b = nachbarn[i, :2]
+        j = b if a == i else a
+        if paar[j] and j//2 != i//2:
+            partner[i] = j
+    besucht = set()
+    for i in range(len(boegen)):
+        start = eingang = 2*i
+        teile = []
+        while eingang >= 0 and eingang//2 not in besucht:
+            bogen, seite = divmod(eingang, 2)
+            besucht.add(bogen)
+            p = boegen[bogen]
+            teile.append(p[::-1] if seite else p)
+            eingang = partner[2*bogen + (1-seite)]
+            if eingang == start:
+                yield np.concatenate(teile)
+                break
 
 
 def ellipse(p):

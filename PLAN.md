@@ -1705,6 +1705,9 @@ the printed hole pattern. Parallel holes are grouped by their direction in the m
 inclined hole groups in auxiliary views. Separate rim arcs use the axis and radius of the cylindrical
 face for their projected center and size. The edge supplies the depth and angular coverage.
 Complete circular paths and printed annuli are matched to full circular boundaries on cylindrical faces.
+Separate stroked arcs may form a circular or elliptical rim. Their ends must meet in one
+unambiguous loop in sheet coordinates. Every part of the reconstructed outline must be visible
+on the rendered sheet. Gaps, rival continuations and coarse polygons remain unresolved.
 Two distinct centers provide a candidate rotation, scale and translation within each projection plane.
 The fit checks all printed radii and centers, including reflections and arbitrary in-plane rotation.
 At least three non-collinear centers must agree. Only face associations common to
@@ -1815,6 +1818,8 @@ leave export unavailable. The AP242 file contains a solid and three dimensions a
 opposite faces, including their graphical presentations. A portable 60 × 40 × 8 mm drawing verifies
 the exported volume, opposite-face distances and the width tolerance after reload.
 The top view can contain circular vector outlines. Each must match a separate closed printed ring.
+A ring can consist of separately stroked arcs. A two-bore plate with half-circle paths was
+checked through STEP export and reimport for volume, diameter tolerance, fit and wall links.
 The reviewer selects or enters X, Y and the diameter, then identifies the end condition for each hole.
 The estimated positions and sizes are shown separately. Reprojected centers and radii must agree
 with the drawing. Additional interior lines, intersecting holes and rings on the boundary remain

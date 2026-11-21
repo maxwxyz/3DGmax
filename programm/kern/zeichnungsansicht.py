@@ -7,13 +7,13 @@ import math
 import numpy as np
 from scipy.spatial import cKDTree
 
-from .blattring import Blattkreis, ellipse, ringmitte
+from .blattring import Blattkreis, ellipse, geschlossene_bogenzuege, ringmitte
 
 
 def _kreis(punkte):
     # Eine volle Umdrehung in Pfadreihenfolge pruefen. Ellipsen und offene Boegen auslassen.
     p = np.array(punkte)
-    if len(p) < 12 or not np.isfinite(p).all():
+    if len(p) < 12 or not np.isfinite(p).all() or np.linalg.norm(p[0]-p[-1]) > .25:
         return None
     mitte = (p.min(axis=0) + p.max(axis=0)) / 2
     d = p - mitte
@@ -141,12 +141,28 @@ def _gedrucktes_v(p):
     return ()
 
 
-def _sichtbar(mask, p):
+def _sichtbar(mask, p, *, vollstaendig=False):
     h, w = mask.shape
     x, y = np.rint(np.asarray(p)).astype(int).T
     if x.min() < 1 or y.min() < 1 or x.max() >= w-1 or y.max() >= h-1:
         return False
-    return np.logical_or.reduce([mask[y+i,x+j] for i,j in ((0,0),(-1,0),(1,0),(0,-1),(0,1))]).mean() > .88
+    tinte = np.logical_or.reduce([mask[y+i,x+j] for i,j in ((0,0),(-1,0),(1,0),(0,-1),(0,1))])
+    return tinte.all() if vollstaendig else tinte.mean() > .88
+
+
+def _gedruckter_bogenring(p, k, mask):
+    """Auch zwischen den Bogenpunkten den Verlauf und die gedruckte Tinte pruefen."""
+    phi = math.radians(k.winkel)
+    c, s = math.cos(phi), math.sin(phi)
+    achsen = np.array([[c,s], [-s,c]])
+    radien = np.array([k.r, k.kurz or k.r])
+    # Bei einem groben Vieleck liegen nur die Ecken auf der Ellipse.
+    mitte = (p[:-1]+p[1:])/2 - k.mitte
+    if np.max(abs(np.linalg.norm((mitte @ achsen.T)/radien, axis=1)-1)) > max(.012, .25/k.r):
+        return False
+    winkel = np.linspace(0, math.tau, math.ceil(math.tau*k.r), endpoint=False)
+    rand = np.column_stack((np.cos(winkel), np.sin(winkel))) * radien
+    return _sichtbar(mask, rand @ achsen + k.mitte, vollstaendig=True)
 
 
 class Blattgeometrie:
@@ -161,6 +177,7 @@ class Blattgeometrie:
         basis = np.array([(ks.to_page(w, 0)-o)/w, (ks.to_page(0, h)-o)/h])
         zur_ansicht = np.linalg.inv(basis)
         kreise, linien, pfeile, konturen = {}, [], [], []
+        boegen = []
         self.rundungen = []
         if mit_rundungen:
             from .rundkontur import rundrechteck, druckrand
@@ -179,11 +196,19 @@ class Blattgeometrie:
             ringraender, rundraender = [], []
             for pfad in _teilpfade(obj):
                 p = np.asarray(pfad) @ abbildung + verschiebung
+                if (strich.value and len(p) >= 3 and np.linalg.norm(p[0]-p[-1]) > .25
+                        and raw.FPDFPageObj_GetDashCount(obj) == 0):
+                    sehne = p[-1]-p[0]
+                    normal = np.array([-sehne[1], sehne[0]])
+                    if (np.max(abs((p-p[0]) @ normal)) > .1*np.linalg.norm(sehne)
+                            and _sichtbar(mask, p[::max(1, len(p)//64)])):
+                        boegen.append(p)
                 if len(p) >= 12:
                     k = _kreis(p) or (ellipse(p) if mit_ellipsen else None)
                     if k and _sichtbar(mask, p[::max(1, len(p)//36)]):
                         if strich.value:
-                            kreise[tuple(round(v, 1) for v in k.form)] = k
+                            if raw.FPDFPageObj_GetDashCount(obj) == 0 and _gedruckter_bogenring(p, k, mask):
+                                kreise[tuple(round(v, 1) for v in k.form)] = k
                         elif fuellung.value:
                             x, y = p.T
                             ringraender.append((k, np.sign(x @ np.roll(y, 1) - y @ np.roll(x, 1))))
@@ -222,6 +247,10 @@ class Blattgeometrie:
                     ring = ringmitte(k,j)
                     if ring:
                         kreise[tuple(round(v, 1) for v in ring.form)] = ring
+        for p in geschlossene_bogenzuege(boegen):
+            k = _kreis(p) or (ellipse(p) if mit_ellipsen else None)
+            if k and _gedruckter_bogenring(p, k, mask):
+                kreise[tuple(round(v, 1) for v in k.form)] = k
         self.kreise = list(kreise.values())
         self.linien = np.array(linien).reshape(-1,2,2)
         self.enden = cKDTree(self.linien.reshape(-1,2))
