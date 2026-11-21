@@ -456,28 +456,32 @@ def _gerundete_waende(tasche, seiten, waende, nachbarn, viertelkreise):
 
 def schreibe_platte(ziel, masse, bohrungen=(), taschen=()):
     """Geometrie und flaechenbezogene Masse mit Darstellung als AP242 speichern."""
+    bohrungen = [b if isinstance(b, Plattenbohrung) else Plattenbohrung(*b) for b in bohrungen]
+    return schreibe_bemassten_koerper(ziel, _plattenform(masse, bohrungen, taschen),
+                                      lambda modell: _flaechenmasse(modell, masse, bohrungen, taschen))
+
+
+def schreibe_bemassten_koerper(ziel, form, flaechenmasse):
     from OCC.Core.DESTEP import DESTEP_Parameters
     from OCC.Core.IFSelect import IFSelect_RetDone
     from OCC.Core.STEPControl import STEPControl_AsIs, STEPControl_Writer
     from .laden import LadeFehler, lade_step
     from .step_schreiben import schreibe
 
-    bohrungen = [b if isinstance(b, Plattenbohrung) else Plattenbohrung(*b) for b in bohrungen]
     ziel = Path(ziel)
     with TemporaryDirectory(dir=ziel.parent) as tmp:
         roh = str(Path(tmp) / "geometry.stp")
         fertig = Path(tmp) / "model.stp"
-        form = _plattenform(masse, bohrungen, taschen)
         writer = STEPControl_Writer()
         parameter = DESTEP_Parameters()
         parameter.WriteSchema = parameter.WriteMode_StepSchema_AP242DIS
         if writer.Transfer(form, STEPControl_AsIs, parameter) != IFSelect_RetDone or writer.Write(roh) != IFSelect_RetDone:
-            raise ValueError(tr("Der Plattenkörper konnte nicht als STEP geschrieben werden."))
+            raise ValueError(tr("Der Körper konnte nicht als STEP geschrieben werden."))
         try:
             modell = lade_step(roh)
         except LadeFehler as e:
             raise ValueError(str(e)) from e
-        merkmale = _flaechenmasse(modell, masse, bohrungen, taschen)
+        merkmale = flaechenmasse(modell)
         bericht = schreibe(roh, str(fertig), merkmale, modell)
         if len(bericht.neu) != len(merkmale) or len(bericht.dargestellt) != len(merkmale):
             raise ValueError(tr("Die Maßangaben konnten nicht vollständig als STEP-PMI geschrieben werden."))

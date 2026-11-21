@@ -396,6 +396,15 @@ def _schreibe_toleranz(a: _Anhang, p) -> str | None:
     return None
 
 
+def _passungsfelder(passung):
+    klasse = re.fullmatch(r"([A-Za-z]+)([0-9]+)", passung)
+    if klasse is None:
+        return None
+    lage, grad = klasse.groups()
+    art = "hole" if lage[0].isupper() else "shaft"
+    return f"'{lage}','{art}','{grad}'"
+
+
 def _schreibe_mass(a: _Anhang, p) -> str | None:
     from .pmi_step import MASS_TYP1, MASS_TYP2
     if p.nennwert is None:
@@ -495,11 +504,11 @@ def _schreibe_mass(a: _Anhang, p) -> str | None:
         tv = a.neu(f"TOLERANCE_VALUE(#{a.mass(p.unten, winkel)},#{a.mass(p.oben, winkel)})")
         a.neu(f"PLUS_MINUS_TOLERANCE(#{tv},#{dim})")
     elif p.passung:
-        import re as _re
-        m = _re.match(r"([A-Za-z]+)(\d+)$", p.passung)
-        if m:  # wie in den NIST-Dateien: Klasse vollstaendig im ersten Feld
-            lf = a.neu(f"LIMITS_AND_FITS('{p.passung}','{'hole' if m.group(1)[0].isupper() else 'shaft'}','','')")
-            a.neu(f"PLUS_MINUS_TOLERANCE(#{lf},#{dim})")
+        felder = _passungsfelder(p.passung)
+        if felder is None:
+            return tr("Toleranzklasse nicht schreibbar")
+        lf = a.neu(f"LIMITS_AND_FITS({felder},'')")
+        a.neu(f"PLUS_MINUS_TOLERANCE(#{lf},#{dim})")
     a.semantik = dim
     return None
 
@@ -591,14 +600,16 @@ def _passung_id(datei, p) -> int | None:
 
 def _schreibe_passung(text: str, datei, p) -> str | None:
     """Toleranzklasse in einer vorhandenen LIMITS_AND_FITS ersetzen; None, wenn die Datei keine hat."""
-    import re as _re
     eid = _passung_id(datei, p)
-    m = _re.match(r"([A-Za-z]+)(\d+)$", p.passung or "")
-    if eid is None or m is None:
+    felder = _passungsfelder(p.passung or "")
+    if eid is None or felder is None:
         return None
     a, b = _anweisung(text, eid)
-    art = "hole" if m.group(1)[0].isupper() else "shaft"
-    return text[:a] + f"#{eid}=LIMITS_AND_FITS('{p.passung}','{art}','','');" + text[b:]
+    # Quellenangabe im vierten Feld mitsamt originaler STEP-Zeichencodierung erhalten.
+    feld = r"(?:'(?:[^']|'')*'|\$)\s*,\s*"
+    neu, anzahl = re.subn(rf"(LIMITS_AND_FITS\s*\(\s*)(?:{feld}){{3}}",
+                          lambda m: m[1]+felder+",", text[a:b], count=1, flags=re.I)
+    return text[:a]+neu+text[b:] if anzahl else None
 
 
 def _schreibe_material(text: str, datei, p) -> str | None:

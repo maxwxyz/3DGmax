@@ -1635,7 +1635,7 @@ Check a known part by reprojecting the solid into the drawing views and comparin
 and PMI against the drawing using §8.35. An underdetermined drawing must identify the missing
 constraint and allow reconstruction to continue once it is supplied.
 
-**Implemented for rectangular plates, including cylindrical holes, rectangular pockets and rectangular through openings.** File → Plate from 2D drawing works with a PDF and
+**Implemented for dimensioned rectangular plates and stepped cylindrical solid shafts.** File → Plate from 2D drawing works with a PDF and
 no loaded model. Select one closed axis-aligned top outline. Pick or enter
 the width, height and thickness from the drawing. An optional rectangular front view checks the
 thickness, even at a different scale. Missing depth or units and inconsistent view proportions
@@ -1691,7 +1691,15 @@ overall length. If both lengths are dimensioned, their nominal values and availa
 must be compatible. An interval-only dimension may take a nominal within its limits to match the
 other dimensions. Only the entered dimensions receive PMI. Center spacing uses two derived symmetry
 centers connected to their end faces, with the graphical dimension line spanning the two axes.
-Pocket center-position PMI, inclined slots, unequal corner radii,
+File → Solid shaft from 2D drawing accepts horizontal or vertical longitudinal views of a solid
+with cylindrical lands and square shoulders. Printed stroke centers define section lengths and
+diameters. All segment dimensions and shoulder stations must match one common scale. Pick or enter
+a length and an explicit diameter per section. The STEP model is revolved about X. Each diameter is
+linked to its cylindrical wall, and each length references its two bounding planes. Repeated diameters
+in separate seats retain independent tolerances. New or edited fits use separate form-variance and grade
+fields in LIMITS_AND_FITS. Both readers recover shaft and hole classes. The dialog rejects conflicting dimensions, open or
+asymmetric silhouettes and additional interior features. Hollow shafts, chamfers, tapers and fillets
+need further profile and dimension coverage. Pocket center-position PMI, inclined slots, unequal corner radii,
 other profiles, automatic cross-view association and datum/GD&T transfer remain open.
 
 ### 8.37 QIF extensions (last in the implementation order)

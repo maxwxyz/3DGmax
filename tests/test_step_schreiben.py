@@ -162,8 +162,11 @@ def test_passung_und_materialbedingung(tmp_path):
     ziel = str(tmp_path / "f.stp")
     b = sw.schreibe(quelle, ziel, a.pmi)
     assert not b.uebersprungen and len(b.geschrieben) == 3
-    neu = {p.step_id: p for p in lade_alles(ziel).pmi}
+    from programm.kern.pmi_lesen import lies_pmi_xcaf
+    erg = lade_alles(ziel)
+    neu = {p.step_id: p for p in erg.pmi}
     assert neu[fit.step_id].passung == "H7"
+    assert any(p.passung == "H7" and p.flaechen == fit.flaechen for p in lies_pmi_xcaf(erg.modell))
     assert neu[senk.step_id].material == "M" and [x.name for x in neu[senk.step_id].bezuege] == \
         [x.name for x in senk.bezuege]
     assert neu[pos.step_id].material == "L"

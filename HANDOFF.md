@@ -2,6 +2,38 @@
 
 ## Current state, 2026-11-21
 
+### Solid turned shafts from dimensioned longitudinal PDF views
+
+- Checked PLAN §§8.16, 8.28 and 8.35–8.37 and docs/Roadmap.md. File → Solid shaft from 2D
+  drawing is available without a loaded model. Select a horizontal or vertical longitudinal
+  outline. Each reviewed section needs a length and a diameter, with known units. A printed
+  centerline and visible shoulder edges are supported. The remaining ink, common centerline,
+  continuous outline, section widths and shoulder stations must agree with the same geometry
+  and scale. The median selection time on the 1900 × 1140 pixel probe sheet was 16 ms over five
+  runs. The plate and shaft dialogs share PDF lifetime, page switching and atomic STEP export.
+- Ran the menu command on a two-sheet PDF with Ø20, Ø12 h6 and Ø20 seats of lengths 12, 18
+  and 8 mm. The two Ø20 seats have different diameter tolerances. Both STEP readers recovered
+  the six dimensions at their respective cylinders and end/shoulder planes. Checked the graphical
+  diameter leader tips and length spans and the volume π × (20 × 100 + 18 × 36) mm³. The drawing
+  comparison matched the first Ø20 and flagged its changed tolerance when assigned to the last
+  seat instead. Additional cases covered vertical orientation, explicit inch units, missing units,
+  incompatible limits, cropped and broken outlines, extra internal edges and asymmetric profiles.
+- The original fit writer put the full class in the form-variance field and left the grade empty.
+  XCAF lost a newly authored h6 in this representation. Separate form-variance and grade fields
+  preserve h6 for a new shaft seat and H7 for an edited NIST dimension. Existing source files
+  with combined notation remain readable. The complete headless suite passed 740 tests and skipped
+  the eight screen tests. The native macOS run passed those eight and all three shaft tests. The
+  focused plate, shaft and STEP writer run passed all 34 tests.
+- For the next §8.36 stage, a local hollow-shaft probe added an Ø8 H7 straight bore through
+  two lands of Ø20 × 12 and Ø12 × 18 mm. Its cylinder was adjacent to both end planes. Both
+  STEP readers recovered all five dimensions and the volume was 4297.698750 mm³. A separate
+  PDF end view yielded two concentric vector rings with radius ratio 0.400000. A two-sheet
+  hidden-line probe for a 30 mm shaft distinguished paired wall strokes along the full length
+  from traces ending at 14 mm. Both were correctly rejected by the current solid-shaft dialog.
+  Integration still needs evidence of a through bore from the drawing, inner-diameter review and checks
+  against the smallest outside diameter. Tapers, fillets, datum transfer and whole-drawing
+  comparison remain open. QIF stays last.
+
 ### Reconstruct obround slots from their end-axis spacing
 
 - Checked PLAN §§8.16, 8.28 and 8.35–8.37 and docs/Roadmap.md. The PDF picker and pocket table

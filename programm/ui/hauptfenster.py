@@ -629,6 +629,7 @@ class Hauptfenster(QtWidgets.QMainWindow):
         A("ordnervergleich", tr("Ordner vergleichen …"), self.zeige_ordnervergleich,
           tipp=tr("Alle Modelle zweier Ordner paarweise vergleichen (Übersicht)"), modell=False)
         A("zeichnungskoerper", tr("Platte aus 2D-Zeichnung …"), self.zeige_zeichnungskoerper, modell=False)
+        A("drehzeichnung", tr("Vollwelle aus 2D-Zeichnung …"), self.zeige_drehzeichnung, modell=False)
         A("zeichnungsabgleich", tr("PMI mit 2D-Zeichnung vergleichen …"), self.zeige_zeichnungsabgleich,
           tipp=tr("Zeichnungsangaben im PDF mit den semantischen PMI des geladenen Modells prüfen"))
         A("zoom_auswahl", tr("Auf Auswahl zoomen"), self._zoome_auswahl, "Z",
@@ -857,6 +858,7 @@ class Hauptfenster(QtWidgets.QMainWindow):
         m.addAction(a["vergleichen"])
         m.addAction(a["zeichnungsabgleich"])
         m.addAction(a["zeichnungskoerper"])
+        m.addAction(a["drehzeichnung"])
         m.addAction(a["ordnervergleich"])
         m.addAction(a["manuell_ausrichten"])
         m.addAction(a["vergleich_beenden"])
@@ -2233,6 +2235,11 @@ class Hauptfenster(QtWidgets.QMainWindow):
     def zeige_zeichnungskoerper(self):
         from .zeichnungskoerper_ui import oeffne_plattenzeichnung
         return oeffne_plattenzeichnung(self)
+
+    def zeige_drehzeichnung(self):
+        from .drehzeichnung_ui import Drehteildialog
+        from .zeichnungsdialog import oeffne_koerperzeichnung
+        return oeffne_koerperzeichnung(self, Drehteildialog)
 
     def zeige_zeichnungsabgleich(self):
         if self.zeichnungsabgleich is not None:

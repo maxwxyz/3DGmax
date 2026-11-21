@@ -1,17 +1,15 @@
 """Bemasste rechteckige Platte aus einer PDF-Zeichnung als STEP speichern."""
 
-from pathlib import Path
-
 from PySide6 import QtCore, QtWidgets
 
 from ..i18n import tr
 from ..kern.zeichnungsabgleich import Blattangabe, lese_angabe
-from ..kern.zeichnungsblatt import Zeichnungsblatt
 from ..kern.zeichnungsansicht import Blattgeometrie
 from ..kern.plattenbohrung import plattenumriss, kegelwinkelmass, sollbohrungen
 from ..kern.plattentasche import eckradiusmass, solltaschen
 from ..kern.zeichnungskoerper import plattenmasse, rechteckansicht, schreibe_platte, tiefenmass
 from .zeichnungsabgleich_ui import Blattansicht
+from .zeichnungsdialog import Koerperdialog, oeffne_koerperzeichnung
 
 
 OFFEN, DURCHGANG, FLACHBODEN, KEGELSENKUNG, SPITZE_ZYLINDERTIEFE, SPITZE_GESAMTTIEFE = range(6)
@@ -19,18 +17,15 @@ SPITZENFORMEN = (SPITZE_ZYLINDERTIEFE, SPITZE_GESAMTTIEFE)
 MIT_TIEFENMASS = (FLACHBODEN, *SPITZENFORMEN)
 
 
-class Plattendialog(QtWidgets.QDialog):
+class Plattendialog(Koerperdialog):
     def __init__(self, doc, pfad, parent=None):
-        super().__init__(parent)
-        self.doc, self.pfad = doc, Path(pfad)
-        self.blatt = None
+        super().__init__(doc, pfad, tr("Platte aus 2D-Zeichnung"), parent)
         self.konturen = [None, None]
         self.marken = {}
         self.vorne_offen = False
         self.ringe = []
         self.taschen = []
         self.taschenmarken = []
-        self.setWindowTitle(tr("Platte aus 2D-Zeichnung") + " – " + self.pfad.name)
         self.resize(1000, 700)
         layout = QtWidgets.QVBoxLayout(self)
         werkzeug = QtWidgets.QHBoxLayout()
@@ -133,28 +128,9 @@ class Plattendialog(QtWidgets.QDialog):
             feld.textChanged.connect(self._pruefen)
         self._seite()
 
-    def showEvent(self, e):
-        super().showEvent(e)
-        self.ansicht.einpassen()
-
     def _seite(self):
-        from pypdfium2 import PdfiumError
-        try:
-            neu = Zeichnungsblatt(self.doc, self.seite.value()-1)
-        except (PdfiumError, ValueError) as e:
-            if self.blatt is None:
-                raise
-            with QtCore.QSignalBlocker(self.seite):
-                self.seite.setValue(self.blatt.nummer+1)
-            self.status.setText(str(e))
-            return
-        if self.blatt is not None:
-            self.blatt.schliesse()
-        self.blatt = neu
         self.geometrie = None
-        self.ansicht.zeige(self.blatt.bild)
-        self._markieren()
-        self._pruefen()
+        super()._seite()
 
     def _markieren(self):
         sichtbar = [a for a in self.marken.values() if a.seite == self.blatt.nummer]
@@ -458,45 +434,11 @@ class Plattendialog(QtWidgets.QDialog):
             self.status.setText(tr("Platte {} × {} × {} mm").format(*(f"{p.nennwert:g}" for p in masse)))
             self.speichern.setEnabled(True)
 
-    def _export(self):
-        ziel, _ = QtWidgets.QFileDialog.getSaveFileName(self, tr("STEP mit Bemaßung speichern …"),
-                                                        str(self.pfad.with_name(self.pfad.stem + ".stp")), "STEP (*.stp *.step)")
-        if not ziel:
-            return
-        try:
-            if Path(ziel).resolve() == self.pfad.resolve():
-                raise ValueError(tr("Für das STEP-Modell eine eigene Zieldatei wählen."))
-            masse = self._masse()
-            bohrungen, taschen = self._innenkonturen(masse)
-            anzahl = schreibe_platte(ziel, masse, bohrungen, taschen)
-        except (OSError, ValueError, RuntimeError) as e:
-            QtWidgets.QMessageBox.warning(self, tr("Platte aus 2D-Zeichnung"), str(e))
-            return
-        self.status.setText(tr("STEP-Modell mit {} bemaßten Merkmalen unter {} gespeichert.").format(anzahl, ziel))
+    def _schreibe(self, ziel):
+        masse = self._masse()
+        bohrungen, taschen = self._innenkonturen(masse)
+        return schreibe_platte(ziel, masse, bohrungen, taschen)
 
 
 def oeffne_plattenzeichnung(fenster):
-    import pypdfium2 as pdf
-    pfad, _ = QtWidgets.QFileDialog.getOpenFileName(fenster, tr("2D-Zeichnung öffnen"), "", "PDF (*.pdf)")
-    if not pfad:
-        return
-    doc = None
-    try:
-        doc = pdf.PdfDocument(pfad)
-        if not len(doc):
-            raise ValueError(tr("Die Zeichnung enthält keine Seiten."))
-        dialog = Plattendialog(doc, pfad, fenster)
-    except (pdf.PdfiumError, OSError, ValueError) as e:
-        if doc is not None:
-            doc.close()
-        QtWidgets.QMessageBox.warning(fenster, tr("2D-Zeichnung öffnen"), str(e))
-        return
-
-    def schliessen():
-        dialog.blatt.schliesse()
-        doc.close()
-
-    dialog.setAttribute(QtCore.Qt.WidgetAttribute.WA_DeleteOnClose)
-    dialog.finished.connect(schliessen)
-    dialog.show()
-    return dialog
+    return oeffne_koerperzeichnung(fenster, Plattendialog)
