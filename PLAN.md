@@ -1046,6 +1046,10 @@ Current coverage (2026-11-20), superseding the earlier progress notes below:
 - Projected cylindrical axis tolerances use the specified origin face, height and offset. The
   rigid axis is constrained over that interval and can be extrapolated to a measurement point.
   The loaded FTC-07 bore has a projection from 12.700 to 23.495 mm in Y. [CAx-IF AP242 PMI recommended practice, §6.9](https://www.mbx-if.org/home/wp-content/uploads/2024/06/rec_pracs_pmi_v41.pdf)
+- A projected cylinder may be split into connected wall and exit faces. Each assigned exit
+  must share an edge with a controlled cylinder. The viewer resolves the exit separately
+  for each axis of a hole pattern, including different heights and opposite sides. A foreign
+  cap leaves a single-feature assembly measurement and its exported chain incomplete.
 - For simultaneous position controls of equal diameter on one nominal axis in the same datum
   frame, the limit applies at the two outermost constrained stations. The radial displacement is linear
   along the rigid axis and the permitted disk is convex. This includes separate projections from

@@ -74,6 +74,71 @@ def test_ungeklaerte_projektion_unterdrueckt_sollbewertung(fehler):
     assert a.als_kette3d(m, formen[2], formen[1]).hinweise == e.hinweise
 
 
+def test_geteilte_austrittsflaechen_in_zone_messung_und_kette():
+    import math
+    from types import SimpleNamespace
+    from OCC.Core.BRepAlgoAPI import BRepAlgoAPI_Fuse
+    from OCC.Core.BRepAdaptor import BRepAdaptor_Surface
+    from OCC.Core.GeomAbs import GeomAbs_Cylinder
+    from OCC.Core.gp import gp_Ax2, gp_Dir, gp_Pnt
+    from OCC.Extend.TopologyUtils import TopologyExplorer
+    from programm.kern import toleranzzone
+
+    achsen = [gp_Ax2(gp_Pnt(), gp_Dir(0, 0, 1), gp_Dir(s, 0, 0)) for s in (1, -1)]
+    haelften = [BRepPrimAPI_MakeCylinder(achse, 3., 20., math.pi).Shape() for achse in achsen]
+    formen = list(TopologyExplorer(BRepAlgoAPI_Fuse(*haelften).Shape()).faces())
+    mantel = {i for i, f in enumerate(formen) if BRepAdaptor_Surface(f).GetType() == GeomAbs_Cylinder}
+    kappen = [i for i, f in enumerate(formen) if (ebene := bm.ebene(f)) and ebene[1][2] > .99]
+    assert len(mantel) == len(kappen) == 2
+    fremd = len(formen)
+    formen.extend([_zylinder()[2], _flaeche(BRepPrimAPI_MakeCylinder(1., 4.).Shape())])
+    bezug = fremd + 1
+    modell = SimpleNamespace(flaechen=formen)
+    def lookup(teil, i):
+        return formen[i] if teil == 1 and 0 <= i < len(formen) else None
+
+    for quellen in ([kappen[0]], [kappen[1]], kappen, [fremd, *kappen], [*kappen, fremd]):
+        p = replace(_rahmen(0), flaechen=mantel, projektionsflaechen=quellen)
+        gueltig = fremd not in quellen
+        zone = toleranzzone.zone(p, modell)
+        assert (zone is not None) == gueltig
+        analyse = bm.Analyse(vb.Baugruppe(), [p, _datum(bezug, "A")], lookup)
+        for i in mantel:
+            m = bm.Messgroesse(1, 1, bezug, 1, i, art=bm.PUNKT_ACHSE, punkt=[4., 0., 5.],
+                                soll_min=0., soll_max=8.)
+            e = analyse.berechne(m, formen[bezug], formen[i], proben=60)
+            kette = analyse.als_kette3d(m, formen[bezug], formen[i])
+            assert kette.hinweise == e.hinweise
+            if gueltig:
+                assert bm.bewertung(e, m)[0] == "gruen"
+                assert (e.wc_min, e.wc_max) == pytest.approx((3.6, 4.4))
+            else:
+                assert e.hinweise and not bm.bewertung(e, m)[0]
+
+
+def test_muster_projiziert_jede_achse_von_ihrer_eigenen_kappe():
+    from types import SimpleNamespace
+    from OCC.Core.BRepGProp import brepgprop
+    from OCC.Core.GProp import GProp_GProps
+    from OCC.Core.gp import gp_Ax2, gp_Dir, gp_Pnt
+    from programm.kern import toleranzzone
+
+    a = _zylinder()
+    b = BRepPrimAPI_MakeCylinder(gp_Ax2(gp_Pnt(12., 0., 5.), gp_Dir(0, 0, 1)), 3., 20.).Shape()
+    formen = [a[1], _flaeche(b), a[2], _flaeche(b, [0, 0, -1]), _zylinder()[2]]
+    modell = SimpleNamespace(flaechen=formen)
+    for quellen in ([2, 3], [3, 2]):
+        p = replace(_rahmen(0), flaechen={0, 1}, projektionsflaechen=quellen)
+        zone = toleranzzone.zone(p, modell)
+        mitten = []
+        for koerper in zone.formen:
+            props = GProp_GProps()
+            brepgprop.VolumeProperties(koerper, props)
+            mitten.append(props.CentreOfMass().Coord())
+        np.testing.assert_allclose(sorted(mitten), [(0., 0., 25.), (12., 0., 0.)], atol=1e-8)
+        assert toleranzzone.zone(replace(p, projektionsflaechen=[*quellen, 4]), modell) is None
+
+
 @pytest.mark.parametrize("zweite,z,breite", [
     ({"zonen_wert": 15.}, 0., .2 * 55/15),                            # 20..30 und 20..35
     ({"projektionsversatz": 15.}, 0., .52),                            # 20..30 und 35..45

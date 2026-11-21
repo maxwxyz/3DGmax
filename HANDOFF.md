@@ -2,6 +2,26 @@
 
 ## Current state, 2026-11-21
 
+### Resolve projected zone origins across split cylinder walls
+
+- Checked PLAN §8.20 against docs/Roadmap.md. On a cylinder fused from two
+  half shells, either half cap defines the same 10 mm projection for both
+  walls. A point at z = 5 mm measured against the axis gives a 3.6–4.4 mm
+  worst-case interval. Adding a coincident but disconnected cap now suppresses
+  the in-spec verdict, records the reason in the 3D chain and omits the invalid
+  zone. Source order has no effect.
+- A two-axis pattern with exit faces at different heights and on opposite sides
+  produced zone centres at (0, 0, 25) and (12, 0, 0) mm. Both source orders
+  gave the same geometry. All 32 projection and STEP regressions and the 52 affected
+  tests for the final projection changes passed.
+- Next §8.20: NIST FTC-10 control #19580 uses two construction axes, each 10 mm
+  long, with a 3.2 mm projection at y = 27 mm and no associated model faces in
+  the tolerance record. Each axis coincides with two connected halves of a 12 mm
+  core bore plus a conical drill point. Investigate selecting the construction
+  axis as the measured feature, keeping thread and core-bore sizes distinct.
+  Check the explicit exit, thread depth, repeated occurrences and independent
+  movement of the two holes. QIF remains last.
+
 ### Compare worm and bevel hands with their PMI notes
 
 - Checked PLAN §§8.22 and 8.27 against docs/Roadmap.md. Explicit German and English

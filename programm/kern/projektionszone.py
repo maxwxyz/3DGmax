@@ -21,38 +21,46 @@ def _beruehren(kanten, andere):
     return any(a.IsSame(b) for a in kanten for b in andere)
 
 
-def einzelachse(p, form, form_fuer):
-    """Mehrere Mantelstuecke eines einzigen Zylinders: gleiche Endlagen und zusammenhaengender Rand."""
+def _mantelnetz(p, form, form_fuer):
+    """Kanten des zusammenhaengenden Mantels und aller zylindrischen Waende des Rahmens."""
     from OCC.Core.BRepAdaptor import BRepAdaptor_Surface
     from OCC.Core.GeomAbs import GeomAbs_Cylinder
     f0 = tz._achse([form])
     if not f0 or not p.flaechen:
-        return False
+        return [], [], False
     start, d, laenge, r, _ = f0
     mitte = start + d * laenge / 2
-    netz = []
+    netz, alle = [], []
     for i in p.flaechen:
         f = form_fuer(i)
-        a = tz._achse([f]) if f is not None else None
-        if a is None or BRepAdaptor_Surface(f).GetType() != GeomAbs_Cylinder:
-            return False
-        o, achse, laenge_i, radius, _ = a
-        if (np.linalg.norm(np.cross(d, achse)) > 1e-7 or abs(laenge_i - laenge) > 1e-5 or
-                abs(radius - r) > 1e-5 or np.linalg.norm(o + achse * laenge_i / 2 - mitte) > 1e-5):
-            return False
-        netz.append(_kanten(f))
-    # Schnitt- und Nahtkanten verwenden die topologische Identitaet der Kante.
+        achsdaten = tz._achse([f]) if f is not None else None
+        if achsdaten is None or BRepAdaptor_Surface(f).GetType() != GeomAbs_Cylinder:
+            continue
+        o, achse, laenge_i, radius, _ = achsdaten
+        kanten = _kanten(f)
+        alle.extend(kanten)
+        if (np.linalg.norm(np.cross(d, achse)) <= 1e-7 and abs(laenge_i - laenge) <= 1e-5 and
+                abs(radius - r) <= 1e-5 and np.linalg.norm(o + achse * laenge_i / 2 - mitte) <= 1e-5):
+            netz.append(kanten)
+    # Gleiche Lage allein verbindet keine getrennten Koerper oder Zylinderschalen.
     erreicht = _kanten(form)
+    anzahl = 0
     while netz:
         angrenzend = next((j for j, kanten in enumerate(netz) if _beruehren(erreicht, kanten)), None)
         if angrenzend is None:
-            return False
+            break
         erreicht.extend(netz.pop(angrenzend))
-    return True
+        anzahl += 1
+    return erreicht, alle, anzahl == len(p.flaechen)
 
 
-def sichtintervall(p, mitte, d, laenge, flaeche_fuer, lage):
-    """Projektionsrichtung und -laenge einer Achse anhand ihrer semantischen Austrittsflaeche."""
+def einzelachse(p, form, form_fuer):
+    _, _, einzeln = _mantelnetz(p, form, form_fuer)
+    return einzeln
+
+
+def sichtintervall(p, mitte, d, laenge, urspruenge, lage):
+    """Projektionsrichtung und -laenge einer Achse anhand ihrer semantischen Austrittsflaechen."""
     from .baugruppe_mass import ebene
 
     h, offset = p.zonen_wert, getattr(p, "projektionsversatz", 0.)
@@ -60,8 +68,7 @@ def sichtintervall(p, mitte, d, laenge, flaeche_fuer, lage):
         return None, tr("Höhe oder Versatz der projizierten Zone")
     # Der Ursprung muss am Ende des tatsaechlichen Mantels liegen. Die Materialnormale weist nach aussen.
     ende = None
-    for idx in getattr(p, "projektionsflaechen", ()):
-        f = flaeche_fuer(idx)
+    for f in urspruenge:
         pl = ebene(f, lage) if f is not None else None
         if pl is None or np.linalg.norm(np.cross(d, pl[1])) > 1e-7:
             return None, tr("Austrittsfläche der projizierten Zone")
@@ -75,6 +82,23 @@ def sichtintervall(p, mitte, d, laenge, flaeche_fuer, lage):
     return ("achse", zentrum, ende * d, float(h)), ""
 
 
+def _austritte_am_mantel(p, form, form_fuer):
+    """Jeder Ursprung muss an einer tolerierten Wand liegen; nur lokale gelten fuer diese Achse."""
+    urspruenge = [form_fuer(i) for i in getattr(p, "projektionsflaechen", ())]
+    if not urspruenge or any(f is None for f in urspruenge):
+        return []
+    raender = [_kanten(f) for f in urspruenge]
+    kanten = _kanten(form)
+    if all(_beruehren(kanten, rand) for rand in raender):
+        return urspruenge
+    if len(p.flaechen) <= 1:
+        return []
+    mantel, alle, _ = _mantelnetz(p, form, form_fuer)
+    if not all(_beruehren(alle, rand) for rand in raender):
+        return []
+    return [f for f, rand in zip(urspruenge, raender, strict=True) if _beruehren(mantel, rand)]
+
+
 def messabschnitte(angaben, form, merkmal, lage, form_fuer):
     """Bezugsabschnitt des Torsors und normierte Teilintervalle in der Reihenfolge der PMI."""
     from OCC.Core.BRepAdaptor import BRepAdaptor_Surface
@@ -85,17 +109,15 @@ def messabschnitte(angaben, form, merkmal, lage, form_fuer):
     art, mitte, d, laenge = merkmal
     if art != "achse" or BRepAdaptor_Surface(form).GetType() != GeomAbs_Cylinder:
         return None, None, tr("Projizierte Zone ohne zylindrisches Messmerkmal")
-    kanten = _kanten(form)
     abschnitte = []
     for p in angaben:
         if getattr(p, "zone", "") != "Projected":
             abschnitte.append(merkmal)
             continue
-        intervall, hinweis = sichtintervall(p, mitte, d, laenge, form_fuer, lage)
+        urspruenge = _austritte_am_mantel(p, form, form_fuer)
+        intervall, hinweis = sichtintervall(p, mitte, d, laenge, urspruenge, lage)
         if hinweis:
             return None, None, hinweis
-        if not any(_beruehren(kanten, _kanten(form_fuer(idx))) for idx in p.projektionsflaechen):
-            return None, None, tr("Austrittsfläche der projizierten Zone")
         abschnitte.append(intervall)
     erster = abschnitte[0]
     if all(a[3] == erster[3] and np.array_equal(a[1], erster[1]) for a in abschnitte):

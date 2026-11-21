@@ -1,6 +1,7 @@
 {
  "unreleased": {
   "de": [
+   "Projizierte Toleranzzonen berücksichtigen geteilte Zylindermäntel und Austrittsflächen. Bei einem Lochmuster zeigt die Ansicht jede Zone auf der zugeordneten Seite. Eine fremde Austrittsfläche verhindert die Sollbewertung am Einzelmerkmal.",
    "Die PMI-Prüfung vergleicht Schneckenhand und Spiralrichtung am Kegelrad mit der gemessenen Zahnspur. Bei einer abweichenden Hand zeigt der Bericht den Hinweis und die zugehörigen Flächen. Angaben wie „RH/LH“ bleiben offen.",
    "Große STEP-Dateien mit wiederkehrenden Koordinaten und kurzen Geometrieverweisen öffnen sich schneller. Auch die Rückverweise für die Zuordnung von PMI werden schneller aufgebaut.",
    "Der Vergleich großer Baugruppen ordnet mehrfach verbaute Teile schneller zu. Gleichnamige Exemplare werden nach ihrer ausgerichteten Schwerpunktlage verglichen. Bei Gleichstand bleibt die Dateireihenfolge maßgeblich.",
@@ -201,6 +202,7 @@
    "Grafische PMI aus unterstützten AP203e2-Kurvenmodellen lassen sich als STEP AP242 Edition 3 ausgeben. Facettierte STEP-Modelle behalten ihre Flächenbezüge. Gepackte STEP-Dateien lassen sich als unkomprimierte STEP-Kopie speichern."
   ],
   "en": [
+   "Projected tolerance zones support split cylindrical walls and exit faces. Each hole in a displayed pattern uses its own exit side. A foreign exit face suppresses the requirement verdict on an individual feature.",
    "The PMI check compares worm hand and bevel spiral hand with the measured tooth trace. A conflicting hand identifies the source note and its faces. Entries such as “RH/LH” remain open for review.",
    "Large STEP files with repeated coordinates and short geometry references open faster. Building the reverse index for PMI associations also takes less time.",
    "Comparing large assemblies now matches repeated parts faster. Occurrences with the same base name are paired by their aligned centres of mass, with ties resolved in file order.",

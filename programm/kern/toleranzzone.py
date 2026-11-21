@@ -390,7 +390,8 @@ def _projektionsabschnitt(z, p, modell, start, d, laenge, form=None):
         return flaechen[i] if 0 <= i < len(flaechen) else None
     mitte = start + d * laenge / 2
     if form is None:
-        abschnitt, hinweis = projektionszone.sichtintervall(p, mitte, d, laenge, flaeche, np.eye(4))
+        urspruenge = [flaeche(i) for i in getattr(p, "projektionsflaechen", ())]
+        abschnitt, hinweis = projektionszone.sichtintervall(p, mitte, d, laenge, urspruenge, np.eye(4))
     else:
         abschnitt, _, hinweis = projektionszone.messabschnitte([p], form, ("achse", mitte, d, laenge), np.eye(4), flaeche)
     if abschnitt is None:
