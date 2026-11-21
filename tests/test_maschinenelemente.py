@@ -112,6 +112,9 @@ def test_radpaar_kraefte_bis_lagerreaktionen(app):
     f.paar_tabelle.selectColumn(0)
     assert f.paar_auslegen.isVisible()
     paar = f._paar_auslegen()
+    assert {k: float(f.text()) for k, f in paar.breitenfelder.items()} == {"b1": a.b, "b2": b.b}
+    paar.breitenfelder["b2"].setText("8")
+    assert paar.messwerte["b2"] == b.b
     paar.felder["t"].setText("50")
     assert paar.daten["ergebnisse"]["ft"] == pytest.approx(5000)
     welle = paar._lagerwelle()

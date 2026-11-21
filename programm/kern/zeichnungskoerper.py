@@ -469,6 +469,19 @@ def schreibe_bemassten_koerper(ziel, form, flaechenmasse):
     from OCC.Core.DESTEP import DESTEP_Parameters
     from OCC.Core.IFSelect import IFSelect_RetDone
     from OCC.Core.STEPControl import STEPControl_AsIs, STEPControl_Writer
+
+    def geometrie(roh):
+        writer = STEPControl_Writer()
+        parameter = DESTEP_Parameters()
+        parameter.WriteSchema = parameter.WriteMode_StepSchema_AP242DIS
+        if writer.Transfer(form, STEPControl_AsIs, parameter) != IFSelect_RetDone or writer.Write(roh) != IFSelect_RetDone:
+            raise ValueError(tr("Der Körper konnte nicht als STEP geschrieben werden."))
+
+    return schreibe_mit_massangaben(ziel, geometrie, flaechenmasse)
+
+
+def schreibe_mit_massangaben(ziel, geometrie, flaechenmasse, pruefe=lambda: None):
+    """Geometrie ruecklesen, alle Massziele zuordnen und die fertige Datei atomar uebernehmen."""
     from .laden import LadeFehler, lade_step
     from .step_schreiben import schreibe
 
@@ -476,18 +489,17 @@ def schreibe_bemassten_koerper(ziel, form, flaechenmasse):
     with TemporaryDirectory(dir=ziel.parent) as tmp:
         roh = str(Path(tmp) / "geometry.stp")
         fertig = Path(tmp) / "model.stp"
-        writer = STEPControl_Writer()
-        parameter = DESTEP_Parameters()
-        parameter.WriteSchema = parameter.WriteMode_StepSchema_AP242DIS
-        if writer.Transfer(form, STEPControl_AsIs, parameter) != IFSelect_RetDone or writer.Write(roh) != IFSelect_RetDone:
-            raise ValueError(tr("Der Körper konnte nicht als STEP geschrieben werden."))
+        geometrie(roh)
+        pruefe()
         try:
             modell = lade_step(roh)
         except LadeFehler as e:
             raise ValueError(str(e)) from e
         merkmale = flaechenmasse(modell)
+        pruefe()
         bericht = schreibe(roh, str(fertig), merkmale, modell)
         if len(bericht.neu) != len(merkmale) or len(bericht.dargestellt) != len(merkmale):
             raise ValueError(tr("Die Maßangaben konnten nicht vollständig als STEP-PMI geschrieben werden."))
+        pruefe()
         fertig.replace(ziel)
         return len(merkmale)

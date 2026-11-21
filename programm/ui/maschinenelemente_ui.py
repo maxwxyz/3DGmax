@@ -8,6 +8,30 @@ from PySide6 import QtCore, QtWidgets
 
 from ..i18n import tr
 from ..kern.maschinenelemente import FELDER, VERFAHREN, berechne
+from .lader import Abbruch, Modellauftrag
+
+
+class Stirnradexport(Modellauftrag):
+    def __init__(self, pfad, eingaben, breiten):
+        super().__init__()
+        self.pfad, self.eingaben, self.breiten = pfad, eingaben, breiten
+        self.fehler = ""
+
+    def abbrechen(self):
+        self.abgebrochen = True
+
+    def _pruefe(self):
+        if self.abgebrochen:
+            raise Abbruch
+
+    def run(self):
+        try:
+            from ..kern.stirnradgeometrie import schreibe_stirnradpaar
+            schreibe_stirnradpaar(self.pfad, self.eingaben, *self.breiten, pruefe=self._pruefe)
+        except Abbruch:
+            pass
+        except Exception as e:  # noqa: BLE001 - Schreibfehler im Dialog melden
+            self.fehler = str(e)
 
 
 def beschriftung(feld):
@@ -25,6 +49,8 @@ class AuslegungFenster(QtWidgets.QDialog):
         self.quelle = quelle
         self.felder = {}
         self.zusatz = {}
+        self.breitenfelder = {}
+        self.paarauftrag = None
         lay = QtWidgets.QVBoxLayout(self)
         self.wahl = QtWidgets.QComboBox()
         self.wahl.setToolTip(tr("Element und Berechnungsverfahren wählen"))
@@ -46,7 +72,6 @@ class AuslegungFenster(QtWidgets.QDialog):
         self.lagerwelle.clicked.connect(self._lagerwelle)
         lay.addWidget(self.lagerwelle, alignment=QtCore.Qt.AlignmentFlag.AlignLeft)
         self.step = QtWidgets.QPushButton()
-        self.step.setToolTip(tr("Nenngeometrie mit Durchmesser- und Längenmaßen als STEP AP242 speichern"))
         self.step.clicked.connect(self._step)
         lay.addWidget(self.step, alignment=QtCore.Qt.AlignmentFlag.AlignLeft)
         lay.addStretch()
@@ -64,6 +89,7 @@ class AuslegungFenster(QtWidgets.QDialog):
 
     def _aufbauen(self):
         self.felder.clear()
+        self.breitenfelder.clear()
         while self.form.rowCount():
             self.form.removeRow(0)
         self.art = self.wahl.currentData()
@@ -72,9 +98,14 @@ class AuslegungFenster(QtWidgets.QDialog):
         quelle = tr("Übernommene Werte aus {}").format(self.quelle) if self.quelle else ""
         self.annahme.setText("\n".join(filter(None, (tr(verfahren.annahme), quelle))))
         self.lagerwelle.setVisible(self.art == "stirnrad")
-        self.step.setVisible(self.art in ("welle", "lagerwelle", "buchse", "reibsitz"))
-        self.step.setText(tr("Wellenabschnitt mit PMI als STEP …") if self.art in ("welle", "lagerwelle")
-                          else tr("Buchse / Nabe mit PMI als STEP …"))
+        self.step.setVisible(self.art in ("stirnrad", "welle", "lagerwelle", "buchse", "reibsitz"))
+        if self.art == "stirnrad":
+            self.step.setText(tr("Stirnradpaar mit PMI als STEP …"))
+            self.step.setToolTip(tr("Ritzel und Rad am Nennachsabstand speichern. Unterhalb des Grundkreises verläuft der Zahnfuß radial."))
+        else:
+            self.step.setText(tr("Wellenabschnitt mit PMI als STEP …") if self.art in ("welle", "lagerwelle")
+                              else tr("Buchse / Nabe mit PMI als STEP …"))
+            self.step.setToolTip(tr("Nenngeometrie mit Durchmesser- und Längenmaßen als STEP AP242 speichern"))
         for k in verfahren.eingaben:
             feld = QtWidgets.QLineEdit()
             wert = self.werte.get(self.art, {}).get(k)
@@ -87,7 +118,38 @@ class AuslegungFenster(QtWidgets.QDialog):
             self.form.addRow(beschriftung(k), feld)
             self.felder[k] = feld
             feld.textChanged.connect(self._rechnen)
+        if self.art == "stirnrad":
+            for k, text in (("b1", tr("Zahnbreite Ritzel [mm]")), ("b2", tr("Zahnbreite Rad [mm]"))):
+                feld = QtWidgets.QLineEdit()
+                wert = self.zusatz.get(self.art, {}).get(k, self.messwerte.get(k))
+                if wert is not None:
+                    feld.setText(str(wert))
+                feld.setPlaceholderText(tr("Für den STEP-Export"))
+                if k in self.messwerte:
+                    feld.setToolTip(tr("Ursprünglich übernommen: {}").format(self.messwerte[k]))
+                self.form.addRow(text, feld)
+                self.breitenfelder[k] = feld
+                feld.textChanged.connect(self._rechnen)
         self._rechnen()
+
+    def _paargeometrie(self):
+        breiten = {}
+        for k, feld in self.breitenfelder.items():
+            try:
+                b = float(feld.text().replace(",", "."))
+            except ValueError:
+                continue
+            if isfinite(b) and b > 1e-6:
+                breiten[k] = b
+        self.zusatz[self.art] = breiten
+        if len(breiten) != 2:
+            return None
+        try:
+            eingaben = {k: float(self.felder[k].text().replace(",", ".")) for k in ("z1", "z2", "m", "alpha")}
+            berechne("stirnrad", {**eingaben, "t": 0.})
+        except (ValueError, ArithmeticError):
+            return None
+        return eingaben, (breiten["b1"], breiten["b2"])
 
     def _rechnen(self):
         texte = {k: feld.text() for k, feld in self.felder.items()}
@@ -95,8 +157,8 @@ class AuslegungFenster(QtWidgets.QDialog):
         self.lagerwelle.setEnabled(False)
         self.speichern.setEnabled(False)
         self.daten = None
-        geom = self._masse()
-        self.step.setEnabled(geom is not None)
+        geom = self._paargeometrie() if self.art == "stirnrad" else self._masse()
+        self.step.setEnabled(geom is not None and self.paarauftrag is None)
         if not all(t.strip() for t in texte.values()):
             self.ergebnis.setText(tr("Fehlende Eingaben ergänzen."))
             return
@@ -135,7 +197,40 @@ class AuslegungFenster(QtWidgets.QDialog):
             return None
         return d, l
 
+    def _stirnrad_step(self):
+        geom = self._paargeometrie()
+        if self.paarauftrag is not None or geom is None:
+            return
+        pfad, _ = QtWidgets.QFileDialog.getSaveFileName(self, self.step.text(), "stirnradpaar.step", "STEP (*.step *.stp)")
+        if not pfad:
+            return
+        self.paarauftrag = Stirnradexport(pfad, *geom)
+        self.fortschritt = QtWidgets.QProgressDialog(tr("Stirnradpaar und Maßangaben werden geschrieben …"),
+                                                    tr("Abbrechen"), 0, 0, self)
+        self.fortschritt.setWindowModality(QtCore.Qt.WindowModality.WindowModal)
+        self.fortschritt.canceled.connect(self.paarauftrag.abbrechen)
+        self.paarauftrag.finished.connect(self._export_beendet)
+        self.step.setEnabled(False)
+        self.fortschritt.show()
+        self.paarauftrag.starte()
+
+    def _export_beendet(self):
+        fehler = self.paarauftrag.fehler
+        self.paarauftrag = None
+        self.fortschritt.reset()
+        self.fortschritt.deleteLater()
+        self._rechnen()
+        if fehler:
+            QtWidgets.QMessageBox.warning(self, self.windowTitle(), fehler)
+
+    def done(self, result):
+        if self.paarauftrag:
+            self.paarauftrag.abbrechen()
+        super().done(result)
+
     def _step(self):
+        if self.art == "stirnrad":
+            return self._stirnrad_step()
         from ..kern.maschinenelemente import schreibe_sitzteil
         d, l = self._masse()
         welle = self.art in ("welle", "lagerwelle")

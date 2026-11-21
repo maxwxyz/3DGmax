@@ -2192,7 +2192,11 @@ shaft torsion, two-support bending and reactions under one transverse load, proj
 pressure/speed, ball/roller basic rating life, friction torque and elastic interference pressure.
 Each result retains its input values, units and original geometry values when saved and reopened.
 Shaft sections and bushings can be exported as nominal AP242 solids with face-linked diameter
-and length PMI. Detailed fatigue, flank rating, lubrication, materials, manufacturing allowances,
+and length PMI. The straight external spur pair also exports as a named two-solid AP242 assembly.
+Independent face widths are editable and can be adopted from a measured pair. The wheels have
+aligned midplanes and indexed teeth at the nominal centre distance. Each wheel carries semantic
+and graphical tip diameter, root diameter and face width PMI. The nominal involute has an
+idealised radial extension below the base circle. Detailed fatigue, flank rating, lubrication, materials, manufacturing allowances,
 complete gearbox power/load propagation and assembly generation remain open.
 
 The bearing-life implementation uses the catalogue equivalent dynamic load and basic dynamic

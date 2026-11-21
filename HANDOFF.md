@@ -2,6 +2,30 @@
 
 ## Current state, 2026-11-21
 
+### Export a nominal straight spur gear pair from sizing
+
+- Checked PLAN §8.38 against docs/Roadmap.md. The sizing dialog takes the two face widths
+  independently, including measured widths from the gear-pair table. Tooth counts, module,
+  pressure angle and widths suffice for STEP. Existing version-1 sizing files reopen.
+- AP242 contains two named solids at the nominal centre distance. Each wheel has face-linked
+  graphical and semantic PMI for tip diameter, root diameter and face width. The nominal root
+  has a radial extension below the base circle. Cutter-specific root fillets, profile shift
+  and strength rating remain open.
+- Reopened 18/36, 22/45 and 20/20 pairs. Checked involute volume, zero intersecting volume
+  in the exported position, independent recognition of both wheels, and the occurrence and
+  faces referenced by each of the six dimensions in both STEP readers. At module 1.5 mm
+  the 18/36 pair has a 40.5 mm centre distance. Widths of 8 and 10 mm share a midplane.
+  A cancellation after annotation leaves the existing destination intact.
+- 50 affected tests, 24 native Cocoa cases and 56 drawing-to-solid regressions passed.
+  English UI coverage is complete. The signed main app passed its self-test and rendered
+  the reopened pair. Verified a single app at `dist/3DGmax.app`, two versioned release
+  ZIPs and zero `main-*` directories under build or dist. Reuse the single app path for
+  subsequent main builds and discard temporary bundles after replacement.
+- Next in §8.38: derive editable tooth-count candidates from a target ratio, module and
+  centre distance. A 2.5 target at module 1.5 mm and 52.5 mm centre distance admits
+  20 and 50 teeth. Exercise inexact ratios, swapped wheel roles and independent face
+  widths before handing candidates to the nominal STEP export. QIF stays last.
+
 ### Identify an installed crown gear stage and its signed shaft speeds
 
 - Checked PLAN §§8.27, 8.27a and 8.38 against docs/Roadmap.md. For a recognised

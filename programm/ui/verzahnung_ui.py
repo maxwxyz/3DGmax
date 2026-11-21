@@ -190,7 +190,7 @@ class VerzahnungFenster(QtWidgets.QDialog):
         from .maschinenelemente_ui import zeige_auslegung
         paar = self.paare[self.paar_tabelle.currentColumn()]
         a, b = sorted((paar.a, paar.b), key=lambda v: v.z)
-        werte = {"z1": a.z, "z2": b.z}
+        werte = {"z1": a.z, "z2": b.z, "b1": a.b, "b2": b.b}
         if a.mn > 0 and abs(a.mn - b.mn) < .001:
             werte["m"] = a.mn
         if a.alpha_n > 0 and abs(a.alpha_n - b.alpha_n) < .1:

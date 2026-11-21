@@ -1,6 +1,7 @@
 {
  "unreleased": {
   "de": [
+   "Die Stirnradauslegung exportiert Ritzel und Rad als STEP-Baugruppe am Nennachsabstand. Beide Zahnbreiten sind einzeln einstellbar. Kopfkreis, Fußkreis und Breite jedes Rads sind grafisch und semantisch bemaßt.",
    "Die Getriebeanalyse erkennt mögliche Kronenradstufen mit eingebautem geradverzahntem Ritzel in STEP- und Netzmodellen. Kraftfluss und Betriebspunkt zeigen die Stufen- und Gesamtübersetzung sowie die Drehzahlen mit Drehrichtung zur jeweiligen Wellenachse.",
    "Die PMI-Prüfung erkennt geklammerte Durchmessermaße ohne Durchmesserzeichen, wenn beide Maßhilfslinien denselben Zylinderrand tangieren. Der STEP-Export erhält das Hilfsmaß und die Originalgrafik.",
    "Der Zeichnungsvergleich liest lineare Maße zwischen zwei gegenüberliegenden Maßpfeilen und erkennt die Klammerung eines Hilfsmaßes. Ein Klick auf die Angabe markiert beide Maßhilfslinien. Ihre Endpunkte stehen auch in der CSV-Prüfliste.",
@@ -249,6 +250,7 @@
    "Grafische PMI aus unterstützten AP203e2-Kurvenmodellen lassen sich als STEP AP242 Edition 3 ausgeben. Facettierte STEP-Modelle behalten ihre Flächenbezüge. Gepackte STEP-Dateien lassen sich als unkomprimierte STEP-Kopie speichern."
   ],
   "en": [
+   "Spur gear sizing exports a pinion and gear as a STEP assembly at the nominal centre distance. Each face width can be edited independently. Both wheels carry graphical and semantic tip diameter, root diameter and face width dimensions.",
    "Gearbox analysis recognises candidate crown gear stages with an installed straight spur pinion in STEP and mesh models. Power flow and operating point report stage and overall ratios and signed speeds about the indicated shaft axes.",
    "PMI review recognises a parenthesised diameter without a diameter symbol when both extension lines touch opposite sides of the same cylindrical rim. STEP export preserves the reference dimension and its original graphics.",
    "Drawing comparison reads linear dimensions between opposing arrows and recognises the parentheses of a reference dimension. Selecting the annotation highlights both extension lines. Their endpoints are included in the inspection CSV.",
