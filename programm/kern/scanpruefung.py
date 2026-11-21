@@ -394,7 +394,10 @@ def bewerte(pmi: list, modell, z: Zuordnung, suchweite: float | None = None) -> 
             out.append(_abstand_auswertung(p, z, modell, weite))
         elif p.art == "toleranz":
             durchmesser = "Diameter" in p.modifikatoren or p.zone == "Diameter"
-            if durchmesser and (p.typ in tz.ACHSZONE or p.typ in tz.ACHSE_MIT_DURCHMESSER) and tz._achsen(flaechen):
+            if p.einheitsrechteck_text():
+                out.append(Ergebnis(p, OFFEN, text=tr("Lokale Prüfung je Rechteck {} mm erforderlich").format(
+                    p.einheitsrechteck_text())))
+            elif durchmesser and (p.typ in tz.ACHSZONE or p.typ in tz.ACHSE_MIT_DURCHMESSER) and tz._achsen(flaechen):
                 out.append(_achsen_auswertung(p, z, modell, flaechen, pmi, weite))
             elif p.typ in JE_QUERSCHNITT and (e := _querschnitt_auswertung(p, z, modell, flaechen, weite)):
                 out.append(e)

@@ -280,7 +280,20 @@ def _lies_rahmen(modell: StepModell, e: Entity, zonen: dict[int, list[Entity]], 
     if e.is_a("UNEQUALLY_DISPOSED_GEOMETRIC_TOLERANCE"):
         p.modifikatoren.append(f"UZ {laenge_mm(datei, e.args('UNEQUALLY_DISPOSED_GEOMETRIC_TOLERANCE')[0])}")
     if e.is_a("GEOMETRIC_TOLERANCE_WITH_DEFINED_UNIT"):
-        p.modifikatoren.append(f"je {laenge_mm(datei, e.args('GEOMETRIC_TOLERANCE_WITH_DEFINED_UNIT')[0])}")
+        refs = e.args("GEOMETRIC_TOLERANCE_WITH_DEFINED_UNIT")
+        einheit = refs[0] if len(refs) == 1 else None
+        gebiet = e.parts.get("GEOMETRIC_TOLERANCE_WITH_DEFINED_AREA_UNIT", ())
+        if len(gebiet) == 2 and gebiet[0] == Enum("RECTANGULAR"):
+            seiten = []
+            for ref in (einheit, gebiet[1]):
+                messung = datei.get(ref) if isinstance(ref, Ref) else None
+                mm = _gesicherte_laenge(datei, ref) if messung and messung.is_a("LENGTH_MEASURE_WITH_UNIT") else None
+                seiten.append(mm if mm is not None and mm > 0 else None)
+            p.einheitslaenge, p.einheitsbreite = seiten
+            if p.einheitslaenge is None and p.einheitsbreite is None:
+                p.modifikatoren.append("RECTANGULAR")
+        else:
+            p.modifikatoren.append(f"je {laenge_mm(datei, einheit)}")
     _zonen_info(modell, p, zonen.get(e.id, []))
     if p.material or p.zone == "Projected":
         p.wert = _gesicherte_laenge(datei, betrag)

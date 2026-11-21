@@ -127,6 +127,14 @@ class Pmi:
     grenzgrafiken: list[int] = field(default_factory=list)  # Originalbeschriftungen der beiden Randkanten
     profilteil_ids: list[int] = field(default_factory=list)  # Gepruefte Zusatzflaechen der Originalgrafik
 
+    einheitslaenge: float | None = None  # Rechteckige Einheitsflaeche in mm
+    einheitsbreite: float | None = None
+
+    def einheitsrechteck_text(self):
+        if self.einheitslaenge is None and self.einheitsbreite is None and "RECTANGULAR" not in self.modifikatoren:
+            return ""
+        return f"{_zahl(self.einheitslaenge)} × {_zahl(self.einheitsbreite)}"
+
     # --- Darstellung ---
 
     def traegerflaechen(self) -> set[int]:
@@ -180,6 +188,8 @@ class Pmi:
             wert += " Ⓟ" + (f"{_zahl(self.zonen_wert)}" if self.zonen_wert else "")
             if self.projektionsversatz:
                 wert += f" ({_vz(self.projektionsversatz)})"
+        if rechteck := self.einheitsrechteck_text():
+            wert += f" / {rechteck}"
         teile.append(wert)
         for b in sorted(self.bezuege, key=lambda b: b.stelle):
             teile.append(b.text())

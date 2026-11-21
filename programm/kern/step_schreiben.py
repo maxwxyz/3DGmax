@@ -367,6 +367,10 @@ def _schreibe_toleranz(a: _Anhang, p, aspekt=None) -> str | None:
                 or p.zonen_wert <= 0 or p.projektionsversatz is None or not math.isfinite(p.projektionsversatz)):
             return tr("Projektionsursprung, Länge oder Versatz nicht eindeutig")
         flaechen.update(p.projektionsflaechen)
+    rechteck = (p.einheitslaenge, p.einheitsbreite)
+    if ((any(v is not None for v in rechteck) or "RECTANGULAR" in p.modifikatoren) and
+            any(v is None or not math.isfinite(v) or v <= 0 for v in rechteck)):
+        return tr("Für die rechteckige Einheitsfläche zwei positive Seitenlängen angeben")
     if ("Maximum_Tolerance" in p.modifikatoren or p.maximum_toleranz is not None and
             (p.material not in ("M", "L") or not math.isfinite(p.maximum_toleranz) or p.maximum_toleranz <= p.wert)):
         return tr("Höchstwert der geometrischen Toleranz nicht gültig")
@@ -423,6 +427,9 @@ def _schreibe_toleranz(a: _Anhang, p, aspekt=None) -> str | None:
         mods.append(MATERIAL_ENUM[p.material])
     if mods:
         teile["GEOMETRIC_TOLERANCE_WITH_MODIFIERS"] = "((" + ",".join(f".{m}." for m in mods) + "))"
+    if p.einheitslaenge is not None:
+        teile["GEOMETRIC_TOLERANCE_WITH_DEFINED_UNIT"] = f"(#{a.mass(p.einheitslaenge)})"
+        teile["GEOMETRIC_TOLERANCE_WITH_DEFINED_AREA_UNIT"] = f"(.RECTANGULAR.,#{a.mass(p.einheitsbreite)})"
     if p.maximum_toleranz is not None:
         teile["GEOMETRIC_TOLERANCE_WITH_MAXIMUM_TOLERANCE"] = f"(#{a.mass(p.maximum_toleranz)})"
     name = (p.name or p.typ).replace("'", "''")

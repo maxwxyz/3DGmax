@@ -988,6 +988,8 @@ def _mittelebene_gemeint(p, alle_pmi) -> bool:
 def _weitere_hinweise(p) -> list[str]:
     """Angaben, die die Zone ergaenzen, aber nicht als Geometrie gezeigt werden."""
     out = []
+    if rechteck := p.einheitsrechteck_text():
+        out.append(tr("gilt je Rechteck {} mm").format(rechteck))
     for m in p.modifikatoren:
         if str(m).startswith("je "):
             out.append(tr("gilt je Teillänge {}").format(str(m)[3:]))

@@ -2,12 +2,43 @@
 
 ## Current state, 2026-11-21
 
+### Preserve both sides of a rectangular unit-area flatness control
+
+- Checked PLAN §8.4 and docs/Roadmap.md. In NIST CTC-03 graphical callout #3623,
+  the value reads “.005 / .25 X .25”. In millimetres this requires 0.127 flatness
+  on a 6.35 × 6.35 rectangle. The reference AP242 file encodes both dimensions
+  on its flatness tolerance #37. The review dialog, project and STEP reader/writer
+  now retain both. The drawing and revision comparisons distinguish a changed width.
+- Reopened the NIST outlines, independent single strokes, and triangle fills with
+  their writing plane removed. The latter two actually draw .20 for the second
+  side. Both reopened with a width of 5.08 mm, on original face #479 with matching
+  graphics, saved views and solid volume. A closed hourglass remains unreadable as
+  X. Round leaders ending at the near rim still recover the FTC-08 free-state frame.
+- OCCT 8 treats the complex rectangular unit-area tolerance as an undefined entity
+  in both the independent NIST reference and our export. On export this causes one
+  reader diagnostic on the presentation link. The 3DGmax reader resolves the link
+  and both dimensions. The scan report leaves local flatness open pending a check
+  over moving rectangles.
+- All 442 affected tests passed. Eight rectangular unit-area checks and thirteen
+  gear/selection export checks also passed on native Cocoa. Selecting a face of the
+  exported reconstruction in the main window identified the single nine-tooth pinion.
+  The installed Apple Silicon build at `dist/3DGmax.app` passed the bundled self-test
+  and rendered the rectangular example and the reopened pinion. Before/after STEP files and the
+  ZIP are in `dist/main-einheitsflaeche/`. The nine-tooth differential reconstruction
+  remains at `dist/main-ausgleichsrad/Ausgleichsrad-mit-Bund.step`.
+- Next graphical case in §8.4 is FTC-07 #14269. The semantic reference #14257
+  and its validation property #14260 specify 0.254 mm flatness per circle of
+  diameter 25.4 mm. The graphical reader finds both cells and accepts the frame
+  outline, but neither font recogniser decodes the cells. The semantic reader
+  retains only a generic unit length. Comparison of independently
+  trimmed regions also remains open. QIF stays last.
+
 ### Convert frames with a detached round-ended leader
 
 - Checked PLAN §8.4 and docs/Roadmap.md. CTC-03 callouts #3631 and #3651 have a
   horizontal gap of about 0.69 frame heights before the first leader segment. Check
-  the approach, bend, second segment and circular endpoint. The contour must reach
-  the centre of the endpoint. The same circle attached at the bend prevents the
+  the approach, bend, second segment and circular endpoint. The shaft may reach
+  the near rim as in FTC-08 or the centre as in CTC-03. The same circle attached at the bend prevents the
   plain frame proposal in the tests, including a leader touching the frame.
 - The two profiles read 1.524 and 0.762 mm with A/B/C on source faces #479 and
   #481. The angularity control #3644 reads 1.016 mm to A on #479. The inch-based

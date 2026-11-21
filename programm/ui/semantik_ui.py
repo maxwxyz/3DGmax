@@ -150,6 +150,9 @@ class SemantikDialog(QtWidgets.QDialog):
         formen = [s for s in ("Diameter", "SphericalDiameter") if s in v.modifikatoren or v.zone == s]
         form.setCurrentIndex(form.findData(formen[0]) if len(formen) == 1 else (-1 if formen else 0))
         lay.addRow(tr("Zonenform"), form)
+        if v.einheitsrechteck_text():
+            zahl("einheitslaenge", tr("Länge der Einheitsfläche (mm)"), v.einheitslaenge)
+            zahl("einheitsbreite", tr("Breite der Einheitsfläche (mm)"), v.einheitsbreite)
         zahl("maximum_toleranz", tr("Höchstwert der Toleranz (MAX)"), v.maximum_toleranz)
         self.felder["material"] = QtWidgets.QComboBox()
         for k, text in (("", "ohne"), ("M", "Maximum-Material Ⓜ"), ("L", "Minimum-Material Ⓛ")):
@@ -221,7 +224,7 @@ class SemantikDialog(QtWidgets.QDialog):
         self.typ.setCurrentIndex(0 if art == BEZUG and alt != "DatumTarget" else self.typ.findData(alt))
         sichtbar = {MASS: {"nennwert", "oben", "unten", "grenzmass", "passung"},
                     TOLERANZ: {"wert", "zonenform", "maximum_toleranz", "material", "bezuege", "zonen_wert", "projektionsversatz",
-                               "projektionsende"}, BEZUG: {"name"}}[art]
+                               "projektionsende", "einheitslaenge", "einheitsbreite"}, BEZUG: {"name"}}[art]
         for name, f in self.felder.items():
             self._lay.setRowVisible(f, name in sichtbar)
 
@@ -295,6 +298,9 @@ class SemantikDialog(QtWidgets.QDialog):
             wert = _zahl(self.felder["wert"].text())
             if wert is None or wert < 0:
                 return tr("Bitte den Toleranzwert angeben")
+            if "einheitslaenge" in self.felder and any(
+                    (_zahl(self.felder[k].text()) or 0) <= 0 for k in ("einheitslaenge", "einheitsbreite")):
+                return tr("Für die rechteckige Einheitsfläche zwei positive Seitenlängen angeben")
             if self.felder["zonenform"].currentIndex() < 0:
                 return tr("Bitte die Zonenform wählen")
             text = self.felder["maximum_toleranz"].text().strip()
@@ -358,6 +364,8 @@ class SemantikDialog(QtWidgets.QDialog):
                 p.modifikatoren.append(form)
             if p.zone in ("Diameter", "SphericalDiameter"):
                 p.zone = ""
+            if "einheitslaenge" in f:
+                p.einheitslaenge, p.einheitsbreite = (_zahl(f[k].text()) for k in ("einheitslaenge", "einheitsbreite"))
             p.maximum_toleranz = _zahl(f["maximum_toleranz"].text())
             p.bezuege = self._bezuege()
             if "projektionsende" in f:

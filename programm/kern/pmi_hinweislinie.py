@@ -199,8 +199,7 @@ def punkt_hinweislinie(rest, symbol, rand, *, rundes_ziel=False):
         k = np.rint(kreis - [x.min(), y.min()]).astype(int)
         if np.any(k < 0) or np.any(k >= ausschnitt.shape[::-1]) or luft[k[:, 1], k[:, 0]].max() > 2:
             return False
-        if luft[cy-1, cx-1] > 1.5:
-            return False
+        # Der Schaft darf an der nahen Kreislinie oder erst im Mittelpunkt enden.
         radien = np.linalg.norm(punkte-zentrum, axis=1)
     else:
         radien = _punktradien(punkte, zentrum, radius)

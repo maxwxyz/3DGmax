@@ -266,6 +266,13 @@ Throughout: tests (core, offscreen UI, stress test, on-screen test), `--selbstte
   external scope text remain distinct. Triangle-only frames without a writing plane
   measure their cell borders in the recovered reading direction. STEP export preserves the original presentations
   and assigns the controls to the independently identified support faces.
+  Local flatness in CTC-03 #3623 is 0.127 mm per 6.35 × 6.35 mm rectangular unit area.
+  The review and STEP model preserve both lengths, also for unequal sides. Export uses
+  GEOMETRIC_TOLERANCE_WITH_DEFINED_AREA_UNIT and GEOMETRIC_TOLERANCE_WITH_DEFINED_UNIT.
+  Revision comparison and comparison with a transcribed drawing frame report each changed
+  length. Local scan evaluation over moving rectangles is open. The installed OCCT
+  reader treats this complex tolerance
+  as an undefined entity, including in the independently authored NIST reference.
   Single-row wide control frames preserve the characteristic, diameter zone, projected height or
   maximum material and the ordered datums. Closed cell borders can also be recovered from filled
   triangles. With no writing plane the outer edges of coplanar triangles supply candidate axes. Both FTC-07's original strokes and a

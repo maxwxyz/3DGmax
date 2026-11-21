@@ -1,4 +1,9 @@
 {
+"Lokale Prüfung je Rechteck {} mm erforderlich": "Local evaluation per {} mm rectangle required",
+"gilt je Rechteck {} mm": "applies per {} mm rectangle",
+"Länge der Einheitsfläche (mm)": "Unit area length (mm)",
+"Breite der Einheitsfläche (mm)": "Unit area width (mm)",
+"Für die rechteckige Einheitsfläche zwei positive Seitenlängen angeben": "Enter two positive side lengths for the rectangular unit area",
 "Teilflächen {} · ganze Flächen {}": "Trimmed faces {} · whole faces {}",
 "{} von {} Flächen geändert": "{} of {} faces changed",
 "{} (Kante #{}, geometrisch geändert)": "{} (edge #{}, geometry changed)",

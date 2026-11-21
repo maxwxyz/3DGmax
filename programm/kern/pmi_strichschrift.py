@@ -122,7 +122,7 @@ def _bildzeichen(mask):
 
 # Einlinige Ziffern, Bezugsbuchstaben und Symbole im Zeichenraster. Schraegstriche trennen die Linien.
 _STRICHE = {
-    "0": "20 40 61 67 48 28 07 01 20",
+    "0": "20 40 61 67 48 28 07 01 20 | 10 40 51 57 48 18 07 01 10",
     "1": "02 30 38",
     "2": "02 11 20 40 61 63 08 68",
     "3": "00 60 34 54 65 67 58 18 07",
@@ -146,6 +146,8 @@ _STRICHE = {
     "±": "30 36 / 03 63 / 08 68",
     "⟂": "30 38 / 08 68",
     "∠": "63 08 88",
+    "/": "28 50",
+    "X": "00 68 / 60 08",
     "⏥": "23 73 57 07 23",
 }
 
@@ -311,6 +313,12 @@ def _normale_zeile(mask):
     zeichen = _bildzeichen(mask)
     wort = _lies_zeile(zeichen)
     for z, (_, (l, t, r, b)) in zip(wort, zeichen):
+        if z == "X":
+            # Beim Kreuz sind die beiden oberen und unteren Enden nicht durch Querstriche verbunden.
+            mitte = mask[t:b, l+(r-l)//3:r-(r-l)//3]
+            saum = max(1, (b-t)//10)
+            if mitte[:saum].any() or mitte[-saum:].any():
+                return ""
         if z == "°":
             glyph = mask[t:b, l:r]
             mitte = ((b-t)//2, (r-l)//2)

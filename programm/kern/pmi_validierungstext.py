@@ -4,7 +4,7 @@ import re
 
 from .p21 import Ref
 from .pmi import BEZUG, MASS, TOLERANZ, TOL_SYMBOL
-from .pmi_ableiten import aus_text, gueltige_rahmenwerte, gueltige_rahmenzellen
+from .pmi_ableiten import aus_text, gueltige_rahmenzellen
 
 
 def _eltern(datei, nr, typ):
@@ -64,7 +64,7 @@ def _masszeile(text):
 
 def _rahmen(zellen, g, bekannt):
     from .pmi_strichschrift import lies_rahmensymbol
-    if not gueltige_rahmenwerte(zellen[1:]):
+    if not 2 <= len(zellen) <= 5:
         return None, ""
     quelle = ""
     if not zellen[0]:
@@ -76,7 +76,7 @@ def _rahmen(zellen, g, bekannt):
     if zellen[0] == "⊥":
         zellen[0] = "⟂"
     daten = aus_text(zellen, g.textfaktor) if gueltige_rahmenzellen(zellen) else None
-    return daten, quelle
+    return daten, quelle if daten else ""
 
 
 def _lesen(text, g, bekannt):
