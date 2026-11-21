@@ -335,8 +335,6 @@ def _freitext(pfade):
     if not mask.any():
         return ""
     normal = _normale_zeile(mask) or _gestapelt(mask)
-    if any(voll for _, voll in pfade):
-        return normal
     breit = _breite_zeile(mask) or _gestapelt(mask, _breite_zeile)
     if not re.match(r"^(?:[1-9][0-9]*X)?[⌀R][0-9.]", breit):
         return normal

@@ -787,14 +787,14 @@ def test_weitere_breite_zeilen_ohne_dateitext_und_ungenauer_rest(ftc07):
         assert lies_schrift(grafik[nr]) == wort
 
 
-def _rahmen_als_fuellung(datei, rein, ziel, ohne_ebene):
+def _als_fuellung(datei, rein, ziel, callouts, ohne_ebene=False):
     import json
 
     def liste(daten):
         return json.dumps(daten, separators=(",", ":")).translate(str.maketrans("[]", "()"))
 
     text = Path(datei).read_text(encoding="utf-8")
-    for nr, kurve, ebene in ((14040, 14037, 14047), (14795, 14792, 14803), (14498, 14495, 14506)):
+    for nr, kurve, ebene in callouts:
         g = rein.grafik[nr]
         punkte, faecher = [], []
         normale = g.ebene[3]
@@ -831,7 +831,8 @@ def test_breite_toleranzrahmen_ohne_validierung_mit_projektion_und_material_im_s
     fuellung = darstellung != "striche"
     ohne_ebene = darstellung == "dreiecke_ohne_ebene"
     if fuellung:
-        datei = _rahmen_als_fuellung(datei, rein, tmp_path/"Rahmen gefuellt.stp", ohne_ebene)
+        callouts = ((14040, 14037, 14047), (14795, 14792, 14803), (14498, 14495, 14506))
+        datei = _als_fuellung(datei, rein, tmp_path/"Rahmen gefuellt.stp", callouts, ohne_ebene)
     fenster.lade(datei,warten=True)
     rein = fenster.erg
     for nr in (14040,14795,14498):
@@ -897,3 +898,38 @@ def test_breite_rahmen_mit_weiteren_merkmalen(ftc07):
     erwartet = {13999: "⟂ ⌀.015Ⓟ.425 A", 14302: "∥ .03 A", 14335: "⌓ .06 A B C"}
     for nr, wort in erwartet.items():
         assert lies_schrift(grafik[nr]) == wort
+
+
+def test_breite_gefuellte_masse_mit_mengen_und_abmassen_im_step(fenster, tmp_path):
+    from programm.kern.pmi_strichschrift import lies_schrift
+
+    datei, referenz, rein = _ohne_semantik(pfad("nist_ftc_07_asme1_ap242-e2.stp"), tmp_path/"Masse.stp",
+                                           validierung=False)
+    callouts = ((15669, 15666, None), (15807, 15804, None), (15146, 15143, None))
+    quelle = _als_fuellung(datei, rein, tmp_path/"Masse gefuellt.stp", callouts)
+    fenster.lade(quelle, warten=True)
+    vorher = fenster.erg
+    werte = {15669: ("3X⌀.875±.010", .875, .010, -.010), 15807: ("4X⌀.281 +.006\n-.001", .281, .006, -.001)}
+    for nr, angabe in werte.items():
+        original = next(p for p in vorher.pmi if p.step_id == nr)
+        g = vorher.grafik[nr]
+        assert g.dreiecke and not g.linien and not g.platzhalter and not original.semantisch
+        fenster._pmi_befehl("semantisch", original)
+        dialog = fenster._semantik_dialog
+        assert not dialog.v.validierungstexte and dialog.v.ocr_text == angabe[0]
+        soll, = [p for p in referenz.pmi if p.art == "mass" and p.step_id in referenz.grafik[nr].pmi_ids]
+        fenster.ansicht.setze_auswahl([vorher.modell.flaechen[i] for i in soll.flaechen])
+        dialog._auswahl_uebernehmen()
+        assert not dialog.fehler()
+        dialog._pruefen()
+    assert not lies_schrift(vorher.grafik[15146])
+    ziel = fenster.speichere_step_pmi(str(tmp_path/"Masse mit Semantik.stp"), melden=False)
+    assert len(fenster._step_bericht.repariert) == 2 and not fenster._step_bericht.uebersprungen
+    neu = lade_alles(ziel)
+    assert all(neu.modell.datei.get(i) == ent for i, ent in vorher.modell.datei.entities.items())
+    for nr, (text, nenn, oben, unten) in werte.items():
+        assert lies_schrift(neu.grafik[nr]) == text
+        ist, = [p for p in neu.pmi if p.semantisch and p.step_id in neu.grafik[nr].pmi_ids]
+        soll, = [p for p in referenz.pmi if p.art == "mass" and p.step_id in referenz.grafik[nr].pmi_ids]
+        assert ist.typ == "Size_Diameter" and ist.flaechen == soll.flaechen
+        assert (ist.nennwert, ist.oben, ist.unten) == pytest.approx(np.array([nenn, oben, unten])*25.4)

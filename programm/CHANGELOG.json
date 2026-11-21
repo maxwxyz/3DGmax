@@ -1,6 +1,7 @@
 {
  "unreleased": {
   "de": [
+   "Frei stehende Durchmessermaße in breiter CAD-Schrift werden auch aus gefüllten Dreiecken ohne Kontur gelesen. Mengenangaben sowie symmetrische und gestapelte Abmaße bleiben im Prüfdialog lesbar.",
    "Fehlt bei einem ebenen, vollständig gefüllten Toleranzrahmen die STEP-Schreibebene, bestimmt die PMI-Erkennung die Leserichtung aus den Dreiecken. Die bestätigte Toleranz lässt sich mit der ursprünglichen Grafik exportieren.",
    "Die PMI-Erkennung liest einzeilige Toleranzrahmen in breiter CAD-Schrift auch aus reinen Dreiecksfüllungen ohne Konturlinien. Beim STEP-Export bleiben die Originalgrafik, die Bezugsfolge und je nach Rahmen die Maximum-Material-Bedingung oder die Projektionshöhe mit gewählter Austrittsfläche erhalten.",
    "Breite CAD-Strichschrift wird auch ohne hinterlegten Text als Radius- oder Durchmessermaß mit Menge und Abmaßen gelesen. Bei abweichenden Werten in Originalgrafik und STEP-Validierungstext zeigt der Prüfdialog beide Quellen. Ein Zahlenpaar mit Bindestrich lässt sich ausdrücklich als Grenzmaß übernehmen.",
@@ -165,6 +166,7 @@
    "Grafische PMI aus unterstützten AP203e2-Kurvenmodellen lassen sich als STEP AP242 Edition 3 ausgeben. Facettierte STEP-Modelle behalten ihre Flächenbezüge. Gepackte STEP-Dateien lassen sich als unkomprimierte STEP-Kopie speichern."
   ],
   "en": [
+   "Free-standing diameter dimensions in wide CAD lettering can now be read from filled triangles without outlines. Quantities and symmetric or stacked deviations remain legible in the review dialog.",
    "When a planar filled tolerance frame has no STEP writing plane, PMI recognition derives the reading direction from its triangles. The confirmed tolerance can be exported with the original graphics.",
    "PMI recognition reads single-row tolerance frames in wide CAD lettering, including graphics made entirely of filled triangles without contour edges. STEP export preserves the original presentation, datum order and either maximum material or the projected height with its selected end face.",
    "Wide CAD stroke lettering can supply radius and diameter dimensions, quantities and deviations without stored text. When the graphic and its STEP validation text disagree, review shows both sources. Hyphen-separated values can be explicitly accepted as limits.",

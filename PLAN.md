@@ -186,6 +186,8 @@ Throughout: tests (core, offscreen UI, stress test, on-screen test), `--selbstte
   triangles. With no writing plane the outer edges of coplanar triangles supply candidate axes. Both FTC-07's original strokes and a
   triangle-only rendering of its two position controls pass graphical-only STEP round trips,
   including review of the projection end face and reimport of both original presentations.
+  The same wide-font dimension reader accepts unframed triangle-only lettering on a stored
+  plane. FTC-07 test meshes preserve repeated diameters with symmetric or stacked deviations.
   Open: additional fonts, composite controls and dimensions with
   ambiguous leader or text placement.
 - Convert to semantic PMI: evaluate recognized text + frame structure; mark result as "derived (check)", never as

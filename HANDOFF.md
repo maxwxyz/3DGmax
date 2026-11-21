@@ -2,6 +2,20 @@
 
 ## Current state, 2026-11-21
 
+### Unframed filled wide diameter dimensions
+
+- Checked PLAN §§8.4, 8.18 and 8.28 against docs/Roadmap.md. Wide-font rows are now checked
+  for filled meshes as well as strokes. The same rules require the complete dimension prefix,
+  number and each stacked deviation. Conflicting font interpretations stay open.
+- Converted three FTC-07 graphical callouts to triangle-only representations, with semantics and
+  validation text removed. The review read three diameters of .875 ±.010 inch and four of .281
+  with +.006/−.001 inch. Reimport confirmed the millimetre values, reference faces, original STEP
+  entities and text including the quantity. A dimension with a detached mark stayed unread.
+  All 38 affected tests, 34 native macOS repair tests and 67 drawing/validation tests passed.
+- On FTC-07 #15146 the detached mark is a 30-vertex curve close to the leader tip, away from
+  the printed text. Any change that excludes it should verify its attachment or purpose and
+  preserve free-standing suffixes. Other fonts and compound frames are open. QIF is last.
+
 ### Filled frames without a STEP annotation plane
 
 - Checked PLAN §§8.4, 8.18 and 8.28 against docs/Roadmap.md. Filled frames now recover
