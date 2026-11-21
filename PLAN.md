@@ -151,6 +151,9 @@ Throughout: tests (core, offscreen UI, stress test, on-screen test), `--selbstte
    The longest interval between UI events fell from 3.75 to 1.64 s; peak RSS fell from 1,789
    to 1,566 MiB (three fresh runs per version). The remaining pause includes first display.
    A second 37.06 MB input with six FTC-09 models loaded 384 PMI and 138 saved views.
+   Filled PMI and comparison-map triangles pass to OCCT in contiguous vertex and index arrays.
+   On the 111.55 MB aggregate, this removes 1.39 million individual triangle assignments
+   from first display. FTC-09 rendered identically, pixel for pixel, with a fixed camera.
 4. **JT with PMI** only via TKJT (GPL) or commercial SDK.
 
 ## 7. Decisions

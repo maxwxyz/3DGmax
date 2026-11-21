@@ -293,14 +293,24 @@ def _netz_flaeche(tri, name: str, doc):
 
 
 def _poly(punkte, dreiecke):
-    from OCC.Core.gp import gp_Pnt
-    from OCC.Core.Poly import Poly_Triangle, Poly_Triangulation
-    tri = Poly_Triangulation(len(punkte), len(dreiecke), False)
-    for i, p in enumerate(punkte, 1):
-        tri.SetNode(i, gp_Pnt(float(p[0]), float(p[1]), float(p[2])))
-    for i, (a, b, c) in enumerate(dreiecke, 1):
-        tri.SetTriangle(i, Poly_Triangle(int(a) + 1, int(b) + 1, int(c) + 1))
-    return tri
+    """Punkte und nullbasierte Dreiecke blockweise an die OCCT-Triangulierung uebergeben."""
+    import numpy as np
+    from OCC.Core.Poly import Poly_Array1OfTriangle, Poly_Triangulation
+    from OCC.Core.TColgp import TColgp_Array1OfPnt
+
+    xyz = np.ascontiguousarray(punkte, dtype=np.float64)
+    if xyz.ndim != 2 or xyz.shape[1] != 3 or not len(xyz):
+        raise ValueError("Dreiecksnetz ohne gueltige 3D-Punkte")
+    indices = np.asarray(dreiecke)
+    if len(indices):
+        if indices.ndim != 2 or indices.shape[1] != 3 or not (indices.min() >= 0 and indices.max() < len(xyz)):
+            raise ValueError("Ungueltige Dreiecksindizes")
+        # OCCT erwartet ein zusammenhaengendes int32-Feld und zaehlt Knoten ab eins.
+        einsbasiert = np.ascontiguousarray(indices, dtype=np.int32) + 1
+        dreiecke_occt = Poly_Array1OfTriangle.from_numpy_array(einsbasiert)
+    else:
+        dreiecke_occt = Poly_Array1OfTriangle()
+    return Poly_Triangulation(TColgp_Array1OfPnt.from_numpy_array(xyz), dreiecke_occt)
 
 
 _PLY_TYPEN = {"char": "i1", "int8": "i1", "uchar": "u1", "uint8": "u1", "short": "i2", "int16": "i2", "ushort": "u2",

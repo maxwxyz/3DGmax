@@ -1,6 +1,7 @@
 {
  "unreleased": {
   "de": [
+   "Die 3D-Ansicht baut gefüllte grafische PMI und die Dreiecke der Vergleichsfarbkarte blockweise auf. Dadurch erscheint ein großes STEP mit vielen gefüllten Beschriftungen schneller.",
    "Große STEP-Dateien laden schneller und benötigen weniger Speicher. Ab 30 MB liest die App den STEP-Index parallel zur Geometrie. Während der nativen Übertragung bleibt die Oberfläche bedienbar, zeigt den Fortschritt und nimmt einen Abbruch an.",
    "In der Baugruppenmessung kann ein STEP-Bezug aus mehreren Auflageflächen oder einer geteilten Zylinderwand bestehen. Die 3D-Kette zeigt die verbleibenden offenen Toleranzangaben.",
    "In der Baugruppenmessung lässt sich vom Klickpunkt zur projizierten STEP-Konstruktionsachse einer Gewindebohrung messen. Die gewählte Kernbohrungswand ordnet die Achse zu. Der Bericht und die 3D-Kette zeigen den Toleranzbeitrag am Messort. Projekte speichern Messgrößen jetzt auch vor dem Anlegen der ersten Verbindung.",
@@ -205,6 +206,7 @@
    "Grafische PMI aus unterstützten AP203e2-Kurvenmodellen lassen sich als STEP AP242 Edition 3 ausgeben. Facettierte STEP-Modelle behalten ihre Flächenbezüge. Gepackte STEP-Dateien lassen sich als unkomprimierte STEP-Kopie speichern."
   ],
   "en": [
+   "The 3D view builds filled graphical PMI and coloured comparison mesh triangles in batches. Large STEP files with many filled annotations reach first display sooner.",
    "Large STEP files open faster and use less memory. From 30 MB, the STEP index and geometry load concurrently. During native transfer the interface responds, shows progress and accepts cancellation.",
    "Assembly measurements can resolve one STEP datum from several support pads or a split cylindrical wall. The 3D chain reports any remaining unresolved controls.",
    "Assembly measures can use a clicked point and the projected STEP construction axis of a tapped hole. The selected core bore wall identifies the axis. The report and 3D chain include its tolerance contribution at the measuring point. Projects also retain measures created before the first connection.",

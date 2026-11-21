@@ -2,6 +2,25 @@
 
 ## Current state, 2026-11-21
 
+### Accelerate first display of filled PMI in large STEP files
+
+- Checked PLAN §6 against the large-model viewing section of docs/Roadmap.md.
+  The 111.55 MB AP242 stress case contains 18 independently numbered FTC-09
+  models and 1,152 PMI. Per-triangle and per-node Python calls took over six
+  profiled seconds. The view now passes vertices and triangles to OCCT in bulk.
+  The same constructor serves imported meshes and coloured comparison maps.
+- In three runs per version on the 111.55 MB case, median normal opening on the
+  Mac fell from 16.49 to 9.22 s against 77f1b70. The maximum gap between UI
+  timer callbacks fell from a median 7.03 to 2.24 s. With the same import code,
+  profiling first display attributed 6.26 s to building 1,116 graphical callouts
+  before batching and 0.29 s afterwards.
+- Tested non-contiguous inputs, coordinates at double precision, triangle
+  orientation, empty triangle lists and invalid indices. Rendering the original
+  FTC-09 at a fixed camera before and after the change produced identical pixels.
+- Next §6: investigate rendering the saved-view thumbnails of large shaded models
+  without a long hidden-line calculation during opening. The user's own file
+  and Windows performance remain unverified. QIF stays last.
+
 ### Prioritise large STEP files that appear to hang on opening
 
 - Checked PLAN §6 and docs/Roadmap.md. Normal asynchronous file opening in a native macOS

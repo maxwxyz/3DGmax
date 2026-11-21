@@ -688,8 +688,8 @@ def _grafik_form(g, pmi_text: dict):
     from OCC.Core.BRep import BRep_Builder
     from OCC.Core.BRepBuilderAPI import BRepBuilderAPI_MakeEdge, BRepBuilderAPI_MakePolygon
     from OCC.Core.gp import gp_Pnt
-    from OCC.Core.Poly import Poly_Triangle, Poly_Triangulation
     from OCC.Core.TopoDS import TopoDS_Compound, TopoDS_Face
+    from ..kern.laden import _poly
 
     bb = BRep_Builder()
     comp = TopoDS_Compound()
@@ -709,13 +709,8 @@ def _grafik_form(g, pmi_text: dict):
                 bb.Add(comp, poly.Wire())
                 leer = False
     for punkte, tris in g.dreiecke:
-        tri = Poly_Triangulation(len(punkte), len(tris), False)
-        for i, p in enumerate(punkte, 1):
-            tri.SetNode(i, gp_Pnt(*map(float, p)))
-        for i, (a, b, c) in enumerate(tris, 1):
-            tri.SetTriangle(i, Poly_Triangle(int(a) + 1, int(b) + 1, int(c) + 1))
         f = TopoDS_Face()
-        bb.MakeFace(f, tri)
+        bb.MakeFace(f, _poly(punkte, tris))
         bb.Add(comp, f)
         leer = False
     texte = []
@@ -1283,15 +1278,10 @@ class OcctAnsicht(AnsichtBasis):
     def _baue_farbnetz(self, pts, tris, werte, sk):
         from OCC.Core.AIS import AIS_Triangulation
         from OCC.Core.Graphic3d import Graphic3d_MaterialAspect, Graphic3d_NameOfMaterial_UserDefined
-        from OCC.Core.Poly import Poly_Triangle, Poly_Triangulation
         from OCC.Core.TColStd import TColStd_HArray1OfInteger
-        from OCC.Core.gp import gp_Pnt
+        from ..kern.laden import _poly
         ctx = self.d.Context
-        netz = Poly_Triangulation(len(pts), len(tris), False)
-        for i, p in enumerate(pts, 1):
-            netz.SetNode(i, gp_Pnt(float(p[0]), float(p[1]), float(p[2])))
-        for i, t in enumerate(tris, 1):
-            netz.SetTriangle(i, Poly_Triangle(int(t[0]) + 1, int(t[1]) + 1, int(t[2]) + 1))
+        netz = _poly(pts, tris)
         farben = TColStd_HArray1OfInteger(1, len(pts))
         for i, w in enumerate(werte, 1):
             r, g, b = sk.farbe(float(w))
