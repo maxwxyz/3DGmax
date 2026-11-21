@@ -499,6 +499,42 @@ def _zwischen_masslinien(labels, objekte, linear=False):
     return ""
 
 
+def _radialmass_am_knickpfeil(pfade, box, skala, objekte, fuehrung):
+    """Die ganze Schrift neben einem geprueften Knickpfeil in zwei Glyphenaufloesungen lesen."""
+    from .pmi_hinweislinie import endlinie_neben_schrift
+    rest = [x for i, (_, x) in enumerate(objekte) if i != fuehrung]
+    pfeil = objekte[fuehrung][1]
+    links, rechts = min(x.start for x in rest), max(x.stop for x in rest)
+    if rechts < pfeil.start:
+        grenze, pfeil_rechts = (rechts + pfeil.start)/2, True
+    elif pfeil.stop < links:
+        grenze, pfeil_rechts = (pfeil.stop + links)/2, False
+    else:
+        return ""
+    trennung = box[0] + (grenze-2)/skala
+    schrift, linie = [], []
+    for p, voll in pfade:
+        if (p[0, 0] > trennung) == pfeil_rechts:
+            linie.append((p, voll))
+        else:
+            schrift.append((p, voll))
+    if not schrift:
+        return ""
+    punkte = np.vstack([p for p, _ in schrift])
+    breite, hoehe = np.ptp(punkte, axis=0)
+    grenzen = (*punkte.min(0), *punkte.max(0))
+    if not 0 < hoehe < breite < 20*hoehe or not endlinie_neben_schrift(linie, grenzen):
+        return ""
+    wort = ""
+    for pixel in (96, 140):
+        maske = _bild(schrift, grenzen, pixel/hoehe)
+        lesung = _masszeile(maske) if maske is not None else ""
+        if lesung[:1] not in ("⌀", "R") or not LINEARMASS.fullmatch(lesung[1:]) or (wort and wort != lesung):
+            return ""
+        wort = lesung
+    return wort
+
+
 def _freitext(pfade, linearmass=False):
     punkte = np.vstack([p for p, _ in pfade])
     spannweite = np.ptp(punkte, axis=0)
@@ -548,7 +584,7 @@ def _freitext(pfade, linearmass=False):
     from .pmi_hinweislinie import zielbogen
     bogen = zielbogen(pfade, box, skala, labels, objekte, fuehrungen[0], typisch)
     if bogen is None:
-        return ""
+        return _radialmass_am_knickpfeil(pfade, box, skala, objekte, fuehrungen[0])
     y, x = objekte[bogen]
     mask[y, x] &= labels[y, x] != bogen+1
     wort = _masszeile(mask)

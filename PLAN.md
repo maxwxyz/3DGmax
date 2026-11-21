@@ -267,6 +267,10 @@ Throughout: tests (core, offscreen UI, stress test, on-screen test), `--selbstte
   CTC-02 sheet 1, FTC-09 sheets 1 and 4, and FTC-10 sheet 5 also recover their
   counted diameter rows. Several semantic dimensions share each FTC-09 size.
   CSV records the field comparison for each associated drawing value.
+  For CTC-03 radial dimension #3629, a long leader previously reduced the raster
+  resolution of the lettering. Verify the separate bent leader and read the entire
+  remaining diameter row at two glyph resolutions. The exported Ø2.00 ±.01 inch
+  bore agrees with AP242 #267 in limits, axis, radius and axial extent.
   Three other position control frames on the inch-based CTC-03 model identify the D/B/C datum
   order and a perpendicularity control identifies datum E. Previously the printed D could
   be read as B. Verified the six labelled datums A through F and four tolerance frames

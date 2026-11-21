@@ -2,6 +2,30 @@
 
 ## Current state, 2026-11-21
 
+### Recover the toleranced central bore beside a long bent leader
+
+- Checked PLAN §8.4 against docs/Roadmap.md. NIST CTC-03 AP203 #3629
+  now proposes Ø2.00 ±.01 inch. When the full graphic is unreadable, verify
+  the separate leader and read all remaining lettering at two resolutions.
+  A changed printed deviation changes the proposal on the same cylinder.
+- Reviewed the original outlines, single strokes and a triangle-only copy
+  through the native review dialog, project reload and AP242 export. All
+  three retain their original graphic, view and target #544. The independent
+  semantic #267 covers the same cylinder in two halves with limits 50.546
+  and 51.054 mm. OCCT reports the same diagnostics and solid volume before
+  and after export. Also tested with the writing plane removed.
+- Passed 30 affected tests and four native Cocoa checks. Compared 194 review
+  candidates across six graphical STEP models, with #3629 the only change.
+  The signed build passed its self-test and rendered the reopened export.
+  Local main has a single app at `dist/3DGmax.app` and no `main-*` build
+  directories. The two existing versioned release ZIPs are retained.
+- Next in §8.4: projected drawing dimensions with no pattern count. A local
+  reading experiment on CTC-03 sheet 1 finds Ø.438 ±.005 and Ø1.500 ±.005
+  inch. AP242 has three semantic candidates with the first size (#263,
+  #264, #266) and one with the second (#268). Resolve assignment separately
+  from text recognition. The experiment still misses Ø2.00 ±.01. CTC-03
+  graphical #3634 has a separate counted linear dimension. QIF stays last.
+
 ### Compare projected mounting positions and counted diameters on the drawing
 
 - Checked PLAN §8.4 against docs/Roadmap.md. CTC-03 Rev C sheet 1 now reads

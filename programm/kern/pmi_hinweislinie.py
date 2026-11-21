@@ -320,6 +320,13 @@ def abgesetzte_endlinie(pfade, zellen):
                 p[:, 1].min() >= b-.03*h and p[:, 1].max() <= t+.03*h):
             continue
         teile.append((p, voll))
+    return endlinie_neben_schrift(teile, (l, b, r, t))
+
+
+def endlinie_neben_schrift(teile, schriftbox):
+    """Den vollstaendigen Linienzug an Lage und Hoehe der Beschriftung pruefen."""
+    l, b, r, t = schriftbox
+    h = t-b
     if not 3 <= len(teile) <= 256:
         return False
     links = all(p[:, 0].max() < l-.1*h for p, _ in teile)
