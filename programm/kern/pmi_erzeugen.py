@@ -295,12 +295,12 @@ def _ebenen_paar(flaechen):
     return (a, e[0][1]), (b, e[1][1])
 
 
-def _masslinie(p, flaechen, quader, mitte, belegt, bilder, h, nr) -> Grafik | None:
+def _masslinie(p, modell, flaechen, quader, mitte, belegt, bilder, h, nr) -> Grafik | None:
     """Abstandsmass zwischen zwei parallelen Ebenen: Masshilfslinien, Masslinie mit Pfeilen, Text darueber."""
     if p.mittenabstand or p.typ in ("Location_LinearDistance_FromOuterToCenter", "Location_LinearDistance_FromOuterToOuter"):
-        from .plausibilitaet import ebene_zur_achse, langlochenden
+        from .plausibilitaet import ebene_zur_achse, ebene_zur_mittenebene, langlochenden
         if p.typ == "Location_LinearDistance_FromOuterToCenter":
-            lage = ebene_zur_achse(flaechen)
+            lage = ebene_zur_mittenebene(p,modell) if p.mittenbezug is not None else ebene_zur_achse(flaechen)
         else:
             lage = langlochenden(flaechen, mitten=p.mittenabstand)
         if lage is None:
@@ -391,7 +391,7 @@ def ergaenze(pmi: list, grafik: dict, modell, ansichten: list | None = None) -> 
             continue
         bilder = belegung.hindernisse(p.step_id, h)
         if p.art == MASS and p.typ in ("Location_LinearDistance", "Location_LinearDistance_FromOuterToCenter", "Location_LinearDistance_FromOuterToOuter", "Size_Thickness"):
-            g = _masslinie(p, flaechen, quader, mitte, belegt, bilder, h, i)
+            g = _masslinie(p, modell, flaechen, quader, mitte, belegt, bilder, h, i)
             if g is not None:
                 belegung.merke(g.pmi_ids, belegt[-1])
                 neu[-i] = g

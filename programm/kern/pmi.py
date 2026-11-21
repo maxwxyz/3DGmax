@@ -121,6 +121,8 @@ class Pmi:
     simultan_mit: list[int] = field(default_factory=list)  # Explizite STEP-Partner mit derselben Bezugsbasis
     simultan_offen: list[int] = field(default_factory=list)  # Verknuepfte Partner mit ungepruefter Bezugsbasis
 
+    mittenbezug: int | None = None  # Bezugsflaeche beim Abstand zur Mittelebene eines Wandpaares
+
     # --- Darstellung ---
 
     def wert_text(self) -> str:
@@ -177,6 +179,8 @@ class Pmi:
 
     def merkmal(self) -> str:
         """Merkmalsschluessel (deutsch, Anzeige ueber tr()) nach der Norm des Modells; unbekannte Typen unveraendert."""
+        if self.mittenbezug is not None:
+            return "Abstand zur Mittelebene"
         if self.mittenabstand:
             return "Abstand zwischen Symmetriezentren"
         if self.norm == "asme" and self.typ in MERKMAL_ASME:

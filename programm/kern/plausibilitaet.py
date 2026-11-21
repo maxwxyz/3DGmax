@@ -74,6 +74,49 @@ def ebene_zur_achse(flaechen):
     return None
 
 
+def ebene_zur_mittenebene(p, modell):
+    """Lot von der Bezugsflaeche zur Symmetriemitte der zwei zugeordneten Taschenwaende."""
+    from OCC.Core.BRep import BRep_Tool
+    from OCC.Extend.TopologyUtils import TopologyExplorer
+    if len(p.flaechen) != 3 or p.mittenbezug not in p.flaechen:
+        return None
+    if any(i < 0 or i >= len(modell.flaechen) for i in p.flaechen):
+        return None
+    bezug = _ebene(modell.flaechen[p.mittenbezug])
+    if bezug is None:
+        return None
+    o, u = bezug
+    waende = [modell.flaechen[i] for i in sorted(p.flaechen-{p.mittenbezug})]
+    ebenen = [_ebene(f) for f in waende]
+    if all(e is not None for e in ebenen):
+        if any(abs(abs(e[1] @ u)-1) > 1e-7 for e in ebenen):
+            return None
+        lagen = [(e[0]-o) @ u for e in ebenen]
+        if abs(lagen[0]-lagen[1]) < 1e-7 or lagen[0]*lagen[1] <= 0:
+            return None
+        # Die Schreibebene soll den gemessenen Abstand in wahrer Laenge zeigen.
+        n = np.eye(3)[2] if abs(u[2]) < .95 else np.eye(3)[1]
+        n = n - u*(n @ u)
+        n /= np.linalg.norm(n)
+        punkte = []
+        for f in waende:
+            ecken = np.array([BRep_Tool.Pnt(v).Coord() for v in TopologyExplorer(f).vertices()])
+            if not len(ecken):
+                return None
+            hoehen = ecken @ n
+            punkte.append(ecken[hoehen > hoehen.max()-1e-7].mean(axis=0))
+    else:
+        enden = langlochenden(waende)
+        if enden is None:
+            return None
+        a,b,n = enden
+        if np.linalg.norm(np.cross(b-a,u)) > 1e-7*np.linalg.norm(b-a):
+            return None
+        punkte = (a,b)
+    mitte = (punkte[0]+punkte[1])/2
+    return mitte-u*((mitte-o) @ u),mitte,n
+
+
 def langlochenden(flaechen, *, mitten=False):
     """Scheitel von Langlochenden oder Achspunkte paralleler Zylinder auf gemeinsamer Hoehe."""
     from OCC.Core.BRep import BRep_Tool
@@ -345,9 +388,11 @@ def geometrie(pmi, modell) -> list:
             if e1 and e2 and abs(e1[1] @ e2[1]) > 0.9999:
                 ist = abs((e2[0] - e1[0]) @ e1[1])
         elif p.typ == "Location_LinearDistance_FromOuterToCenter":
-            paar = ebene_zur_achse(flaechen)
-            if paar is not None:
-                ist = np.linalg.norm(paar[2] - paar[1])
+            lage = (ebene_zur_mittenebene(p,modell) if p.mittenbezug is not None
+                    else ebene_zur_achse(flaechen))
+            if lage is not None:
+                a,b,_ = lage[-3:]
+                ist = np.linalg.norm(b-a)
         if ist is not None and abs(ist - abs(p.nennwert)) > GEOMETRIE_TOLERANZ:
             out.append(_befund(WARNUNG, "geometrie", tr("Nennmaß {:.4g} passt nicht zum Modell ({:.4f})").format(
                 abs(p.nennwert), ist), [p.nummer], p.flaechen))

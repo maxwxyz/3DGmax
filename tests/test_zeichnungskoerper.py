@@ -377,7 +377,7 @@ def test_rechtecktaschen_aus_pdf_mit_eindeutigen_wandpaaren(app, tmp_path, monke
             v = GProp_GProps()
             brepgprop.VolumeProperties(erg.modell.form, v)
             assert v.Mass() == pytest.approx(60*40*8-12*8*(6+5*durchbrueche)-(32*np.pi if mit_bohrung else 0))
-            assert len(erg.pmi) == 9-durchbrueche+3*int(mit_bohrung) and all(p.grafisch and p.semantisch for p in erg.pmi)
+            assert len(erg.pmi) == 13-durchbrueche+3*int(mit_bohrung) and all(p.grafisch and p.semantisch for p in erg.pmi)
             for quelle in (erg.pmi, lies_pmi_xcaf(erg.modell)):
                 breite = [p for p in quelle if p.nennwert == 12]
                 tiefen = [p for p in quelle if p.nennwert == 3]
@@ -755,7 +755,7 @@ def test_gerundete_taschen_aus_pdf_mit_radius_und_flaechenbezug(app, tmp_path, m
             v = GProp_GProps()
             brepgprop.VolumeProperties(erg.modell.form, v)
             assert v.Mass() == pytest.approx(60*40*8-(16*10-(4-np.pi)*9)*12-32*np.pi)
-            assert len(erg.pmi) == 13 and all(p.grafisch and p.semantisch for p in erg.pmi)
+            assert len(erg.pmi) == 17 and all(p.grafisch and p.semantisch for p in erg.pmi)
             for quelle in (erg.pmi, lies_pmi_xcaf(erg.modell)):
                 radien = sorted((p for p in quelle if p.typ == "Size_Radius"), key=lambda p:p.oben)
                 for p, (x,z,tol) in zip(radien, ((15,4,.1),(45,0,.2)), strict=True):
@@ -868,7 +868,7 @@ def test_langloch_quer_und_hoch_mit_gesamtmass_im_step(app, tmp_path, monkeypatc
             v = GProp_GProps()
             brepgprop.VolumeProperties(erg.modell.form, v)
             assert v.Mass() == pytest.approx(60*40*8-(10*6+9*np.pi)*12)
-            assert len(erg.pmi) == 8 and all(p.grafisch and p.semantisch for p in erg.pmi)
+            assert len(erg.pmi) == 12 and all(p.grafisch and p.semantisch for p in erg.pmi)
             from dataclasses import replace
             from programm.kern.plausibilitaet import geometrie
             for p in (p for p in erg.pmi if p.typ == "Location_LinearDistance_FromOuterToOuter"):
@@ -945,7 +945,7 @@ def test_langloch_achsabstand_als_abgeleitetes_ziel_und_masslinie(app,tmp_path,m
             vol = GProp_GProps()
             brepgprop.VolumeProperties(erg.modell.form, vol)
             assert vol.Mass() == pytest.approx(60*40*8-(10*6+9*np.pi)*12)
-            assert len(erg.pmi) == 9 and all(p.semantisch and p.grafisch for p in erg.pmi)
+            assert len(erg.pmi) == 13 and all(p.semantisch and p.grafisch for p in erg.pmi)
             for quelle in (erg.pmi, lies_pmi_xcaf(erg.modell)):
                 gesamt, = (p for p in quelle if p.typ == "Location_LinearDistance_FromOuterToOuter")
                 assert gesamt.grenzen() == pytest.approx((16.2,15.8))
@@ -987,3 +987,98 @@ def test_langloch_grenzmasse_schneiden_sich_nur_bei_gemeinsam_erreichbaren_werte
     assert kurz.unten <= kurz.nennwert <= kurz.oben
     with pytest.raises(ValueError, match="widersprechen"):
         _langlochmasse("16", lese_angabe("6",1.), "9.8–9.95")
+
+
+@pytest.mark.parametrize("form", ["eckig", "rund", "langloch"])
+def test_taschenmittelpunkte_als_semantische_und_gezeichnete_lagemasse(app,tmp_path,monkeypatch,form):
+    from dataclasses import replace
+    from OCC.Core.BRepAdaptor import BRepAdaptor_Surface
+    from pypdfium2 import PdfDocument
+    from programm.kern.plausibilitaet import ebene_zur_mittenebene, geometrie
+    from programm.kern.pmi_lesen import lies_pmi_xcaf
+    from programm.kern.vergleich_pmi import vergleiche_pmi
+    from programm.ui.lader import lade_alles
+    b,h = (16,6) if form == "langloch" else (12,8)
+    r = (3,) if form != "eckig" else ()
+    pdf,ziel = tmp_path/"Koordinaten.pdf",tmp_path/"Koordinaten.stp"
+    _blatt(pdf,tiefe="15 ±0.2",taschen=[(x,16,b,h,*r) for x in (15,45)])
+    monkeypatch.setattr(QtWidgets.QFileDialog,"getSaveFileName",lambda *args:(str(ziel),"STEP"))
+    with PdfDocument(pdf) as doc:
+        d = Plattendialog(doc,pdf)
+        try:
+            d.einheit.setCurrentIndex(1)
+            for feld,text in zip(d.texte,("60","40","8"),strict=True):
+                feld.setText(text)
+            d.ansicht.bereich.emit((.08,.1,.51,.52))
+            t = d.taschentabelle
+            assert t.rowCount() == 2
+            for i,x in enumerate((15,45)):
+                for j,text in enumerate((f"{x} ±0.2","15.9–16.1",str(b),str(h),"3"),1):
+                    t.item(i,j).setText(text)
+                if form == "rund":
+                    t.item(i,7).setText("R3")
+            t.cellWidget(1,6).setCurrentIndex(1)
+            t.setCurrentCell(0,1)
+            t.item(0,1).setText("")
+            d.auswahl.setCurrentIndex(d.auswahl.findData(1))
+            d.ansicht.bereich.emit((.52,.86,.80,.96))
+            assert t.item(0,1).text() == "15 ±0.2"
+            assert d.speichern.isEnabled(),d.status.text()
+            d.speichern.click()
+        finally:
+            d.blatt.schliesse()
+            d.close()
+    erg = lade_alles(str(ziel))
+    model = erg.modell
+    mittel = [p for p in erg.pmi if p.mittenbezug is not None]
+    assert len(mittel) == 4
+    xcaf = [p for p in lies_pmi_xcaf(model) if p.typ == "Location_LinearDistance_FromOuterToCenter"]
+    assert len(xcaf) == 4
+    for p in mittel:
+        assert p.grafisch and p.semantisch and p.merkmal() == "Abstand zur Mittelebene"
+        assert len(p.flaechen) == 3 and p.mittenbezug in p.flaechen
+        vergleich, = (m for m in xcaf if m.flaechen == p.flaechen)
+        achse = int(p.grenzmass)
+        tol = .1 if achse else .2
+        for m in (p,vergleich):
+            assert m.nennwert == p.nennwert and m.grenzen() == pytest.approx((p.nennwert+tol,p.nennwert-tol))
+        ref = BRepAdaptor_Surface(model.flaechen[p.mittenbezug]).Plane()
+        assert abs(ref.Axis().Direction().Coord()[achse]) == pytest.approx(1.)
+        assert ref.Location().Coord()[achse] == pytest.approx(0)
+        a,b,_ = ebene_zur_mittenebene(p,model)
+        assert (a[achse],b[achse]) == pytest.approx((0,p.nennwert))
+        assert b[0] == pytest.approx(15) or b[0] == pytest.approx(45)
+        assert (b[1],b[2]) == pytest.approx((16,8))
+        assert not geometrie([p],model) and geometrie([replace(p,nennwert=p.nennwert+1)],model)
+        g, = (g for g in erg.grafik.values() if p.step_id in g.pmi_ids)
+        linie = g.linien[2]
+        assert list(linie[:,achse]) == pytest.approx([0,p.nennwert])
+        assert list(linie[:,2]) == pytest.approx([8,8])
+        lage = model.datei.get(p.step_id)
+        ursprung,zielref = lage.args("DIMENSIONAL_LOCATION")[2:]
+        assert model.datei.get(ursprung).is_a("SHAPE_ASPECT")
+        assert model.datei.get(zielref).is_a("CENTRE_OF_SYMMETRY")
+        anders = replace(p,mittenbezug=next(iter(p.flaechen-{p.mittenbezug})))
+        assert vergleiche_pmi([p],[anders])[0].status == "geaendert"
+
+
+def test_taschenlage_grenzen_an_rand_bohrung_und_zweiter_tasche():
+    from programm.kern.plattentasche import Taschenkontur,solltaschen
+    from programm.kern.zeichnungskoerper import Plattenbohrung,koordinatenmasse
+    from programm.kern.zeichnungsabgleich import lese_angabe
+    masse = plattenmasse(["60","40","8"],1.,(600,400))
+    a = Taschenkontur((),.25,.4,.2,.2)
+    b = Taschenkontur((),.5,.4,.2,.2)
+    t1,t2 = ("15 ±2","16","12","8","3"),("30 ±1","16","12","8","3")
+    def taschen(konturen,zeilen,bohrungen=()):
+        return solltaschen(konturen,zeilen,masse,(600,400),bohrungen)
+    with pytest.raises(ValueError,match="Plattenrand"):
+        taschen([a],[("15 ±9",*t1[1:])])
+    with pytest.raises(ValueError,match="andere Tasche"):
+        taschen([a,b],[t1,t2])
+    assert len(taschen([a,b],[t1,("30 ±0.9",*t2[1:])])) == 2
+    kern = Plattenbohrung(28,16,lese_angabe("Ø2",1.),lagemasse=koordinatenmasse("28 ±2","16"))
+    senkung = Plattenbohrung(28,16,lese_angabe("Ø6",1.),kern=0)
+    assert taschen([a],[t1],[kern])
+    with pytest.raises(ValueError,match="Bohrung"):
+        taschen([a],[t1],[kern,senkung])

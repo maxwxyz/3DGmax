@@ -28,6 +28,7 @@ FELD_TEXT = {"beschreibung": "Toleranzbeschreibung", "nennwert": "Nennwert", "ob
              "simultan_mit": "Gleichzeitig geltende Toleranzen",
              "simultan_offen": "Gleichzeitige Anforderung mit ungeprüfter Bezugsbasis",
              "folgetoleranzen": "Nachgeordnete Toleranz im Verbundrahmen",
+             "mittenbezug": "Bezugsfläche der Mittenkoordinate",
              "mittenabstand": "Abstand zwischen Symmetriezentren",
              "material": "Materialbedingung", "modifikatoren": "Modifikatoren", "bezuege": "Bezüge",
              "flaechen": "zugeordnete Flächen", "name": "Name", "geometrie": "Geometrie", "text": "Text"}
@@ -174,7 +175,8 @@ def _paarmerkmale(liste, zuordnung=None, simultan=None):
             flaechen = frozenset(zuordnung[n] for n in p.flaechen if n in zuordnung)
             projektion = frozenset(zuordnung[n] for n in p.projektionsflaechen if n in zuordnung)
         bezug = p.bezug_text()
-        inhalt = (tuple(getattr(p, f) for f in FELDER), p.grenzmass, p.mittenabstand,
+        ursprung = p.mittenbezug if zuordnung is None else zuordnung.get(p.mittenbezug)
+        inhalt = (ursprung, tuple(getattr(p, f) for f in FELDER), p.grenzmass, p.mittenabstand,
                   tuple(sorted(p.modifikatoren)), p.name, p.nur_grafik_text if p.art == "hinweis" else "")
         exakt = None
         if p.step_id not in rollen and len(flaechen) == len(p.flaechen) and len(projektion) == len(p.projektionsflaechen):
@@ -337,6 +339,8 @@ def _vergleiche_felder(a: Pmi, b: Pmi, zuordnung, zuordnung_ab=None, geo_status=
     if a.grenzmass != b.grenzmass:
         felder.append(("grenzmass", tr("Ja") if a.grenzmass else tr("Nein"),
                        tr("Ja") if b.grenzmass else tr("Nein")))
+    if (a.mittenbezug is None) != (b.mittenbezug is None) or a.mittenbezug != zuordnung.get(b.mittenbezug):
+        felder.append(("mittenbezug", _zahl(a.mittenbezug), _zahl(b.mittenbezug)))
     if a.mittenabstand != b.mittenabstand:
         felder.append(("mittenabstand", tr("Ja") if a.mittenabstand else tr("Nein"),
                        tr("Ja") if b.mittenabstand else tr("Nein")))

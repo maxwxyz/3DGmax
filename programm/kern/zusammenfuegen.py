@@ -108,6 +108,8 @@ def _grafik_umrechnen(g, id_versatz: int, v: np.ndarray):
 def _pmi_umrechnen(pmi: list, flaechen_versatz: int, id_versatz: int, nummer_versatz: int, lage):
     for p in pmi:
         p.flaechen = {i + flaechen_versatz for i in p.flaechen}
+        if p.mittenbezug is not None:
+            p.mittenbezug += flaechen_versatz
         p.projektionsflaechen = [i + flaechen_versatz for i in p.projektionsflaechen]
         if getattr(p, "teilformen", None):
             p.teilformen = [form.Moved(lage) for form in p.teilformen]

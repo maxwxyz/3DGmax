@@ -529,9 +529,13 @@ def _lies_mass_step(modell: StepModell, e: Entity) -> Pmi:
         if p.nennwert is None:
             p.nennwert = (p.oben + p.unten) / 2
     _toleranz_des_masses(datei, e.id, p, typ in ("Size_Angular", "Location_Angular"))
-    for a in aspekte:
+    for i,a in enumerate(aspekte):
         if isinstance(a, Ref):
             flaechen = flaechen_von_aspekt(datei, modell, a.id)
+            if (i == 1 and typ == "Location_LinearDistance_FromOuterToCenter" and len(flaechen) == 2
+                    and len(p.flaechen) == 1 and not (p.flaechen & flaechen)
+                    and datei.get(a) is not None and datei.get(a).is_a("CENTRE_OF_SYMMETRY")):
+                p.mittenbezug, = p.flaechen
             p.flaechen |= flaechen
             if not flaechen and p.typ in ("Size_Diameter", "Location_LinearDistance"):
                 formen = teilformen_von_aspekt(datei, modell, a.id)

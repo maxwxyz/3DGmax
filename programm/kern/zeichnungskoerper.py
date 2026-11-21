@@ -36,6 +36,7 @@ class Plattentasche:
     langloch: bool = False
     achsabstand: Pmi | None = None
     gesamt_abgeleitet: bool = False
+    lagemasse: tuple[Pmi, Pmi] | None = None
 
     @property
     def rundungsradius(self):
@@ -115,11 +116,9 @@ def koordinatenmasse(tx, ty):
     return paar
 
 
-def koordinaten(tx, ty):
-    paar = koordinatenmasse(tx, ty)
-    if paar and all(p.oben is None and p.unten is None for p in paar):
-        return tuple(p.nennwert for p in paar)
-    return None
+def massbereich(p):
+    werte = [g for g in (p.nennwert, *p.grenzen()) if g is not None]
+    return min(werte), max(werte)
 
 
 def plattenmasse(texte, faktor, grundriss, vorderansicht=None):
@@ -343,6 +342,11 @@ def _flaechenmasse(modell, masse, bohrungen, taschen):
                     mass = replace(mass, typ="Location_LinearDistance_FromOuterToOuter")
                 alle.append(mass)
                 flaechen.append(paar)
+            if tasche.lagemasse:
+                for achse, mass in enumerate(tasche.lagemasse):
+                    ursprung, = (i for i in paare[achse] if abs(ebenen[achse][i]) < 1e-7)
+                    alle.append(replace(mass,typ="Location_LinearDistance_FromOuterToCenter",mittenbezug=ursprung))
+                    flaechen.append({ursprung} | bezuege[achse])
             if tasche.radius:
                 alle.append(tasche.radius)
             if tasche.tiefe:

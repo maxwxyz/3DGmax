@@ -1,4 +1,6 @@
 {
+"Abstand zur Mittelebene": "Distance to median plane",
+"Bezugsfläche der Mittenkoordinate": "Reference face of the center coordinate",
 "Tiefenbezug": "Depth reference",
 "Eine durchgehende Kernbohrung kann keine Bohrspitze haben.": "A through core bore cannot have a drill point.",
 "Hinweis aus Grafik #{} für beide Zeilen übernehmen": "Apply the note from annotation #{} to both rows",

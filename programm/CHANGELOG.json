@@ -1,6 +1,7 @@
 {
  "unreleased": {
   "de": [
+   "Beim Erzeugen einer Platte aus einer 2D-Zeichnung bleiben die X- und Y-Maße von Taschen und Langlöchern mit ihren Toleranzen erhalten. STEP speichert die grafische Maßlinie und verknüpft das semantische Maß mit der Plattenseite und den beiden zugehörigen Taschenwänden.",
    "Beim Erzeugen einer Welle aus einer 2D-Zeichnung können Sackbohrungen von beiden Enden unterschiedliche Bohrspitzen haben. Pro Seite lassen sich Spitzenwinkel und Tiefenbezug übernehmen. Die Grenzmaßprüfung berücksichtigt den Materialsteg zwischen den Spitzen. STEP erhält die Maße mit den zugehörigen Flächen, Kreisrändern oder Scheitelpunkten.",
    "Die grafische PMI-Erkennung übernimmt auch einen eingerückten, zweizeilig gesetzten Flächenhinweis wie „4 COPLANAR / SURFACES“ unter dem Wertfach eines Verbundrahmens.",
    "Der Zeichnungsvergleich prüft die STEP-Gruppenpartner auch dann, wenn „SIM REQT“ und die Anzahl koplanarer Flächen in derselben Beschreibung stehen. Ohne explizite Partner bleibt die Gruppenprüfung offen. Die Flächenanzahl lässt sich unabhängig davon mit dem Modell vergleichen.",
@@ -186,6 +187,7 @@
    "Grafische PMI aus unterstützten AP203e2-Kurvenmodellen lassen sich als STEP AP242 Edition 3 ausgeben. Facettierte STEP-Modelle behalten ihre Flächenbezüge. Gepackte STEP-Dateien lassen sich als unkomprimierte STEP-Kopie speichern."
   ],
   "en": [
+   "Plate reconstruction from a 2D drawing now retains pocket and slot center coordinates with their tolerances. STEP stores the dimension line and links the semantic dimension to the plate side and both corresponding pocket walls.",
    "Shaft reconstruction from a 2D drawing supports different drill points on opposite ends. Each bore has its own point angle and depth reference. The limit check preserves material between the tips. STEP retains dimensions on their respective faces, circular edges or apex vertices.",
    "Graphical PMI recognition now also offers inset, wrapped surface counts such as “4 COPLANAR / SURFACES” below the value cell of a composite frame.",
    "Drawing comparison now checks STEP group partners when SIM REQT and the coplanar-surface count share a description. Membership stays open where explicit partners are missing. The face count can be checked independently.",

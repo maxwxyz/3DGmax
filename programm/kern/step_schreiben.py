@@ -269,6 +269,13 @@ class _Anhang:
             self.neu(f"GEOMETRIC_ITEM_SPECIFIC_USAGE('','',#{sa},#{self.darst},#{f})")
         return sa
 
+    def verbundaspekt(self, flaechen):
+        sa = self.neu(f"COMPOSITE_SHAPE_ASPECT('','DIMENSION',#{self.pds},.F.)")
+        for f in sorted(flaechen):
+            teil = self.aspekt({f})
+            self.neu(f"SHAPE_ASPECT_RELATIONSHIP('','',#{sa},#{teil})")
+        return sa
+
     def symmetriemitte(self, ursprung):
         mitte = self.neu(f"CENTRE_OF_SYMMETRY('','',#{self.pds},.F.)")
         self.neu(f"SHAPE_ASPECT_DERIVING_RELATIONSHIP('','',#{mitte},#{ursprung})")
@@ -422,10 +429,7 @@ def _schreibe_mass(a: _Anhang, p) -> str | None:
     if p.typ in GROESSE_NAME:
         if p.massziel_step is None and len(p.flaechen) > 1:
             # Einzelne Formaspekte im Verbund erhalten alle Massziele auch in XCAF.
-            sa = a.neu(f"COMPOSITE_SHAPE_ASPECT('','DIMENSION',#{a.pds},.F.)")
-            for f in sorted(p.flaechen):
-                teil = a.aspekt({f})
-                a.neu(f"SHAPE_ASPECT_RELATIONSHIP('','',#{sa},#{teil})")
+            sa = a.verbundaspekt(p.flaechen)
         else:
             sa = a.aspekt(p.flaechen, ziel=p.massziel_step)
         if sa is None:
@@ -438,6 +442,13 @@ def _schreibe_mass(a: _Anhang, p) -> str | None:
         if sa is None:
             return tr("Flächen ohne Entsprechung in der Datei")
         dim = a.neu(f"ANGULAR_SIZE(#{sa},'',.EQUAL.)")
+    elif p.typ == "Location_LinearDistance_FromOuterToCenter" and p.mittenbezug is not None:
+        from .plausibilitaet import ebene_zur_mittenebene
+        if ebene_zur_mittenebene(p,a.modell) is None:
+            return tr("Maßart nicht schreibbar")
+        ursprung = a.aspekt({p.mittenbezug})
+        mitte = a.symmetriemitte(a.verbundaspekt(p.flaechen-{p.mittenbezug}))
+        dim = a.neu(f"DIMENSIONAL_LOCATION('linear distance outer centre','',#{ursprung},#{mitte})")
     elif p.typ in ("Location_LinearDistance", "Location_LinearDistance_FromOuterToCenter", "Location_LinearDistance_FromOuterToOuter", "Location_Angular") and len(p.flaechen) == 2:
         if p.typ == "Location_Angular" and a.einheit_winkel is None:
             return tr("Keine Winkeleinheit in der Datei")

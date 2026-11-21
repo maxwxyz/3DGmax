@@ -10,7 +10,7 @@ from scipy.spatial import cKDTree
 from ..i18n import tr
 from .zeichnungsabgleich import lese_angabe, musteranzahl
 from .zeichnungsansicht import Blattkreis
-from .zeichnungskoerper import Plattenbohrung, koordinatenmasse, pruefe_tiefe, tiefenmass, tintenrechteck
+from .zeichnungskoerper import Plattenbohrung, koordinatenmasse, massbereich, pruefe_tiefe, tiefenmass, tintenrechteck
 from .plattentasche import Taschenkontur
 from .rundkontur import passende_rundung
 
@@ -125,11 +125,6 @@ def plattenumriss(bild, box, kreise, rundungen=()):
     return (breite, hoehe), bohrungen, sorted(taschen, key=lambda q: (q.x, q.y))
 
 
-def _massbereich(p):
-    werte = [g for g in (p.nennwert, *p.grenzen()) if g is not None]
-    return min(werte), max(werte)
-
-
 def kegelwinkelmass(text, _faktor=1.):
     p = lese_angabe(text.strip().removeprefix("⌵").strip(), 1.)
     if not p or p.typ != "Size_Angular" or p.nennwert is None or p.modifikatoren or p.passung:
@@ -142,13 +137,13 @@ def kegelwinkelmass(text, _faktor=1.):
 
 def _zylindertiefe(tiefe, radius_max, spitze, gesamt, dicke):
     """Kleinste zylindrische Tiefe, auch unter einer anschliessenden Senkung."""
-    zusatz = radius_max/math.tan(math.radians(_massbereich(spitze)[0])/2)
-    minimum, maximum = _massbereich(tiefe)
+    zusatz = radius_max/math.tan(math.radians(massbereich(spitze)[0])/2)
+    minimum, maximum = massbereich(tiefe)
     if gesamt:
         minimum -= zusatz
         if minimum <= 0:
             raise ValueError(tr("Die Gesamttiefe lässt mit ihren Grenzmaßen keinen zylindrischen Abschnitt übrig."))
-    elif maximum+zusatz >= _massbereich(dicke)[0]:
+    elif maximum+zusatz >= massbereich(dicke)[0]:
         raise ValueError(tr("Die Bohrspitze erreicht mit ihren Grenzmaßen die Plattenunterseite."))
     return minimum
 
@@ -178,9 +173,9 @@ def sollbohrungen(ringe, werte, masse, umfang, *, tiefen=None, senkwinkel=None, 
         x, y = (p.nennwert for p in mitte)
         r = pmi.nennwert/2
         # Auch am Toleranzrand muss der vollstaendige Ring innerhalb der Platte liegen.
-        radius_max = _massbereich(pmi)[1]/2
+        radius_max = massbereich(pmi)[1]/2
         for lage, seite in zip(mitte, masse[:2], strict=True):
-            rand = _massbereich(seite)[0]
+            rand = massbereich(seite)[0]
             if any(not radius_max < g < rand-radius_max for g in (lage.nennwert, *lage.grenzen()) if g is not None):
                 raise ValueError(tr("Bohrung {} reicht über den Plattenrand.").format(index))
         fremd = (b for j, b in enumerate(bohrungen) if ring.kern is None or (j != ring.kern and b.kern != ring.kern))
@@ -206,18 +201,18 @@ def sollbohrungen(ringe, werte, masse, umfang, *, tiefen=None, senkwinkel=None, 
                 raise ValueError(tr("Die Kegelsenkung von oben benötigt den äußersten Ring einer Bohrung."))
         if ring.kern is not None:
             innen = bohrungen[-1]
-            if (tiefe is None and winkel is None) or _massbereich(pmi)[0] <= _massbereich(innen.durchmesser)[1]:
+            if (tiefe is None and winkel is None) or massbereich(pmi)[0] <= massbereich(innen.durchmesser)[1]:
                 raise ValueError(tr("Für jede äußere Stufe einen größeren Durchmesser und eine Tiefe von oben angeben."))
             if winkel:
-                differenz = _massbereich(pmi)[1]-_massbereich(innen.durchmesser)[0]
-                tiefste = differenz/(2*math.tan(math.radians(_massbereich(winkel)[0])/2))
+                differenz = massbereich(pmi)[1]-massbereich(innen.durchmesser)[0]
+                tiefste = differenz/(2*math.tan(math.radians(massbereich(winkel)[0])/2))
             else:
-                tiefste = _massbereich(tiefe)[1]
+                tiefste = massbereich(tiefe)[1]
             if tiefste >= letzte_zylindertiefe:
                 raise ValueError(tr("Die äußere Stufe muss auch mit Toleranz flacher als die innere Bohrung sein."))
         gesamt = index-1 in bis_spitze
         spitze = None
-        letzte_zylindertiefe = _massbereich(tiefe or masse[2])[0]
+        letzte_zylindertiefe = massbereich(tiefe or masse[2])[0]
         if index-1 in spitzenwinkel:
             spitze = kegelwinkelmass(spitzenwinkel[index-1])
             if ring.kern is not None or tiefe is None or spitze is None:

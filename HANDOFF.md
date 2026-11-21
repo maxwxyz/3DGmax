@@ -2,6 +2,23 @@
 
 ## Current state, 2026-11-21
 
+### Retain the two pocket-center dimensions from the drawing
+
+- Checked PLAN §8.36 against docs/Roadmap.md. A rectangular pocket, rounded pocket or
+  axis-aligned obround now retains the reviewed X and Y coordinates, deviations and limits.
+  Each STEP location references the plate side and the median plane of the corresponding
+  two pocket walls or semicircular ends. Separate face aspects in a composite preserve
+  both target walls in the native XCAF reader. The drawn dimension uses the projected
+  witness on the plate side and the midpoint of those specific walls.
+- Two equal pockets, blind and through, were tested with different X and equal Y.
+  Both STEP readers recovered the original dimensions, limits and three distinct faces.
+  Changing the reference role yields a comparison finding. Tested edge clearance and a
+  coordinate interval overlapping a second pocket or a counterbore. 322 affected tests
+  and 28 native macOS drawing-reconstruction tests passed.
+- Next, large assembly interaction (§6): on the 42.85 MB STEP with 2,400 solids the native
+  viewer took 41.83 ms to toggle one part and 38.33 ms to toggle its transparency (medians
+  including redraw). Each action refreshed every part and selection mode. QIF remains last.
+
 ### Reconstruct and dimension opposed drill points from a shaft drawing
 
 - Checked PLAN §8.36 against docs/Roadmap.md. A clear material gap lets the reader evaluate

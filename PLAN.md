@@ -1790,6 +1790,12 @@ the depth in STEP AP242. Verified on plates with two equal pockets, both alone a
 Bore X/Y coordinates are exported with graphical and semantic outer-to-center distances. The left
 or bottom plate face is the first reference and the bore wall supplies the axis. Reload through
 both readers verifies the two references and the coordinate tolerance.
+Reviewed pocket X/Y dimensions are also exported. The first aspect references the left or bottom
+plate face. The second is a centre of symmetry derived from a composite aspect containing the
+two opposing pocket walls or both semicircular slot ends. The dimension line reaches the actual
+center coordinate. Verified the nominal, bilateral/limit dimensions and all three faces in both
+STEP readers on equal-sized pockets, rounded openings and slots. Coordinate intervals are checked
+against the plate edges and for overlap of the nominal pockets and bores.
 A confirmed rectangular opening can also pass through the plate. Its four connected walls must meet
 both plate faces, and the export attaches the side dimensions to opposite wall pairs. A through
 opening has no floor or depth PMI. Through openings and pockets can be mixed within a single plate.
@@ -1861,7 +1867,7 @@ A solid truncated cone can be reconstructed from its full longitudinal outline. 
 flanks, end segments, length and end diameters. An optional printed included angle must agree with
 the reconstructed geometry at the stated limits or decimal precision. STEP links each diameter to
 its own circular edge, the length to both end faces and the optional angle to the cone. Mixed
-cylindrical and tapered outside profiles, chamfers and fillets remain open. Pocket center-position PMI, inclined slots, unequal corner radii,
+cylindrical and tapered outside profiles, chamfers and fillets remain open. Inclined slots, unequal corner radii,
 other profiles, automatic cross-view association and datum/GD&T transfer remain open.
 
 ### 8.37 QIF extensions (last in the implementation order)

@@ -7,7 +7,7 @@ import re
 from ..i18n import tr
 from .pmi import MASS, Pmi
 from .zeichnungsabgleich import lese_angabe, musteranzahl
-from .zeichnungskoerper import Plattentasche, koordinaten, pruefe_tiefe, tiefenmass
+from .zeichnungskoerper import Plattentasche, koordinatenmasse, massbereich, pruefe_tiefe, tiefenmass
 
 
 @dataclass(frozen=True)
@@ -44,6 +44,16 @@ def _eckradius(text, kontur, breite, hoehe, sx, bx):
     if abs(p.nennwert/sx-kontur.radius)*bx > 2:
         raise ValueError(tr("Der Eckradius widerspricht den Rundungen im Grundriss."))
     return p
+
+
+def _lageabstand(mitte, andere, x, y):
+    # Kleinster erreichbarer Abstand je Koordinate bei unabhaengigen Lagemassen.
+    delta = []
+    for i,ort in enumerate((x,y)):
+        a,b = massbereich(mitte[i])
+        c,d = massbereich(andere[i]) if andere else (ort,ort)
+        delta.append(max(0.,a-d,c-b))
+    return delta
 
 
 def _beruehrt(dx, dy, a, b, radien):
@@ -110,10 +120,10 @@ def solltaschen(konturen, zeilen, masse, umfang, bohrungen):
     taschen = []
     for i, (kontur, zeile) in enumerate(zip(konturen, zeilen, strict=True), 1):
         tx, ty, tb, th, tt = zeile[:5]
-        mitte = koordinaten(tx, ty)
+        mitte = koordinatenmasse(tx, ty)
         if not mitte:
             raise ValueError(tr("Den Mittelpunkt X und Y für Tasche {} angeben.").format(i))
-        x, y = mitte
+        x, y = (p.nennwert for p in mitte)
         achsmass, abgeleitet = None, False
         if kontur.langloch:
             quer = kontur.breite*bx > kontur.hoehe*by
@@ -134,17 +144,23 @@ def solltaschen(konturen, zeilen, masse, umfang, bohrungen):
                 raise ValueError(tr("Die Tiefe zum flachen Grund von Tasche {} angeben.").format(i))
             pruefe_tiefe(tiefe, masse[2])
         radius = _eckradius(zeile[5] if len(zeile) > 5 else "", kontur, breite, hoehe, sx, bx)
-        tasche = Plattentasche(x, y, breite, hoehe, tiefe, radius, kontur.langloch, achsmass, abgeleitet)
+        tasche = Plattentasche(x, y, breite, hoehe, tiefe, radius, kontur.langloch, achsmass, abgeleitet, mitte)
         r = tasche.rundungsradius
         a, b = breite.nennwert/2, hoehe.nennwert/2
-        if not (a < x < sx-a and b < y < sy-b):
-            raise ValueError(tr("Tasche {} erreicht den Plattenrand.").format(i))
+        for lage,seite,platte in zip(mitte,(breite,hoehe),masse[:2],strict=True):
+            lo,hi = massbereich(lage)
+            halb = massbereich(seite)[1]/2
+            if lo <= halb or hi+halb >= massbereich(platte)[0]:
+                raise ValueError(tr("Tasche {} erreicht den Plattenrand.").format(i))
         for t in taschen:
             rt = t.rundungsradius
-            if _beruehrt(x-t.x, y-t.y, a-r+t.breite.nennwert/2-rt, b-r+t.hoehe.nennwert/2-rt, r+rt):
+            dx,dy = _lageabstand(mitte,t.lagemasse,t.x,t.y)
+            if _beruehrt(dx,dy, a-r+t.breite.nennwert/2-rt, b-r+t.hoehe.nennwert/2-rt, r+rt):
                 raise ValueError(tr("Tasche {} berührt oder schneidet eine andere Tasche.").format(i))
         for bohrung in bohrungen:
-            if _beruehrt(x-bohrung.x, y-bohrung.y, a-r, b-r, r+bohrung.durchmesser.nennwert/2):
+            lagen = bohrung.lagemasse if bohrung.kern is None else bohrungen[bohrung.kern].lagemasse
+            dx,dy = _lageabstand(mitte,lagen,bohrung.x,bohrung.y)
+            if _beruehrt(dx,dy, a-r, b-r, r+bohrung.durchmesser.nennwert/2):
                 raise ValueError(tr("Tasche {} berührt oder schneidet eine Bohrung.").format(i))
         # Beide gegenueberliegenden Kanten jeder Richtung muessen zum Druckbild passen.
         if (bx*(abs(x/sx-kontur.x)+abs(a/sx-kontur.breite/2)) > 2
