@@ -214,6 +214,7 @@
 "Werte stimmen überein. Gemeinsam geltende Toleranzen auf der Zeichnung prüfen.": "Values match. Check which tolerances must hold simultaneously on the drawing.",
 "Geltungshinweis auf dem Blatt: {} · Im Modell: {}": "Scope note on the drawing: {} · In the model: {}",
 "Im STEP-Validierungstext steht „{}“. Beim Übernehmen gilt der vollständige Geltungshinweis aus der Grafik.": "The STEP validation text reads “{}”. Accepting uses the full scope note from the graphic.",
+"Vergleich der angegebenen Werte": "Comparison of specified values",
 "Prüfung der koplanaren Flächen": "Coplanar face check",
 "Geltungshinweis": "Scope note",
 "Grafik und STEP-Validierung widersprechen sich. Toleranzwert und Geltungshinweis prüfen. Dateitext: {}": "The graphic and STEP validation disagree. Check the tolerance value and scope note. File text: {}",

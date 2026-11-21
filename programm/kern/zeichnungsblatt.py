@@ -103,6 +103,24 @@ def _enthaelt(bereich, x, y):
     return seiten.min() >= 0 or seiten.max() <= 0
 
 
+def _muster_eintragen(angaben, mass, w, h):
+    """PDF-Text und grafisch gelesene Menge am selben Ort nur einmal fuehren."""
+    raster = np.array([w,h,w,h])
+    gleiche = [a for a in angaben.values() if musteranzahl(a.text)
+               and np.max(np.abs(np.subtract(a.box,mass.box))*raster) <= 4]
+    if gleiche:
+        from .zeichnungsabgleich import unterschiede
+        gelesen = lese_angabe(mass.text, 1.)
+        if any(musteranzahl(a.text) != musteranzahl(mass.text) or
+               not (p := lese_angabe(a.text, 1.)) or unterschiede(p, gelesen) for a in gleiche):
+            for a in gleiche:
+                a.text = "?"
+            return
+        for a in gleiche:
+            del angaben[a.box]
+    angaben[mass.box] = mass
+
+
 def _zeile(mask):
     zeichen = schrift._bildzeichen(mask)
     if not zeichen:
@@ -487,7 +505,7 @@ class Zeichnungsblatt:
                     break
                 if abs(x-l)*self.breite > .65*h*self.hoehe or not .25*h <= unten-y <= 1.45*h:
                     continue
-                if not teile and not re.match(r"^(?:SIM|INNER|OUTER|[1-9][0-9]{0,3}\s+COPLANAR)\b", text):
+                if not teile and not re.match(r"^(?:SIM|INNER|OUTER|SWITCH|[1-9][0-9]{0,3}\s+COPLANAR)\b", text):
                     break
                 if teile and lese_angabe(text, 1.) is not None:
                     break
@@ -516,15 +534,15 @@ class Zeichnungsblatt:
                     rahmen[a.box] = a
 
         from .zeichnungsverbund import verbundrahmen
-        from .zeichnung_koplanar import profilrahmen
+        from .zeichnung_koplanar import rahmen_mit_hinweis
         verbund = list(verbundrahmen(self))
-        profile = list(profilrahmen(self))
+        mit_hinweis = list(rahmen_mit_hinweis(self))
 
         def innerhalb(box):
             x, y = (box[0]+box[2])/2, (box[1]+box[3])/2
             return (any(l <= x <= r and t <= y <= b for l, t, r, b in rahmen)
                     or any(_enthaelt(a.zeilenecken, x, y) for a in verbund)
-                    or any(_enthaelt(ecken, x, y) for _, ecken in profile))
+                    or any(_enthaelt(ecken, x, y) for fund, ecken, _ in mit_hinweis if fund))
 
         for a in einzeln:
             if not innerhalb(a.box):
@@ -539,7 +557,11 @@ class Zeichnungsblatt:
                            m.box[1] <= (ortsangabe.box[1]+ortsangabe.box[3])/2 <= m.box[3] for ortsangabe in rahmen.values()):
                     rahmen[m.box] = m
         self._rahmenzusaetze(rahmen.values())
-        for fund, _ in profile:
+        for fund, _, mass in mit_hinweis:
+            if mass:
+                _muster_eintragen(rahmen, mass, w, h)
+            if not fund:
+                continue
             # Waagerechte Rahmen koennen schon durch die allgemeine Zellensuche belegt sein.
             gleich = [a for a in rahmen.values() if "|" in a.text and
                       np.max(abs(np.subtract(a.rahmenbox or a.box, fund.rahmenbox) * [w,h,w,h])) <= 4]

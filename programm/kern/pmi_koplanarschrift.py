@@ -7,6 +7,7 @@ import numpy as np
 from scipy import ndimage
 
 from . import pmi_strichschrift as schrift
+from .pmi_ableiten import MONTAGEORTE
 from .pmi_rahmenzusatz import lies_hinweiszeile
 
 _KOPLANAR = re.compile(r"[1-9][0-9]{0,3} COPLANAR SURFACES")
@@ -107,7 +108,7 @@ def _lesung(pfade):
     if zusatz and (text := _beschriftung(zusatz, l, b, h)):
         if _KOPLANAR.fullmatch(text) and len(zellen) == 2:
             symbol = "⌓"
-        elif text == "SWITCH MOUNTING LOCATIONS":
+        elif text == MONTAGEORTE:
             symbol = "⌖"
         else:
             return None

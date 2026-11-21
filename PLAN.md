@@ -259,6 +259,14 @@ Throughout: tests (core, offscreen UI, stress test, on-screen test), `--selbstte
   The reviewed AP242 export retains the description, targets and source view for
   original outlines, a full single-stroke frame and caption, or a triangle-only callout.
   All thirteen graphical CTC-03 tolerance frames now yield a value.
+  Drawing comparison reads the same projected position frame from CTC-03 Rev C.
+  Relative to AP242 #41 the missing mounting-location description is the only
+  difference. The reviewed graphical STEP agrees. The independently attached size
+  row “4X Ø.625 ±.005” matches the numeric limits of AP242 #265. Pattern coverage
+  is checked separately when the drawing holes have been associated with model faces.
+  CTC-02 sheet 1, FTC-09 sheets 1 and 4, and FTC-10 sheet 5 also recover their
+  counted diameter rows. Several semantic dimensions share each FTC-09 size.
+  CSV records the field comparison for each associated drawing value.
   Three other position control frames on the inch-based CTC-03 model identify the D/B/C datum
   order and a perpendicularity control identifies datum E. Previously the printed D could
   be read as B. Verified the six labelled datums A through F and four tolerance frames

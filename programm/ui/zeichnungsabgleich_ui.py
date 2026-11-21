@@ -1015,7 +1015,8 @@ class Zeichnungsabgleich(QtWidgets.QDialog):
                             tr("Quell-IDs der Modellgruppe"), tr("Befund der Toleranzgruppe"),
                             tr("STEP-ID der unteren Rahmenzeile"), tr("Modellwert der unteren Rahmenzeile"), tr("Prüfung des Verbundrahmens"),
                             tr("Blattgruppe der unteren Zeile (Blatt und Bereich)"), tr("Zugeordnete Quell-IDs der unteren Gruppe"),
-                            tr("Quell-IDs der unteren Modellgruppe"), tr("Gruppenbefund der unteren Zeile"), tr("Prüfung der koplanaren Flächen")])
+                            tr("Quell-IDs der unteren Modellgruppe"), tr("Gruppenbefund der unteren Zeile"), tr("Prüfung der koplanaren Flächen"),
+                            tr("Vergleich der angegebenen Werte")])
                 def modellwert(m):
                     return "\n".join(filter(None, (m.wert_text(), za.modellhinweis(m))))
 
@@ -1058,13 +1059,14 @@ class Zeichnungsabgleich(QtWidgets.QDialog):
                                         if any(len(z.ort)>3 for z in orte) else "",
                                         " | ".join(f"{x:.6f} {y:.6f}" for x,y in a.zeilenecken),
                                         " | ".join(f"{x:.6f} {y:.6f}" for x,y in a.hinweisenden), *nachweis, *rahmen, *untere_gruppe,
-                                        self._koplanartext(koplanar) if koplanar else ""])
+                                        self._koplanartext(koplanar) if koplanar else "",
+                                        self._wertdetails(angabe, m, self.gruppen.get(a)) if angabe and m else ""])
                 for m in self.modell:
                     if id(m) not in verbunden:
                         w.writerow([*self.quellen, "", "", "", "", tr("Nur im Modell") if id(m) in self.nur_modell else
-                                    tr("Modell-PMI offen"), m.nummer, modellwert(m), sorted(m.flaechen), "", m.step_id if m.step_id > 0 else "", *([""]*21)])
+                                    tr("Modell-PMI offen"), m.nummer, modellwert(m), sorted(m.flaechen), "", m.step_id if m.step_id > 0 else "", *([""]*22)])
                 for nr in sorted(set(range(len(self.doc))) - self.seiten.keys()):
-                    w.writerow([*self.quellen, nr+1, "", "", "", tr("Blatt ungeprüft"), *([""]*26)])
+                    w.writerow([*self.quellen, nr+1, "", "", "", tr("Blatt ungeprüft"), *([""]*27)])
         except OSError as e:
             QtWidgets.QMessageBox.warning(self, tr("Prüfliste speichern"), str(e))
 

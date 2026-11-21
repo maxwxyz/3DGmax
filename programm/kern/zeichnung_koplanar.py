@@ -1,4 +1,4 @@
-"""Projizierte Profilrahmen mit gezeichnetem Hinweis auf koplanare Flaechen im PDF."""
+"""Projizierte Toleranzrahmen mit gezeichnetem Geltungshinweis im PDF."""
 
 from ctypes import c_int
 
@@ -6,7 +6,6 @@ import numpy as np
 from scipy import ndimage
 from scipy.spatial import cKDTree
 
-from .koplanare_ziele import einzelanzahl
 from .pmi_koplanarschrift import _konturzeile
 from .pmi_rahmenzusatz import lies_hinweiszeile
 from .pmi_strichschrift import _gruppen
@@ -131,8 +130,7 @@ def _schriftblock(maske, rahmen, zellen, h):
         if len(lesarten) != 1:
             return None
         texte.append(lesarten.pop())
-    if (max(anfaenge)-min(anfaenge) > .35*h or zeilen[0][0] > .9*h
-            or not einzelanzahl(" ".join(texte))):
+    if max(anfaenge)-min(anfaenge) > .35*h or zeilen[0][0] > .9*h:
         return None
     return texte, links+ende, start+zeilen[-1][1]
 
@@ -153,7 +151,7 @@ def _faecher(m, skala, breite, rand):
 def _lesung(streifen, breite, hoehe):
     from .zeichnungsblatt import _box, _zeile
     rand = .22
-    # Erst die Rahmenfaecher pruefen, dann nur bei lesbarem Profil den groesseren Hinweisbereich rendern.
+    # Erst die Rahmenfaecher pruefen, dann nur bei lesbarem Rahmen den groesseren Hinweisbereich rendern.
     fenster = np.array([-rand,-rand,breite+rand,1+rand])
     m = streifen._maske(fenster*hoehe, 75/hoehe, 210)
     paar = _faecher(m, 75, breite, rand)
@@ -161,7 +159,7 @@ def _lesung(streifen, breite, hoehe):
         return None
     texte = [_zeile(m[t+2:b-2,l+2:r-2]) for l,t,r,b in paar[1]]
     kopf = " | ".join(texte)
-    if texte[0] != "⌓" or lese_angabe(kopf, 1.) is None:
+    if texte[0] not in ("⌓", "⌖"):
         return None
     skala = 140
     fenster[2:] = [max(15., breite+1), 3.9]
@@ -171,28 +169,37 @@ def _lesung(streifen, breite, hoehe):
         return None
     zellen, reihe = paar
     fein = [_zeile(m[t+2:b-2,l+2:r-2]) for l,t,r,b in reihe]
-    if fein != texte:
+    if fein[0] != texte[0]:
         return None
-    rahmenbox = (*reihe[0][:2], reihe[-1][2], reihe[0][3])
-    fund = _schriftblock(m, rahmenbox, zellen, skala)
-    if not fund:
-        return None
-    zeilen,r,u = fund
     rahmen = streifen.blattecken(np.array([0,0,breite,1])*hoehe)
-    box = np.array([0,0,max(breite,r/skala-rand),u/skala-rand])
-    ecken = streifen.blattecken(box*hoehe)
-    if rahmen and ecken:
-        angabe = Blattangabe(streifen.blatt.nummer, _box(ecken), "\n".join([kopf,*zeilen]),
-                            rahmenbox=_box(rahmen), zeilenecken=ecken)
-        return angabe, rahmen
+    if not rahmen:
+        return None
+    mass = None
+    if texte[0] == "⌖":
+        from .zeichnung_musterzeile import musterzeile
+        mass = musterzeile(streifen, breite, hoehe)
+    rahmenbox = (*reihe[0][:2], reihe[-1][2], reihe[0][3])
+    fund = _schriftblock(m, rahmenbox, zellen, skala) if fein == texte and lese_angabe(kopf, 1.) else None
+    angabe = None
+    if fund:
+        zeilen, r, u = fund
+        text = "\n".join([kopf, *zeilen])
+        box = np.array([0,0,max(breite,r/skala-rand),u/skala-rand])
+        ecken = streifen.blattecken(box*hoehe)
+        if ecken and lese_angabe(text, 1.) is not None:
+            angabe = Blattangabe(streifen.blatt.nummer, _box(ecken), text, rahmenbox=_box(rahmen), zeilenecken=ecken)
+    if angabe or mass:
+        return angabe, rahmen, mass
 
 
-def profilrahmen(blatt):
+def rahmen_mit_hinweis(blatt):
+    from .zeichnungsblatt import _box
     funde = {}
     for streifen, breite, hoehe in _leselagen(blatt):
         if fund := _lesung(streifen, breite, hoehe):
-            angabe, _ = fund
-            funde.setdefault(angabe.rahmenbox, {})[angabe.text] = fund
+            angabe, rahmen, mass = fund
+            schluessel = (angabe.text if angabe else "", mass.text if mass else "")
+            funde.setdefault(_box(rahmen), {})[schluessel] = fund
     for lesarten in funde.values():
         if len(lesarten) == 1:
             yield next(iter(lesarten.values()))

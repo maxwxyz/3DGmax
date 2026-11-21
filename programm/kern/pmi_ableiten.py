@@ -70,6 +70,9 @@ def simultantext(text):
     return (m["simultan"] or "") if m else ""
 
 
+MONTAGEORTE = "SWITCH MOUNTING LOCATIONS"
+
+
 def geltungshinweis(text):
     """Vollstaendige, unterstuetzte Rahmenzusaetze mit vereinheitlichten Wortabstaenden."""
     text = " ".join(text.split())

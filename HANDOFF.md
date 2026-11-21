@@ -2,6 +2,37 @@
 
 ## Current state, 2026-11-21
 
+### Compare projected mounting positions and counted diameters on the drawing
+
+- Checked PLAN §8.4 against docs/Roadmap.md. CTC-03 Rev C sheet 1 now reads
+  the five position compartments and both caption lines. The original AP242
+  #41 differs only in its empty description. The CSV field comparison names
+  that difference. All three previously exported graphical variants agree
+  after reopening. Also tested the full UI workflow from AP203 by reviewing
+  D/B/C, the position and its separate diameter, exporting AP242, reopening
+  the file and confirming the drawing comparison through the file menu.
+- The dimension above the frame has its own drawing coordinates and leader.
+  “4X Ø.625 ±.005” matches the numeric limits of AP242 #265. The app reads
+  the quantity, diameter, nominal value and deviations from the dimension
+  itself, including when the attached position value is unreadable.
+  A count stays open until the drawing holes have been associated with the
+  model faces. Coincident PDF text and graphics produce one measurement.
+- Verified five printed quantities and sizes in CTC-02 sheet 1, CTC-03
+  sheet 1, FTC-09 sheets 1 and 4, and FTC-10 sheet 5. Each FTC-09 value
+  occurs on three semantic dimensions, so equal values alone cannot assign
+  the feature. The 42-sheet inventory grew from 147 to 153 findings. All six
+  additions were verified against the real drawing and STEP.
+- Passed 149 affected tests, 60 comparison regression cases and 20 native
+  Cocoa checks. The signed local app rendered the reviewed export and
+  passed its self-test. Keep the single main app at `dist/3DGmax.app`.
+- Next in §8.4, CTC-03 AP203 radial dimension #3629 prints Ø2.00 ±.01 inch.
+  Target #544 has radius 25.4 mm. AP242 #267 gives 50.546 and 51.054 mm
+  limits on the two cylinder halves. The current reader removes the leader
+  but gets no full value at 720 pixels per callout height. The same original
+  contours read correctly at 900 and 1100 pixels. Verify a bounded retry
+  with original curves, single strokes, fills and damaged controls. #3634
+  shows a separate counted linear dimension. QIF stays last.
+
 ### Switch mounting positions from graphical STEP
 
 - Rechecked PLAN §8.4 and docs/Roadmap.md. Reviewed NIST CTC-03 AP203 #3627

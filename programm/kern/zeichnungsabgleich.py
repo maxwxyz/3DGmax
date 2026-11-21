@@ -253,7 +253,10 @@ def lese_angabe(text, faktor, grundmass=False):
         kopf, _, folge = text.strip().partition("\n")
         zusatz = pmi_ableiten.geltungshinweis(folge)
         anzahl = einzelanzahl(folge)
-        if anzahl and kopf.split("|", 1)[0].strip() == "⌓":
+        symbol = kopf.split("|", 1)[0].strip()
+        if symbol == "⌖" and " ".join(folge.split()) == pmi_ableiten.MONTAGEORTE:
+            zusatz = pmi_ableiten.MONTAGEORTE
+        if anzahl and symbol == "⌓":
             zusatz = f"{anzahl} COPLANAR SURFACES"
         if zusatz:
             text = kopf
