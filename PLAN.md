@@ -188,6 +188,10 @@ Throughout: tests (core, offscreen UI, stress test, on-screen test), `--selbstte
   including review of the projection end face and reimport of both original presentations.
   The same wide-font dimension reader accepts unframed triangle-only lettering on a stored
   plane. FTC-07 test meshes preserve repeated diameters with symmetric or stacked deviations.
+  A detached witness arc at a radial arrow tip can be separated from the printed dimension. The
+  arc must fit a circle through the tip, with the shaft radial to the circle and both arrow flanks
+  present. All twelve FTC-07 linear size callouts can now be transcribed from their strokes. The
+  diameter with the detached arc also passes a triangle-only graphical-to-semantic round trip.
   Open: additional fonts, composite controls and dimensions with
   ambiguous leader or text placement.
 - Convert to semantic PMI: evaluate recognized text + frame structure; mark result as "derived (check)", never as

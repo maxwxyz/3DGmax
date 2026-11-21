@@ -308,6 +308,14 @@ def _gestapelt(mask, lesen=_normale_zeile):
     return ""
 
 
+def _masszeile(mask):
+    normal = _normale_zeile(mask) or _gestapelt(mask)
+    breit = _breite_zeile(mask) or _gestapelt(mask, _breite_zeile)
+    if not re.match(r"^(?:[1-9][0-9]*X)?[⌀R][0-9.]", breit):
+        return normal
+    return breit if not normal or breit == normal else ""
+
+
 def _freitext(pfade):
     punkte = np.vstack([p for p, _ in pfade])
     spannweite = np.ptp(punkte, axis=0)
@@ -315,7 +323,7 @@ def _freitext(pfade):
         return ""
     # Erst die gesamte Grafik rastern. Lange Masslinien samt verbundener Pfeilspitze abtrennen.
     skala = min(720 / spannweite[1], 2000 / spannweite[0])
-    mask, _ = _gesamtbild(pfade, skala)
+    mask, box = _gesamtbild(pfade, skala)
     if mask is None:
         return ""
     labels, anzahl = ndimage.label(mask, np.ones((3, 3)))
@@ -325,6 +333,7 @@ def _freitext(pfade):
     hoehen = [y.stop-y.start for y, x in objekte if y.stop-y.start >= 4]
     if not hoehen:
         return ""
+    fuehrungen = []
     typisch = np.percentile(hoehen, 65)
     for i, (y, x) in enumerate(objekte, 1):
         if max(x.stop-x.start, y.stop-y.start) > 3.5 * typisch:
@@ -332,13 +341,20 @@ def _freitext(pfade):
             teil = labels[y, x] == i
             if teil.mean() < .12:
                 mask[y, x] &= ~teil
+                fuehrungen.append(i-1)
     if not mask.any():
         return ""
-    normal = _normale_zeile(mask) or _gestapelt(mask)
-    breit = _breite_zeile(mask) or _gestapelt(mask, _breite_zeile)
-    if not re.match(r"^(?:[1-9][0-9]*X)?[⌀R][0-9.]", breit):
-        return normal
-    return breit if not normal or breit == normal else ""
+    wort = _masszeile(mask)
+    if wort or len(fuehrungen) != 1:
+        return wort
+    from .pmi_hinweislinie import zielbogen
+    bogen = zielbogen(pfade, box, skala, labels, objekte, fuehrungen[0], typisch)
+    if bogen is None:
+        return ""
+    y, x = objekte[bogen]
+    mask[y, x] &= labels[y, x] != bogen+1
+    wort = _masszeile(mask)
+    return wort if re.match(r"^(?:[1-9][0-9]*X)?[⌀R][0-9.]", wort) else ""
 
 
 def _fuellrahmen(pfade):

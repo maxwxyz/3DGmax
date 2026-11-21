@@ -2,6 +2,25 @@
 
 ## Current state, 2026-11-21
 
+### Graphical diameter with detached target arc
+
+- Checked PLAN §§8.4, 8.18 and 8.28 and docs/Roadmap.md. FTC-07 #15146 includes a separate
+  30-vertex circular arc near the leader. Its fitted radius is about 6.3497 mm. The tip lies on
+  that circle within 0.0001 mm and the shaft points along the radius. This describes the plot;
+  the printed nominal diameter is read independently. The reader excludes this component only
+  for a complete diameter or radius row and checks both arrow flanks.
+- All twelve original FTC-07 “Linear Size” callouts were transcribed from the strokes alone.
+  The graphic-only STEP round trips for #15146, #15669 and #15807 were repeated with original
+  strokes and triangle-only fills. The .250-inch nominal and +.003/−.000-inch deviations from
+  #15146 were reimported against the same two model faces. All original entities were retained.
+  Straight, displaced, text-adjacent and additional marks, and an arrow missing its head, remain open.
+  All 40 affected tests, 36 native macOS graphical STEP repair tests and 50 PRC/validation tests passed.
+- Next §8.4: complex control frames still need their full row structure and semantic links.
+  On FTC-07 #14498, the position symbol spans both rows. The upper value is diameter .060
+  inch against A/B/C, the lower is diameter .015 against A. Original STEP links #14472 and
+  #14483 with GEOMETRIC_TOLERANCE_RELATIONSHIP('composite',…) and associates both with this
+  callout. Repaired composite export must preserve this order and relationship. QIF remains last.
+
 ### Unframed filled wide diameter dimensions
 
 - Checked PLAN §§8.4, 8.18 and 8.28 against docs/Roadmap.md. Wide-font rows are now checked

@@ -777,14 +777,40 @@ def test_breite_strichschrift_mit_gepruefter_masslesart_bis_step(fenster,tmp_pat
             assert neu.grenzen() == pytest.approx((.5588,.3048))
 
 
-def test_weitere_breite_zeilen_ohne_dateitext_und_ungenauer_rest(ftc07):
+def test_alle_zwoelf_breiten_masszeilen_ohne_dateitext(ftc07):
     from programm.kern.praesentation import lies_grafik
     from programm.kern.pmi_strichschrift import lies_schrift
+
     grafik = lies_grafik(ftc07.datei)
-    erwartet = {15669:"3X⌀.875±.010", 16020:"2X⌀.594 +.012\n-.002", 15254:"⌀.250 +.003\n-.000",
-                15807:"4X⌀.281 +.006\n-.001", 15146:""}
+    erwartet = {
+        15146: "⌀.250 +.003\n-.000", 15254: "⌀.250 +.003\n-.000",
+        15360: "2X⌀.250 +.003\n-.000", 15405: "4X⌀.250 +.003\n-.001",
+        15623: "3X⌀.875±.020", 15669: "3X⌀.875±.010",
+        15715: "4X⌀.173 +.005\n-.001", 15761: "2X⌀.594 +.012\n-.002",
+        15807: "4X⌀.281 +.006\n-.001", 15899: "4X⌀.438±.010",
+        16020: "2X⌀.594 +.012\n-.002", 16200: "R.022-.012",
+    }
+    assert set(erwartet) == {nr for nr, g in grafik.items() if g.name.startswith("Linear Size.")}
     for nr, wort in erwartet.items():
         assert lies_schrift(grafik[nr]) == wort
+
+
+def test_abgesetztes_zeichen_bleibt_ohne_passenden_radialpfeil_offen(ftc07):
+    from dataclasses import replace
+    from programm.kern.pmi_strichschrift import lies_schrift
+    from programm.kern.praesentation import lies_grafik
+
+    g = lies_grafik(ftc07.datei)[15146]
+    bogen = g.linien[18]
+    # Die ersten 18 Zuege sind Text, danach folgen Bogen, Schaft und die Pfeilspitze.
+    assert not lies_schrift(replace(g, linien=g.linien[:20]))
+    gerade = np.linspace(bogen[0], bogen[-1], len(bogen))
+    verschoben = bogen + 1.5*g.ebene[1]
+    am_text = bogen - bogen.mean(axis=0) + g.linien[0][0] - 3*g.ebene[1]
+    for zeichen in (gerade, verschoben, am_text):
+        linien = [*g.linien[:18], zeichen, *g.linien[19:]]
+        assert not lies_schrift(replace(g, linien=linien))
+    assert not lies_schrift(replace(g, linien=[*g.linien, am_text]))
 
 
 def _als_fuellung(datei, rein, ziel, callouts, ohne_ebene=False):
@@ -900,20 +926,23 @@ def test_breite_rahmen_mit_weiteren_merkmalen(ftc07):
         assert lies_schrift(grafik[nr]) == wort
 
 
-def test_breite_gefuellte_masse_mit_mengen_und_abmassen_im_step(fenster, tmp_path):
+@pytest.mark.parametrize("fuellung", [False, True], ids=["striche", "dreiecke"])
+def test_breite_masse_mit_zielbogen_mengen_und_abmassen_im_step(fenster, tmp_path, fuellung):
     from programm.kern.pmi_strichschrift import lies_schrift
 
     datei, referenz, rein = _ohne_semantik(pfad("nist_ftc_07_asme1_ap242-e2.stp"), tmp_path/"Masse.stp",
                                            validierung=False)
     callouts = ((15669, 15666, None), (15807, 15804, None), (15146, 15143, None))
-    quelle = _als_fuellung(datei, rein, tmp_path/"Masse gefuellt.stp", callouts)
+    quelle = _als_fuellung(datei, rein, tmp_path/"Masse gefuellt.stp", callouts) if fuellung else datei
     fenster.lade(quelle, warten=True)
     vorher = fenster.erg
-    werte = {15669: ("3X⌀.875±.010", .875, .010, -.010), 15807: ("4X⌀.281 +.006\n-.001", .281, .006, -.001)}
+    werte = {15669: ("3X⌀.875±.010", .875, .010, -.010), 15807: ("4X⌀.281 +.006\n-.001", .281, .006, -.001),
+             15146: ("⌀.250 +.003\n-.000", .250, .003, 0.)}
     for nr, angabe in werte.items():
         original = next(p for p in vorher.pmi if p.step_id == nr)
         g = vorher.grafik[nr]
-        assert g.dreiecke and not g.linien and not g.platzhalter and not original.semantisch
+        assert bool(g.dreiecke) == fuellung and bool(g.linien) != fuellung
+        assert not g.platzhalter and not original.semantisch
         fenster._pmi_befehl("semantisch", original)
         dialog = fenster._semantik_dialog
         assert not dialog.v.validierungstexte and dialog.v.ocr_text == angabe[0]
@@ -922,9 +951,8 @@ def test_breite_gefuellte_masse_mit_mengen_und_abmassen_im_step(fenster, tmp_pat
         dialog._auswahl_uebernehmen()
         assert not dialog.fehler()
         dialog._pruefen()
-    assert not lies_schrift(vorher.grafik[15146])
     ziel = fenster.speichere_step_pmi(str(tmp_path/"Masse mit Semantik.stp"), melden=False)
-    assert len(fenster._step_bericht.repariert) == 2 and not fenster._step_bericht.uebersprungen
+    assert len(fenster._step_bericht.repariert) == 3 and not fenster._step_bericht.uebersprungen
     neu = lade_alles(ziel)
     assert all(neu.modell.datei.get(i) == ent for i, ent in vorher.modell.datei.entities.items())
     for nr, (text, nenn, oben, unten) in werte.items():
