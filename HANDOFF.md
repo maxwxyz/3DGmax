@@ -2,6 +2,41 @@
 
 ## Current state, 2026-11-21
 
+### Differential pinion with a separate collared thrust washer
+
+- The new two-part assembly reproduces the reported configuration: a rear spherical surface,
+  an annular recess, a stepped bore, a separate spherical thrust washer and a projecting collar.
+  Its ten-tooth pinion with trimmed toe and heel returned an empty result on main 12fb63d.
+  The new fit checks the continuous root cone and the intact central tooth band. The inner
+  profile distinguishes cylindrical steps from a crowned pin bore and the outer spherical back.
+- Selecting the first counterbore face in the positioned STEP assembly returns the pinion. The
+  gearbox command finds the same gear and the collar on the separate occurrence. Diameter and
+  overlap agree with the reference (10.2 mm counterbore, 10.16 mm collar and 2.58 mm overlap).
+  The second counterbore is 16 mm. CAD and STL controls exclude the washer as a gear. Additional
+  generated variants recovered 8, 9, 11, 13 and 16 teeth. The user's model was unavailable.
+- Checked PLAN §8.27 and the shipped Roadmap entry. The reusable example is in
+  dist/main-kragensitz with the signed and self-tested Apple Silicon app and ZIP.
+
+### Preliminary shaft, bearing, gear and joint sizing
+
+- Checked PLAN §§8.38–8.39 against docs/Roadmap.md and kept QIF last. The gearbox report now
+  includes cylindrical B-rep seats, source occurrences, candidate mating parts, diametral
+  difference, overlap and selection. A smaller through bore and an adjoining wider flange on the
+  mating component provide additional evidence for a sleeve or thrust-washer collar at a bevel
+  gear counterbore. This identification is a candidate. The installed bearing type and actual
+  fit require independent data.
+- Tools › Size machine element starts without a model. Adopt supported gear-pair parameters
+  or seat dimensions, supply operating conditions, save and reopen calculations, and transfer
+  resultant tooth forces into a simply supported shaft. Modules cover nominal spur loads,
+  static shaft torsion and bending, projected bushing pressure/speed, basic rolling-bearing life
+  and cylindrical friction/interference joints. Shaft and bushing STEP round-trips retain their
+  diameter and length dimensions as graphical and semantic PMI. Complete tooth strength
+  ratings and parametric gear-pair assemblies with PMI are still open.
+- Three native GUI tests passed, including selection of the pin bore in a STEP assembly,
+  standalone sizing and tooth-force transfer. The packaged app rendered the new STEP assembly.
+  The exported two-page PDF contains the counterbore dimensions and the collar candidate.
+  All 178 affected tests passed. The full run passed 1,052 tests with 8 native display tests skipped.
+
 ### Selected bevel pinion with short spherical back and crowned pin bore
 
 - Reproduced an empty gear list on main 3fe6d18 with a constructed 12-tooth pinion, rear

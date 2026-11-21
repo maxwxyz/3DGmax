@@ -1408,6 +1408,10 @@ tools (the user names MASTA as an example of a tool that needs these inputs), an
   contour along the axis, including a circular crown with its smallest or largest diameter
   near mid-length. Report the bore curvature radius and diameter at the extremum when both
   sides support the fit. The differential and gear-train outputs consume the measured profiles.
+- Implemented a differential pinion with an annular rear recess and counterbore for a collared
+  spherical thrust washer. A continuous root cone and the central tooth band can establish a bevel
+  profile when both ends trim the tips. Measure rear bore steps and the remaining crowned pin bore
+  separately. A washer supplied as another occurrence retains its own geometry and identity.
 - Recognition scope and result selection (implemented): picking a component or one of its faces
   scopes wheel recognition to the selected component occurrences. An empty selection includes all
   physical components, including hidden ones. The gearbox command uses the visible components
@@ -1984,7 +1988,7 @@ its own circular edge, the length to both end faces and the optional angle to th
 cylindrical and tapered outside profiles, chamfers and fillets remain open. Inclined slots, unequal corner radii,
 other profiles, automatic cross-view association and datum/GD&T transfer remain open.
 
-### 8.38 Machine-element sizing, verification and parametric 3D geometry (planned)
+### 8.38 Machine-element sizing, verification and parametric 3D geometry (in progress)
 
 Provide forward design of individual machine elements and their assemblies. Give sizing its own workspace where a user can start
 an element project without an imported model and review inputs, calculations and geometry side by side.
@@ -1993,6 +1997,19 @@ loads and requirements, enter dimensions manually, or adopt measured parameters 
 engineering after review. MASTA's transmission workflow and KISSsoft's modular machine-element
 calculations are product references. Implement and validate each calculation independently.
 [SMT MASTA](https://www.smartmt.com/masta/) · [KISSsoft product overview](https://www.kisssoft.com/en/products/product-overview)
+
+Implemented in Tools › Size machine element: start without CAD or adopt gear-pair parameters
+and seat dimensions from measured geometry. Calculations include nominal spur gear forces, static
+shaft torsion, two-support bending and reactions under one transverse load, projected bushing
+pressure/speed, ball/roller basic rating life, friction torque and elastic interference pressure.
+Each result retains its input values, units and original geometry values when saved and reopened.
+Shaft sections and bushings can be exported as nominal AP242 solids with face-linked diameter
+and length PMI. Detailed fatigue, flank rating, lubrication, materials, manufacturing allowances,
+complete gearbox power/load propagation and assembly generation remain open.
+
+The bearing-life implementation uses the catalogue equivalent dynamic load and basic dynamic
+rating. The fit calculation uses effective diametral interference, a solid shaft and free ends.
+[SKF basic rating life](https://cdn.skfmediahub.skf.com/api/public/0901d196802809de/pdf_preview_medium/Rolling_bearings_-_17000_1_EN_pdf_preview_medium.pdf) · [Autodesk press fit calculation](https://help.autodesk.com/cloudhelp/2025/ENU/Inventor-Help/files/GUID-6411393F-5391-467D-8234-D14DD8B5348C.htm)
 
 | Planned module family | Initial design scope and output |
 | --- | --- |
@@ -2026,7 +2043,12 @@ calculations are product references. Implement and validate each calculation ind
    where the model supports them. Recalculate dependent checks when loads, materials or dimensions
    change. QIF extensions follow this work.
 
-### 8.39 Reverse engineering of drives, engines, axles and suspension kinematics (planned)
+### 8.39 Reverse engineering of drives, engines, axles and suspension kinematics (in progress)
+
+Implemented in the gearbox report: inventory complete cylindrical B-rep journals and bores in
+their installed positions, match coaxial pairs from different occurrences, show their overlap
+and signed diametral difference, and select the pair in the model. A cylindrical interface is
+geometric evidence only. Bearing type, locking and fit limits need independent evidence.
 
 Start from a STEP assembly or mesh. Recover components, joints and axes in their installed positions.
 A user can confirm or correct each proposed connection and supply missing operating conditions.

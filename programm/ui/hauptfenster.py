@@ -662,6 +662,9 @@ class Hauptfenster(QtWidgets.QMainWindow):
         A("verzahnung", tr("Verzahnung erkennen – Raddaten …"), lambda: self.erkenne_verzahnung(),
           tipp=tr("Zähnezahl, Modul, Eingriffswinkel, Schrägung, Profilverschiebung und Zahnweite der gewählten Teile "
                   "(ohne Auswahl: aller Bauteile) aus der Geometrie – Export CSV/JSON"))
+        from .maschinenelemente_ui import zeige_auslegung
+        A("maschinenelement", tr("Maschinenelement auslegen …"), lambda: zeige_auslegung(self), modell=False,
+          tipp=tr("Stirnradpaar, Welle, Lager oder Reibsitz aus Abmessungen und Betriebsdaten berechnen"))
         A("getriebe", tr("Getriebe analysieren – Kraftfluss …"), lambda: self.erkenne_verzahnung(alle_sichtbaren=True),
           tipp=tr("Alle sichtbaren Teile auf Zahnräder, Wellen, Stufen und Gesamtübersetzungen untersuchen"))
         A("step_pmi_speichern", tr("STEP mit geänderten PMI speichern …"), lambda: self.speichere_step_pmi(),
@@ -966,6 +969,7 @@ class Hauptfenster(QtWidgets.QMainWindow):
         m.addAction(a["scan_pruefen"])
         m.addAction(a["verzahnung"])
         m.addAction(a["getriebe"])
+        m.addAction(a["maschinenelement"])
         m.addAction(a["messergebnisse"])
         self.menue_fenster = mb.addMenu(tr("&Fenster"))
         for d in (self.dock_baum, self.dock_ansichten, self.dock_pmi, self.dock_messen, self.dock_analyse,
@@ -3306,11 +3310,13 @@ class Hauptfenster(QtWidgets.QMainWindow):
         self._verzahnung_abbrechen()
         if not teile:
             return None
-        lader = VerzahnungLader(teile, teilnummern=[k.nummer for k in knoten])
+        lader = VerzahnungLader(teile, teilnummern=[k.nummer for k in knoten], mit_sitzen=alle_sichtbaren)
         lader.ansicht = ansicht
         lader.quellmodell = weakref.ref(ansicht.szene.modell)
         lader.umfang = (tr("Sichtbare Bauteile: {}") if alle_sichtbaren else
                         tr("Ausgewählte Bauteile: {}") if auswahl else tr("Alle Bauteile: {}")).format(len(knoten))
+        if auswahl and len(knoten) <= 3:
+            lader.umfang += " · " + ", ".join(f"{k.name} (#{k.nummer})" for k in knoten)
         lader.stand.connect(self._verzahnung_stand)
         lader.fehler.connect(self._verzahnung_fehler)
         lader.fertig.connect(self._verzahnung_fertig)
@@ -3364,10 +3370,13 @@ class Hauptfenster(QtWidgets.QMainWindow):
             panel.waehle_blaetter(nummern)
             self._baum_auswaehlen(panel)
         self._verzahnung = VerzahnungFenster(liste, os.path.splitext(ansicht.szene.modell.pfad)[0], self,
-                                             quellen=lader.quellen, umfang=lader.umfang, getriebe=self._verzahnung_getriebe)
+                                             quellen=lader.quellen, umfang=lader.umfang, getriebe=self._verzahnung_getriebe,
+                                             sitze=lader.sitze, sitzpaare=lader.sitzpaare)
         self._verzahnung.teile_gewaehlt.connect(waehle)
         if self._verzahnung_getriebe and self._verzahnung.getriebe_tabelle.rowCount():
             self._verzahnung.reiter.setCurrentWidget(self._verzahnung.getriebeseite)
+        elif not liste and self._verzahnung.sitzseite:
+            self._verzahnung.reiter.setCurrentWidget(self._verzahnung.sitzseite)
         self._verzahnung.show()
         self.statusBar().showMessage(tr("{} Verzahnung(en) erkannt").format(len(liste)), 8000)
 

@@ -361,6 +361,13 @@ def verzahnung_pdf(fenster, pfad: str) -> str:
         bericht.ueberschrift(tr("Auslegungsbefunde"))
         spalten = [(bt.horizontalHeaderItem(i).text(), w) for i, w in enumerate((.13, .14, .16, .36, .21))]
         bericht.tabelle(spalten, [[bt.item(r, c).text() for c in range(len(spalten))] for r in range(bt.rowCount())])
+    if fenster.sitzseite:
+        if fenster.liste:
+            bericht.neue_seite()
+        seite = fenster.sitzseite
+        bericht.ueberschrift(tr("Wellen und Sitze"))
+        bericht.absatz(seite.hinweis)
+        bericht.tabelle(list(zip(seite.spalten, (.19, .33, .16, .14, .18))), seite.zeilen)
     if fenster.hinweise.text():
         bericht.absatz(fenster.hinweise.text())
     return bericht.fertig()

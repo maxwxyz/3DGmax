@@ -132,3 +132,129 @@ def test_kalotte_hinter_unbeschnittenem_zahnband():
     assert v.art == "konisch" and v.z == 12 and v.bolzenbohrung is None
     assert v.kalottenradius == pytest.approx(radius, abs=.02)
     assert v.bandgrenzen[1] - v.bandgrenzen[0] == pytest.approx(8., abs=.001)
+
+
+def _rad_und_anlaufscheibe(ballig=True):
+    from OCC.Core.BRepAlgoAPI import BRepAlgoAPI_Common, BRepAlgoAPI_Cut, BRepAlgoAPI_Fuse
+    from OCC.Core.BRepPrimAPI import BRepPrimAPI_MakeCone, BRepPrimAPI_MakeCylinder, BRepPrimAPI_MakeSphere
+    from OCC.Core.BRepBuilderAPI import BRepBuilderAPI_MakeEdge, BRepBuilderAPI_MakeFace, BRepBuilderAPI_MakeWire
+    from OCC.Core.GC import GC_MakeArcOfCircle
+    from OCC.Core.BRepPrimAPI import BRepPrimAPI_MakeRevol
+    from OCC.Core.gp import gp_Ax1, gp_Ax2, gp_Dir, gp_Pnt
+
+    def zyl(r, z, l):
+        return BRepPrimAPI_MakeCylinder(gp_Ax2(gp_Pnt(0, 0, z), gp_Dir(0, 0, 1)), r, l).Shape()
+
+    def kugel(r):
+        return BRepPrimAPI_MakeSphere(gp_Pnt(0, 0, -3), r).Shape()
+
+    rad = _referenz(10, 9, 1.9, 11, 0, kegel=.66, tiefenzuwachs=.07, lagen=2)
+    rad = BRepAlgoAPI_Common(rad, kugel(15)).Shape()
+    rad = BRepAlgoAPI_Common(rad, BRepPrimAPI_MakeCone(7.35, 34, 12).Shape()).Shape()
+    rad = BRepAlgoAPI_Cut(rad, zyl(8, 7.3, 15)).Shape()
+    rad = BRepAlgoAPI_Cut(rad, zyl(5.1, 4.7, 15)).Shape()
+    if ballig:
+        # Ballige Bohrungswand bis zum hinteren Absatz. Scheitel in der tragenden Laenge.
+        rand = 4 + 18 - math.sqrt(18**2 - 4**2)
+        a, m, b = gp_Pnt(rand, 0, -1.8), gp_Pnt(4, 0, 2.2), gp_Pnt(rand, 0, 6.2)
+        draht = BRepBuilderAPI_MakeWire()
+        draht.Add(BRepBuilderAPI_MakeEdge(GC_MakeArcOfCircle(a, m, b).Value()).Edge())
+        oben, unten = gp_Pnt(0, 0, 6.2), gp_Pnt(0, 0, -1.8)
+        for p, q in ((b, oben), (oben, unten), (unten, a)):
+            draht.Add(BRepBuilderAPI_MakeEdge(p, q).Edge())
+        loch = BRepPrimAPI_MakeRevol(BRepBuilderAPI_MakeFace(draht.Wire()).Face(),
+                                     gp_Ax1(gp_Pnt(), gp_Dir(0, 0, 1))).Shape()
+    else:
+        loch = zyl(4, -1, 17)
+    rad = BRepAlgoAPI_Cut(rad, loch).Shape()
+    schale = BRepAlgoAPI_Common(BRepAlgoAPI_Cut(kugel(16), kugel(15.03)).Shape(), zyl(10.8, 6, 8)).Shape()
+    scheibe = BRepAlgoAPI_Fuse(schale, zyl(7.98, 7.31, 3.59)).Shape()
+    scheibe = BRepAlgoAPI_Fuse(scheibe, zyl(5.08, 4.72, 2.61)).Shape()
+    return rad, BRepAlgoAPI_Cut(scheibe, zyl(4.01, 4, 12)).Shape()
+
+
+def _scheibenpaar_step(pfad):
+    from OCC.Core.IFSelect import IFSelect_RetDone
+    from OCC.Core.STEPCAFControl import STEPCAFControl_Writer
+    from OCC.Core.STEPControl import STEPControl_AsIs
+    from OCC.Core.TCollection import TCollection_ExtendedString
+    from OCC.Core.TDataStd import TDataStd_Name
+    from OCC.Core.TDocStd import TDocStd_Document
+    from OCC.Core.XCAFDoc import XCAFDoc_DocumentTool
+    from OCC.Core.BRep import BRep_Builder
+    from OCC.Core.TopoDS import TopoDS_Compound
+    from OCC.Core.TopLoc import TopLoc_Location
+    from OCC.Core.gp import gp_Ax1, gp_Dir, gp_Pnt, gp_Trsf, gp_Vec
+    doc = TDocStd_Document("MDTV-XCAF")
+    st = XCAFDoc_DocumentTool.ShapeTool(doc.Main())
+    leer = TopoDS_Compound()
+    BRep_Builder().MakeCompound(leer)
+    baugruppe = st.AddShape(leer, True)
+    lage = gp_Trsf()
+    lage.SetRotation(gp_Ax1(gp_Pnt(), gp_Dir(1, 2, 0)), 2.4)
+    lage.SetTranslationPart(gp_Vec(12, -30, 5))
+    for form, name in zip(_rad_und_anlaufscheibe(), ("Rad", "Anlaufscheibe")):
+        teil = st.AddShape(form, False)
+        TDataStd_Name.Set(teil, TCollection_ExtendedString(name))
+        st.AddComponent(baugruppe, teil, TopLoc_Location(lage))
+    st.UpdateAssemblies()
+    writer = STEPCAFControl_Writer()
+    writer.SetNameMode(True)
+    writer.Transfer(doc, STEPControl_AsIs)
+    assert writer.Write(str(pfad)) == IFSelect_RetDone
+
+
+def test_rad_mit_eingesetzter_kragenscheibe(fenster, tmp_path):
+    from OCC.Core.BRepAdaptor import BRepAdaptor_Surface
+    from OCC.Core.GeomAbs import GeomAbs_Cylinder
+    from programm.kern.laden import _alle_flaechen
+    from PySide6 import QtWidgets
+
+    pfad = tmp_path / "Bolzenrad.step"
+    _scheibenpaar_step(pfad)
+    fenster.lade(str(pfad), warten=True)
+    rad, scheibe = fenster.erg.baum.blaetter()
+    wand = next(f for f in _alle_flaechen(rad.form) if BRepAdaptor_Surface(f).GetType() == GeomAbs_Cylinder
+                and abs(BRepAdaptor_Surface(f).Cylinder().Radius() - 5.1) < 1e-4)
+    fenster.ansicht.setze_auswahl([wand], [rad.nummer])
+    for aktion in ("verzahnung", "getriebe"):
+        fenster.aktionen[aktion].trigger()
+        lader = fenster._verzahnung_lader
+        assert lader.wait(30000)
+        QtWidgets.QApplication.processEvents()
+        dialog = fenster._verzahnung
+        v, = dialog.liste
+        assert dialog.quellen[id(v)] == rad.nummer
+        assert (v.art, v.z) == ("konisch", 10)
+        assert v.kalottenradius == pytest.approx(15, abs=.05)
+        assert [s["durchmesser_mm"] for s in v.ruecksitze] == pytest.approx([10.2, 16], abs=.005)
+        assert v.ruecksitze[0]["laenge_mm"] == pytest.approx(2.6, abs=.002)
+        assert v.bolzenbohrung["balligkeitsradius"] == pytest.approx(18, abs=.18)
+        daten = json.loads(open(dialog.speichere("json", str(tmp_path / "rad.json"))).read())
+        assert len(daten["sonderprofile"][0]["rueckseitige_senkungen"]) == 2
+        if aktion == "getriebe":
+            kragen, = daten["wellen_und_sitze"]["kragensitze"]
+            assert kragen["zapfen"]["nummer"] == scheibe.nummer and kragen["bohrung"]["nummer"] == rad.nummer
+            assert kragen["ueberdeckung_mm"] == pytest.approx(2.58, abs=.02)
+        dialog.close()
+
+
+def test_kragensitz_im_netz(tmp_path):
+    from OCC.Core.BRepMesh import BRepMesh_IncrementalMesh
+    from OCC.Core.StlAPI import StlAPI_Writer
+    from programm.kern.laden import lade_modell
+    from programm.kern.verzahnung import erkenne_koerper
+
+    rad, scheibe = _rad_und_anlaufscheibe(False)
+    for form, name in ((rad, "Rad"), (scheibe, "Scheibe")):
+        pfad = str(tmp_path / (name + ".stl"))
+        BRepMesh_IncrementalMesh(form, .005, False, .05)
+        assert StlAPI_Writer().Write(form, pfad)
+        profile = list(erkenne_koerper(lade_modell(pfad).form, name, steckprofile=True, sonderprofile=True))
+        if name == "Rad":
+            v, = profile
+            assert (v.art, v.z) == ("konisch", 10)
+            assert [s["durchmesser_mm"] for s in v.ruecksitze] == pytest.approx([10.2, 16], abs=.01)
+            assert v.bolzenbohrung is None
+        else:
+            assert not profile

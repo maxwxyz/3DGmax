@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import csv
 import json
 import os
 import traceback
@@ -22,9 +23,12 @@ class VerzahnungLader(Modellauftrag):
     fehler = QtCore.Signal(str)
     stand = QtCore.Signal(int)
 
-    def __init__(self, teile: list, parent=None, *, teilnummern=()):
+    def __init__(self, teile: list, parent=None, *, teilnummern=(), mit_sitzen=False):
         super().__init__(parent)
         self.teile = teile  # [(Name, Form)]
+        self.mit_sitzen = mit_sitzen
+        self.sitze = []
+        self.sitzpaare = []
         self.teilnummern = teilnummern
         self.quellen = {}
 
@@ -32,9 +36,20 @@ class VerzahnungLader(Modellauftrag):
         from .lader import Abbruch, melder
         out = []
         try:
+            def pruefe():
+                if self.abgebrochen:
+                    raise Abbruch
             melde = melder(self, lambda a: self.stand.emit(int(a * 100)))
             for i, (name, form) in enumerate(self.teile):
                 melde(i / max(len(self.teile), 1))
+                if self.mit_sitzen:
+                    from ..kern import zylindersitze
+                    nr = self.teilnummern[i] if self.teilnummern else i
+                    try:
+                        self.sitze.extend(zylindersitze.erkenne(form, nr, name, pruefe))
+                    except RuntimeError:
+                        # Defekte analytische Flaechen duerfen die Zahnpruefung nicht unterbrechen.
+                        pass
                 try:
                     for v in vz.erkenne_koerper(form, name, steckprofile=True, sonderprofile=True):
                         if self.teilnummern:
@@ -45,6 +60,8 @@ class VerzahnungLader(Modellauftrag):
                     raise
                 except Exception:  # noqa: BLE001 - ein Teil darf die Suche nicht abbrechen
                     continue
+            if self.sitze:
+                self.sitzpaare = zylindersitze.paare(self.sitze, pruefe)
             melde(1.0)
         except Abbruch:
             return
@@ -57,7 +74,7 @@ class VerzahnungLader(Modellauftrag):
 class VerzahnungFenster(QtWidgets.QDialog):
     teile_gewaehlt = QtCore.Signal(set)
 
-    def __init__(self, liste: list, basis: str, parent=None, *, quellen=None, umfang="", getriebe=False):
+    def __init__(self, liste: list, basis: str, parent=None, *, quellen=None, umfang="", getriebe=False, sitze=(), sitzpaare=()):
         super().__init__(parent)
         self.quellen = quellen or {}
         self.setWindowTitle(tr("Getriebe – Stufen und Kraftfluss") if getriebe else tr("Verzahnung – Raddaten"))
@@ -106,6 +123,19 @@ class VerzahnungFenster(QtWidgets.QDialog):
         self.befund_tabelle = QtWidgets.QTableWidget()
         self.befund_tabelle.setEditTriggers(QtWidgets.QAbstractItemView.EditTrigger.NoEditTriggers)
         self.reiter.addTab(self.befund_tabelle, tr("Auslegungsbefunde"))
+        self.sitzseite = None
+        if sitze:
+            from .sitzanalyse_ui import Sitzanalyse
+            from collections import defaultdict
+            from ..kern.zylindersitze import kragensitze
+            kegel = defaultdict(list)
+            for v in self.liste:
+                if getattr(v, "ruecksitze", None) and id(v) in self.quellen:
+                    kegel[self.quellen[id(v)]].append(v)
+            self.sitzseite = Sitzanalyse(sitze, sitzpaare, set(self.quellen.values()), basis,
+                                         kragensitze(sitze, sitzpaare, kegel))
+            self.sitzseite.teile_gewaehlt.connect(self.teile_gewaehlt)
+            self.reiter.addTab(self.sitzseite, tr("Wellen und Sitze"))
         self.hinweise = QtWidgets.QLabel("")
         self.hinweise.setWordWrap(True)
         lay.addWidget(self.hinweise)
@@ -122,6 +152,11 @@ class VerzahnungFenster(QtWidgets.QDialog):
         self.pdf = QtWidgets.QPushButton(tr("PDF speichern …"))
         self.pdf.setToolTip(tr("Datenblätter, Radpaare und Auslegungsbefunde mit Quellen als PDF speichern"))
         self.pdf.clicked.connect(lambda: self.speichere("pdf"))
+        self.paar_auslegen = QtWidgets.QPushButton(tr("Stirnradpaar auslegen …"))
+        self.paar_auslegen.setToolTip(tr("Zähnezahlen und übereinstimmende Bezugsdaten des gewählten Paars übernehmen"))
+        self.paar_auslegen.setVisible(False)
+        self.paar_auslegen.clicked.connect(self._paar_auslegen)
+        reihe.addWidget(self.paar_auslegen)
         reihe.addWidget(self.csv)
         reihe.addWidget(self.json)
         reihe.addWidget(self.rexs)
@@ -139,6 +174,30 @@ class VerzahnungFenster(QtWidgets.QDialog):
         for tabelle, profile in ((self.tabelle, [(v,) for v in self.liste]), (self.paar_tabelle, paare)):
             tabelle.setSelectionBehavior(QtWidgets.QAbstractItemView.SelectionBehavior.SelectColumns)
             tabelle.itemSelectionChanged.connect(lambda t=tabelle, p=profile: self._auswahl(t, p))
+
+        self.paar_tabelle.itemSelectionChanged.connect(self._paar_pruefen)
+        self.reiter.currentChanged.connect(self._paar_pruefen)
+
+    def _paar_pruefen(self):
+        s = self.paar_tabelle.currentColumn()
+        paar = self.paare[s] if 0 <= s < len(self.paare) else None
+        geeignet = paar and all(not v.innen and not v.welle and abs(v.beta) < .1 for v in (paar.a, paar.b))
+        self.paar_auslegen.setVisible(bool(geeignet and self.reiter.currentWidget() is self.paar_tabelle
+                                          and self.paar_tabelle.selectedIndexes()))
+
+    def _paar_auslegen(self):
+        from .maschinenelemente_ui import zeige_auslegung
+        paar = self.paare[self.paar_tabelle.currentColumn()]
+        a, b = sorted((paar.a, paar.b), key=lambda v: v.z)
+        werte = {"z1": a.z, "z2": b.z}
+        if a.mn > 0 and abs(a.mn - b.mn) < .001:
+            werte["m"] = a.mn
+        if a.alpha_n > 0 and abs(a.alpha_n - b.alpha_n) < .1:
+            werte["alpha"] = a.alpha_n
+        def name(v):
+            nr = self.quellen.get(id(v))
+            return v.teil if nr is None else f"{v.teil} (#{nr})"
+        return zeige_auslegung(self, messwerte=werte, quelle=f"{self.basis} · {name(a)} / {name(b)}")
 
     def _auswahl(self, tabelle, profile):
         spalten = {i.column() for i in tabelle.selectedIndexes()}
@@ -180,7 +239,7 @@ class VerzahnungFenster(QtWidgets.QDialog):
         texte += [f"{p.a.teil} – {p.b.teil}: {h}" for p in self.paare for h in p.hinweise]
         self.hinweise.setText("\n".join(texte) if texte else ("" if self.liste else tr("Keine auswertbare Verzahnung gefunden. Bei Netzmodellen müssen die Zahnflanken durch genügend Dreiecke aufgelöst sein.")))
         for k in (self.csv, self.json, self.pdf):
-            k.setEnabled(bool(self.liste))
+            k.setEnabled(bool(self.liste or self.sitzseite))
         self.rexs.setEnabled(bool(self.raeder))
 
     def _reiter_zeigen(self, seite, sichtbar):
@@ -240,8 +299,13 @@ class VerzahnungFenster(QtWidgets.QDialog):
         with open(pfad, "w", encoding="utf-8-sig" if art == "csv" else "utf-8") as f:
             if art == "csv":
                 f.write(vd.als_csv(self.liste, self.paare, self.bezugsrad, self.betriebspunkt.achswahl()))
+                if self.sitzseite:
+                    writer = csv.writer(f, delimiter=";", lineterminator="\n")
+                    writer.writerow([])
+                    writer.writerow([tr("Wellen und Sitze"), self.sitzseite.hinweis])
+                    writer.writerow(self.sitzseite.spalten)
+                    writer.writerows(self.sitzseite.zeilen)
                 if self.betriebspunkt.verfuegbar():
-                    import csv
                     writer = csv.writer(f, delimiter=";", lineterminator="\n")
                     writer.writerow([])
                     writer.writerow([tr("Betriebspunkt")])
@@ -255,6 +319,8 @@ class VerzahnungFenster(QtWidgets.QDialog):
                           ensure_ascii=False, indent=1)
             else:
                 daten = vd.datenblatt(self.liste, self.paare, self.bezugsrad, self.betriebspunkt.achswahl())
+                if self.sitzseite:
+                    daten["wellen_und_sitze"] = self.sitzseite.daten()
                 if self.betriebspunkt.verfuegbar():
                     daten["betriebspunkt"] = self.betriebspunkt.daten()
                 json.dump({"format": "3dgmax-verzahnung", "version": 2, **daten}, f,

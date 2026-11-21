@@ -56,6 +56,7 @@ class Sonderprofil:
     zahnrichtung: str | None = None
     kalottenradius: float | None = None
     bolzenbohrung: dict | None = None
+    ruecksitze: list = field(default_factory=list)
 
     def als_dict(self):
         return {"teil": self.teil, "koerper": self.koerper, "art": self.art, "anzahl": self.z, "messlaenge": self.breite,
@@ -65,7 +66,7 @@ class Sonderprofil:
 
     def _werte(self):
         if self.art == "konisch":
-            return {"kalottenradius": self.kalottenradius, "bolzenbohrung": self.bolzenbohrung,
+            return {"kalottenradius": self.kalottenradius, "bolzenbohrung": self.bolzenbohrung, "rueckseitige_senkungen": self.ruecksitze,
                     "kopfkegelwinkel": math.degrees(math.atan((self.kopf[1] - self.kopf[0]) / self.breite)),
                     "fusskegelwinkel": math.degrees(math.atan((self.fuss[1] - self.fuss[0]) / self.breite)),
                     "verzahnungsrichtung": self.zahnrichtung,
@@ -89,6 +90,9 @@ class Sonderprofil:
             zusatz = []
             if self.kalottenradius is not None:
                 zusatz.append((tr("Kugelradius der Rückseite"), f"{self.kalottenradius:.3f} mm", tr("Geometrie")))
+            for i, sitz in enumerate(self.ruecksitze, 1):
+                zusatz.append((tr("Rückseitiger Bohrungsabsatz {}").format(i),
+                               tr("Ø {:.3f} mm · Länge {:.3f} mm").format(sitz["durchmesser_mm"], sitz["laenge_mm"]), quelle))
             if self.bolzenbohrung:
                 b = self.bolzenbohrung
                 zusatz.extend([(tr("Bolzenbohrung"), tr("mittig enger") if b["profil"] == "mittig_eng" else tr("mittig weiter"), quelle),
@@ -233,6 +237,13 @@ def zahnkoerper(teil, punkt, richtung, netz, schnitte, band):
         return None
     r = np.array([[t[1].max(), t[1].min()] for _, t in schnitte])
     bereich, radius = kegel_radkoerper.kalotte(netz, s, r) if len(s) >= 6 else (None, None)
+    if bereich is None and radius is None:
+        bereich = kegel_radkoerper.kegelband(s, r)
+        if bereich is not None:
+            # Den vorderen Beschnitt bei der Kugelpruefung auslassen, den hinteren mitmessen.
+            hinten = slice(bereich.start, None) if r[-1, 1] > r[0, 1] else slice(None, bereich.stop)
+            if len(s[hinten]) >= 6:
+                _, radius = kegel_radkoerper.kalotte(netz, s[hinten], r[hinten])
     if bereich is not None:
         schnitte, s, r = schnitte[bereich], s[bereich], r[bereich]
     h = (r[:, 0] - r[:, 1]).mean()
@@ -268,10 +279,11 @@ def zahnkoerper(teil, punkt, richtung, netz, schnitte, band):
         punkt, richtung = punkt + s[-1] * richtung, -richtung
     else:
         punkt = punkt + s[0] * richtung
+    bohrung, ruecksitze = kegel_radkoerper.bohrungsmerkmale(netz, achssinn)
     return Sonderprofil(teil, "konisch", z, punkt, richtung, breit, (float(start[0]), float(ende[0])),
                         (float(start[1]), float(ende[1])), weg, bandgrenzen=grenzen,
                         spur=spur, zahnrichtung=spur.richtung() if spur else None, kalottenradius=radius,
-                        bolzenbohrung=kegel_radkoerper.bolzenbohrung(netz))
+                        bolzenbohrung=bohrung, ruecksitze=ruecksitze)
 
 
 def _schraubschnitt(netz, s):

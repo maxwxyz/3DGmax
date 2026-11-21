@@ -114,30 +114,115 @@ def kalotte(netz, s, r):
     return None, None
 
 
-def bolzenbohrung(netz):
-    """Meridiankreis einer durchgehenden, koaxialen Bohrung mit beidseitig belegtem Scheitel."""
-    lo = min(p[:, 2].min() for p in (netz.a, netz.b, netz.c))
-    hi = max(p[:, 2].max() for p in (netz.a, netz.b, netz.c))
-    axial = np.linspace(lo, hi, 33)[1:-1]
-    radien, streuung = [], []
-    for pos in axial:
-        konturen = netz.konturen(pos)
+def kegelband(s, r):
+    """Unbeschnittene Zahnkoepfe zwischen Stirnfase und Ruecksitz anhand des durchlaufenden Fusskegels."""
+    h = np.median(r[:, 0] - r[:, 1])
+    tol = .05 * h
+    if h <= 0 or len(s) < 7:
+        return None
+    x = s - s[0]
+    fuss = np.polyfit(x, r[:, 1], 1)
+    if np.max(abs(r[:, 1] - np.polyval(fuss, x))) > tol:
+        return None
+    # Laengstes gemeinsam getragenes Intervall, mindestens die Haelfte der Messbreite.
+    for n in range(len(s) - 1, max(4, len(s) // 2 - 1), -1):
+        for i in range(len(s) - n + 1):
+            bereich = slice(i, i+n)
+            xx = x[bereich]
+            if np.ptp(xx) < .5 * np.ptp(x):
+                continue
+            kopf = np.polyfit(xx, r[bereich, 0], 1)
+            if kopf[0] * fuss[0] <= 0 or min(abs(kopf[0]), abs(fuss[0])) * np.ptp(xx) < max(.4*h, .02*r.mean()):
+                continue
+            rest = r[:, 0] - np.polyval(kopf, x)
+            if np.max(abs(rest[bereich])) < tol and rest.max() < tol and rest.min() < -2*tol:
+                return bereich
+    return None
+
+
+def _bohrprofil(netz, sinn):
+    lo = min((sinn * p[:, 2]).min() for p in (netz.a, netz.b, netz.c))
+    hi = max((sinn * p[:, 2]).max() for p in (netz.a, netz.b, netz.c))
+
+    def messe(x):
+        konturen = netz.konturen(sinn * x)
         if len(konturen) < 2:
             return None
         innen, aussen = sorted(konturen, key=lambda q: np.hypot(*q.T).max())[:2]
         ring = _ring(innen)
         if ring is None or ring[1] > .01 * ring[0] or np.hypot(*aussen.T).min() <= ring[0] + ring[1]:
             return None
-        radien.append(ring[0])
-        streuung.append(ring[1])
-    r = np.array(radien)
+        return ring
+
+    axial = np.linspace(lo, hi, 33)[1:-1]
+    ringe = []
+    for pos in axial:
+        ring = messe(pos)
+        if ring is None:
+            return None
+        ringe.append(ring)
+    return axial, np.array(ringe).T, messe, hi
+
+
+def _sitzstufen(x, r, rauschen, messe, ende):
+    """Ueber einen sprunghaften Durchmesserwechsel in eine zylindrische hintere Senkung messen."""
+    kanten = []
+    for i in np.flatnonzero(np.diff(r) > max(8 * rauschen, .003 * np.max(r))):
+        if i+2 >= len(r) or abs(r[i+2]-r[i+1]) > 3*rauschen:
+            continue
+        links, rechts = r[i:i+2]
+        # Bei leicht geneigter Netzachse durchschneidet die Ebene kurz beide Waende.
+        # Beide Raender getrennt eingrenzen, auch wenn dort kein einzelner Ring messbar ist.
+        def grenze(a, b, ref):
+            for _ in range(14):
+                m = .5 * (a+b)
+                ring = messe(m)
+                if ring and abs(ring[0]-ref) <= .12*(rechts-links):
+                    a = m
+                else:
+                    b = m
+            return a
+        a = grenze(x[i], x[i+1], links)
+        b = grenze(x[i+1], x[i], rechts)
+        if b-a < .015 * (x[i+1]-x[i]):
+            kanten.append((i + 1, .5 * (a+b)))
+    stufen = []
+    for k, (i, start) in enumerate(kanten):
+        j, stop = kanten[k+1] if k+1 < len(kanten) else (len(r), ende)
+        segment = r[i:j]
+        if len(segment) < 2 or np.ptp(segment) > 3 * rauschen:
+            continue
+        dm = 2 * float(np.median(segment))
+        stufen.append({"durchmesser_mm": dm, "laenge_mm": float(stop-start)})
+    return stufen, (kanten[0][0] if stufen and kanten else len(r))
+
+
+def bohrungsmerkmale(netz, sinn):
+    daten = _bohrprofil(netz, sinn)
+    if daten is None:
+        return None, []
+    axial, (r, streuung), messe, ende = daten
     rauschen = max(np.median(streuung), .00015 * r.mean())
+    stufen, bis = _sitzstufen(axial, r, rauschen, messe, ende)
+    profil = _balligkeit(axial[:bis], r[:bis], rauschen)
+    return profil, stufen
+
+
+def bolzenbohrung(netz):
+    return bohrungsmerkmale(netz, 1)[0]
+
+
+def _balligkeit(axial, r, rauschen):
+    if len(r) < 9:
+        return None
     if np.ptp(r) <= 4 * rauschen:
         return None
     # Kurze Einlauffasen an den Muendungen duerfen ausserhalb des tragenden Bogens liegen.
     for rand in range(9):
         for links in range(max(0, rand - 4), min(4, rand) + 1):
             bereich = slice(links, len(r) - rand + links)
+            if len(r[bereich]) < 9:
+                continue
             profil = _bohrungsbogen(axial[bereich], r[bereich], rauschen)
             if profil is not None:
                 return profil

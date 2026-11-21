@@ -54,6 +54,8 @@ def tr_texte() -> set[str]:
     from programm.ui import baugruppe_ui
     out |= set(vbd.ART_TEXT.values()) | set(baugruppe_ui.BaugruppePanel.VERBINDUNG_SPALTEN)
     out |= set(baugruppe_ui.BaugruppePanel.TEIL_SPALTEN) | {t for _, t in baugruppe_ui.BaugruppePanel.WIGGLE_ART}
+    from programm.kern.maschinenelemente import FELDER, VERFAHREN
+    out |= {name for name, _ in FELDER.values()} | {s for v in VERFAHREN.values() for s in (v.titel, v.annahme)}
     from programm.kern import verzahnung_auslegung as vza
     out |= set(vza.SPALTEN) | set(vza.THEMEN)
     from programm.kern import beispiele
