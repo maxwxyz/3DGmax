@@ -183,7 +183,7 @@ Throughout: tests (core, offscreen UI, stress test, on-screen test), `--selbstte
   explicitly adopted as limit dimensions. Tested on FTC-07 with and without validation metadata.
   Single-row wide control frames preserve the characteristic, diameter zone, projected height or
   maximum material and the ordered datums. Closed cell borders can also be recovered from filled
-  triangles when the annotation supplies its plane. Both FTC-07's original strokes and a
+  triangles. With no writing plane the outer edges of coplanar triangles supply candidate axes. Both FTC-07's original strokes and a
   triangle-only rendering of its two position controls pass graphical-only STEP round trips,
   including review of the projection end face and reimport of both original presentations.
   Open: additional fonts, composite controls and dimensions with

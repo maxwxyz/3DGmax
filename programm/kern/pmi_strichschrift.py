@@ -389,9 +389,25 @@ def _zellen(pfade):
     return [b for b in rahmen if b[3] - b[1] > .85 * h]
 
 
+def _netzrandrichtungen(dreiecke):
+    """Gemeinsame Diagonalen im Dreiecksnetz liefern keine Richtung des Buchstabens oder Rahmens."""
+    for punkte, netz in dreiecke:
+        if not len(netz):
+            continue
+        koordinaten, index = np.unique(punkte, axis=0, return_inverse=True)
+        t = index.reshape(-1)[netz]
+        paare = np.concatenate((t[:, [0, 1]], t[:, [1, 2]], t[:, [2, 0]]))
+        kanten, anzahl = np.unique(np.sort(paare, axis=1), axis=0, return_counts=True)
+        rand = kanten[anzahl == 1]
+        if len(rand):
+            yield koordinaten[rand[:, 1]] - koordinaten[rand[:, 0]]
+
+
 def _rahmenrichtungen(g):
     """Moegliche Schreibachsen aus der Ebene und den laengsten geraden Kanten."""
     kanten = [np.diff(l, axis=0) for l in g.linien if 2 <= len(l) <= 6]
+    if not kanten:
+        kanten = list(_netzrandrichtungen(g.dreiecke))
     if not kanten:
         return
     punkte = np.vstack([*g.linien, *(p for p, _ in g.dreiecke)])

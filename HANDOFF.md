@@ -2,6 +2,20 @@
 
 ## Current state, 2026-11-21
 
+### Filled frames without a STEP annotation plane
+
+- Checked PLAN §§8.4, 8.18 and 8.28 against docs/Roadmap.md. Filled frames now recover
+  writing axes from mesh boundaries. Shared triangle diagonals are excluded even when
+  the same point has separate indices. All readable orientations must give the same control.
+- Removed the annotation planes as well as all semantic PMI and validation strings from the
+  triangle-only FTC-07 test. Both complete position controls were confirmed, exported and
+  reimported with their original graphics, faces, datums, material or projected height.
+  A compound frame remains open. An arbitrarily rotated triangle mesh is also checked
+  against the projected frame, with a nonplanar variant as a negative control. All 37 affected
+  tests and the three native macOS frame round trips passed.
+- Next §8.4 work includes compound frames and unframed wide filled dimension strings.
+  QIF remains last.
+
 ### Complete stroke and triangle-only tolerance frames
 
 - Checked PLAN §§8.4, 8.18 and 8.28 and docs/Roadmap.md. Single-row wide CAD frames are

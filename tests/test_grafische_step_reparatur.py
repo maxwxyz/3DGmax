@@ -787,14 +787,14 @@ def test_weitere_breite_zeilen_ohne_dateitext_und_ungenauer_rest(ftc07):
         assert lies_schrift(grafik[nr]) == wort
 
 
-def _rahmen_als_fuellung(datei, rein, ziel):
+def _rahmen_als_fuellung(datei, rein, ziel, ohne_ebene):
     import json
 
     def liste(daten):
         return json.dumps(daten, separators=(",", ":")).translate(str.maketrans("[]", "()"))
 
     text = Path(datei).read_text(encoding="utf-8")
-    for nr, kurve in ((14040, 14037), (14795, 14792), (14498, 14495)):
+    for nr, kurve, ebene in ((14040, 14037, 14047), (14795, 14792, 14803), (14498, 14495, 14506)):
         g = rein.grafik[nr]
         punkte, faecher = [], []
         normale = g.ebene[3]
@@ -816,19 +816,26 @@ def _rahmen_als_fuellung(datei, rein, ziel):
         text = (text[:start] + f"#{koord}=COORDINATES_LIST('',{len(punkte)},{liste(punkte)});\n"
                 + f"#{kurve}=COMPLEX_TRIANGULATED_SURFACE_SET('',#{koord},{len(punkte)},"
                 + f"({liste(normale.tolist())}),(),(),{liste(faecher)});" + text[ende:])
+        if ohne_ebene:
+            start = text.index(f"#{ebene}=ANNOTATION_PLANE(")
+            text = text[:start] + text[text.index(";", start)+1:]
+            text = text.replace(f"#{ebene},", "")
     ziel.write_text(text, encoding="utf-8")
     return str(ziel)
 
 
-@pytest.mark.parametrize("fuellung", [False, True], ids=["striche", "nur_dreiecke"])
-def test_breite_toleranzrahmen_ohne_validierung_mit_projektion_und_material_im_step(fenster,tmp_path,fuellung):
+@pytest.mark.parametrize("darstellung", ["striche", "dreiecke", "dreiecke_ohne_ebene"])
+def test_breite_toleranzrahmen_ohne_validierung_mit_projektion_und_material_im_step(fenster,tmp_path,darstellung):
     from programm.kern.pmi_strichschrift import lies_schrift
     datei,ref,rein = _ohne_semantik(pfad("nist_ftc_07_asme1_ap242-e2.stp"),tmp_path/"Rahmen.stp",validierung=False)
+    fuellung = darstellung != "striche"
+    ohne_ebene = darstellung == "dreiecke_ohne_ebene"
     if fuellung:
-        datei = _rahmen_als_fuellung(datei, rein, tmp_path/"Rahmen gefuellt.stp")
+        datei = _rahmen_als_fuellung(datei, rein, tmp_path/"Rahmen gefuellt.stp", ohne_ebene)
     fenster.lade(datei,warten=True)
     rein = fenster.erg
     for nr in (14040,14795,14498):
+        assert (rein.grafik[nr].ebene is None) == ohne_ebene
         assert bool(rein.grafik[nr].linien) != fuellung and bool(rein.grafik[nr].dreiecke) == fuellung
     nummern = (13706,13747,13788,14040,14795)
     wortlaut = ("[A]","[B]","[C]","⌖ ⌀.020Ⓟ.425 A B","⌖ ⌀.040Ⓜ A B C")
@@ -866,6 +873,20 @@ def test_breite_toleranzrahmen_ohne_validierung_mit_projektion_und_material_im_s
     # Zusatzzeichen, mehrzeilige Rahmen und Bereichsangaben nicht auf eine einfache Toleranz kuerzen.
     for nr in (14405,14498,14269):
         assert lies_schrift(rein.grafik[nr]) == ""
+    if ohne_ebene:
+        from dataclasses import replace
+        from scipy.spatial.transform import Rotation
+
+        g = rein.grafik[14040]
+        punkte, netz = g.dreiecke[0]
+        drehung = Rotation.from_rotvec([.26, -.24, .77]).as_matrix()
+        # Jedes Dreieck hat eigene Punktindizes, auch an einer gemeinsamen Kante.
+        frei = punkte[netz].reshape(-1, 3) @ drehung.T + [31., 42., 56.]
+        einzeln = np.arange(len(frei)).reshape(-1, 3)
+        gedreht = replace(g, dreiecke=[(frei, einzeln)])
+        assert lies_schrift(gedreht) == wortlaut[3]
+        frei[0] += [10., 37., -43.]
+        assert lies_schrift(gedreht) == ""
 
 
 def test_breite_rahmen_mit_weiteren_merkmalen(ftc07):

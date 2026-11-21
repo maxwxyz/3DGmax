@@ -68,7 +68,7 @@
 | Read wide stroked diameter and radius dimensions, including quantities and stacked deviations. Review conflicting printed and validation values, or explicitly adopt a pair of limits, before combined STEP export | ✅ |
 | Read stacked positive/negative deviations, unilateral deviations with zero, paired absolute limits, angles and parenthesised dimensions from supported graphical lettering | ✅ |
 | Read planar tolerance frames without supplied writing axes, including original NIST 3D PDF/PRC; distinguish circled free-state and maximum-material symbols from their inner glyph | ✅ |
-| Read complete single-row FTC-07 control frames from wide strokes or filled triangles without contour edges. Export reviewed projected or maximum-material position tolerances with the original presentation, datum order and selected faces | ✅ |
+| Read complete single-row FTC-07 control frames from wide strokes or filled triangles without contour edges, including planar meshes without stored writing axes. Export reviewed projected or maximum-material position tolerances with the original presentation, datum order and selected faces | ✅ |
 | Read additional lettering and composite frames from graphical PMI | 💡 |
 | Semantic-only PMI: optional generated display in the view (see generated PMI stage 2) | ✅ |
 | Show tolerance zones as envelope surfaces (offsets ±t/2, ⌀ zone cylinder, exaggeration) | ✅ |
