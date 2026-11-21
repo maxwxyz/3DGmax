@@ -117,10 +117,19 @@ def _achse(form, stirnflaechen=False):
     brepgprop.VolumeProperties(form, g)
     if g.Mass() <= 1e-9:
         brepgprop.SurfaceProperties(form, g)
+    def hauptmomente():
+        m = g.MatrixOfInertia()
+        return np.linalg.eigh([[m.Value(i, k) for k in (1, 2, 3)] for i in (1, 2, 3)])
+
+    w, v = hauptmomente()
+    if stirnflaechen and min(np.diff(w)) > .0001 * max(abs(w)):
+        # Die feste Quadratur kann periodische Splineflaechen stark unterabtasten.
+        genau = GProp_GProps()
+        brepgprop.VolumeProperties(form, genau, .001, False, False)
+        if genau.Mass() > 1e-9:
+            g = genau
+            w, v = hauptmomente()
     c = g.CentreOfMass()
-    m = g.MatrixOfInertia()
-    j = np.array([[m.Value(i, k) for k in (1, 2, 3)] for i in (1, 2, 3)])
-    w, v = np.linalg.eigh(j)
     abw = [abs(w[i] - np.mean(np.delete(w, i))) for i in range(3)]
     richtung = v[:, int(np.argmax(abw))]
     punkt = np.array([c.X(), c.Y(), c.Z()])
@@ -499,6 +508,20 @@ def _aus_schnitten(form, teil, punkt, n, dreiecke, steckprofile, sonderprofile):
         v = schraube(teil, punkt, n, schnitte_netz)
         if v is not None:
             profile.append(v)
+    # Der Umfang eines Stirnzahns kann in einem kurzen Axialband einer zylindrischen Verzahnung gleichen.
+    schmales_band = (len(profile) == 1 and isinstance(profile[0], Verzahnung)
+                     and profile[0].b < .35 * np.ptp(dreiecke @ n))
+    if sonderprofile and (not profile or schmales_band):
+        from . import stirnzahnband
+        kandidat = stirnzahnband.erkenne(schnitte_netz, teil, punkt, n)
+        if kandidat and not profile:
+            return [kandidat]
+        if kandidat and kandidat.z == profile[0].z:
+            klein, gross = sorted((profile[0].da/2, profile[0].df/2))
+            # Zwischen letztem ganzen Messkreis und Fuss kann ein Radialschritt fehlen.
+            luecke = max(kandidat.radien[0]-gross, klein-kandidat.radien[1])
+            if luecke < .04*schnitte_netz.r_max:
+                return [kandidat]
     return profile
 
 

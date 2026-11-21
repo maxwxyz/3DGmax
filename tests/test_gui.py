@@ -53,7 +53,8 @@ def test_laden_fuellt_alles(fenster_ctc01):
     # "Schnittseite umkehren" ist ohne aktiven Schnitt bewusst ausgegraut
     # ohne aktiven Schnitt bzw. Vergleich bewusst ausgegraut
     schnitt = {"schnitt_umkehren", "schnitt_merken", "schnitt_kette", "schnitt_loeschen", "schnitt_kontur"}
-    aus = schnitt | set(f.VERGLEICH_AKTIONEN)
+    assert not f.aktionen["teilausgabe"].isEnabled()  # Der Baum hat noch keine Auswahl.
+    aus = schnitt | set(f.VERGLEICH_AKTIONEN) | {"teilausgabe"}
     assert all(a.isEnabled() for n, a in f.aktionen.items() if n not in aus)
     assert not any(f.aktionen[n].isEnabled() for n in schnitt)
     assert os.path.basename(f.zuletzt()[0]) == "nist_ctc_01_asme1_ap242-e1.stp"

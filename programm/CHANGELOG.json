@@ -1,6 +1,8 @@
 {
  "unreleased": {
   "de": [
+   "Die Erkennung prüft bei stirnseitiger Verzahnung die axiale Zahnhöhe über mehrere Messkreise. Wiederholt geneigte Zahnreihen erscheinen mit Zähnezahl und Messbereich als Kegelrad-Kandidat. Periodische Splineflächen erhalten bei unplausiblen Trägheitsmomenten eine genauere Achsberechnung.",
+   "Im Strukturbaum lassen sich Teile und Baugruppen per Rechtsklick oder über Datei › Exportieren als STEP- oder STL-Geometrie speichern. STEP erhält die ausgewählten Einbaulagen, Namen, Struktur und Flächenfarben.",
    "Die Kegelraderkennung misst das Zahnband zwischen Stirnanschnitt und Rücksitz einer Anlaufscheibe. Rückseitige Bohrungsabsätze für den Kragen und der ballige Abschnitt der Bolzenbohrung erscheinen einzeln im Datenblatt.",
    "Die Getriebeanalyse zeigt zylindrische Wellen- und Bohrungsabschnitte, mögliche Sitzpartner, Überdeckung und Durchmesserdifferenz. Sitzpaare lassen sich im Modell auswählen.",
    "Unter Werkzeuge lassen sich Stirnradpaare, Wellen, Gleit- und Wälzlager sowie Reib- und Presssitze vorauslegen. Die Berechnung übernimmt auf Wunsch Sitzmaße oder Radparameter und speichert Eingaben und Ergebnisse. Wellenabschnitte und Buchsen lassen sich als STEP mit Bemaßung ausgeben.",
@@ -213,6 +215,8 @@
    "Grafische PMI aus unterstützten AP203e2-Kurvenmodellen lassen sich als STEP AP242 Edition 3 ausgeben. Facettierte STEP-Modelle behalten ihre Flächenbezüge. Gepackte STEP-Dateien lassen sich als unkomprimierte STEP-Kopie speichern."
   ],
   "en": [
+   "Gear recognition checks axial relief on concentric measurement circles. Coherent, inclined face teeth are reported as bevel gear candidates with tooth count and measured range. Periodic spline surfaces receive a more accurate axis calculation when inertia moments are inconsistent with rotational symmetry.",
+   "Export selected parts or assemblies as STEP or STL geometry from the tree context menu or File › Export. STEP preserves the selected occurrence positions, names, structure and face colours.",
    "Bevel gear recognition measures the toothed band between a toe trim and a rear thrust-washer seat. The data sheet reports rear counterbores for the collar separately from the crowned part of the pin bore.",
    "Gearbox analysis lists cylindrical journals and bores, candidate seat pairs, axial overlap and diametral difference. Selecting a pair highlights both components.",
    "Tools supports preliminary sizing of spur gear pairs, shafts, plain and rolling bearings, and friction and interference joints. Calculations can use measured seat or gear parameters and save inputs and results. Shaft sections and bushings can be exported as dimensioned STEP solids.",

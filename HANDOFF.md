@@ -2,6 +2,31 @@
 
 ## Current state, 2026-11-21
 
+### Rounded face teeth on a differential pinion and structure-tree export
+
+- The three user screenshots show nine broad teeth on the face of the pinion. The original
+  STEP was unavailable. A constructed closed B-spline solid with nine rounded face teeth, a
+  pin bore and a stepped back reproduces a missed detection. Fixed-order mass integration
+  displaced its centre by 5.56 mm and picked a transverse axis. Adaptive integration recovers
+  the rotation axis. Concentric axial height measurements on the tooth face recover the nine
+  repetitions from the reimported STEP through the normal selection and analysis commands.
+  The result is a bevel gear candidate. The reported surface inclination is a measurement of
+  the tooth band. A nominal pitch cone and manufacturing dimensions still require other data.
+- Rotated seven-, nine- and eleven-tooth meshes exercise the same detection. Smooth and
+  flat dog-clutch controls reject the face-tooth classification. The signed Apple Silicon
+  build, ZIP and approximate nine-tooth STEP example are in `dist/main-baumauszug/`.
+- The structure tree and File › Export now write a selected part, multiple occurrences or a
+  complete branch in assembly coordinates. STEP AP242 preserves the selected geometry,
+  hierarchy, part names and face colours. This geometry extract omits PMI and saved views.
+  Binary STL also accepts mesh parts. Round trips cover a moved occurrence, a repeated part,
+  overlapping selections, sRGB face colour and an imported mesh.
+- All 185 affected tests passed. The full suite passed 1,061 tests and skipped eight display
+  tests, which all passed separately on Cocoa. Four native feature tests and the additional
+  face-colour round trip passed. Reimporting the STEP selection extract of the example also
+  recovered all nine teeth. The packaged app passed its self-test and rendered the example.
+- Checked the implementation against PLAN §8.27 and docs/Roadmap.md. Verification on the
+  user's original pinion remains open. QIF remains the final roadmap item.
+
 ### Differential pinion with a separate collared thrust washer
 
 - The new two-part assembly reproduces the reported configuration: a rear spherical surface,

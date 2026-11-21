@@ -1412,6 +1412,15 @@ tools (the user names MASTA as an example of a tool that needs these inputs), an
   spherical thrust washer. A continuous root cone and the central tooth band can establish a bevel
   profile when both ends trim the tips. Measure rear bore steps and the remaining crowned pin bore
   separately. A washer supplied as another occurrence retains its own geometry and identity.
+- Implemented a complementary measurement for rounded, face-toothed pinions. Look for one-sided,
+  coherent axial relief on concentric circles, count repetitions and measure radial extent and
+  inclination. A generic face-serrated geometry can be ambiguous, so the result is a bevel gear
+  candidate and supplies no pitch cone or manufacturing data. Symmetry-inconsistent principal
+  moments on periodic spline surfaces trigger adaptive mass integration.
+- The tree can export selected occurrences and groups in installed positions via its context menu
+  and File › Export. STEP geometry retains the selected structure, names and face colours. STL
+  handles imported mesh parts and tessellated CAD. This also permits isolating a failed recognition
+  case from a larger assembly. Drawing annotations are outside the subset geometry export.
 - Recognition scope and result selection (implemented): picking a component or one of its faces
   scopes wheel recognition to the selected component occurrences. An empty selection includes all
   physical components, including hidden ones. The gearbox command uses the visible components

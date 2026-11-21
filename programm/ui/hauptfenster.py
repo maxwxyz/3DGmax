@@ -648,6 +648,8 @@ class Hauptfenster(QtWidgets.QMainWindow):
           tipp=tr("Übersicht, Änderungsliste und ein Bild je Änderung"))
         A("pdf_pmi_aenderungen", tr("PMI-Änderungen (PDF) …"), lambda: self.exportiere_pdf("pmi_aenderungen"),
           tipp=tr("Tabelle der PMI-Änderungen alt/neu für Lieferanten und Fertigung"))
+        A("teilausgabe", tr("Auswahl als STEP oder STL exportieren …"), lambda: self.exportiere_baumauswahl(),
+          tipp=tr("Geometrie der gewählten Baumknoten in Einbaulage exportieren. STEP enthält Namen, Struktur und Flächenfarben."))
         A("projekt_speichern", tr("Projekt speichern …"), lambda: self.speichere_projekt(),
           QtGui.QKeySequence.StandardKey.Save,
           tipp=tr("Modell bzw. Vergleich mit Prüfstand, Kommentaren und Messungen als eine Datei (.3dgmax)"))
@@ -870,6 +872,9 @@ class Hauptfenster(QtWidgets.QMainWindow):
         m.addAction(a["projekt_speichern"])
         m.addAction(a["step_pmi_speichern"])
         me = m.addMenu(tr("Exportieren"))
+        me.addAction(a["teilausgabe"])
+        me.aboutToShow.connect(self._teilausgabe_aktion)
+        me.addSeparator()
         for n in ("pdf_ansichten", "merkmale_pdf", "pdf_messungen", "pdf_kommentare", "pdf_vergleich",
                   "pdf_pmi_aenderungen"):
             me.addAction(a[n])
@@ -1106,9 +1111,11 @@ class Hauptfenster(QtWidgets.QMainWindow):
         self.baum_alt.isolieren.connect(lambda n: self.ansicht_alt and self.ansicht_alt.isoliere(n))
         self.baum_alt.transparent.connect(
             lambda n, an: self.ansicht_alt and self.ansicht_alt.knoten_transparent(n, an))
+        self._exportbaum = self.baum
         self._aus_baum = False
         self._auswahl_ansicht = self.ansicht
         for panel in (self.baum, self.baum_alt):
+            panel.exportieren.connect(lambda p=panel: self.exportiere_baumauswahl(panel=p))
             panel.baum.itemSelectionChanged.connect(lambda p=panel: self._baum_auswaehlen(p))
             panel.baum.itemClicked.connect(lambda _it, _sp, p=panel: self._baum_auswaehlen(p))
         self.ansicht.auswahl_geaendert.connect(lambda _: self._szene_auswahl(self.ansicht))
@@ -1132,6 +1139,7 @@ class Hauptfenster(QtWidgets.QMainWindow):
         for a in self.aktionen.values():
             if a.property("braucht_modell"):
                 a.setEnabled(da)
+        self._teilausgabe_aktion()
         self._semantik_aktion()
         self.schnitt_knopf.setEnabled(da)
         self.schnitt_regler.setEnabled(da and self._schnitt_achse is not None)
@@ -2483,6 +2491,8 @@ class Hauptfenster(QtWidgets.QMainWindow):
         return self.ansicht_alt if self._vergleichsmodus == "alt" and self.ansicht_alt is not None else self.ansicht
 
     def _baum_auswaehlen(self, panel):
+        self._exportbaum = panel
+        self._teilausgabe_aktion()
         ansicht = self.ansicht if panel is self.baum else self.ansicht_alt
         if ansicht is None or ansicht.szene is None or panel.wurzel is not ansicht.szene.baum:
             return
@@ -2510,6 +2520,8 @@ class Hauptfenster(QtWidgets.QMainWindow):
         self._auswahl_ansicht = ansicht
         nummern = self._gewaehlte_teile(ansicht)
         panel.waehle_blaetter(nummern)
+        self._exportbaum = panel
+        self._teilausgabe_aktion()
         if ansicht.fokus_teile != nummern:
             ansicht.setze_fokus(ansicht.fokus, nummern)
         if ansicht is self.ansicht:
@@ -3056,6 +3068,54 @@ class Hauptfenster(QtWidgets.QMainWindow):
     def _speicherpfad(self, titel, vorschlag, filter_text):
         pfad, _ = QtWidgets.QFileDialog.getSaveFileName(self, titel, vorschlag, filter_text)
         return pfad
+
+    def _exportquelle(self, panel=None):
+        panel = panel or getattr(self, "_exportbaum", self.baum)
+        if panel is self.baum_alt and self.vergleich is None:
+            panel = self.baum
+        erg = self.vergleich.alt if panel is self.baum_alt and self.vergleich else self.erg
+        return panel, erg
+
+    def _teilausgabe_aktion(self):
+        panel, erg = self._exportquelle()
+        self.aktionen["teilausgabe"].setEnabled(bool(erg and panel.wurzel is erg.baum and panel.exportauswahl()))
+
+    def exportiere_baumauswahl(self, pfad="", *, panel=None):
+        from pathlib import Path
+        from OCC.Core.TopLoc import TopLoc_Location
+        from ..kern import teilausgabe
+        from .ansicht3d import gp_trsf
+        panel, erg = self._exportquelle(panel)
+        nummern = panel.exportauswahl()
+        if not erg or panel.wurzel is not erg.baum or not nummern:
+            return None
+        knoten = [k for k in erg.baum.blaetter() if k.nummer in nummern]
+        titel = tr("Auswahl als STEP oder STL exportieren …")
+        if not pfad:
+            netz = teilausgabe.enthaelt_netz(knoten)
+            formate = "STL (*.stl)" if netz else "STEP (*.step *.stp);;STL (*.stl)"
+            name = knoten[0].name if len(knoten) == 1 else tr("Auswahl")
+            import re
+            name = re.sub(r'[<>:"/\\|?*\x00-\x1f]', "_", name).strip(" .") or tr("Auswahl")
+            pfad, format_ = QtWidgets.QFileDialog.getSaveFileName(self, titel, str(Path(erg.pfad).with_name(name)), formate)
+            if not pfad:
+                return None
+            if Path(pfad).suffix.lower() not in (".step", ".stp", ".stl"):
+                pfad += ".stl" if format_.startswith("STL") else ".step"
+        quellen = [e for e in (self.erg, self.vergleich.alt if self.vergleich else None) if e]
+        quellpfade = [Path(p) for e in quellen for p in [e.pfad, *(z.pfad for z in e.zusaetze)]]
+        ziel = Path(pfad)
+        try:
+            if any(ziel.resolve() == q.resolve() or (ziel.exists() and q.exists() and ziel.samefile(q)) for q in quellpfade):
+                raise ValueError(tr("Für die Auswahl eine andere Datei als das geladene Modell wählen."))
+            lagen = self.baugruppe.lagen if erg is self.erg else {}
+            bewegt = {i: TopLoc_Location(gp_trsf(lagen[i])) for i in nummern if i in lagen}
+            ausgabe = teilausgabe.speichere(ziel, erg.baum, nummern, bewegt, erg.modell, erg.farben)
+        except (OSError, RuntimeError, ValueError) as e:
+            QtWidgets.QMessageBox.warning(self, titel, str(e))
+            return None
+        self.statusBar().showMessage(tr("{} Elemente exportiert nach {}").format(len(knoten), ausgabe), 8000)
+        return ausgabe
 
     def exportiere_pmi(self, pfad: str = "") -> bool:
         from ..kern import pmi_bericht

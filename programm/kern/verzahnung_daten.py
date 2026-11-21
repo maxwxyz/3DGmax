@@ -638,7 +638,8 @@ def datenblatt(liste: list, paare: list[Paar], bezugsrad=None, achswahl=None) ->
     differentiale = _differential_daten(liste, diff, achswahl)
     teile = [v.teil for v in liste]
     bezug = liste[bezugsrad] if bezugsrad is not None else None
-    sonder = [v for v in liste if isinstance(v, (Sonderprofil, Taillenrad))]
+    from .stirnzahnband import Stirnzahnband
+    sonder = [v for v in liste if isinstance(v, (Sonderprofil, Taillenrad, Stirnzahnband))]
     profile = [v for v in liste if isinstance(v, pv.Steckprofil)]
     # Die aelteren JSON-Listen indizieren nur Zylinderraeder. Dieselben bekannten Umlaufachsen dort erhalten.
     zylinder_ids = [i for i, v in enumerate(liste) if isinstance(v, Verzahnung)]

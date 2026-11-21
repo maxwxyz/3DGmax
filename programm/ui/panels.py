@@ -20,6 +20,7 @@ class BaumPanel(QtWidgets.QWidget):
     sichtbar_geaendert = QtCore.Signal(set, bool)  # Blatt-Nummern, sichtbar
     isolieren = QtCore.Signal(object)  # set oder None (alle zeigen)
     transparent = QtCore.Signal(set, bool)
+    exportieren = QtCore.Signal()
 
     def __init__(self, parent=None):
         super().__init__(parent)
@@ -125,12 +126,21 @@ class BaumPanel(QtWidgets.QWidget):
             out |= self.blaetter(it)
         return out
 
+    def exportauswahl(self):
+        return {k.nummer for it in self.baum.selectedItems()
+                for k in it.data(0, QtCore.Qt.ItemDataRole.UserRole).blaetter()}
+
     def _menue(self, pos):
         it = self.baum.itemAt(pos)
+        if it is not None and not it.isSelected():
+            self.baum.setCurrentItem(it, 0, QtCore.QItemSelectionModel.SelectionFlag.ClearAndSelect)
         m = QtWidgets.QMenu(self)
         a_iso = m.addAction(tr("Isolieren"))
         a_alle = m.addAction(tr("Alle zeigen"))
         a_tr = m.addAction(tr("Transparent ein/aus"))
+        m.addSeparator()
+        a_export = m.addAction(tr("Auswahl als STEP oder STL exportieren …"))
+        a_export.setEnabled(it is not None and bool(self.exportauswahl()))
         a_iso.setEnabled(it is not None)
         a_tr.setEnabled(it is not None)
         gewaehlt = m.exec(self.baum.viewport().mapToGlobal(pos))
@@ -138,6 +148,8 @@ class BaumPanel(QtWidgets.QWidget):
             self.isolieren.emit(self.blaetter(it))
         elif gewaehlt is a_alle:
             self.alle_zeigen()
+        elif gewaehlt is a_export:
+            self.exportieren.emit()
         elif gewaehlt is a_tr:
             self.schalte_transparent(self.blaetter(it))
 
