@@ -612,6 +612,8 @@ class Zeichnungsabgleich(QtWidgets.QDialog):
             self.status.setText(f"{self.status.text()} {meldung}")
 
     def _hinweisziel(self, a):
+        if za.wiederholtes_linearmass(a.text):
+            return None
         box = a.rahmenbox or a.box
         pruefe = self.blatt.durchmesseranfang if "|" in a.text else None
         kreise = self.kreise.get(a.seite, [])
@@ -752,6 +754,8 @@ class Zeichnungsabgleich(QtWidgets.QDialog):
                 sortiert = sorted(bevorzugt, key=lambda m: id(m) not in ziel_ids)
                 sortiert += [m for m in self.modell if id(m) not in vorn and (not verbund or m.art == TOLERANZ)]
                 moeglich = am_ziel if anzahl or self.blatt.nummer in self.kreise else [m for m in bevorzugt if not za.unterschiede(p, m)]
+                if isinstance(p, za.WiederholtesLinearmass):
+                    moeglich = [m for m in bevorzugt if za.wertebefund(p, m, index=self.verbundindex) == "gleich"]
                 vorschlag = None if neues_ziel or a.zielkonflikt else a.modell
                 if vorschlag is None and (neues_ziel or a.zielkonflikt or not a.nur_zeichnung) and len(moeglich) == 1:
                     vorschlag = moeglich[0]
@@ -857,7 +861,7 @@ class Zeichnungsabgleich(QtWidgets.QDialog):
             gruppe = self.gruppen.get(a) if a.modell is m and self.text.toPlainText().strip() == a.text.strip() else None
             detail = self._wertdetails(p, m, gruppe)
             if k := za.koplanarbefund(p, m, self.verbundindex):
-                detail += "\n" + self._koplanartext(k)
+                detail += "\n" + self._koplanartext(k, p)
             if gruppe:
                 detail += "\n" + tr("Toleranzgruppe auf dem Blatt: {} · Im Modell: {} · {}").format(
                     self._ids(gruppe.blatt_ids), self._ids(gruppe.modell_ids), self._gruppentext(gruppe))
@@ -874,12 +878,15 @@ class Zeichnungsabgleich(QtWidgets.QDialog):
         return tr("Untere Rahmenzeile") if zeile.rang else tr("Obere Rahmenzeile")
 
     @staticmethod
-    def _koplanartext(k):
+    def _koplanartext(k, angabe=None):
         grund = {"geometrie": tr("Geometrie ungeklärt"), "anzahl": tr("Flächenanzahl weicht ab"),
                  "ebenen": tr("Flächen liegen in verschiedenen Ebenen"), "gekruemmt": tr("Gekrümmte Fläche"),
                  "vorkommen": tr("Bauteilvorkommen ungeklärt"),
                  "beruehrung": tr("Berührende Flächen, Aufteilung prüfen"),
                  "getrennt": tr("Getrennte Flächen in derselben Ebene")}[k.grund]
+        if isinstance(angabe, za.WiederholtesLinearmass):
+            return tr("Stückzahl in der Zeichnung {} · Auflagen im Modell {} · {}").format(
+                k.soll, k.ist if k.ist is not None else "–", grund)
         return tr("Koplanare Flächen · Zeichnung {} · Modellflächen {} · {}").format(
             k.soll, k.ist if k.ist is not None else "–", grund)
 
@@ -1074,7 +1081,7 @@ class Zeichnungsabgleich(QtWidgets.QDialog):
                                         if any(len(z.ort)>3 for z in orte) else "",
                                         " | ".join(f"{x:.6f} {y:.6f}" for x,y in a.zeilenecken),
                                         " | ".join(f"{x:.6f} {y:.6f}" for x,y in a.hinweisenden), *nachweis, *rahmen, *untere_gruppe,
-                                        self._koplanartext(koplanar) if koplanar else "",
+                                        self._koplanartext(koplanar, angabe) if koplanar else "",
                                         self._wertdetails(angabe, m, self.gruppen.get(a)) if angabe and m else ""])
                 for m in self.modell:
                     if id(m) not in verbunden:

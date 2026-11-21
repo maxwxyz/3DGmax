@@ -217,7 +217,7 @@ def test_zeichnungsbefund_bis_csv(fenster, tmp_path, monkeypatch, reparieren):
         with gzip.open(pfad("nist_ctc_03_asme1_ap203.stp.gz"), "rb") as f:
             quelle.write_bytes(f.read())
         fenster.lade(str(quelle), warten=True)
-        for nr in (3643, 3632, 3624, 3627, 3638, 3629):
+        for nr in (3643, 3632, 3624, 3627, 3638, 3629, 3634):
             p = next(p for p in fenster.erg.pmi if p.step_id == nr)
             fenster._pmi_befehl("semantisch", p)
             dialog = fenster._semantik_dialog
@@ -260,10 +260,21 @@ def test_zeichnungsbefund_bis_csv(fenster, tmp_path, monkeypatch, reparieren):
         assert bohrung.modell is None
         d.bestaetigen.click()
         assert bohrung.modell is durchmesser and d._befund(bohrung) == "gleich"
+        dicke, = [a for a in d.seiten[0] if a.text == "4X.82±.06"]
+        d.waehle(dicke)
+        auflagen = ziel_pmi(270,3634)
+        assert len(dicke.zeilenecken) == 4 and dicke.modell is None
+        assert d.zuordnung.currentData() == d.modellindex[id(auflagen)]
+        assert "Auflagen im Modell 4" in d.detail.text()
+        d.bestaetigen.click()
+        assert d._befund(dicke) == "gleich"
         d._export()
         with ziel.open(encoding="utf-8-sig") as f:
             daten = list(csv.DictReader(f,delimiter=";"))
         assert all(None not in z and None not in z.values() for z in daten)
+        dick, = [z for z in daten if z["Angabe"] == dicke.text]
+        assert dick["Quell-ID der Modell-PMI"] == str(auflagen.step_id)
+        assert dick["Befund"] == "Werte gleich" and "Auflagen im Modell 4" in dick["Prüfung der koplanaren Flächen"]
         z, = [z for z in daten if z["Angabe"] == TEXT]
         assert z["Quell-ID der Modell-PMI"] == str(m.step_id)
         assert z["Befund"] == ("Werte gleich" if reparieren else "Abweichend")

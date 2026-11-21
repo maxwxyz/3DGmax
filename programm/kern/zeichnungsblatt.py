@@ -112,7 +112,8 @@ def _mass_eintragen(angaben, mass, w, h):
         from .zeichnungsabgleich import unterschiede
         gelesen = lese_angabe(mass.text, 1.)
         if any(musteranzahl(a.text) != musteranzahl(mass.text)
-               or not (p := lese_angabe(a.text, 1., a.grundmass)) or unterschiede(p, gelesen) for a in gleiche):
+               or not (p := lese_angabe(a.text, 1., a.grundmass)) or unterschiede(p, gelesen)
+               or getattr(p, "anzahl", None) != getattr(gelesen, "anzahl", None) for a in gleiche):
             for a in gleiche:
                 a.text = "?"
             return
@@ -481,6 +482,11 @@ class Zeichnungsblatt:
         return None
 
     @cached_property
+    def massgeometrie(self):
+        from .zeichnung_koplanar import massgeometrie
+        return massgeometrie(self)
+
+    @cached_property
     def zellen(self):
         return _zellen(self.bild.min(axis=2) < 195)
 
@@ -572,4 +578,7 @@ class Zeichnungsblatt:
                 else:
                     continue
             rahmen[fund.box] = fund
+        from .zeichnung_dickenmass import wiederholte_masse
+        for mass in wiederholte_masse(self):
+            _mass_eintragen(rahmen, mass, w, h)
         return sorted([*rahmen.values(), *verbund], key=lambda a: (a.box[1], a.box[0]))

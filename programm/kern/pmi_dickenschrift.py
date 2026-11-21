@@ -32,8 +32,12 @@ def _verknuepft(g, modell, ids):
     return not kanten or kanten <= set().union(*(randkanten(datei, f) for f in flaechen))
 
 
-def _auflagen(modell, ids):
-    if not 3 <= len(ids) <= 100 or any(i < 0 or i >= len(modell.flaechen) for i in ids):
+def auflagenlage(modell, ids):
+    """Normale, unteres Niveau, Abstand und Zahl getrennter Auflagen auf der Gegenseite."""
+    from OCC.Core.BRep import BRep_Tool
+    if not 2 <= len(ids) <= 100 or any(i < 0 or i >= len(modell.flaechen) for i in ids):
+        return None
+    if any(BRep_Tool.Surface(modell.flaechen[i]) is None for i in ids):
         return None
     lagen = [(i, ebene(modell.flaechen[i])) for i in ids]
     if any(e is None for _, e in lagen):
@@ -135,7 +139,7 @@ def _massangabe(band, anzahl, abstand, faktor):
 
 def dickenmass(g, modell, ids):
     """Nur vollstaendige Masslinien auf den verknuepften Ebenen und den gedruckten Wert vorschlagen."""
-    if not schrift._lesbar(g) or not _verknuepft(g, modell, ids) or not (lagen := _auflagen(modell, ids)):
+    if not schrift._lesbar(g) or not _verknuepft(g, modell, ids) or not (lagen := auflagenlage(modell, ids)):
         return None
     normale, unten, abstand, anzahl = lagen
     rahmen = g.ebene if g.ebene is not None else next(schrift._rahmenrichtungen(g), None)

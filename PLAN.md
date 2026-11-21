@@ -277,7 +277,9 @@ Throughout: tests (core, offscreen UI, stress test, on-screen test), `--selbstte
   Check both witness lines and their end marks before proposing a thickness.
   AP242 #270 independently agrees with the reviewed size and tolerances.
   The corresponding pad elevations differ by 0.00254 mm between the two
-  source models. Comparing this counted linear callout to the PDF remains open.
+  source models. CTC-03 sheet 1 displays the corresponding dimension on
+  inclined projection axes. The drawing comparison reads its quantity and limits
+  between the arrow and origin circle and checks the model-side pad count.
   CTC-03 Rev C sheet 1 also reads this individual diameter above the projected
   frame. All seven bore dimensions have distinct text boxes and leader starts.
   The two single Ø.438 rows and the 2X Ø.438 pattern remain separate. Three
@@ -1986,6 +1988,14 @@ covers all four mounting bores of #265. The same assignments were verified after
 reopening the graphical STEP export. The separate 2X Ø.438 pattern has only one confirmed arrow
 target and remains open. The Ø2.00 and Ø1.500 bore centres on the drawing do not fit this
 seven-bore registration within its tolerance.
+
+A repeated linear dimension with a symmetric tolerance can be compared to a reviewed
+STEP thickness. Both witness lines, their outward shafts, the arrow and the origin
+circle locate the printed row in the projected view. Two raster resolutions must agree.
+The geometry check requires a common plane and separate coplanar pads on the other
+side. Report differences in the printed quantity and the numeric limits independently.
+CTC-03 sheet 1 agrees with AP242 #270 and the reviewed #3634 export. Individual pad
+locations on the sheet have not been registered by this check.
 
 For individual reviewed tolerance rows the PDF reader joins aligned scope wording below the frame.
 A two-sheet drawing with and without “OF ENTIRE GROOVE” produced equal and changed findings against

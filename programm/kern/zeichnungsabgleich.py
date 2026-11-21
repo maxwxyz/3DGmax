@@ -14,6 +14,11 @@ from .pmi import BEZUG, MASS, TOLERANZ, Pmi
 from .vergleich_pmi import simultangruppen
 
 
+@dataclass
+class WiederholtesLinearmass(Pmi):
+    anzahl: int = 0
+
+
 @dataclass(frozen=True)
 class Musterziel:
     ort: tuple
@@ -207,6 +212,13 @@ def gruppenbefunde(angaben, modelle, faktor):
 
 
 _MENGE = re.compile(r"^\s*([1-9][0-9]{0,3})\s*[xX×]\s*(?=(?:[Ø∅⌀]|C?R)\s*[0-9.,])")
+_ZAHL = r"(?:[0-9]+(?:[.,][0-9]+)?|[.,][0-9]+)"
+_LINEARWIEDERHOLUNG = re.compile(
+    rf'\s*([1-9][0-9]{{0,3}})\s*[x×]\s*({_ZAHL}\s*±\s*{_ZAHL}(?:\s*(?:mm|inch|in|"))?)\s*', re.I)
+
+
+def wiederholtes_linearmass(text):
+    return _LINEARWIEDERHOLUNG.fullmatch(text)
 
 
 def musteranzahl(text):
@@ -239,13 +251,15 @@ def muster_deckt(anzahl, ziele, modell, typ="Size_Diameter"):
 
 
 def lese_angabe(text, faktor, grundmass=False):
-    if m := _MENGE.match(text):
+    linear = wiederholtes_linearmass(text)
+    if linear:
+        text = linear[2]
+    elif m := _MENGE.match(text):
         text = text[m.end():]
     elif re.match(r"\s*\d+\s*[xX×]", text):
         return None
     # Bei zwei aufsteigenden Groessengrenzen kann der Plotter einen Bindestrich ausgeben.
-    zahl = r"(?:[0-9]+(?:[.,][0-9]+)?|[.,][0-9]+)"
-    grenzen = re.fullmatch(rf'((?:[⌀Ø∅]|C?R)\s*)({zahl})\s*-\s*({zahl})(\s*(?:mm|in|inch|")?)\s*', text, re.I)
+    grenzen = re.fullmatch(rf'((?:[⌀Ø∅]|C?R)\s*)({_ZAHL})\s*-\s*({_ZAHL})(\s*(?:mm|in|inch|")?)\s*', text, re.I)
     if grenzen and float(grenzen[2].replace(",", ".")) < float(grenzen[3].replace(",", ".")):
         text = f"{grenzen[1]}{grenzen[2]}–{grenzen[3]}{grenzen[4]}"
     zusatz = ""
@@ -268,7 +282,7 @@ def lese_angabe(text, faktor, grundmass=False):
     daten = pmi_ableiten.aus_text([text], faktor or 1.)
     if not daten:
         return None
-    p = Pmi(**daten, beschreibung=zusatz)
+    p = WiederholtesLinearmass(**daten, anzahl=int(linear[1])) if linear else Pmi(**daten, beschreibung=zusatz)
     if p.art == BEZUG:
         return p if re.fullmatch(r"\s*\[[A-Z]{1,2}\]\s*", text) else None
     if p.wert is None and p.nennwert is None:
@@ -317,6 +331,8 @@ def unterschiede(zeichnung, modell):
     if zeichnung.art != modell.art:
         return ["art"]
     a, b = _felder(zeichnung), _felder(modell)
+    if isinstance(zeichnung, WiederholtesLinearmass) and modell.typ == "Size_Thickness":
+        a["typ"] = modell.typ
     if zeichnung.grenzmass:
         a.pop("nennwert", None)  # Die Zeichnung gibt nur die beiden Grenzen an.
     return [k for k, v in a.items() if not (math.isclose(v, b[k], abs_tol=1e-7, rel_tol=0.)
@@ -326,7 +342,10 @@ def unterschiede(zeichnung, modell):
 def kandidaten(zeichnung, modell_pmi):
     if zeichnung is None:
         return []
-    passend = [p for p in modell_pmi if p.art == zeichnung.art and p.typ == zeichnung.typ]
+    typen = {zeichnung.typ}
+    if isinstance(zeichnung, WiederholtesLinearmass):
+        typen.add("Size_Thickness")
+    passend = [p for p in modell_pmi if p.art == zeichnung.art and p.typ in typen]
     return sorted(passend, key=lambda p: len(unterschiede(zeichnung, p)))
 
 
@@ -353,6 +372,11 @@ def gruppe_zu_pruefen(p, modell):
 
 
 def koplanarbefund(p, modell, index):
+    if isinstance(p, WiederholtesLinearmass):
+        anzahl = p.anzahl
+        if index is None or modell is None or modell.typ != "Size_Thickness":
+            return Koplanarbefund(anzahl, None, "geometrie")
+        return index.auflagenanzahl(anzahl, modell.flaechen)
     anzahl = einzelanzahl(p.beschreibung) if p and p.typ == "ProfileOfSurface" else None
     if anzahl is None:
         return None

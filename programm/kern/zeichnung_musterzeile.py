@@ -34,7 +34,7 @@ def _durchmesser(maske):
     return np.count_nonzero(soll & maske) / np.count_nonzero(soll | maske) > .66
 
 
-def _masswort(maske):
+def _masswort(maske, *, linear=False):
     from .zeichnungsblatt import _zeile
     gruppen = _gruppen(maske)
     if not 2 <= len(gruppen) <= 30:
@@ -61,6 +61,9 @@ def _masswort(maske):
             if len(glyph) != 1 or glyph not in "0123456789X±":
                 return ""
             text += glyph
+    if linear:
+        from .zeichnungsabgleich import wiederholtes_linearmass
+        return text if wiederholtes_linearmass(text) else ""
     zahl = r"(?:[0-9]+(?:\.[0-9]+)?|\.[0-9]+)"
     if re.fullmatch(rf"(?:[1-9][0-9]{{0,3}}X)?⌀{zahl}(?:±{zahl})?", text) and lese_angabe(text, 1.):
         return text

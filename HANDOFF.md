@@ -2,6 +2,30 @@
 
 ## Current state, 2026-11-21
 
+### Compare the repeated thickness on the CTC-03 drawing
+
+- Checked PLAN §8.35 and §8.4 against docs/Roadmap.md. Sheet 1 of CTC-03 Rev C
+  has no PDF text at the thickness callout. Two parallel witness lines, the
+  arrow and the origin circle establish its projected writing axes. The row
+  reads “4X .82 ±.06” at both verification resolutions. Tests cover changed
+  count and tolerance, missing end marks, missing shafts and additional ink.
+- Verified the PDF against independent AP242 #270 and against the reopened
+  export of graphical AP203 #3634. After explicit confirmation the dialog and
+  CSV show matching values and four separate coplanar pads; the model PMI
+  also references their common base. An extra or missing pad changes the
+  count finding. Without model geometry the quantity remains open. Individual
+  2D pad positions have not been registered. Of 30 local NIST PDF sheets,
+  one matched this arrow-and-circle layout with a counted linear dimension.
+- All 166 affected tests, 186 drawing and thickness regression checks and six
+  native Cocoa checks passed. The signed build passed its self-test and
+  rendered the reviewed export. The only local main app is `dist/3DGmax.app`.
+- Next: CTC-03 sheet 1 has a separate “(.750)” reference dimension between
+  two inward-pointing arrows. The AP203 repair reads #3630 as a reference
+  distance on faces #537 and #539; AP242 #97 gives 19.05 mm. Rectifying the
+  two measured witness directions recovered the parentheses and all digits
+  at three raster resolutions in a probe. Connect this layout to the normal
+  drawing review and CSV export. QIF stays last.
+
 ### Recover a repeated thickness from graphical STEP
 
 - Checked PLAN §8.4 and §8.35 against docs/Roadmap.md. CTC-03 AP203 #3634

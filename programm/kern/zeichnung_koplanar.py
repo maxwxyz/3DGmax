@@ -11,21 +11,26 @@ from .pmi_rahmenzusatz import lies_hinweiszeile
 from .pmi_strichschrift import _gruppen
 from .schriftstreifen import Schriftstreifen
 from .zeichnungsabgleich import Blattangabe, lese_angabe
-from .zeichnungsansicht import _teilpfade
+from .zeichnungsansicht import _kreis, _sichtbar, _teilpfade
+from .blattring import ellipse
 
 
-def _rahmenkanten(blatt):
+def massgeometrie(blatt):
     from pypdfium2 import raw
     h, w = blatt.bild.shape[:2]
     ks = blatt.koordinaten
     o = np.array(ks.to_page(0, 0))
     zur_ansicht = np.linalg.inv(np.array([(ks.to_page(w, 0)-o)/w, (ks.to_page(0, h)-o)/h]))
-    rahmen, stege = [], []
+    rahmen, stege, dreiecke, ringe = [], [], [], []
+    tinte = blatt.bild.min(axis=2) < 220
     for obj in blatt.seite.get_objects(filter=[raw.FPDF_PAGEOBJ_PATH]):
-        if not 2 <= raw.FPDFPath_CountSegments(obj) <= 8:
+        n = raw.FPDFPath_CountSegments(obj)
+        if not 2 <= n <= 96:
             continue
         fuellung, strich = c_int(), c_int()
-        if not raw.FPDFPath_GetDrawMode(obj, fuellung, strich) or not strich.value or raw.FPDFPageObj_GetDashCount(obj):
+        if not raw.FPDFPath_GetDrawMode(obj, fuellung, strich) or raw.FPDFPageObj_GetDashCount(obj):
+            continue
+        if not strich.value and not (fuellung.value and 3 <= n <= 5):
             continue
         matrix = obj.get_matrix()
         eltern = obj.container
@@ -37,16 +42,28 @@ def _rahmenkanten(blatt):
         ort = (np.array([x,y])-o) @ zur_ansicht
         for pfad in _teilpfade(obj):
             p = np.asarray(pfad) @ basis + ort
-            if len(p) == 2 and 4 <= np.linalg.norm(p[1]-p[0]) <= min(w, h)/2:
+            if fuellung.value and 3 <= len(p) <= 5:
+                rand = p
+                while len(rand) > 3 and np.linalg.norm(rand[0]-rand[-1]) < .1:
+                    rand = rand[:-1]
+                if len(rand) == 3 and _sichtbar(tinte, [rand.mean(0)]):
+                    dreiecke.append(rand)
+            if not strich.value:
+                continue
+            if len(p) >= 12 and np.linalg.norm(p[0]-p[-1]) < .25 and 4 <= max(np.ptp(p,0)) <= 55:
+                ring = _kreis(p) or ellipse(p)
+                if ring and _sichtbar(tinte, p, vollstaendig=True):
+                    ringe.append(ring)
+            elif len(p) == 2 and 4 <= np.linalg.norm(p[1]-p[0]) <= min(w, h)/2:
                 stege.append(p)
             elif 5 <= len(p) <= 6 and np.max(np.abs(p[4:]-p[0])) < .5:
                 if np.linalg.norm(p[0]+p[2]-p[1]-p[3]) <= .65:
                     rahmen.append(p[:4])
-    return rahmen, np.array(stege)
+    return rahmen, np.array(stege).reshape(-1,2,2), dreiecke, ringe
 
 
 def _leselagen(blatt):
-    rahmen, stege = _rahmenkanten(blatt)
+    rahmen, stege, _, _ = blatt.massgeometrie
     if not len(stege):
         return
     mitten = cKDTree(stege.mean(axis=1))

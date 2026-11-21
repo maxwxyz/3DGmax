@@ -25,6 +25,7 @@ class Verbundindex:
     def __init__(self, modelle, geometrie=None):
         self.geometrie = geometrie
         self.koplanare_ziele = {}
+        self.auflagen = {}
         self.texte_je_aspekt = {}
         self.quellen = {}
         self.eltern = {}
@@ -59,6 +60,19 @@ class Verbundindex:
         if schluessel not in self.koplanare_ziele:
             self.koplanare_ziele[schluessel] = pruefe_koplanar(soll, flaechen, self.geometrie)
         return self.koplanare_ziele[schluessel]
+
+    def auflagenanzahl(self, soll, flaechen):
+        from .pmi_dickenschrift import auflagenlage
+        if self.geometrie is None or self.mehrfach_verbaut & flaechen:
+            return Koplanarbefund(soll, None, "vorkommen" if self.geometrie else "geometrie")
+        ids = frozenset(flaechen)
+        if ids not in self.auflagen:
+            self.auflagen[ids] = auflagenlage(self.geometrie, ids)
+        lage = self.auflagen[ids]
+        if lage is None:
+            return Koplanarbefund(soll, None, "geometrie")
+        anzahl = lage[3]
+        return Koplanarbefund(soll, anzahl, "getrennt" if soll == anzahl else "anzahl")
 
     def merkmalstexte(self, oben, unten):
         datei = getattr(self.geometrie, "datei", None)
