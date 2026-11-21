@@ -2,6 +2,27 @@
 
 ## Current state, 2026-11-21
 
+### Review diameter limits attached to a generic STEP dimension
+
+- Checked PLAN §8.4 and docs/Roadmap.md. Original CTC-01 AP203 callout #3413 is named
+  “linear dimension”. Its curves read “⌀34.8-35.2” and its associated cylinder (#611)
+  measures 35 mm. The conversion dialog previously offered no limit values. It now uses
+  the printed diameter sign to identify a possible size dimension. The reviewer chooses
+  the two limits. The original graphic is also searchable before conversion.
+- In the AP203 original and a triangle-only AP242 variant without a writing plane, both
+  STEP readers recovered a 35 mm diameter and absolute limits of 34.8 and 35.2 mm on
+  face #611. The original presentation coordinates and saved view survived export.
+  A separate validation property with limits of 34.7 and 35.3 mm produced two distinct
+  review choices. Each choice retained its own values after reimport. An explicit distance
+  or radius type still prevents a conflicting diameter range from being offered.
+- All 71 affected tests passed, as did six native macOS tests. The reproducible local
+  package and before/after triangle-only STEP files are in `dist/main-pmi-grenzmass/`.
+- Next §8.4 case: CTC-01 AP203 #3422 contains a surface-profile frame reading 1.25
+  against A/B/C. Under the frame two separately readable letters A and B flank a closed
+  double-headed arrow. The full annotation currently yields no proposal. Evaluate this
+  scope indication together with the separately drawn endpoint notes #3425 and #3412.
+  QIF remains last.
+
 ### Recover nominal and toleranced linear dimensions from graphical STEP
 
 - Checked PLAN §8.4 and docs/Roadmap.md. Removing the parentheses and writing plane from

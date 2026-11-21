@@ -225,6 +225,10 @@ Throughout: tests (core, offscreen UI, stress test, on-screen test), `--selbstte
   between a legible dimension and its STEP validation text leaves the numeric fields open until
   the reviewer selects a source or enters the values. Two numbers separated by a hyphen can be
   explicitly adopted as limit dimensions. Tested on FTC-07 with and without validation metadata.
+  CTC-01 AP203 calls its Ø34.8–35.2 bore annotation “linear dimension”. Review and search
+  use the drawn diameter sign with that generic name. Review retains the choice of limits
+  and the original cylinder association. A triangle-only version without a writing plane
+  also distinguishes the printed limits from conflicting values in a STEP validation property.
   Single-row wide control frames preserve the characteristic, diameter zone, projected height or
   maximum material and the ordered datums. Closed cell borders can also be recovered from filled
   triangles. With no writing plane the outer edges of coplanar triangles supply candidate axes. Both FTC-07's original strokes and a

@@ -13,7 +13,7 @@ from programm.ui.lader import lade_alles
 from tests.conftest import pfad
 
 
-def _fuellgrafik(g):
+def _fuellgrafik(g, konturen=((4,), (5,), (8, 6, 7), (9,), (10,), (11,))):
     from OCC.Core.BRepBuilderAPI import BRepBuilderAPI_MakeFace, BRepBuilderAPI_MakePolygon
     from OCC.Core.BRepMesh import BRepMesh_IncrementalMesh
     from OCC.Core.gp import gp_Pnt
@@ -31,12 +31,10 @@ def _fuellgrafik(g):
         a, b = linie
         quer = np.cross(g.ebene[3], b-a) * (.07 / np.linalg.norm(b-a))
         netze.append((np.array([a-quer, b-quer, b+quer, a+quer]), [[0, 1, 2], [0, 2, 3]]))
-    # Zwei Dreieckspfeile und vier Buchstaben. Die Acht braucht beide Innenkonturen.
-    for index in (4, 5, 8, 9, 10, 11):
+    for index, *loecher in konturen:
         fl = BRepBuilderAPI_MakeFace(draht(g.linien[index]), True)
-        if index == 8:
-            for loch in g.linien[6:8]:
-                fl.Add(draht(loch))
+        for loch in loecher:
+            fl.Add(draht(g.linien[loch]))
         form = fl.Face()
         BRepMesh_IncrementalMesh(form, .01)
         netze.extend(_netz_und_umriss(form)[1])
@@ -44,8 +42,6 @@ def _fuellgrafik(g):
 
 
 def _als_dreiecke(text, g, klammer=True, toleriert=False):
-    text = step_ap242.aus_ap203(text, p21.lese_text(text))
-    punkte, dreiecke = [], []
     netze = _fuellgrafik(g)
     if not klammer:
         netze = netze[:-2]
@@ -54,6 +50,12 @@ def _als_dreiecke(text, g, klammer=True, toleriert=False):
         o, x, y, _ = g.ebene
         _, zusatz = text_glyphen("±1", o+66*x-46*y, x, y, 13.5, "Helvetica")
         netze.extend(zusatz)
+    return _mit_fuellsatz(text, netze, 3418, 3447, "")
+
+
+def _mit_fuellsatz(text, netze, callout, stil, name):
+    text = step_ap242.aus_ap203(text, p21.lese_text(text))
+    punkte, dreiecke = [], []
     for p, t in netze:
         dreiecke.extend(np.asarray(t) + len(punkte) + 1)
         punkte.extend(p)
@@ -62,8 +64,8 @@ def _als_dreiecke(text, g, klammer=True, toleriert=False):
     neu = (f"#90001=COORDINATES_LIST('',{len(punkte)},({coords}));\n"
            f"#90002=COMPLEX_TRIANGULATED_SURFACE_SET('',#90001,{len(punkte)},((0.,0.,1.)),(),(),({fans}));\n"
            "#90003=TESSELLATED_GEOMETRIC_SET('',(#90002));\n"
-           "#90004=TESSELLATED_ANNOTATION_OCCURRENCE('',(#3447),#90003);\n")
-    text, n = re.subn(r"#3418\s*=[^;]+;", "#3418=DRAUGHTING_CALLOUT('',(#90004));", text)
+           f"#90004=TESSELLATED_ANNOTATION_OCCURRENCE('',(#{stil}),#90003);\n")
+    text, n = re.subn(rf"#{callout}\s*=[^;]+;", f"#{callout}=DRAUGHTING_CALLOUT('{name}',(#90004));", text)
     assert n == 1
     pos = text.rindex("ENDSEC;")
     return text[:pos] + neu + text[pos:]

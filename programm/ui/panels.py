@@ -444,7 +444,7 @@ class PmiPanel(QtWidgets.QWidget):
         for zeile, p in enumerate(self.pmi):
             g = self._schriftgrafik.get(p.step_id)
             if g is not None and not p.semantisch and not g.erzeugt and not any(ph.text for ph in g.platzhalter):
-                art = (p.art, p.typ) if p.art != HINWEIS else aus_name(p.name or g.name)
+                art = (p.art, p.typ) if p.art != HINWEIS else aus_name(p.name or g.name, druckschrift=True)
                 # Eine Modellbewegung ersetzt die Arrays der Originalgrafik.
                 aufgaben.append((zeile, replace(g), art))
         if not aufgaben:

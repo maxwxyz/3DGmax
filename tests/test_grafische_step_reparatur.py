@@ -474,6 +474,9 @@ def test_suche_liest_grafische_schrift_erst_bei_bedarf(fenster, monkeypatch, app
     assert len(gelesen) == len(set(gelesen)) == 21
     panel.suche.setText("⌀25±0.15")
     assert [p.step_id for p in panel.sichtbare()] == [3420]
+    panel.suche.setText("⌀34.8-35.2")
+    assert [p.step_id for p in panel.sichtbare()] == [3413]
+    assert panel._schriftwerte[3413].nennwert is None
     assert not panel._schrift_timer.isActive()
     assert all(not p.semantisch and p.wert is None for p in fenster.erg.pmi)
     fenster.schliesse_modell()

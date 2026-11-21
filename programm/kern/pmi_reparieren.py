@@ -53,8 +53,11 @@ def reparierbar(p, grafik: dict) -> bool:
             and not grafik[p.step_id].erzeugt)
 
 
-def aus_name(name: str) -> tuple[str, str] | None:
+def aus_name(name: str, *, druckschrift=False) -> tuple[str, str] | None:
     """(Art, Typ) aus dem Namen eines Callouts; None, wenn nichts passt (z. B. "Text.1")."""
+    # CAD-Systeme nennen auch Durchmesser und Radien schlicht "linear dimension".
+    if druckschrift and re.fullmatch(r"(?:linear\s+)?dimension(?:\.\d+)?", (name or "").strip(), re.I):
+        return MASS, ""
     for muster, art, typ in NAMEN:
         if re.search(rf"\b(?:{muster})\b", name or "", re.I):
             return art, typ
@@ -107,7 +110,8 @@ def schriftvorschlag(g, bekannt, modell=None, flaechen=()):
         return "", {}
     art, typ = bekannt or (None, "")
     abstand = None
-    if modell and len(flaechen) == 2 and (not bekannt or typ in ("Size_Thickness", "Location_LinearDistance")):
+    linear = not bekannt or (art == MASS and typ in ("", "Size_Thickness", "Location_LinearDistance"))
+    if linear and modell and len(flaechen) == 2:
         abstand = geometrie_nennmass("Location_LinearDistance", flaechen, modell)
     linearmass = abstand is not None and (not bekannt or g.ebene is None)
     text = lies_schrift(g, linearmass=linearmass)
@@ -173,15 +177,18 @@ def _verknuepfte_flaechen(p, g, modell):
 
 def vorschlag(p, g, modell) -> Pmi:
     """Eigene PMI als Startwert fuer die Pruefung: Art, Werte (soweit lesbar), Flaechen, Verweis auf den Callout."""
-    bekannt = (p.art, p.typ) if p.art != HINWEIS else aus_name(p.name or (g.name if g else ""))
+    name = p.name or (g.name if g else "")
+    bekannt = (p.art, p.typ) if p.art != HINWEIS else aus_name(name)
     art, typ = bekannt or (TOLERANZ, "")
     texte = [ph.text for ph in g.platzhalter if ph.text] if g is not None else []
     flaechen = _verknuepfte_flaechen(p, g, modell)
     dateitexte, ocr, gelesen, ergaenzung, masswahl = (), "", {}, "", []
     if g and not texte and not g.erzeugt and not p.semantisch:
-        dateitexte, ocr, gelesen, ergaenzung, masswahl = _druckschrift(g, bekannt, modell, flaechen)
-    if gelesen:
-        art, typ = gelesen["art"], gelesen["typ"]
+        schriftart = aus_name(name, druckschrift=True) if p.art == HINWEIS else bekannt
+        dateitexte, ocr, gelesen, ergaenzung, masswahl = _druckschrift(g, schriftart, modell, flaechen)
+        if gelesen:
+            art = gelesen["art"]
+            typ = gelesen["typ"] or (typ if schriftart != bekannt and not masswahl else "")
     neu = Pmi(art, typ=typ, norm=p.norm, name=p.name if art == BEZUG and re.fullmatch(r"[A-Z]{1,2}", p.name or "") else "")
     for k in ("name", *FELDER):
         if k in gelesen:
