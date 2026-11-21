@@ -44,6 +44,12 @@ if os.environ.get("DG_MIT_JT") == "1":
         raise SystemExit("DG_MIT_JT=1, aber extern/jt2glb fehlt (packaging/jt/bauen.sh)")
     jt_binaer = [(_jt, ".")]
 
+# Dieselben OCCT-Objekte wie pythonocc verwenden, ohne die GUI beim nativen Import zu sperren.
+import subprocess
+subprocess.run([sys.executable, os.path.join(ROOT, "packaging", "step", "bauen.py")], check=True)
+_step_ext = {"darwin": "dylib", "win32": "dll"}.get(sys.platform, "so")
+step_binaer = [(os.path.join(ROOT, "build", "step", f"dg_step.{_step_ext}"), ".")]
+
 from PyInstaller.utils.hooks import collect_submodules, copy_metadata  # noqa: E402
 datas += copy_metadata("pypdfium2")  # enthaelt auch die Lizenztexte des mitgelieferten PDFium
 hidden = collect_submodules("programm") + collect_submodules("OCC.Core") + ["OCC.Display.qtDisplay",
@@ -52,7 +58,7 @@ excludes = ["tkinter", "matplotlib", "IPython", "pytest", "PyQt5", "PyQt6", "PyS
             "PySide6.QtWebEngineCore", "PySide6.QtWebEngineWidgets", "PySide6.Qt3DCore", "PySide6.QtQuick",
             "PySide6.QtQml", "PySide6.QtMultimedia", "PySide6.QtCharts", "PySide6.QtDataVisualization"]
 
-a = Analysis([os.path.join(ROOT, "packaging", "start_3dgmax.py")], pathex=[ROOT], datas=datas, binaries=jt_binaer,
+a = Analysis([os.path.join(ROOT, "packaging", "start_3dgmax.py")], pathex=[ROOT], datas=datas, binaries=jt_binaer + step_binaer,
              hiddenimports=hidden, excludes=excludes, noarchive=False)
 pyz = PYZ(a.pure)
 # Startbild des Starters (Windows/Linux; macOS kennt es nicht): sichtbar, bevor Python und Qt geladen sind,

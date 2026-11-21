@@ -41,9 +41,14 @@ pixi run start          # application
 pixi run test           # tests (offscreen)
 ```
 
+For responsive native STEP transfer in a source checkout, run
+`pixi run python packaging/step/bauen.py` once after installing the environment.
+The portable app builds compile and bundle this library automatically.
+
 ## Build portable apps
 `packaging/build_mac.sh`, `packaging/build_linux.sh`, `packaging\build_windows.bat` (each accepts `--ohne-tests`
-to skip tests), or on GitHub: *Actions › Apps bauen*.
+to skip tests), or on GitHub: *Actions › Apps bauen*. Local packaging requires a C++17 compiler
+(Xcode Command Line Tools, a Linux C++ compiler, or the MSVC developer command prompt on Windows).
 
 **JT variant:** `packaging/jt/bauen.py` (macOS, Linux, Windows with MSVC; `bauen.sh` calls it) fetches the TKJT
 fork [wwmayer/TKJT](https://github.com/wwmayer/TKJT) with JT 10 reading (Open Cascade, GPL v2+, commit 687cc51, as

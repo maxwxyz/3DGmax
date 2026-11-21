@@ -2,6 +2,31 @@
 
 ## Current state, 2026-11-21
 
+### Prioritise large STEP files that appear to hang on opening
+
+- Checked PLAN §6 and docs/Roadmap.md. Normal asynchronous file opening in a native macOS
+  window reproduced a pause of almost four seconds on the 42.85 MB, 2,400-part assembly.
+  Packaged apps now run OCCT reading and XCAF transfer outside the interpreter lock.
+  A progress callback supports cancellation during transfer. Competing loads queue before
+  allocating their indices. At 30 MB and above, a worker indexes Part 21 concurrently.
+  Ordinary source imports also use this path after compiling packaging/step/bauen.py.
+- Across three alternating runs per version, normal opening fell from 7.94 to 5.76 s,
+  peak RSS from 1,789 to 1,566 MiB and the longest UI callback interval from 3.75 to
+  1.64 s. The original local main build was 77f1b70. On a 37.06 MB aggregate of six
+  NIST FTC-09 files, the native window opened 978 faces, 384 PMI and 138 saved views
+  in 4.09 s. The reporting user's own file was unavailable.
+- Compared the type index, every argument and all reverse references against the eager
+  reader for 564,941 entities across 53 source files. Also exercised an interrupted
+  native transfer, immediate retry, the source-only fallback and AP242 conversion.
+- Cancelling the 42.85 MB import using the button at 3% and immediately opening
+  CTC-01 displayed just the new model with all 117 faces and 23 PMI. The packaged
+  executable also rendered a 111.55 MB aggregate (18 FTC-09 copies). Its normal
+  opening took 13.21 s, with a 6.51 s pause on the first scene. Profiling found
+  1.39 million individual triangle setter calls for the filled annotation graphics.
+- Next §6: first display still takes the main thread for about 1.6 s on 2,400 parts.
+  Check larger curved parts, scene construction and thumbnails on complex saved views.
+  Verify Windows packaging and timing on Windows. QIF stays last.
+
 ### Resolve a single STEP datum with several faces
 
 - Checked PLAN §8.20 and docs/Roadmap.md. The three coplanar pads of FTC-10 D

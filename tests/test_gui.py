@@ -24,7 +24,7 @@ def test_ladeabbruch_beendet_naechste_phase(monkeypatch, vergleich):
     lader = VergleichsLader({"alt": "a.stp", "neu": "b.stp"}) if vergleich else Lader("a.stp")
     schritte = []
 
-    def geometrie(pfad):
+    def geometrie(pfad, fortschritt=None):
         schritte.append(pfad)
         lader.abgebrochen = True
 

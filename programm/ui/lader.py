@@ -34,7 +34,7 @@ def lade_alles(pfad: str, fortschritt=lambda text: None) -> Ergebnis:
     jt = pfad.lower().endswith(ENDUNGEN_JT)
     fortschritt(tr("JT wird umgewandelt (TKJT) – große Dateien brauchen einige Minuten …") if jt else
                 tr("Geometrie lesen …"))
-    modell = lade_modell(pfad)
+    modell = lade_modell(pfad, fortschritt)
     fortschritt(tr("PMI lesen …"))
     pmi = lies_pmi(modell)
     fortschritt(tr("Struktur und Grafik …"))

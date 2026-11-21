@@ -9,8 +9,10 @@ Ergebnis ist ein StepModell mit
 
 from __future__ import annotations
 
+import os
 import time
 from dataclasses import dataclass, field
+from threading import Lock
 
 from OCC.Core.BRep import BRep_Builder, BRep_Tool
 from OCC.Core.IFSelect import IFSelect_RetDone
@@ -26,6 +28,9 @@ from OCC.Core.TransferBRep import transferbrep
 from OCC.Core.XCAFDoc import XCAFDoc_DocumentTool
 
 from . import norm, p21
+
+STEP_PARALLEL_AB = 30_000_000
+_STEP_IMPORTSPERRE = Lock()
 
 NETZFLAECHEN = ("TESSELLATED_FACE", "TRIANGULATED_FACE", "COMPLEX_TRIANGULATED_FACE", "CUBIC_BEZIER_TRIANGULATED_FACE")
 
@@ -133,23 +138,47 @@ def _step_flaechen(reader, datei: p21.P21Datei, modell: StepModell):
                 modell.flaeche_zu_step.setdefault(idx, eid)
 
 
-def lade_step(pfad: str) -> StepModell:
+def _step_textdaten(pfad, abbruch=None):
+    text = p21.dateitext(pfad)
+    return norm.textbelege(text), p21.lese_text(text, geometrie_spaeter=True, abbruch=abbruch)
+
+
+def _step_daten(reader, doc, pfad, fortschritt):
+    from concurrent.futures import ThreadPoolExecutor
+    from threading import Event
+    from . import step_import
+
+    # Bei grossen Dateien laufen XCAF-Transfer und Part-21-Index auf getrennten Kernen.
+    if not os.path.isfile(pfad) or os.path.getsize(pfad) < STEP_PARALLEL_AB or step_import.bibliothek() is None:
+        step_import.uebertrage(reader, doc, pfad, fortschritt)
+        return _step_textdaten(pfad)
+    abbruch = Event()
+    with ThreadPoolExecutor(max_workers=1) as pool:
+        index = pool.submit(_step_textdaten, pfad, abbruch.is_set)
+        try:
+            step_import.uebertrage(reader, doc, pfad, fortschritt)
+            return index.result()
+        finally:
+            abbruch.set()
+
+
+def lade_step(pfad: str, fortschritt=None) -> StepModell:
+    from ..i18n import tr
     t0 = time.perf_counter()
-    reader = _neuer_reader()
-    if reader.ReadFile(pfad) != IFSelect_RetDone:
-        raise LadeFehler(f"STEP-Datei nicht lesbar: {pfad}")
-    doc = TDocStd_Document("XmlXCAF")
-    if not reader.Transfer(doc):
-        raise LadeFehler(f"Uebertragung fehlgeschlagen: {pfad}")
+    with _STEP_IMPORTSPERRE:
+        if fortschritt:
+            fortschritt(tr("STEP-Datei lesen …"))
+        reader = _neuer_reader()
+        doc = TDocStd_Document("XmlXCAF")
+        belege, datei = _step_daten(reader, doc, pfad, fortschritt)
+    if fortschritt:
+        fortschritt(tr("STEP-Flächen und PMI zuordnen …"))
     st = XCAFDoc_DocumentTool.ShapeTool(doc.Main())
     form = _freie_formen(st)
     modell = StepModell(pfad, doc, st, form, _alle_flaechen(form))
     modell._baue_index()
     modell._reader = reader
-    text = p21.dateitext(pfad)
-    modell.normbelege = norm.textbelege(text)
-    modell.datei = p21.lese_text(text)
-    del text
+    modell.normbelege, modell.datei = belege, datei
     _step_flaechen(reader, modell.datei, modell)
     modell.ladezeit = time.perf_counter() - t0
     return modell
@@ -493,18 +522,18 @@ def _lade_prc(pfad: str, doc, t0: float) -> StepModell:
     return modell
 
 
-def lade_modell(pfad: str) -> StepModell:
+def lade_modell(pfad: str, fortschritt=None) -> StepModell:
     """Modell nach Endung laden: STEP (mit PMI), IGES, STL, OBJ, glTF/GLB, 3MF (Netze, ohne PMI). Laengen in mm."""
     import os
     if pfad.lower().endswith(ENDUNGEN_STEPZ):
         import tempfile
         with tempfile.TemporaryDirectory(prefix="3dgmax_stepz_") as ordner:
-            modell = lade_step(_entpacke_stepz(pfad, ordner))
+            modell = lade_step(_entpacke_stepz(pfad, ordner), fortschritt)
         modell.pfad = pfad
         return modell
     endung = os.path.splitext(pfad)[1].lower()
     if endung in ENDUNGEN_STEP or endung not in ENDUNGEN:
-        return lade_step(pfad)
+        return lade_step(pfad, fortschritt)
     if endung in ENDUNGEN_JT:
         return _lade_jt(pfad)
     t0 = time.perf_counter()

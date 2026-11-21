@@ -10,6 +10,7 @@ from __future__ import annotations
 import re
 from dataclasses import dataclass, field
 from functools import cached_property, lru_cache
+from threading import Lock
 
 
 # Verknuepfung Semantik -> Annotation (mit Platzhalter ab AP242 e2)
@@ -44,6 +45,13 @@ class Entity:
     # Teiltypen; einfache Entitaet hat genau einen, komplexe mehrere
     parts: dict[str, list] = field(default_factory=dict)
 
+    def typen(self):
+        return self.parts.keys()
+
+    def sammle_verweise(self, rueck):
+        for args in self.parts.values():
+            _sammle_verweise(args, self.id, rueck)
+
     @property
     def typ(self) -> str:
         return next(iter(self.parts)) if len(self.parts) == 1 else "(" + " ".join(self.parts) + ")"
@@ -57,6 +65,66 @@ class Entity:
         return self.parts[name]
 
 
+# Diese einfachen Geometrieentitaeten wurden beim Modellimport bereits von OCCT gelesen.
+_GEOMETRIE = frozenset("""
+    CARTESIAN_POINT DIRECTION VECTOR LINE CIRCLE ELLIPSE AXIS1_PLACEMENT AXIS2_PLACEMENT_2D AXIS2_PLACEMENT_3D
+    VERTEX_POINT ORIENTED_EDGE EDGE_CURVE EDGE_LOOP FACE_BOUND FACE_OUTER_BOUND ADVANCED_FACE FACE_SURFACE
+    PCURVE SURFACE_CURVE SEAM_CURVE DEFINITIONAL_REPRESENTATION CLOSED_SHELL OPEN_SHELL MANIFOLD_SOLID_BREP
+    PLANE CYLINDRICAL_SURFACE CONICAL_SURFACE SPHERICAL_SURFACE TOROIDAL_SURFACE
+    B_SPLINE_CURVE_WITH_KNOTS B_SPLINE_SURFACE_WITH_KNOTS CARTESIAN_POINT_LIST_2D CARTESIAN_POINT_LIST_3D
+    COORDINATES_LIST TESSELLATED_CURVE_SET TRIANGULATED_FACE TRIANGULATED_SURFACE_SET
+""".split())
+_GEOMETRIE_KOPF = re.compile(r"([A-Z][A-Z_0-9]*)\s*\(")
+_VERWEIS_ODER_TEXT = re.compile(r"'(?:[^']++|'')*'|#(\d+)")
+_GEOMETRIE_SPERRE = Lock()
+
+
+class _Geometrie(Entity):
+    """Der Typ und die Originalargumente reichen, bis jemand die STEP-Geometrie tatsaechlich auswertet."""
+    __slots__ = ("_name", "_inhalt")
+
+    def __init__(self, eid, name, rumpf):
+        self.id, self._name, self._inhalt = eid, name, rumpf
+
+    @property
+    def parts(self):
+        if isinstance(self._inhalt, str):
+            with _GEOMETRIE_SPERRE:
+                if isinstance(self._inhalt, str):
+                    werte, _ = _parse_list(_tokenize(self._inhalt), 1)
+                    self._inhalt = {self._name: werte}
+        return self._inhalt
+
+    @parts.setter
+    def parts(self, wert):
+        self._inhalt = wert
+
+    def typen(self):
+        return (self._name,) if isinstance(self._inhalt, str) else self._inhalt.keys()
+
+    @property
+    def typ(self):
+        return self._name if isinstance(self._inhalt, str) else super().typ
+
+    def is_a(self, name):
+        return self._name == name if isinstance(self._inhalt, str) else name in self._inhalt
+
+    def sammle_verweise(self, rueck):
+        roh = self._inhalt
+        if isinstance(roh, str):
+            if "#" in roh:
+                for m in _VERWEIS_ODER_TEXT.finditer(roh):
+                    if m[1] is not None:
+                        rueck.setdefault(int(m[1]), []).append(self.id)
+        else:
+            super().sammle_verweise(rueck)
+
+    def __eq__(self, andere):
+        if isinstance(andere, Entity):
+            return self.id == andere.id and self.parts == andere.parts
+        return NotImplemented
+
+
 @dataclass
 class P21Datei:
     schema: str
@@ -66,7 +134,7 @@ class P21Datei:
     def _nach_typ(self) -> dict[str, list[Entity]]:
         index = {}
         for e in self.entities.values():
-            for name in e.parts:
+            for name in e.typen():
                 index.setdefault(name, []).append(e)
         return index
 
@@ -88,8 +156,7 @@ class P21Datei:
         if getattr(self, "_rueck", None) is None:
             rueck: dict[int, list[int]] = {}
             for e in self.entities.values():
-                for args in e.parts.values():
-                    _sammle_verweise(args, e.id, rueck)
+                e.sammle_verweise(rueck)
             self._rueck = rueck
         return self._rueck
 
@@ -222,12 +289,14 @@ def lese(pfad: str) -> P21Datei:
     return lese_text(dateitext(pfad))
 
 
-def lese_text(text: str) -> P21Datei:
+def lese_text(text: str, *, geometrie_spaeter: bool = False, abbruch=None) -> P21Datei:
     schema = ""
     in_daten = False
     typnamen = {}
     entities: dict[int, Entity] = {}
-    for st in _statements(text):
+    for nr, st in enumerate(_statements(text)):
+        if abbruch is not None and nr % 4096 == 0 and abbruch():
+            raise InterruptedError("STEP-Import abgebrochen")
         if not in_daten:
             m = re.match(r"FILE_SCHEMA\s*\(\s*\(\s*'([^']*)'", st)
             if m and not schema:
@@ -241,6 +310,10 @@ def lese_text(text: str) -> P21Datei:
         if not m:
             continue
         eid, rumpf = int(m.group(1)), m.group(2).strip()
+        if geometrie_spaeter and (kopf := _GEOMETRIE_KOPF.match(rumpf)) and kopf[1] in _GEOMETRIE:
+            name = kopf[1]
+            entities[eid] = _Geometrie(eid, typnamen.setdefault(name, name), rumpf)
+            continue
         # Im Cache bleiben nur kurze Zahlenfolgen in der ueblichen Schreibweise.
         if len(rumpf) <= 160 and (m := _VEKTOR.fullmatch(rumpf)):
             name, zahlen = m.groups()

@@ -143,6 +143,14 @@ Throughout: tests (core, offscreen UI, stress test, on-screen test), `--selbstte
    refine coarse CAD meshes on separate topology and share the result across instances and repeated analyses of
    a loaded model. This also covers planar faces with curved trims. Persistent mesh caching and viewer levels
    of detail remain open.
+   Native STEP reading and XCAF transfer in packaged apps release the Python interpreter lock.
+   The importer reports the transfer percentage and checks cancellation during transfer.
+   From 30,000,000 uncompressed bytes, the Part 21 index runs alongside native import.
+   Geometry arguments are materialised on demand; edits and reverse references preserve file order.
+   On the 42.85 MB assembly, median normal opening time on macOS went from 7.94 to 5.76 s.
+   The longest interval between UI events fell from 3.75 to 1.64 s; peak RSS fell from 1,789
+   to 1,566 MiB (three fresh runs per version). The remaining pause includes first display.
+   A second 37.06 MB input with six FTC-09 models loaded 384 PMI and 138 saved views.
 4. **JT with PMI** only via TKJT (GPL) or commercial SDK.
 
 ## 7. Decisions

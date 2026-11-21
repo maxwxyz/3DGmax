@@ -52,8 +52,8 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y libegl1 libgl1 libxkbcommon0 libxkbcommon-x11-0 libfontconfig1 libdbus-1-3 \
             fonts-dejavu-core
-      - name: MSVC-Umgebung (Windows, fuer den JT-Konverter)
-        if: env.AKTIV == 'true' && inputs.jt && runner.os == 'Windows'
+      - name: MSVC-Umgebung (Windows, STEP-Import und optionaler JT-Konverter)
+        if: env.AKTIV == 'true' && runner.os == 'Windows'
         uses: ilammy/msvc-dev-cmd@v1
       - name: JT-Konverter bauen (TKJT)
         if: env.AKTIV == 'true' && inputs.jt

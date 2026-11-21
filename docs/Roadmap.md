@@ -25,6 +25,7 @@
 | Large assemblies: in-memory analysis mesh reuse across instances, comparisons and scan inspections, including refinement of coarse display meshes | ✅ |
 | Batch surface sampling for alignment and comparison of assemblies with many small faces | ✅ |
 | Large assemblies: persistent tessellation cache and viewer levels of detail | ⬜ |
+| Large STEP files: native reading and cancellable XCAF transfer release the UI interpreter lock; concurrent Part 21 indexing from 30 MB and on-demand geometry arguments reduce load time and memory | ✅ |
 | Indexed STEP geometry and PMI import, unique display edges, saved-view thumbnail generation only when enabled | ✅ |
 | Faster Part 21 parsing of repeated coordinates and geometry references in large STEP models, faster reverse indexing for PMI, and full-file standard detection for plain, ZIP and gzip STEP | ✅ |
 | Model properties: volume, area, mass (density), center of gravity, overall size, file header | ✅ |
