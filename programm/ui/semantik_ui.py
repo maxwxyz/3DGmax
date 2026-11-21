@@ -48,7 +48,19 @@ class SemantikDialog(QtWidgets.QDialog):
         info.setTextFormat(QtCore.Qt.TextFormat.PlainText)
         info.setObjectName("leise")
         lay.addRow(info)
-        if getattr(vorschlag, "ocr_text", ""):
+        validierung = getattr(vorschlag, "validierungstexte", ())
+        if validierung:
+            herkunft = (tr("Mehrere STEP-Validierungstexte sind dieser Grafik zugeordnet. Werte an der Grafik prüfen.")
+                        if len(validierung) > 1 else tr("Der Text stammt aus der STEP-Validierungseigenschaft dieser Grafik."))
+            if vorschlag.rahmensymbolquelle == "grafik":
+                herkunft += " " + tr("Das Rahmensymbol wurde aus dem ersten gezeichneten Fach gelesen.")
+            elif vorschlag.rahmensymbolquelle == "name":
+                herkunft += " " + tr("Das Rahmensymbol ergibt sich aus dem Namen „{}“.").format(vorschlag.merkmalsname)
+            label = QtWidgets.QLabel(herkunft)
+            label.setTextFormat(QtCore.Qt.TextFormat.PlainText)
+            label.setWordWrap(True)
+            lay.addRow(label)
+        elif getattr(vorschlag, "ocr_text", ""):
             lay.addRow(QtWidgets.QLabel(tr("Der Textvorschlag stammt aus der automatischen Schrifterkennung.")))
         self.geometriehinweis = QtWidgets.QLabel(tr("Das vorgeschlagene Nennmaß stammt aus der Modellgeometrie."))
         lay.addRow(self.geometriehinweis)

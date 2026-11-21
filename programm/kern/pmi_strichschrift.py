@@ -202,17 +202,16 @@ def _gesamtbild(pfade, skala):
     return _bild(pfade, box, skala), box
 
 
-def _rahmentext(pfade, zellen):
-    from .pmi_ableiten import gueltige_rahmenzellen
-
+def _einzelrahmen(pfade, zellen):
+    """Eine zusammenhaengende Zellreihe ohne weitere Beschriftung daneben."""
     links, unten, _, oben = zellen[0]
     rechts = zellen[-1][2]
     if any(a[2] != b[0] or a[1::2] != b[1::2] for a, b in zip(zellen, zellen[1:])):
-        return ""
+        return False
     skala = 80 / (oben - unten)
     mask, box = _gesamtbild(pfade, skala)
     if mask is None:
-        return ""
+        return False
     # Zusatzangaben ausserhalb des Rahmens muessen ebenfalls gelesen werden.
     labels, _ = ndimage.label(mask, np.ones((3, 3)))
     x1, x2 = (round((x - box[0]) * skala) + 2 for x in (links, rechts))
@@ -222,13 +221,20 @@ def _rahmentext(pfade, zellen):
     if len(ausserhalb):
         # AP203 erlaubt eine kurze Luecke zwischen Zellkante und Fuehrungslinie.
         if len(ausserhalb) != 1:
-            return ""
+            return False
         y, x = np.nonzero(labels == ausserhalb[0])
         mitte = (y1 + y2) / 2
         enden = ((x1, mitte), (x2, mitte))
         if (np.ptp(x) < 80 or min(np.min(np.hypot(x-a, y-b)) for a, b in enden) > 32
                 or len(x) / ((np.ptp(x)+1)*(np.ptp(y)+1)) > .15):
-            return ""
+            return False
+    return True
+
+
+def _rahmentext(pfade, zellen):
+    from .pmi_ableiten import gueltige_rahmenzellen
+    if not _einzelrahmen(pfade, zellen):
+        return ""
     teile = [_lies_zeile(_zeichen(pfade, z)) for z in zellen]
     if not all(teile):
         return ""
@@ -362,11 +368,27 @@ def _ohne_schreibebene(g):
     return ergebnis
 
 
+def _lesbar(g):
+    return (len(g.linien) + len(g.dreiecke) <= 1200
+            and sum(map(len, g.linien)) + sum(len(p) + len(t) for p, t in g.dreiecke) <= 40000)
+
+
+def lies_rahmensymbol(g, fachzahl):
+    """Erstes Symbol einer einzelnen Rahmenzeile zur Ergaenzung des STEP-Validierungstexts."""
+    from .pmi_ableiten import SYMBOL_ZU_TYP
+    if g.ebene is None or not _lesbar(g) or not 2 <= fachzahl <= 5:
+        return ""
+    pfade = _pfade(g, g.ebene)
+    zellen = _zellen(pfade) if pfade else []
+    if len(zellen) != fachzahl or not _einzelrahmen(pfade, zellen):
+        return ""
+    zeichen = _lies_zeile(_zeichen(pfade, zellen[0]))
+    return zeichen if zeichen in SYMBOL_ZU_TYP else ""
+
+
 def lies_schrift(g):
     """Vollstaendig erkannte Rahmen oder einzelne Schriftzeile, sonst leer."""
-    if len(g.linien) + len(g.dreiecke) > 1200:
-        return ""
-    if sum(len(l) for l in g.linien) + sum(len(p) + len(t) for p, t in g.dreiecke) > 40000:
+    if not _lesbar(g):
         return ""
     if g.ebene is None:
         return _ohne_schreibebene(g)

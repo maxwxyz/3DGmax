@@ -24,7 +24,7 @@ from .pmi import BEZUG, HINWEIS, MASS, TOLERANZ, Pmi
 # Name des Callouts -> (Art, Typ); die erste passende Regel gilt (Reihenfolge beachten: "surfacic profile" vor
 # "Position", "Total Runout" vor "Runout")
 NAMEN = [
-    (r"surfacic profile|surface profile|profile of (a )?surface", TOLERANZ, "ProfileOfSurface"),
+    (r"surfacic profile|surface profile|profile tolerance of any surface|profile of (a )?surface", TOLERANZ, "ProfileOfSurface"),
     (r"line profile|profile of (a )?line", TOLERANZ, "ProfileOfLine"),
     (r"total runout", TOLERANZ, "TotalRunout"),
     (r"runout", TOLERANZ, "CircularRunout"),
@@ -125,7 +125,12 @@ def vorschlag(p, g, modell) -> Pmi:
     bekannt = (p.art, p.typ) if p.art != HINWEIS else aus_name(p.name or (g.name if g else ""))
     art, typ = bekannt or (TOLERANZ, "")
     texte = [ph.text for ph in g.platzhalter if ph.text] if g is not None else []
-    ocr, gelesen = schriftvorschlag(g, bekannt) if g and not texte and not p.semantisch else ("", {})
+    dateitexte, ocr, gelesen, ergaenzung = (), "", {}, ""
+    if g and not texte and not g.erzeugt and not p.semantisch:
+        from .pmi_validierungstext import validierungsvorschlag
+        dateitexte, gelesen, ergaenzung = validierungsvorschlag(getattr(modell, "datei", None), g, bekannt)
+        if not dateitexte:
+            ocr, gelesen = schriftvorschlag(g, bekannt)
     if gelesen:
         art, typ = gelesen["art"], gelesen["typ"]
     neu = Pmi(art, typ=typ, norm=p.norm, name=p.name if art == BEZUG and re.fullmatch(r"[A-Z]{1,2}", p.name or "") else "")
@@ -133,6 +138,9 @@ def vorschlag(p, g, modell) -> Pmi:
         if k in gelesen:
             setattr(neu, k, gelesen[k])
     neu.ocr_text = ocr
+    neu.validierungstexte = dateitexte
+    neu.rahmensymbolquelle = ergaenzung
+    neu.merkmalsname = g.name if ergaenzung == "name" else ""
     for k in FELDER:
         if k not in gelesen and p.art == art and getattr(p, k, None) not in (None, "", []):
             setattr(neu, k, deepcopy(getattr(p, k)))
@@ -151,7 +159,7 @@ def vorschlag(p, g, modell) -> Pmi:
     if art == MASS and neu.nennwert is None:
         neu.nennwert = geometrie_nennmass(neu.typ, neu.flaechen, modell)
         neu.nennwert_aus_geometrie = neu.nennwert is not None
-    neu.callout, neu.nur_grafik_text = p.step_id, "\n".join(texte) or ocr or p.nur_grafik_text or p.name
+    neu.callout, neu.nur_grafik_text = p.step_id, "\n".join(texte or dateitexte) or ocr or p.nur_grafik_text or p.name
     return neu
 
 

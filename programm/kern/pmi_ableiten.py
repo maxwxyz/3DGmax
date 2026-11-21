@@ -51,11 +51,15 @@ def bezugsreferenz(text, stelle):
     return BezugsRef("-".join(namen), stelle, mods, elemente)
 
 
+def gueltige_rahmenwerte(werte):
+    """Genau ein Wertfach mit bis zu drei getrennten Bezugsfaechern."""
+    return (1 <= len(werte) <= 4 and _RAHMENWERT.fullmatch(werte[0]) is not None
+            and all(bezugsreferenz(t, i) is not None for i, t in enumerate(werte[1:], 1)))
+
+
 def gueltige_rahmenzellen(teile):
-    """Wert und jeder Bezug muessen genau in ihr eigenes gezeichnetes Fach passen."""
-    return (2 <= len(teile) <= 5 and teile[0] in SYMBOL_ZU_TYP
-            and _RAHMENWERT.fullmatch(teile[1]) is not None
-            and all(bezugsreferenz(t, i) is not None for i, t in enumerate(teile[2:], 1)))
+    """Vollstaendiger Rahmen mit geometrischem Merkmal im ersten Fach."""
+    return bool(teile) and teile[0] in SYMBOL_ZU_TYP and gueltige_rahmenwerte(teile[1:])
 
 
 def _toleranz(text, typ, faktor):
@@ -94,7 +98,7 @@ def _mass(text, faktor, winkel, gestapelt):
         if text.lower().endswith(ende.lower()):
             modifikatoren.append(mod)
             text = text[:-len(ende)].strip()
-    text = re.sub(r"^\d+\s*[xX×]\s*(?=(?:S?[⌀R]|CR))", "", text)
+    text = re.sub(r"^[1-9]\d*\s*[xX×]\s*(?=(?:S?[⌀R]|CR))", "", text)
     m = re.match(rf"^(S⌀|⌀|SR|R|CR)?\s*([+-]?{_ZAHL})", text)
     if not m or faktor is None:
         return None

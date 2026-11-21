@@ -2,6 +2,33 @@
 
 ## Current state, 2026-11-21
 
+### Graphical STEP validation text in semantic review
+
+- Checked PLAN §§8.4, 8.18, 8.28 and the implementation order against docs/Roadmap.md. The review
+  reads a callout's “equivalent unicode string” on demand. It follows the exact graphical owner,
+  its draughting model (direct or through its annotation plane), property and representation.
+  Native positioned text still takes precedence. With a validation text the original plot remains
+  visible and the dialog labels the source. Repeated identical strings agree. Different strings
+  and unsupported qualifiers remain available for manual review.
+- For a feature control frame with an empty first text cell, check an isolated plotted row for
+  a recognised symbol with the correct cell count. A specific callout name can supply the type.
+  The dialog explains which source supplied the symbol. A contradiction prevents the suggestion.
+  On FTC-07 the review read five datum names, eleven dimensions and twelve single tolerance frames;
+  six of the twelve supplied their symbol directly from the plotted geometry.
+- In a derivative of FTC-07 stripped of all semantic characteristics, the actual dialog confirmed
+  A/B/C, a position tolerance with maximum material, and two repeated diameters. One has stacked
+  signed deviations. The other shows .438 inch versus the original semantic .4375. Reloading the
+  saved STEP verified the printed 11.1252 mm, target faces, material, ordered datums, deviations
+  and all original source entities. All 49 affected tests, 39 native dialog/STEP tests and 61
+  drawing regression tests passed. All 2585 UI texts have English translations. Whole-drawing
+  equivalence and general composite tolerances remain open. QIF stays last.
+- Next §8.4: make wide CAD stroke digits legible without validation metadata. On original
+  FTC-07 callout #16200 the leader component detaches cleanly, leaving ten glyphs. Its zeros
+  and twos are wider than the existing templates. A local probe using measured glyphs read
+  “R.022-.012” from the strokes alone. Other FTC-07 diameter rows still required more work.
+  Cross-check other callouts and fonts before adding templates. The hyphen between two values
+  can indicate different conventions; keep that interpretation visible to the reviewer.
+
 ### Inch and mixed-unit STEP presentation contexts
 
 - Checked PLAN §§8.18, 8.25 and 8.28 against docs/Roadmap.md. The STEP presentation reader now

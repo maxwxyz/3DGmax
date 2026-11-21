@@ -13,9 +13,8 @@ from tests.conftest import pfad
 from tests.test_step_schreiben import _occt_darstellungen
 
 
-@pytest.fixture(scope="module")
-def grafische_datei(tmp_path_factory):
-    quelle = Path(pfad("nist_ctc_01_asme1_ap242-e1.stp"))
+def _ohne_semantik(quelle, datei):
+    quelle = Path(quelle)
     ursprung = lade_alles(str(quelle))
     d = ursprung.modell.datei
     # Alle semantischen Merkmale und ihre Bezugs-/Darstellungslinks entfernen.
@@ -34,15 +33,22 @@ def grafische_datei(tmp_path_factory):
     for s in p21._statements(quelle.read_text(encoding="utf-8")):
         if not s.startswith("#") or int(s[1:s.index("=")]) not in entfernen:
             statements.append(s)
-    datei = tmp_path_factory.mktemp("grafische_pmi") / "ctc_01_grafisch.stp"
     datei.write_text(";\n".join(statements) + ";\n", encoding="utf-8")
     rein = lade_alles(str(datei))
-    assert len(rein.pmi) == len(rein.grafik) == 23
     assert not any(p.semantisch for p in rein.pmi) and not rein.modell.datei.of_types_by_id(typen)
     assert set(rein.modell.datei.referrers()) <= rein.modell.datei.entities.keys()
     assert rein.grafik.keys() == ursprung.grafik.keys()
     assert len(rein.modell.flaechen) == len(ursprung.modell.flaechen)
     return str(datei), ursprung, rein
+
+
+@pytest.fixture(scope="module")
+def grafische_datei(tmp_path_factory):
+    daten = _ohne_semantik(pfad("nist_ctc_01_asme1_ap242-e1.stp"),
+                           tmp_path_factory.mktemp("grafische_pmi") / "ctc_01_grafisch.stp")
+    rein = daten[2]
+    assert len(rein.pmi) == len(rein.grafik) == 23
+    return daten
 
 
 def _pruefen(d, ref, f):
@@ -666,3 +672,56 @@ def test_anonymes_radiusmass_mit_originalgrafik_als_step(grafische_datei, fenste
     assert (neu.typ,neu.nennwert,neu.flaechen) == ("Size_Radius",2.,wand)
     assert nachher.grafik[611].pmi_ids == {neu.step_id}
     assert all(nachher.modell.datei.get(i) == e for i,e in vorher.modell.datei.entities.items())
+
+
+def test_ftc07_validierungstext_aus_grafischer_datei_bis_step_export(fenster, tmp_path):
+    from PySide6.QtWidgets import QLabel
+    from programm.kern.pmi_validierungstext import validierungsvorschlag
+    datei, referenz, rein = _ohne_semantik(pfad("nist_ftc_07_asme1_ap242-e2.stp"), tmp_path / "grafisch.stp")
+    fenster.lade(datei, warten=True)
+    nr_typ = {13706:"Datum", 13747:"Datum", 13788:"Datum", 14558:"Position",
+              15715:"Size_Diameter", 15899:"Size_Diameter"}
+    for nr, typ in nr_typ.items():
+        quelle = next(p for p in fenster.erg.pmi if p.step_id == nr)
+        soll, = [p for p in referenz.pmi if p.step_id in referenz.grafik[nr].pmi_ids and p.typ == typ]
+        assert not quelle.semantisch and not fenster.erg.grafik[nr].platzhalter
+        fenster._pmi_befehl("semantisch", quelle)
+        d = fenster._semantik_dialog
+        assert not d.v.ocr_text and d.v.validierungstexte and d.v.typ == typ
+        assert any("STEP-Validierungseigenschaft" in label.text() for label in d.findChildren(QLabel))
+        if typ == "Datum":
+            assert d.v.name == soll.name
+        elif typ == "Position":
+            assert d.v.rahmensymbolquelle == "grafik"
+            assert any("ersten gezeichneten Fach" in label.text() for label in d.findChildren(QLabel))
+            g = rein.grafik[nr]
+            assert validierungsvorschlag(rein.modell.datei, g, None)[1]["typ"] == "Position"
+            assert not validierungsvorschlag(rein.modell.datei, g, ("toleranz","Flatness"))[1]
+            assert d.v.wert == pytest.approx(1.016) and d.v.material == "M"
+            assert d.v.bezug_text() == "A|B|C"
+        elif nr == 15715:
+            assert d.v.nur_grafik_text == "4X ⌀.173 +.005\n-.001"
+            assert (d.v.nennwert,d.v.oben,d.v.unten) == pytest.approx((4.3942,.127,-.0254))
+        else:
+            assert d.v.nur_grafik_text == "4X ⌀.438±.010" and d.v.nennwert == pytest.approx(11.1252)
+            assert soll.nennwert == pytest.approx(.4375*25.4)
+        fenster.ansicht.setze_auswahl([fenster.erg.modell.flaechen[i] for i in soll.flaechen])
+        d._auswahl_uebernehmen()
+        assert not d.fehler()
+        d._pruefen()
+    ziel = fenster.speichere_step_pmi(str(tmp_path / "Grafik mit Semantik.stp"), melden=False)
+    assert len(fenster._step_bericht.repariert) == len(nr_typ) and not fenster._step_bericht.uebersprungen
+    neu = lade_alles(ziel)
+    assert all(neu.modell.datei.get(i) == e for i,e in rein.modell.datei.entities.items())
+    assert sum(p.semantisch for p in neu.pmi) == len(nr_typ)
+    for nr,typ in nr_typ.items():
+        p, = [p for p in neu.pmi if p.semantisch and p.step_id in neu.grafik[nr].pmi_ids]
+        soll, = [p for p in referenz.pmi if p.step_id in referenz.grafik[nr].pmi_ids and p.typ == typ]
+        assert p.typ == typ and p.flaechen == soll.flaechen
+        if typ == "Position":
+            assert p.material == "M" and p.wert == pytest.approx(1.016) and p.bezug_text() == "A|B|C"
+        elif typ == "Datum":
+            assert p.name == soll.name
+        else:
+            assert p.nennwert == pytest.approx((.438 if nr == 15899 else .173)*25.4)
+            assert (p.oben, p.unten) == pytest.approx((.254,-.254) if nr == 15899 else (.127,-.0254))

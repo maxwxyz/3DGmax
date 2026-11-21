@@ -886,6 +886,13 @@ print annotations. Today 3DGmax writes generated texts only into the placeholder
   units come from the defining draughting model or its sheet membership, including annotation planes.
   Cameras, clip planes, glyph geometry and unitless printed values use the assigned length unit.
   Conflicting units for the same unqualified annotation leave its textual length unresolved.
+  For a graphical STEP callout the review also follows its “equivalent unicode string” validation
+  property. It checks the exact callout and draughting model, preserves the printed quantity and
+  reads supported stacked deviations, datum letters and control-frame cells. For a missing symbol
+  it checks the original first cell of a single frame or uses a specific callout name. The dialog
+  identifies the source. Conflicting strings, composite frames and unknown qualifiers remain open.
+  A graphical-only copy of FTC-07 was converted and reloaded with six confirmed characteristics,
+  including a rounded printed diameter that differs from the original semantic value.
   **Done (2026-11-20): model-wide conversion and combined STEP export.** The Tools command reviews the graphical
   entries of the source model in sequence. The PMI list also supports a selection. Each review shows the original
   annotation and suggested faces. It reads explicit STEP text literals and recognises dimension limits, deviations
