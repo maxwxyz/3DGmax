@@ -1,6 +1,7 @@
 {
  "unreleased": {
   "de": [
+   "Der Zeichnungsvergleich und die Plattenerzeugung erkennen Bohrungsränder auch dann, wenn der PDF-Drucker jeden Bogen als schmalen gefüllten Streifen ausgibt. Der Durchmesser wird an der Mittellinie abgelesen.",
    "Der Zeichnungsvergleich erkennt auch Bohrungsränder aus getrennten Halb- oder Viertelkreisen, einschließlich elliptischer Ränder in Schrägansichten. Ein geschlossener Kreis aus Einzelbögen kann beim Erzeugen einer Platte die Bohrung mit ihren STEP-Maßen definieren.",
    "Der Zeichnungsvergleich ordnet auch offene Pfeilspitzen aus zwei Strichen dem Bohrungsrand im 3D-Modell zu. So lässt sich ein geändertes Maß auch dann der richtigen Bohrung zuweisen, wenn eine andere Bohrung den gedruckten Wert hat.",
    "Grafische Hilfsmaße wie (85) lassen sich auch ohne Schreibebene aus Strichen oder gefüllten Zeichen lesen. Der STEP-Export erhält die Kennzeichnung als Hilfsmaß, die zugeordneten Flächen und die Originalgrafik.",
@@ -197,6 +198,7 @@
    "Grafische PMI aus unterstützten AP203e2-Kurvenmodellen lassen sich als STEP AP242 Edition 3 ausgeben. Facettierte STEP-Modelle behalten ihre Flächenbezüge. Gepackte STEP-Dateien lassen sich als unkomprimierte STEP-Kopie speichern."
   ],
   "en": [
+   "Drawing comparison and plate reconstruction now recognise bore rims printed as separate narrow filled strips. The diameter follows the centreline of the strips.",
    "Drawing comparison now matches bore rims drawn as separate half or quarter arcs, including elliptical rims in oblique views. A closed circle made of separate arcs can also define a bore and its STEP dimensions when reconstructing a plate.",
    "The drawing comparison now follows open two-wing arrowheads to the bore rim in the 3D model. A changed dimension can be matched to the correct bore even when another bore has the printed value.",
    "Reference dimensions such as (85) can be read from strokes or solid lettering without a writing plane. STEP export retains the auxiliary qualifier, associated faces and original presentation.",

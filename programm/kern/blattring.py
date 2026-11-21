@@ -57,6 +57,61 @@ class Blattkreis:
         return math.hypot(a*c-u,b*s-v)
 
 
+def streifenbogen(p):
+    """Mittellinie eines gefuellten Bogens zwischen zwei kurzen Druckkappen."""
+    if len(p) < 10:
+        return None
+    # Bei einer PDF-Fuellung schliesst auch die letzte Kante zum Startpunkt.
+    laengen = np.linalg.norm(np.roll(p, -1, axis=0)-p, axis=1)
+    gueltig = laengen > 1e-6
+    p, laengen = p[gueltig], laengen[gueltig]
+    if len(p) < 10:
+        return None
+    # Die beiden langen Polygonzuege koennen an einer beliebigen Stelle beginnen.
+    sortiert = np.sort(laengen)
+    spruenge = np.flatnonzero(sortiert[1:] > 1.5*sortiert[:-1])
+    for i in spruenge[::-1]:
+        rand = laengen > sortiert[i]
+        start = np.flatnonzero(rand & ~np.roll(rand, 1))
+        if len(start) != 2:
+            continue
+        rand = np.roll(rand, -start[0])
+        a, b, c = np.flatnonzero(rand[1:] != rand[:-1])+1
+        if min(a, c-b) < 4:
+            continue
+        kontur = np.roll(p, -start[0], axis=0)
+        links, rechts = kontur[:a+1], kontur[b:c+1][::-1]
+        streifen = _streifenmitte(links, rechts, (kontur[a:b+1], kontur[c:]))
+        if streifen is not None:
+            return streifen
+    return None
+
+
+def _streifenmitte(links, rechts, kappen):
+    """Gegenueberliegende Raender muessen einen schmalen Streifen einschliessen."""
+    if len(links) != len(rechts):
+        # Verschiedene Unterteilungen ueber den Anteil der gezeichneten Bogenlaenge paaren.
+        def verteile(p, t):
+            laenge = np.r_[0., np.cumsum(np.linalg.norm(np.diff(p, axis=0), axis=1))]
+            return np.column_stack([np.interp(t, laenge/laenge[-1], spalte) for spalte in p.T])
+        t = np.linspace(0, 1, max(len(links),len(rechts)))
+        links, rechts = verteile(links, t), verteile(rechts, t)
+    mitte = (links+rechts)/2
+    quer = links-rechts
+    breite = np.linalg.norm(quer, axis=1)
+    weg = np.diff(mitte, axis=0)
+    if breite.min() < .015 or breite.max() > min(4., .10*np.linalg.norm(weg,axis=1).sum()):
+        return None
+    normal = (quer[:-1]+quer[1:])/2
+    vorzeichen = weg[:,0]*normal[:,1] - weg[:,1]*normal[:,0]
+    if not (np.all(vorzeichen > 0) or np.all(vorzeichen < 0)):
+        return None
+    for kappe, j in zip(kappen, (-1, 0)):
+        if np.max(np.linalg.norm(kappe-mitte[j], axis=1)) > .85*breite.max():
+            return None
+    return mitte, links, rechts
+
+
 def geschlossene_bogenzuege(boegen):
     """Getrennt gezeichnete Boegen nur ueber eindeutige gemeinsame Endpunkte verbinden."""
     if len(boegen) < 2:

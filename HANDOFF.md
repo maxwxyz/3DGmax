@@ -2,6 +2,26 @@
 
 ## Current state, 2026-11-21
 
+### Read bore arcs printed as filled strips
+
+- Checked PLAN §§8.35–8.36 against docs/Roadmap.md. The print contour provides
+  two opposing edges and two short caps. Their centreline joins the same rim
+  registration as a stroked arc. Both edges need visible paper beside them.
+  Filled disks, broad sectors, duplicate quarters and overpainted gaps stayed
+  unresolved. Qt PDF output verified flat, square and round caps on a rotated
+  ellipse with a minor-to-major axis ratio of 0.24.
+- In the comparison dialog the filled circular and elliptical rims identified the
+  changed bore and its CSV result. The plate dialog rebuilt two bores from filled
+  semicircles with the measured volume, diameter tolerance and H7 fit on the correct
+  walls after STEP reimport. All 30 affected tests, 13 native macOS checks and 87
+  additional drawing comparison and reconstruction cases passed.
+- Next §6: the occurrence comparison builds every pair of distances between parts
+  with the same base name. On this Mac, comparing a 640-occurrence subset of the
+  42.85 MB STEP to itself, with numbered occurrence names on both sides, took a
+  median of 0.477 s including properties. It generated 409,600 candidate pairs for
+  640 exact position matches. Preserve the existing distance and input-order ties,
+  alignment and rename findings while reducing this cost. QIF remains last.
+
 ### Register and reconstruct bore rims drawn as separate PDF arcs
 
 - Checked PLAN §§8.35 and 8.36 against docs/Roadmap.md. Stroked arcs may appear

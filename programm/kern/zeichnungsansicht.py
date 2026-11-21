@@ -7,7 +7,7 @@ import math
 import numpy as np
 from scipy.spatial import cKDTree
 
-from .blattring import Blattkreis, ellipse, geschlossene_bogenzuege, ringmitte
+from .blattring import Blattkreis, ellipse, geschlossene_bogenzuege, ringmitte, streifenbogen
 
 
 def _kreis(punkte):
@@ -150,6 +150,26 @@ def _sichtbar(mask, p, *, vollstaendig=False):
     return tinte.all() if vollstaendig else tinte.mean() > .88
 
 
+def _sichtbarer_streifen(mask, streifen):
+    """Neben beiden Raendern muss Papier sichtbar sein, etwaige Hinweislinien ausgenommen."""
+    mitte, links, rechts = streifen
+    if not _sichtbar(mask, mitte, vollstaendig=True):
+        return False
+    weg = mitte[2:]-mitte[:-2]
+    laenge = np.linalg.norm(weg, axis=1)
+    if laenge.min() < 1e-6:
+        return False
+    normale = np.column_stack((-weg[:,1], weg[:,0]))/laenge[:,None]
+    quer = (links-rechts)[1:-1]
+    normale *= np.sign(np.sum(normale*quer, axis=1))[:,None]
+    h,w = mask.shape
+    for rand, sinn in ((links, 1), (rechts, -1)):
+        x,y = np.rint(rand[1:-1]+1.8*sinn*normale).astype(int).T
+        if x.min() < 0 or x.max() >= w or y.min() < 0 or y.max() >= h or mask[y,x].mean() > .35:
+            return False
+    return True
+
+
 def _gedruckter_bogenring(p, k, mask):
     """Auch zwischen den Bogenpunkten den Verlauf und die gedruckte Tinte pruefen."""
     phi = math.radians(k.winkel)
@@ -203,6 +223,10 @@ class Blattgeometrie:
                     if (np.max(abs((p-p[0]) @ normal)) > .1*np.linalg.norm(sehne)
                             and _sichtbar(mask, p[::max(1, len(p)//64)])):
                         boegen.append(p)
+                elif fuellung.value and not strich.value and len(p) >= 10:
+                    streifen = streifenbogen(p)
+                    if streifen is not None and _sichtbarer_streifen(mask, streifen):
+                        boegen.append(streifen[0])
                 if len(p) >= 12:
                     k = _kreis(p) or (ellipse(p) if mit_ellipsen else None)
                     if k and _sichtbar(mask, p[::max(1, len(p)//36)]):

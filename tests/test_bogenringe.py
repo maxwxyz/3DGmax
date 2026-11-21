@@ -28,21 +28,26 @@ def _pdf(pfad, inhalt):
     w.write(pfad)
 
 
-def _bogen(anfang, ende):
-    # Kubische Viertelkreise auch in umgekehrter Pfadrichtung schreiben.
-    t = np.linspace(anfang, ende, abs(ende-anfang)+1) * (math.pi/2)
-    punkt = np.column_stack((np.cos(t), np.sin(t)))
-    tangente = np.column_stack((-np.sin(t), np.cos(t))) * (4/3 * math.tan((t[1]-t[0])/4))
-    def xy(p):
-        return f"{p[0]:.8f} {p[1]:.8f}"
-    teile = [xy(punkt[0])+" m"]
-    for i in range(len(t)-1):
-        teile.append(f"{xy(punkt[i]+tangente[i])} {xy(punkt[i+1]-tangente[i+1])} {xy(punkt[i+1])} c")
-    return " ".join(teile) + " S"
+def _bogen(anfang, ende, breite=0.):
+    # Strich oder gefuellten Streifen aus kubischen Viertelkreisen schreiben.
+    def rand(von, bis, radius, start):
+        t = np.linspace(von, bis, abs(bis-von)+1) * (math.pi/2)
+        punkt = radius*np.column_stack((np.cos(t), np.sin(t)))
+        tangente = radius*np.column_stack((-np.sin(t), np.cos(t))) * (4/3 * math.tan((t[1]-t[0])/4))
+        def xy(p):
+            return f"{p[0]:.8f} {p[1]:.8f}"
+        teile = [xy(punkt[0])+start]
+        for i in range(len(t)-1):
+            teile.append(f"{xy(punkt[i]+tangente[i])} {xy(punkt[i+1]-tangente[i+1])} {xy(punkt[i+1])} c")
+        return " ".join(teile)
+    if breite:
+        return rand(anfang, ende, 1+breite/2, " m")+" "+rand(ende, anfang, 1-breite/2, " l")+" h f"
+    return rand(anfang, ende, 1., " m")+" S"
 
 
-@pytest.mark.parametrize(("neigung", "drehung"), [(1., 0), (.55, 90)])
-def test_geteilte_bohrungsraender_bis_zum_csv(app, tmp_path, monkeypatch, neigung, drehung):
+@pytest.mark.parametrize(("neigung", "drehung", "gefuellt"), [(1., 0, False), (.55, 90, False),
+                                                             (1., 0, True), (.55, 90, True)])
+def test_geteilte_bohrungsraender_bis_zum_csv(app, tmp_path, monkeypatch, neigung, drehung, gefuellt):
     teil = _teil()
     reihe, = modellkreise(teil)
     wand = next(k.flaechen for k in reihe if (k.x,k.y) == (8,7))
@@ -54,7 +59,7 @@ def test_geteilte_bohrungsraender_bis_zum_csv(app, tmp_path, monkeypatch, neigun
         # Der PDF-Drucker setzt die Boegen je Bohrung in einer lokalen Koordinatentransformation.
         inhalt.append(f"q {3*r} 0 0 {3*r*neigung} {80+3*x} {70+3*y*neigung} cm .03 w")
         for a,b in ([(2,4),(2,0)] if i%2 else [(2,1),(3,4),(0,1),(3,2)]):
-            inhalt.append(_bogen(a,b))
+            inhalt.append(_bogen(a,b,.02 if gefuellt else 0.))
         inhalt.append("Q")
     y = 70 + 21*neigung
     inhalt += [f"BT /F1 10 Tf 12 {y-3.5} Td <D8342E31> Tj ET",
@@ -124,8 +129,8 @@ def test_offene_mehrdeutige_und_nur_teilweise_sichtbare_raender(app, tmp_path):
             blatt.schliesse()
 
 
-@pytest.mark.parametrize("luecke", [False, True])
-def test_platte_aus_geteilten_bohrungsraendern_mit_step_pmi(app, tmp_path, monkeypatch, luecke):
+@pytest.mark.parametrize(("luecke", "breite"), [(False,0.), (True,0.), (False,.02), (True,.02)])
+def test_platte_aus_geteilten_bohrungsraendern_mit_step_pmi(app, tmp_path, monkeypatch, luecke, breite):
     from OCC.Core.BRepAdaptor import BRepAdaptor_Surface
     from OCC.Core.BRepGProp import brepgprop
     from OCC.Core.GProp import GProp_GProps
@@ -137,7 +142,7 @@ def test_platte_aus_geteilten_bohrungsraendern_mit_step_pmi(app, tmp_path, monke
     inhalt = [".4 w 40 40 150 100 re S"]
     for x,y,r in ((20,16,5), (48,28,4)):
         inhalt.append(f"q {2.5*r} 0 0 {2.5*r} {40+2.5*x} {40+2.5*y} cm .03 w")
-        inhalt.extend((_bogen(0,2), _bogen(2,3 if luecke and x == 48 else 4), "Q"))
+        inhalt.extend((_bogen(0,2,breite), _bogen(2,3 if luecke and x == 48 else 4,breite), "Q"))
     _pdf(pfad, inhalt)
     with PdfDocument(pfad) as doc:
         d = Plattendialog(doc, pfad)
@@ -173,3 +178,72 @@ def test_platte_aus_geteilten_bohrungsraendern_mit_step_pmi(app, tmp_path, monke
         finally:
             d.blatt.schliesse()
             d.close()
+
+
+@pytest.mark.parametrize("kappe", ["FlatCap", "SquareCap", "RoundCap"])
+def test_gefuellte_druckboegen_mit_gedrehten_ellipsen(app, tmp_path, kappe):
+    import ctypes as ct
+    from pypdfium2 import raw
+    from PySide6 import QtCore, QtGui
+    pfad = tmp_path/"Druckbogen.pdf"
+    drucker = QtGui.QPdfWriter(str(pfad))
+    drucker.setResolution(72)
+    drucker.setPageSize(QtGui.QPageSize(QtCore.QSizeF(320,200), QtGui.QPageSize.Unit.Point))
+    drucker.setPageMargins(QtCore.QMarginsF())
+    stift = QtGui.QPainterPathStroker()
+    stift.setWidth(.22)
+    stift.setCapStyle(getattr(QtCore.Qt.PenCapStyle, kappe))
+    box = QtCore.QRectF(-12,-12,24,24)
+    with QtGui.QPainter(drucker) as maler:
+        maler.translate(70, 70)
+        maler.rotate(24)
+        maler.scale(1.,.24)
+        for n in (1,3,0,2):
+            bogen = QtGui.QPainterPath()
+            bogen.arcMoveTo(box,n*90)
+            bogen.arcTo(box,n*90,90)
+            maler.fillPath(stift.createStroke(bogen), QtCore.Qt.GlobalColor.black)
+    del drucker
+    with PdfDocument(pfad) as doc:
+        blatt = Zeichnungsblatt(doc,0)
+        try:
+            objekte = list(blatt.seite.get_objects(filter=[raw.FPDF_PAGEOBJ_PATH]))
+            assert len(objekte) == 4
+            for obj in objekte:
+                voll, strich = ct.c_int(), ct.c_int()
+                assert raw.FPDFPath_GetDrawMode(obj,voll,strich) and voll.value and not strich.value
+            g = Blattgeometrie(blatt, mit_ellipsen=True)
+            k, = g.kreise
+            assert k.x*320/g.groesse[0] == pytest.approx(70., abs=.1)
+            assert k.y*200/g.groesse[1] == pytest.approx(70., abs=.1)
+            assert k.r*320/g.groesse[0] == pytest.approx(12., abs=.03)
+            assert k.kurz/k.r == pytest.approx(.24, abs=.001)
+            assert k.winkel == pytest.approx(24., abs=.1)
+        finally:
+            blatt.schliesse()
+
+
+def test_druckstreifen_benoetigen_zwei_sichtbare_raender(app, tmp_path):
+    pfad = tmp_path/"Fuellungen.pdf"
+    inhalt = []
+    for x,fall in ((35,"ring"), (85,"flaeche"), (135,"breit"), (185,"doppelt"), (235,"uebermalt")):
+        inhalt.append(f"q 12 0 0 12 {x} 80 cm")
+        breite = .35 if fall == "breit" else .025
+        for i in range(4):
+            inhalt.append(_bogen(i, i+1, breite))
+        if fall == "flaeche":
+            inhalt.append(_bogen(0,4).removesuffix("S")+"h f")
+        elif fall == "doppelt":
+            inhalt.append(_bogen(1,2,breite))
+        elif fall == "uebermalt":
+            inhalt.append("1 g -.15 .85 .3 .35 re f")
+        inhalt.append("Q")
+    _pdf(pfad, inhalt)
+    with PdfDocument(pfad) as doc:
+        blatt = Zeichnungsblatt(doc, 0)
+        try:
+            g = Blattgeometrie(blatt, mit_ellipsen=True)
+            k, = g.kreise
+            assert k.x*320/g.groesse[0] == pytest.approx(35.,abs=.05)
+        finally:
+            blatt.schliesse()
