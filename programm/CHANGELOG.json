@@ -1,6 +1,7 @@
 {
  "unreleased": {
   "de": [
+   "Bei grafischen 3D-Verbundrahmen liest die App die Gruppennummer hinter „SIM REQT“ aus Strichschrift und reinen Dreiecksfüllungen. Die bestätigte Nummer bleibt mit der Originalgrafik auf beiden semantischen STEP-Toleranzen erhalten.",
    "Der Zeichnungsvergleich prüft gemeinsam geltende Toleranzen über mehrere PDF-Blätter. Gleiche nummerierte Hinweise werden zur Auswahl vorgeschlagen. Geänderte Gruppenmitglieder sind auch bei gleichen Einzelwerten sichtbar. Die CSV nennt die geprüften Blattstellen und STEP-IDs.",
    "Filtern und Hervorheben von PMI in der 3D-Ansicht aktualisiert die betroffenen Beschriftungen. Die Flächen- und Kantenauswahl der Baugruppe bleibt aktiv. Beim Ersetzen einer PMI-Grafik verschwindet die vorherige Darstellung.",
    "Der STEP-Parser liest große Baugruppen schneller. Auch bei ZIP- und gzip-gepackten STEP-Dateien und bei Normhinweisen nach den ersten 60 MB übernimmt die App die Norm aus dem vollständigen Modelltext.",
@@ -176,6 +177,7 @@
    "Grafische PMI aus unterstützten AP203e2-Kurvenmodellen lassen sich als STEP AP242 Edition 3 ausgeben. Facettierte STEP-Modelle behalten ihre Flächenbezüge. Gepackte STEP-Dateien lassen sich als unkomprimierte STEP-Kopie speichern."
   ],
   "en": [
+   "For graphical 3D composite frames, the app reads the group number after “SIM REQT” from strokes and triangle-only lettering. The confirmed number is exported on both semantic STEP tolerances together with the original graphics.",
    "Drawing comparison now checks simultaneous tolerances across PDF sheets. Matching numbered captions suggest group members. Changed membership is reported even when the individual values match. CSV records the reviewed sheet regions and STEP IDs.",
    "Filtering and highlighting PMI in the 3D view now updates the affected annotations and keeps assembly face and edge selection active. Replacing a PMI graphic also removes its previous presentation.",
    "The STEP parser reads large assemblies faster. ZIP and gzip STEP imports and standard declarations beyond the first 60 MB now use the full model text to determine the applicable standard.",

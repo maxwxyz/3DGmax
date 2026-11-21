@@ -51,11 +51,14 @@ def bezugsreferenz(text, stelle):
     return BezugsRef("-".join(namen), stelle, mods, elemente)
 
 
+SIMULTANHINWEIS = re.compile(r"SIM REQT(?: ([1-9][0-9]*))?")
+
+
 def geltungshinweis(text):
     """Vollstaendige, unterstuetzte Rahmenzusaetze mit vereinheitlichten Wortabstaenden."""
     text = " ".join(text.split())
-    muster = r"SIM REQT|(?:INNER AND OUTER|INNER|OUTER) WALLS?(?: OF ENTIRE GROOVE)?"
-    return text if re.fullmatch(muster, text) else ""
+    wand = r"(?:INNER AND OUTER|INNER|OUTER) WALLS?(?: OF ENTIRE GROOVE)?"
+    return text if SIMULTANHINWEIS.fullmatch(text) or re.fullmatch(wand, text) else ""
 
 
 def gueltige_rahmenwerte(werte):

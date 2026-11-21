@@ -77,6 +77,7 @@
 | Compare the scope note below a PDF tolerance row with the model and include the printed and model wording in the CSV review | ✅ |
 | Read and select explicit simultaneous STEP tolerances with a common datum system, flag unconfirmed bases and compare partners across revisions | ✅ |
 | Match large semantic PMI lists by indexed faces, values and names; distinguish reordered equal-nominal dimensions with different deviations | ✅ |
+| Read numbered SIM REQT suffixes in graphical 3D composite frames, including pure triangle fills without writing axes, and export the full identifier on both semantic tolerances | ✅ |
 | Compare reviewed simultaneous tolerance groups across PDF sheets with explicit STEP group membership; suggest matching numbered captions and export sheet regions, source IDs and findings | ✅ |
 | Read additional lettering and further composite layouts | 💡 |
 | Semantic-only PMI: optional generated display in the view (see generated PMI stage 2) | ✅ |

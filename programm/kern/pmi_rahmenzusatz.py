@@ -6,10 +6,11 @@ import numpy as np
 from scipy import ndimage
 
 from .pmi_ableiten import geltungshinweis
-from .pmi_strichschrift import _gruppen
+from .pmi_strichschrift import _breite_zeile, _gruppen
 
-# Strichzuege der Grossbuchstaben, auf 16 Einheiten Versalhoehe gerundet (FTC-07).
+# Strichzuege der Grossbuchstaben und der Null, auf 16 Einheiten Versalhoehe gerundet (FTC-07).
 _ZUEGE = {
+    "0": [[(10,16),(14,14),(16,9),(16,6),(14,1),(10,0),(6,0),(2,1),(0,6),(0,9),(2,14),(6,16),(10,16)]],
     "A": [[(0,16),(8,0),(15,16)],[(4,8),(11,8)]],
     "D": [[(0,16),(11,16),(15,13),(15,3),(11,0),(0,0),(0,16)]],
     "E": [[(15,16),(0,16),(0,0),(15,0)],[(11,8),(0,8)]],
@@ -44,7 +45,7 @@ def _vorlagen():
     return bilder
 
 
-def _buchstabe(teil):
+def _buchstabe(teil, nummer=False):
     y, x = np.nonzero(teil)
     dx, dy = np.ptp(x), np.ptp(y)
     if dy < 8 or not .12 <= dx/dy <= 1.3:
@@ -54,13 +55,25 @@ def _buchstabe(teil):
     breite = 8 if dx/dy < .45 else 31
     bild[1+np.rint(32*(y-y.min())/dy).astype(int), 1+np.rint(breite*(x-x.min())/dx).astype(int)] = True
     dist = ndimage.distance_transform_edt(~bild)
-    treffer = []
+    treffer = {}
     for z, (vorlage, abstand) in _vorlagen().items():
-        if (z == "I") != (breite == 8):
+        if (z == "I") != (breite == 8) or (z == "0" and not nummer):
             continue
-        if dist[vorlage].max() <= 3.2 and abstand[bild].max() <= 3.2:
-            treffer.append(z)
-    return treffer[0] if len(treffer) == 1 else ""
+        abweichung = max(dist[vorlage].max(), abstand[bild].max())
+        if abweichung <= 3.2:
+            treffer[z] = abweichung
+    if len(treffer) == 1:
+        return next(iter(treffer))
+    if nummer and treffer.keys() == {"0", "O"}:
+        # Bei der Null sind die geraden Flanken kuerzer. Maximum und Mittel muessen dieselbe Form stuetzen.
+        besser, schlechter = sorted(treffer, key=treffer.get)
+        if treffer[schlechter] - treffer[besser] >= .75:
+            def mittel(z):
+                vorlage, abstand = _vorlagen()[z]
+                return (dist[vorlage].mean() + abstand[bild].mean()) / 2
+            if mittel(schlechter) - mittel(besser) > .25:
+                return besser
+    return "?" if nummer and treffer else ""
 
 
 def lies_zusatz(rest, symbol, rand):
@@ -91,7 +104,13 @@ def lies_zusatz(rest, symbol, rand):
             ys = np.nonzero(teil)[0]
             if ys.min() > .09*len(zeile) or ys.max()+1 < .91*len(zeile):
                 return None
-            z = _buchstabe(teil)
+            nummer = "".join(zeichen).startswith("SIM REQT ")
+            z = _buchstabe(teil, nummer)
+            if not z and nummer:
+                # Die Null braucht den Formvergleich mit O; I und Q koennen ebenfalls wie Ziffern aussehen.
+                ziffer = _breite_zeile(teil, rahmen=True)
+                if len(ziffer) == 1 and ziffer in "123456789":
+                    z = ziffer
             if not z:
                 return None
             zeichen.append(z)

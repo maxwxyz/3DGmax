@@ -2,6 +2,29 @@
 
 ## Current state, 2026-11-21
 
+### Numbered scope notes in graphical 3D composite frames
+
+- Checked PLAN §§8.4, 8.18 and 8.35 against docs/Roadmap.md. Confirmed FTC-07 #15098 failed
+  to read after placing its own digit 1 to the right of SIM REQT. The scope reader now checks
+  a digit suffix against the wide CAD glyphs. The rounded zero and octagonal O are compared
+  using their mean and maximum distance from the source ink. Tests use original glyphs from
+  FTC-07 for all ten digits. Lookalikes 1I, 1O and 1Q, a leading zero and a damaged 1 stay
+  unresolved in both strokes and pure triangle fills.
+- A graphical-only FTC-07 variant with SIM REQT 10 was reviewed and exported three ways:
+  strokes, triangle-only lettering and triangles with the writing plane removed. Reimport
+  retains both printed tolerance rows, original geometry entities, the common target faces,
+  the MBD_D view, the composite relationship and the group number in both semantic descriptions. Open CASCADE
+  independently read both descriptions from the plane-free export. A validation note with no
+  number is reported as shorter; one naming group 1 conflicts with the drawn group 10.
+- Numbered wording on a single control preserves the identifier. Explicit partner membership
+  remains a separate review. The drawing recogniser currently suggests group numbers from native
+  PDF text or reviewed transcriptions. Automatic recognition of the same note from pure drawing
+  graphics is still open. In the local NIST FTC-07 reference PDF, sheet 3 exposes two tilted
+  “SIM REQT” strings in PDFium text; one includes an adjacent .070 A B C row in the same text
+  box. The automatic sheet reader currently returns neither as an attached scope note.
+- Verification: 36 affected tests passed, followed by 68 tests covering graphical repair,
+  composite frames and drawing groups. Twelve passed with native macOS Qt. QIF remains last.
+
 ### Simultaneous tolerance groups across PDF sheets
 
 - Checked PLAN §§8.4 and 8.35 against docs/Roadmap.md. The drawing review can compare a

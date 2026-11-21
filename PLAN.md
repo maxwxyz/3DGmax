@@ -219,6 +219,10 @@ Throughout: tests (core, offscreen UI, stress test, on-screen test), `--selbstte
   compares confirmed group membership after matching local entity IDs. Reversing an edge or
   expressing the same group as a different chain gives the same finding. Links with an unverified
   basis are compared individually.
+  Composite frames in the FTC-07 font can also carry a numbered simultaneous requirement.
+  The vector reader checks the drawn suffix in the original stroke or triangle representation.
+  “SIM REQT 10” survives on both semantic tolerances with the original callout. Independently
+  checked all ten digits, lookalike letters and a contradictory validation-property number.
   Open: additional fonts, further composite layouts and dimensions with
   ambiguous leader or text placement.
 - Convert to semantic PMI: evaluate recognized text + frame structure; mark result as "derived (check)", never as

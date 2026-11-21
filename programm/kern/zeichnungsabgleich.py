@@ -7,6 +7,7 @@ import math
 import re
 
 from . import pmi_ableiten
+from .pmi_ableiten import SIMULTANHINWEIS
 from .pmi import BEZUG, MASS, TOLERANZ, Pmi
 from .vergleich_pmi import simultangruppen
 
@@ -62,13 +63,10 @@ class Gruppenbefund:
     grund: str = ""
 
 
-_SIMULTAN = re.compile(r"SIM REQT(?: ([1-9][0-9]*))?")
-
-
 def gruppenkennung(text):
     """Nur eine vollstaendige nummerierte Angabe am Toleranzrahmen identifiziert Partner."""
     _, _, zusatz = text.strip().partition("\n")
-    m = _SIMULTAN.fullmatch(" ".join(zusatz.split()))
+    m = SIMULTANHINWEIS.fullmatch(" ".join(zusatz.split()))
     return (m[1] or "") if m else ""
 
 
@@ -102,7 +100,7 @@ def _pruefgrund(gruppe, ids, nummeriert, faktor, nach_id):
         if a.modell and (a.modell.step_id <= 0 or nach_id.get(a.modell.step_id) is not a.modell
                          or a.modell.art != TOLERANZ or a.modell.typ != p.typ):
             return "zuordnung"
-        if len(zeilen) == 1 and _SIMULTAN.fullmatch(p.beschreibung):
+        if len(zeilen) == 1 and SIMULTANHINWEIS.fullmatch(p.beschreibung):
             return "partner"
     return "doppelt" if len(ids) != sum(a.modell is not None for a in zeilen) else ""
 
@@ -131,7 +129,7 @@ def gruppenbefunde(angaben, modelle, faktor):
             grund = blattgrund
             if not grund and (ids & unklar or soll & unklar):
                 grund = "bezug"
-            if not grund and m and m.step_id not in erwartet and _SIMULTAN.fullmatch(modellhinweis(m)):
+            if not grund and m and m.step_id not in erwartet and SIMULTANHINWEIS.fullmatch(modellhinweis(m)):
                 grund = "modellpartner"
             status = "offen" if grund or not m else "gleich" if soll == ids and len(ids) == len(zeilen) else "geaendert"
             ergebnis[a] = Gruppenbefund(status, ids, soll, grund)
@@ -183,10 +181,7 @@ def lese_angabe(text, faktor, grundmass=False):
     zusatz = ""
     if "|" in text:
         kopf, _, folge = text.strip().partition("\n")
-        if kennung := gruppenkennung(text):
-            zusatz = "SIM REQT " + kennung
-        else:
-            zusatz = pmi_ableiten.geltungshinweis(folge)
+        zusatz = pmi_ableiten.geltungshinweis(folge)
         if zusatz:
             text = kopf
         teile = [t.strip().translate(str.maketrans({"Ø": "⌀", "∅": "⌀"})) for t in text.split("|")]
@@ -264,16 +259,16 @@ def grenzen_vertauscht(p):
 
 def wertunterschiede(p, modell, gruppe=None):
     felder = unterschiede(p, modell)
-    gedruckt = _SIMULTAN.fullmatch(p.beschreibung)
+    gedruckt = SIMULTANHINWEIS.fullmatch(p.beschreibung)
     pruefen = gruppe or modell.simultan_mit or modell.simultan_offen or (gedruckt and gedruckt[1])
     if (pruefen and "beschreibung" in felder and (not p.beschreibung or gedruckt)
-            and (not modellhinweis(modell) or _SIMULTAN.fullmatch(modellhinweis(modell)))):
+            and (not modellhinweis(modell) or SIMULTANHINWEIS.fullmatch(modellhinweis(modell)))):
         felder.remove("beschreibung")  # Der Gruppenbefund prueft diese Anforderung.
     return felder
 
 
 def gruppe_zu_pruefen(p, modell):
-    return bool(modell.simultan_mit or modell.simultan_offen or _SIMULTAN.fullmatch(p.beschreibung))
+    return bool(modell.simultan_mit or modell.simultan_offen or SIMULTANHINWEIS.fullmatch(p.beschreibung))
 
 
 def wertebefund(p, modell, gruppe=None):
