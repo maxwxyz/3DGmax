@@ -319,6 +319,21 @@ def _grafikkontexte(datei):
     return von_ansicht, von_link, pmi_ids
 
 
+def _textskala(kontexte, skalen, ersatz=None):
+    if not kontexte:
+        return ersatz
+    werte = {skalen.get(k) for k in kontexte}
+    return werte.pop() if len(werte) == 1 else None
+
+
+def callout_einheiten(datei, ids):
+    """Nur zugewiesene Beschriftungseinheiten lesen, ohne Grafik oder Modellskala als Ersatz."""
+    from .ansichten import kontext_skalen
+    skalen = kontext_skalen(datei)
+    ansichten, definitionen, _ = _grafikkontexte(datei)
+    return {eid: _textskala(definitionen.get(eid) or ansichten.get(eid), skalen) for eid in ids}
+
+
 def lies_grafik(datei: P21Datei, skala: float | None = None) -> dict[int, Grafik]:
     """Grafik je Callout in mm. skala dient als Ersatz bei fehlender Laengeneinheit."""
     from .ansichten import _laengen_skala, kontext_skalen
@@ -330,10 +345,7 @@ def lies_grafik(datei: P21Datei, skala: float | None = None) -> dict[int, Grafik
 
     def grafik(e, name):
         definition = definitionen.get(e.id, ())
-        werte = {skalen.get(k) for k in definition or ansichten.get(e.id, ())}
-        faktor = texteinheit
-        if werte:
-            faktor = werte.pop() if len(werte) == 1 else None
+        faktor = _textskala(definition or ansichten.get(e.id), skalen, texteinheit)
         kontext = next(iter(definition)) if len(definition) == 1 else None
         g = Grafik(e.id, name or "", textfaktor=faktor, kontext=kontext, pmi_ids=pmi_ids.get(e.id, set()))
         return g, leser_je_skala[faktor or ersatz]

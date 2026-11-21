@@ -2,6 +2,24 @@
 
 ## Current state, 2026-11-21
 
+### Compare screw axial pitch and lead in PMI notes
+
+- Verified PLAN §§8.22 and 8.27 against docs/Roadmap.md. The geometry check uses the
+  two distinct measurements from the screw sections. Lengths with explicit metric
+  or inch units take precedence. A unitless value can use its own STEP drawing context.
+  Conflicting contexts, unsupported units or qualifiers, and a missing measurement
+  on a wheel remain visible for review. The warning threshold is 0.7% of the nominal.
+- Opened a generated left-handed, two-start AP242 screw with six face-linked notes
+  in the application. The 7 mm axial pitch and 14 mm lead were recovered. Wrong values
+  in one note produced two warnings. A half-inch lead in an inch context was reported
+  as 12.7 mm. Conflicting mm/inch contexts left the bare pitch open, while the explicit
+  inch lead in the same note was checked. The mesh control has no implicit text unit.
+  All 57 affected tests passed.
+- Next §8.4: original NIST CTC-01 AP242 callout #618 reads “60°±0.5°” with its
+  writing plane. Removing the plane leaves the same strokes unread. Verify angular
+  lettering, including a triangle-only source, from review through STEP reimport.
+  QIF remains last.
+
 ### Check wheel teeth and screw starts in PMI notes
 
 - Checked PLAN §§8.22 and 8.27 against docs/Roadmap.md. The PMI checker now uses the

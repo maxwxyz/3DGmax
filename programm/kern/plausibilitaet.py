@@ -24,6 +24,7 @@ import numpy as np
 
 from ..i18n import tr
 from . import toleranzzone as tz
+from .schraubenhinweis import Schraubenmass, schraubenmasse
 
 GEOMETRIE_TOLERANZ = 1e-3  # mm: Nennmass und Modell gelten bis hier als gleich
 
@@ -504,19 +505,32 @@ VERZAHNUNG_TOLERANZ = {"z": 0.0, "gaenge": 0.0, "mn": 0.005, "alpha_n": 0.1, "be
 
 def _hinweiswerte(text):
     import re
-    werte = []
+    werte, anfaenge = [], []
     for name, muster in VERZAHNUNG_MUSTER.items():
-        zahlen = dict.fromkeys(float(m[1].replace(",", ".")) for m in re.finditer(muster, text, re.IGNORECASE))
-        werte.extend((name, zahl) for zahl in zahlen)
-    return werte
+        for m in re.finditer(muster, text, re.IGNORECASE):
+            werte.append((name, float(m[1].replace(",", "."))))
+            anfaenge.append(m.start())
+    werte.extend(schraubenmasse(text, anfaenge))
+    return list(dict.fromkeys(werte))
+
+
+def _verzahnungsanker(werte):
+    return any(name in VERZAHNUNG_ANKER or isinstance(wert, Schraubenmass) and wert.eigenstaendig
+               for name, wert in werte)
 
 
 def verzahnung_angaben(texte: str) -> dict:
-    """Erster Wert jeder Groesse; leer ohne Zaehnezahl, Gangzahl oder Modul."""
+    """Erster lesbarer Wert je Groesse; Laengen in mm, nur mit Verzahnungsbezug."""
+    angaben = _hinweiswerte(texte)
+    if not _verzahnungsanker(angaben):
+        return {}
     werte = {}
-    for name, zahl in _hinweiswerte(texte):
-        werte.setdefault(name, zahl)
-    return werte if VERZAHNUNG_ANKER.intersection(werte) else {}
+    for name, zahl in angaben:
+        if isinstance(zahl, Schraubenmass):
+            zahl = zahl.millimeter()
+        if zahl is not None:
+            werte.setdefault(name, zahl)
+    return werte
 
 
 def _band_an_flaeche(flaeche, profile):
@@ -582,7 +596,25 @@ def _hinweisziel(p, modell):
     return set().union(*gruppen), all(gruppen)
 
 
-def _verzahnungsbefunde(ziel, profile, zeilen):
+def _schraubenmassbefund(name, mass, kontext, messwerte, nr, flaechen):
+    from .pmi_bericht import INFO, WARNUNG
+    titel = tr("Axialteilung") if name == "axialteilung" else tr("Vorschub je Umdrehung")
+    soll = mass.millimeter(kontext)
+    if soll is None:
+        text = tr("{}: Wert oder Einheit von „{}“ ist ungeklärt.").format(titel, mass.text)
+    elif name not in messwerte:
+        text = tr("{}: „{}“ lässt sich an diesem Profil nicht prüfen.").format(titel, mass.text)
+    else:
+        ist = messwerte[name]
+        # Relative Vergleichsschwelle fuer den aus den Querschnitten geschaetzten Vorschub.
+        if abs(ist - soll) <= .007 * abs(soll) + 1e-9:
+            return None
+        text = tr("{}: Hinweis {} ({} mm), Geometrie {:.4g} mm").format(titel, mass.text, f"{soll:.5g}", ist)
+        return _befund(WARNUNG, "geometrie", text, [nr], flaechen)
+    return _befund(INFO, "geometrie", text, [nr], flaechen)
+
+
+def _verzahnungsbefunde(ziel, profile, zeilen, einheiten):
     from .pmi_bericht import FEHLER, INFO, WARNUNG
     if ziel is None:
         if profile:
@@ -593,8 +625,14 @@ def _verzahnungsbefunde(ziel, profile, zeilen):
     out = []
     profil = profile[ziel]
     schraube = getattr(profil, "art", None) == "schraube"
+    messwerte = profil.als_dict() if schraube else {}
     for nummer, flaechen, werte, _ in zeilen:
         for name, soll in werte:
+            if isinstance(soll, Schraubenmass):
+                befund = _schraubenmassbefund(name, soll, einheiten.get(nummer), messwerte, nummer, flaechen)
+                if befund:
+                    out.append(befund)
+                continue
             bezeichnung = tr("Gangzahl") if name == "gaenge" else name
             if name in ("gaenge", "z"):
                 ist = profil.z if schraube == (name == "gaenge") else None
@@ -618,10 +656,18 @@ def verzahnung(pmi, modell) -> list:
     notizen = []
     for p in pmi:
         if p.art == "hinweis" and (werte := _hinweiswerte(p.nur_grafik_text or p.name or "")):
-            anker = any(name in VERZAHNUNG_ANKER for name, _ in werte)
+            anker = _verzahnungsanker(werte)
             notizen.append((p, werte, anker))
     if not any(anker for _, _, anker in notizen):
         return []
+    einheiten = {}
+    ohne_einheit = {p.nummer: p.callout or p.step_id for p, werte, _ in notizen
+                    if (p.callout or p.step_id) and any(isinstance(w, Schraubenmass) and
+                       w.wert is not None and w.faktor is None for _, w in werte)}
+    if ohne_einheit and getattr(modell, "datei", None) is not None:
+        from .praesentation import callout_einheiten
+        faktoren = callout_einheiten(modell.datei, ohne_einheit.values())
+        einheiten = {nr: faktoren.get(eid) for nr, eid in ohne_einheit.items()}
     bezuege = [_hinweisziel(p, modell) for p, _, _ in notizen]
     profile, ziele = _profilziele(modell, set().union(*(fl for fl, _ in bezuege)))
     gruppen = {}
@@ -639,7 +685,7 @@ def verzahnung(pmi, modell) -> list:
     out = []
     for (ziel, _), zeilen in gruppen.items():
         if any(anker for _, _, _, anker in zeilen):
-            out.extend(_verzahnungsbefunde(ziel, profile, zeilen))
+            out.extend(_verzahnungsbefunde(ziel, profile, zeilen, einheiten))
     return out
 
 

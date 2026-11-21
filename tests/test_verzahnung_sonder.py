@@ -93,6 +93,10 @@ def test_pmi_pruefung_unterscheidet_zaehne_und_gaenge(profil, tmp_path):
     assert [(b.nummern, b.stufe) for b in befunde] == [([2], FEHLER), ([3], INFO), ([4], INFO)]
     assert "Geometrie " + hinweise[0].split()[-1] in befunde[0].text
     assert pl.verzahnung_angaben("Gangzahl = 1,5") == {}
+    text = "worm lead 14; Axialteilung 0.7 cm" if profil == "schraube" else "worm lead 14 mm"
+    b, = pl.verzahnung([Pmi("hinweis", name=text, nummer=5)], modell)
+    assert b.nummern == [5] and b.stufe == INFO
+    assert ("Einheit" if profil == "schraube" else "Profil") in b.text
 
 
 @pytest.mark.parametrize("format_", ["step", "stl"])

@@ -163,7 +163,11 @@ tab group).</li>
     the linked faces to identify the gear. On a shaft with several toothed bands, a linked flank can identify
     the band. Shared faces and ambiguous notes remain open. Double-click a finding to select its note and
     highlight the associated faces. For conical and throated wheels the check uses the tooth count.
-    For screw profiles it checks the explicitly stated number of starts. A value without a
+    For screw profiles it checks the number of starts, axial pitch and lead. A two-start screw with
+    7 mm axial pitch has a lead of 14 mm per revolution. Units printed with a value take precedence.
+    Otherwise the check uses the unit assigned to the STEP annotation. Conflicting units leave
+    the value open. A deviation greater than 0.7% of the stated nominal produces a warning.
+    A value without a
     corresponding profile measurement remains open in the report.</li>
 <li><b>Tools › Convert graphical PMI to semantic PMI …</b> walks through the graphical annotations in the open model.
     To review a subset, select the rows in the PMI list and use the context menu. The dialog shows the STEP validation text attached to the annotation, including

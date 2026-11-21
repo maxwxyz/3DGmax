@@ -163,7 +163,11 @@ Reiter blendet andere Leisten ein (sie kommen in diese Reitergruppe).</li>
     die verknüpften Modellflächen zu. Bei mehreren Zahnkränzen auf einer Welle kann eine zugeordnete Zahnflanke
     den Zahnkranz bestimmen. Gemeinsam verwendete Flächen und mehrdeutige Hinweise bleiben offen.
     Ein Doppelklick wählt den Hinweis und markiert seine zugeordneten Flächen. Bei konischen und taillierten
-    Rädern prüft die App die Zähnezahl, bei Schraubprofilen die ausdrücklich angegebene Gangzahl.
+    Rädern prüft die App die Zähnezahl, bei Schraubprofilen Gangzahl, Axialteilung und Vorschub je
+    Umdrehung. Eine zweigängige Schnecke mit 7 mm Axialteilung hat 14 mm Vorschub je Umdrehung.
+    Einheiten direkt am Wert haben Vorrang. Fehlen sie, verwendet die Prüfung die zugewiesene
+    Einheit der STEP-Beschriftung. Bei widersprüchlichen Einheiten bleibt die Angabe offen.
+    Abweichungen über 0,7 % vom angegebenen Nennwert werden als Warnung gemeldet.
     Fehlt am Profil ein entsprechender Messwert, bleibt die Angabe im Prüfbericht offen.</li>
 <li><b>Werkzeuge › Grafische PMI semantisch machen …</b> führt durch die grafischen Angaben des geöffneten Modells.
     Für eine Teilmenge die gewünschten Zeilen in der PMI-Liste markieren und den Befehl im Kontextmenü wählen.

@@ -1456,6 +1456,10 @@ tools (the user names MASTA as an example of a tool that needs these inputs), an
   an explicitly labelled start count. Other parameters without a measurement on that profile
   produce an informational finding. Checked with 14 teeth on a cone, 18 teeth at a throat and
   two starts on a screw. Notes linked to mixed profile types on a single shaft remain open.
+  Screw notes can also specify axial pitch and lead. Convert printed metric or inch lengths,
+  including fractions, to mm. A unitless value uses the unit assigned to that STEP callout.
+  Conflicting or absent units and unsupported qualifiers leave the value open. A two-start
+  14 mm lead / 7 mm axial pitch reference exercises both correct and conflicting annotations.
 - The power-flow view traces cylindrical, candidate bevel and candidate worm stages through coaxial
   wheels. Each disconnected train has its own reference shaft. The user can change the reference.
   An inconsistent cycle suppresses cumulative ratios. Planetary sets retain explicit fixed-member cases.

@@ -2804,5 +2804,8 @@
 "Dieses STEP-Schema wird nicht nach AP242 übertragen": "Conversion to AP242 is unavailable for this STEP schema",
 "AP203e2-Anwendungsprotokoll oder Kurven-PMI nicht eindeutig": "The AP203e2 application protocol or curve PMI is ambiguous",
 "STEP-Instanz nicht eindeutig": "Ambiguous STEP entity instance",
-"STEP-Abschnitt nicht für die AP242-Übertragung geprüft": "Unverified STEP section for AP242 conversion"
+"STEP-Abschnitt nicht für die AP242-Übertragung geprüft": "Unverified STEP section for AP242 conversion",
+"{}: Wert oder Einheit von „{}“ ist ungeklärt.": "{}: the value or unit of “{}” is unresolved.",
+"{}: „{}“ lässt sich an diesem Profil nicht prüfen.": "{}: “{}” cannot be checked on this profile.",
+"{}: Hinweis {} ({} mm), Geometrie {:.4g} mm": "{}: note {} ({} mm), geometry {:.4g} mm"
 }
