@@ -185,13 +185,68 @@ def _gedruckter_bogenring(p, k, mask):
     return _sichtbar(mask, rand @ achsen + k.mitte, vollstaendig=True)
 
 
+def _facettierte_ellipse(p, k, grau, strichbreite):
+    """Eine fein facettierte Ellipse muss innerhalb des gedruckten Strichs liegen."""
+    from scipy.ndimage import map_coordinates
+    if not 0 < strichbreite < .35*k.kurz:
+        return False
+    phi = math.radians(k.winkel)
+    c,s = math.cos(phi), math.sin(phi)
+    achsen = np.array([[c,s],[-s,c]])
+    radien = np.array([k.r,k.kurz])
+    uv = ((p-k.mitte) @ achsen.T)/radien
+    winkel = np.unwrap(np.arctan2(uv[:,1],uv[:,0]))
+    schritte = np.abs(np.diff(winkel))
+    schritte = schritte[schritte > 1e-5]
+    # Gleichmaessig unterteilte Polygone bleiben mehrdeutig.
+    if len(schritte) < 16 or np.ptp(np.quantile(schritte,[.1,.9])) < .14*np.median(schritte):
+        return False
+    mitten = (uv[:-1]+uv[1:])/2
+    norm = np.linalg.norm(mitten,axis=1)
+    abstand = abs(norm-1)*norm/np.linalg.norm(mitten/radien,axis=1)
+    if abstand.max() > strichbreite/2+.5:
+        return False
+    t = np.linspace(0,math.tau,max(48,math.ceil(math.tau*k.r)),endpoint=False)
+    kreis = np.column_stack((np.cos(t),np.sin(t)))
+    rand = (kreis*radien) @ achsen + k.mitte
+    normale = (kreis/radien) @ achsen
+    normale /= np.linalg.norm(normale,axis=1)[:,None]
+    if np.any(rand < 1) or np.any(rand >= np.array(grau.shape[::-1])-1):
+        return False
+
+    def helligkeit(versatz):
+        ort = rand + versatz*normale
+        return map_coordinates(grau,ort[:,::-1].T,order=1,output=float,mode="nearest")
+
+    tinte = np.minimum.reduce([helligkeit(d) for d in (-.5,0,.5)])
+    innen, aussen = (helligkeit(d*(1.5+strichbreite))-tinte for d in (-1,1))
+    sichtbar = np.maximum(innen,aussen) > 45
+    return (sichtbar.mean() >= .96 and (sichtbar | np.roll(sichtbar,1)).all()
+            and (np.minimum(innen,aussen) > 45).mean() >= .55)
+
+
+def _geschlossener_strichring(obj, p, k, mask, grau, abbildung, gefuellt):
+    import ctypes as ct
+    from pypdfium2 import raw
+    if raw.FPDFPageObj_GetDashCount(obj) != 0:
+        return False
+    if _gedruckter_bogenring(p,k,mask):
+        return True
+    breite = ct.c_float()
+    if not k.kurz or gefuellt or not raw.FPDFPageObj_GetStrokeWidth(obj, breite):
+        return False
+    pixel = breite.value*np.linalg.svd(abbildung,compute_uv=False).min()
+    return _facettierte_ellipse(p,k,grau,pixel)
+
+
 class Blattgeometrie:
     def __init__(self, blatt, *, mit_rundungen=False, mit_ellipsen=False):
         import ctypes as ct
         from pypdfium2 import raw
         h, w = blatt.bild.shape[:2]
         self.groesse = np.array([w, h])
-        mask = blatt.bild.min(axis=2) < 245
+        grau = blatt.bild.min(axis=2)
+        mask = grau < 245
         ks = blatt.koordinaten
         o = np.array(ks.to_page(0, 0))
         basis = np.array([(ks.to_page(w, 0)-o)/w, (ks.to_page(0, h)-o)/h])
@@ -231,7 +286,7 @@ class Blattgeometrie:
                     k = _kreis(p) or (ellipse(p) if mit_ellipsen else None)
                     if k and _sichtbar(mask, p[::max(1, len(p)//36)]):
                         if strich.value:
-                            if raw.FPDFPageObj_GetDashCount(obj) == 0 and _gedruckter_bogenring(p, k, mask):
+                            if _geschlossener_strichring(obj,p,k,mask,grau,abbildung,fuellung.value):
                                 kreise[tuple(round(v, 1) for v in k.form)] = k
                         elif fuellung.value:
                             x, y = p.T

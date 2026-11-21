@@ -451,7 +451,7 @@
 "Die gewählte Modell-PMI gehört zu einer anderen Fläche als das erkannte Hinweisziel.": "The selected model PMI belongs to a different face from the detected leader target.",
 "Bohrbild wird mit dem Modell verglichen …": "Matching the hole pattern to the model …",
 "Bohrbild zuordnen": "Match hole pattern",
-"Ein Rechteck um das Bohrbild einer einzelnen Zeichnungsansicht ziehen.": "Draw a rectangle around the hole pattern in one drawing view.",
+"Bohrungen einer Ansicht einrahmen. Mit Umschalt weitere Bereiche sammeln, zum Abschluss ohne Umschalt ziehen.": "Frame the bores in one view. Shift-drag to add regions, then drag without Shift to finish.",
 "Ein Bohrbild mit vollständigen Kreisen oder gleich geneigten Ellipsen einrahmen. Mindestens drei Bohrungsachsen müssen ein Dreieck bilden.": "Select a hole pattern with complete circles or equally inclined ellipses. At least three hole axes must form a triangle.",
 "Hinweisziel (x/Breite, y/Höhe, Radius/Breite)": "Leader target (x/width, y/height, radius/width)",
 "Hinweisziel gefunden. Die zugehörige Modell-PMI ist noch offen.": "Leader target found. The corresponding model PMI still needs review.",

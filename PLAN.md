@@ -1970,6 +1970,15 @@ On D2MI 904 sheet 1, eight ellipses identify four stepped bores. The four outer 
 the eight cylindrical faces of STEP diameter PMI #103256. Highlighting,
 clicks and arrows follow the elliptical rim. The CSV retains the centre and major semi-axis in the
 existing columns and adds the minor semi-axis and clockwise angle for each accepted ellipse.
+For separated groups in one view, Shift-drag adds regions and the final ordinary drag registers
+the union of their complete rims. Overlap contributes each rim once. For faceted stroked ellipses,
+check chord error against printed line width, angular coverage, irregular sampling and continuous
+contrast on the rendered page. On CTC-03 two regions supply seven compatible bores. The two
+individual Ø.438 callouts reach the separate walls of #264 and #263, and the 4X Ø.625 callout
+covers all four mounting bores of #265. The same assignments were verified after reviewing and
+reopening the graphical STEP export. The separate 2X Ø.438 pattern has only one confirmed arrow
+target and remains open. The Ø2.00 and Ø1.500 bore centres on the drawing do not fit this
+seven-bore registration within its tolerance.
 
 For individual reviewed tolerance rows the PDF reader joins aligned scope wording below the frame.
 A two-sheet drawing with and without “OF ENTIRE GROOVE” produced equal and changed findings against

@@ -17,10 +17,10 @@ from ..kern.vergleich_pmi import FELD_TEXT
 
 
 class Ansichtsauftrag(Modellauftrag):
-    def __init__(self, einzelteil, modellkreise, kreise, bereich, geometrie):
+    def __init__(self, einzelteil, modellkreise, kreise, bereiche, geometrie):
         super().__init__()
         self.einzelteil, self.modellkreise, self.kreise = einzelteil, modellkreise, kreise
-        self.bereich, self.geometrie = bereich, geometrie
+        self.bereiche, self.geometrie = bereiche, geometrie
         self.schriftenden = []
         self.treffer, self.fehler = [], ""
 
@@ -55,6 +55,13 @@ class Blattansicht(QtWidgets.QGraphicsView):
         self.auswaehlbar = None
         self.marken = []
         self.kreismarken = []
+        self.bohrbildbereiche = None
+
+    def bohrbildwahl(self, aktiv):
+        if self.bohrbildbereiche:
+            for item in self.bohrbildbereiche.values():
+                self.scene().removeItem(item)
+        self.bohrbildbereiche = {} if aktiv else None
 
     def zeige(self, bild):
         self.scene().clear()
@@ -141,7 +148,14 @@ class Blattansicht(QtWidgets.QGraphicsView):
             box = QtCore.QRectF(self.mapToScene(start), self.mapToScene(ende)).normalized().intersected(self.sceneRect())
             w, h = self.sceneRect().width(), self.sceneRect().height()
             if box.width() > 1 and box.height() > 1:
-                self.bereich.emit((box.left()/w, box.top()/h, box.right()/w, box.bottom()/h))
+                grenzen = (box.left()/w, box.top()/h, box.right()/w, box.bottom()/h)
+                if self.bohrbildbereiche is not None and e.modifiers() & QtCore.Qt.KeyboardModifier.ShiftModifier:
+                    if grenzen not in self.bohrbildbereiche:
+                        stift = QtGui.QPen(QtGui.QColor("#167748"), 1, QtCore.Qt.PenStyle.DashLine)
+                        stift.setCosmetic(True)
+                        self.bohrbildbereiche[grenzen] = self.scene().addRect(box, stift)
+                else:
+                    self.bereich.emit(grenzen)
 
 
 class Einzelmasse(QtWidgets.QWidget):
@@ -309,6 +323,7 @@ class Zeichnungsabgleich(QtWidgets.QDialog):
         self.seite.valueChanged.connect(lambda n: self.blatt_zeigen(n-1))
         self.einheit.currentIndexChanged.connect(self._einheit_geaendert)
         fit.clicked.connect(self.ansicht.einpassen)
+        self.registrieren.toggled.connect(self.ansicht.bohrbildwahl)
         self.registrieren.toggled.connect(self._status)
         self.finished.connect(self._abbrechen)
         self.ansicht.bereich.connect(self._bereich)
@@ -479,7 +494,7 @@ class Zeichnungsabgleich(QtWidgets.QDialog):
 
     def _status(self):
         if self.registrieren.isChecked():
-            self.status.setText(tr("Ein Rechteck um das Bohrbild einer einzelnen Zeichnungsansicht ziehen."))
+            self.status.setText(tr("Bohrungen einer Ansicht einrahmen. Mit Umschalt weitere Bereiche sammeln, zum Abschluss ohne Umschalt ziehen."))
         elif self.auftrag is not None:
             self.status.setText(tr("Bohrbild wird mit dem Modell verglichen …"))
         elif self.blatt is not None and self.kreise.get(self.blatt.nummer) == []:
@@ -496,6 +511,7 @@ class Zeichnungsabgleich(QtWidgets.QDialog):
     def _bereich(self, box):
         if not self.registrieren.isChecked():
             return self._neue_angabe(box)
+        bereiche = (*self.ansicht.bohrbildbereiche, box)
         self.registrieren.setChecked(False)
         from pypdfium2 import PdfiumError
         self._abbrechen()
@@ -506,8 +522,8 @@ class Zeichnungsabgleich(QtWidgets.QDialog):
         except (PdfiumError, ValueError, OSError) as e:
             QtWidgets.QMessageBox.warning(self, tr("Bohrbild zuordnen"), str(e))
             return
-        kreise = self.blattgeometrie.im_bereich(box)
-        self.auftrag = Ansichtsauftrag(self.einzelteil, self.modellkreise, kreise, box, self.blattgeometrie)
+        kreise = list(dict.fromkeys(k for box in bereiche for k in self.blattgeometrie.im_bereich(box)))
+        self.auftrag = Ansichtsauftrag(self.einzelteil, self.modellkreise, kreise, bereiche, self.blattgeometrie)
         self.auftrag.finished.connect(self._zugeordnet)
         self.auftrag.starte()
         self._status()
@@ -565,7 +581,7 @@ class Zeichnungsabgleich(QtWidgets.QDialog):
         nr = self.blatt.nummer
         self.kreise[nr] = arbeit.treffer
         self.sichtkreise[nr] = arbeit.kreise
-        self.bereiche[nr] = arbeit.bereich
+        self.bereiche[nr] = arbeit.bereiche
         neu = self._ergaenze_masszeilen(arbeit.schriftenden)
         for a in self.seiten[nr]:
             self.musterwahl.pop(a, None)
@@ -611,8 +627,7 @@ class Zeichnungsabgleich(QtWidgets.QDialog):
         if not a.blattziel or a.seite not in self.bereiche:
             return False
         x, y = a.blattziel[:2]
-        l, t, r, b = self.bereiche[a.seite]
-        return not (l <= x <= r and t <= y <= b)
+        return not any(l <= x <= r and t <= y <= b for l,t,r,b in self.bereiche[a.seite])
 
     def _muster(self, a, anzahl):
         if not anzahl:

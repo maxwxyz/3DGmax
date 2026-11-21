@@ -2,6 +2,41 @@
 
 ## Current state, 2026-11-21
 
+### Distinguish equal drawing dimensions by their projected bore walls
+
+- Checked PLAN §8.4 and oblique registration against docs/Roadmap.md. CTC-03
+  sheet 1 draws ten bore rims as closed, nonuniform polygonal approximations.
+  Their pen is 1.73 page pixels wide. The reader checks the fitted ellipse
+  against the segments, the printed width and local contrast around the rim.
+  Open back edges, regular polygons in the fallback, insufficient line width,
+  solid areas and partial overpainting have negative controls.
+- Shift-drag collects rectangles in one view; the last ordinary drag registers
+  the complete set of rims in their union. Overlap counts once. Tested
+  cancellation, a hole in the gap, actual mouse events and a single rectangle.
+  Selecting the mounting and tab bores together on CTC-03 registers seven
+  bore walls. The two Ø.438 callouts reach different cylinders via their
+  leaders and select AP242 #264 and #263. The 4X Ø.625 pattern covers #265.
+  Checked the same workflow after reviewing AP203 #3638, #3640, #3641,
+  #3649 and reopening the export. The confirmed inspection CSV keeps the
+  individual model IDs and the two different ellipse locations.
+- Five of seven CTC-03 dimension leaders reach a drawn ellipse. The separate
+  2X Ø.438 pattern still has only one verified target. The Ø2.00 and Ø1.500
+  centres miss the seven-bore projection by at least 9.7 and 9.6 pixels
+  respectively, versus at most 0.12 pixels on the seven matching centres.
+  This was measured against both AP203 and AP242. Their values compare
+  independently; these two locations need separate review.
+- Passed 65 affected tests, 103 drawing regression checks and 11 native Cocoa
+  checks. Surveyed 42 sheets, finding 154 additional ellipse candidates.
+  The signed app rendered the graphical-to-semantic export and passed its
+  self-test. Keep one main app in `dist/3DGmax.app`.
+- Next in §8.4: AP203 #3634 prints 4X .82 ±.06 inch on a linear dimension.
+  Independent AP242 #270 is Size_Thickness, nominal 20.828 mm with limits
+  19.304 and 22.352 mm. The AP203 callout resolves to plane #481 and four
+  coplanar pads #557, #558, #563 and #566. Their measured separation
+  (20.83054 mm) differs from the rounded printed nominal. Preserve the
+  printed precision and verify the four targets before proposing the size.
+  QIF stays last.
+
 ### Compare individual bore sizes on projected drawings
 
 - Checked PLAN §8.4 and the oblique-view registration work against
