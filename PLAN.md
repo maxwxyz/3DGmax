@@ -2193,7 +2193,11 @@ pressure/speed, ball/roller basic rating life, friction torque and elastic inter
 Each result retains its input values, units and original geometry values when saved and reopened.
 Shaft sections and bushings can be exported as nominal AP242 solids with face-linked diameter
 and length PMI. The straight external spur pair also exports as a named two-solid AP242 assembly.
-Independent face widths are editable and can be adopted from a measured pair. The wheels have
+The sizing dialog can start from a target ratio and an allowable centre distance interval. It ranks
+integer pairs by absolute ratio error, then centre distance error, after checking flank contour,
+tip interference and transverse contact ratio. Selecting a candidate feeds its two counts, module
+and angle into force calculations and geometry. The saved design retains the target independently
+from measured inputs and the selected dimensions. Independent face widths are editable and can be adopted from a measured pair. The wheels have
 aligned midplanes and indexed teeth at the nominal centre distance. Each wheel carries semantic
 and graphical tip diameter, root diameter and face width PMI. The nominal involute has an
 idealised radial extension below the base circle. Detailed fatigue, flank rating, lubrication, materials, manufacturing allowances,

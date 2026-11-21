@@ -1,7 +1,8 @@
 """Nominale Evolventenraeder mit radialem Fussanschluss aus der Stirnradauslegung."""
 
 from dataclasses import dataclass
-from math import atan, cos, hypot, isclose, isfinite, pi, radians, sin, sqrt, tan
+from heapq import nsmallest
+from math import atan, ceil, cos, floor, hypot, isclose, isfinite, nextafter, inf, pi, radians, sin, sqrt, tan
 
 from OCC.Core.BRepBuilderAPI import BRepBuilderAPI_MakeEdge, BRepBuilderAPI_MakeFace, BRepBuilderAPI_MakeWire
 from OCC.Core.gp import gp_Ax1, gp_Dir, gp_Pnt, gp_Trsf, gp_Vec
@@ -52,14 +53,18 @@ class Zahnprofil:
     def winkel(self, t):
         return self.halbwinkel - (t-atan(t))
 
+    def flankenbereich(self):
+        start, ende = (self.abrollweg(r)/self.grund for r in (self.fuss, self.kopf))
+        if not 0 < self.winkel(ende) < self.winkel(start) < pi/self.z:
+            raise ValueError(tr("Die Zahnkontur schließt sich mit diesen Eingaben nicht."))
+        return start, ende
+
     def zahnkanten(self):
         from OCC.Core.GeomAPI import GeomAPI_Interpolate
         from OCC.Core.TColgp import TColgp_HArray1OfPnt
 
-        start, ende = (self.abrollweg(r)/self.grund for r in (self.fuss, self.kopf))
+        start, ende = self.flankenbereich()
         unten, oben = self.winkel(start), self.winkel(ende)
-        if not 0 < oben < unten < pi/self.z:
-            raise ValueError(tr("Die Zahnkontur schließt sich mit diesen Eingaben nicht."))
         kanten = []
         for seite in (-1, 1):
             if seite == -1 and self.grund-self.fuss > 1e-7:
@@ -116,6 +121,75 @@ def _radmasse(modell, teil, profil, breite):
             Pmi(MASS, "Size_Diameter", name=tr("Fußkreis df"), nennwert=2*profil.fuss, flaechen=fuss)]
 
 
+def _profilueberdeckung(a, b, modul, alpha, abstand):
+    # Der Kontakt am Kopf des einen Rads muss auf der Evolvente des Gegenrads liegen.
+    wirkstrecke = abstand*sin(alpha)
+    if any(rad.abrollweg(rad.kopf)+partner.abrollweg(partner.fuss) > wirkstrecke+1e-8
+           for rad, partner in ((a,b),(b,a))):
+        raise ValueError(tr("Der Zahnkopf greift unter den nutzbaren Evolventenbereich des Gegenrads."))
+    epsilon = (a.abrollweg(a.kopf)+b.abrollweg(b.kopf)-wirkstrecke) / (pi*modul*cos(alpha))
+    if not isfinite(epsilon) or epsilon < 1:
+        raise ValueError(tr("Die Profilüberdeckung ist für einen durchgehenden Eingriff zu klein."))
+
+    return epsilon
+
+
+@dataclass(frozen=True)
+class Radpaarvorschlag:
+    z1: int
+    z2: int
+    i: float
+    a: float
+    epsilon: float
+
+
+def radpaarvorschlaege(i, a, da, m, alpha):
+    """Zahnpaare im Achsabstandsfenster nach Uebersetzungs- und Abstandsfehler ordnen."""
+    if not all(isfinite(v) for v in (i, a, da, m, alpha)) or min(i, a) <= 0 or da < 0 or m <= 1e-6 or not 0 < alpha < 90:
+        raise ValueError(tr("Zielwerte, Modul und Eingriffswinkel prüfen."))
+    unten = 2*(a-da)/m
+    oben = 2*(a+da)/m
+    if not isfinite(oben) or oben > 100006:
+        raise ValueError(tr("Suchbereich zu groß. Achsabstand und zulässige Abweichung prüfen."))
+    # Eine ULP an den Grenzen gleicht die Rundung beim Einlesen dezimaler Masse aus.
+    erster = max(6, ceil(nextafter(max(0., unten), -inf)))
+    letzter = floor(nextafter(oben, inf))
+    if letzter < erster:
+        return []
+    anzahl = (letzter-erster+1)*(erster+letzter-10)//2
+    if anzahl > 100000:
+        raise ValueError(tr("Suchbereich zu groß. Achsabstand und zulässige Abweichung prüfen."))
+
+    winkel = radians(alpha)
+    profile = {}
+
+    def profil(z):
+        if z not in profile:
+            p = Zahnprofil.aus_nennmassen(z, m, winkel)
+            try:
+                p.flankenbereich()
+            except ValueError:
+                p = None
+            profile[z] = p
+        return profile[z]
+
+    def paare():
+        for summe in range(erster, letzter+1):
+            abstand = m*(summe/2)
+            for z1 in range(3, summe-2):
+                z2 = summe-z1
+                p1, p2 = profil(z1), profil(z2)
+                if p1 is None or p2 is None:
+                    continue
+                try:
+                    eps = _profilueberdeckung(p1, p2, m, winkel, abstand)
+                except ValueError:
+                    continue
+                yield Radpaarvorschlag(z1, z2, z2/z1, abstand, eps)
+
+    return nsmallest(12, paare(), key=lambda p: (abs(p.i-i), abs(p.a-a), p.z1, p.z2))
+
+
 def schreibe_stirnradpaar(ziel, eingaben, breite_ritzel, breite_rad, pruefe=lambda: None):
     """Zwei benannte Komponenten mit gemeinsamer Mittelebene am Nennachsabstand schreiben."""
     # Die Geometrie folgt aus den Nennmassen und ist vom Betriebsmoment unabhaengig.
@@ -126,13 +200,7 @@ def schreibe_stirnradpaar(ziel, eingaben, breite_ritzel, breite_rad, pruefe=lamb
     alpha = radians(eingaben["alpha"])
     a, b = (Zahnprofil.aus_nennmassen(int(eingaben[z]), eingaben["m"], alpha) for z in ("z1", "z2"))
     raeder = {tr("Ritzel"): a, tr("Rad"): b}
-    # Der Kontakt am Kopf des einen Rads muss auf der Evolvente des Gegenrads liegen.
-    wirkstrecke = masse["a"]*sin(alpha)
-    if any(rad.abrollweg(rad.kopf)+partner.abrollweg(partner.fuss) > wirkstrecke+1e-8
-           for rad, partner in ((a,b),(b,a))):
-        raise ValueError(tr("Der Zahnkopf greift unter den nutzbaren Evolventenbereich des Gegenrads."))
-    if a.abrollweg(a.kopf)+b.abrollweg(b.kopf)-wirkstrecke < pi*eingaben["m"]*cos(alpha):
-        raise ValueError(tr("Die Profilüberdeckung ist für einen durchgehenden Eingriff zu klein."))
+    _profilueberdeckung(a, b, eingaben["m"], alpha, masse["a"])
 
     def geometrie(pfad):
         kinder = [Knoten(name, profil.koerper(breiten[name], pruefe), nummer=i)

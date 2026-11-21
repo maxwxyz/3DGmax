@@ -45,6 +45,7 @@ class AuslegungFenster(QtWidgets.QDialog):
         self.setWindowTitle(tr("Maschinenelement auslegen"))
         self.resize(510, 430)
         self.werte = {}
+        self.stirnradziel = {}
         self.messwerte = dict(messwerte or {})
         self.quelle = quelle
         self.felder = {}
@@ -61,6 +62,9 @@ class AuslegungFenster(QtWidgets.QDialog):
         self.annahme = QtWidgets.QLabel()
         self.annahme.setWordWrap(True)
         lay.addWidget(self.annahme)
+        self.vorschlagen = QtWidgets.QPushButton(tr("Zähnezahlen vorschlagen …"))
+        self.vorschlagen.clicked.connect(self._vorschlagen)
+        lay.addWidget(self.vorschlagen, alignment=QtCore.Qt.AlignmentFlag.AlignLeft)
         self.form = QtWidgets.QFormLayout()
         lay.addLayout(self.form)
         self.ergebnis = QtWidgets.QLabel()
@@ -97,6 +101,7 @@ class AuslegungFenster(QtWidgets.QDialog):
         self.annahme.setTextFormat(QtCore.Qt.TextFormat.PlainText)
         quelle = tr("Übernommene Werte aus {}").format(self.quelle) if self.quelle else ""
         self.annahme.setText("\n".join(filter(None, (tr(verfahren.annahme), quelle))))
+        self.vorschlagen.setVisible(self.art == "stirnrad")
         self.lagerwelle.setVisible(self.art == "stirnrad")
         self.step.setVisible(self.art in ("stirnrad", "welle", "lagerwelle", "buchse", "reibsitz"))
         if self.art == "stirnrad":
@@ -130,6 +135,24 @@ class AuslegungFenster(QtWidgets.QDialog):
                 self.form.addRow(text, feld)
                 self.breitenfelder[k] = feld
                 feld.textChanged.connect(self._rechnen)
+        self._rechnen()
+
+    def _vorschlagen(self):
+        from .stirnradziel_ui import StirnradzielDialog
+        vorgaben = {"da": 0, **self.stirnradziel, "m": self.felder["m"].text(),
+                    "alpha": self.felder["alpha"].text() or "20"}
+        if self.daten and not self.stirnradziel:
+            vorgaben.update({k: self.daten["ergebnisse"][k] for k in ("i", "a")})
+        dialog = StirnradzielDialog(self, vorgaben)
+        ergebnis = dialog.exec()
+        dialog.deleteLater()
+        if ergebnis != QtWidgets.QDialog.DialogCode.Accepted:
+            return
+        paar = dialog.paare[dialog.tabelle.currentRow()]
+        self.stirnradziel = {k: dialog.werte[k] for k in ("i", "a", "da")}
+        for k, v in dict(z1=paar.z1, z2=paar.z2, m=dialog.werte["m"], alpha=dialog.werte["alpha"]).items():
+            with QtCore.QSignalBlocker(self.felder[k]):
+                self.felder[k].setText(str(v))
         self._rechnen()
 
     def _paargeometrie(self):
@@ -176,6 +199,10 @@ class AuslegungFenster(QtWidgets.QDialog):
         self.daten = dict(format="3dgmax-auslegung", version=1, verfahren=self.art, eingaben=eingaben,
                           ergebnisse=ausgaben, einheiten=einheiten, modellquelle=self.quelle,
                           uebernommene_masse=self.messwerte, geometrie=self.zusatz.get(self.art, {}))
+        if self.art == "stirnrad" and self.stirnradziel:
+            self.daten["auslegungsziel"] = self.stirnradziel.copy()
+            self.ergebnis.setText(self.ergebnis.text() + "\n" + tr("Abweichung zum Ziel: Δi = {}, Δa = {} mm").format(
+                f"{ausgaben['i']-self.stirnradziel['i']:+.6g}", f"{ausgaben['a']-self.stirnradziel['a']:+.6g}"))
         self.speichern.setEnabled(True)
         self.lagerwelle.setEnabled(self.art == "stirnrad")
 
@@ -286,9 +313,15 @@ class AuslegungFenster(QtWidgets.QDialog):
             if not all(isinstance(v, dict) and all(type(x) in (int, float) and isfinite(x) and x >= 0
                                                    for x in v.values()) for v in (messwerte, geometrie)):
                 raise ValueError
+            ziel = d.get("auslegungsziel", {})
+            if not isinstance(ziel, dict) or (ziel and (art != "stirnrad" or set(ziel) != {"a", "i", "da"}
+                    or not all(type(v) in (float, int) and isfinite(v) for v in ziel.values())
+                    or min(ziel["a"], ziel["i"]) <= 0 or ziel["da"] < 0)):
+                raise ValueError
         except (KeyError, ValueError, TypeError, ArithmeticError, OSError):
             QtWidgets.QMessageBox.warning(self, self.windowTitle(), tr("Die Datei enthält keine gültige Auslegung."))
             return
+        self.stirnradziel = ziel
         self.zusatz = {art: geometrie}
         self.quelle, self.messwerte = d.get("modellquelle", ""), messwerte
         self.werte = {art: {k: str(eingaben[k]) for k in VERFAHREN[art].eingaben}}

@@ -2,6 +2,33 @@
 
 ## Current state, 2026-11-21
 
+### Choose spur tooth counts from target ratio and centre distance
+
+- Checked PLAN §8.38 against docs/Roadmap.md. Tools › Size machine element › Suggest
+  tooth counts searches the permitted centre distance interval, including zero tolerance.
+  For the given module and pressure angle it rejects open tooth contours, tip interference
+  and transverse contact ratio below one. Up to twelve results are ranked by absolute ratio
+  error, then centre distance error. Both signed deviations and contact ratio are visible.
+  For interactive use, the search asks for a narrower interval above 100,000 integer pairs.
+- Targets, measured dimensions and editable inputs are stored separately. Taking a row
+  updates both counts, module and angle. Existing torque and face widths carry through
+  to the force calculation and STEP. Cancelling the chooser preserves the previous design.
+- At module 1.5 mm, 20° and 52.5 mm centre distance, target 2.5 gives 20/50 and target
+  0.4 gives 50/20, both with contact ratio 1.655756. Applied the latter at 12 N·m
+  and obtained 320 N tangential force. The STEP readback recovered the two counts,
+  8 and 10 mm face widths, installed centre distance and six face-linked dimensions.
+  Inexact and unattainable targets, the second-ranked choice, editing and saving were
+  also exercised. All 14 affected cases and 30 native Cocoa cases passed. The single
+  signed main app in `dist/3DGmax.app` passed its self-test and rendered the exported pair.
+- Next in §8.38: complete the separate interference-fit workflow with both shaft and
+  hub in one AP242 assembly. Accept explicit manufacturing limits on each seat and a
+  user-entered allowance for the difference between geometric and effective interference.
+  Reuse the existing pressure calculation and verify both individual dimension targets
+  on reimport. At 20 mm diameter, 15 mm length and 40 mm hub OD, the existing equal-steel
+  reference (E = 200 GPa, ν = 0.3, μ = 0.2) gives 60–120 MPa and 113.097 N·m at the
+  low limit for 16–32 µm effective interference. Tooth strength rating also remains open.
+  QIF stays last.
+
 ### Export a nominal straight spur gear pair from sizing
 
 - Checked PLAN §8.38 against docs/Roadmap.md. The sizing dialog takes the two face widths
