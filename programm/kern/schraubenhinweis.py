@@ -1,4 +1,4 @@
-"""Axialteilung und Vorschub aus Beschriftungen fuer den Geometrieabgleich."""
+"""Schraubenmasse und Zahnrichtung aus Beschriftungen fuer den Geometrieabgleich."""
 
 import math
 import re
@@ -17,6 +17,33 @@ _WERT = re.compile(
     r"(?:\s*(?:/\s*|per\s+|je\s+|pro\s+)(?P<umlauf>rev(?:olution)?|turn|U(?:mdrehung)?))?", re.I | re.ASCII)
 _FAKTOR = {"mm": 1., "cm": 10., "μm": .001, "inch": 25.4, "inches": 25.4, "in": 25.4,
            "in.": 25.4, "zoll": 25.4, '"': 25.4, "″": 25.4}
+
+_HANDFELD = re.compile(
+    r"(?:^|(?<=[;|\r\n]))[ \t]*(?:(?P<schnecke>Schneckenhand|Steigungsrichtung der Schnecke|"
+    r"worm hand|hand of worm)|(?P<kegel>Spiralrichtung|Spiralhand|spiral hand|hand of spiral))"
+    r"\b(?:[ \t]*(?P<trenner>[=:])[ \t]*|[ \t]+)(?P<wert>[^;|\r\n]+)", re.I)
+_HANDWERTE = {
+    "rechts": ("rh", "rechts", "rechtssteigend", "right", "right hand", "right handed"),
+    "links": ("lh", "links", "linkssteigend", "left", "left hand", "left handed"),
+    "gerade": ("gerade", "geradverzahnt", "straight"),
+}
+
+
+@dataclass(frozen=True)
+class Handangabe:
+    text: str
+    hand: str | None
+
+
+def handangaben(text):
+    """Nur benannte Tabellenfelder; Drehsinn und Alternativen ergeben keine gemessene Hand."""
+    for feld in _HANDFELD.finditer(text):
+        wert = " ".join(feld["wert"].lower().replace("-", " ").split())
+        hand = next((h for h, namen in _HANDWERTE.items() if wert in namen), None)
+        if hand is None and not feld["trenner"]:
+            continue
+        name = "schneckenhand" if feld["schnecke"] else "spiralhand"
+        yield feld.start(), name, Handangabe(feld["wert"].strip(), hand)
 
 
 @dataclass(frozen=True)

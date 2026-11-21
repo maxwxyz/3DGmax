@@ -168,7 +168,10 @@ tab group).</li>
     Otherwise the check uses the unit assigned to the STEP annotation. Conflicting units leave
     the value open. A deviation greater than 0.7% of the stated nominal produces a warning.
     A value without a
-    corresponding profile measurement remains open in the report.</li>
+    corresponding profile measurement remains open in the report.
+    Fields such as “worm hand: LH” and “spiral hand: right” are compared with the measured
+    tooth trace of the associated screw or bevel gear. An entry such as “RH/LH” remains open
+    for review.</li>
 <li><b>Tools › Convert graphical PMI to semantic PMI …</b> walks through the graphical annotations in the open model.
     Planar angles with a degree sign can be read without a stored writing plane. For an angle between
     two faces, review the dimension type and select both faces. STEP retains the angle, its

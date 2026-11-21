@@ -24,7 +24,7 @@ import numpy as np
 
 from ..i18n import tr
 from . import toleranzzone as tz
-from .schraubenhinweis import Schraubenmass, schraubenmasse
+from .schraubenhinweis import Handangabe, Schraubenmass, handangaben, schraubenmasse
 
 GEOMETRIE_TOLERANZ = 1e-3  # mm: Nennmass und Modell gelten bis hier als gleich
 
@@ -499,7 +499,7 @@ VERZAHNUNG_MUSTER = {  # Hinweistext -> Groesse (deutsch und englisch, wie in Ze
     "beta": r"(?:β|\bbeta\b|Schr[äa]e?gungswinkel|helix angle)\s*[=:]?\s*(\d+(?:[.,]\d+)?)",
     "x": r"(?:\bx\b|Profilverschiebung(?:sfaktor)?|profile shift(?: coefficient)?)\s*[=:]?\s*([+-]?\d+(?:[.,]\d+)?)",
 }
-VERZAHNUNG_ANKER = {"z", "mn", "gaenge"}
+VERZAHNUNG_ANKER = {"z", "mn", "gaenge", "schneckenhand", "spiralhand"}
 VERZAHNUNG_TOLERANZ = {"z": 0.0, "gaenge": 0.0, "mn": 0.005, "alpha_n": 0.1, "beta": 0.1, "x": 0.03}  # mn relativ
 
 
@@ -510,6 +510,9 @@ def _hinweiswerte(text):
         for m in re.finditer(muster, text, re.IGNORECASE):
             werte.append((name, float(m[1].replace(",", "."))))
             anfaenge.append(m.start())
+    for start, name, angabe in handangaben(text):
+        werte.append((name, angabe))
+        anfaenge.append(start)
     werte.extend(schraubenmasse(text, anfaenge))
     return list(dict.fromkeys(werte))
 
@@ -528,6 +531,8 @@ def verzahnung_angaben(texte: str) -> dict:
     for name, zahl in angaben:
         if isinstance(zahl, Schraubenmass):
             zahl = zahl.millimeter()
+        elif isinstance(zahl, Handangabe):
+            zahl = zahl.hand
         if zahl is not None:
             werte.setdefault(name, zahl)
     return werte
@@ -614,6 +619,19 @@ def _schraubenmassbefund(name, mass, kontext, messwerte, nr, flaechen):
     return _befund(INFO, "geometrie", text, [nr], flaechen)
 
 
+def _handbefund(name, angabe, profil, messwerte, nr, flaechen):
+    from .pmi_bericht import INFO, WARNUNG
+    titel = tr("Schneckenhand") if name == "schneckenhand" else tr("Spiralrichtung")
+    ist = messwerte.get("hand") if name == "schneckenhand" else getattr(profil, "zahnrichtung", None)
+    if angabe.hand is None or ist is None:
+        text = tr("{}: „{}“ lässt sich an diesem Profil nicht prüfen.").format(titel, angabe.text)
+        return _befund(INFO, "geometrie", text, [nr], flaechen)
+    if angabe.hand != ist:
+        richtung = {"rechts": tr("rechts"), "links": tr("links"), "gerade": tr("gerade")}[ist]
+        text = tr("{}: Hinweis „{}“, Geometrie {}").format(titel, angabe.text, richtung)
+        return _befund(WARNUNG, "geometrie", text, [nr], flaechen)
+
+
 def _verzahnungsbefunde(ziel, profile, zeilen, einheiten):
     from .pmi_bericht import FEHLER, INFO, WARNUNG
     if ziel is None:
@@ -628,8 +646,11 @@ def _verzahnungsbefunde(ziel, profile, zeilen, einheiten):
     messwerte = profil.als_dict() if schraube else {}
     for nummer, flaechen, werte, _ in zeilen:
         for name, soll in werte:
-            if isinstance(soll, Schraubenmass):
-                befund = _schraubenmassbefund(name, soll, einheiten.get(nummer), messwerte, nummer, flaechen)
+            if isinstance(soll, (Schraubenmass, Handangabe)):
+                if isinstance(soll, Handangabe):
+                    befund = _handbefund(name, soll, profil, messwerte, nummer, flaechen)
+                else:
+                    befund = _schraubenmassbefund(name, soll, einheiten.get(nummer), messwerte, nummer, flaechen)
                 if befund:
                     out.append(befund)
                 continue

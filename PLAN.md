@@ -1484,6 +1484,10 @@ tools (the user names MASTA as an example of a tool that needs these inputs), an
   including fractions, to mm. A unitless value uses the unit assigned to that STEP callout.
   Conflicting or absent units and unsupported qualifiers leave the value open. A two-start
   14 mm lead / 7 mm axial pitch reference exercises both correct and conflicting annotations.
+  Explicit worm-hand and bevel spiral-hand fields are checked against the tooth trace on the
+  assigned profile. German and English labels and RH/LH abbreviations are supported. Opposite
+  hands produce a warning on the note and its faces. A choice of hands or an unmeasured hand
+  stays open. The check uses the worm thread or the bevel tooth trace independently of shaft speed.
 - The power-flow view traces cylindrical, candidate bevel and candidate worm stages through coaxial
   wheels. Each disconnected train has its own reference shaft. The user can change the reference.
   An inconsistent cycle suppresses cumulative ratios. Planetary sets retain explicit fixed-member cases.

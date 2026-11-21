@@ -2,6 +2,24 @@
 
 ## Current state, 2026-11-21
 
+### Compare worm and bevel hands with their PMI notes
+
+- Checked PLAN §§8.22 and 8.27 against docs/Roadmap.md. Explicit German and English
+  fields accept right, left, RH and LH. A bevel trace can also be straight. The
+  gear report keeps the exact source wording and face association for a conflict.
+  A hand for a different profile or an explicit alternative remains unresolved.
+- Reopened a two-start left-hand AP242 screw with eight graphical callouts. The
+  14 mm lead, 7 mm axial pitch and left hand agreed. The right-hand note produced
+  a warning on its face and “LH/RH” remained open. The check also distinguished the
+  matching and opposite hands on a right-hand STEP bevel gear and an STL screw.
+  Six targeted tests passed. The macOS screen, graphical PMI and screw-dialog run
+  passed all 19 cases. The manuals and English translation cover the new fields.
+- Next §8.20: with a split cylinder wall, an origin on just one half cap can be
+  missed when the other wall is selected. Conversely, adding a geometrically
+  coincident cap from a different body to a valid cap can produce an in-spec
+  verdict. Check the origin across the connected wall, the display and the
+  3D chain. QIF remains last.
+
 ### Read repeated STEP geometry and build the PMI reverse index faster
 
 - Checked PLAN §6 against the viewing section of docs/Roadmap.md. The reader decodes

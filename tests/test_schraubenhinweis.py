@@ -21,6 +21,16 @@ def test_schraubenmasse_als_tabellenfelder():
         assert pl.verzahnung_angaben(text) == {}
 
 
+def test_handfelder_trennen_zahnspur_und_drehsinn():
+    assert pl.verzahnung_angaben("Spiralrichtung: geradverzahnt") == {"spiralhand": "gerade"}
+    assert pl.verzahnung_angaben("worm lead 14 mm; WORM HAND = RIGHT-HANDED") == {
+        "vorschub": 14., "schneckenhand": "rechts"}
+    assert pl.verzahnung_angaben("Steigungsrichtung der Schnecke: linkssteigend") == {"schneckenhand": "links"}
+    for text in ("Drehrichtung: rechts", "worm rotation RH", "RH", "do not use worm hand LH",
+                 "spiral hand: RH/LH", "worm hand: RH, LH", "Schneckenhand auf Zeichnung prüfen"):
+        assert pl.verzahnung_angaben(text) == {}
+
+
 def test_steigung_und_axialteilung_mit_eigenem_step_kontext(tmp_path, fenster):
     from OCC.Core.IFSelect import IFSelect_RetDone
     from OCC.Core.Interface import Interface_Static
@@ -51,9 +61,10 @@ def test_steigung_und_axialteilung_mit_eigenem_step_kontext(tmp_path, fenster):
                  "REPRESENTATION_CONTEXT('',''))")
     g = Praesentation(a, modell)
     # Die Einheit des Zeichnungsmodells ist von der Geometrie (mm) unabhaengig.
-    for kontext, text in [(mm, "Axialteilung 7"), (inch, "worm lead .55118"),
+    for kontext, text in [(mm, "Axialteilung 7; Schneckenhand: links"), (inch, "worm lead .55118"),
                           (inch, "Axialteilung 8 mm; Vorschub je Umdrehung 16 mm"),
                           (inch, "worm lead 1/2"), (mm, "axial pitch 7 mm/min"),
+                          (mm, "worm hand: RH"), (mm, "worm hand: LH/RH"),
                           (mm, "axial pitch 7; lead .55118 in")]:
         a.kontext = kontext
         grafik = Grafik(0, name=text, linien=[np.array([[0., 0., 0.], [1., 1., 0.]])])
@@ -67,10 +78,13 @@ def test_steigung_und_axialteilung_mit_eigenem_step_kontext(tmp_path, fenster):
     pfad.write_text(text[:pos] + "\n".join(a.zeilen) + "\n" + text[pos:])
     fenster.lade(str(pfad), warten=True)
     befunde = [b for b in fenster.pruefe_pmi().befunde if b.kategorie == "geometrie"]
-    assert len(fenster.erg.pmi) == 6
+    befunde.sort(key=lambda b: b.nummern)
+    assert len(fenster.erg.pmi) == 8
     assert [(b.nummern, b.stufe, b.flaechen) for b in befunde] == [
         ([3], "Warnung", fl), ([3], "Warnung", fl), ([4], "Warnung", fl), ([5], "Hinweis", fl),
-        ([6], "Hinweis", fl)]
+        ([6], "Warnung", fl), ([7], "Hinweis", fl), ([8], "Hinweis", fl)]
     assert "8 mm" in befunde[0].text and "16 mm" in befunde[1].text
     assert "12.7 mm" in befunde[2].text and "1/2" in befunde[2].text
     assert "mm/min" in befunde[3].text
+    assert "RH" in befunde[4].text and "Geometrie links" in befunde[4].text
+    assert "LH/RH" in befunde[5].text

@@ -2807,5 +2807,8 @@
 "STEP-Abschnitt nicht für die AP242-Übertragung geprüft": "Unverified STEP section for AP242 conversion",
 "{}: Wert oder Einheit von „{}“ ist ungeklärt.": "{}: the value or unit of “{}” is unresolved.",
 "{}: „{}“ lässt sich an diesem Profil nicht prüfen.": "{}: “{}” cannot be checked on this profile.",
+"Schneckenhand": "Worm hand",
+"Spiralrichtung": "Spiral hand",
+"{}: Hinweis „{}“, Geometrie {}": "{}: note “{}”, geometry {}",
 "{}: Hinweis {} ({} mm), Geometrie {:.4g} mm": "{}: note {} ({} mm), geometry {:.4g} mm"
 }
