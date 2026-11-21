@@ -438,6 +438,9 @@ def _netzrandrichtungen(dreiecke):
 def _rahmenrichtungen(g):
     """Moegliche Schreibachsen aus der Ebene und den laengsten geraden Kanten."""
     kanten = [np.diff(l, axis=0) for l in g.linien if 2 <= len(l) <= 6]
+    if len(kanten) < 2:
+        # Kurze Massangaben koennen fast vollstaendig aus zwei langen Schriftzuegen bestehen.
+        kanten = [np.diff(l, axis=0) for l in g.linien if len(l) >= 2]
     if not kanten:
         kanten = list(_netzrandrichtungen(g.dreiecke))
     if not kanten:
@@ -468,14 +471,49 @@ def _rahmenrichtungen(g):
         yield o, y, x, -z
 
 
+def _schriftachsen(pfade):
+    """Mehrere nahezu waagerechte und senkrechte Zeichenstriche stuetzen die Leseachse."""
+    kanten = np.abs(np.vstack([np.diff(p, axis=0) for p, _ in pfade]))
+    kanten = kanten[kanten.max(axis=1) > 1e-7]
+    anzahl = max(1, .015 * len(kanten))
+    # Zwei Grad Spiel fuer facettierte Glyphen und leicht schraege Anschlusslinien.
+    dx, dy = kanten.T
+    return min(np.count_nonzero(dx < .035*dy), np.count_nonzero(dy < .035*dx)) >= anzahl
+
+
+def _mass_ohne_ebene(g, richtungen):
+    from .pmi_ableiten import aus_text, grenzlesart
+    ergebnis = ""
+    for ebene in richtungen:
+        pfade = _pfade(g, ebene)
+        for spiegelung in ((1, 1), (1, -1), (-1, 1), (-1, -1)):
+            wort = _freitext([(p * spiegelung, voll) for p, voll in pfade])
+            if not wort or not re.match(r"^(?:[1-9][0-9]*X)?[⌀R][0-9.]", wort):
+                continue
+            daten = aus_text([wort], g.textfaktor) or grenzlesart(wort, g.textfaktor)
+            if daten and daten["typ"] in ("Size_Diameter", "Size_Radius"):
+                if ergebnis and ergebnis != wort:
+                    return ""
+                ergebnis = wort
+    return ergebnis
+
+
 def _ohne_schreibebene(g):
-    """Nur mehrzellige Rahmen: alle lesbaren Orientierungen muessen dieselbe Toleranz ergeben."""
+    """Alle lesbaren Orientierungen muessen denselben Rahmen bzw. dasselbe Mass ergeben."""
     from .pmi_ableiten import aus_text
 
     ergebnis = ""
+    massrichtungen = []
+    hat_rahmen = False
     for ebene in _rahmenrichtungen(g):
         pfade = _pfade(g, ebene)
         zellen = _zellen(pfade)
+        if pfade and len(zellen) <= 6 and _schriftachsen(pfade):
+            if any(m is not None and m.any() for m in (_fachmaske(pfade, z) for z in zellen)):
+                if 2 <= len(zellen) <= 6 and _einzelrahmen(pfade, zellen):
+                    hat_rahmen = True
+            else:
+                massrichtungen.append(ebene)
         if not 2 <= len(zellen) <= 6:
             continue
         for x, y in ((1, 1), (1, -1), (-1, 1), (-1, -1)):
@@ -488,7 +526,7 @@ def _ohne_schreibebene(g):
                 if ergebnis and ergebnis != text:
                     return ""
                 ergebnis = text
-    return ergebnis
+    return ergebnis if ergebnis or hat_rahmen else _mass_ohne_ebene(g, massrichtungen)
 
 
 def _lesbar(g):

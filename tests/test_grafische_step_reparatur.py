@@ -481,7 +481,9 @@ def test_suche_liest_grafische_schrift_erst_bei_bedarf(fenster, monkeypatch, app
 
 
 def test_ocr_gestapelte_abmasse_und_grenzmasse_im_step(grafische_datei, tmp_path):
+    from dataclasses import replace
     from programm.kern.pmi_reparieren import vorschlag
+    from programm.kern.pmi_strichschrift import lies_schrift
 
     datei, referenz, vorher = grafische_datei
     erwartet = {607: (35., 0., -.2, False), 608: (35., .2, 0., False),
@@ -492,6 +494,7 @@ def test_ocr_gestapelte_abmasse_und_grenzmasse_im_step(grafische_datei, tmp_path
         v = vorschlag(original, vorher.grafik[nr], vorher.modell)
         assert v.typ == "Size_Diameter" and "\n" in v.ocr_text and not v.nennwert_aus_geometrie
         assert (v.nennwert, v.oben, v.unten, v.grenzmass) == soll
+        assert lies_schrift(replace(vorher.grafik[nr], ebene=None)) == v.ocr_text
         # Der Pruefer waehlt die Bezugsflaeche. Alle Masswerte stammen ausschliesslich aus der Schrift.
         ref = next(p for p in referenz.pmi if p.step_id in referenz.grafik[nr].pmi_ids)
         v.flaechen = set(ref.flaechen)
@@ -646,18 +649,23 @@ def _radiusgrafik(voll):
 
 
 @pytest.mark.parametrize("voll", [False,True], ids=["striche","nur_dreiecke"])
-def test_anonymes_radiusmass_mit_originalgrafik_als_step(grafische_datei, fenster, tmp_path, voll):
+@pytest.mark.parametrize("ohne_ebene", [False, True], ids=["mit_ebene", "ohne_ebene"])
+def test_anonymes_radiusmass_mit_originalgrafik_als_step(grafische_datei, fenster, tmp_path, voll, ohne_ebene):
     datei, referenz, _ = grafische_datei
     text = Path(datei).read_text(encoding="utf-8")
     alt = "TESSELLATED_GEOMETRIC_SET((#461,#348,#462,#349))"
     assert text.count(alt) == 1
     text = text.replace(alt,"TESSELLATED_GEOMETRIC_SET((#90002))").replace("'Flatness.1'","''")
+    if ohne_ebene:
+        text = _ohne_zeichenebene(text.replace("#565,#611,", "#611,"), 611, 565)
+        text = text.replace("REPOSITIONED_TESSELLATED_ITEM(#4181)", "")
     ende = text.rindex("ENDSEC;")
     quelle = tmp_path / "Grafisches Radiusmass.stp"
     quelle.write_text(text[:ende]+_radiusgrafik(voll)+text[ende:],encoding="utf-8")
     fenster.lade(str(quelle),warten=True)
     vorher = fenster.erg
     g = vorher.grafik[611]
+    assert (g.ebene is None) == ohne_ebene
     assert not g.platzhalter and bool(g.dreiecke) == voll and bool(g.linien) != voll
     original = next(p for p in vorher.pmi if p.step_id == 611)
     assert not original.semantisch and original.nennwert is None
@@ -778,6 +786,7 @@ def test_breite_strichschrift_mit_gepruefter_masslesart_bis_step(fenster,tmp_pat
 
 
 def test_alle_zwoelf_breiten_masszeilen_ohne_dateitext(ftc07):
+    from dataclasses import replace
     from programm.kern.praesentation import lies_grafik
     from programm.kern.pmi_strichschrift import lies_schrift
 
@@ -793,6 +802,7 @@ def test_alle_zwoelf_breiten_masszeilen_ohne_dateitext(ftc07):
     assert set(erwartet) == {nr for nr, g in grafik.items() if g.name.startswith("Linear Size.")}
     for nr, wort in erwartet.items():
         assert lies_schrift(grafik[nr]) == wort
+        assert lies_schrift(replace(grafik[nr], ebene=None)) == wort
 
 
 def test_abgesetztes_zeichen_bleibt_ohne_passenden_radialpfeil_offen(ftc07):
@@ -811,6 +821,13 @@ def test_abgesetztes_zeichen_bleibt_ohne_passenden_radialpfeil_offen(ftc07):
         linien = [*g.linien[:18], zeichen, *g.linien[19:]]
         assert not lies_schrift(replace(g, linien=linien))
     assert not lies_schrift(replace(g, linien=[*g.linien, am_text]))
+
+
+def _ohne_zeichenebene(text, nr, ebene):
+    start = text.index(f"#{ebene}=ANNOTATION_PLANE(")
+    text = text[:start] + text[text.index(";", start)+1:]
+    # Der Callout bleibt direktes Mitglied des Zeichenmodells.
+    return text.replace(f"#{ebene},", f"#{nr},")
 
 
 def _als_fuellung(datei, rein, ziel, callouts, ohne_ebene=False):
@@ -843,10 +860,7 @@ def _als_fuellung(datei, rein, ziel, callouts, ohne_ebene=False):
                 + f"#{kurve}=COMPLEX_TRIANGULATED_SURFACE_SET('',#{koord},{len(punkte)},"
                 + f"({liste(normale.tolist())}),(),(),{liste(faecher)});" + text[ende:])
         if ohne_ebene:
-            start = text.index(f"#{ebene}=ANNOTATION_PLANE(")
-            text = text[:start] + text[text.index(";", start)+1:]
-            # Der Callout bleibt direktes Mitglied des Zeichenmodells.
-            text = text.replace(f"#{ebene},", f"#{nr},")
+            text = _ohne_zeichenebene(text, nr, ebene)
     ziel.write_text(text, encoding="utf-8")
     return str(ziel)
 
@@ -928,13 +942,26 @@ def test_breite_rahmen_mit_weiteren_merkmalen(ftc07):
 
 
 @pytest.mark.parametrize("fuellung", [False, True], ids=["striche", "dreiecke"])
-def test_breite_masse_mit_zielbogen_mengen_und_abmassen_im_step(fenster, tmp_path, fuellung):
+@pytest.mark.parametrize("ohne_ebene", [False, True], ids=["mit_ebene", "ohne_ebene"])
+def test_breite_masse_mit_zielbogen_mengen_und_abmassen_im_step(fenster, tmp_path, fuellung, ohne_ebene):
+    from dataclasses import replace
+    from scipy.spatial.transform import Rotation
+    from programm.kern.pmi_lesen import lies_pmi_xcaf
     from programm.kern.pmi_strichschrift import lies_schrift
 
     datei, referenz, rein = _ohne_semantik(pfad("nist_ftc_07_asme1_ap242-e2.stp"), tmp_path/"Masse.stp",
                                            validierung=False)
-    callouts = ((15669, 15666, None), (15807, 15804, None), (15146, 15143, None))
-    quelle = _als_fuellung(datei, rein, tmp_path/"Masse gefuellt.stp", callouts) if fuellung else datei
+    callouts = ((15669, 15666, 15677), (15807, 15804, 15815), (15146, 15143, 15153), (16200, 16197, 16208))
+    quelle = datei
+    if fuellung:
+        quelle = _als_fuellung(datei, rein, tmp_path/"Masse gefuellt.stp", callouts, ohne_ebene)
+    elif ohne_ebene:
+        text = Path(datei).read_text(encoding="utf-8")
+        for nr, _, ebene in callouts:
+            text = _ohne_zeichenebene(text, nr, ebene)
+        quelle = tmp_path/"Striche ohne Ebene.stp"
+        quelle.write_text(text, encoding="utf-8")
+        quelle = str(quelle)
     fenster.lade(quelle, warten=True)
     vorher = fenster.erg
     werte = {15669: ("3X⌀.875±.010", .875, .010, -.010), 15807: ("4X⌀.281 +.006\n-.001", .281, .006, -.001),
@@ -942,6 +969,7 @@ def test_breite_masse_mit_zielbogen_mengen_und_abmassen_im_step(fenster, tmp_pat
     for nr, angabe in werte.items():
         original = next(p for p in vorher.pmi if p.step_id == nr)
         g = vorher.grafik[nr]
+        assert (g.ebene is None) == ohne_ebene
         assert bool(g.dreiecke) == fuellung and bool(g.linien) != fuellung
         assert not g.platzhalter and not original.semantisch
         fenster._pmi_befehl("semantisch", original)
@@ -952,16 +980,50 @@ def test_breite_masse_mit_zielbogen_mengen_und_abmassen_im_step(fenster, tmp_pat
         dialog._auswahl_uebernehmen()
         assert not dialog.fehler()
         dialog._pruefen()
+    radius = next(p for p in vorher.pmi if p.step_id == 16200)
+    fenster._pmi_befehl("semantisch", radius)
+    dialog = fenster._semantik_dialog
+    assert dialog.v.nur_grafik_text == "R.022-.012" and dialog.fehler()
+    assert not dialog.felder["nennwert"].text()
+    dialog.massknoepfe["grenzen"].click()
+    soll, = [p for p in referenz.pmi if p.art == "mass" and p.step_id in referenz.grafik[16200].pmi_ids]
+    soll_radius = soll.flaechen
+    fenster.ansicht.setze_auswahl([vorher.modell.flaechen[i] for i in soll_radius])
+    dialog._auswahl_uebernehmen()
+    assert not dialog.fehler()
+    dialog._pruefen()
     ziel = fenster.speichere_step_pmi(str(tmp_path/"Masse mit Semantik.stp"), melden=False)
-    assert len(fenster._step_bericht.repariert) == 3 and not fenster._step_bericht.uebersprungen
+    assert len(fenster._step_bericht.repariert) == 4 and not fenster._step_bericht.uebersprungen
     neu = lade_alles(ziel)
     assert all(neu.modell.datei.get(i) == ent for i, ent in vorher.modell.datei.entities.items())
+    xcaf = lies_pmi_xcaf(neu.modell)
     for nr, (text, nenn, oben, unten) in werte.items():
         assert lies_schrift(neu.grafik[nr]) == text
         ist, = [p for p in neu.pmi if p.semantisch and p.step_id in neu.grafik[nr].pmi_ids]
         soll, = [p for p in referenz.pmi if p.art == "mass" and p.step_id in referenz.grafik[nr].pmi_ids]
-        assert ist.typ == "Size_Diameter" and ist.flaechen == soll.flaechen
-        assert (ist.nennwert, ist.oben, ist.unten) == pytest.approx(np.array([nenn, oben, unten])*25.4)
+        nativ, = [p for p in xcaf if p.typ == "Size_Diameter" and p.nennwert == pytest.approx(nenn*25.4)]
+        for p in (ist, nativ):
+            assert p.typ == "Size_Diameter" and p.flaechen == soll.flaechen
+            assert (p.nennwert, p.oben, p.unten) == pytest.approx(np.array([nenn, oben, unten])*25.4)
+        vorherige_ansichten = {a.step_id for a in vorher.ansichten if nr in a.pmi_ids}
+        assert {a.step_id for a in neu.ansichten if nr in a.pmi_ids} == vorherige_ansichten
+    schrift = neu.grafik[16200]
+    sem, = [p for p in neu.pmi if p.semantisch and p.step_id in schrift.pmi_ids]
+    nativ, = [p for p in xcaf if p.typ == "Size_Radius"]
+    for p in (sem, nativ):
+        assert p.grenzen() == pytest.approx((.022*25.4, .012*25.4))
+        assert p.flaechen == soll_radius
+    if ohne_ebene:
+        g = neu.grafik[15807]
+        drehung = Rotation.from_rotvec([.49, -.26, .65]).as_matrix()
+        def drehen(p):
+            return p @ drehung.T + [37., 14., 23.]
+        gedreht = replace(g, linien=[drehen(l) for l in g.linien],
+                          dreiecke=[(drehen(p), t) for p, t in g.dreiecke])
+        assert lies_schrift(gedreht) == werte[15807][0]
+        punkte = gedreht.dreiecke[0][0] if fuellung else gedreht.linien[0]
+        punkte[0] += [15., 12., -21.]
+        assert lies_schrift(gedreht) == ""
 
 
 @pytest.mark.parametrize("darstellung,validierung", [

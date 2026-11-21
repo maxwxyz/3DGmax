@@ -2,6 +2,30 @@
 
 ## Current state, 2026-11-21
 
+### Recover unframed graphical diameter and radius dimensions without a stored writing plane
+
+- Checked PLAN §8.4 against docs/Roadmap.md. A planar size callout can supply candidate axes
+  from strokes or triangle edges, checked against the lettering. Only a complete diameter or
+  radius reading agreed across the legible orientations proceeds to review. The dimension
+  parser and the review dialog share the interpretation of two values separated by a hyphen;
+  the reviewer still chooses whether these are limits.
+- Removed the writing planes from all twelve FTC-07 size callouts. All twelve match their
+  stroked reference strings. Four CTC-01 rows retain stacked deviations or absolute limits.
+  Tested the native review and STEP round trip for FTC-07 quantities, symmetric and stacked
+  deviations, a diameter with a detached target arc, and the radius range R.022-.012. The
+  cases include stroke-only and triangle-only files. Both readers recovered the semantic
+  dimensions and target faces, and the original STEP presentation entities were preserved.
+  A separate anonymous solid-font Helvetica R2 and a sparse stroked R2 passed without a
+  writing plane, positioning metadata, validation strings or text placeholders. A rotated
+  3D callout is readable and a noncoplanar perturbation is rejected. The 61 affected
+  tests and nine focused native macOS tests passed.
+- Next §§8.22 and 8.27: check gear annotations against their source and target bands. A
+  23-tooth control with independent notes #1 “z = 23”, #2 “z = 24” and #3 “deburr”
+  gave zero findings in file order. Reversing the order found the discrepancy but cited
+  all three notes. The checker concatenates every note and takes the first value per
+  parameter. Preserve each note's identity and geometry association; keep ambiguous
+  annotations on multistage or repeated gears explicitly open. QIF remains last.
+
 ### Update individual assembly parts and revision colours in the viewer
 
 - Checked PLAN §§6 and 8.1 against docs/Roadmap.md. Tree visibility updates changed occurrences,

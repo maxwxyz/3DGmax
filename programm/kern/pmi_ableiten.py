@@ -154,6 +154,20 @@ def _mass(text, faktor, winkel, gestapelt):
     return None
 
 
+def grenzlesart(text, faktor, bekannt=None):
+    """Zwei mit Bindestrich gedruckte absolute Werte nur auf ausdrueckliche Wahl uebernehmen."""
+    zahl = r"(?:[0-9]+(?:[.,][0-9]+)?|[.,][0-9]+)"
+    vorsatz = r"(?:[1-9][0-9]*\s*[Xx×]\s*)?(?:S?[⌀Ø∅R]|CR)"
+    einheit = r'(?:\s*(?:mm|inch|in|"))?'
+    m = re.fullmatch(rf"({vorsatz}\s*{zahl})\s*-\s*({zahl}{einheit})", text)
+    if not m:
+        return None
+    daten = aus_text([f"{m[1]}–{m[2]}"], faktor)
+    if not daten or (bekannt and (bekannt[0] != MASS or bekannt[1] not in ("", daten["typ"]))):
+        return None
+    return daten
+
+
 def aus_text(zeilen: list[str], faktor: float = 1.) -> dict | None:
     """Eindeutige Angaben in mm bzw. Grad; die explizite Texteinheit geht der Datei-PMI-Einheit vor."""
     roh = "\n".join(zeilen).translate(str.maketrans({"Ø": "⌀", "∅": "⌀", "−": "-", "|": " "}))

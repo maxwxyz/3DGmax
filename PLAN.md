@@ -204,6 +204,14 @@ Throughout: tests (core, offscreen UI, stress test, on-screen test), `--selbstte
   including review of the projection end face and reimport of both original presentations.
   The same wide-font dimension reader accepts unframed triangle-only lettering on a stored
   plane. FTC-07 test meshes preserve repeated diameters with symmetric or stacked deviations.
+  Unframed diameter and radius lettering can also supply its own writing axes. The reader requires
+  coplanar geometry, a complete dimension with a diameter or radius prefix, and agreement across
+  readable directions. All twelve FTC-07 size annotations were read from strokes without stored
+  planes. Four CTC-01 diameter rows retained their stacked upper/lower deviations or limits
+  after removing the writing axes. Four FTC-07 controls (three diameters and a radius range) passed graphical-only STEP review
+  and reimport with both readers in their stroked and triangle-only forms. A separate anonymous
+  Helvetica R2 made solely of filled triangles passed the same no-plane workflow. Hyphenated
+  limits still require an explicit choice in the review dialog.
   A detached witness arc at a radial arrow tip can be separated from the printed dimension. The
   arc must fit a circle through the tip, with the shaft radial to the circle and both arrow flanks
   present. All twelve FTC-07 linear size callouts can now be transcribed from their strokes. The

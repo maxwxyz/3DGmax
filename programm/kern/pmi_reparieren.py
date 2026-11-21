@@ -20,6 +20,7 @@ import re
 import numpy as np
 
 from .pmi import BEZUG, HINWEIS, MASS, TOLERANZ, Pmi
+from .pmi_ableiten import grenzlesart
 
 # Name des Callouts -> (Art, Typ); die erste passende Regel gilt (Reihenfolge beachten: "surfacic profile" vor
 # "Position", "Total Runout" vor "Runout")
@@ -96,21 +97,6 @@ def geometrie_nennmass(typ, flaechen, modell):
     return None
 
 
-def _grenzlesart(text, faktor, bekannt):
-    """Zwei mit Bindestrich gedruckte absolute Werte nur auf ausdrueckliche Wahl uebernehmen."""
-    from .pmi_ableiten import aus_text
-    zahl = r"(?:[0-9]+(?:[.,][0-9]+)?|[.,][0-9]+)"
-    vorsatz = r"(?:[1-9][0-9]*\s*[Xx×]\s*)?(?:S?[⌀Ø∅R]|CR)"
-    einheit = r'(?:\s*(?:mm|inch|in|"))?'
-    m = re.fullmatch(rf"({vorsatz}\s*{zahl})\s*-\s*({zahl}{einheit})", text)
-    if not m:
-        return None
-    daten = aus_text([f"{m[1]}–{m[2]}"], faktor)
-    if not daten or (bekannt and (bekannt[0] != MASS or bekannt[1] not in ("", daten["typ"]))):
-        return None
-    return daten
-
-
 def schriftvorschlag(g, bekannt):
     """Lesbare Angabe aus der Schrift, abgestimmt mit der bekannten Art des Callouts."""
     from .pmi import TOL_SYMBOL
@@ -122,7 +108,7 @@ def schriftvorschlag(g, bekannt):
     text = lies_schrift(g)
     felder = aus_text([text], g.textfaktor) if text else None
     art, typ = bekannt or (None, "")
-    if not felder and text and (grenzen := _grenzlesart(text, g.textfaktor, bekannt)):
+    if not felder and text and (grenzen := grenzlesart(text, g.textfaktor, bekannt)):
         return text, {"art": MASS, "typ": grenzen["typ"]}
     if felder and felder["art"] == MASS and art == TOLERANZ and typ in TOL_SYMBOL:
         felder = aus_text([TOL_SYMBOL[typ], text], g.textfaktor)
@@ -145,12 +131,12 @@ def _druckschrift(g, bekannt, datei):
     if len(dateitexte) > 1:
         return dateitexte, "", gelesen, ergaenzung, []
     dateitext = dateitexte[0] if dateitexte else ""
-    grenzen = _grenzlesart(dateitext, g.textfaktor, bekannt)
+    grenzen = grenzlesart(dateitext, g.textfaktor, bekannt)
     if dateitext and not grenzen and gelesen.get("art") != MASS:
         return dateitexte, "", gelesen, ergaenzung, []
 
     wort, grafikwerte = schriftvorschlag(g, bekannt)
-    grafikgrenzen = _grenzlesart(wort, g.textfaktor, bekannt)
+    grafikgrenzen = grenzlesart(wort, g.textfaktor, bekannt)
     original, dateiwerte = grafikgrenzen or grafikwerte, grenzen or gelesen
     wahl = []
     if not dateitext:

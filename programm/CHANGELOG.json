@@ -1,6 +1,7 @@
 {
  "unreleased": {
   "de": [
+   "Auch ohne gespeicherte Schreibebene erkennt die App ebene Durchmesser- und Radiusangaben aus Strichen oder gefüllten Dreiecken, einschließlich Mengen, Abmaßen und Radiusbereichen. Bestätigte Maße lassen sich mit der Originalgrafik als STEP speichern.",
    "In großen Baugruppen aktualisiert die 3D-Ansicht beim Einblenden, Ausblenden und Transparentstellen nur die betroffenen Teile. Toleranzzonen ermitteln die sichtbaren Flächen aus der aufgebauten Ansicht.",
    "Beim Wechsel der Vergleichsfarben bleiben Bauteile, PMI und Kamera in der Ansicht erhalten, solange die Ausrichtung gleich bleibt. Das Ausschalten der Hervorhebung entfernt auch die Änderungsfarben einzelner Bauteilinstanzen.",
    "Beim Erzeugen einer Platte aus einer 2D-Zeichnung bleiben die X- und Y-Maße von Taschen und Langlöchern mit ihren Toleranzen erhalten. STEP speichert die grafische Maßlinie und verknüpft das semantische Maß mit der Plattenseite und den beiden zugehörigen Taschenwänden.",
@@ -189,6 +190,7 @@
    "Grafische PMI aus unterstützten AP203e2-Kurvenmodellen lassen sich als STEP AP242 Edition 3 ausgeben. Facettierte STEP-Modelle behalten ihre Flächenbezüge. Gepackte STEP-Dateien lassen sich als unkomprimierte STEP-Kopie speichern."
   ],
   "en": [
+   "Diameter and radius callouts drawn with strokes or filled triangles can now be read without a stored writing plane, including quantities, deviations and radius ranges. Confirmed dimensions can be saved to STEP with their original graphics.",
    "In large assemblies, showing, hiding or making parts transparent updates only the affected parts. Tolerance zones use the displayed scene’s face index to find visible faces.",
    "Switching comparison colours retains the parts, PMI and camera when alignment is unchanged. Turning highlighting off now also clears the change colours of individual part instances.",
    "Plate reconstruction from a 2D drawing now retains pocket and slot center coordinates with their tolerances. STEP stores the dimension line and links the semantic dimension to the plate side and both corresponding pocket walls.",
