@@ -62,8 +62,9 @@ def _masswort(maske, *, linear=False):
                 return ""
             text += glyph
     if linear:
+        from .pmi_ableiten import LINEARMASS
         from .zeichnungsabgleich import wiederholtes_linearmass
-        return text if wiederholtes_linearmass(text) else ""
+        return text if LINEARMASS.fullmatch(text) or wiederholtes_linearmass(text) else ""
     zahl = r"(?:[0-9]+(?:\.[0-9]+)?|\.[0-9]+)"
     if re.fullmatch(rf"(?:[1-9][0-9]{{0,3}}X)?⌀{zahl}(?:±{zahl})?", text) and lese_angabe(text, 1.):
         return text

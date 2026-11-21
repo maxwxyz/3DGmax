@@ -1997,6 +1997,15 @@ side. Report differences in the printed quantity and the numeric limits independ
 CTC-03 sheet 1 agrees with AP242 #270 and the reviewed #3634 export. Individual pad
 locations on the sheet have not been registered by this check.
 
+For two opposed arrows, locate both outward shafts and witness lines before reading the
+linear dimension between them. Plain and parenthesised values remain distinguishable.
+Reject a lone parenthesis, extra lettering or an ambiguous upside-down number. Selecting
+the row shows both extension lines. The CSV retains their endpoints in sheet coordinates.
+CTC-03 sheet 1 reads “(.750)” as a 19.05 mm reference distance, matching both the independent
+AP242 #97 and the reviewed AP203 #3630 export. The seven-bore projection places the nearest
+edges of the two slot faces over six pixels from the drawn extension-line ends. The printed
+value and reference designation can be confirmed; face registration remains open.
+
 For individual reviewed tolerance rows the PDF reader joins aligned scope wording below the frame.
 A two-sheet drawing with and without “OF ENTIRE GROOVE” produced equal and changed findings against
 one model tolerance. The CSV retains both texts. Ambiguous ownership and unresolved text stay open.

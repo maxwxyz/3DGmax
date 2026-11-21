@@ -217,7 +217,7 @@ def test_zeichnungsbefund_bis_csv(fenster, tmp_path, monkeypatch, reparieren):
         with gzip.open(pfad("nist_ctc_03_asme1_ap203.stp.gz"), "rb") as f:
             quelle.write_bytes(f.read())
         fenster.lade(str(quelle), warten=True)
-        for nr in (3643, 3632, 3624, 3627, 3638, 3629, 3634):
+        for nr in (3643, 3632, 3624, 3627, 3638, 3629, 3634, 3630):
             p = next(p for p in fenster.erg.pmi if p.step_id == nr)
             fenster._pmi_befehl("semantisch", p)
             dialog = fenster._semantik_dialog
@@ -268,10 +268,29 @@ def test_zeichnungsbefund_bis_csv(fenster, tmp_path, monkeypatch, reparieren):
         assert "Auflagen im Modell 4" in d.detail.text()
         d.bestaetigen.click()
         assert d._befund(dicke) == "gleich"
+        referenz, = [a for a in d.seiten[0] if a.text == "(.750)"]
+        d.waehle(referenz)
+        laenge = ziel_pmi(97,3630)
+        assert laenge.modifikatoren == ["Hilfsmass"] and laenge.nennwert == pytest.approx(19.05)
+        assert {fenster.erg.modell.flaeche_zu_step[i] for i in laenge.flaechen} == (
+            {537,539} if reparieren else {1365,1367})
+        assert referenz.modell is None and d.zuordnung.currentData() == d.modellindex[id(laenge)]
+        assert len(referenz.hilfslinien) == 2 and len(referenz.zeilenecken) == 4
+        assert len([item for a,item in d.ansicht.marken if a is referenz]) == 3
+        d.bestaetigen.click()
+        assert d._befund(referenz) == "gleich"
+        anderstyp = replace(laenge,modifikatoren=[])
+        gelesen = za.lese_angabe(referenz.text,25.4)
+        assert "Kennzeichnung" in d._wertdetails(gelesen,anderstyp)
+        assert za.befund(replace(referenz,modell=anderstyp),25.4) == "geaendert"
         d._export()
         with ziel.open(encoding="utf-8-sig") as f:
             daten = list(csv.DictReader(f,delimiter=";"))
         assert all(None not in z and None not in z.values() for z in daten)
+        hilfe, = [z for z in daten if z["Angabe"] == "(.750)"]
+        assert hilfe["Befund"] == "Werte gleich" and hilfe["Quell-ID der Modell-PMI"] == str(laenge.step_id)
+        assert hilfe["Maßhilfslinien (Start und Ende, x/Breite, y/Höhe)"] == " | ".join(
+            " ".join(f"{x:.6f} {y:.6f}" for x,y in linie) for linie in referenz.hilfslinien)
         dick, = [z for z in daten if z["Angabe"] == dicke.text]
         assert dick["Quell-ID der Modell-PMI"] == str(auflagen.step_id)
         assert dick["Befund"] == "Werte gleich" and "Auflagen im Modell 4" in dick["Prüfung der koplanaren Flächen"]

@@ -2,6 +2,41 @@
 
 ## Current state, 2026-11-21
 
+### Compare projected reference dimensions and retain both witness lines
+
+- Checked PLAN §8.35 and the graphical STEP repair in §8.4 against
+  docs/Roadmap.md. CTC-03 Rev C sheet 1 reads “(.750)” between opposed
+  inward-pointing arrows. Both arrow shafts and both parallel witness lines
+  are visible. The same reader handles ordinary linear dimensions. Tests
+  distinguish a missing parenthesis, extra ink above the baseline and a
+  number that can be read as 66 or 99. Only a unique value confirmed at two
+  resolutions becomes a proposal.
+- AP242 #97 and the reopened AP203 #3630 export agree on 19.05 mm, the
+  reference designation and the two planar slot faces. The dialog reports a
+  missing reference designation as changed. On the partial export containing
+  only bore sizes, confirming “Only in drawing” exports that finding. Tested
+  both before and after registering the seven-bore view. Selecting a dimension
+  highlights the extension lines and the CSV records both segments.
+- The seven-bore fit admits two projections with a maximum residual of
+  0.17 pixels. On both source models the nearest projected edges of the two
+  linked slot faces are at least 6.45 pixels from the corresponding drawn
+  witness ends (rounded to two decimals). The numeric result does not
+  establish that these endpoints are registered to faces.
+- All 173 affected tests and 201 drawing/oblique regression checks passed.
+  Native Cocoa runs passed 25 recognition/review cases plus four comparison
+  and registration cases. Surveyed 30 local NIST sheets. The signed app
+  passed its self-test and rendered the reviewed STEP. Keep the single
+  main application at `dist/3DGmax.app`.
+- Next in §8.4: CTC-03 AP203 #3625 prints “(1.5)” on a callout named
+  “linear dimension”. The current distance suggestion has just one face
+  and cannot be confirmed. Two extension lines start at opposite points
+  of bore #545, 38.1 mm apart and tangent in the annotation plane. Its
+  repeated supplementary edge #2053 is a 0.75 inch circle. Independent
+  AP242 #269 identifies a diameter on two half-cylinder faces, radius
+  19.05 mm, and has no nominal value representation. Recover the printed
+  reference diameter from letters and verified tangency, then check project
+  and STEP export with the original presentation. QIF stays last.
+
 ### Compare the repeated thickness on the CTC-03 drawing
 
 - Checked PLAN §8.35 and §8.4 against docs/Roadmap.md. Sheet 1 of CTC-03 Rev C

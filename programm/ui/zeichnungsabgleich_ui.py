@@ -93,6 +93,11 @@ class Blattansicht(QtWidgets.QGraphicsView):
             else:
                 item = self.scene().addRect(l*w, t*h, (r-l)*w, (b-t)*h, stift)
             self.marken.append((a, item))
+            if a is aktiv and a.hilfslinien:
+                stift.setStyle(QtCore.Qt.PenStyle.DashLine)
+                for (x,y),(u,v) in a.hilfslinien:
+                    linie = self.scene().addLine(x*w, y*h, u*w, v*h, stift)
+                    self.marken.append((a, linie))
 
     def zeige_kreise(self, kreise, ziel, muster=()):
         for _, item in self.kreismarken:
@@ -612,7 +617,7 @@ class Zeichnungsabgleich(QtWidgets.QDialog):
             self.status.setText(f"{self.status.text()} {meldung}")
 
     def _hinweisziel(self, a):
-        if za.wiederholtes_linearmass(a.text):
+        if a.hilfslinien or za.wiederholtes_linearmass(a.text):
             return None
         box = a.rahmenbox or a.box
         pruefe = self.blatt.durchmesseranfang if "|" in a.text else None
@@ -753,7 +758,8 @@ class Zeichnungsabgleich(QtWidgets.QDialog):
                 ziel_ids = {id(m) for m in am_ziel}
                 sortiert = sorted(bevorzugt, key=lambda m: id(m) not in ziel_ids)
                 sortiert += [m for m in self.modell if id(m) not in vorn and (not verbund or m.art == TOLERANZ)]
-                moeglich = am_ziel if anzahl or self.blatt.nummer in self.kreise else [m for m in bevorzugt if not za.unterschiede(p, m)]
+                bohrungsbezug = self.blatt.nummer in self.kreise and not a.hilfslinien
+                moeglich = am_ziel if anzahl or bohrungsbezug else [m for m in bevorzugt if not za.unterschiede(p, m)]
                 if isinstance(p, za.WiederholtesLinearmass):
                     moeglich = [m for m in bevorzugt if za.wertebefund(p, m, index=self.verbundindex) == "gleich"]
                 vorschlag = None if neues_ziel or a.zielkonflikt else a.modell
@@ -943,6 +949,10 @@ class Zeichnungsabgleich(QtWidgets.QDialog):
         namen = dict(FELD_TEXT, typ=tr("Typ"), art=tr("Art"), minimum=tr("Mindestmaß"), maximum=tr("Höchstmaß"))
         if felder:
             text = tr("Abweichende Felder: {}").format(", ".join(tr(namen[k]) for k in felder))
+            if p.art == m.art == MASS and ("Hilfsmass" in p.modifikatoren) != ("Hilfsmass" in m.modifikatoren):
+                text += "\n" + (tr("Die Zeichnung kennzeichnet das Maß als Hilfsmaß. Im Modell fehlt diese Kennzeichnung.")
+                                if "Hilfsmass" in p.modifikatoren else
+                                tr("Das Modell kennzeichnet das Maß als Hilfsmaß. In der Zeichnung fehlt die Klammerung."))
             if "beschreibung" in felder:
                 text += "\n" + tr("Geltungshinweis auf dem Blatt: {} · Im Modell: {}").format(
                     p.beschreibung or "–", za.modellhinweis(m) or "–")
@@ -1038,7 +1048,7 @@ class Zeichnungsabgleich(QtWidgets.QDialog):
                             tr("STEP-ID der unteren Rahmenzeile"), tr("Modellwert der unteren Rahmenzeile"), tr("Prüfung des Verbundrahmens"),
                             tr("Blattgruppe der unteren Zeile (Blatt und Bereich)"), tr("Zugeordnete Quell-IDs der unteren Gruppe"),
                             tr("Quell-IDs der unteren Modellgruppe"), tr("Gruppenbefund der unteren Zeile"), tr("Prüfung der koplanaren Flächen"),
-                            tr("Vergleich der angegebenen Werte")])
+                            tr("Vergleich der angegebenen Werte"), tr("Maßhilfslinien (Start und Ende, x/Breite, y/Höhe)")])
                 def modellwert(m):
                     return "\n".join(filter(None, (m.wert_text(), za.modellhinweis(m))))
 
@@ -1082,13 +1092,15 @@ class Zeichnungsabgleich(QtWidgets.QDialog):
                                         " | ".join(f"{x:.6f} {y:.6f}" for x,y in a.zeilenecken),
                                         " | ".join(f"{x:.6f} {y:.6f}" for x,y in a.hinweisenden), *nachweis, *rahmen, *untere_gruppe,
                                         self._koplanartext(koplanar, angabe) if koplanar else "",
-                                        self._wertdetails(angabe, m, self.gruppen.get(a)) if angabe and m else ""])
+                                        self._wertdetails(angabe, m, self.gruppen.get(a)) if angabe and m else "",
+                                        " | ".join(" ".join(f"{x:.6f} {y:.6f}" for x,y in linie)
+                                                   for linie in a.hilfslinien)])
                 for m in self.modell:
                     if id(m) not in verbunden:
                         w.writerow([*self.quellen, "", "", "", "", tr("Nur im Modell") if id(m) in self.nur_modell else
-                                    tr("Modell-PMI offen"), m.nummer, modellwert(m), sorted(m.flaechen), "", m.step_id if m.step_id > 0 else "", *([""]*22)])
+                                    tr("Modell-PMI offen"), m.nummer, modellwert(m), sorted(m.flaechen), "", m.step_id if m.step_id > 0 else "", *([""]*23)])
                 for nr in sorted(set(range(len(self.doc))) - self.seiten.keys()):
-                    w.writerow([*self.quellen, nr+1, "", "", "", tr("Blatt ungeprüft"), *([""]*27)])
+                    w.writerow([*self.quellen, nr+1, "", "", "", tr("Blatt ungeprüft"), *([""]*28)])
         except OSError as e:
             QtWidgets.QMessageBox.warning(self, tr("Prüfliste speichern"), str(e))
 

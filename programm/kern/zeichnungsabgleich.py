@@ -52,6 +52,7 @@ class Blattangabe:
 
     verbundrahmen: bool = False
     unten: Pmi | None = None
+    hilfslinien: tuple = ()  # Beide Masshilfslinien als Segmente im relativen Blattkoordinatensystem.
 
     @property
     def gruppenzeilen(self):

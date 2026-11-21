@@ -141,9 +141,24 @@ def test_getrennte_bohrungen_ueber_pfeil_und_flaeche_bis_csv(fenster, app, tmp_p
         paar, = [a for a in d.seiten[0] if a.text == "2X⌀.438±.005"]
         assert d.zielvorschlaege[paar] and len(d._muster(paar,2)) == 1
         assert d._befund(paar) == "offen"
+        hilfsmass, = [a for a in d.seiten[0] if a.text == "(.750)"]
+        d.waehle(hilfsmass)
+        assert d.zielvorschlaege[hilfsmass] is None and hilfsmass.blattziel is None
+        if reparieren:
+            # Dieser Export enthaelt nur die geprueften Bohrungsmasse.
+            assert d.zuordnung.currentData() is None
+            d.zuordnung.setCurrentIndex(d.zuordnung.findData(-1))
+        else:
+            ref = next(p for p in d.modell if p.step_id == 97)
+            assert d.zuordnung.currentData() == d.modellindex[id(ref)]
+        d.bestaetigen.click()
+        assert d._befund(hilfsmass) == ("zeichnung" if reparieren else "gleich")
         d._export()
         with ziel.open(encoding="utf-8-sig") as f:
             csvzeilen = list(csv.DictReader(f,delimiter=";"))
+        hilfe, = [z for z in csvzeilen if z["Angabe"] == hilfsmass.text]
+        assert hilfe["Befund"] == ("Nur in Zeichnung" if reparieren else "Werte gleich")
+        assert hilfe["Quell-ID der Modell-PMI"] == ("" if reparieren else "97")
         for a in einzeln:
             row, = [z for z in csvzeilen if z["Angabe"]==a.text and z["Quell-ID der Modell-PMI"]==str(a.modell.step_id)]
             assert row["Befund"] == "Werte gleich"

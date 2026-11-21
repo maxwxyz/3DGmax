@@ -8,14 +8,14 @@ from pypdf.generic import DecodedStreamObject, DictionaryObject, NameObject
 
 from programm.kern import zeichnungsabgleich as za
 from programm.kern.blattverbund import Verbundindex
-from programm.kern.zeichnung_dickenmass import wiederholte_masse
+from programm.kern.zeichnung_dickenmass import projizierte_linearmasse
 from programm.kern.zeichnungsblatt import Zeichnungsblatt
 from programm.ui.lader import lade_alles
 from tests.conftest import pfad
 from tests.test_dickenschrift import QUELLE, ZIELE
 
 
-def _massblatt(pfad, text, ohne, zusatz, gedreht):
+def _massblatt(pfad, text, ohne, zusatz, gedreht, *, gegenpfeil=False):
     pdf = PdfWriter()
     seite = pdf.add_blank_page(600,450)
     font = DictionaryObject({NameObject(k): NameObject(v) for k,v in [
@@ -28,9 +28,13 @@ def _massblatt(pfad, text, ohne, zusatz, gedreht):
               "ende":"0 -20 m 0 -40 l S",
               "kreis":"6 -20 m 6 -16.686 3.314 -14 0 -14 c -3.314 -14 -6 -16.686 -6 -20 c "
                       "-6 -23.314 -3.314 -26 0 -26 c 3.314 -26 6 -23.314 6 -20 c h S"}
+    if gegenpfeil:
+        linien["kreis"] = "0 -20 m -2.6 -30 l 2.6 -30 l h f"
+        linien["ende"] = "0 -30 m 0 -45 l S"
     matrix = ".8 -.4 .65 .7" if not gedreht else "-.8 .4 -.65 -.7"
+    start = -24 if gegenpfeil else -44
     inhalt = [f"q {matrix} 300 225 cm .4 w", *(s for k,s in linien.items() if k != ohne),
-              rf"BT /F1 18 Tf 1 0 0 1 -44 -6 Tm ({text}) Tj ET", zusatz, "Q"]
+              rf"BT /F1 18 Tf 1 0 0 1 {start} -6 Tm ({text}) Tj ET", zusatz, "Q"]
     stream = DecodedStreamObject()
     stream.set_data("\n".join(inhalt).encode("ascii"))
     seite[NameObject("/Contents")] = pdf._add_object(stream)
@@ -49,7 +53,7 @@ def test_projektionsachsen_und_vollstaendiger_text(tmp_path,text,ohne,zusatz,ged
     with pdfium.PdfDocument(pdf) as doc:
         blatt = Zeichnungsblatt(doc,0)
         try:
-            zeilen = list(wiederholte_masse(blatt))
+            zeilen = list(projizierte_linearmasse(blatt))
         finally:
             blatt.schliesse()
     if ohne or zusatz or text.startswith("0"):
@@ -79,3 +83,29 @@ def test_stueckzahl_und_geometrie_getrennt_vom_masswert():
     assert za.lese_angabe("4X .82 ±.06 in",None).grenzen() == pytest.approx(m.grenzen())
     assert za.lese_angabe("0x.82±.06", 25.4) is None
     assert za.lese_angabe("4x2x1",1.) is None
+
+
+@pytest.mark.parametrize("wort,ohne,zusatz,gedreht,soll", [
+    ("(.750)", "", "", False, "(.750)"), ("(.250)", "", "", True, "(.250)"),
+    (".750", "", "", False, ".750"), ("0.25", "", "", True, "0.25"),
+    ("(66)", "", "", False, ""), ("(.750)", "kreis", "", False, ""),
+    ("(.750)", "ende", "", False, ""), ("(.750)", "unten", "", False, ""),
+    ("(.750)", "", "-10 12 4 2 re f", False, ""),
+    ("(.750)", "", "26 12 4 2 re f", False, ""),
+    (r"\(.750", "", "", False, ""), (r".750\)", "", "", True, ""),
+])
+def test_linearmass_mit_gegenpfeil(tmp_path, wort, ohne, zusatz, gedreht, soll):
+    datei = tmp_path/"Gegenpfeile.pdf"
+    _massblatt(datei,wort,ohne,zusatz,gedreht,gegenpfeil=True)
+    with pdfium.PdfDocument(datei) as doc:
+        blatt = Zeichnungsblatt(doc,0)
+        try:
+            funde = list(projizierte_linearmasse(blatt))
+        finally:
+            blatt.schliesse()
+    assert [a.text for a in funde] == ([soll] if soll else [])
+    if soll:
+        a, = funde
+        assert len(a.hilfslinien) == 2 and len(a.zeilenecken) == 4
+        p = za.lese_angabe(a.text,25.4)
+        assert ("Hilfsmass" in p.modifikatoren) == soll.startswith("(")

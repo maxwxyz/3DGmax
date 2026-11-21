@@ -578,7 +578,7 @@ class Zeichnungsblatt:
                 else:
                     continue
             rahmen[fund.box] = fund
-        from .zeichnung_dickenmass import wiederholte_masse
-        for mass in wiederholte_masse(self):
+        from .zeichnung_dickenmass import projizierte_linearmasse
+        for mass in projizierte_linearmasse(self):
             _mass_eintragen(rahmen, mass, w, h)
         return sorted([*rahmen.values(), *verbund], key=lambda a: (a.box[1], a.box[0]))
