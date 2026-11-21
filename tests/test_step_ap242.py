@@ -64,7 +64,7 @@ def test_original_ctc01_in_ap242_mit_kurven_und_verwaltungsdaten(quelle, tmp_pat
 
 
 @pytest.mark.parametrize("suchen,ersatz", [
-    ("{ 1 0 10303 403 3 1 4}", "{ 1 0 10303 403 2 1 2}"),
+    ("{ 1 0 10303 403 3 1 4}", "{ 1 0 10303 403 2 1 4}"),
     ("#3410=ANNOTATION_OCCURRENCE(", "#3410=SOME_ANNOTATION("),
     ("'radial dimension',(#3431),#4128", "'radial dimension',(#3431),#3431"),
     ("#3410=ANNOTATION_OCCURRENCE(", "#3410=COLOUR();\n#3410=ANNOTATION_OCCURRENCE("),

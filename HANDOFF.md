@@ -2,6 +2,25 @@
 
 ## Current state, 2026-11-21
 
+### Distinguish graphical datum letters on NIST CTC-02 and CTC-03
+
+- Checked PLAN §8.4 and docs/Roadmap.md. Three CTC-03 position controls read B/B/C
+  before the fix. Their original glyphs and the semantic reference give D/B/C.
+  CTC-02 profiles now retain G/H/J and all four D/E/F combinations with maximum
+  material on E, F, both or neither. Its perpendicularity frame #8680 reads K.
+- Both models were tested through the review dialog and STEP export in three versions:
+  the NIST contours, independently drawn single-line datum letters and triangulated
+  copies. The regression compares values, units, diameter modifiers, ordered datums,
+  face IDs, original graphic coordinates, view membership, OCCT volume and diagnostics.
+  The XCAF reader accepts the older CTC-02 AP203e2 signature, its non-rational spline
+  surfaces and styled ellipses. The converter continues checking each entity signature.
+  [MBx-IF EXPRESS schemas](https://www.mbx-if.org/home/mbx/resources/express-schemas/)
+- Surveyed 141 graphical callouts across CTC-01 through CTC-05. All 15 focused schema
+  and conversion cases and all 48 affected tests passed.
+- Next graphical cases are CTC-03 #3631 and #3651, whose printed frames have detached
+  marks, and #3623 with a unit-area flatness qualifier. Comparison of independently
+  trimmed regions also remains open. QIF stays last.
+
 ### Convert graphical profiles on separately trimmed STEP faces
 
 - Checked the implementation against PLAN §8.4 and docs/Roadmap.md. The review uses

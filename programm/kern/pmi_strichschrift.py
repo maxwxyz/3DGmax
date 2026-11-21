@@ -120,7 +120,7 @@ def _bildzeichen(mask):
     return out
 
 
-# Einfache einlinige Ziffern im 6 x 9 Raster. Schraegstriche trennen die Linien.
+# Einlinige Ziffern, Bezugsbuchstaben und Symbole im Zeichenraster. Schraegstriche trennen die Linien.
 _STRICHE = {
     "0": "20 40 61 67 48 28 07 01 20",
     "1": "02 30 38",
@@ -135,6 +135,13 @@ _STRICHE = {
     "A": "08 30 68 / 15 55",
     "B": "08 00 40 61 63 44 04 / 44 65 67 48 08",
     "C": "61 50 20 01 07 18 48 67",
+    "D": "08 00 30 51 62 66 57 38 08",
+    "E": "60 00 08 68 / 04 54",
+    "F": "60 00 08 / 04 54",
+    "G": "71 60 20 02 06 28 58 77 74 44",
+    "H": "00 08 / 60 68 / 04 64",
+    "J": "50 56 47 38 18 07 06",
+    "K": "00 08 / 60 04 68",
     "R": "08 00 40 61 63 44 04 / 34 68",
     "±": "30 36 / 03 63 / 08 68",
     "⟂": "30 38 / 08 68",

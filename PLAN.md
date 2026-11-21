@@ -252,6 +252,14 @@ Throughout: tests (core, offscreen UI, stress test, on-screen test), `--selbstte
   hole. Project reload and STEP export retain the restricted area, datum order and original
   callouts. STEP links each original end label to its named boundary feature. Comparing patch
   interiors across revisions remains open.
+  On the inch-based CTC-03 model, three position control frames identify the D/B/C datum
+  order and a perpendicularity control identifies datum E. Previously the printed D could
+  be read as B. Verified the six labelled datums A through F and four tolerance frames
+  against the semantic AP242 reference, with contour, single-stroke letters and triangle-only
+  copies. On CTC-02 the reader distinguishes G/H/J from C/R and retains maximum-material
+  modifiers on E and F in the four D/E/F surface-profile frames. Its older AP203e2
+  schema identifier is accepted for the verified entity signatures. Confirmed STEP
+  preserves the drawing units, values, source face references and original callouts.
   Single-row wide control frames preserve the characteristic, diameter zone, projected height or
   maximum material and the ordered datums. Closed cell borders can also be recovered from filled
   triangles. With no writing plane the outer edges of coplanar triangles supply candidate axes. Both FTC-07's original strokes and a

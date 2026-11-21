@@ -1,7 +1,7 @@
 """Begrenzte AP203e2-zu-AP242e3-Abbildung fuer Modelle mit grafischer Kurven-PMI.
 
 Geprueft gegen ISO/TS 10303-403 MIM LF 1.43 (N2635) und -442 MIM LF 1.152 (N10962).
-Der Katalog enthaelt die in NIST CTC-01, -03 und -05 belegten gemeinsamen Einzel- und Komplexsignaturen.
+Der Katalog enthaelt die in NIST CTC-01, -02, -03 und -05 belegten gemeinsamen Einzel- und Komplexsignaturen.
 Keine allgemeine EXPRESS-Validierung. Unbekannte Konstrukte bleiben in der Quelldatei.
 """
 
@@ -42,6 +42,7 @@ _GRUPPEN = {
     6: "PERSON TRIMMED_CURVE",
     7: "DIMENSIONAL_EXPONENTS",
     9: "B_SPLINE_CURVE_WITH_KNOTS VIEW_VOLUME",
+    13: "B_SPLINE_SURFACE_WITH_KNOTS",
 }
 _ANZAHL = {typ: n for n, typen in _GRUPPEN.items() for typ in typen.split()}
 _KOMPLEX = {
@@ -57,7 +58,7 @@ _KOMPLEX = {
 }
 # Engere bzw. neu gefasste SELECTs: nur die hier geprueften Zieltypen.
 _ZIELE = {
-    "STYLED_ITEM": {2: "CARTESIAN_POINT TRIMMED_CURVE AXIS2_PLACEMENT_3D MANIFOLD_SOLID_BREP CIRCLE"},
+    "STYLED_ITEM": {2: "CARTESIAN_POINT TRIMMED_CURVE AXIS2_PLACEMENT_3D MANIFOLD_SOLID_BREP CIRCLE ELLIPSE"},
     "ANNOTATION_PLANE": {2: "PLANE", 3: "ANNOTATION_OCCURRENCE"},
     "ANNOTATION_OCCURRENCE": {1: "PRESENTATION_STYLE_ASSIGNMENT", 2: "GEOMETRIC_CURVE_SET"},
     "DRAUGHTING_MODEL_ITEM_ASSOCIATION": {2: "SHAPE_ASPECT", 3: "DRAUGHTING_MODEL", 4: "ANNOTATION_OCCURRENCE"},
@@ -115,7 +116,7 @@ def _pruefe(datei):
 
 def aus_ap203(text: str, datei: p21.P21Datei) -> str:
     """Uebertraegt den geprueften AP203e2-Teilumfang oder meldet die erste ungesicherte Stelle."""
-    quelle = re.compile(AP203 + r"\s*\{\s*1\s+0\s+10303\s+403\s+3\s+1\s+4\s*\}")
+    quelle = re.compile(AP203 + r"\s*\{\s*1\s+0\s+10303\s+403\s+(?:3\s+1\s+4|2\s+1\s+2)\s*\}")
     if not quelle.fullmatch(datei.schema):
         raise ValueError(tr("Dieses STEP-Schema wird nicht nach AP242 übertragen"))
     _pruefe(datei)
