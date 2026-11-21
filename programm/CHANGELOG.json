@@ -1,6 +1,8 @@
 {
  "unreleased": {
   "de": [
+   "Explizit verknüpfte, gleichzeitig geltende STEP-Toleranzen lassen sich gemeinsam auswählen. Der Modellvergleich meldet geänderte Partner. Eine ungeprüfte Bezugsbasis wird angezeigt.",
+   "Große PMI-Listen werden beim Modellvergleich über Flächen, Werte und Namen zugeordnet. Gleich große Durchmesser mit unterschiedlichen Abmaßen bleiben bei geänderter Reihenfolge richtig gepaart. Auch ein Wechsel zwischen Grenzmaßen und Abmaßen wird gemeldet.",
    "Bei zweizeiligen Toleranzrahmen liest die App die Hinweise „SIM REQT“ und „INNER AND OUTER WALL OF ENTIRE GROOVE“ aus Strichen und gefüllter Schrift. Prüfdialog, STEP-Export und Modellvergleich erhalten den vollständigen Wortlaut für beide Zeilen. Abweichende STEP-Validierungstexte werden angezeigt. Der PDF-Abgleich prüft den Geltungshinweis pro zugeordneter Rahmenzeile und übernimmt beide Wortlaute in die CSV-Prüfliste.",
    "Zweizeilige Toleranzrahmen mit gemeinsamem Symbol lassen sich aus Strichen und gefüllten Dreiecken semantisch machen. Auch Flächenprofilrahmen mit geknickter Hinweislinie und gefülltem Endpunkt werden gelesen. Beide Zeilen werden zusammen bestätigt. Im STEP bleiben die Originalgrafik, die gemeinsamen Flächen, beide Bezugsfolgen und die Verknüpfung der Toleranzen erhalten.",
    "Bei semantischen STEP-Verbundrahmen zeigt die PMI-Liste die Nummern der zugehörigen Toleranzzeilen. Der Modellvergleich meldet gelöste, umgekehrte und geänderte Verknüpfungen auch bei gleichen Toleranzwerten.",
@@ -170,6 +172,8 @@
    "Grafische PMI aus unterstützten AP203e2-Kurvenmodellen lassen sich als STEP AP242 Edition 3 ausgeben. Facettierte STEP-Modelle behalten ihre Flächenbezüge. Gepackte STEP-Dateien lassen sich als unkomprimierte STEP-Kopie speichern."
   ],
   "en": [
+   "Explicitly linked simultaneous STEP tolerances can be selected together. Model comparison reports changes to their partners and the PMI list identifies unverified datum systems.",
+   "Model comparison indexes faces, values and names in large PMI lists. Equal nominal diameters with different deviations keep their correct matches after reordering. A change between limits and deviations is also reported.",
    "Two-row tolerance frames now recognise the notes “SIM REQT” and “INNER AND OUTER WALL OF ENTIRE GROOVE” from strokes or filled lettering. Review, STEP export and model comparison retain the full wording on both rows. The review shows conflicting STEP validation text. PDF comparison checks scope wording on each matched row and includes both texts in the CSV review.",
    "Two-row tolerance frames with a shared symbol can be converted from strokes or filled triangles. This includes surface-profile frames with a bent leader ending in a filled dot. Both rows are confirmed together. STEP preserves the original graphics, shared faces, each datum sequence and the relationship between the tolerances.",
    "For semantic STEP composite frames, the PMI list shows the numbers of the linked tolerance rows. Model comparison reports removed, reversed and redirected relationships even when the individual tolerance values are unchanged.",

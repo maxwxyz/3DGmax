@@ -172,6 +172,8 @@ def wertebefund(p, modell):
         return "offen"
     if felder:
         return "geaendert"
+    if modell.simultan_mit or modell.simultan_offen:
+        return "offen"  # Die einzelne Blattzeile belegt keine Verknuepfung zu einer anderen Toleranz.
     if p.zone == "Projected":
         return "offen"  # Projektionsursprung auf dem Blatt noch nicht geometrisch zugeordnet.
     return "gleich"

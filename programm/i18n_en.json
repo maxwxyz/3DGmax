@@ -1,4 +1,8 @@
 {
+"Gemeinsam geltende Toleranzen auswählen": "Select tolerances that apply simultaneously",
+"Gleichzeitig geltende Toleranzen": "Simultaneous tolerances",
+"Gleichzeitige Anforderung mit ungeprüfter Bezugsbasis": "Simultaneous requirement with unverified datum system",
+"Werte stimmen überein. Gemeinsam geltende Toleranzen auf der Zeichnung prüfen.": "Values match. Check which tolerances must hold simultaneously on the drawing.",
 "Geltungshinweis auf dem Blatt: {} · Im Modell: {}": "Scope note on the drawing: {} · In the model: {}",
 "Im STEP-Validierungstext steht „{}“. Beim Übernehmen gilt der vollständige Geltungshinweis aus der Grafik.": "The STEP validation text reads “{}”. Accepting uses the full scope note from the graphic.",
 "Geltungshinweis für beide Zeilen": "Scope note for both rows",

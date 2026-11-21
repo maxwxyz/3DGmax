@@ -296,6 +296,9 @@ class PmiPanel(QtWidgets.QWidget):
         t.blockSignals(True)
         t.setRowCount(len(pmi))
         nummern = {p.step_id: p.nummer for p in pmi if p.step_id}
+        def partnertext(ids):
+            return ", ".join(str(nummern[n]) if n in nummern else f"#{n}" for n in ids)
+
         zuvor = {}
         for p in pmi:
             for nr in p.folgetoleranzen:
@@ -314,7 +317,11 @@ class PmiPanel(QtWidgets.QWidget):
                             ", ".join(map(str, zuvor[p.step_id]))))
                     if p.folgetoleranzen:
                         tip.append(tr("Nachgeordnete Toleranz im Verbundrahmen: {}").format(
-                            ", ".join(str(nummern[n]) for n in p.folgetoleranzen if n in nummern)))
+                            partnertext(p.folgetoleranzen)))
+                    if p.simultan_mit:
+                        tip.append(tr("Gleichzeitig geltende Toleranzen") + ": " + partnertext(p.simultan_mit))
+                    if p.simultan_offen:
+                        tip.append(tr("Gleichzeitige Anforderung mit ungeprüfter Bezugsbasis") + ": " + partnertext(p.simultan_offen))
                     if p.quelle == "abgeleitet":
                         it.setText(f"≈ {it.text()}")  # aus der Grafik abgeleitet, keine echte Semantik
                     if p.bearbeitet or p.quelle == "eigen":
@@ -516,6 +523,14 @@ class PmiPanel(QtWidgets.QWidget):
         namen = {p.name for p in auswahl if p.art == BEZUG}
         return self.waehle(lambda q: q.art == TOLERANZ and any(set(b.name.split("-")) & namen for b in q.bezuege))
 
+    def waehle_simultane_toleranzen(self, auswahl):
+        """Alle ueber eine gemeinsame Bezugsbasis verbundenen PMI der Auswahl im Modell markieren."""
+        from ..kern.vergleich_pmi import simultangruppen
+        gruppen = simultangruppen(self.pmi)
+        gewaehlt = {gruppen[p.step_id] for p in auswahl if p.step_id in gruppen}
+        ids = set().union(*gewaehlt)
+        return self.waehle(lambda p: p.step_id in ids)
+
     # --- Kontextmenue ---
 
     def _menue(self, pos):
@@ -532,6 +547,9 @@ class PmiPanel(QtWidgets.QWidget):
         from ..kern.toleranzzone import breite
         a_zone.setEnabled(any(breite(p) is not None for p in auswahl))  # Toleranzen und Masse mit Zonendarstellung
         m.addSeparator()
+        a_simultan = None
+        if any(p.simultan_mit for p in auswahl):
+            a_simultan = m.addAction(tr("Gemeinsam geltende Toleranzen auswählen"))
         a_bez = m.addAction(tr("Bezüge dieser Toleranz wählen"))
         a_mit = m.addAction(tr("Toleranzen mit diesem Bezug wählen"))
         a_bez.setEnabled(any(p.bezuege for p in auswahl))
@@ -562,6 +580,8 @@ class PmiPanel(QtWidgets.QWidget):
             self.befehl.emit("ausrichten", auswahl)
         elif gewaehlt is a_zone:
             self.befehl.emit("zone", auswahl)
+        elif gewaehlt is a_simultan:
+            self.waehle_simultane_toleranzen(auswahl)
         elif gewaehlt is a_bez:
             self.waehle_bezuege(auswahl)
         elif gewaehlt is a_mit:

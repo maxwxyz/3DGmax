@@ -150,6 +150,10 @@ Throughout: tests (core, offscreen UI, stress test, on-screen test), `--selbstte
   (`GeoErgebnis.instanzen_b`, key = face index + rounded location; `entfernt_a` holds removed located faces).
   Change list entries per instance done (2026-10-28, `vergleich._je_instanz`: split when not all instances are
   affected, entry carries the leaf; "at all n instances" otherwise).
+- Semantic PMI matching indexes compatible types, mapped face IDs, names and numeric values.
+  Independent exact matches consume their counterpart once. On the local Mac the PMI comparison
+  of 20 copies of FTC-07 (980 records per revision) took 22 ms versus 506 ms previously.
+  Reordering same-nominal diameters with different deviations no longer reports spurious changes.
 - **Graphical PMI comparison** in addition to semantic: match annotations (position, shape), color moved/changed/
   new/removed in the 3D view.
 - Assembly comparison; manual alignment by point pairs in the UI.
@@ -207,7 +211,13 @@ Throughout: tests (core, offscreen UI, stress test, on-screen test), `--selbstte
   frames have now passed graphical-only STEP round trips, including “SIM REQT” and the full
   “INNER AND OUTER WALL OF ENTIRE GROOVE” note. Recognised notes are stored on both tolerances.
   Two filled endpoints can share one leader. Other lettering and explicit cross-control
-  membership of simultaneous requirements remain open.
+  membership of simultaneous requirements on drawings remain open. For an imported STEP
+  `simultaneity` relationship, each tolerance now retains its explicit partners. Identical
+  referenced datum systems establish the common basis. Other bases stay visible for review.
+  The PMI list can select a connected set of confirmed tolerances. The revision comparison
+  compares confirmed group membership after matching local entity IDs. Reversing an edge or
+  expressing the same group as a different chain gives the same finding. Links with an unverified
+  basis are compared individually.
   Open: additional fonts, further composite layouts and dimensions with
   ambiguous leader or text placement.
 - Convert to semantic PMI: evaluate recognized text + frame structure; mark result as "derived (check)", never as

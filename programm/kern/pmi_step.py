@@ -164,13 +164,18 @@ def _element_modifikatoren(datei, basis):
 
 def _bezugssystem(datei: P21Datei, refs) -> list[BezugsRef]:
     out: list[BezugsRef] = []
-    for r in refs or []:
-        e = datei.get(r)
+    for r in refs if isinstance(refs, list) else ():
+        e = datei.get(r) if isinstance(r, Ref) else None
         if e is None:
             continue
         if e.is_a("DATUM_SYSTEM"):
-            for stelle, fach in enumerate(e.args("DATUM_SYSTEM")[4], 1):
-                fe = datei.get(fach)
+            daten = e.args("DATUM_SYSTEM")
+            faecher = daten[4] if len(daten) > 4 and isinstance(daten[4], list) else ()
+            for stelle, fach in enumerate(faecher, 1):
+                fe = datei.get(fach) if isinstance(fach, Ref) else None
+                if fe is None:
+                    out.append(BezugsRef("?", stelle))
+                    continue
                 basis = _basis(fe)
                 out.append(BezugsRef(_bezug_name(datei, basis), stelle, _bezug_mods(datei, fe),
                                      _element_modifikatoren(datei, basis)))
@@ -236,16 +241,17 @@ def _zonen_info(modell: StepModell, p: Pmi, zonen: list[Entity]):
             _projektionsdaten(p, modell, projektionen[0])
 
 
+def _rahmengrund(e):
+    if e.is_a("GEOMETRIC_TOLERANCE"):
+        refs = e.args("GEOMETRIC_TOLERANCE_WITH_DATUM_REFERENCE") if e.is_a("GEOMETRIC_TOLERANCE_WITH_DATUM_REFERENCE") else []
+        return e.args("GEOMETRIC_TOLERANCE"), refs[0] if refs else None
+    grund = e.args()
+    return grund, grund[4] if len(grund) > 4 else None
+
+
 def _lies_rahmen(modell: StepModell, e: Entity, zonen: dict[int, list[Entity]]) -> Pmi:
     datei = modell.datei
-    if e.is_a("GEOMETRIC_TOLERANCE"):
-        grund = e.args("GEOMETRIC_TOLERANCE")
-        bezug_refs = (e.args("GEOMETRIC_TOLERANCE_WITH_DATUM_REFERENCE")[0]
-                      if e.is_a("GEOMETRIC_TOLERANCE_WITH_DATUM_REFERENCE") else None)
-    else:
-        # einfache Entitaet, z. B. FLATNESS_TOLERANCE(name, beschr, betrag, aspekt[, bezuege])
-        grund = e.args()
-        bezug_refs = grund[4] if len(grund) > 4 else None
+    grund, bezug_refs = _rahmengrund(e)
     name, beschreibung, betrag, aspekt = grund[:4]
     typ = next((TOL_ARTEN[t] for t in e.parts if t in TOL_ARTEN), "None")
     p = Pmi(TOLERANZ, typ=typ, name=name or "", quelle="step", step_id=e.id)
@@ -297,20 +303,59 @@ def _hat_praesentation(datei: P21Datei, eid: int) -> bool:
     return False
 
 
+def _bezugsbasis(datei, refs):
+    """Die referenzierte Basis in dieser Datei, einschliesslich der Rangfolge alter DATUM_REFERENCEs."""
+    if not isinstance(refs, list) or not refs:
+        return None
+    basis = set()
+    for ref in refs:
+        e = datei.get(ref) if isinstance(ref, Ref) else None
+        if e is None:
+            return None
+        if e.is_a("DATUM_SYSTEM"):
+            basis.add(("system", e.id))
+        elif e.is_a("DATUM_REFERENCE"):
+            rang, datum = e.args("DATUM_REFERENCE")[:2]
+            element = datei.get(datum) if isinstance(datum, Ref) else None
+            if element is None or not element.is_a("DATUM"):
+                return None
+            # Ein erweiterter Bezugsverweis kann eigene Modifikatoren tragen.
+            basis.add(("datum", rang, datum.id) if len(e.parts) == 1 else ("verweis", e.id))
+        else:
+            return None
+    return frozenset(basis)
+
+
 def lies_toleranzen(modell: StepModell) -> list[Pmi]:
     datei = modell.datei
     zonen = _zonen(datei)
     toleranzen = datei.of_types_by_id(("GEOMETRIC_TOLERANCE", *TOL_ARTEN))
     rahmen = {e.id: _lies_rahmen(modell, e, zonen) for e in toleranzen}
+    basis = {}
+    nachbarn = {}
     for link in datei.of_type("GEOMETRIC_TOLERANCE_RELATIONSHIP"):
-        args = link.args()
-        if len(args) != 4 or str(args[0]).strip().lower() != "composite":
+        args = link.args("GEOMETRIC_TOLERANCE_RELATIONSHIP")
+        if len(args) != 4:
             continue
-        oben, unten = args[2:]
-        if isinstance(oben, Ref) and isinstance(unten, Ref) and oben != unten and oben.id in rahmen and unten.id in rahmen:
-            folge = rahmen[oben.id].folgetoleranzen
-            if unten.id not in folge:
-                folge.append(unten.id)
+        art = str(args[0]).strip().lower()
+        a, b = args[2:]
+        if (art not in ("composite", "simultaneity") or not isinstance(a, Ref) or not isinstance(b, Ref)
+                or a == b or a.id not in rahmen or b.id not in rahmen):
+            continue
+        if art == "composite":
+            nachbarn.setdefault((a.id, "folgetoleranzen"), set()).add(b.id)
+        else:
+            for nr in (a.id, b.id):
+                if nr not in basis:
+                    _, refs = _rahmengrund(datei.get(nr))
+                    bezuege = rahmen[nr].bezuege
+                    lesbar = bezuege and all(b.name and "?" not in b.name for b in bezuege)
+                    basis[nr] = _bezugsbasis(datei, refs) if lesbar else None
+            feld = "simultan_mit" if basis[a.id] and basis[a.id] == basis[b.id] else "simultan_offen"
+            nachbarn.setdefault((a.id, feld), set()).add(b.id)
+            nachbarn.setdefault((b.id, feld), set()).add(a.id)
+    for (nr, feld), partner in nachbarn.items():
+        setattr(rahmen[nr], feld, sorted(partner))
     return list(rahmen.values())
 
 

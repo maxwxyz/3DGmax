@@ -2,6 +2,29 @@
 
 ## Current state, 2026-11-21
 
+### Explicit simultaneous STEP tolerances and PMI comparison
+
+- Checked PLAN §§8.1, 8.4 and 8.35 against docs/Roadmap.md. A modified FTC-07 fixture links three
+  actual upper tolerance rows that reference #13915. The PMI context menu selects all three,
+  crossing two explicit links. A link to a lower row with another basis appears separately.
+  The original FTC-07 file carries only the printed wording and still has no such partners.
+  See the [CAx-IF PMI guidance, section 6.9.9](https://www.mbx-if.org/home/wp-content/uploads/2024/06/rec_pracs_pmi_v41.pdf).
+- Verified endpoint reversal, alternative link chains for the same group, STEP renumbering,
+  changed partners, project reopen, remapping as an
+  additional part, and a STEP copy after changing a tolerance value. Linked controls keep the
+  PDF row finding open when the numbers match and the cross-row membership has not been reviewed.
+- Reversing the order of FTC-07 PMI exposed two false deviations between #15607 and #15653.
+  Both diameters now keep their distinct bounds and modifiers. On the local Mac the median of
+  three in-memory comparisons of 980 repeated FTC-07 records fell from 506 to 22 ms. For 1,200
+  same-size bores with separate face IDs it fell from 1,137 to 7 ms. The measurements cover
+  semantic matching; file parsing, tessellation and display are separate operations.
+- Verification: 310 affected tests passed. Another 47 passed with native macOS Qt, including
+  context-menu selection. The translation check found all 2,610 keys.
+- The next loading benchmark uses a 42,849,317-byte STEP with 2,400 solids and 14,400 faces.
+  Profiling attributed 9.71 s to Part 21 parsing and 2.54 s to standards detection. These
+  instrumented figures identify expensive stages; compare uninstrumented times for changes.
+  Explicit multi-row membership on drawings is still open. QIF remains last.
+
 ### Scope notes on graphical composite frames
 
 - Checked PLAN §§8.4, 8.18 and 8.28 against docs/Roadmap.md. The FTC-07 frame #15050 has a

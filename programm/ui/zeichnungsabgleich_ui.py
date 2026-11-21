@@ -722,6 +722,8 @@ class Zeichnungsabgleich(QtWidgets.QDialog):
                 text += "\n" + tr("Geltungshinweis auf dem Blatt: {} · Im Modell: {}").format(
                     p.beschreibung or "–", za.modellhinweis(m) or "–")
             return text
+        if m.simultan_mit or m.simultan_offen:
+            return tr("Werte stimmen überein. Gemeinsam geltende Toleranzen auf der Zeichnung prüfen.")
         return tr("Angegebene Werte stimmen überein.")
 
     def uebernehmen(self):

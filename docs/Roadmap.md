@@ -72,7 +72,9 @@
 | Read, review and export a graphical two-row control with one shared symbol cell, including filled triangles with or without writing axes, both sets of datums, common target faces and the STEP composite relationship. Position controls retain maximum material on both rows. Surface-profile frames support a bent leader with a filled endpoint | ✅ |
 | Recover the full groove-wall or “SIM REQT” note from stroke or filled lettering, retain it on both STEP tolerances, and compare scope text across revisions. All six FTC-07 composite frames passed graphical-only round trips | ✅ |
 | Compare the scope note below a PDF tolerance row with the model and include the printed and model wording in the CSV review | ✅ |
-| Read additional lettering and further composite layouts, and identify which other controls belong to a simultaneous requirement | 💡 |
+| Read and select explicit simultaneous STEP tolerances with a common datum system, flag unconfirmed bases and compare partners across revisions | ✅ |
+| Match large semantic PMI lists by indexed faces, values and names; distinguish reordered equal-nominal dimensions with different deviations | ✅ |
+| Read additional lettering and further composite layouts, and match simultaneous group membership on the drawing | 💡 |
 | Semantic-only PMI: optional generated display in the view (see generated PMI stage 2) | ✅ |
 | Show tolerance zones as envelope surfaces (offsets ±t/2, ⌀ zone cylinder, exaggeration) | ✅ |
 | Tolerance zones stage 2: unequal zones (UZ/Ⓤ), projected zones, Ⓜ/Ⓛ bonus zone, space of the surface (size + location), size envelopes, patterns per feature | ✅ |

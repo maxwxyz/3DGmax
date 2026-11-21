@@ -118,6 +118,9 @@ class Pmi:
 
     beschreibung: str = ""  # Wortlaut der STEP-Toleranzbeschreibung
 
+    simultan_mit: list[int] = field(default_factory=list)  # Explizite STEP-Partner mit derselben Bezugsbasis
+    simultan_offen: list[int] = field(default_factory=list)  # Verknuepfte Partner mit ungepruefter Bezugsbasis
+
     # --- Darstellung ---
 
     def wert_text(self) -> str:
