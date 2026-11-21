@@ -1723,7 +1723,11 @@ value and datum cells. The review and CSV keep the two rows in order with the at
 caption. The right frame also names four coplanar surfaces. Assigning both rows compares their individual
 values and datums, the STEP relationship direction and membership, their model face sets and the
 wording attached to both semantic tolerances. The CSV identifies both source entities. On the original
-STEP both pairs match in values, datums and relationship, and both descriptions are empty. The drawing
+STEP both pairs match in values, datums and relationship, and both descriptions are empty. The right
+pair also shares shape aspect #13858. Its semantic text property #16453 contains both printed scope
+lines and links to annotation #16461. The dialog and CSV report this feature-level source with its
+IDs and wording independently of the tolerance descriptions and partner membership. Ambiguous text
+splits across unordered representation items stay open. The drawing
 includes SIM REQT on both. For a printed count of coplanar surfaces, check the nominal B-rep support of the assigned pair.
 The right frame covers four disjoint planar faces. Assigning the same-valued single-face pair
 reports a count of one. A parallel offset, tilted plane or analytically curved face produces

@@ -1,4 +1,6 @@
 {
+" · Grafik {}": " · Annotation {}",
+"Text am Formelement #{} · Eigenschaft #{} · Darstellung #{}{} · {}": "Text on feature #{} · Property #{} · Representation #{}{} · {}",
 "Blattgruppe der unteren Zeile (Blatt und Bereich)": "Lower row drawing group (sheet and region)",
 "Gruppenbefund der unteren Zeile": "Lower row group finding",
 "Obere Rahmenzeile": "Upper frame row",
@@ -27,7 +29,7 @@
 "Verknüpfung umgekehrt": "Relationship is reversed",
 "Weitere Rahmenzeilen verknüpft": "Additional frame rows linked",
 "Übereinstimmung": "Match",
-"Obere Zeile: {} · Untere Zeile: {}\n{} · Gemeinsame STEP-Flächen: {} · Wortlaut: {}": "Upper row: {} · Lower row: {}\n{} · Shared STEP faces: {} · Wording: {}",
+"Obere Zeile: {} · Untere Zeile: {}\n{} · Gemeinsame STEP-Flächen: {} · Toleranzbeschreibungen: {}": "Upper row: {} · Lower row: {}\n{} · Shared STEP faces: {} · Tolerance descriptions: {}",
 "Mitgeltende Partner des Verbundrahmens sind ungeprüft.": "Simultaneous partners of the composite frame are unverified.",
 "STEP-ID der unteren Rahmenzeile": "STEP ID of the lower frame row",
 "Modellwert der unteren Rahmenzeile": "Model value of the lower frame row",

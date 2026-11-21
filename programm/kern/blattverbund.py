@@ -5,6 +5,7 @@ from dataclasses import dataclass
 from functools import cached_property
 
 from .koplanare_ziele import Koplanarbefund, pruefe_koplanar, zielanzahl
+from .merkmalstext import toleranzziel, texte_am_aspekt
 from .pmi import TOLERANZ
 from .pmi_ableiten import SIMULTANHINWEIS
 from .zeichnungsabgleich import lese_angabe, modellhinweis, unterschiede
@@ -24,6 +25,7 @@ class Verbundindex:
     def __init__(self, modelle, geometrie=None):
         self.geometrie = geometrie
         self.koplanare_ziele = {}
+        self.texte_je_aspekt = {}
         self.quellen = {}
         self.eltern = {}
         for m in modelle:
@@ -55,6 +57,17 @@ class Verbundindex:
             self.koplanare_ziele[schluessel] = pruefe_koplanar(soll, oben.flaechen, self.geometrie)
         return self.koplanare_ziele[schluessel]
 
+    def merkmalstexte(self, oben, unten):
+        datei = getattr(self.geometrie, "datei", None)
+        if datei is None or any(self.quellen.get(p.step_id) is not p for p in (oben, unten)):
+            return ()
+        aspekt = toleranzziel(datei, oben.step_id)
+        if aspekt is None or aspekt != toleranzziel(datei, unten.step_id):
+            return ()
+        if aspekt not in self.texte_je_aspekt:
+            self.texte_je_aspekt[aspekt] = tuple(texte_am_aspekt(datei, aspekt))
+        return self.texte_je_aspekt[aspekt]
+
     def verknuepfung(self, oben, unten):
         a, b = oben.step_id, unten.step_id
         if self.quellen.get(a) is not oben or self.quellen.get(b) is not unten or a == b:
@@ -76,6 +89,7 @@ class Rahmenbefund:
     flaechen: str
     wortlaut: str
     koplanar: Koplanarbefund | None
+    merkmalstexte: tuple
     gruppe_offen: bool
     zusatz_offen: bool
     status: str
@@ -108,4 +122,5 @@ def pruefe_rahmen(angabe, faktor, index, gruppen=None):
         status = "geaendert"
     elif zusatz_offen or "offen" in (bindung, flaechen, geometrie, *gruppenstatus) or any(p.zone == "Projected" for p in (zeile1, zeile2)):
         status = "offen"
-    return Rahmenbefund(felder, bindung, flaechen, wortlaut, koplanar, "offen" in gruppenstatus, zusatz_offen, status)
+    texte = tuple((t, t.vergleich(angabe.text.splitlines()[2:])) for t in index.merkmalstexte(oben, unten))
+    return Rahmenbefund(felder, bindung, flaechen, wortlaut, koplanar, texte, "offen" in gruppenstatus, zusatz_offen, status)

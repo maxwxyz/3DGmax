@@ -83,6 +83,7 @@
 | Compare both reviewed PDF frame rows, their directed STEP link, shared model faces and scope wording. Export both IDs and per-row evidence | ✅ |
 | Check the printed coplanar-surface count against the selected STEP target faces, including plane coincidence, separation and ambiguous occurrences | ✅ |
 | Review simultaneous STEP membership independently for each row of a drawing composite frame, with sheet regions, source IDs and group findings in CSV | ✅ |
+| Compare the drawing caption with explicit semantic text on the shared STEP shape aspect and show the property, representation and annotation sources separately from the tolerance descriptions | ✅ |
 | Read additional lettering and further composite layouts | 💡 |
 | Semantic-only PMI: optional generated display in the view (see generated PMI stage 2) | ✅ |
 | Show tolerance zones as envelope surfaces (offsets ±t/2, ⌀ zone cylinder, exaggeration) | ✅ |

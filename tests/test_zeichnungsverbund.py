@@ -184,10 +184,12 @@ def test_zuordnung_beider_step_zeilen_auf_originalblatt(fenster, tmp_path, monke
             assert [p.step_id for p in a.zugeordnete_pmi()] == [oben, unten]
             assert "Obere Zeile: Werte gleich · Untere Zeile: Werte gleich" in d.detail.text()
             assert "Obere Zeile verweist auf die untere" in d.detail.text()
-            assert "Wortlaut: Abweichend" in d.detail.text()
+            assert "Toleranzbeschreibungen: Abweichend" in d.detail.text()
             if a is rechts:
+                assert "Text am Formelement #13858 · Eigenschaft #16453 · Darstellung #16454 · Grafik #16461 · Übereinstimmung" in d.detail.text()
                 assert "Modellflächen 4 · Getrennte Flächen in derselben Ebene" in d.detail.text()
             else:
+                assert "Text am Formelement" not in d.detail.text()
                 assert "Koplanare Flächen" not in d.detail.text()
         d._export()
         with ausgabe.open(encoding="utf-8-sig") as f:
@@ -198,6 +200,7 @@ def test_zuordnung_beider_step_zeilen_auf_originalblatt(fenster, tmp_path, monke
         assert all(z["Befund"] == "Abweichend" and z["Modellwert der unteren Rahmenzeile"] for z in paare)
         assert all(z["Quell-ID der Modell-PMI"] not in ("14623","15085") for z in zeilen)
         assert "Zeichnung 4 · Modellflächen 4" in paare[1]["Prüfung des Verbundrahmens"]
+        assert "4 COPLANAR SURFACES\nSIM REQT" in paare[1]["Prüfung des Verbundrahmens"]
         d.waehle(rechts)
         for combo, nr in ((d.zuordnung,15076), (d.untere_zeile,15085)):
             combo.setCurrentIndex(combo.findData(d.modellindex[id(pmis[nr])]))

@@ -863,8 +863,13 @@ class Zeichnungsabgleich(QtWidgets.QDialog):
                    "umgekehrt": tr("Verknüpfung umgekehrt"), "weitere": tr("Weitere Rahmenzeilen verknüpft"),
                    "offen": tr("Zu prüfen")}[bericht.verknuepfung]
         status = {"gleich": tr("Übereinstimmung"), "geaendert": tr("Abweichend"), "offen": tr("Zu prüfen")}
-        text = tr("Obere Zeile: {} · Untere Zeile: {}\n{} · Gemeinsame STEP-Flächen: {} · Wortlaut: {}").format(
+        text = tr("Obere Zeile: {} · Untere Zeile: {}\n{} · Gemeinsame STEP-Flächen: {} · Toleranzbeschreibungen: {}").format(
             *zeilen, bindung, status[bericht.flaechen], status[bericht.wortlaut])
+        for quelle, befund in bericht.merkmalstexte:
+            grafik = tr(" · Grafik {}").format(self._ids(quelle.grafiken)) if quelle.grafiken else ""
+            text += "\n" + tr("Text am Formelement #{} · Eigenschaft #{} · Darstellung #{}{} · {}").format(
+                quelle.aspekt, quelle.eigenschaft, quelle.darstellung, grafik, status[befund])
+            text += "\n" + "\n".join(quelle.zeilen)
         if k := bericht.koplanar:
             grund = {"geometrie": tr("Geometrie ungeklärt"), "anzahl": tr("Flächenanzahl weicht ab"),
                      "ebenen": tr("Flächen liegen in verschiedenen Ebenen"), "gekruemmt": tr("Gekrümmte Fläche"),

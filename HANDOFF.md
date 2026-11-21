@@ -2,6 +2,26 @@
 
 ## Current state, 2026-11-21
 
+### Find separately stored semantic text on the STEP target feature
+
+- Checked PLAN §§8.4 and 8.35 against docs/Roadmap.md. Both tolerances of the four-face
+  FTC-07 frame reference shape aspect #13858. The dialog and CSV now show that semantic text
+  property #16453, representation #16454 and annotation #16461 supply exactly the two printed
+  lines “4 COPLANAR SURFACES” and “SIM REQT”. The two tolerance descriptions remain empty.
+  Their difference from the caption and the independent simultaneous-group finding are preserved.
+  The other pair has no such property on its target.
+- Only properties explicitly named semantic text on the shared feature are considered. Redirected
+  properties and validation properties do not contribute. A partial representation is unresolved.
+  STEP representation items form a set. The comparison preserves each item's word order and
+  keeps ambiguous line breaks between items open. The native dialog, exported source references
+  and original file evidence were checked. 71 affected tests and 23 native macOS tests passed.
+- Next §8.4: read the same detached caption from actual lettering when the semantic text is
+  absent. A local probe rasterised the original #16461 strokes on their writing plane. The
+  current wide-font templates gave “? CO?LANAR SURFACES” and “SIM REQT”. The leading 4 and P
+  are the reproducible missing shapes. Verify stroke and pure-fill variants, then use source
+  associations and the writing plane to present the detached note for review with its frame.
+  QIF remains last.
+
 ### Compare simultaneous partners per row of a drawing composite frame
 
 - Checked PLAN §§8.4 and 8.35 against docs/Roadmap.md. In the drawing dialog each row has its
