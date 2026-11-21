@@ -89,9 +89,11 @@ def _lesarten(pfade, richtungen):
 
 
 def rahmenanker(zeilen, box, k):
-    """Rechte untere Symbolecke und Hoehe einer Wertzeile in der Schreibebene."""
-    _, t, r, b = zeilen[0][0][0]
-    return box[0]+(r-2)/k, box[3]-(b-2)/k, (b-t)/(2*k)
+    """Linker Wertfachrand, Rahmenunterkante, Zeilenhoehe und halbe gemeinsame Wertfachbreite."""
+    oben, unten = zeilen[0]
+    _, t, r, b = oben[0]
+    breite = min(reihe[1][2] - reihe[1][0] for reihe in (oben, unten))
+    return box[0]+(r-2)/k, box[3]-(b-2)/k, (b-t)/(2*k), breite/(2*k)
 
 
 def _zeilentexte(pfade, zeilen, zusatz, box, k):

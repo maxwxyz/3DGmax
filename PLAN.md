@@ -227,7 +227,9 @@ Throughout: tests (core, offscreen UI, stress test, on-screen test), `--selbstte
   cell can be reviewed with both rows. The association uses the saved drawing view, writing
   plane, position and available target links. The reviewer can accept the frame with or without
   its separate note. Verified on FTC-07 with strokes and with both callouts stored entirely as
-  triangles. The original view and both source graphics survive STEP export.
+  triangles. The original view and both source graphics survive STEP export. MBD_B's
+  separate “4 COPLANAR / SURFACES” caption starts inside the first value cell and wraps
+  across two lines. It survives the same round trip without adding a simultaneous requirement.
   Open: additional fonts, further composite layouts and dimensions with
   ambiguous leader or text placement.
 - Convert to semantic PMI: evaluate recognized text + frame structure; mark result as "derived (check)", never as

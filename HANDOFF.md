@@ -2,6 +2,24 @@
 
 ## Current state, 2026-11-21
 
+### Review the second detached FTC-07 surface count
+
+- Checked PLAN §8.4 against docs/Roadmap.md. MBD_B's separate #16374 wraps “4 COPLANAR
+  SURFACES” across two lines under #14143. The matching window now uses the width of both
+  value cells and row height. The previous MBD_C case, out-of-plane text, displaced text and
+  competing annotations remain covered. Both reference frames passed as original strokes and
+  as pure triangle fills without writing planes, feature links, semantic PMI or validation
+  text. Both readers recovered the two expected values, the accepted caption, target faces
+  and the original saved view. 15 affected and 5 native macOS tests passed.
+- Next §8.36: opposed blind bores with drill points in a dimensioned shaft drawing. A local PDF
+  probe used the existing outside contour (12 mm × Ø20, 18 mm × Ø12), a Ø6 hole 9 mm deep
+  from the left and a Ø4 hole 8 mm deep from the right. Two flat floors returned both seats
+  and a Gegenbohrungen record. Replacing only the floors with symmetric 90-degree drill
+  points returned zero seats and no bore record. Single-ended cones already support
+  cylinder-end versus apex dimensions. Extend detection, per-side angle and depth checks,
+  projection and semantic STEP targets; verify material between the two deepest tips. QIF
+  remains last.
+
 ### Compare a combined coplanar and simultaneous caption
 
 - Checked PLAN §§8.4 and 8.35 against docs/Roadmap.md. A composite caption with a surface count

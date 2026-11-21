@@ -82,9 +82,9 @@ def _anker(pfade):
 
 
 def _passt(anker, box):
-    x, y, h = anker
+    x, y, h, halbe_breite = anker
     l, b, _, t = box
-    return abs(l-x) < .35*h and .10*h < y-t < .85*h and .4*h < t-b < 2.4*h
+    return -.35*h < l-x < min(h, halbe_breite) and .10*h < y-t < .85*h and .4*h < t-b < 2.4*h
 
 
 def _zeilen(pfade, box):
