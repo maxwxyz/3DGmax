@@ -2,6 +2,34 @@
 
 ## Current state, 2026-11-21
 
+### Part 21 loading and filtering annotations in the 3D viewer
+
+- Checked PLAN §§6, 8.4 and 8.13 against the Viewing section in docs/Roadmap.md. Compared the
+  new lexer against the previous reader on all 53 local plain STEP files. All 564,941 entities,
+  subtype lists, typed arguments, numbers and references matched. The 847,220-entity synthetic
+  assembly took 2.30 s to parse from text (previously 3.21 s, medians of three).
+- The normal loader now keeps a small summary of the standard declarations from the decoded
+  STEP text. Plain, ZIP and gzip FTC-07 all report ASME Y14.5M-1994 and set it on each PMI.
+  A CTC-01 variant with a declaration at byte 61,213,817 opens with ASME Y14.5-2018, 117 faces
+  and 23 PMI. The standalone comparison with the immediately preceding loader took 6.88 s versus
+  7.77 s for the 42.85 MB benchmark, with the same 14,400 faces. Comparing both import changes
+  together against commit 01420db in alternating fresh Python processes gave medians of
+  11.43 s before and 7.61 s after (three runs each, warm filesystem, test suite running).
+- Native macOS profiling showed that a PMI filter change reactivated assembly picking for
+  every part. Filter, highlight and contrast now update just the annotations whose appearance
+  changed. Replacing a graphic under the same callout ID removes the old AIS objects. The native
+  check exercises hide, highlight, replace and hide again without reactivating geometry selection.
+- In 12 alternating filter updates on FTC-07 the median fell from 29.6 to 24.9 ms, with the
+  same 30 and 53 visible annotation objects. In the 2,400-part assembly without annotations it
+  fell from 42.1 to 0.014 ms. Both timings include the Qt event pass on this Mac.
+- For the first native scene build, the number of OCCT Display calls fell from 12,001 to 7,201.
+  Single profiled runs took 1.87 s and 1.93 s. Initial AIS presentation is still the largest
+  cost and these figures do not establish a first-frame speedup.
+- Verification: 862 tests passed in the full suite. All eight screen tests skipped in the
+  offscreen run passed on native macOS. All 2,610 interface strings have English translations.
+- Persistent tessellation caching, viewer levels of detail and cross-row simultaneous groups in
+  drawings remain open. QIF stays last.
+
 ### Large STEP loading and standard detection
 
 - Checked PLAN §8.13 against the Viewing section in docs/Roadmap.md. Candidate detection for

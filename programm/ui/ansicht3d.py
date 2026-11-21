@@ -759,6 +759,7 @@ class OcctAnsicht(AnsichtBasis):
         self._flaechen_ais: dict[int, list] = {}  # Flaechenindex -> [(ais, face)]
         self._hilfe: list = []
         self._callouts: dict[int, list] = {}  # Callout-ID -> [AIS]
+        self._callout_farben: dict[int, tuple | None] = {}  # Angezeigte Farbe, None bei ausgeblendeter Grafik
         self._ais_callout: dict = {}
         self._clip = None
         self._drehpunkt = None
@@ -1087,6 +1088,7 @@ class OcctAnsicht(AnsichtBasis):
         self._zeige_wuerfel()
         self._teile, self._kanten, self._flaechen_ais, self._hilfe = {}, {}, {}, []
         self._callouts, self._ais_callout = {}, {}
+        self._callout_farben.clear()
         self._entferne_schnitt()
         sz = self.szene
         if sz is None:
@@ -1368,6 +1370,7 @@ class OcctAnsicht(AnsichtBasis):
     def _entferne_callouts(self, cids):
         ctx = self.d.Context
         for cid in cids:
+            self._callout_farben.pop(cid, None)
             for ais in self._callouts.pop(cid, []):
                 ctx.Remove(ais, False)
                 self._ais_callout.pop(ais, None)
@@ -1381,14 +1384,16 @@ class OcctAnsicht(AnsichtBasis):
         self._entferne_callouts(cids)
         for cid in cids:
             self._baue_callout(cid, self.szene.grafik[cid])
-        self._wende_sichtbarkeit_an()
+        self._aktualisiere_pmi_grafik()
 
     def entferne_grafik(self, pmi_ids):
+        cids = []
         if self._bereit and self.szene is not None:
-            self._entferne_callouts([c for c, g in self.szene.grafik.items() if g.pmi_ids & pmi_ids])
+            cids = [c for c, g in self.szene.grafik.items() if g.pmi_ids & pmi_ids]
+            self._entferne_callouts(cids)
         super().entferne_grafik(pmi_ids)
-        if self._bereit:
-            self._wende_sichtbarkeit_an()
+        if cids:
+            self._neu_zeichnen()
 
     def ergaenze_grafik(self, neue: dict, pmi: list):
         """Weitere Callouts (z. B. fuer neu angelegte PMI) ohne Neuaufbau der Szene hinzufuegen."""
@@ -1396,9 +1401,10 @@ class OcctAnsicht(AnsichtBasis):
             return
         AnsichtBasis.ergaenze_grafik(self, neue, pmi)
         if self._bereit:
+            self._entferne_callouts(neue)
             for cid, g in neue.items():
                 self._baue_callout(cid, g)
-            self._wende_sichtbarkeit_an()
+            self._aktualisiere_pmi_grafik()
 
     def _baue_callout(self, cid, g):
         from OCC.Core.AIS import AIS_Shape, AIS_TextLabel
@@ -1457,7 +1463,6 @@ class OcctAnsicht(AnsichtBasis):
     # --- Sichtbarkeit und Hervorhebung ---
 
     def _wende_sichtbarkeit_an(self):
-        from OCC.Core.AIS import AIS_TextLabel
         if not self._bereit or self.szene is None:
             return
         from OCC.Core.Graphic3d import Graphic3d_ZLayerId_Default, Graphic3d_ZLayerId_Top
@@ -1487,18 +1492,32 @@ class OcctAnsicht(AnsichtBasis):
                 ctx.Display(ais, False)
             else:
                 ctx.Erase(ais, False)
+        self._setze_callout_farben()
+        self._neu_zeichnen()
+
+    def _aktualisiere_pmi_grafik(self):
+        if self._bereit and self.szene is not None and self._setze_callout_farben():
+            self._neu_zeichnen()
+
+    def _setze_callout_farben(self) -> bool:
+        from OCC.Core.AIS import AIS_TextLabel
+        ctx = self.d.Context
         hervor_rgb = self.pmi_hervor_farbe()
+        geaendert = False
         for cid, liste in self._callouts.items():
-            normal_rgb = self.pmi_farbe(self.szene.grafik[cid])
             g = self.szene.grafik[cid]
             vorschau = getattr(g, "vorschau", False)  # Vorschau immer sichtbar, solange sie besteht
             zeigen = vorschau or self.grafik_an and not self.grafik_nur_auswahl and (self.erzeugt_an or not g.erzeugt) \
                 and (self.pmi_ids_sichtbar is None or bool(g.pmi_ids & self.pmi_ids_sichtbar))
             hervor = bool(g.pmi_ids & self.pmi_ids_hervor)
             zeigen = (zeigen or hervor) and self.explosion <= 0  # Beschriftungen passen nur zur Einbaulage
+            rgb = (hervor_rgb if hervor else self.pmi_farbe(g)) if zeigen else None
+            if cid in self._callout_farben and self._callout_farben[cid] == rgb:
+                continue
+            self._callout_farben[cid] = rgb
+            geaendert = True
             for ais in liste:
-                if zeigen:
-                    rgb = hervor_rgb if hervor else normal_rgb
+                if rgb is not None:
                     if ist_schild(g) and ais.DynamicType().Name() == "AIS_TextLabel":
                         lab = AIS_TextLabel.DownCast(ais)
                         lab.SetColorSubTitle(_farbe(rgb))  # Farbfeld, Text schwarz oder weiss darauf
@@ -1509,7 +1528,7 @@ class OcctAnsicht(AnsichtBasis):
                     ctx.Redisplay(ais, False)
                 else:
                     ctx.Erase(ais, False)
-        self._neu_zeichnen()
+        return geaendert
 
     def _grundfarbe(self, idx, flaeche=None):
         """Farbe einer Flaeche ohne Hervorhebung: Bezugssystem, Vergleichsstatus (je Instanz, wenn die Flaeche mit
@@ -1605,7 +1624,7 @@ class OcctAnsicht(AnsichtBasis):
 
     def zeige_pmi(self, ids):
         super().zeige_pmi(ids)
-        self._wende_sichtbarkeit_an()
+        self._aktualisiere_pmi_grafik()
 
     def zeige_bezugssystem(self, bezuege):
         alt = {i for _n, _s, f in self.bezugssystem for i in f}
@@ -2124,11 +2143,11 @@ class OcctAnsicht(AnsichtBasis):
 
     def hebe_pmi(self, ids):
         super().hebe_pmi(ids)
-        self._wende_sichtbarkeit_an()
+        self._aktualisiere_pmi_grafik()
 
     def setze_grafik(self, an, nur_auswahl=False, erzeugt=True):
         super().setze_grafik(an, nur_auswahl, erzeugt)
-        self._wende_sichtbarkeit_an()
+        self._aktualisiere_pmi_grafik()
 
     def setze_hilfsgeometrie(self, an):
         super().setze_hilfsgeometrie(an)
@@ -2735,7 +2754,7 @@ class OcctAnsicht(AnsichtBasis):
 
     def setze_pmi_kontrast(self, an: bool):
         super().setze_pmi_kontrast(an)
-        self._wende_sichtbarkeit_an()
+        self._aktualisiere_pmi_grafik()
 
     def setze_draht_kontrast(self, an: bool):
         super().setze_draht_kontrast(an)

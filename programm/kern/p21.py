@@ -95,59 +95,53 @@ class P21Datei:
 
 
 _TOKEN = re.compile(r"""
-    (?P<str>'(?:[^']|'')*')
-  | (?P<ref>\#\d+)
-  | (?P<enum>\.[A-Z_0-9]+\.)
-  | (?P<num>[-+]?(?:\d+\.?\d*(?:[eE][-+]?\d+)?|\.\d+(?:[eE][-+]?\d+)?))
-  | (?P<kw>[A-Z_][A-Z_0-9]*)
-  | (?P<sym>[(),$*])
+    ( '(?:[^']++|'')*' | \#\d+ | \.[A-Z_0-9]+\.
+    | [-+]?(?:\d+\.?\d*(?:[eE][-+]?\d+)?|\.\d+(?:[eE][-+]?\d+)?)
+    | [A-Z_][A-Z_0-9]* | [(),$*] )
+  | [^\x20\t\r\n]
 """, re.VERBOSE)
 
 
-def _tokenize(text: str):
-    pos, n = 0, len(text)
-    while pos < n:
-        c = text[pos]
-        if c in " \t\r\n":
-            pos += 1
-            continue
-        m = _TOKEN.match(text, pos)
-        if not m:
-            raise ValueError(f"Unbekanntes Zeichen {c!r} bei {pos}")
-        pos = m.end()
-        yield m.lastgroup, m.group()
+def _tokenize(text: str) -> list[str]:
+    # Die Fanggruppe ist bei unbekannten Zeichen leer. Nur im Fehlerfall die genaue Position suchen.
+    tokens = _TOKEN.findall(text)
+    if "" in tokens:
+        fehler = next(m for m in _TOKEN.finditer(text) if m[1] is None)
+        raise ValueError(f"Unbekanntes Zeichen {fehler[0]!r} bei {fehler.start()}")
+    return tokens
 
 
 def _parse_list(toks, i):
     """Liest ab '(' bis zum passenden ')'; gibt (liste, naechster index) zurueck."""
-    assert toks[i][1] == "("
+    assert toks[i] == "("
     i += 1
     out = []
-    while toks[i][1] != ")":
+    while toks[i] != ")":
         val, i = _parse_value(toks, i)
         out.append(val)
-        if toks[i][1] == ",":
+        if toks[i] == ",":
             i += 1
     return out, i + 1
 
 
 def _parse_value(toks, i):
-    art, tok = toks[i]
-    if art == "str":
-        return _dekodiere(tok[1:-1].replace("''", "'")), i + 1
-    if art == "ref":
+    tok = toks[i]
+    anfang = tok[0]
+    if anfang == "#":
         return Ref(int(tok[1:])), i + 1
-    if art == "enum":
+    if anfang == "'":
+        return _dekodiere(tok[1:-1].replace("''", "'")), i + 1
+    if anfang == "." and tok.endswith("."):
         return Enum(tok[1:-1]), i + 1
-    if art == "num":
+    if anfang.isdecimal() or anfang in "+-.":
         return (float(tok) if "." in tok or "E" in tok or "e" in tok else int(tok)), i + 1
-    if art == "kw":
-        args, j = _parse_list(toks, i + 1)
-        return Typed(tok, args), j
     if tok == "(":
         return _parse_list(toks, i)
     if tok in "$*":
         return None, i + 1
+    if anfang.isupper() or anfang == "_":
+        args, j = _parse_list(toks, i + 1)
+        return Typed(tok, args), j
     raise ValueError(f"Unerwartet: {tok}")
 
 
@@ -196,17 +190,19 @@ def _statements(text: str):
 _KOPF = re.compile(r"^#(\d+)\s*=\s*(.*)$", re.S)
 
 
-def lese(pfad: str) -> P21Datei:
+def dateitext(pfad: str) -> str:
     """Eigentlich ASCII mit \\X2\\-Kodierung; manche Programme (auch OCCT) schreiben Umlaute als UTF-8, aeltere als
     Latin-1. Ein Latin-1-Umlaut ist kein gueltiges UTF-8, daher zuerst UTF-8, sonst Latin-1."""
     with open(pfad, "rb") as f:
         roh = f.read()
     try:
-        text = roh.decode("utf-8")
+        return roh.decode("utf-8")
     except UnicodeDecodeError:
-        text = roh.decode("latin-1")
-    del roh
-    return lese_text(text)
+        return roh.decode("latin-1")
+
+
+def lese(pfad: str) -> P21Datei:
+    return lese_text(dateitext(pfad))
 
 
 def lese_text(text: str) -> P21Datei:
@@ -228,18 +224,18 @@ def lese_text(text: str) -> P21Datei:
         if not m:
             continue
         eid, rumpf = int(m.group(1)), m.group(2).strip()
-        toks = list(_tokenize(rumpf))
+        toks = _tokenize(rumpf)
         ent = Entity(eid)
-        if toks[0][1] == "(":
+        if toks[0] == "(":
             # komplexe Entitaet: (A(..) B(..) ...)
             i = 1
-            while toks[i][1] != ")":
-                name = toks[i][1]
+            while toks[i] != ")":
+                name = toks[i]
                 args, i = _parse_list(toks, i + 1)
                 ent.parts[typnamen.setdefault(name, name)] = args
         else:
             args, _ = _parse_list(toks, 1)
-            name = toks[0][1]
+            name = toks[0]
             ent.parts[typnamen.setdefault(name, name)] = args
         entities[eid] = ent
     return P21Datei(schema, entities)

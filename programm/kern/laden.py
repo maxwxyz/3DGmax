@@ -25,7 +25,7 @@ from OCC.Core.TopoDS import TopoDS_Compound, TopoDS_Shape, topods
 from OCC.Core.TransferBRep import transferbrep
 from OCC.Core.XCAFDoc import XCAFDoc_DocumentTool
 
-from . import p21
+from . import norm, p21
 
 NETZFLAECHEN = ("TESSELLATED_FACE", "TRIANGULATED_FACE", "COMPLEX_TRIANGULATED_FACE", "CUBIC_BEZIER_TRIANGULATED_FACE")
 
@@ -47,6 +47,7 @@ class StepModell:
     ladezeit: float = 0.0
     netz_kanten: dict[int, list] = field(default_factory=dict)  # Flaechenindex -> Randkanten (Netzmodelle)
     _transfer_index: dict[int, int] = field(default_factory=dict, init=False, repr=False, compare=False)
+    normbelege: norm.Textbelege | None = field(default=None, init=False, repr=False, compare=False)
 
     def flaechen_index(self, face) -> int | None:
         """Index einer Flaeche (Lage wird ignoriert), None wenn unbekannt."""
@@ -145,7 +146,10 @@ def lade_step(pfad: str) -> StepModell:
     modell = StepModell(pfad, doc, st, form, _alle_flaechen(form))
     modell._baue_index()
     modell._reader = reader
-    modell.datei = p21.lese(pfad)
+    text = p21.dateitext(pfad)
+    modell.normbelege = norm.textbelege(text)
+    modell.datei = p21.lese_text(text)
+    del text
     _step_flaechen(reader, modell.datei, modell)
     modell.ladezeit = time.perf_counter() - t0
     return modell

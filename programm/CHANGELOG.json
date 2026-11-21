@@ -1,6 +1,8 @@
 {
  "unreleased": {
   "de": [
+   "Filtern und Hervorheben von PMI in der 3D-Ansicht aktualisiert die betroffenen Beschriftungen. Die Flächen- und Kantenauswahl der Baugruppe bleibt aktiv. Beim Ersetzen einer PMI-Grafik verschwindet die vorherige Darstellung.",
+   "Der STEP-Parser liest große Baugruppen schneller. Auch bei ZIP- und gzip-gepackten STEP-Dateien und bei Normhinweisen nach den ersten 60 MB übernimmt die App die Norm aus dem vollständigen Modelltext.",
    "Große STEP-Dateien öffnen schneller. Die Erkennung von ISO- und ASME-Angaben durchsucht den Modelltext einmal nach möglichen Fundstellen und liest dort die vollständige Normangabe.",
    "Explizit verknüpfte, gleichzeitig geltende STEP-Toleranzen lassen sich gemeinsam auswählen. Der Modellvergleich meldet geänderte Partner. Eine ungeprüfte Bezugsbasis wird angezeigt.",
    "Große PMI-Listen werden beim Modellvergleich über Flächen, Werte und Namen zugeordnet. Gleich große Durchmesser mit unterschiedlichen Abmaßen bleiben bei geänderter Reihenfolge richtig gepaart. Auch ein Wechsel zwischen Grenzmaßen und Abmaßen wird gemeldet.",
@@ -173,6 +175,8 @@
    "Grafische PMI aus unterstützten AP203e2-Kurvenmodellen lassen sich als STEP AP242 Edition 3 ausgeben. Facettierte STEP-Modelle behalten ihre Flächenbezüge. Gepackte STEP-Dateien lassen sich als unkomprimierte STEP-Kopie speichern."
   ],
   "en": [
+   "Filtering and highlighting PMI in the 3D view now updates the affected annotations and keeps assembly face and edge selection active. Replacing a PMI graphic also removes its previous presentation.",
+   "The STEP parser reads large assemblies faster. ZIP and gzip STEP imports and standard declarations beyond the first 60 MB now use the full model text to determine the applicable standard.",
    "Large STEP files open faster. Standard detection scans the model text once for possible ISO and ASME references, then reads the full declaration at each location.",
    "Explicitly linked simultaneous STEP tolerances can be selected together. Model comparison reports changes to their partners and the PMI list identifies unverified datum systems.",
    "Model comparison indexes faces, values and names in large PMI lists. Equal nominal diameters with different deviations keep their correct matches after reordering. A change between limits and deviations is also reported.",

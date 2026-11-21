@@ -57,7 +57,7 @@ def lade_alles(pfad: str, fortschritt=lambda text: None) -> Ergebnis:
     # Darstellung fuer PMI ohne Grafik in der Datei (Schreibebene aus der Ansicht, die sie zeigt)
     grafik.update(pmi_erzeugen.ergaenze(pmi, grafik, modell, ansichten))
     from ..kern import norm
-    erkannt = norm.erkenne(pfad, pmi)
+    erkannt = norm.erkenne(pfad, pmi, belege=modell.normbelege)
     norm.setze(pmi, erkannt.art)
     return Ergebnis(pfad, modell, pmi, ansichten, lies_baum(modell), flaechen_farben(modell), grafik, erkannt)
 

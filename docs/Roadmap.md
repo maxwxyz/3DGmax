@@ -26,11 +26,13 @@
 | Batch surface sampling for alignment and comparison of assemblies with many small faces | ✅ |
 | Large assemblies: persistent tessellation cache and viewer levels of detail | ⬜ |
 | Indexed STEP geometry and PMI import, unique display edges, saved-view thumbnail generation only when enabled | ✅ |
+| Faster Part 21 parsing of large STEP models and full-file standard detection for plain, ZIP and gzip STEP | ✅ |
 | Model properties: volume, area, mass (density), center of gravity, overall size, file header | ✅ |
 | Anti-aliasing, sans-serif labels, subtle view cube; window/panel/column layout remembered | ✅ |
 | Camera: perspective/orthographic, view back/forward | ✅ |
 | Smooth camera transitions | ✅ |
 | Hide selected in 3D, tree search; 3D PMI follows list filter | ✅ |
+| Update visibility and colour of changed PMI graphics without rebuilding face and edge selection when filtering or highlighting | ✅ |
 | Exploded view (slider), parts list (BOM) with quantity, volume, mass, CSV | ✅ |
 | Exploded view by assembly levels (staged), BOM with part number | ✅ |
 | BOM with material property (STEP) and material density | ✅ |

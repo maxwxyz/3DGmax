@@ -117,8 +117,10 @@ Throughout: tests (core, offscreen UI, stress test, on-screen test), `--selbstte
 2. **Face matching with heavy redesigns** (faces split/merged) – reported as *changed* via deviation, not mismatched.
 3. **Large assemblies.** STEP import now indexes entity types and reuses OCCT's transfer map for faces,
    colours and PMI. The viewer draws shared edges once. Comparison reads each shared triangulation once
-   per extraction and applies its instance transforms. Checked with 2,400 solids and 14,400 faces in a
-   42.85 MB STEP file (11.86 s on the development Mac, all faces assigned). Comparisons and scan inspections
+   per extraction and applies its instance transforms. The 42.85 MB STEP with 2,400 solids and 14,400
+   faces was remeasured on the development Mac. Three alternating loads before and after the standard
+   detection and parser changes gave medians of 11.43 s and 7.61 s. PMI filters and highlights
+   update changed annotations while retaining the assembly's active selection modes. Comparisons and scan inspections
    refine coarse CAD meshes on separate topology and share the result across instances and repeated analyses of
    a loaded model. This also covers planar faces with curved trims. Persistent mesh caching and viewer levels
    of detail remain open.
@@ -822,6 +824,9 @@ Plan: detect the standard from notes/modifiers, otherwise a per-model setting (I
 show it in model properties; standard-specific rules and terms switch with it.
 On import, the text search locates ISO, ANSI, ASME and DOCUMENT prefixes in bounded blocks.
 It checks each candidate against the original text, including declarations split over lines.
+STEP, ZIP and gzip imports consult the full decoded STEP text once while it is available.
+The Part 21 lexer collects tokens per entity in one regex call and reports the source offset
+of unsupported characters. The resulting entity graph still provides typed values and references.
 Test data: the NIST test cases are ASME based (Y14.5-1994/2009); no free ISO GPS AP242 set is known. Options: own
 ISO variants of the NIST models (built in a CAD system and exported), CAx-IF test models (members only), vendor samples.
 

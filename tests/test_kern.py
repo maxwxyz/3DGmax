@@ -26,6 +26,17 @@ def test_p21_dekodiert_sonderzeichen():
     assert p21._dekodiere("a\\X\\E4b") == "aäb"
 
 
+def test_p21_tokenarten_und_fehlerposition():
+    rumpf = "A(-2,+3.,.25,4E-2,.T.,.12.,'a''b',#12,($,*),TYP(9))"
+    werte = p21.lese_text(f"DATA; #1={rumpf}; ENDSEC;").get(1).args()
+    assert werte == [-2, 3., .25, .04, p21.Enum("T"), p21.Enum("12"), "a'b", p21.Ref(12),
+                     [None, None], p21.Typed("TYP", [9])]
+    assert type(werte[0]) is int and type(werte[1]) is float
+    for zeichen in ("@", "ä", "\v"):
+        with pytest.raises(ValueError, match=f"bei {len(rumpf)}$"):
+            p21.lese_text(f"DATA; #1={rumpf}{zeichen}#2; ENDSEC;")
+
+
 def test_p21_text_kommentare_und_typindex():
     d = p21.lese_text("""HEADER;FILE_DESCRIPTION(('DATA;'),'2;1');ENDSEC;
         DATA; /* ' ; #1=FALSCH(); */ #90=A('x; it''s /* Text */');
@@ -172,6 +183,7 @@ def test_normerkennung_asme_iso_rueckfall(ctc01, ftc10):
 
 def test_normerkennung_an_blockgrenzen_und_gewichtung(monkeypatch):
     from programm.kern import norm
+    from programm.kern.pmi import Pmi
     monkeypatch.setattr(norm, "_BLOCK", 32)
     for kennung, art, grund in (
         ("dOcUment  ( 'DIN 42' , 'geometric tolerancing standard'", norm.ISO,
@@ -188,6 +200,10 @@ def test_normerkennung_an_blockgrenzen_und_gewichtung(monkeypatch):
     dokument = "DOCUMENT('ANSI 42','Geometric Tolerancing Standard') "
     assert norm.erkenne("x", text=text + dokument * 2) == norm.Norm(
         norm.ASME, "ANSI 42 (Geometric Tolerancing Standard)", True)
+    belege = norm.textbelege("ISO 16792")
+    mass = Pmi(MASS, "Size_Radius", modifikatoren=["ControlledRadius"])
+    assert norm.erkenne("x", [mass], belege=belege).art == norm.ASME
+    assert norm.erkenne("x", belege=belege) == norm.Norm(norm.ISO, "ISO 16792", True)
 
 
 def test_norm_begriffe_huelle_und_regel():
@@ -755,11 +771,12 @@ def test_pruefregeln_mit_geometrie(ctc01):
     assert not any("ISO 8015" in b.text for b in pb.pruefe(liste, None, ctc01))
 
 
-def test_stepz_zip_und_gzip(tmp_path):
+def test_stepz_zip_und_gzip(tmp_path, monkeypatch):
     """STEPZ: ZIP mit einer Part-21-Datei oder gzip; geladen wie STEP, Pfad bleibt die Originaldatei."""
     import gzip
     import zipfile
-    from programm.kern.laden import lade_modell
+    from programm.kern import norm
+    from programm.ui.lader import lade_alles
     quelle = pfad("nist_ftc_07_asme1_ap242-e2.stp")
     daten = open(quelle, "rb").read()
     z = tmp_path / "teil.stpz"
@@ -767,9 +784,16 @@ def test_stepz_zip_und_gzip(tmp_path):
         a.writestr("teil.stp", daten)
     g = tmp_path / "teil.stp.gz"
     g.write_bytes(gzip.compress(daten))
-    for p in (z, g):
-        m = lade_modell(str(p))
+    def unerwarteter_lesevorgang(pfad):
+        pytest.fail(f"STEP-Text wurde erneut gelesen: {pfad}")
+
+    monkeypatch.setattr(norm, "_dateitext", unerwarteter_lesevorgang)
+    for p in (quelle, z, g):
+        ergebnis = lade_alles(str(p))
+        m = ergebnis.modell
         assert m.pfad == str(p) and len(m.flaechen) > 100 and m.datei is not None
+        assert ergebnis.norm == norm.Norm(norm.ASME, "ASME Y14.5M-1994", True)
+        assert ergebnis.pmi and all(pmi.norm == norm.ASME for pmi in ergebnis.pmi)
 
 
 def test_stepz_entpackfehler_raeumt_auf(tmp_path, monkeypatch):

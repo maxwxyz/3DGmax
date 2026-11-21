@@ -56,6 +56,12 @@ class Norm:
         return NAME[self.art]
 
 
+@dataclass
+class Textbelege:
+    punkte: dict[str, int]
+    gruende: dict[str, str]
+
+
 def _dateitext(pfad: str, grenze: int = 60_000_000) -> str:
     try:
         if os.path.getsize(pfad) > grenze:
@@ -67,9 +73,8 @@ def _dateitext(pfad: str, grenze: int = 60_000_000) -> str:
         return ""
 
 
-def erkenne(pfad: str, pmi: list | None = None, text: str | None = None) -> Norm:
-    """Norm aus Texten der Datei, Modifikatoren der PMI und dem Dateinamen; Rueckfall ISO GPS."""
-    text = _dateitext(pfad) if text is None else text
+def textbelege(text: str) -> Textbelege:
+    """Normangaben beim Lesen sammeln, bevor der Modelltext freigegeben wird."""
     punkte = {ISO: 0, ASME: 0}
     gruende = {ISO: "", ASME: ""}
     # QIF: <StandardsOrganizationEnum>ASME</...><Designator>Y14.5 2009</Designator>
@@ -95,6 +100,14 @@ def erkenne(pfad: str, pmi: list | None = None, text: str | None = None) -> Norm
         if nr in textfunde:
             punkte[art] += gewicht
             gruende[art] = gruende[art] or textfunde[nr]
+    return Textbelege(punkte, gruende)
+
+
+def erkenne(pfad: str, pmi: list | None = None, text: str | None = None, *, belege: Textbelege | None = None) -> Norm:
+    """Norm aus Texten der Datei, Modifikatoren der PMI und dem Dateinamen; Rueckfall ISO GPS."""
+    if belege is None:
+        belege = textbelege(_dateitext(pfad) if text is None else text)
+    punkte, gruende = belege.punkte.copy(), belege.gruende.copy()
     mods = {m for p in (pmi or []) for m in p.modifikatoren}
     if mods & _ISO_MODS:
         punkte[ISO] += 5

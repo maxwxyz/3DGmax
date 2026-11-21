@@ -221,6 +221,27 @@ def pruefe_alles():
     f._zone_aktualisieren([])
     ergebnis["zonen_legende"] = an and dunkel and a._legende_ais == []
     f.setze_thema("hell")
+    # PMI-Filter und Hervorhebung lassen die geometrischen Auswahlmodi in Ruhe.
+    cid = next(c for c, liste in a._callouts.items() if liste and a.szene.grafik[c].pmi_ids)
+    grafik, vorher = a.szene.grafik[cid], a._callouts[cid]
+    neu_aktiviert = []
+    aktivieren = a._aktiviere_auswahl
+    a._aktiviere_auswahl = lambda: neu_aktiviert.append(True)
+    try:
+        a.setze_grafik(True)
+        a.hebe_pmi(set())
+        a.zeige_pmi(set())
+        verborgen = not any(ctx.IsDisplayed(x) for x in vorher)
+        a.hebe_pmi(grafik.pmi_ids)
+        hervor = all(ctx.IsDisplayed(x) for x in vorher)
+        a.ergaenze_grafik({cid: grafik}, [])
+        ersetzt = not any(ctx.IsDisplayed(x) for x in vorher) and all(ctx.IsDisplayed(x) for x in a._callouts[cid])
+        a.hebe_pmi(set())
+        ergebnis["pmi_filter"] = verborgen and hervor and ersetzt and not any(ctx.IsDisplayed(x) for x in a._callouts[cid])
+        ergebnis["pmi_filter_auswahlmodi"] = not neu_aktiviert
+        a.zeige_pmi(None)
+    finally:
+        a._aktiviere_auswahl = aktivieren
     pfad = os.path.join(tempfile.mkdtemp(), "b.png")
     ergebnis["bild"] = f.ansicht.bild(pfad) and os.path.getsize(pfad) > 1000
     print("ERGEBNIS", ergebnis, flush=True)
