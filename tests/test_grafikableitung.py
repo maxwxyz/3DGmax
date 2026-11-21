@@ -48,11 +48,16 @@ def test_ziffern_in_notizen_sind_keine_masse(angabe):
     assert lesen.aus_text([angabe]) is None
 
 
-@pytest.mark.parametrize("angabe", ["⌖ ⌀.015 Ⓕ Z ⌀.020 A", "⏥ .005/0.25X0.25", "⌖ ⌀ .1 ⓂⓁ A",
+@pytest.mark.parametrize("angabe", ["⌖ ⌀.015 Ⓕ Z ⌀.020 A", "⏥ .005/0.25X", "⌖ ⌀ .1 ⓂⓁ A",
                                     "⌖ ⌀ .1 Ⓜ MAX .1 A"])
 def test_mehrdeutiger_rahmen_bleibt_ohne_zahlenwert(angabe):
     f = lesen.aus_text([angabe])
     assert f["art"] == "toleranz" and "wert" not in f
+
+
+def test_ebenheit_je_vollstaendiger_flaeche():
+    p = Pmi(**lesen.aus_text(["⏥ .005/0.25X0.25"]))
+    assert (p.wert, p.einheitslaenge, p.einheitsbreite) == (.005, .25, .25)
 
 
 def test_rahmen_mit_kugeldurchmesser():

@@ -355,8 +355,11 @@ Throughout: tests (core, offscreen UI, stress test, on-screen test), `--selbstte
   Six graphical frames agree with the semantic reference on type, value, material condition
   and datum order. Five can be exported after reviewing G, H and J. The remaining position
   frame needs semantic datums A, B and C. Rounded STEP coordinates at a compartment boundary
-  also occur in #8707. It reads as separate datums A, B and C. Recovering the datum targets
-  is still open.
+  also occur in #8707. It reads as separate datums A, B and C. Eight graphical point targets now supply A1–A3, B1–B4 and C1.
+  Review requires a complete target identifier, a connected cross and contact with the
+  referenced trimmed face. AP242 export retains the exact cross position and support
+  face. A tolerance can use a restored datum once all its identified targets have been
+  reviewed. Circular area target K1 (85 mm diameter) remains open.
   Graphical CTC-02 profile controls #8688, #8694 and #8714 recover 2.5 mm tolerance
   with ASME outer boundary distances of 2.5, 0.5 and 0 mm. The accepted value and
   convention survive project reload and AP242 export with the original graphics.

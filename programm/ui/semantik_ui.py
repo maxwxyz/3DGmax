@@ -178,7 +178,11 @@ class SemantikDialog(QtWidgets.QDialog):
         lay.addRow(tr("Bezüge"), self.felder["bezuege"])
         self.felder["name"] = QtWidgets.QLineEdit(v.name if v.art == BEZUG else "")
         self.felder["name"].setToolTip(tr("Bezugsbuchstabe, wie er in der Grafik steht"))
-        lay.addRow(tr("Buchstabe"), self.felder["name"])
+        if v.bezugspunkt is not None:
+            self.felder["name"].setReadOnly(True)
+            self.felder["kontakt"] = QtWidgets.QLabel(" / ".join(f"{w:.4f}" for w in v.bezugspunkt))
+            lay.addRow(tr("Kontaktpunkt X / Y / Z (mm)"), self.felder["kontakt"])
+        lay.addRow(tr("Bezugsstelle") if v.bezugspunkt is not None else tr("Buchstabe"), self.felder["name"])
         self._lay = lay
         self.felder["grenzmass"].toggled.connect(self._massbeschriftung)
         self._massbeschriftung()
@@ -222,7 +226,7 @@ class SemantikDialog(QtWidgets.QDialog):
 
     def _art_gewechselt(self):
         art = self.art.currentData()
-        typen = {TOLERANZ: list(TOL_SYMBOL), MASS: list(MASS_TYPEN), BEZUG: ["Datum"]}[art]
+        typen = {TOLERANZ: list(TOL_SYMBOL), MASS: list(MASS_TYPEN), BEZUG: ["DatumTarget"] if self.v.bezugspunkt is not None else ["Datum"]}[art]
         alt = self.typ.currentData() or self.v.typ
         self.typ.clear()
         for t in typen:
@@ -230,7 +234,7 @@ class SemantikDialog(QtWidgets.QDialog):
         self.typ.setCurrentIndex(0 if art == BEZUG and alt != "DatumTarget" else self.typ.findData(alt))
         sichtbar = {MASS: {"nennwert", "oben", "unten", "grenzmass", "passung"},
                     TOLERANZ: {"wert", "zonenform", "maximum_toleranz", "material", "bezuege", "zonen_wert", "projektionsversatz",
-                               "projektionsende", "profilversatz", "einheitslaenge", "einheitsbreite", "einheitsdurchmesser"}, BEZUG: {"name"}}[art]
+                               "projektionsende", "profilversatz", "einheitslaenge", "einheitsbreite", "einheitsdurchmesser"}, BEZUG: {"name", "kontakt"}}[art]
         for name, f in self.felder.items():
             self._lay.setRowVisible(f, name in sichtbar)
 
@@ -330,6 +334,10 @@ class SemantikDialog(QtWidgets.QDialog):
                     return tr("Positive Projektionshöhe und nichtnegativen Versatz angeben")
                 if len(self.projektionsflaechen) != 1 or self.projektionsflaechen[0] in self.flaechen:
                     return tr("Eine eigene Austrittsfläche für die Projektion wählen")
+        if art == BEZUG and self.typ.currentData() == "DatumTarget":
+            if self.flaechen != self.v.flaechen:
+                return tr("Die Bezugsstelle benötigt die Fläche am Zielkreuz.")
+            return ""
         if art == BEZUG and not re.fullmatch(r"[A-Z]{1,2}", self.felder["name"].text().strip()):
             return tr("Bitte den Bezugsbuchstaben angeben")
         return ""

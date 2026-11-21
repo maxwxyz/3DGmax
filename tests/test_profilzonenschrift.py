@@ -134,10 +134,10 @@ def test_drei_profilanteile_bis_step(fenster, tmp_path, fuellung):
 
 def test_ap203_anteile_aus_konturen_und_fuellung():
     e = lade_alles(pfad("nist_ctc_02_asme1_ap203.stp.gz"))
-    # Die Referenz lokalisiert B2 an dieser Stelle. Das einzelne gelesene B reicht nicht.
+    # Das Zielkreuz und beide Zeichen muessen dieselbe Stelle wie die Referenz ergeben.
     b2 = next(p for p in e.pmi if p.step_id == 8674)
     v = vorschlag(b2, e.grafik[8674], e.modell)
-    assert v.typ == "DatumTarget" and not v.name
+    assert v.typ == "DatumTarget" and v.name == "B2"
     for nr, u in ((8688,2.5), (8694,.5), (8714,0.)):
         g = e.grafik[nr]
         p = next(p for p in e.pmi if p.step_id == nr)

@@ -172,6 +172,8 @@ class _Anhang:
         self.semantik = None  # Entitaet der zuletzt geschriebenen PMI (Ziel der Darstellung)
         self.bezuege = {(e.args("DATUM")[2].id if isinstance(e.args("DATUM")[2], Ref) else None, e.args("DATUM")[4]):
                         e.id for e in datei.of_type("DATUM")}
+        from .pmi_bezugspunkt import Stellenbestand
+        self.stellen = Stellenbestand(datei, modell)
         self._sdr = {}
         for e in datei.of_type("SHAPE_DEFINITION_REPRESENTATION"):
             pds, rep = e.args("SHAPE_DEFINITION_REPRESENTATION")[:2]
@@ -316,6 +318,8 @@ def _schreibe_bezug(a: _Anhang, p) -> str | None:
     fehler = a.waehle(p.flaechen)
     if fehler:
         return fehler
+    if p.typ == "DatumTarget":
+        return _schreibe_punkt(a, p)
     if a.bezug(p.name) is not None:
         return tr("Bezug {} gibt es in der Datei schon").format(p.name)
     df = a.aspekt(p.flaechen, "DATUM_FEATURE")
@@ -326,6 +330,40 @@ def _schreibe_bezug(a: _Anhang, p) -> str | None:
     a.neu(f"SHAPE_ASPECT_RELATIONSHIP('',$,#{df},#{d})")
     a.bezuege[(a.pds, p.name)] = d
     a.semantik = df  # wie in den NIST-Dateien: Darstellung am Bezugsmerkmal
+    return None
+
+
+def _schreibe_punkt(a, p):
+    from .pmi_bezugspunkt import hat_kontakt
+    from .pmi_darstellung import _Teillage
+    from .pmi_step import einheit_mm
+    fund = a.stellen.originalgrafiken().get(p.callout)
+    name = re.fullmatch(r"([A-Z]{1,2})([1-9][0-9]*)", p.name)
+    if (not name or not fund or fund.produktformen != {a.pds} or fund.kennung != p.name or fund.kreuz is None
+            or fund.flaechen != p.flaechen or not hat_kontakt(a.modell, p.flaechen, p.bezugspunkt)
+            or math.dist(p.bezugspunkt, fund.kreuz) > .001):
+        return tr("Die Bezugsstelle benötigt die Fläche am Zielkreuz.")
+    buchstabe, nummer = name.groups()
+    d = a.bezug(buchstabe)
+    if d is not None and (d not in a.stellen.nummern or nummer in a.stellen.nummern[d]):
+        return tr("Bezug {} gibt es in der Datei schon").format(p.name)
+    face = a.modell.flaechen[next(iter(p.flaechen))]
+    xyz = _Teillage(face, einheit_mm(a.datei, Ref(a.einheit_laenge))).punkte(p.bezugspunkt)
+    punkt = a.neu(f"CARTESIAN_POINT('',({','.join(map(_real, xyz))}))")
+    achse = a.neu(f"AXIS2_PLACEMENT_3D('orientation',#{punkt},$,$)")
+    rep = a.neu(f"SHAPE_REPRESENTATION_WITH_PARAMETERS('',(#{achse}),#{a.kontext})")
+    stelle = a.neu(f"PLACED_DATUM_TARGET_FEATURE('','point',#{a.pds},.T.,'{nummer}')")
+    prop = a.neu(f"PROPERTY_DEFINITION('',$,#{stelle})")
+    a.neu(f"SHAPE_DEFINITION_REPRESENTATION(#{prop},#{rep})")
+    aspekt = a.aspekt(p.flaechen)
+    a.neu(f"FEATURE_FOR_DATUM_TARGET_RELATIONSHIP('',$,#{aspekt},#{stelle})")
+    if d is None:
+        d = a.neu(f"DATUM('',$,#{a.pds},.F.,'{buchstabe}')")
+        a.bezuege[a.pds, buchstabe] = d
+    a.neu(f"SHAPE_ASPECT_RELATIONSHIP('',$,#{stelle},#{d})")
+    a.stellen.nummern.setdefault(d, set()).add(nummer)
+    del a.stellen.offen[p.callout]
+    a.semantik = stelle
     return None
 
 
@@ -390,6 +428,9 @@ def _schreibe_toleranz(a: _Anhang, p, aspekt=None) -> str | None:
     if fehlend:
         return tr("Bezug {} fehlt in der Datei").format(", ".join(fehlend))
     for b in p.bezuege:
+        for n in b.name.split("-"):
+            if a.bezug(n) in a.stellen.nummern and (offen := a.stellen.fehlende(a.pds, n)):
+                return tr("Bezugsstellen noch offen: {}").format(", ".join(offen))
         if b.element_modifikatoren and ("-" not in b.name or b.element_modifikatoren.keys() - set(b.name.split("-"))):
             return tr("Bezugsmodifikator nicht schreibbar")
         gruppen = [b.modifikatoren, *b.element_modifikatoren.values()]

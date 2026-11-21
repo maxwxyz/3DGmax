@@ -2,6 +2,33 @@
 
 ## Current state, 2026-11-21
 
+### Point target datums from the graphical CTC-02 source
+
+- Checked PLAN §8.4 and docs/Roadmap.md. Original AP203 annotations for A1–A3,
+  B1–B4 and C1 now round-trip through graphical review, project reopen and STEP
+  export. The cross must be attached to the divided balloon by a leader, its full
+  identifier must be readable, and the cross must touch the source face within
+  0.001 mm. All eight points lie within 0.05 mm of the separate AP242 reference.
+- Verified original outlines, a single-stroke A1 and filled glyphs without contours
+  or writing axes. STEP stores the target number, point in the part's length unit,
+  supporting face and parent datum. Exporting a partial review retains individual
+  confirmed targets and reports missing siblings by identifier on dependent frames.
+  Reopening the partial STEP and confirming B2 completes all three A/B/C profiles.
+  Native OCCT reads the outputs with the same diagnostics and volume as the input.
+  The inch variant verifies the physical contact position after export and readback.
+- The complete suite passed (1163 passed, 8 skipped). All 448 affected tests passed.
+  Four dedicated target cases passed, and the
+  three native Cocoa review/export cases passed. The signed arm64 app passed its
+  self-test and rendered the exported triangle-only STEP model.
+- Local main keeps one app at `dist/3DGmax.app`. The previous 21 `dist/main-*`
+  folders and 13 temporary packaging outputs from integrated main revisions have
+  been removed. The two versioned release ZIPs in dist are retained.
+- Next in §8.4: circular area target K1. Its upper compartment reads Ø85. The
+  leader tip is 8.51 mm off the source face and is unsuitable as the target centre.
+  Face #1158 has concentric circular trims of radius 20 and 60 mm whose centre
+  matches the independent semantic reference (0, 812, −140) mm. Establish the
+  supported circular region and its orientation before proposing it. QIF stays last.
+
 ### Recover graphical unequally disposed profile tolerances
 
 - Checked PLAN §8.4 and docs/Roadmap.md. CTC-02 AP203 frames #8688, #8694 and #8714

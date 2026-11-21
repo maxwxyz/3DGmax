@@ -143,6 +143,15 @@ def _druckschrift(g, bekannt, modell, flaechen):
     from .pmi_validierungstext import validierungsvorschlag
     from .zeichnungsabgleich import musteranzahl
     dateitexte, gelesen, ergaenzung = validierungsvorschlag(getattr(modell, "datei", None), g, bekannt)
+    if bekannt == (BEZUG, "DatumTarget"):
+        from .pmi_bezugspunkt import grafischer_punkt, hat_kontakt
+        fund = grafischer_punkt(g)
+        if (not fund or dateitexte and tuple(dateitexte) != (fund[0],)
+                or not hat_kontakt(modell, flaechen, fund[1])):
+            return dateitexte, "", {}, "", []
+        name, punkt = fund
+        return dateitexte, name, {"art": BEZUG, "typ": "DatumTarget", "name": name,
+                                  "modifikatoren": ["point"], "bezugspunkt": punkt.tolist()}, "", []
     if len(dateitexte) > 1:
         return dateitexte, "", gelesen, ergaenzung, []
     dateitext = dateitexte[0] if dateitexte else ""
@@ -187,14 +196,11 @@ def vorschlag(p, g, modell) -> Pmi:
     if g and not texte and not g.erzeugt and not p.semantisch:
         schriftart = aus_name(name, druckschrift=True) if p.art == HINWEIS else bekannt
         dateitexte, ocr, gelesen, ergaenzung, masswahl = _druckschrift(g, schriftart, modell, flaechen)
-        if schriftart == (BEZUG, "DatumTarget") and gelesen.get("typ") == "Datum":
-            # Eine verlorene Stellennummer darf aus B2 kein vollflaechiges Bezugsmerkmal B machen.
-            gelesen = {}
         if gelesen:
             art = gelesen["art"]
             typ = gelesen["typ"] or (typ if schriftart != bekannt and not masswahl else "")
     neu = Pmi(art, typ=typ, norm=p.norm, name=p.name if art == BEZUG and re.fullmatch(r"[A-Z]{1,2}", p.name or "") else "")
-    for k in ("name", *FELDER):
+    for k in ("name", "bezugspunkt", *FELDER):
         if k in gelesen:
             setattr(neu, k, gelesen[k])
     neu.masswahl = masswahl

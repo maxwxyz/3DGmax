@@ -1,6 +1,7 @@
 {
  "unreleased": {
   "de": [
+   "Grafische Punktbezugsstellen wie B2 lassen sich mit Kontaktpunkt und zugehöriger Fläche prüfen und als STEP speichern. Nach Bestätigung aller Bezugsstellen eines Bezugs können auch die zugehörigen Toleranzrahmen mit ihrer Originalgrafik exportiert werden.",
    "Grafische Profiltoleranzen mit Ⓤ lassen sich aus Strichschrift und gefüllten STEP-Grafiken übernehmen. Der Prüfdialog zeigt den Abstand der äußeren Profilgrenze. STEP-Export und Vergleich erhalten die Unterscheidung zum ISO-Versatz der Zonenmitte. Eine Bezugsstelle mit unlesbarer Nummer bleibt zur Prüfung offen.",
    "Ein eingekreistes L in grafischen STEP-Toleranzrahmen wird als Minimum-Material-Bedingung vorgeschlagen. Die Prüfung und der STEP-Export erhalten die Zuordnung zum tolerierten Merkmal oder zum einzelnen Bezug, auch bei mehreren markierten Bezügen.",
    "Grafische Toleranzrahmen für Geradheit, Rundheit, Konzentrizität, Rundlauf und Gesamtlauf lassen sich als semantische STEP-PMI übernehmen. Der Export erhält die Originalgrafik, den gemeinsamen Bezug A-B und die zugeordneten Flächen.",
@@ -233,6 +234,7 @@
    "Grafische PMI aus unterstützten AP203e2-Kurvenmodellen lassen sich als STEP AP242 Edition 3 ausgeben. Facettierte STEP-Modelle behalten ihre Flächenbezüge. Gepackte STEP-Dateien lassen sich als unkomprimierte STEP-Kopie speichern."
   ],
   "en": [
+   "Graphical point datum targets such as B2 can be reviewed with their contact point and supporting face and saved to STEP. Once all targets for a referenced datum have been confirmed, its tolerance frames can also be exported with their original graphics.",
    "Graphical profile tolerances with Ⓤ can be reviewed from stroked or filled STEP annotations. The review dialog shows the distance to the outer profile boundary. STEP export and comparison distinguish it from an ISO zone-centre offset. A datum target with an unreadable number stays open for review.",
    "Graphical STEP tolerance frames now recognise circled L as a least-material modifier. Review and STEP export preserve its position on the toleranced feature or individual datum, including frames with two modified datums.",
    "Graphical straightness, roundness, concentricity, circular runout and total runout controls can be reviewed and exported as semantic STEP PMI together with their source graphics, common datum A-B and target faces.",

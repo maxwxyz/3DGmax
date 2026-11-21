@@ -2980,5 +2980,8 @@
 "Konstruktionsachse an B": "Construction axis on B",
 "Vom Klickpunkt auf A zur projizierten STEP-Konstruktionsachse messen. Auf B die zugehörige Kernbohrungswand wählen.": "Measure from the clicked point on A to the projected STEP construction axis. Select the associated core bore wall on B.",
 "Für die Konstruktionsachse einen Messpunkt auf A und eine Bohrungswand auf B wählen": "Select a measuring point on A and a bore wall on B for the construction axis",
-"Der Messpunkt liegt auf der Achse, die radiale Messrichtung ist unbestimmt": "The measuring point lies on the axis and the radial measuring direction is undefined"
+"Der Messpunkt liegt auf der Achse, die radiale Messrichtung ist unbestimmt": "The measuring point lies on the axis and the radial measuring direction is undefined",
+"Kontaktpunkt X / Y / Z (mm)": "Contact point X / Y / Z (mm)",
+"Die Bezugsstelle benötigt die Fläche am Zielkreuz.": "The datum target requires the face at the target cross.",
+"Bezugsstellen noch offen: {}": "Datum targets still awaiting review: {}"
 }

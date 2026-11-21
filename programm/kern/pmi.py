@@ -134,6 +134,8 @@ class Pmi:
 
     profilzonenart: str = ""  # Eindeutige Lesart am Profil selbst, sonst Norm des Modells.
 
+    bezugspunkt: list[float] | None = None  # Kontakt der Punktbezugsstelle in Modellkoordinaten (mm).
+
     def profilversatz(self):
         werte = [m[2:].strip() for m in self.modifikatoren if m.startswith("UZ")]
         if len(werte) != 1:

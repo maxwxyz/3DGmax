@@ -351,6 +351,9 @@ def lies_bezugsstellen(modell: StepModell) -> list[Pmi]:
     """Bezugsstellen (Datum Targets) als eigene Eintraege, Name = Buchstabe + Nummer (z. B. A1)."""
     datei = modell.datei
     out = []
+    from .ansichten import kontext_skalen
+    from .pmi_bezugspunkt import lese_kontakt
+    skalen = kontext_skalen(datei) if datei.of_type("PLACED_DATUM_TARGET_FEATURE") else {}
     for teil in ("PLACED_DATUM_TARGET_FEATURE", "DATUM_TARGET"):
         for e in sorted(datei.of_type(teil), key=lambda e: e.id):
             if teil == "DATUM_TARGET" and e.is_a("PLACED_DATUM_TARGET_FEATURE"):
@@ -358,8 +361,13 @@ def lies_bezugsstellen(modell: StepModell) -> list[Pmi]:
             args = e.args(teil)
             art, nummer = (args[1] or ""), str(args[4] or "")
             buchstabe = ""
+            stuetzflaechen = set()
             for rid in datei.referrers().get(e.id, []):
                 r = datei.entities[rid]
+                if r.is_a("FEATURE_FOR_DATUM_TARGET_RELATIONSHIP"):
+                    args_rel = r.args("FEATURE_FOR_DATUM_TARGET_RELATIONSHIP")
+                    if args_rel[3] == p21.Ref(e.id) and isinstance(args_rel[2], p21.Ref):
+                        stuetzflaechen.update(flaechen_von_aspekt(datei, modell, args_rel[2].id))
                 if r.is_a("SHAPE_ASPECT_RELATIONSHIP"):
                     ziel = datei.get(r.args("SHAPE_ASPECT_RELATIONSHIP")[3])
                     if ziel is not None and ziel.is_a("DATUM"):
@@ -367,7 +375,10 @@ def lies_bezugsstellen(modell: StepModell) -> list[Pmi]:
             p = Pmi(BEZUG, typ="DatumTarget", name=f"{buchstabe}{nummer}", quelle="step", step_id=e.id)
             if art:
                 p.modifikatoren.append(art)
-            p.flaechen = flaechen_von_aspekt(datei, modell, e.id)
+            p.flaechen = flaechen_von_aspekt(datei, modell, e.id) | stuetzflaechen
+            if art == "point" and len(p.flaechen) == 1:
+                face = modell.flaechen[next(iter(p.flaechen))]
+                p.bezugspunkt = lese_kontakt(datei, e.id, face, skalen)
             p.grafisch = _bezug_hat_grafik(datei, e.id) or any(
                 datei.entities[x].is_a("DRAUGHTING_MODEL_ITEM_ASSOCIATION") or datei.entities[x].is_a(DMIA_PH)
                 for x in datei.referrers().get(e.id, []))

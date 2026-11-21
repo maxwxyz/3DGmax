@@ -334,7 +334,7 @@ def callout_einheiten(datei, ids):
     return {eid: _textskala(definitionen.get(eid) or ansichten.get(eid), skalen) for eid in ids}
 
 
-def lies_grafik(datei: P21Datei, skala: float | None = None) -> dict[int, Grafik]:
+def lies_grafik(datei: P21Datei, skala: float | None = None, *, ids=None) -> dict[int, Grafik]:
     """Grafik je Callout in mm. skala dient als Ersatz bei fehlender Laengeneinheit."""
     from .ansichten import _laengen_skala, kontext_skalen
     skalen = kontext_skalen(datei)
@@ -352,13 +352,15 @@ def lies_grafik(datei: P21Datei, skala: float | None = None) -> dict[int, Grafik
 
     out: dict[int, Grafik] = {}
     for e in datei.of_types_by_id(ANNOTATIONEN):
-        if eigenstaendige_annotation(datei, e):
+        if (ids is None or e.id in ids) and eigenstaendige_annotation(datei, e):
             name = e.args("REPRESENTATION_ITEM")[0] if e.is_a("REPRESENTATION_ITEM") else e.args()[0]
             g, leser = grafik(e, name)
             leser.annotation(Ref(e.id), g)
             g.linien.extend(g.hinweislinien)
             out[e.id] = g
     for c in datei.of_type("DRAUGHTING_CALLOUT"):
+        if ids is not None and c.id not in ids:
+            continue
         name, teile = c.args("DRAUGHTING_CALLOUT")[:2]
         g, leser = grafik(c, name)
         for r in teile:
