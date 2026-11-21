@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+from functools import cached_property
 import math
 import re
 
@@ -46,6 +47,24 @@ class Blattangabe:
     verbundrahmen: bool = False
     unten: Pmi | None = None
 
+    @property
+    def gruppenzeilen(self):
+        return self._verbundzeilen if self.verbundrahmen else (self,)
+
+    @cached_property
+    def _verbundzeilen(self):
+        return Rahmenzeile(self, 0), Rahmenzeile(self, 1)
+
+    def setze_text(self, text):
+        if text == self.text:
+            return
+        alt, neu = self.text.splitlines(), text.splitlines()
+        if self.verbundrahmen and min(len(alt), len(neu)) >= 2 and alt[2:] == neu[2:]:
+            loese_blattgruppen(z for z in self.gruppenzeilen if alt[z.rang] != neu[z.rang])
+        else:
+            loese_blattgruppen(self.gruppenzeilen)
+        self.text = text
+
     def zugeordnete_pmi(self):
         if self.verbundrahmen:
             return [p for p in (self.modell, self.unten) if p is not None]
@@ -54,9 +73,45 @@ class Blattangabe:
         return [self.modell] if self.modell is not None else []
 
 
+@dataclass(eq=False)
+class Rahmenzeile:
+    rahmen: Blattangabe
+    rang: int
+    simultan: Blattgruppe | None = None
+
+    @property
+    def modell(self):
+        return self.rahmen.unten if self.rang else self.rahmen.modell
+
+    @property
+    def text(self):
+        zeilen = self.rahmen.text.strip().splitlines()
+        if len(zeilen) < 2:
+            return ""
+        hinweise = [z.strip() for z in zeilen[2:] if z.strip().startswith("SIM")]
+        return "\n".join([zeilen[self.rang], *hinweise])
+
+
+def fundort(zeile):
+    return zeile.rahmen if isinstance(zeile, Rahmenzeile) else zeile
+
+
+def gruppenschluessel(zeile):
+    nummer = gruppenkennung(zeile.text)
+    return (zeile.rang if isinstance(zeile, Rahmenzeile) else None, nummer) if nummer else None
+
+
+def gruppenangabe(zeile, faktor):
+    if isinstance(zeile, Rahmenzeile):
+        from .blattverbund import rahmenzeilen
+        if zeile.rahmen.grundmass or not rahmenzeilen(zeile.rahmen.text, faktor):
+            return None
+    return lese_angabe(zeile.text, faktor, fundort(zeile).grundmass)
+
+
 @dataclass(frozen=True)
 class Blattgruppe:
-    zeilen: frozenset[Blattangabe]
+    zeilen: frozenset[Blattangabe | Rahmenzeile]
     alle_blaetter: bool
 
 
@@ -92,15 +147,17 @@ def _pruefgrund(gruppe, ids, nummeriert, faktor, nach_id):
     if not gruppe.alle_blaetter:
         return "blaetter"
     zeilen = gruppe.zeilen
-    kennungen = {k for a in zeilen if (k := gruppenkennung(a.text))}
-    if len(kennungen) > 1 or any(not z.simultan or not z.simultan.alle_blaetter
+    kennungen = {k for a in zeilen if (k := gruppenschluessel(a))}
+    if len({nummer for _, nummer in kennungen}) > 1 or any(not z.simultan or not z.simultan.alle_blaetter
                                  for k in kennungen for z in nummeriert.get(k, set()) - zeilen):
         return "kennung"
     for a in zeilen:
-        p = lese_angabe(a.text, faktor, a.grundmass)
-        if not p or p.art != TOLERANZ or a.zielkonflikt:
+        p = gruppenangabe(a, faktor)
+        ort = fundort(a)
+        doppelte_rolle = ort.verbundrahmen and ort.modell is not None and ort.modell is ort.unten
+        if not p or p.art != TOLERANZ or ort.zielkonflikt or doppelte_rolle:
             return "zuordnung"
-        if a.modell is None and not a.nur_zeichnung:
+        if a.modell is None and not ort.nur_zeichnung:
             return "zuordnung"
         if a.modell and (a.modell.step_id <= 0 or nach_id.get(a.modell.step_id) is not a.modell
                          or a.modell.art != TOLERANZ or a.modell.typ != p.typ):
@@ -112,16 +169,22 @@ def _pruefgrund(gruppe, ids, nummeriert, faktor, nach_id):
 
 def gruppenbefunde(angaben, modelle, faktor):
     """Gepruefte Blattzeilen mit den zusammenhaengenden STEP-Gruppen vergleichen."""
+    angaben = [z for a in angaben for z in a.gruppenzeilen]
     gruppen = {a.simultan for a in angaben if a.simultan}
     if not gruppen:
         return {}
     erwartet = simultangruppen(modelle)
-    nach_id = {p.step_id: p for p in modelle}
-    unklar = {p.step_id for p in modelle if p.simultan_offen or any(
-        n not in nach_id or p.step_id not in nach_id[n].simultan_mit for n in p.simultan_mit)}
+    nach_id = {}
+    for p in modelle:
+        nach_id[p.step_id] = None if p.step_id in nach_id else p
+    unklar = set()
+    for p in modelle:
+        offen = [n for n in p.simultan_mit if nach_id.get(n) is None or p.step_id not in nach_id[n].simultan_mit]
+        if offen or p.simultan_offen:
+            unklar.update((p.step_id, *offen, *p.simultan_offen))
     nummeriert = {}
     for a in angaben:
-        if kennung := gruppenkennung(a.text):
+        if kennung := gruppenschluessel(a):
             nummeriert.setdefault(kennung, set()).add(a)
     ergebnis = {}
     for gruppe in gruppen:
@@ -309,7 +372,7 @@ def befund(angabe, faktor, gruppe=None, verbundindex=None):
         from .blattverbund import pruefe_rahmen, rahmenzeilen
         if angabe.nur_zeichnung and not angabe.zielkonflikt and not angabe.grundmass and rahmenzeilen(angabe.text, faktor):
             return "zeichnung"
-        ergebnis = pruefe_rahmen(angabe, faktor, verbundindex) if verbundindex is not None else None
+        ergebnis = pruefe_rahmen(angabe, faktor, verbundindex, gruppe) if verbundindex is not None else None
         return ergebnis.status if ergebnis else "offen"
     p = lese_angabe(angabe.text, faktor, angabe.grundmass)
     if p is None or angabe.zielkonflikt:

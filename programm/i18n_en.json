@@ -1,4 +1,12 @@
 {
+"Blattgruppe der unteren Zeile (Blatt und Bereich)": "Lower row drawing group (sheet and region)",
+"Gruppenbefund der unteren Zeile": "Lower row group finding",
+"Obere Rahmenzeile": "Upper frame row",
+"Partner der oberen Rahmenzeile prüfen …": "Check upper row partners…",
+"Partner der unteren Rahmenzeile prüfen …": "Check lower row partners…",
+"Quell-IDs der unteren Modellgruppe": "Source IDs of the lower model group",
+"Zugeordnete Quell-IDs der unteren Gruppe": "Source IDs assigned to the lower group",
+"{} · Blattgruppe {} · STEP-Gruppe {} · {}": "{} · Drawing group {} · STEP group {} · {}",
 "Zusätzliche Anforderung auf der Zeichnung prüfen.": "Check the additional requirement on the drawing.",
 "Geometrie ungeklärt": "Geometry unresolved",
 "Flächenanzahl weicht ab": "Face count differs",

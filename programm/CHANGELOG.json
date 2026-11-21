@@ -1,6 +1,7 @@
 {
  "unreleased": {
   "de": [
+   "Der Zeichnungsvergleich prüft die Partner der oberen und unteren Zeile eines Verbundrahmens getrennt. Dialog und CSV zeigen, wenn eine STEP-Verknüpfung nur auf einer der beiden Ebenen vorhanden ist. Ein nummerierter SIM-REQT-Hinweis schlägt Partner derselben Rahmenzeile vor.",
    "Bei „4 COPLANAR SURFACES“ und anderen angegebenen Anzahlen prüft der Zeichnungsvergleich die zugeordneten STEP-Flächen auf Anzahl, Ebenheit und gemeinsame Ebene. Berührende Flächen und mehrdeutige Bauteilvorkommen bleiben zur Prüfung offen.",
    "Im Zeichnungsvergleich lassen sich die obere und untere Zeile eines erkannten Verbundrahmens getrennt zuordnen. Der Befund unterscheidet Werte und Bezüge, fehlende oder umgekehrte STEP-Verknüpfungen, gemeinsame Modellflächen und den Wortlaut. Die CSV enthält beide STEP-IDs.",
    "Der Zeichnungsvergleich liest schräge zweizeilige Toleranzrahmen mit gemeinsamem Symbol und durchsuchbarem „SIM REQT“-Hinweis. Vorschau und CSV zeigen beide Werte, ihre Bezüge und den zugehörigen Wortlaut.",
@@ -180,6 +181,7 @@
    "Grafische PMI aus unterstützten AP203e2-Kurvenmodellen lassen sich als STEP AP242 Edition 3 ausgeben. Facettierte STEP-Modelle behalten ihre Flächenbezüge. Gepackte STEP-Dateien lassen sich als unkomprimierte STEP-Kopie speichern."
   ],
   "en": [
+   "The drawing comparison checks simultaneous partners separately for the upper and lower rows of composite frames. The dialog and CSV identify a STEP relationship present on only one row. Numbered SIM REQT captions suggest partners at the same row position.",
    "For “4 COPLANAR SURFACES” and other printed counts, the drawing comparison checks the number, planarity and common plane of the assigned STEP faces. Touching faces and ambiguous part occurrences remain open for review.",
    "In drawing comparison, assign the upper and lower rows of a detected composite frame separately. Findings distinguish values and datums, missing or reversed STEP relationships, shared model faces and scope wording. The CSV includes both STEP IDs.",
    "The drawing comparison reads inclined two-row tolerance frames with a shared symbol and a searchable “SIM REQT” note. The preview and CSV retain both values, their datums and the attached wording.",

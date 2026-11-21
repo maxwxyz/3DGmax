@@ -81,7 +81,7 @@ class Rahmenbefund:
     status: str
 
 
-def pruefe_rahmen(angabe, faktor, index):
+def pruefe_rahmen(angabe, faktor, index, gruppen=None):
     paar = rahmenzeilen(angabe.text, faktor)
     oben, unten = angabe.modell, angabe.unten
     if (paar is None or angabe.grundmass or angabe.zielkonflikt or oben is None or unten is None
@@ -94,16 +94,18 @@ def pruefe_rahmen(angabe, faktor, index):
     flaechen = ("offen" if not oben.flaechen or not unten.flaechen else
                 "gleich" if oben.flaechen == unten.flaechen else "geaendert")
     wortlaut = "gleich" if all(modellhinweis(m) == zusatz for m in (oben, unten)) else "geaendert"
-    gruppe = (any(SIMULTANHINWEIS.fullmatch(z.strip()) for z in angabe.text.splitlines()[2:])
-              or any(m.simultan_mit or m.simultan_offen or SIMULTANHINWEIS.fullmatch(modellhinweis(m))
-                     for m in (oben, unten)))
+    gedruckt = any(SIMULTANHINWEIS.fullmatch(z.strip()) for z in angabe.text.splitlines()[2:])
+    gruppenstatus = []
+    for m, befund in zip((oben, unten), gruppen or (None, None), strict=True):
+        benoetigt = gedruckt or m.simultan_mit or m.simultan_offen or SIMULTANHINWEIS.fullmatch(modellhinweis(m))
+        gruppenstatus.append(befund.status if befund else "offen" if benoetigt else "")
     koplanar = index.koplanar(angabe.text, oben, unten)
     weitere_zeilen = [z.strip() for z in angabe.text.splitlines()[2:] if z.strip() and not SIMULTANHINWEIS.fullmatch(z.strip())]
     zusatz_offen = len(weitere_zeilen) > int(koplanar is not None)
     geometrie = koplanar.status if koplanar else ""
     status = "gleich"
-    if any(felder) or bindung in ("fehlt", "umgekehrt", "weitere") or "geaendert" in (flaechen, wortlaut, geometrie):
+    if any(felder) or bindung in ("fehlt", "umgekehrt", "weitere") or "geaendert" in (flaechen, wortlaut, geometrie, *gruppenstatus):
         status = "geaendert"
-    elif gruppe or zusatz_offen or "offen" in (bindung, flaechen, geometrie) or any(p.zone == "Projected" for p in (zeile1, zeile2)):
+    elif zusatz_offen or "offen" in (bindung, flaechen, geometrie, *gruppenstatus) or any(p.zone == "Projected" for p in (zeile1, zeile2)):
         status = "offen"
-    return Rahmenbefund(felder, bindung, flaechen, wortlaut, koplanar, bool(gruppe), zusatz_offen, status)
+    return Rahmenbefund(felder, bindung, flaechen, wortlaut, koplanar, "offen" in gruppenstatus, zusatz_offen, status)

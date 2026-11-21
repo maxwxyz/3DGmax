@@ -1728,7 +1728,12 @@ includes SIM REQT on both. For a printed count of coplanar surfaces, check the n
 The right frame covers four disjoint planar faces. Assigning the same-valued single-face pair
 reports a count of one. A parallel offset, tilted plane or analytically curved face produces
 a separate geometric finding. Touching face patches or an ambiguous repeated occurrence need
-review. Cross-frame partner membership is still open.
+review. Reviewers can select simultaneous partners independently for each row of a composite
+frame, including individual drawing controls and controls on other sheets. Matching caption
+numbers suggest other rows at the same position. Each result records the mapped and expected
+STEP members, its sheet regions and whether the datum basis was verified. An upper link alone
+does not satisfy a lower row requirement. A transcription change to one row clears its group.
+Changing the common scope clears both.
 
 Remaining work includes occluded rims, perspective views, sections, non-circular features and leaders on section or edge geometry, automatically
 finding additional types of unframed graphical annotations, interpreting composite controls and establishing

@@ -2,6 +2,27 @@
 
 ## Current state, 2026-11-21
 
+### Compare simultaneous partners per row of a drawing composite frame
+
+- Checked PLAN §§8.4 and 8.35 against docs/Roadmap.md. In the drawing dialog each row has its
+  own partner review. Confirmed sets may include individual controls or rows from other frames
+  and sheets. Numbered captions suggest the same printed row position. Review before all sheets
+  have been opened stays provisional. Editing a single row clears its membership; changing the
+  shared scope or removing the frame clears both.
+- A two-sheet PDF and an FTC-07 STEP variant with only the upper link produced a matching
+  upper group (#14614, #15076) and a different lower group (#14623, #15085 on the drawing).
+  Both groups' member regions, mapped IDs, expected IDs and findings are in the CSV. Checked a
+  model with both explicit links and one with a link across unverified datum systems. When the
+  model only names SIM REQT with no explicit partners, membership remains unresolved.
+- Verification: 88 affected tests passed, 30 passed with native macOS Qt, and the English
+  translation inventory is complete. QIF remains last.
+- Next §8.4/§8.35 case: FTC-07 stores the words omitted from #14614 and #14623 in a separate
+  callout. #16461 (Text.8) and frame #14636 share the MBD_C writing plane and shape aspect
+  #13858. Its semantic text property #16453 contains “4 COPLANAR SURFACES” and “SIM REQT”.
+  The other frame #15098 is in MBD_D. Its embedded scope is already legible. The standalone
+  lettering reader currently returns no text for #16461. Distinguish evidence linked to the
+  target feature from an explicit tolerance description or a confirmed relationship.
+
 ### Check the printed number of coplanar target surfaces
 
 - Checked PLAN §8.35 against docs/Roadmap.md. The right frame on FTC-07 sheet 3 names four coplanar
