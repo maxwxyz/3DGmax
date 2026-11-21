@@ -2,6 +2,22 @@
 
 ## Current state, 2026-11-21
 
+### Graphical radius lettering and repeated radius dimensions
+
+- Checked PLAN §§8.18, 8.35–8.37 and docs/Roadmap.md. Single strokes and filled letters use
+  R glyphs from NIST FTC-07. Two graphical-only STEP derivatives exercise review, face selection,
+  export and reload for an unnamed R2. Every source entity survives in both cases.
+- Drawing comparison reads free R and CR rows on leaders. A repeated radius requires the correct
+  model characteristic and coverage of all selected walls. A filled “2X CR2” versus a plain model
+  radius reports a changed modifier. “2X B2” produces no radius finding. Existing datum frames
+  still read B. Unsupported or ambiguous lettering can still require review, including the zero
+  in one independently plotted “R2 ±0.1”. All 118 affected tests, 91 native macOS tests and
+  the check of 2581 translations passed.
+- Next, fix a verified presentation scale defect on the original FTC-07 STEP. The local
+  draughting model #13679 references context #8 in inches. Loading reports text factor 1 and
+  annotation plane x = −3.6 instead of −91.44 mm. Inspect the assigned representation context
+  for graphics and saved views. Mixed-unit files need per-representation handling. QIF remains last.
+
 ### Inclined graphical diameter rows attached to drawing leaders
 
 - Checked PLAN §§8.35–8.37 against docs/Roadmap.md. Selecting a hole pattern now follows free

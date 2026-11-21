@@ -817,12 +817,13 @@ def test_rundkontur_verlangt_vier_gleiche_boegen_und_geschlossenen_druckrand():
 
 
 def test_bohrung_neben_gerundeter_taschenecke():
-    from programm.kern.plattentasche import Taschenkontur, solltaschen
+    from programm.kern.plattentasche import Taschenkontur, eckradiusmass, solltaschen
     from programm.kern.zeichnungsabgleich import lese_angabe
     from programm.kern.zeichnungskoerper import Plattenbohrung
     masse = [lese_angabe(s,1.) for s in ("60","40","8")]
     kontur = Taschenkontur((), .5, .5, 20/60, 16/40, 5/60)
     zeile = ("30","20","20","16","4","4X R5")
+    assert eckradiusmass("3X R5",1.) is None
     durchmesser = lese_angabe("Ø2",1.)
     assert solltaschen([kontur],[zeile],masse,(600,400),[Plattenbohrung(20,12,durchmesser)])
     with pytest.raises(ValueError, match="Bohrung"):

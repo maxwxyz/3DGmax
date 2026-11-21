@@ -62,6 +62,7 @@
 | Review graphical PMI across the source model or a selection, read native STEP text literals, confirm or skip each entry, and export the reviewed dimensions, tolerances and datums alongside their original STEP graphics and saved views – PLAN §§8.18, 8.28 | ✅ |
 | Convert supported AP203e2 curve annotations to AP242 Edition 3 and retain the original face references of native tessellated STEP PMI – checked on NIST CTC-01 and FTC-08 | ✅ |
 | Read supported STEP dimension strings, datum letters and tolerance frames from single strokes, curves or filled triangle glyphs in the conversion dialog; export confirmed semantics with the original presentation | ✅ |
+| Read R from single-stroke or filled graphical PMI and save the confirmed radius with its STEP callout. Compare repeated R and CR drawing rows with radius PMI on the matching bore walls | ✅ |
 | Read stacked positive/negative deviations, unilateral deviations with zero, paired absolute limits, angles and parenthesised dimensions from supported graphical lettering | ✅ |
 | Read planar tolerance frames without supplied writing axes, including original NIST 3D PDF/PRC; distinguish circled free-state and maximum-material symbols from their inner glyph | ✅ |
 | Read additional lettering and composite frames from graphical PMI | 💡 |

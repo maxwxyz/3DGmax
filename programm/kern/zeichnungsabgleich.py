@@ -42,7 +42,7 @@ class Blattangabe:
         return [self.modell] if self.modell is not None else []
 
 
-_MENGE = re.compile(r"^\s*([1-9][0-9]{0,3})\s*[xX×]\s*(?=[Ø∅⌀])")
+_MENGE = re.compile(r"^\s*([1-9][0-9]{0,3})\s*[xX×]\s*(?=(?:[Ø∅⌀]|C?R)\s*[0-9.,])")
 
 
 def musteranzahl(text):
@@ -50,8 +50,9 @@ def musteranzahl(text):
     return int(m[1]) if m else 0
 
 
-def muster_deckt(anzahl, ziele, modell):
-    if not ziele or modell is None or modell.typ != "Size_Diameter" or len(ziele) != anzahl:
+def muster_deckt(anzahl, ziele, modell, typ="Size_Diameter"):
+    if (not ziele or len(ziele) != anzahl or modell is None
+            or modell.typ != typ or typ not in ("Size_Diameter", "Size_Radius")):
         return False
     if len({z.mitte for z in ziele}) != anzahl:
         return False
@@ -78,9 +79,9 @@ def lese_angabe(text, faktor, grundmass=False):
         text = text[m.end():]
     elif re.match(r"\s*\d+\s*[xX×]", text):
         return None
-    # Bei zwei aufsteigenden Durchmessergrenzen kann der Plotter einen Bindestrich ausgeben.
+    # Bei zwei aufsteigenden Groessengrenzen kann der Plotter einen Bindestrich ausgeben.
     zahl = r"(?:[0-9]+(?:[.,][0-9]+)?|[.,][0-9]+)"
-    grenzen = re.fullmatch(rf'([⌀Ø∅]\s*)({zahl})\s*-\s*({zahl})(\s*(?:mm|in|inch|")?)\s*', text, re.I)
+    grenzen = re.fullmatch(rf'((?:[⌀Ø∅]|C?R)\s*)({zahl})\s*-\s*({zahl})(\s*(?:mm|in|inch|")?)\s*', text, re.I)
     if grenzen and float(grenzen[2].replace(",", ".")) < float(grenzen[3].replace(",", ".")):
         text = f"{grenzen[1]}{grenzen[2]}–{grenzen[3]}{grenzen[4]}"
     if "|" in text:
@@ -190,6 +191,6 @@ def befund(angabe, faktor):
         if "offen" in befunde:
             return "offen"
         return befunde.pop() if len(befunde) == 1 else "geaendert"
-    if anzahl and not muster_deckt(anzahl, angabe.musterziele, angabe.modell):
+    if anzahl and not muster_deckt(anzahl, angabe.musterziele, angabe.modell, p.typ):
         return "offen"
     return wertebefund(p, angabe.modell)

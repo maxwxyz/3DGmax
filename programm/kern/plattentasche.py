@@ -6,7 +6,7 @@ import re
 
 from ..i18n import tr
 from .pmi import MASS, Pmi
-from .zeichnungsabgleich import lese_angabe
+from .zeichnungsabgleich import lese_angabe, musteranzahl
 from .zeichnungskoerper import Plattentasche, koordinaten, pruefe_tiefe, tiefenmass
 
 
@@ -23,6 +23,8 @@ class Taschenkontur:
 
 def eckradiusmass(text, faktor):
     text = re.sub(r"^\s*4\s*[xX×]\s*(?=R)", "", text, flags=re.I)
+    if musteranzahl(text):
+        return None
     p = lese_angabe(text, faktor)
     if (p and p.typ == "Size_Radius" and not p.passung and not p.modifikatoren
             and p.nennwert is not None and math.isfinite(p.nennwert)):

@@ -323,7 +323,8 @@ class Zeichnungsabgleich(QtWidgets.QDialog):
         for angaben in self.seiten.values():
             for a in angaben:
                 if a.einzelpruefung:
-                    neu = [m for m in self.modell if id(m) not in vorher and m.typ == "Size_Diameter" and m.flaechen]
+                    p = za.lese_angabe(a.text, self.einheit.currentData(), a.grundmass)
+                    neu = [m for m in self.modell if id(m) not in vorher and p and m.typ == p.typ and m.flaechen]
                     a.musterziele = tuple(replace(z, modell=None, nur_zeichnung=False)
                                           if (z.modell is not None and id(z.modell) not in self.modellindex)
                                           or (z.nur_zeichnung and any(m.flaechen <= z.flaechen for m in neu))
@@ -481,13 +482,14 @@ class Zeichnungsabgleich(QtWidgets.QDialog):
             if anzahl and (a.modell is not None or a.einzelpruefung):
                 ziele = self._muster(a, anzahl)
                 if k or not self._anderer_bereich(a):
-                    a.zielkonflikt = ((not a.einzelpruefung and not za.muster_deckt(anzahl, ziele, a.modell))
+                    p = za.lese_angabe(a.text, self.einheit.currentData(), a.grundmass)
+                    a.zielkonflikt = ((not a.einzelpruefung and (p is None or not za.muster_deckt(anzahl, ziele, a.modell, p.typ)))
                                       or set(self._blattziele(ziele)) != {replace(z, modell=None, nur_zeichnung=False) for z in a.musterziele})
             elif k and a.modell is not None:
                 a.zielkonflikt = not bool(k.flaechen & a.modell.flaechen)
             elif k and a.nur_zeichnung:
                 p = za.lese_angabe(a.text, self.einheit.currentData(), a.grundmass)
-                a.zielkonflikt = any(za.muster_deckt(anzahl, self._muster(a, anzahl), m) if anzahl else m.flaechen & k.flaechen
+                a.zielkonflikt = any(za.muster_deckt(anzahl, self._muster(a, anzahl), m, p.typ) if anzahl else m.flaechen & k.flaechen
                                      for m in za.kandidaten(p, self.modell))
         for i, a in enumerate(self.seiten[nr]):
             self.tabelle.item(i, 2).setText(self._befunde()[za.befund(a, self.einheit.currentData())])
@@ -498,7 +500,7 @@ class Zeichnungsabgleich(QtWidgets.QDialog):
             self._auswahl(self.tabelle.currentRow(), entwurf=True)
         self._status()
         if neu:
-            meldung = tr("Eine weitere Durchmesserangabe gefunden.") if neu == 1 else tr("{} weitere Durchmesserangaben gefunden.").format(neu)
+            meldung = tr("Eine weitere Maßangabe gefunden.") if neu == 1 else tr("{} weitere Maßangaben gefunden.").format(neu)
             self.status.setText(f"{self.status.text()} {meldung}")
 
     def _hinweisziel(self, a):
@@ -510,7 +512,7 @@ class Zeichnungsabgleich(QtWidgets.QDialog):
             if gruppe:
                 self.musterwahl[a] = gruppe
                 return gruppe[0]
-        return self.blattgeometrie.hinweisziel(a.box, kreise, pruefe, hinweisenden=a.hinweisenden, musterzeile=bool(anzahl) or a.text.lstrip().startswith(("⌀", "Ø", "∅")))
+        return self.blattgeometrie.hinweisziel(a.box, kreise, pruefe, hinweisenden=a.hinweisenden, musterzeile=bool(anzahl) or a.text.lstrip().startswith(("⌀", "Ø", "∅", "R", "CR")))
 
     def _anderer_bereich(self, a):
         if not a.blattziel or a.seite not in self.bereiche:
@@ -612,7 +614,7 @@ class Zeichnungsabgleich(QtWidgets.QDialog):
                 bevorzugt = za.kandidaten(p, self.modell)
                 am_ziel = [m for m in bevorzugt if kreis and m.flaechen & kreis.flaechen]
                 if anzahl:
-                    am_ziel = [m for m in bevorzugt if za.muster_deckt(anzahl, muster, m)]
+                    am_ziel = [m for m in bevorzugt if za.muster_deckt(anzahl, muster, m, p.typ)]
                 einzelmodus = anzahl > 1 and len(muster) == anzahl and p is not None and all(k.flaechen for k in muster)
                 if einzelmodus:
                     altziele = a.musterziele if a.einzelpruefung else ()
@@ -689,7 +691,7 @@ class Zeichnungsabgleich(QtWidgets.QDialog):
             self.detail.setText(tr("Für dieses Bohrbild sind noch keine Modellflächen zugeordnet."))
         elif anzahl and len(muster) != anzahl:
             self.detail.setText(tr("{} von {} Bohrungen gewählt. Erste Bohrung anklicken, weitere mit Umschalt+Klick wählen.").format(len(muster), anzahl))
-        elif anzahl and m is not None and not za.muster_deckt(anzahl, muster, m):
+        elif anzahl and m is not None and (p is None or not za.muster_deckt(anzahl, muster, m, p.typ)):
             self.detail.setText(tr("Die gewählte Modell-PMI deckt das markierte Bohrbild nicht vollständig und ausschließlich ab."))
         elif p is None:
             self.detail.setText(tr("Angabe oder Zeichnungseinheit ungeklärt"))

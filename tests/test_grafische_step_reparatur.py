@@ -597,3 +597,72 @@ def test_abstandspmi_auf_tesselliertem_ap242_mit_pfeil_auf_dem_netz(tmp_path):
                 and uv.min() >= -1e-5 and uv.sum() <= 1+1e-5)
     assert any(auf_dreieck(d) for pkt, tri in tesselliere([neu.modell.flaechen[i] for i in mass.flaechen])
                for d in pkt[tri])
+
+
+def _radiusgrafik(voll):
+    # Jeder Streifenzug verwendet lokale Koordinaten in der vorhandenen Annotationsebene.
+    import json
+    from PySide6 import QtCore, QtGui
+
+    if voll:
+        bild = QtGui.QImage(160,90,QtGui.QImage.Format.Format_Grayscale8)
+        bild.fill(0)
+        with QtGui.QPainter(bild) as maler:
+            font = QtGui.QFont("Helvetica")
+            font.setPixelSize(64)
+            maler.setFont(font)
+            maler.setPen(QtCore.Qt.GlobalColor.white)
+            maler.drawText(5,68,"R2")
+        maske = np.frombuffer(bild.constBits(),np.uint8).reshape(90,160) > 127
+        zuege = []
+        for y, zeile in enumerate(maske):
+            kanten = np.flatnonzero(np.diff(np.r_[False,zeile,False]))
+            for l,r in kanten.reshape(-1,2):
+                zuege.append([(l,-y),(l,-y-1),(r,-y-1),(r,-y)])
+    else:
+        zuege = [[(0,0),(0,8),(3.9,8),(5.8,7),(6.1,5.3),(4.2,4),(0,4)],
+                 [(3,4),(6.1,0)], [(9,6),(10,7.4),(11.1,8),(13.3,8),(15,7),(15,5.3),(9,0),(15.2,0)]]
+    punkte, indizes = [], []
+    for zug in zuege:
+        indizes.append(list(range(len(punkte)+1,len(punkte)+1+len(zug))))
+        punkte.extend([[float(x),float(y),0.] for x,y in zug])
+    def liste(daten):
+        return json.dumps(daten,separators=(",",":")).translate(str.maketrans("[]","()"))
+    coords = f"#90001=COORDINATES_LIST('',{len(punkte)},{liste(punkte)});"
+    if voll:
+        element = f"COMPLEX_TRIANGULATED_SURFACE_SET('',#90001,{len(punkte)},((0.,0.,1.)),(),(),{liste(indizes)})"
+    else:
+        element = f"TESSELLATED_CURVE_SET('',#90001,{liste(indizes)})"
+    return f"{coords}\n#90002={element};\n"
+
+
+@pytest.mark.parametrize("voll", [False,True], ids=["striche","nur_dreiecke"])
+def test_anonymes_radiusmass_mit_originalgrafik_als_step(grafische_datei, fenster, tmp_path, voll):
+    datei, referenz, _ = grafische_datei
+    text = Path(datei).read_text(encoding="utf-8")
+    alt = "TESSELLATED_GEOMETRIC_SET((#461,#348,#462,#349))"
+    assert text.count(alt) == 1
+    text = text.replace(alt,"TESSELLATED_GEOMETRIC_SET((#90002))").replace("'Flatness.1'","''")
+    ende = text.rindex("ENDSEC;")
+    quelle = tmp_path / "Grafisches Radiusmass.stp"
+    quelle.write_text(text[:ende]+_radiusgrafik(voll)+text[ende:],encoding="utf-8")
+    fenster.lade(str(quelle),warten=True)
+    vorher = fenster.erg
+    g = vorher.grafik[611]
+    assert not g.platzhalter and bool(g.dreiecke) == voll and bool(g.linien) != voll
+    original = next(p for p in vorher.pmi if p.step_id == 611)
+    assert not original.semantisch and original.nennwert is None
+    fenster._pmi_befehl("semantisch",original)
+    dialog = fenster._semantik_dialog
+    assert (dialog.v.ocr_text,dialog.v.typ,dialog.v.nennwert) == ("R2","Size_Radius",2.)
+    wand = next(p.flaechen for p in referenz.pmi if p.typ == "Size_Diameter" and p.flaechen)
+    fenster.ansicht.setze_auswahl([vorher.modell.flaechen[i] for i in wand])
+    dialog._auswahl_uebernehmen()
+    assert not dialog.fehler()
+    dialog._pruefen()
+    ziel = fenster.speichere_step_pmi(str(tmp_path/"Radius und Grafik.stp"),melden=False)
+    nachher = lade_alles(ziel)
+    neu, = [p for p in nachher.pmi if p.semantisch]
+    assert (neu.typ,neu.nennwert,neu.flaechen) == ("Size_Radius",2.,wand)
+    assert nachher.grafik[611].pmi_ids == {neu.step_id}
+    assert all(nachher.modell.datei.get(i) == e for i,e in vorher.modell.datei.entities.items())

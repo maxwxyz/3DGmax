@@ -417,7 +417,7 @@ class Zeichnungsblatt:
         for lesarten in richtungen:
             for wort, anzahl in lesarten.items():
                 p = lese_angabe(wort, 1.)
-                if p is not None and p.typ == "Size_Diameter":
+                if p is not None and p.typ in ("Size_Diameter","Size_Radius"):
                     stimmen[wort] = stimmen.get(wort, False) or (len(lesarten) == 1 and anzahl >= 2)
         if len(stimmen) == 1:
             wort, sicher = next(iter(stimmen.items()))

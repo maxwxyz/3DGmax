@@ -880,6 +880,9 @@ print annotations. Today 3DGmax writes generated texts only into the placeholder
   presentation link' to the existing callout and its DRAUGHTING_MODEL (§8.28). Verified on CTC-01 with the semantics of
   "Flatness.1" removed: the proposed face equals the removed one; after writing our reader shows semantic Flatness on
   the original callout and OCCT no longer lists the callout as a presentation-only dimension.
+  Radius lettering uses stroke and filled R references from NIST FTC-07. A graphical-only STEP
+  fixture verifies the review and export of an unnamed R2 both as polylines and as pure triangles.
+  Reloading recovers the radius semantics and retains every original STEP entity.
   **Done (2026-11-20): model-wide conversion and combined STEP export.** The Tools command reviews the graphical
   entries of the source model in sequence. The PMI list also supports a selection. Each review shows the original
   annotation and suggested faces. It reads explicit STEP text literals and recognises dimension limits, deviations
@@ -1615,7 +1618,9 @@ competing records and confirm a missing characteristic for one hole. Each CSV ro
 target, model record, source ID, local finding and overall pattern finding. An unresolved hole
 leaves the pattern open. A partly missing or different pattern is reported as changed.
 Selecting a hole pattern also searches free ends of straight or bent leaders for standalone
-plotted diameter labels at any in-plane angle. It follows each arrow to a ring inside the
+plotted diameter or radius labels at any in-plane angle. A repeated R or controlled-radius CR
+label requires radius PMI covering the target walls. The comparison includes the controlled-radius
+modifier. Equal numeric diameters cannot satisfy a radius callout. It follows each arrow to a ring inside the
 selection. The first segment defines the baseline for the adjacent text. Compare the full row
 at several strip heights to keep the quantity and both limits, then read the longest extent in
 both directions at three resolutions. The finding retains the text-side endpoint so a rotated

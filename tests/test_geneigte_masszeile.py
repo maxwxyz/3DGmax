@@ -5,7 +5,7 @@ import pytest
 from PySide6 import QtCore,QtGui,QtWidgets
 
 
-def _blatt(pfad, winkel, umgekehrt, zusatz=False, offen=False):
+def _blatt(pfad, winkel, umgekehrt, zusatz=False, offen=False, schrift=""):
     pdf = QtGui.QPdfWriter(str(pfad))
     pdf.setResolution(72)
     pdf.setPageSize(QtGui.QPageSize(QtCore.QSizeF(1900,1230),QtGui.QPageSize.Unit.Point))
@@ -21,7 +21,14 @@ def _blatt(pfad, winkel, umgekehrt, zusatz=False, offen=False):
         if umgekehrt:
             p.translate(154,0)
             p.rotate(180)
-        p.drawImage(QtCore.QRectF(5,-8,144,16),bild)
+        if schrift:
+            font = QtGui.QFont("Helvetica")
+            font.setPixelSize(20)
+            pfad = QtGui.QPainterPath()
+            pfad.addText(5,7,font,schrift)
+            p.fillPath(pfad,QtCore.Qt.GlobalColor.black)
+        else:
+            p.drawImage(QtCore.QRectF(5,-8,144,16),bild)
         if zusatz:
             p.drawRect(155,-4,6,8)
             p.drawLine(155,-4,161,4)
@@ -90,6 +97,45 @@ def test_entdeckt_vollstaendige_geneigte_masszeile_am_genauen_hinweisende(app,tm
             d.entfernen.click()
             abgleichen()
             assert not d.seiten[0]
+        finally:
+            d.blatt.schliesse()
+            d.close()
+
+
+@pytest.mark.parametrize("text,befund", [("2X R2","gleich"),("2X CR2","geaendert"),("2X B2",None)])
+def test_gefuelltes_radiusmass_am_bohrbild(app, tmp_path, text, befund):
+    from pypdfium2 import PdfDocument
+    from programm.kern import zeichnungsabgleich as za
+    from programm.kern.pmi import Pmi
+    from programm.kern.zeichnungsansicht import modellkreise
+    from programm.ui.zeichnungsabgleich_ui import Zeichnungsabgleich
+    from test_zeichnungsansicht import _teil
+
+    datei = tmp_path / "Radien.pdf"
+    _blatt(datei,27,False,schrift=text)
+    teil = _teil()
+    kreise, = modellkreise(teil)
+    waende = set().union(*(k.flaechen for k in kreise if k.r == 2))
+    radius = Pmi("mass","Size_Radius",nennwert=2.,flaechen=waende,nummer=1)
+    durchmesser = Pmi("mass","Size_Diameter",nennwert=2.,flaechen=waende,nummer=2)
+    with PdfDocument(datei) as doc:
+        d = Zeichnungsabgleich(doc,[durchmesser,radius],lambda _:None,(str(datei),""),einzelteil=teil)
+        try:
+            d.einheit.setCurrentIndex(1)
+            d.registrieren.click()
+            d.ansicht.bereich.emit((0,0,1,1))
+            assert d.auftrag.wait(10000)
+            app.processEvents()
+            if befund is None:
+                assert not d.seiten[0]
+                return
+            a, = d.seiten[0]
+            assert a.text == text.replace(" ","")
+            d.waehle(a)
+            assert d.zuordnung.currentData() == d.modellindex[id(radius)]
+            d.bestaetigen.click()
+            assert a.modell is radius and len(a.musterziele) == 2
+            assert za.befund(a,1.) == befund
         finally:
             d.blatt.schliesse()
             d.close()
