@@ -261,3 +261,39 @@ def test_nummerierte_rahmenzeilen_im_gruppendialog_und_csv(fenster, tmp_path, mo
         assert not d.gruppen
     finally:
         d.close()
+
+
+@pytest.mark.parametrize("kennung", ["", " 12"])
+def test_koplanare_flaechen_und_simultanverweis_im_selben_modelltext(ftc07, kennung):
+    from programm.kern.blattverbund import Verbundindex, pruefe_rahmen
+    from programm.kern.pmi_step import lies_toleranzen
+    from programm.kern.pmi_ableiten import simultantext
+    modell = lies_toleranzen(ftc07)
+    index = Verbundindex(modell, ftc07)
+    oben, unten = index.quellen[14614], index.quellen[14623]
+    hinweis = "SIM REQT" + kennung
+    for p in (oben, unten):
+        p.simultan_mit = []
+        p.simultan_offen = []
+        p.beschreibung = "4 COPLANAR SURFACES " + hinweis
+    kopf = "⌓ | .070 | A | B | C\n⌓ | .015 | A\n4 COPLANAR SURFACES"
+    a = za.Blattangabe(0, (.1,.2,.3,.4), kopf, modell=oben, unten=unten, verbundrahmen=True)
+    # Der Pruefer hat auf dem Blatt jede Zeile als eigenstaendig bestaetigt.
+    for z in a.gruppenzeilen:
+        za.setze_blattgruppe([z], True)
+    ergebnis = za.gruppenbefunde([a], [oben, unten], 25.4)
+    assert [(ergebnis[z].status, ergebnis[z].grund) for z in a.gruppenzeilen] == [("offen", "modellpartner")]*2
+    r = pruefe_rahmen(a, 25.4, index)
+    assert r.gruppe_offen and r.wortlaut == "geaendert" and r.koplanar.status == "gleich"
+    for trenner in ("\n", " "):
+        a.setze_text(kopf + trenner + hinweis)
+        r = pruefe_rahmen(a, 25.4, index)
+        assert not r.zusatz_offen and r.wortlaut == r.koplanar.status == "gleich"
+        assert r.gruppe_offen and r.status == "offen"
+        assert [za.gruppenkennung(z.text) for z in a.gruppenzeilen] == [kennung.strip()]*2
+        for z in a.gruppenzeilen:
+            za.setze_blattgruppe([z], True)
+        ergebnis = za.gruppenbefunde([a], [oben, unten], 25.4)
+        assert all(ergebnis[z].grund == "partner" for z in a.gruppenzeilen)
+    for falsch in ("4 COPLANAR SURFACES NO SIM REQT", "SIM REQT 0", "IF SIM REQT", "SIM REQT SIM REQT"):
+        assert not simultantext(falsch)

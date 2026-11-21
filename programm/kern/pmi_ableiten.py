@@ -54,6 +54,18 @@ def bezugsreferenz(text, stelle):
 SIMULTANHINWEIS = re.compile(r"SIM REQT(?: ([1-9][0-9]*))?")
 
 
+KOPLANARHINWEIS = re.compile(rf"(?P<anzahl>[1-9][0-9]*) (?i:COPLANAR SURFACES)(?: (?P<simultan>{SIMULTANHINWEIS.pattern}))?")
+
+
+def simultantext(text):
+    """Den Gruppenhinweis allein oder nach einer vollstaendigen koplanaren Flaechenangabe lesen."""
+    text = " ".join(text.split())
+    if SIMULTANHINWEIS.fullmatch(text):
+        return text
+    m = KOPLANARHINWEIS.fullmatch(text)
+    return (m["simultan"] or "") if m else ""
+
+
 def geltungshinweis(text):
     """Vollstaendige, unterstuetzte Rahmenzusaetze mit vereinheitlichten Wortabstaenden."""
     text = " ".join(text.split())

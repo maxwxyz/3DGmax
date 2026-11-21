@@ -1721,6 +1721,9 @@ selection. Confirming the set compares its mapped STEP IDs with the connected mo
 A group checked before all sheets were opened needs another review. Duplicate mappings, missing
 assignments, conflicting printed numbers and unverified datum systems leave membership open.
 The CSV reports each selected sheet region, the mapped and expected source IDs and the group finding.
+A model description combining a coplanar-surface count and “SIM REQT” still requires explicit STEP
+partners before group membership can be confirmed. In a composite caption, layout on one or two
+lines preserves both the count check and the row-specific group review.
 
 On FTC-07 drawing sheet 3 the reader uses the positions of native PDF text to rectify two
 oblique composite frames. Both rows must have a single spanning symbol cell and legible printed

@@ -1,13 +1,12 @@
 """Freistehende grafische Hinweise unter zweizeiligen STEP-Toleranzrahmen."""
 
-import re
-
 import numpy as np
 
 from . import pmi_strichschrift as schrift
 from .ansichten import KAMERA_TYPEN, _items, darstellungskontext
 from .merkmalstext import texte_am_aspekt
 from .p21 import DMIA_PH, Ref
+from .pmi_ableiten import KOPLANARHINWEIS
 from .pmi_rahmenzusatz import lies_hinweiszeile
 from .pmi_validierungstext import _validierungswerte
 from .pmi_verbundschrift import _verbundzellen, rahmenanker
@@ -105,8 +104,7 @@ def _zeilen(pfade, box):
             return ()
         texte.append(text)
     wortlaut = " ".join(texte)
-    muster = r"[1-9][0-9]* COPLANAR SURFACES(?: SIM REQT(?: [1-9][0-9]*)?)?"
-    return tuple(texte) if re.fullmatch(muster, wortlaut) else ()
+    return tuple(texte) if KOPLANARHINWEIS.fullmatch(wortlaut) else ()
 
 
 def freier_hinweis(datei, rahmen, grafiken, lage):

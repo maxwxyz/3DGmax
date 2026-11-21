@@ -85,6 +85,7 @@
 | Review simultaneous STEP membership independently for each row of a drawing composite frame, with sheet regions, source IDs and group findings in CSV | ✅ |
 | Compare the drawing caption with explicit semantic text on the shared STEP shape aspect and show the property, representation and annotation sources separately from the tolerance descriptions | ✅ |
 | Review a separate coplanar-surface caption from 3D lettering, including triangle-only annotations. Store the accepted caption on both tolerances with the original STEP graphics and saved view | ✅ |
+| Check simultaneous partners and coplanar target count separately when the two requirements share a caption in the drawing or model | ✅ |
 | Read additional lettering and further composite layouts | 💡 |
 | Semantic-only PMI: optional generated display in the view (see generated PMI stage 2) | ✅ |
 | Show tolerance zones as envelope surfaces (offsets ±t/2, ⌀ zone cylinder, exaggeration) | ✅ |

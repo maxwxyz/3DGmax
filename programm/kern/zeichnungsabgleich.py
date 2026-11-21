@@ -8,7 +8,7 @@ import math
 import re
 
 from . import pmi_ableiten
-from .pmi_ableiten import SIMULTANHINWEIS
+from .pmi_ableiten import SIMULTANHINWEIS, simultantext
 from .pmi import BEZUG, MASS, TOLERANZ, Pmi
 from .vergleich_pmi import simultangruppen
 
@@ -88,7 +88,8 @@ class Rahmenzeile:
         zeilen = self.rahmen.text.strip().splitlines()
         if len(zeilen) < 2:
             return ""
-        hinweise = [z.strip() for z in zeilen[2:] if z.strip().startswith("SIM")]
+        zusatz = (simultantext(z) or z.strip() for z in zeilen[2:])
+        hinweise = [z for z in zusatz if z.startswith("SIM")]
         return "\n".join([zeilen[self.rang], *hinweise])
 
 
@@ -197,7 +198,7 @@ def gruppenbefunde(angaben, modelle, faktor):
             grund = blattgrund
             if not grund and (ids & unklar or soll & unklar):
                 grund = "bezug"
-            if not grund and m and m.step_id not in erwartet and SIMULTANHINWEIS.fullmatch(modellhinweis(m)):
+            if not grund and m and m.step_id not in erwartet and simultantext(modellhinweis(m)):
                 grund = "modellpartner"
             status = "offen" if grund or not m else "gleich" if soll == ids and len(ids) == len(zeilen) else "geaendert"
             ergebnis[a] = Gruppenbefund(status, ids, soll, grund)
@@ -336,7 +337,7 @@ def wertunterschiede(p, modell, gruppe=None):
 
 
 def gruppe_zu_pruefen(p, modell):
-    return bool(modell.simultan_mit or modell.simultan_offen or SIMULTANHINWEIS.fullmatch(p.beschreibung))
+    return bool(modell.simultan_mit or modell.simultan_offen or simultantext(p.beschreibung) or simultantext(modellhinweis(modell)))
 
 
 def wertebefund(p, modell, gruppe=None):

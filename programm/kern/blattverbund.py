@@ -7,7 +7,7 @@ from functools import cached_property
 from .koplanare_ziele import Koplanarbefund, pruefe_koplanar, zielanzahl
 from .merkmalstext import toleranzziel, texte_am_aspekt
 from .pmi import TOLERANZ
-from .pmi_ableiten import SIMULTANHINWEIS
+from .pmi_ableiten import SIMULTANHINWEIS, simultantext
 from .zeichnungsabgleich import lese_angabe, modellhinweis, unterschiede
 
 
@@ -108,10 +108,10 @@ def pruefe_rahmen(angabe, faktor, index, gruppen=None):
     flaechen = ("offen" if not oben.flaechen or not unten.flaechen else
                 "gleich" if oben.flaechen == unten.flaechen else "geaendert")
     wortlaut = "gleich" if all(modellhinweis(m) == zusatz for m in (oben, unten)) else "geaendert"
-    gedruckt = any(SIMULTANHINWEIS.fullmatch(z.strip()) for z in angabe.text.splitlines()[2:])
+    gedruckt = any(simultantext(z) for z in angabe.text.splitlines()[2:])
     gruppenstatus = []
     for m, befund in zip((oben, unten), gruppen or (None, None), strict=True):
-        benoetigt = gedruckt or m.simultan_mit or m.simultan_offen or SIMULTANHINWEIS.fullmatch(modellhinweis(m))
+        benoetigt = gedruckt or m.simultan_mit or m.simultan_offen or simultantext(modellhinweis(m))
         gruppenstatus.append(befund.status if befund else "offen" if benoetigt else "")
     koplanar = index.koplanar(angabe.text, oben, unten)
     weitere_zeilen = [z.strip() for z in angabe.text.splitlines()[2:] if z.strip() and not SIMULTANHINWEIS.fullmatch(z.strip())]

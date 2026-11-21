@@ -1,7 +1,8 @@
 """Gedruckte Anzahl koplanarer Zielflaechen am nominalen B-Rep pruefen."""
 
 from dataclasses import dataclass
-import re
+
+from .pmi_ableiten import KOPLANARHINWEIS
 
 
 @dataclass(frozen=True)
@@ -19,13 +20,10 @@ class Koplanarbefund:
         return "offen"
 
 
-_KOPLANAR = re.compile(r"([1-9][0-9]{0,3})\s+COPLANAR\s+SURFACES", re.I)
-
-
 def zielanzahl(text):
-    treffer = [m for z in text.splitlines()[2:]
-               if (m := _KOPLANAR.fullmatch(z.strip()))]
-    return int(treffer[0][1]) if len(treffer) == 1 else None
+    treffer = [m["anzahl"] for z in text.splitlines()[2:]
+               if (m := KOPLANARHINWEIS.fullmatch(" ".join(z.split())))]
+    return int(treffer[0]) if len(treffer) == 1 and len(treffer[0]) <= 4 else None
 
 
 def _getrennt(flaechen, tol):

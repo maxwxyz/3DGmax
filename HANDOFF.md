@@ -2,6 +2,22 @@
 
 ## Current state, 2026-11-21
 
+### Compare a combined coplanar and simultaneous caption
+
+- Checked PLAN §§8.4 and 8.35 against docs/Roadmap.md. A composite caption with a surface count
+  and SIM REQT retains both meanings when STEP stores the description on one line. Group review
+  now reports missing explicit model partners for either row, including when the reviewer marked
+  it as independent on the sheet. Split and single-line drawing captions preserve the face-count
+  check and numbered group suggestions. An arbitrary sentence containing SIM REQT does not
+  establish a group caption.
+- Checked numbered and unnumbered variants with FTC-07 nominal faces, contradictory wording,
+  pending memberships and the existing saved-view conversion. 21 focused and 56 affected tests passed.
+- Next graphical reference: MBD_B contains #14143 and the detached #16374. Its text is “4 COPLANAR”
+  followed by “SURFACES”, with no simultaneous requirement. Both rows of profile tolerance and
+  all caption letters already read individually. The source caption starts 0.414 row heights
+  inside the first value cell; the previous matching window stops at 0.35. Test this layout,
+  competing notes and the graphical-only exports without adding a group. QIF remains last.
+
 ### Review detached 3D lettering with its composite frame
 
 - Checked PLAN §§8.4 and 8.35 against docs/Roadmap.md. FTC-07 annotation #16461 now supplies
