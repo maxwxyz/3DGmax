@@ -69,6 +69,29 @@ def _hoehen(netz, punkte):
     return hoehen
 
 
+def _messband(r, ringe, z, aussenradius):
+    """Breitestes zusammenhaengendes Zahnband vor dem verrundeten Uebergang zum Innenbund."""
+    kopf, fuss = np.percentile(ringe, (97, 3), axis=1)
+    mitte = (kopf + fuss) / 2
+    phase = np.fft.rfft(ringe, axis=1)[:, z]
+    for start in range(min(len(r) // 3, len(r) - 4) + 1):
+        radien = r[start:]
+        m, b = np.polyfit(radien, mitte[start:], 1)
+        hub = float((kopf-fuss)[start + len(radien)//2])
+        if abs(m)*np.ptp(radien) < max(.12*hub, .025*aussenradius):
+            continue
+        if max(abs(mitte[start:] - (m*radien + b))) > .12*hub:
+            continue
+        if start:
+            # Auch in der aeusseren Haelfte steigen Kopf und Fuss zum selben Kegelende.
+            h = start + len(radien)//2
+            if min(np.sign(m)*(kopf[-1]-kopf[h]), np.sign(m)*(fuss[-1]-fuss[h])) < .05*hub:
+                continue
+        if max(abs(np.angle(phase[start+1:]/phase[start:-1]))) <= .5:
+            return (float(radien[0]), float(radien[-1])), hub, float(np.degrees(np.arctan(abs(m))))
+    return None
+
+
 def erkenne(netz, teil, punkt, achse):
     from itertools import groupby
     from .verzahnung import _zahn_harmonische
@@ -92,16 +115,7 @@ def erkenne(netz, teil, punkt, achse):
             ids = list(gruppe)
             if not z or len(ids) < 4:
                 continue
-            r, ringe = radien[ids], profil[ids]
-            kopf, fuss = np.percentile(ringe, (97, 3), axis=1)
-            mitte = (kopf+fuss)/2
-            m, b = np.polyfit(r, mitte, 1)
-            hub = float((kopf-fuss)[len(ids)//2])
-            if abs(m)*np.ptp(r) < max(.12*hub, .025*netz.r_max) or max(abs(mitte-(m*r+b))) > .12*hub:
-                continue
-            h = np.fft.rfft(ringe, axis=1)[:, z]
-            if max(abs(np.angle(h[1:]/h[:-1]))) > .5:
-                continue
-            return Stirnzahnband(teil, z, punkt.copy(), sinn*achse, (float(r[0]), float(r[-1])),
-                                 hub, float(np.degrees(np.arctan(abs(m)))))
+            messung = _messband(radien[ids], profil[ids], z, netz.r_max)
+            if messung:
+                return Stirnzahnband(teil, z, punkt.copy(), sinn*achse, *messung)
     return None

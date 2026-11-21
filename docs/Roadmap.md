@@ -273,7 +273,7 @@
 | Bevel-pair dimensions from confirmed tooth-band ends: outer/mean transverse module, cone distance, face width, width ratio and shared width (STEP and STL controls) | ✅ |
 | Spherical-backed differential bevel gears in STEP and STL. Tooth count and cone angles use intact tooth sections, including short spherical backs. The gear data sheet reports the back radius and, for a crowned pin bore, its curvature radius and diameter at the extremum. Gear pairs and differentials are recognised in assemblies | ✅ |
 | Bevel gears: tooth hand on an individual gear and mean spiral angle on the pitch cone of a compatible pair, tested with STEP and STL | ✅ |
-| Face-toothed bevel gear candidates from repeated axial relief on concentric circles, with tooth count, radial span and measured inclination. Adaptive CAD mass integration for periodic spline surfaces | ✅ |
+| Face-toothed bevel gear candidates from repeated axial relief on concentric circles, with tooth count, radial span and measured inclination. Verified on a pinion with a raised inner collar and a flat-clutch control. Adaptive CAD mass integration for periodic spline surfaces | ✅ |
 | Export tree selection through File or right-click: STEP geometry with names, installed positions, hierarchy and face colours, or STL for CAD and meshes | ✅ |
 | Differential bevel pinions with a rear shoulder and a collared thrust washer: independent tooth-band, counterbore and bore-crown measurements, including a two-part STEP fixture | ✅ |
 | Machine-element preliminary sizing with editable inputs, gear forces, shaft stresses and reactions, bushing pressure, basic bearing life, and friction/interference fits. Nominal shaft or bushing AP242 export with PMI | ✅ |

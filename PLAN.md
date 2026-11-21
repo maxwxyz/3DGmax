@@ -1457,7 +1457,10 @@ tools (the user names MASTA as an example of a tool that needs these inputs), an
   coherent axial relief on concentric circles, count repetitions and measure radial extent and
   inclination. A generic face-serrated geometry can be ambiguous, so the result is a bevel gear
   candidate and supplies no pitch cone or manufacturing data. Symmetry-inconsistent principal
-  moments on periodic spline surfaces trigger adaptive mass integration.
+  moments on periodic spline surfaces trigger adaptive mass integration. An inner collar
+  blending into the toes can distort the cone fit. Up to the inner third of the sampled
+  band may be trimmed if the remaining tip and root still slope together toward the
+  same cone end. A flat dog clutch with the same collar is a negative control.
 - The tree can export selected occurrences and groups in installed positions via its context menu
   and File › Export. STEP geometry retains the selected structure, names and face colours. STL
   handles imported mesh parts and tessellated CAD. This also permits isolating a failed recognition

@@ -2,6 +2,29 @@
 
 ## Current state, 2026-11-21
 
+### Recognise a face-toothed pinion blending into an inner collar
+
+- Checked PLAN §8.27 and docs/Roadmap.md. Raising the inner edge of the nine-tooth
+  reconstruction by 3 or 4 mm with a rounded transition toward the teeth reproduced
+  another missed recognition. The whole radial band no longer followed a cone.
+  The fit now tries consecutive inner cutoffs, keeping at least two thirds of the
+  periodic band and four measurement circles. For a shortened band, tip and root
+  must continue sloping in the same direction across its outer half.
+- A repositioned mesh and a selected B-spline solid loaded from STEP both returned
+  nine teeth. A smooth blank and flat dog clutches with and without the same 4 mm
+  collar did not receive this classification. The tree extract reopened as a
+  nine-tooth candidate, with radii 10.10–15.70 mm and measured inclination 25.71°.
+  These are measurements of the reconstruction. Only screenshots of the original
+  pinion are available, so the original topology remains unverified.
+- Rechecked File › Export and the tree context menu with multiple occurrences,
+  assembly placement, colour and mesh export. Thirteen affected tests passed, plus
+  thirteen gear and export tests on native Cocoa. The signed Apple Silicon app at
+  the normal local path `dist/3DGmax.app` passed its self-test and rendered the
+  exported pinion. Its ZIP and `Ausgleichsrad-mit-Bund.step` are in
+  `dist/main-ausgleichsrad/`. The previous October build is retained there.
+- The graphical PMI review and scoped comparison cases below remain next in §8.4.
+  QIF remains the final item.
+
 ### Distinguish graphical datum letters on NIST CTC-02 and CTC-03
 
 - Checked PLAN §8.4 and docs/Roadmap.md. Three CTC-03 position controls read B/B/C
