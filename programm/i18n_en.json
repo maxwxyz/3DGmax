@@ -1,4 +1,7 @@
 {
+"Begrenzter Profilbereich": "Profile extent",
+"{} (Kante #{})": "{} (edge #{})",
+"Die Bereichsgrenzen passen nicht zu den gewählten Flächen.": "The boundary edges do not match the selected faces.",
 "Auswahl": "Selection",
 "Auswahl als STEP oder STL exportieren …": "Export selection as STEP or STL …",
 "Axiale Höhenprofile auf Messkreisen": "Axial height profiles on measurement circles",

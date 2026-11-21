@@ -364,7 +364,22 @@ def _schreibe_toleranz(a: _Anhang, p, aspekt=None) -> str | None:
         gruppen = [b.modifikatoren, *b.element_modifikatoren.values()]
         if any(m not in BEZUG_MODS.values() for gruppe in gruppen for m in gruppe):
             return tr("Bezugsmodifikator nicht schreibbar")
-    sa = a.aspekt(p.flaechen) if aspekt is None else aspekt
+    if p.bereichsgrenzen:
+        from .pmi_zwischenbereich import begrenzter_verband
+        grenzen = p.bereichsgrenzen
+        fl = {a.flaeche_zu_step.get(i) for i in p.flaechen}
+        if (aspekt is not None or len(grenzen) != 2 or
+                not all(isinstance(g, (tuple, list)) and len(g) == 2 and isinstance(g[1], int)
+                        and isinstance(g[0], str) and re.fullmatch("[A-Z]", g[0]) for g in grenzen)
+                or grenzen[0][0] == grenzen[1][0] or not begrenzter_verband(a.datei, fl, [g[1] for g in grenzen])):
+            return tr("Die Bereichsgrenzen passen nicht zu den gewählten Flächen.")
+        sa = a.aspekt(p.flaechen, "BETWEEN_SHAPE_ASPECT")
+        for (name, kante), rolle in zip(grenzen, ("start feature", "end feature")):
+            grenze = a.neu(f"SHAPE_ASPECT('{name}','',#{a.pds},.T.)")
+            a.neu(f"GEOMETRIC_ITEM_SPECIFIC_USAGE('','',#{grenze},#{a.darst},#{kante})")
+            a.neu(f"SHAPE_ASPECT_RELATIONSHIP('{rolle}','',#{sa},#{grenze})")
+    else:
+        sa = a.aspekt(p.flaechen) if aspekt is None else aspekt
     if sa is None:
         return tr("Flächen ohne Entsprechung in der Datei")
     betrag = a.mass(p.wert)

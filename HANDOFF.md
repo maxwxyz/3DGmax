@@ -2,6 +2,34 @@
 
 ## Current state, 2026-11-21
 
+### Convert a graphical surface profile bounded by two named edges
+
+- Checked PLAN §8.4 and docs/Roadmap.md. CTC-01 AP203 #3422 contains a 1.25 mm
+  surface-profile frame against A/B/C. Its caption A ↔ B uses two independent lettered
+  leaders in the same saved view. Their arrowheads touch original edges #2023 and #2025.
+  Those are exterior edges of the connected faces #553 and #554. The same letters A and B
+  in the datum compartments still refer to the actual datum features.
+- Confirming the three datums and then the profile in the review dialog writes a
+  BETWEEN_SHAPE_ASPECT with explicit start and end feature relationships. Reimport
+  preserved the value, ordered datums, edges, faces and saved view. The original curves
+  and, separately, the triangle coordinates and indices for all three callouts matched.
+  OCCT recognized the typed STEP entity and reported the same legacy style diagnostics
+  as for the input. Missing or displaced end markers, a shared interior edge, a disconnected
+  selection and an unreadable scope caption all prevent the scoped proposal.
+- The final affected test run passed all 362 cases. All three profile tests passed
+  separately with native Cocoa windows. The signed package passed its built-in STEP
+  self-test and the distribution ZIP passed its integrity check.
+- Rechecked the user’s selection workflow. The available nine-tooth differential pinion
+  example was recognized through the gear command both before structure-tree STEP export
+  and after reopening the extracted part. All ten gear and selection-export tests passed.
+  The user’s original part is still represented only by the supplied screenshots.
+- Local macOS package and triangle-only before/after examples are in
+  `dist/main-pmi-profilbereich/`. The extent is verified on whole faces with an explicit
+  writing plane. Next §8.4 case: review a bounded profile without stored writing axes.
+  Check both the orientation of the lettering and the detached round leader mark before
+  offering geometry. Scope comparisons across revisions with renumbered edges, and
+  extents that need trimmed subfaces, are also open. QIF stays last.
+
 ### Review diameter limits attached to a generic STEP dimension
 
 - Checked PLAN §8.4 and docs/Roadmap.md. Original CTC-01 AP203 callout #3413 is named

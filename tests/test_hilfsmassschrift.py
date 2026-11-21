@@ -13,7 +13,7 @@ from programm.ui.lader import lade_alles
 from tests.conftest import pfad
 
 
-def _fuellgrafik(g, konturen=((4,), (5,), (8, 6, 7), (9,), (10,), (11,))):
+def _fuellgrafik(g, konturen=((4,), (5,), (8, 6, 7), (9,), (10,), (11,)), striche=range(4)):
     from OCC.Core.BRepBuilderAPI import BRepBuilderAPI_MakeFace, BRepBuilderAPI_MakePolygon
     from OCC.Core.BRepMesh import BRepMesh_IncrementalMesh
     from OCC.Core.gp import gp_Pnt
@@ -27,8 +27,8 @@ def _fuellgrafik(g, konturen=((4,), (5,), (8, 6, 7), (9,), (10,), (11,))):
         return polygon.Wire()
 
     netze = []
-    for linie in g.linien[:4]:
-        a, b = linie
+    for i in striche:
+        a, b = g.linien[i]
         quer = np.cross(g.ebene[3], b-a) * (.07 / np.linalg.norm(b-a))
         netze.append((np.array([a-quer, b-quer, b+quer, a+quer]), [[0, 1, 2], [0, 2, 3]]))
     for index, *loecher in konturen:
@@ -54,18 +54,22 @@ def _als_dreiecke(text, g, klammer=True, toleriert=False):
 
 
 def _mit_fuellsatz(text, netze, callout, stil, name):
-    text = step_ap242.aus_ap203(text, p21.lese_text(text))
+    datei = p21.lese_text(text)
+    if datei.schema != step_ap242.SCHEMA:
+        text = step_ap242.aus_ap203(text, datei)
+    punktliste = max(90001, max(datei.entities)+1)
+    netz, gruppe, vorkommen = range(punktliste+1, punktliste+4)
     punkte, dreiecke = [], []
     for p, t in netze:
         dreiecke.extend(np.asarray(t) + len(punkte) + 1)
         punkte.extend(p)
     coords = ",".join("(" + ",".join(f"{x:.10f}" for x in v) + ")" for v in punkte)
     fans = ",".join("(%d,%d,%d)" % tuple(v) for v in dreiecke)
-    neu = (f"#90001=COORDINATES_LIST('',{len(punkte)},({coords}));\n"
-           f"#90002=COMPLEX_TRIANGULATED_SURFACE_SET('',#90001,{len(punkte)},((0.,0.,1.)),(),(),({fans}));\n"
-           "#90003=TESSELLATED_GEOMETRIC_SET('',(#90002));\n"
-           f"#90004=TESSELLATED_ANNOTATION_OCCURRENCE('',(#{stil}),#90003);\n")
-    text, n = re.subn(rf"#{callout}\s*=[^;]+;", f"#{callout}=DRAUGHTING_CALLOUT('{name}',(#90004));", text)
+    neu = (f"#{punktliste}=COORDINATES_LIST('',{len(punkte)},({coords}));\n"
+           f"#{netz}=COMPLEX_TRIANGULATED_SURFACE_SET('',#{punktliste},{len(punkte)},((0.,0.,1.)),(),(),({fans}));\n"
+           f"#{gruppe}=TESSELLATED_GEOMETRIC_SET('',(#{netz}));\n"
+           f"#{vorkommen}=TESSELLATED_ANNOTATION_OCCURRENCE('',(#{stil}),#{gruppe});\n")
+    text, n = re.subn(rf"#{callout}\s*=[^;]+;", f"#{callout}=DRAUGHTING_CALLOUT('{name}',(#{vorkommen}));", text)
     assert n == 1
     pos = text.rindex("ENDSEC;")
     return text[:pos] + neu + text[pos:]

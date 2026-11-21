@@ -30,15 +30,16 @@ def _ebenenitems(e):
 
 
 def _mitglieder(datei, ansichten):
+    """Direkte Ansichtsmitglieder und Elemente auf Zeichenebenen; Aufrufer kennen die Grafik-IDs."""
     for i in ansichten:
         for r in _items(datei, datei.get(i)):
             e = datei.get(r) if isinstance(r, Ref) else None
-            if e and e.is_a("DRAUGHTING_CALLOUT"):
-                yield e.id
-            elif e and e.is_a("ANNOTATION_PLANE"):
+            if e and e.is_a("ANNOTATION_PLANE"):
                 for s in _ebenenitems(e):
                     if isinstance(s, Ref):
                         yield s.id
+            elif e:
+                yield e.id
 
 
 def _in_ebene(g, ebene):

@@ -34,6 +34,7 @@ class SemantikDialog(QtWidgets.QDialog):
     def __init__(self, vorschlag, auswahl, zeigen, parent=None, *, position=0, anzahl=0, step=True, geometriewert=None):
         super().__init__(parent)
         self.v, self.auswahl, self.zeigen = vorschlag, auswahl, zeigen
+        self.bereichspruefung = None
         self.geometriewert = geometriewert
         self.flaechen = set(vorschlag.flaechen)
         self.projektionsflaechen = list(vorschlag.projektionsflaechen)
@@ -60,6 +61,9 @@ class SemantikDialog(QtWidgets.QDialog):
             zusatz.setTextFormat(QtCore.Qt.TextFormat.PlainText)
             zusatz.setWordWrap(True)
             lay.addRow(tr("Geltungshinweis für beide Zeilen"), zusatz)
+        if vorschlag.bereichsgrenzen:
+            grenzen = " ↔ ".join(tr("{} (Kante #{})").format(name, k) for name, k in vorschlag.bereichsgrenzen)
+            lay.addRow(tr("Begrenzter Profilbereich"), QtWidgets.QLabel(grenzen))
         validierung = getattr(vorschlag, "validierungstexte", ())
         if validierung:
             herkunft = (tr("Mehrere STEP-Validierungstexte sind dieser Grafik zugeordnet. Werte an der Grafik prüfen.")
@@ -260,6 +264,8 @@ class SemantikDialog(QtWidgets.QDialog):
         art = self.art.currentData()
         if not self.flaechen:
             return tr("Bitte Flächen wählen")
+        if self.bereichspruefung and art == TOLERANZ and not self.bereichspruefung(self.flaechen):
+            return tr("Die Bereichsgrenzen passen nicht zu den gewählten Flächen.")
         if self.flaechen & self.projektionsflaechen_oben:
             return tr("Eine eigene Austrittsfläche für die Projektion wählen")
         if self.typ.currentIndex() < 0:
@@ -406,6 +412,8 @@ def semantisch_machen(fenster, auswahl=None):
                 v.flaechen = set()
                 if v.nennwert_aus_geometrie:
                     v.nennwert = None
+            from ..kern.pmi_zwischenbereich import ergaenze
+            ergaenze(v, erg.grafik[p.step_id], erg.modell, erg.grafik)
             v.projektionsflaechen = [i for i in v.projektionsflaechen if 0 <= i < limit]
             paar = pmi_reparieren.verbundvorschlaege(v, erg.grafik[p.step_id], erg.modell, erg.grafik)
             if paar:
@@ -414,9 +422,16 @@ def semantisch_machen(fenster, auswahl=None):
             v = folge
         if hinweis := getattr(v, "freier_hinweis", None):
             fenster.ansicht.zeige_pmi({p.step_id, hinweis[0]})
+        if grenzgrafiken := getattr(v, "grenzgrafiken", None):
+            fenster.ansicht.zeige_pmi({p.step_id, *grenzgrafiken})
         d = SemantikDialog(v, flaechen, fenster.ansicht.hebe_flaechen, fenster, position=k+1,
                            anzahl=0 if einzeln else len(liste), step=erg.pfad.lower().endswith(ENDUNGEN_STEP + ENDUNGEN_STEPZ),
                            geometriewert=lambda typ, indices: pmi_reparieren.geometrie_nennmass(typ, indices, erg.modell))
+        if v.bereichsgrenzen:
+            from ..kern.pmi_zwischenbereich import begrenzter_verband
+            kanten = [kante for _, kante in v.bereichsgrenzen]
+            d.bereichspruefung = lambda indices: begrenzter_verband(
+                erg.modell.datei, {erg.modell.flaeche_zu_step.get(i) for i in indices}, kanten)
         if folge is not None:
             if erste is not None:
                 d.projektionsflaechen_oben = set(erste.projektionsflaechen)

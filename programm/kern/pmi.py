@@ -122,6 +122,7 @@ class Pmi:
     simultan_offen: list[int] = field(default_factory=list)  # Verknuepfte Partner mit ungepruefter Bezugsbasis
 
     mittenbezug: int | None = None  # Bezugsflaeche beim Abstand zur Mittelebene eines Wandpaares
+    bereichsgrenzen: list = field(default_factory=list)  # [Kennbuchstabe, STEP-Kante] fuer Start und Ende
 
     # --- Darstellung ---
 
@@ -175,7 +176,10 @@ class Pmi:
         teile.append(wert)
         for b in sorted(self.bezuege, key=lambda b: b.stelle):
             teile.append(b.text())
-        return " | ".join(teile)
+        rahmen = " | ".join(teile)
+        if self.bereichsgrenzen:
+            rahmen += " · " + " ↔ ".join(name or f"#{kante}" for name, kante in self.bereichsgrenzen)
+        return rahmen
 
     def merkmal(self) -> str:
         """Merkmalsschluessel (deutsch, Anzeige ueber tr()) nach der Norm des Modells; unbekannte Typen unveraendert."""

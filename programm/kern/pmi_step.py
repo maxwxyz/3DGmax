@@ -287,6 +287,9 @@ def _lies_rahmen(modell: StepModell, e: Entity, zonen: dict[int, list[Entity]]) 
     if isinstance(aspekt, Ref):
         p.flaechen = flaechen_von_aspekt(datei, modell, aspekt.id)
         ziel = datei.get(aspekt)
+        if ziel and ziel.is_a("BETWEEN_SHAPE_ASPECT"):
+            from .pmi_zwischenbereich import lies_grenzen
+            p.bereichsgrenzen = lies_grenzen(datei, ziel.id)
         if ziel is not None and ziel.is_a("PRODUCT_DEFINITION_SHAPE"):
             p.ganzes_teil = True  # Toleranz fuer das ganze Teil (z. B. Flaechenprofil "All Over")
         elif not p.flaechen:  # Toleranz an Kanten, Punkten oder Konstruktionsgeometrie
