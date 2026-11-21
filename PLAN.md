@@ -1399,6 +1399,10 @@ test opens two windows and closes one without affecting the other.
 ### 8.27 Part analysis: gears and splines from existing files (requested 2026-10-27, later)
 Goal: read the gear data of existing models (STEP B-rep, also meshes) as input for gear design and system analysis
 tools (the user names MASTA as an example of a tool that needs these inputs), and check them against the PMI.
+- Implemented spherical-backed bevel gears. The detector checks whether a spherical back clips
+  the tips at the large end, then measures taper and tooth direction on complete tooth sections.
+  A curved back alone cannot establish a planar tooth-band end. The same section check works on
+  STEP solids and meshes. The differential and gear-train outputs consume the measured profiles.
 - Recognition scope and result selection (implemented): picking a component or one of its faces
   scopes wheel recognition to the selected component occurrences. An empty selection includes all
   physical components, including hidden ones. The gearbox command uses the visible components
@@ -2017,11 +2021,32 @@ calculations are product references. Implement and validate each calculation ind
    where the model supports them. Recalculate dependent checks when loads, materials or dimensions
    change. QIF extensions follow this work.
 
+### 8.39 Reverse engineering of drives, engines, axles and suspension kinematics (planned)
+
+Start from a STEP assembly or mesh. Recover components, joints and axes in their installed positions.
+A user can confirm or correct each proposed connection and supply missing operating conditions.
+Store the source occurrence, geometry and confidence of each finding. Pass confirmed parameters
+to the machine-element design workspace (§8.38).
+
+| System | Planned recognition and output |
+| --- | --- |
+| Gearboxes and axle drives | Build on §§8.27–8.27a. Trace the mechanical path through input, intermediate shafts, final drive, differential carrier and half-shafts. Show each stage ratio and the cumulative ratio from the chosen input to each constrained output. Report the remaining degrees of freedom for an open differential or planetary train. |
+| Electric drive machines and integrated electric axles | Identify rotor, stator, air gap, shaft seats and visible slots or poles. Connect the rotor to reduction stages and half-shafts. Require evidence or user input for winding connections, excitation, materials and operating data before estimating electromagnetic performance. |
+| Engines and motor mechanisms | Identify crankshaft, crank throws, connecting rods, pistons and cylinder axes where modelled. Reconstruct stroke, crank angles and displacement from measured dimensions, then plot piston travel against crank angle. Combustion and torque curves require additional operating data. |
+| Chassis and suspension | Identify wheel carriers, links, control arms, tie rods and spring/damper attachments. Fit joint centres and hardpoints in a vehicle coordinate system. Compare candidate layouts and let the user fix ambiguous axes or constraints. |
+| Mechanism kinematics | Combine revolute, prismatic and spherical joints into a mechanism, identify free and overconstrained motion, then sweep a user-selected input. Show joint travel, wheel paths, camber and toe over bump and steering where the assembly constrains them. |
+
+Verify in increments. First recover a known reduction and differential from a synthetic axle assembly,
+including the straight-running case and a case with unequal output speeds. Then check a motor/reduction
+assembly, a slider-crank with known stroke and a suspension with reference hardpoints and motion curves.
+For each, compare reconstructed axes, dimensions and motion against the reference and repeat after
+rigidly repositioning the assembly. Include incomplete and coarse-mesh cases with explicitly unresolved outputs.
+
 ### 8.37 QIF extensions (last in the implementation order)
 
 Finish the tolerance and gear analyses first. Schedule all outstanding QIF work after the other
-planned items, including drawing comparison (§8.35), reconstruction (§8.36) and machine-element
-design (§8.38). For QIF Plans, export a measurement plan with its characteristics
+planned items, including drawing comparison (§8.35), reconstruction (§8.36), machine-element
+design (§8.38) and system reverse engineering (§8.39). For QIF Plans, export a measurement plan with its characteristics
 and validate it against the QIF 3 schemas. Existing QIF import and measurement-result assessment
 remain supported.
 

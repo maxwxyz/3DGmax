@@ -46,6 +46,90 @@ def test_kegelprofil(rate):
     assert daten["spiralwinkel_mitte_grad"] == (None if rate else 0.)
 
 
+@pytest.mark.parametrize("format_", ["step", "stl"])
+def test_kegelrad_mit_kalotte_und_bohrung(tmp_path, format_):
+    from OCC.Core.BRepAlgoAPI import BRepAlgoAPI_Common, BRepAlgoAPI_Cut
+    from OCC.Core.BRepMesh import BRepMesh_IncrementalMesh
+    from OCC.Core.BRepPrimAPI import BRepPrimAPI_MakeCylinder, BRepPrimAPI_MakeSphere
+    from OCC.Core.gp import gp_Ax1, gp_Ax2, gp_Dir, gp_Trsf, gp_Vec
+    from OCC.Core.StlAPI import StlAPI_Writer
+    from OCC.Core.TopLoc import TopLoc_Location
+    from programm.kern.laden import lade_modell
+    from werkzeuge.zahnrad import speichere
+
+    rad = _referenz(14, 9., 1.7, 14., 0., kegel=.55, tiefenzuwachs=.06, lagen=2)
+    kugel = BRepPrimAPI_MakeSphere(gp_Pnt(0, 0, -3), 15.).Shape()
+    bohrung = BRepPrimAPI_MakeCylinder(gp_Ax2(gp_Pnt(0, 0, -1), gp_Dir(0, 0, 1)), 3., 18.).Shape()
+    form = BRepAlgoAPI_Cut(BRepAlgoAPI_Common(rad, kugel).Shape(), bohrung).Shape()
+    lage = gp_Trsf()
+    lage.SetRotation(gp_Ax1(gp_Pnt(), gp_Dir(1, 2, 0)), 2.4)
+    lage.SetTranslationPart(gp_Vec(12., -30., 5.))
+    form = form.Moved(TopLoc_Location(lage))
+    pfad = str(tmp_path / f"Ausgleichsrad.{format_}")
+    if format_ == "step":
+        speichere(form, pfad, "Ausgleichsrad")
+    else:
+        BRepMesh_IncrementalMesh(form, .005, False, .06)
+        assert StlAPI_Writer().Write(form, pfad)
+    v, = vz.erkenne_koerper(lade_modell(pfad).form, "Rad", steckprofile=True, sonderprofile=True)
+    assert v.art == "konisch" and v.z == 14 and v.bandgrenzen is None
+    assert v.zahnrichtung == "gerade"
+    daten = v.als_dict()
+    assert daten["kopfkegelwinkel"] == pytest.approx(math.degrees(math.atan(.55)), abs=.3)
+    assert daten["fusskegelwinkel"] == pytest.approx(math.degrees(math.atan(.49)), abs=.3)
+
+
+def test_kalottenraeder_im_differential_und_uebersetzungen(tmp_path):
+    from OCC.Core.BRep import BRep_Builder
+    from OCC.Core.BRepAlgoAPI import BRepAlgoAPI_Common
+    from OCC.Core.BRepPrimAPI import BRepPrimAPI_MakeSphere
+    from OCC.Core.gp import gp_Ax1, gp_Dir, gp_Trsf, gp_Vec
+    from OCC.Core.TopLoc import TopLoc_Location
+    from OCC.Core.TopoDS import TopoDS_Compound
+    from programm.kern import verzahnung_daten as vd
+    from programm.kern.laden import lade_modell
+    from werkzeuge.zahnrad import speichere
+
+    bb, baugruppe = BRep_Builder(), TopoDS_Compound()
+    bb.MakeCompound(baugruppe)
+    for z, steigung, winkel in ((14, .5, math.pi / 2), (28, 2., 0.), (28, 2., math.pi)):
+        delta = math.atan(steigung)
+        start = 18 * math.cos(delta)
+        rad = _referenz(z, 18 * math.sin(delta) + 1, 2., 30., 0., kegel=steigung, lagen=2)
+        kugel = BRepPrimAPI_MakeSphere(gp_Pnt(0, 0, -start), 27.).Shape()
+        t = gp_Trsf()
+        t.SetRotation(gp_Ax1(gp_Pnt(), gp_Dir(0, 1, 0)), winkel)
+        t.SetTranslationPart(gp_Vec(start * math.sin(winkel), 0., start * math.cos(winkel)))
+        bb.Add(baugruppe, BRepAlgoAPI_Common(rad, kugel).Shape().Moved(TopLoc_Location(t)))
+    pfad = speichere(baugruppe, str(tmp_path / "differential.step"), "Differential")
+    liste = list(vz.erkenne_koerper(lade_modell(pfad).form, "Rad", steckprofile=True, sonderprofile=True))
+    assert [v.z for v in liste] == [14, 28, 28]
+    daten = vd.datenblatt(liste, [])
+    assert [p["z2_durch_z1"] for p in daten["kegelpaar_kandidaten"]] == [2., 2.]
+    diff, = daten["differentialgruppen"]
+    variante, = diff["varianten"]
+    assert variante["seitenraeder"] == [1, 2] and variante["koeffizienten"] == [1, 1, -2]
+    zug, = vd.datenblatt(liste[:2], [], 0)["kraftfluss"]["zuege"]
+    stufe, = zug["stufen"]
+    assert stufe["u"] == 2. and zug["wellenwerte"]["1"]["i"] == 2.
+
+
+def test_kalottenpruefung_verwirft_geraden_konus_und_zylinder():
+    from types import SimpleNamespace
+    from programm.kern.verzahnung_sonder import _kalottenbereich
+
+    s = np.arange(1., 13.)
+    winkel = np.arange(120) * 2 * np.pi / 120
+    kreis = np.column_stack([np.cos(winkel), np.sin(winkel)])
+    ecken = np.array([[0., 0., 0.], [0., 0., 20.]])
+    for steigung in (0., -.3):
+        kontur = lambda x: 15. + (x - 8.) * steigung
+        r = np.column_stack([np.minimum(8 + .8*s, [kontur(x) for x in s]), 6 + .5*s])
+        netz = SimpleNamespace(a=ecken, b=ecken, c=ecken, konturen=lambda x: [kreis * kontur(x)])
+        assert _kalottenbereich(netz, s, r) is None
+        assert _kalottenbereich(netz, s, np.column_stack([kontur(s), kontur(s)])) is None
+
+
 @pytest.mark.parametrize("z,hand", [(2, 1), (3, -1), (1, 1), (4, -1)])
 def test_schraubprofil(z, hand):
     rate = hand * 2 * math.pi / 14.

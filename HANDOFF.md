@@ -2,6 +2,28 @@
 
 ## Current state, 2026-11-21
 
+### Spherical-backed bevel gears and drivetrain reverse engineering
+
+- Reproduced the reported classification failure with a generated 14-tooth bevel gear, a
+  spherical back and a through bore. The back clips the tooth tips at the large end while
+  the roots still follow their cone. Recognition now measures the intact section after
+  checking the clipped tips and circular sections against a coaxial sphere. A straight
+  chamfer or cylindrical shoulder does not provide that evidence.
+- Rotated and translated STEP and STL controls recover 14 teeth and the expected tip and root
+  cone angles. In a generated STEP assembly, two 28-tooth side gears and a 14-tooth pinion
+  yield two 2:1 mesh candidates and the symmetric differential speed equation. When inspected
+  as an isolated two-wheel stage the stage and overall ratios are both 2. The user's original
+  model was unavailable for verification. The local main build in dist/main-kalottendifferenzial
+  includes the signed Apple Silicon app, ZIP and generated 14/28/28-tooth STEP example.
+  Opening the example in the packaged app rendered it successfully. The gear-train command
+  selected its power-flow tab and its JSON contained both gear pairs and the speed equation.
+  With carrier speed 80 rpm, specifying one side at 80 or 60 rpm gave the other side at 80 or
+  100 rpm respectively. All 33 affected tests and the overlapping 46-case drivetrain run passed.
+  The preceding selection changes passed the full 1,013-test headless run and eight native
+  display tests. The subsequent thumbnail regression also passed.
+- Checked PLAN §§8.27, 8.38 and 8.39 against docs/Roadmap.md. The planned system scope covers
+  final drives, electric machines, engines, suspension and mechanism motion. QIF stays last.
+
 ### Reuse the model projection in saved views
 
 - Checked the large-STEP work in PLAN §6 against the saved-view entry in docs/Roadmap.md.

@@ -211,6 +211,52 @@ def _stirnende(netz, ort, richtung, z, kopf, fuss, breite):
     return np.diff(winkel, append=winkel[0] + 2 * math.pi).max() <= 1.15 * (2 * math.pi / z)
 
 
+def _kugelbogen(orte, radien, tol):
+    """r² + x² ist auf einer achszentrierten Kugel linear in x. Der Bogen muss messbar gekruemmt sein."""
+    u, rho = np.asarray(orte) - orte[0], np.asarray(radien)
+    m, b = np.polyfit(u, rho**2 + u**2, 1)
+    soll = b + m * u - u**2
+    if np.any(soll <= 0) or np.max(abs(np.sqrt(soll) - rho)) > tol:
+        return False
+    gerade = np.polyval(np.polyfit(u, rho, 1), u)
+    return np.max(abs(rho - gerade)) > 2 * tol and np.all(np.diff(rho) < 0)
+
+
+def _kalottenbereich(netz, s, r):
+    """Volle Zahnquerschnitte vor einer Kugelkalotte. Kreisquerschnitte hinter den Zaehnen belegen die Kugel."""
+    sinn = 1 if r[-1, 1] > r[0, 1] else -1
+    x, radien = sinn * s[::sinn], r[::sinn]
+    x0 = x[0]
+    m, start = np.polyfit(x[:5] - x0, radien[:5], 1)
+    hoehe = np.mean(radien[:5, 0] - radien[:5, 1])
+    tol = .05 * hoehe
+    if min(m) <= 0 or min(m) * (x[4] - x0) < .25 * hoehe:
+        return None
+    fehler = radien - (start + np.outer(x - x0, m))
+    if np.abs(fehler[:, 1]).max() > tol or np.any(fehler[:, 0] > tol):
+        return None
+    beschnitten = np.flatnonzero(fehler[:, 0] < -tol)
+    if not len(beschnitten) or beschnitten[0] < 5 or np.any(np.diff(beschnitten) != 1) or beschnitten[-1] != len(x) - 1:
+        return None
+    ende = max((sinn * p[:, 2]).max() for p in (netz.a, netz.b, netz.c))
+    orte, aussen = list(x[beschnitten]), list(radien[beschnitten, 0])
+    for pos in np.linspace(x[-1], ende, 12)[1:-1]:
+        konturen = netz.konturen(sinn * pos)
+        if not konturen:
+            break
+        ring = max((np.hypot(*q.T) for q in konturen), key=np.max)
+        if np.ptp(ring) > tol:
+            if len(orte) == len(beschnitten):
+                continue  # Noch im Auslauf der Zaehne.
+            break
+        orte.append(pos)
+        aussen.append(ring.max())
+        if len(orte) >= len(beschnitten) + 4 and _kugelbogen(orte, aussen, tol):
+            n = int(beschnitten[0])
+            return slice(0, n) if sinn > 0 else slice(-n, None)
+    return None
+
+
 def zahnkoerper(teil, punkt, richtung, netz, schnitte, band):
     """Kopf- und Fussradius ueber den zusammenhaengenden Zahnbereich auf Taille oder Konizitaet pruefen."""
     if len(schnitte) < 5:
@@ -220,6 +266,9 @@ def zahnkoerper(teil, punkt, richtung, netz, schnitte, band):
     if np.diff(s).max() > 1.6 * np.median(np.diff(s)) or any(t[2] != z or t[4] for _, t in schnitte):
         return None
     r = np.array([[t[1].max(), t[1].min()] for _, t in schnitte])
+    bereich = _kalottenbereich(netz, s, r) if len(s) >= 6 else None
+    if bereich is not None:
+        schnitte, s, r = schnitte[bereich], s[bereich], r[bereich]
     h = (r[:, 0] - r[:, 1]).mean()
     # Echte Luecken reichen unter die Sehne benachbarter Zahnkoepfe; ein konischer Vielkant faellt weg.
     if np.any(r[:, 1] >= r[:, 0] * math.cos(math.pi / z) - .01 * h):
@@ -238,7 +287,7 @@ def zahnkoerper(teil, punkt, richtung, netz, schnitte, band):
     weg = _phasenweg(phasen, z)
     unten, oben = band
     grenzen = None
-    if all(_stirnende(netz, ort, vorzeichen, z, *(start + (ort - s[0]) * steigung), oben - unten)
+    if bereich is None and all(_stirnende(netz, ort, vorzeichen, z, *(start + (ort - s[0]) * steigung), oben - unten)
            for ort, vorzeichen in ((unten, 1), (oben, -1))):
         grenzen = ((s[-1] - oben, s[-1] - unten) if steigung[0] < 0 else
                    (unten - s[0], oben - s[0]))

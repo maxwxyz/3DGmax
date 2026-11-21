@@ -68,7 +68,7 @@ class VerzahnungFenster(QtWidgets.QDialog):
         self.bezugsrad = None
         self.basis = basis  # Pfad ohne Endung fuer die Exporte
         lay = QtWidgets.QVBoxLayout(self)
-        hilfe = (tr("Radpaare, Stufen und Kraftfluss aus der Einbaulage der sichtbaren Bauteile.") if getriebe else
+        hilfe = (tr("Der Reiter Kraftfluss zeigt die Übersetzung jeder erkannten Stufe und die Gesamtübersetzungen ab der gewählten Bezugswelle.") if getriebe else
                  tr("Die Datenblätter zeigen Zahnform und Abmessungen. Eine Radspalte wählt das Bauteil im Modell."))
         beschreibung = QtWidgets.QLabel(f"{umfang}\n{hilfe}" if umfang else hilfe)
         beschreibung.setWordWrap(True)

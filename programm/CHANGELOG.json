@@ -1,6 +1,7 @@
 {
  "unreleased": {
   "de": [
+   "Die Verzahnungserkennung erkennt Kegelräder mit kugeliger Rückseite auch in Netzmodellen. Kopf- und Fußkegel werden am vollständigen Zahnprofil gemessen. Im Kraftfluss sind Stufen- und Gesamtübersetzungen zur Bezugswelle erläutert.",
    "Vorschaubilder gespeicherter Ansichten mit derselben Kameraausrichtung teilen sich die Kantenberechnung. Jede Ansicht zeigt weiterhin ihre eigenen PMI.",
    "Ein Klick im Strukturbaum wählt das Bauteil auch im 3D-Modell. Die Verzahnungserkennung untersucht die gewählten Bauteile oder die Teile der gewählten Flächen, ohne Auswahl alle Bauteile. Rad- und Paarspalten markieren die zugehörigen Bauteile. Die Getriebeanalyse zeigt Stufen und Kraftfluss der sichtbaren Bauteile.",
    "Die 3D-Ansicht baut gefüllte grafische PMI und die Dreiecke der Vergleichsfarbkarte blockweise auf. Dadurch erscheint ein großes STEP mit vielen gefüllten Beschriftungen schneller.",
@@ -208,6 +209,7 @@
    "Grafische PMI aus unterstützten AP203e2-Kurvenmodellen lassen sich als STEP AP242 Edition 3 ausgeben. Facettierte STEP-Modelle behalten ihre Flächenbezüge. Gepackte STEP-Dateien lassen sich als unkomprimierte STEP-Kopie speichern."
   ],
   "en": [
+   "Gear recognition now handles spherical-backed bevel gears in solids and meshes. It measures the tip and root cones on full tooth sections. The power flow view explains stage and overall ratios relative to the reference shaft.",
    "Saved-view thumbnails with the same camera orientation share the calculation of visible edges. Each view still shows its own PMI.",
    "Click a component in the structure tree to select it in 3D. Gear recognition analyzes selected components or the owners of selected faces, and all components when the selection is empty. Wheel and pair columns select the corresponding components. Gearbox analysis shows the stages and power flow of visible components.",
    "The 3D view builds filled graphical PMI and coloured comparison mesh triangles in batches. Large STEP files with many filled annotations reach first display sooner.",

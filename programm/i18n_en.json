@@ -1732,7 +1732,7 @@
 "Getriebe analysieren – Kraftfluss …": "Analyse gearbox – power flow …",
 "Getriebe – Stufen und Kraftfluss": "Gearbox – stages and power flow",
 "Verzahnung – Raddaten": "Gear tooth geometry – gear data",
-"Radpaare, Stufen und Kraftfluss aus der Einbaulage der sichtbaren Bauteile.": "Gear pairs, stages and power flow from the installed positions of the visible components.",
+"Der Reiter Kraftfluss zeigt die Übersetzung jeder erkannten Stufe und die Gesamtübersetzungen ab der gewählten Bezugswelle.": "The Power flow tab shows the ratio of each detected stage and the overall ratios from the selected reference shaft.",
 "Die Datenblätter zeigen Zahnform und Abmessungen. Eine Radspalte wählt das Bauteil im Modell.": "The data sheets show tooth form and dimensions. Select a gear column to select its component in the model.",
 "Sichtbare Bauteile: {}": "Visible components: {}",
 "Ausgewählte Bauteile: {}": "Selected components: {}",

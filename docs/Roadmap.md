@@ -263,6 +263,7 @@
 | Shaft/hub splines and serrations, measured clearance and centring indications, conditional design findings – PLAN §8.27a | ✅ |
 | Conical tooth geometry, tip/root cone angles and conditional pitch angles of a compatible pair, checked against known control geometry | ✅ |
 | Bevel-pair dimensions from confirmed tooth-band ends: outer/mean transverse module, cone distance, face width, width ratio and shared width (STEP and STL controls) | ✅ |
+| Spherical-backed differential bevel gears in STEP and STL. Tooth count and cone angles use intact tooth sections, with gear pair and differential recognition in assemblies | ✅ |
 | Bevel gears: tooth hand on an individual gear and mean spiral angle on the pitch cone of a compatible pair, tested with STEP and STL | ✅ |
 | Bevel gears: manufacturing-system identification from independent evidence | ⬜ |
 | Screw profiles: number of starts, lead, axial pitch and hand | ✅ |
@@ -354,4 +355,5 @@
 | Feature | Status |
 |---|---|
 | Modular machine-element sizing, verification and parametric geometry with PMI: cylindrical gears, planetary stages, bevel gears, splines, shafts, bearings, interference fits, couplings, bolted joints, springs, belts and chains – PLAN §8.38 | ⬜ |
+| Assembly reverse engineering for gearboxes and axle drives, electric machines and e-axles, engines, suspension hardpoints and mechanism kinematics, with motion and ratio checks against reference assemblies – PLAN §8.39 | ⬜ |
 | Remaining QIF extensions, including QIF Plans measurement-plan export and schema validation – PLAN §8.37 | ⬜ |
