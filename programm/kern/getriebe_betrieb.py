@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from fractions import Fraction
 from itertools import combinations
 
@@ -10,6 +10,7 @@ import numpy as np
 
 from ..i18n import tr
 from . import verzahnung_daten as vd
+from .kronenradpaar import Kronenradpaar, kronenradpaare
 from .verzahnung_sonder import Schneckenpaar, kegelpaar_kandidaten, schneckenpaar_kandidaten
 
 
@@ -190,7 +191,8 @@ class Betriebsmodell:
         if schneckenpaare is None:
             schneckenpaare = schneckenpaar_kandidaten(liste)
         self.schneckenstufen = []
-        for p in [*paare, *kegel, *schneckenpaare]:
+        self.kronenstufen = []
+        for p in [*paare, *kegel, *schneckenpaare, *kronenradpaare(liste)]:
             i, j = idx[id(p.a)], idx[id(p.b)]
             wa, wb = self.welle[i], self.welle[j]
             if wa == wb:
@@ -202,6 +204,11 @@ class Betriebsmodell:
                     continue
                 sinn = -1 if p.a.innen or p.b.innen else 1
                 sinn *= 1 if ea @ eb > 0 else -1
+            elif isinstance(p, Kronenradpaar):
+                sinn = -p.drehsinn(ea, eb)
+                self.kronenstufen.append({"kronenrad": i, "ritzel": j, "wellen": [wa, wb],
+                                          "n_ritzel_durch_n_kronenrad": -sinn*p.a.z/p.b.z,
+                                          "bedingung": "eingriff_vorausgesetzt"})
             elif isinstance(p, Schneckenpaar):
                 drehsinn = p.drehsinn(ea, eb)
                 sinn = -drehsinn
@@ -257,7 +264,8 @@ class Betriebsmodell:
             beschreibung.append({"art": s.art, "raeder": list(s.zentralraeder), "umlaufraeder": list(s.umlauf),
                                  "wellen": wellen, "koeffizienten": matrix[0] if len(matrix) == 1 else matrix})
         schnecken = [s for s in self.schneckenstufen if umlauf.isdisjoint(s["wellen"])]
-        return Betrieb(self, namen, achsen, sorted(ports), zeilen, beschreibung, schnecken)
+        kronen = [s for s in self.kronenstufen if umlauf.isdisjoint(s["wellen"])]
+        return Betrieb(self, namen, achsen, sorted(ports), zeilen, beschreibung, schnecken, kronen)
 
 
 @dataclass
@@ -269,6 +277,7 @@ class Betrieb:
     zeilen: list
     saetze: list
     schneckenstufen: list
+    kronenstufen: list = field(default_factory=list)
 
     def koppelbar(self, i, j):
         teile = self.modell.liste
@@ -296,4 +305,5 @@ class Betrieb:
                 "drehzahl": werte[i], "status": "widerspruch" if i in konflikt else
                 "frei" if werte[i] is None else "bestimmt"} for i in self.ports],
                 "kupplungen": list(kupplungen), "einheit": "1/min", "schneckenstufen": self.schneckenstufen,
+                "kronenradstufen": self.kronenstufen,
                 "differentialsperren": momentdaten(faelle, kupplungen, konflikt, werte, self)}

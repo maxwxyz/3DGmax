@@ -95,10 +95,10 @@ class BetriebspunktSeite(QtWidgets.QWidget):
         self.betrieb = self.modell.betrieb(self.achswahl())
         b = self.betrieb
         self.sperren.setze_betrieb(b)
-        self.schneckenhinweis.setVisible(bool(b.schneckenstufen))
-        if b.schneckenstufen:
-            self.schneckenhinweis.setText("\n".join(f"{titel} · {wert}" for titel, wert in self._schneckenzeilen()))
-            self.schneckenhinweis.setToolTip(self.grenze())
+        hinweise = self._schneckenzeilen() + self._kronenzeilen()
+        self.schneckenhinweis.setVisible(bool(hinweise))
+        self.schneckenhinweis.setText("\n".join(f"{titel} · {wert}" for titel, wert in hinweise))
+        self.schneckenhinweis.setToolTip(self.grenze() if b.schneckenstufen else "")
         # Nach einer Achswahl koennen Stege andere Indizes haben. Eingaben gehoeren zur konkreten Welle.
         self.schluessel = {i: ("welle", i) for i in b.ports}
         self.rollen = {i: {} for i in b.ports}
@@ -106,6 +106,10 @@ class BetriebspunktSeite(QtWidgets.QWidget):
             schnecke, rad = stufe["wellen"]
             self.rollen[schnecke]["schnecke"] = tr("Schnecke")
             self.rollen[rad]["schneckenrad"] = tr("Schneckenrad")
+        for stufe in b.kronenstufen:
+            krone, ritzel = stufe["wellen"]
+            self.rollen[krone]["kronenrad"] = tr("Kronenrad")
+            self.rollen[ritzel]["ritzel"] = tr("Ritzel")
         for s in b.saetze:
             *zentral, steg = s["wellen"]
             if s["art"] == "ravigneaux":
@@ -208,6 +212,14 @@ class BetriebspunktSeite(QtWidgets.QWidget):
                            f"n{b + 1}/n{a + 1} = {stufe['n_rad_durch_n_schnecke']:+.9g}"))
         return zeilen
 
+    def _kronenzeilen(self):
+        zeilen = []
+        for stufe in self.betrieb.kronenstufen:
+            a, b = stufe["wellen"]
+            zeilen.append((tr("Mögliche Kronenradstufe"),
+                           f"n{b + 1}/n{a + 1} = {stufe['n_ritzel_durch_n_kronenrad']:+.5g}"))
+        return zeilen
+
     def achse(self, i):
         return self.betrieb.positive_achse(i) + 0.0
 
@@ -233,6 +245,7 @@ class BetriebspunktSeite(QtWidgets.QWidget):
     def bedingungen(self):
         zeilen = [(tr("Berechnungsumfang"), self.grenze())] if self.betrieb.schneckenstufen else []
         zeilen.extend(self._schneckenzeilen())
+        zeilen.extend(self._kronenzeilen())
         if self.trennbar:
             annahme = (tr("Getrennte Wellen mit einzeln gewählten Kopplungen") if self.wellentrennung.isChecked()
                        else tr("Koaxiale Räder auf gemeinsamer Welle"))

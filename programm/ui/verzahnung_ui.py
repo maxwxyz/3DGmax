@@ -13,6 +13,7 @@ from ..i18n import tr
 from ..kern import passverzahnung as pv
 from ..kern import verzahnung as vz
 from ..kern import verzahnung_daten as vd
+from ..kern.kronenradpaar import kronenradpaare
 from ..kern.verzahnung_sonder import Schneckenpaar, kegelpaar_kandidaten, schneckenpaar_kandidaten
 from .lader import Modellauftrag
 from .tabellen import spalten_anpassen
@@ -81,7 +82,7 @@ class VerzahnungFenster(QtWidgets.QDialog):
         self.liste = list(liste)
         self.raeder = [v for v in self.liste if isinstance(v, vz.Verzahnung)]
         self.steckpaare = pv.paare([v for v in self.liste if isinstance(v, pv.Steckprofil)])
-        self.sonderpaare = kegelpaar_kandidaten(self.liste) + schneckenpaar_kandidaten(self.liste)
+        self.sonderpaare = kegelpaar_kandidaten(self.liste) + schneckenpaar_kandidaten(self.liste) + kronenradpaare(self.liste)
         self.bezugsrad = None
         self.basis = basis  # Pfad ohne Endung fuer die Exporte
         lay = QtWidgets.QVBoxLayout(self)

@@ -3001,6 +3001,12 @@
 "Maßhilfslinien (Start und Ende, x/Breite, y/Höhe)": "Extension lines (start and end, x/width, y/height)",
 "Stückzahl in der Zeichnung {} · Auflagen im Modell {} · {}": "Quantity on drawing {} · Pads in model {} · {}",
 "Für dieses Hilfsmaß die von den Maßhilfslinien berührte Zylinderfläche wählen.": "Select the cylinder wall touched by the extension lines for this reference dimension.",
+"Kronenrad": "Crown gear",
+"Ritzel": "Pinion",
+"Mögliche Kronenradstufe": "Possible crown gear stage",
+"Übersetzung Ritzel → Kronenrad": "Pinion to crown gear ratio",
+"Gemeinsamer radialer Messbereich": "Overlapping sampled radii",
+"Zahnfuß und Zahnkopf ab Achspunkt": "Tooth root and tip heights from axis origin",
 "Für das wiederholte Dickenmaß die Grundfläche und alle bezeichneten Auflagen wählen.": "Select the base face and all indicated pads for the repeated thickness dimension.",
 "Bezugsstellen noch offen: {}": "Datum targets still awaiting review: {}"
 }

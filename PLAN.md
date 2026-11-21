@@ -1563,7 +1563,13 @@ tools (the user names MASTA as an example of a tool that needs these inputs), an
   on spur and bevel gears in STEP and STL. A crown gear candidate requires one-sided axial
   relief, a nearly planar root, stable tooth phase and tooth tips narrowing toward the
   outside. FreeCAD Gears models with 15 and 32 teeth were recovered as STEP and STL.
-  Meshing with a mating pinion and loaded contact analysis remain open.
+  For a straight external pinion on intersecting perpendicular axes, compare the
+  installed tooth bands and roll the measured transverse profile past the axial
+  crown profiles at nine positions over a tooth pitch. An accepted candidate
+  participates in stage and cumulative ratios and signed operating speeds.
+  The 32:15 test stage runs at 150 rpm for 320 rpm pinion input. A following
+  20:40 spur stage delivers 75 rpm in the opposite axial direction to the crown.
+  Loaded contact, backlash and strength calculations remain open.
 - The tree can export selected occurrences and groups in installed positions via its context menu
   and File › Export. STEP geometry retains the selected structure, names and face colours. STL
   handles imported mesh parts and tessellated CAD. This also permits isolating a failed recognition
@@ -1698,7 +1704,7 @@ tools (the user names MASTA as an example of a tool that needs these inputs), an
   wheels. Each disconnected train has its own reference shaft. The user can change the reference.
   An inconsistent cycle suppresses cumulative ratios. Planetary sets retain explicit fixed-member cases.
   Separate coaxial shafts and clutches can be geometrically indistinguishable from a rigid shaft.
-- The operating-point analysis links fixed-axis spur/helical stages, candidate external bevel pairs,
+- The operating-point analysis links fixed-axis spur/helical stages, candidate crown/pinion and external bevel pairs,
   simple planetary sets and symmetric open bevel differentials. A simple planetary set needs a sun,
   a coaxial ring and at least two common planets. Sun, ring and carrier remain independent ports.
   A stationary carrier gives star operation. With all three members moving, two independent speeds

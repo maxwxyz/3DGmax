@@ -2,6 +2,42 @@
 
 ## Current state, 2026-11-21
 
+### Identify an installed crown gear stage and its signed shaft speeds
+
+- Checked PLAN §§8.27, 8.27a and 8.38 against docs/Roadmap.md. For a recognised
+  crown, retain the measured axial profile of each tooth ring in model coordinates.
+  Check straight external pinions for intersecting perpendicular axes, engaged
+  face widths and compatible tip/root heights. Compare the measured pinion
+  section with the crown surface through nine coupled positions over a tooth
+  pitch. The stage remains a geometric candidate. The sampling tolerance
+  does not establish exact clearance, backlash, load capacity or a contact pattern.
+- The 32-tooth FreeCAD Gears crown and a separately generated 15-tooth involute
+  pinion produce a 32:15 stage from STEP and STL. Both calculations preserve
+  installed location and tooth phase. Reversing the radial side reverses the
+  signed speed about the reported positive shaft axis. With 320 rpm input,
+  the crown runs at 150 rpm. A 20:40 spur stage on its shaft gives −75 rpm
+  at the output. Also checked the independent 15-tooth crown with a 15-tooth
+  pinion. A single wheel, opposite back face, radial or axial gap, shaft offset,
+  parallel shafts and a half-pitch misalignment yield no stage. An OCCT solid
+  intersection independently checks the initial and half-pitch positions.
+- Tested component selection in the pair table and the operating point in CSV,
+  JSON and PDF through the Gearbox command. All 48 affected tests, 62 gearbox
+  regression cases and nine native Cocoa checks passed. The main test app is signed and
+  rendered the imported 32:15 assembly. Keep only `dist/3DGmax.app` in addition
+  to the two release archives.
+- Next in §8.38: bring nominal solid geometry to the existing straight spur-pair
+  sizing dialog. Its sizing function already returns 27 and 54 mm pitch diameters,
+  40.5 mm centre distance and ratio 2 for 18/36 teeth at module 1.5 mm. A local
+  experiment with the test generator recovered both tooth counts and the
+  centre distance and produced zero common volume at the indexed position.
+  Its polygonal flanks produce 543 and 1,083 faces. A local OCCT prototype
+  with interpolated involute flanks and circular tip/root arcs reduces that to
+  110 and 218 faces. Both solids are valid and the recovered modules are within
+  0.0003 mm of 1.5 mm. Implement the compact export, keep both components in their
+  assembled locations, and verify the pair plus the dimension targets after
+  STEP readback. Preserve existing saved designs and distinguish the nominal
+  root geometry from a generated cutter fillet. QIF stays last.
+
 ### Recover the CTC-03 reference diameter from tangent extension lines
 
 - Checked PLAN §8.4 and docs/Roadmap.md. AP203 #3625 prints “(1.5)” without

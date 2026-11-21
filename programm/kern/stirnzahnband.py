@@ -1,10 +1,19 @@
 """Stirnseitiges konisches oder ebenes Zahnband aus dem axialen Hoehenprofil konzentrischer Messkreise."""
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 
 import numpy as np
 
 from ..i18n import tr
+
+
+@dataclass
+class Kronenmessung:
+    radien: np.ndarray
+    richtungen: np.ndarray
+    hoehen: np.ndarray
+    fuss: float
+    kopf: float
 
 
 @dataclass
@@ -19,21 +28,29 @@ class Stirnzahnband:
     koerper: str | None = None
     koerper_id: object = None
     art: str = "kegelrad_stirnseitig"
+    kronenmessung: Kronenmessung | None = field(default=None, repr=False, compare=False)
 
     def als_dict(self):
-        return {"art": self.art, "teil": self.teil, "koerper": self.koerper, "anzahl": self.z,
+        daten = {"art": self.art, "teil": self.teil, "koerper": self.koerper, "anzahl": self.z,
                 "achse": {"punkt": self.punkt.tolist(), "richtung": self.richtung.tolist()},
                 "messradien_mm": list(self.radien), "axiale_zahnhoehe_mitte_mm": self.relief,
                 "neigung_mittelflaeche_grad": self.neigung, "einstufung": "kandidat"}
+        if self.kronenmessung:
+            daten.update(zahnfuss_axial_mm=self.kronenmessung.fuss, zahnkopf_axial_mm=self.kronenmessung.kopf)
+        return daten
 
     def zeilen(self):
         quelle = tr("Axiale Höhenprofile auf Messkreisen")
         art = tr("Kronenrad-Kandidat") if self.art == "kronenrad" else tr("Kegelrad-Kandidat mit stirnseitiger Verzahnung")
-        return [(tr("Art"), art, quelle),
+        zeilen = [(tr("Art"), art, quelle),
                 (tr("Zähnezahl z"), str(self.z), quelle),
                 (tr("Radialer Messbereich"), f"{self.radien[0]:.3f} – {self.radien[1]:.3f} mm", quelle),
                 (tr("Axiale Zahnhöhe am mittleren Messkreis"), f"{self.relief:.3f} mm", quelle),
                 (tr("Neigung der mittleren Zahnfläche zur Radialebene"), f"{self.neigung:.2f}°", quelle)]
+        if self.kronenmessung:
+            zeilen.append((tr("Zahnfuß und Zahnkopf ab Achspunkt"),
+                           f"{self.kronenmessung.fuss:.3f} / {self.kronenmessung.kopf:.3f} mm", quelle))
+        return zeilen
 
 
 def _hoehen(netz, punkte):
@@ -144,7 +161,13 @@ def erkenne(netz, teil, punkt, achse):
                 continue
             krone = _kronenband(radien[ids], profil[ids], z)
             if krone:
-                return Stirnzahnband(teil, z, punkt.copy(), sinn*achse, *krone, art="kronenrad")
+                from .verzahnung import _basis
+                richtungen = kreis @ np.array(_basis(achse))
+                hoehen = profil[ids]
+                fuss, kopf = np.median(np.percentile(hoehen, (3, 97), axis=1), axis=1)
+                messung = Kronenmessung(radien[ids], richtungen, hoehen, float(fuss), float(kopf))
+                return Stirnzahnband(teil, z, punkt.copy(), sinn*achse, *krone,
+                                     art="kronenrad", kronenmessung=messung)
             # Bisherige Messkreise fuer das konische Band. Der aeusserste Rundungsbereich entfaellt.
             ids = [i for i in ids if i % 2 == 0 and i <= 32]
             if len(ids) < 4:

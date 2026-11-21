@@ -25,6 +25,7 @@ import numpy as np
 
 from ..i18n import tr
 from .verzahnung import Paar, Verzahnung
+from .kronenradpaar import kronenradpaare
 
 NICHT = "nicht bestimmbar"
 KUGELN = (0.5, 0.6, 0.7, 0.8, 1.0, 1.25, 1.5, 1.75, 2.0, 2.5, 3.0, 3.5, 4.0, 4.5, 5.0, 5.5, 6.0, 7.0, 8.0, 9.0,
@@ -509,8 +510,9 @@ def _zugdaten(liste, paare, bezugsrad, achswahl):
     diff = _differentialgruppen(liste, paare, kegel)
     weitere, umlauf = _umlaufgruppen(diff, achswahl)
     schnecken = schneckenpaar_kandidaten(liste)
-    gruppen, zuege = _kraftfluesse(liste, [*paare, *kegel, *schnecken], mitglieder + weitere, bezugsrad, umlauf)
-    return gruppen, zuege, saetze, diff, kegel, schnecken, rv
+    kronen = kronenradpaare(liste)
+    gruppen, zuege = _kraftfluesse(liste, [*paare, *kegel, *schnecken, *kronen], mitglieder + weitere, bezugsrad, umlauf)
+    return gruppen, zuege, saetze, diff, kegel, schnecken, kronen, rv
 
 
 def _zuege(liste, paare, bezugsrad=None, achswahl=None):
@@ -598,7 +600,7 @@ def _differential_daten(liste, gruppen, achswahl):
 
 def getriebe_zeilen(liste, paare, bezugsrad=None, achswahl=None):
     """Kraftfluss und bedingte Betriebsarten bei gegebenen oder noch offenen Achsen."""
-    gruppen, zuege, saetze, diff, _, _, rv = _zugdaten(liste, paare, bezugsrad, achswahl)
+    gruppen, zuege, saetze, diff, _, _, _, rv = _zugdaten(liste, paare, bezugsrad, achswahl)
     raeder = [v for v in liste if isinstance(v, Verzahnung)]
     zeilen = []
     for nr, zug in enumerate(zuege, 1):
@@ -634,7 +636,7 @@ def datenblatt(liste: list, paare: list[Paar], bezugsrad=None, achswahl=None) ->
     """Alles fuer den JSON-Export (Werte als Zahlen, mm und Grad)."""
     from . import passverzahnung as pv
     from .verzahnung_sonder import Sonderprofil, Taillenrad
-    gruppen_alle, zuege, saetze, diff, kegel, schnecken, rv = _zugdaten(liste, paare, bezugsrad, achswahl)
+    gruppen_alle, zuege, saetze, diff, kegel, schnecken, kronen, rv = _zugdaten(liste, paare, bezugsrad, achswahl)
     differentiale = _differential_daten(liste, diff, achswahl)
     teile = [v.teil for v in liste]
     bezug = liste[bezugsrad] if bezugsrad is not None else None
@@ -675,6 +677,7 @@ def datenblatt(liste: list, paare: list[Paar], bezugsrad=None, achswahl=None) ->
             "zahnraeder": raeder,
             "steckprofile": [v.als_dict() for v in profile],
             "sonderprofile": [v.als_dict() for v in sonder],
+            "kronenradpaar_kandidaten": [p.als_dict() for p in kronen],
             "kegelpaar_kandidaten": [p.als_dict() for p in kegel],
             "schneckenpaar_kandidaten": [p.als_dict() for p in schnecken],
             "steckpaare": [p.als_dict() for p in pv.paare(profile)],
@@ -877,7 +880,7 @@ def als_csv(liste: list[Verzahnung], paare: list[Paar], bezugsrad=None, achswahl
         w.writerow([tr("Steckverbindung"), paar.welle.teil, paar.nabe.teil])
         w.writerows(paar.zeilen())
     from .verzahnung_sonder import kegelpaar_kandidaten, schneckenpaar_kandidaten
-    for paar in kegelpaar_kandidaten(liste) + schneckenpaar_kandidaten(liste):
+    for paar in kegelpaar_kandidaten(liste) + schneckenpaar_kandidaten(liste) + kronenradpaare(liste):
         w.writerow([])
         w.writerow([tr("Radpaar"), paar.a.teil, paar.b.teil])
         w.writerows(paar.zeilen())
