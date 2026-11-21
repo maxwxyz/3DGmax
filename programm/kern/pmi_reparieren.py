@@ -20,7 +20,7 @@ import re
 import numpy as np
 
 from .pmi import BEZUG, HINWEIS, MASS, TOLERANZ, Pmi
-from .pmi_ableiten import grenzlesart
+from .pmi_ableiten import LINEARMASS, grenzlesart
 
 # Name des Callouts -> (Art, Typ); die erste passende Regel gilt (Reihenfolge beachten: "surfacic profile" vor
 # "Position", "Total Runout" vor "Runout")
@@ -105,9 +105,13 @@ def schriftvorschlag(g, bekannt, modell=None, flaechen=()):
 
     if g.erzeugt:
         return "", {}
-    text = lies_schrift(g)
-    felder = aus_text([text], g.textfaktor) if text else None
     art, typ = bekannt or (None, "")
+    abstand = None
+    if modell and len(flaechen) == 2 and (not bekannt or typ in ("Size_Thickness", "Location_LinearDistance")):
+        abstand = geometrie_nennmass("Location_LinearDistance", flaechen, modell)
+    linearmass = abstand is not None and (not bekannt or g.ebene is None)
+    text = lies_schrift(g, linearmass=linearmass)
+    felder = aus_text([text], g.textfaktor) if text else None
     if not felder and text and (grenzen := grenzlesart(text, g.textfaktor, bekannt)):
         return text, {"art": MASS, "typ": grenzen["typ"]}
     if felder and felder["art"] == MASS and art == TOLERANZ and typ in TOL_SYMBOL:
@@ -117,10 +121,10 @@ def schriftvorschlag(g, bekannt, modell=None, flaechen=()):
     if felder["art"] == TOLERANZ and ("wert" not in felder or (typ and typ != felder["typ"])):
         return "", {}
     if felder["typ"] == "Location_LinearDistance":
-        if not bekannt and "Hilfsmass" in felder.get("modifikatoren", ()):
-            # Die Klammerzahl kann auch eine Positionsnummer sein. Nur belegte Massflaechen verwenden.
+        linear_gelesen = linearmass and LINEARMASS.fullmatch(text)
+        if not bekannt and ("Hilfsmass" in felder.get("modifikatoren", ()) or linear_gelesen):
+            # Eine isolierte Zahl kann eine Positionsnummer sein. Nur belegte Massflaechen verwenden.
             from .plausibilitaet import GEOMETRIE_TOLERANZ
-            abstand = geometrie_nennmass(felder["typ"], flaechen, modell) if modell and len(flaechen) == 2 else None
             if abstand is None or abs(abstand - felder["nennwert"]) > GEOMETRIE_TOLERANZ:
                 return text, {}
         elif art != MASS or typ in ("Size_Angular", "Location_Angular"):

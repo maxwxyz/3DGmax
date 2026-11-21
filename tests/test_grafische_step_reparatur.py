@@ -453,9 +453,9 @@ def test_suche_liest_grafische_schrift_erst_bei_bedarf(fenster, monkeypatch, app
 
     gelesen = []
     lies = pmi_strichschrift.lies_schrift
-    def mitzaehlen(g):
+    def mitzaehlen(g, **optionen):
         gelesen.append(g.callout_id)
-        return lies(g)
+        return lies(g, **optionen)
     monkeypatch.setattr(pmi_strichschrift, "lies_schrift", mitzaehlen)
     fenster.lade(pfad("nist_ctc_01_asme1_ap203.stp.gz"), warten=True)
     panel = fenster.pmi
@@ -527,7 +527,7 @@ def test_laufende_schrifterkennung_nach_modellwechsel(fenster, monkeypatch, app)
     from programm.kern import pmi_strichschrift
 
     gestartet, freigabe = threading.Event(), threading.Event()
-    def warte(g):
+    def warte(g, **optionen):
         gestartet.set()
         freigabe.wait(4)
         return "⌀123"

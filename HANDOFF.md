@@ -2,6 +2,26 @@
 
 ## Current state, 2026-11-21
 
+### Recover nominal and toleranced linear dimensions from graphical STEP
+
+- Checked PLAN §8.4 and docs/Roadmap.md. Removing the parentheses and writing plane from
+  CTC-01 AP203 callout #3418 produced a legible 85 mm nominal length with an empty OCR result.
+  Use the lettering between the two dimension and extension lines. For an anonymous number,
+  confirm the drawing unit and distance between the two explicitly linked planar faces.
+  A number alone, a missing extension line, conflicting spacing or an ambiguous 66/99
+  orientation do not supply a semantic proposal for an anonymous callout.
+- Review, export and reimport recovered 85 mm from contour lettering, independent
+  single-line digits and triangle-only lettering. A further pair of constructed inputs
+  preserved 85 ±1 mm in strokes and pure fill. Both STEP readers returned the nominal,
+  deviations and faces #568 and #572. The source polyline coordinates or triangle arrays,
+  original view membership and distinction from the auxiliary dimension (85) were checked.
+  All 72 affected tests and 11 native macOS checks passed. The signed app passed its
+  packaged self-test and the distributed example pair passed a separate geometry and PMI reimport.
+- Local Apple Silicon package and before/after STEP examples: `dist/main-pmi-linearmass/`.
+  Next §8.4 case: original CTC-01 AP203 callout #3413 reads “⌀34.8-35.2” from its curves.
+  Its generic “linear dimension” name currently suppresses the limit choice in the dialog.
+  Check the drawn diameter, target cylinder and both limits through STEP. QIF remains last.
+
 ### Rounded face teeth on a differential pinion and structure-tree export
 
 - The three user screenshots show nine broad teeth on the face of the pinion. The original

@@ -17,6 +17,7 @@ SYMBOL_ZU_TYP: dict[str, str] = {}
 for _typ, _sym in TOL_SYMBOL.items():
     SYMBOL_ZU_TYP.setdefault(_sym, _typ)
 _ZAHL = r"(?:\d+(?:[.,]\d+)?|[.,]\d+)"
+LINEARMASS = re.compile(rf"{_ZAHL}(?:±{_ZAHL})?")
 _MATERIAL = {"Ⓜ": "MaximumMaterialRequirement", "Ⓛ": "LeastMaterialRequirement"}
 _GLIED = r"[A-Z]{1,2}[ⓂⓁ]?"
 _RAHMENWERT = re.compile(rf"(?P<zone>S?⌀)?\s*(?P<wert>{_ZAHL})(?P<mods>(?:\s*[ⓂⓁⓉⒻ])*)"

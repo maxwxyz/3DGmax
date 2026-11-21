@@ -250,6 +250,12 @@ Throughout: tests (core, offscreen UI, stress test, on-screen test), `--selbstte
   such as (66) with a competing half-turn reading stays unresolved. Verified CTC-01's
   (85) as original AP203 curves and as solid AP242 glyphs. The STEP copy retains its
   auxiliary qualifier, both face references, original graphics and saved view.
+  An unsigned nominal length between two dimension and extension lines can also be read
+  without a writing plane. With two explicitly associated parallel planes the conversion checks
+  an anonymous value against their spacing in model units. Verified on 85 mm STEP variants
+  with contour lettering, independent single strokes and solid triangle glyphs. The reviewed
+  output keeps the nominal dimension, targets, original drawing and saved-view membership. Both
+  single strokes and pure fill also preserve a printed ±1 mm tolerance on the 85 mm dimension.
   A detached witness arc at a radial arrow tip can be separated from the printed dimension. The
   arc must fit a circle through the tip, with the shaft radial to the circle and both arrow flanks
   present. All twelve FTC-07 linear size callouts can now be transcribed from their strokes. The

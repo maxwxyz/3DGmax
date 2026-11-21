@@ -8,6 +8,8 @@ import numpy as np
 from PySide6 import QtCore, QtGui
 from scipy import ndimage
 
+from .pmi_ableiten import LINEARMASS
+
 _WINKELZAHL = r"(?:\d+(?:[.,]\d+)?|[.,]\d+)"
 _WINKELZEILE = re.compile(rf"{_WINKELZAHL}°(?:\s*±\s*{_WINKELZAHL}°?)?")
 _HALBDREHUNG = str.maketrans("69", "96")
@@ -134,6 +136,7 @@ _STRICHE = {
     "B": "08 00 40 61 63 44 04 / 44 65 67 48 08",
     "C": "61 50 20 01 07 18 48 67",
     "R": "08 00 40 61 63 44 04 / 34 68",
+    "±": "30 36 / 03 63 / 08 68",
     "⟂": "30 38 / 08 68",
     "⏥": "23 73 57 07 23",
 }
@@ -341,31 +344,53 @@ def _masszeile(mask):
     return breit if not normal or breit == normal else ""
 
 
-def _klammerzeile(labels, objekte):
+def _lineare_masszahl(maske, wort):
+    if not LINEARMASS.fullmatch(wort):
+        return ""
+    # Eine gedrehte offene Fuenf aehnelt einer Neun. Geschlossene Innenraeume pruefen.
+    for z, (l, r) in zip(wort, _gruppen(maske)):
+        zeichen = maske[:, l:r]
+        if z.isdecimal() and len(_gruppen(zeichen.T)) != 1:
+            return ""  # Mehrere uebereinander liegende Ziffern in einer Spalte.
+        if z in "0689":
+            innen = ndimage.binary_fill_holes(zeichen) & ~zeichen
+            gebiete, _ = ndimage.label(innen)
+            gross = np.bincount(gebiete.ravel())[1:] > .01 * zeichen.size
+            if gross.sum() < (2 if z == "8" else 1):
+                return ""
+    return wort
+
+
+def _zwischen_masslinien(labels, objekte, linear=False):
     """Schrift zwischen zwei grossen, abgesetzten Masslinien mitsamt Pfeilkopf lesen."""
-    if len(objekte) < 5:
+    if len(objekte) < (3 if linear else 5):
         return ""
     def groesse(box):
         return max(s.stop - s.start for s in box)
     reihe = sorted(enumerate(objekte, 1), key=lambda eintrag: groesse(eintrag[1]))
     schrift, linien = reihe[:-2], reihe[-2:]
-    if groesse(linien[0][1]) <= 3.5 * max(groesse(box) for _, box in schrift):
+    zeichenbreite = max(groesse(box) for _, box in schrift)
+    if groesse(linien[0][1]) <= 3.5 * zeichenbreite:
         return ""
     for nr, box in linien:
         maske = labels[box] == nr
         # Masslinie und Hilfslinie belegen je eine fast durchgehende Zeile bzw. Spalte.
-        if maske.mean() >= .12 or min(maske.mean(0).max(), maske.mean(1).max()) < .85:
+        if (maske.mean() >= .12 or min(maske.mean(0).max(), maske.mean(1).max()) < .85
+                or (linear and min(maske.shape) < 2 * zeichenbreite)):
             return ""
     bereich = tuple(slice(min(b[i].start for _, b in schrift), max(b[i].stop for _, b in schrift)) for i in (0, 1))
     for i, s in enumerate(bereich):
         links, rechts = sorted((b[i] for _, b in linien), key=lambda rand: rand.start)
         if links.stop <= s.start and s.stop <= rechts.start:
-            wort = _normale_zeile(labels[bereich] > 0)
+            maske = labels[bereich] > 0
+            wort = _normale_zeile(maske)
+            if linear:
+                return _lineare_masszahl(maske, wort)
             return wort if wort.startswith("(") and wort.endswith(")") else ""
     return ""
 
 
-def _freitext(pfade):
+def _freitext(pfade, linearmass=False):
     punkte = np.vstack([p for p, _ in pfade])
     spannweite = np.ptp(punkte, axis=0)
     if min(spannweite) <= 0:
@@ -395,7 +420,9 @@ def _freitext(pfade):
         return ""
     wort = _masszeile(mask)
     if not wort:
-        wort = _klammerzeile(labels, objekte)
+        wort = _zwischen_masslinien(labels, objekte)
+    if linearmass and (not wort or LINEARMASS.fullmatch(wort)):
+        wort = _zwischen_masslinien(labels, objekte, linear=True)
     if not wort and not any(voll for _, voll in pfade):
         from .pmi_hinweislinie import winkelbeschriftung
         schrift = winkelbeschriftung(pfade, box, skala, labels, objekte)
@@ -549,20 +576,22 @@ def _schriftachsen(pfade):
     return min(np.count_nonzero(dx < .035*dy), np.count_nonzero(dy < .035*dx)) >= anzahl
 
 
-def _mass_ohne_ebene(g, richtungen, ergebnis=""):
+def _mass_ohne_ebene(g, richtungen, ergebnis="", *, linearmass=False):
     from .pmi_ableiten import aus_text, grenzlesart
     for ebene in richtungen:
         pfade = _pfade(g, ebene)
         for spiegelung in ((1, 1), (1, -1), (-1, 1), (-1, -1)):
-            wort = _freitext([(p * spiegelung, voll) for p, voll in pfade])
+            wort = _freitext([(p * spiegelung, voll) for p, voll in pfade], linearmass)
             geklammert = wort.startswith("(") and wort.endswith(")")
-            if not (geklammert or re.match(r"^(?:[1-9][0-9]*X)?[⌀R][0-9.]", wort) or _WINKELZEILE.match(wort)):
+            linear = linearmass and LINEARMASS.fullmatch(wort)
+            if not (linear or geklammert or re.match(r"^(?:[1-9][0-9]*X)?[⌀R][0-9.]", wort) or _WINKELZEILE.match(wort)):
                 continue
             daten = aus_text([wort], g.textfaktor) or grenzlesart(wort, g.textfaktor)
-            if daten and (daten["typ"] in ("Size_Diameter", "Size_Radius", "Size_Angular")
+            if daten and (linear or daten["typ"] in ("Size_Diameter", "Size_Radius", "Size_Angular")
                           or "Hilfsmass" in daten.get("modifikatoren", ())):
                 # Bei (66) kann die Gegenrichtung auch (99) sein, selbst wenn die zweite Lesung scheitert.
-                if (m := re.fullmatch(r"\(([01689]+)\)", wort)) and m[1][::-1].translate(_HALBDREHUNG) != m[1]:
+                ziffern = wort[1:-1] if geklammert else wort
+                if re.fullmatch(r"[01689]+", ziffern) and ziffern[::-1].translate(_HALBDREHUNG) != ziffern:
                     return None
                 if ergebnis and ergebnis != wort:
                     return None
@@ -583,7 +612,7 @@ def _weitere_massrichtungen(g, ebenen):
                 yield ebene
 
 
-def _ohne_schreibebene(g):
+def _ohne_schreibebene(g, linearmass=False):
     """Alle lesbaren Orientierungen muessen denselben Rahmen bzw. dasselbe Mass ergeben."""
     from .pmi_ableiten import aus_text
 
@@ -614,10 +643,10 @@ def _ohne_schreibebene(g):
                 ergebnis = text
     if ergebnis or hat_rahmen or not ebenen:
         return ergebnis
-    mass = _mass_ohne_ebene(g, massrichtungen)
-    if mass is None or (mass and "°" not in mass and not mass.startswith("(")):
+    mass = _mass_ohne_ebene(g, massrichtungen, linearmass=linearmass)
+    if mass is None or (mass and re.match(r"^(?:[1-9][0-9]*X)?[⌀R]", mass)):
         return mass or ""
-    return _mass_ohne_ebene(g, _weitere_massrichtungen(g, ebenen), mass) or ""
+    return _mass_ohne_ebene(g, _weitere_massrichtungen(g, ebenen), mass, linearmass=linearmass) or ""
 
 
 def _lesbar(g):
@@ -645,12 +674,12 @@ def lies_rahmensymbol(g, fachzahl):
     return ""
 
 
-def lies_schrift(g):
+def lies_schrift(g, *, linearmass=False):
     """Vollstaendig erkannte Rahmen oder einzelne Schriftzeile, sonst leer."""
     if not _lesbar(g):
         return ""
     if g.ebene is None:
-        return _ohne_schreibebene(g)
+        return _ohne_schreibebene(g, linearmass)
     pfade = _pfade(g, g.ebene)
     if not pfade:
         return ""
@@ -660,4 +689,4 @@ def lies_schrift(g):
     masken = [_fachmaske(pfade, b) for b in zellen]
     if any(m is not None and m.any() for m in masken):
         return _rahmentext(pfade, zellen, masken)
-    return _freitext(pfade)
+    return _freitext(pfade, linearmass)
