@@ -133,6 +133,39 @@ def test_programmende_wartet_auf_native_rechnung(app, fenster, monkeypatch):
     assert not isValid(lader)
 
 
+def test_vorschau_gleiche_blickrichtung_mit_eigenen_pmi(app, monkeypatch):
+    from types import SimpleNamespace
+    from OCC.Core.BRepPrimAPI import BRepPrimAPI_MakeBox
+    from programm.kern import zeichnung
+    from programm.kern.ansichten import Ansicht
+
+    ansichten = [Ansicht("A", 1), Ansicht("B", 2, oben=(1, 0, 0)), Ansicht("C", 3)]
+    grafik = SimpleNamespace(linien=[[(0, 0, 0), (2, 1, 0)]], dreiecke=[], platzhalter=[])
+    form = BRepPrimAPI_MakeBox(10, 9, 8).Shape()
+    lader = VorschauLader(form, ansichten, [[], [], [grafik]], {})
+    echt = zeichnung.projiziere
+    aufrufe = []
+
+    def zaehle(form, richtung, oben, **kwargs):
+        aufrufe.append((richtung, oben))
+        return echt(form, richtung, oben, **kwargs)
+
+    monkeypatch.setattr(zeichnung, "projiziere", zaehle)
+    bilder = {}
+    lader.fertig.connect(lambda i, svg: bilder.update({i: svg}))
+    lader.run()
+    assert len(aufrufe) == 2 and set(bilder) == {0, 1, 2}
+    for i, a in enumerate(ansichten):
+        z = echt(form, a.richtung, a.oben, a.name, verdeckt=False, abweichung=0.5, schnell=True)
+        zeichnung.pmi_hinzu(z, lader.grafik_je_ansicht[i], {}, a.richtung, a.oben)
+        assert bilder[i] == zeichnung.als_svg([z], a.name)
+    bilder.clear()
+    aufrufe.clear()
+    lader.fertig.connect(lambda *_: setattr(lader, "abgebrochen", True))
+    lader.run()
+    assert set(bilder) == {0} and len(aufrufe) == 1
+
+
 def test_fenster_schliessen_waehrend_ansichtenprojektion(app, fenster, monkeypatch):
     from tests.conftest import pfad
 

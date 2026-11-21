@@ -906,6 +906,9 @@ def test_verzahnung_im_fenster(fenster, tmp_path):
     d = f._verzahnung
     assert len(d.liste) == 1 and d.liste[0].z == 19 and abs(d.liste[0].mn - 2.5) < 0.005
     assert d.tabelle.columnCount() == 2 and d.tabelle.item(1, 0).text() == "19"
+    d.tabelle.selectColumn(0)
+    assert f.ansicht.auswahl_teile == [next(iter(f.erg.baum.blaetter())).nummer]
+    assert f.baum.gewaehlte_blaetter() == set(f.ansicht.auswahl_teile)
     j = json.load(open(d.speichere("json", str(tmp_path / "v.json")), encoding="utf-8"))
     assert j["zahnraeder"][0]["hand"] == "" and abs(j["zahnraeder"][0]["x"] - 0.1) < 0.02
     assert "19" in open(d.speichere("csv", str(tmp_path / "v.csv")), encoding="utf-8-sig").read()
@@ -919,10 +922,49 @@ def test_verzahnung_im_fenster(fenster, tmp_path):
     t.SetTranslation(gp_Vec(46.0, 0, 0))
     raeder = [vz.erkenne(zahnrad.zahnrad(19, 2.5, 12.0), "A"),
               vz.erkenne(zahnrad.zahnrad(18, 2.5, 12.0).Moved(TopLoc_Location(t)), "B")]
-    d = VerzahnungFenster(raeder, str(tmp_path / "x"), f)
+    alt = d
+    f.lade(pfad("baugruppe.stp"), warten=True)
+    alt.tabelle.clearSelection()
+    alt.tabelle.selectColumn(0)
+    assert not f.ansicht.auswahl3d
+    d = VerzahnungFenster(raeder, str(tmp_path / "x"), f, quellen={id(raeder[0]): 7, id(raeder[1]): 8})
+    teile = []
+    d.teile_gewaehlt.connect(teile.append)
+    d.paar_tabelle.selectColumn(0)
+    assert teile == [{7, 8}]
     assert len(d.paare) == 1 and d.paar_tabelle.columnCount() == 1
     assert json.load(open(d.speichere("json", str(tmp_path / "p.json")), encoding="utf-8"))["paare"][0]["a"] == "A"
     d.close()
+
+
+def test_verzahnung_auswahl_von_instanz_flaeche_und_baum(fenster, monkeypatch):
+    from OCC.Core.TopAbs import TopAbs_FACE
+    from OCC.Core.TopExp import TopExp_Explorer
+    from programm.kern import verzahnung as vz
+    f = fenster
+    f.lade(pfad("baugruppe.stp"), warten=True)
+    blaetter = [k for k in f.erg.baum.blaetter() if not k.hilfsgeometrie]
+    a, b = next((a, b) for i, a in enumerate(blaetter) for b in blaetter[i + 1:]
+                if a.form.IsPartner(b.form) and not a.form.IsSame(b.form))
+    monkeypatch.setattr(vz, "erkenne_koerper", lambda *args, **kwargs: ())
+    baum = f.baum.baum
+    baum.setCurrentItem(f.baum._knoten[a.nummer])
+    assert len(f.ansicht.auswahl3d) == 1 and f.ansicht.auswahl3d[0].IsSame(a.form)
+    assert f.erkenne_verzahnung(warten=True).teilnummern == [a.nummer]
+    wand = TopExp_Explorer(b.form, TopAbs_FACE).Current()
+    f.ansicht.setze_auswahl([wand], [b.nummer])
+    assert f.baum.gewaehlte_blaetter() == {b.nummer}
+    assert f.erkenne_verzahnung(warten=True).teilnummern == [b.nummer]
+    assert f._knoten_von(wand).nummer == b.nummer
+    baum.itemClicked.emit(f.baum._knoten[b.nummer], 0)
+    assert f.ansicht.auswahl3d[0].IsSame(b.form)
+    f.baum._knoten[a.nummer].setSelected(True)
+    assert set(f.erkenne_verzahnung(warten=True).teilnummern) == {a.nummer, b.nummer}
+    f.ansicht.knoten_sichtbar({a.nummer}, False)
+    f._auswahl_aufheben()
+    alle = {k.nummer for k in blaetter}
+    assert set(f.erkenne_verzahnung(warten=True).teilnummern) == alle
+    assert set(f.erkenne_verzahnung(warten=True, alle_sichtbaren=True).teilnummern) == alle - {a.nummer}
 
 
 def test_fokusmodus(fenster_ctc01):

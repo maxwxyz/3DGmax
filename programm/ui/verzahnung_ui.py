@@ -22,9 +22,11 @@ class VerzahnungLader(Modellauftrag):
     fehler = QtCore.Signal(str)
     stand = QtCore.Signal(int)
 
-    def __init__(self, teile: list, parent=None):
+    def __init__(self, teile: list, parent=None, *, teilnummern=()):
         super().__init__(parent)
         self.teile = teile  # [(Name, Form)]
+        self.teilnummern = teilnummern
+        self.quellen = {}
 
     def run(self):
         from .lader import Abbruch, melder
@@ -35,6 +37,8 @@ class VerzahnungLader(Modellauftrag):
                 melde(i / max(len(self.teile), 1))
                 try:
                     for v in vz.erkenne_koerper(form, name, steckprofile=True, sonderprofile=True):
+                        if self.teilnummern:
+                            self.quellen[id(v)] = self.teilnummern[i]
                         out.append(v)
                         melde(i / len(self.teile))
                 except Abbruch:
@@ -51,9 +55,12 @@ class VerzahnungLader(Modellauftrag):
 
 
 class VerzahnungFenster(QtWidgets.QDialog):
-    def __init__(self, liste: list, basis: str, parent=None):
+    teile_gewaehlt = QtCore.Signal(set)
+
+    def __init__(self, liste: list, basis: str, parent=None, *, quellen=None, umfang="", getriebe=False):
         super().__init__(parent)
-        self.setWindowTitle(tr("Verzahnung") if len(liste) == 1 else tr("Getriebeanalyse"))
+        self.quellen = quellen or {}
+        self.setWindowTitle(tr("Getriebe – Stufen und Kraftfluss") if getriebe else tr("Verzahnung – Raddaten"))
         self.liste = list(liste)
         self.raeder = [v for v in self.liste if isinstance(v, vz.Verzahnung)]
         self.steckpaare = pv.paare([v for v in self.liste if isinstance(v, pv.Steckprofil)])
@@ -61,8 +68,9 @@ class VerzahnungFenster(QtWidgets.QDialog):
         self.bezugsrad = None
         self.basis = basis  # Pfad ohne Endung fuer die Exporte
         lay = QtWidgets.QVBoxLayout(self)
-        beschreibung = QtWidgets.QLabel(tr("Die Stirnschnitte liefern Zahnform und Abmessungen. Bei Steckverbindungen "
-                                           "zeigt die Tabelle die Nennspiele von Welle und Nabe."))
+        hilfe = (tr("Radpaare, Stufen und Kraftfluss aus der Einbaulage der sichtbaren Bauteile.") if getriebe else
+                 tr("Die Datenblätter zeigen Zahnform und Abmessungen. Eine Radspalte wählt das Bauteil im Modell."))
+        beschreibung = QtWidgets.QLabel(f"{umfang}\n{hilfe}" if umfang else hilfe)
         beschreibung.setWordWrap(True)
         lay.addWidget(beschreibung)
         self.reiter = QtWidgets.QTabWidget()
@@ -125,6 +133,17 @@ class VerzahnungFenster(QtWidgets.QDialog):
         lay.addLayout(reihe)
         self.resize(760, 460)
         self._fuelle()
+
+        paare = [(p.a, p.b) for p in self.paare] + [(p.welle, p.nabe) for p in self.steckpaare] + [
+            (p.a, p.b) for p in self.sonderpaare]
+        for tabelle, profile in ((self.tabelle, [(v,) for v in self.liste]), (self.paar_tabelle, paare)):
+            tabelle.setSelectionBehavior(QtWidgets.QAbstractItemView.SelectionBehavior.SelectColumns)
+            tabelle.itemSelectionChanged.connect(lambda t=tabelle, p=profile: self._auswahl(t, p))
+
+    def _auswahl(self, tabelle, profile):
+        spalten = {i.column() for i in tabelle.selectedIndexes()}
+        teile = {self.quellen[id(v)] for s in spalten if s < len(profile) for v in profile[s] if id(v) in self.quellen}
+        self.teile_gewaehlt.emit(teile)
 
     def _fuelle(self):
         t = self.tabelle

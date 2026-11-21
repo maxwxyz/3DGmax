@@ -142,6 +142,9 @@ class AnsichtBasis(QtWidgets.QWidget):
     def zeige(self, szene: Szene | None):
         if szene is not self.szene:
             self.hilfslinien = []
+        if self.szene is not None and (szene is None or self.szene.modell is not szene.modell):
+            self.auswahl3d, self.auswahl_teile = [], []
+            self.fokus_teile.clear()
         self.szene = szene
         self.hervor, self.pmi_ids_hervor = set(), set()
         self.versteckt, self.transparent = set(), set()
@@ -1609,8 +1612,9 @@ class OcctAnsicht(AnsichtBasis):
         self._neu_zeichnen()
 
     def setze_fokus(self, an, teile=None):
+        vorher = self.fokus
         super().setze_fokus(an, teile)
-        if self._bereit and self.szene is not None:
+        if (vorher or an) and self._bereit and self.szene is not None:
             self._baue_fokus()
             self._neu_zeichnen()
 
@@ -3114,8 +3118,17 @@ class OcctAnsicht(AnsichtBasis):
             ctx.Remove(self._auswahl_ais, False)
             self._auswahl_ais = None
         kanten = [f for f in self.auswahl3d if f.ShapeType() == TopAbs_EDGE]
-        paare = [(self.szene.modell.flaechen_index(f), t) for f, t in zip(self.auswahl3d, self.auswahl_teile)
-                 if f.ShapeType() != TopAbs_EDGE]
+        from OCC.Core.TopAbs import TopAbs_FACE, TopAbs_VERTEX
+        from OCC.Core.TopExp import TopExp_Explorer
+        paare = []
+        for f, t in zip(self.auswahl3d, self.auswahl_teile):
+            if f.ShapeType() == TopAbs_FACE:
+                paare.append((self.szene.modell.flaechen_index(f), t))
+            elif f.ShapeType() not in (TopAbs_EDGE, TopAbs_VERTEX) and self.szene is not None:
+                ex = TopExp_Explorer(f, TopAbs_FACE)
+                while ex.More():
+                    paare.append((self.szene.modell.flaechen_index(ex.Current()), t))
+                    ex.Next()
         teile = {}  # nur die gewaehlte Instanz hervorheben, wenn sie bekannt ist
         for i, t in paare:
             if i is not None and t is not None:

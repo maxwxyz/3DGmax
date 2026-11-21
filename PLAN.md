@@ -171,6 +171,9 @@ Throughout: tests (core, offscreen UI, stress test, on-screen test), `--selbstte
   clears both prototype and occurrence colours. On the 2,400-part STEP a comparison with one changed
   face took 34.05 ms to toggle highlighting versus 640.73 ms with scene reconstruction (median
   of six switches including redraw, on the development Mac).
+- Saved-view thumbnails reuse the visible model edges for identical view directions and up vectors.
+  Each icon retains its own title and PMI, and results are placed at their original list indices.
+  The 111.55 MB, 18-copy FTC-09 stress model has 414 views with nine such orientations.
 - Surface samples for alignment and comparison are weighted in batches. On the 14,400-face STEP assembly,
   drawing 8,000 samples from the extracted meshes took 11.3 ms versus 156.2 ms, with identical points
   and face indices for the same seed (median of five runs on the development Mac).
@@ -1396,6 +1399,11 @@ test opens two windows and closes one without affecting the other.
 ### 8.27 Part analysis: gears and splines from existing files (requested 2026-10-27, later)
 Goal: read the gear data of existing models (STEP B-rep, also meshes) as input for gear design and system analysis
 tools (the user names MASTA as an example of a tool that needs these inputs), and check them against the PMI.
+- Recognition scope and result selection (implemented): picking a component or one of its faces
+  scopes wheel recognition to the selected component occurrences. An empty selection includes all
+  physical components, including hidden ones. The gearbox command uses the visible components
+  for stage and power-flow analysis. Selecting wheel or pair columns selects the corresponding
+  occurrences in the structure tree and the 3D view, including repeated instances.
 - Recognition: the gear axis from the tip/root cylinders (or cones), the teeth from the rotational pattern of the flank
   faces around the axis (number of teeth z = repetitions over 360°), internal or external toothing, spur/helical,
   later bevel, worm and splines (ISO 4156 / DIN 5480).
@@ -1967,10 +1975,53 @@ its own circular edge, the length to both end faces and the optional angle to th
 cylindrical and tapered outside profiles, chamfers and fillets remain open. Inclined slots, unequal corner radii,
 other profiles, automatic cross-view association and datum/GD&T transfer remain open.
 
+### 8.38 Machine-element sizing, verification and parametric 3D geometry (planned)
+
+Provide forward design of individual machine elements and their assemblies. Give sizing its own workspace where a user can start
+an element project without an imported model and review inputs, calculations and geometry side by side.
+A user may start from
+loads and requirements, enter dimensions manually, or adopt measured parameters from reverse
+engineering after review. MASTA's transmission workflow and KISSsoft's modular machine-element
+calculations are product references. Implement and validate each calculation independently.
+[SMT MASTA](https://www.smartmt.com/masta/) · [KISSsoft product overview](https://www.kisssoft.com/en/products/product-overview)
+
+| Planned module family | Initial design scope and output |
+| --- | --- |
+| Spur and helical gears | Tooth counts, ratio, centre distance, module, pressure and helix angles, profile shift. Generate both involute tooth forms, verify mesh, root stress and flank contact within the implemented method. |
+| Planetary stages | Reuse the cylindrical gear modules for sun, planets and internal ring. Check assembly conditions, target ratio, load sharing and carrier geometry. |
+| Bevel gears | Shaft angle, pitch cones, ratio, face width and tooth hand. Start with straight teeth and add spiral tooth geometry with a validated generating method. |
+| Splines | Size a paired shaft and hub from torque, fit and engagement length. Check flank pressure and generate the matched profiles with their tolerances. |
+| Plain bearings | Size journal and bushing from load, speed, clearance, lubricant and temperature. Report the applicable pressure, film and thermal checks and generate bearing geometry. |
+| Interference fits | Determine interference limits, contact pressure, torque capacity and assembly conditions. Generate shaft and hub and attach the fits to the correct seats. |
+| Shafts, axles and rolling bearings | Solve support reactions from external forces and moments, size shaft sections, check stresses and deflection, and pass bearing loads to bearing selection and life calculations. |
+| Shaft/hub connections and couplings | Size keys and coupling interfaces for torque and service loads. Generate seats, keyways and mating geometry. |
+| Bolted joints and springs | Size bolt and clamped members against preload and operating loads. Size springs from force, travel and installation space. Generate nominal geometry and attach functional dimensions. |
+| Belt and chain drives | Select pulley or sprocket sizes, spacing and drive length from the duty and installation envelope. Supply shaft loads to the supporting-element modules. |
+
+1. Share project units, materials, load cases and duty cycles, fits, manufacturing constraints, element
+   identities and interfaces between components. Each module owns its input checks, sizing and
+   verification methods, result provenance, geometry generator and PMI assignments. Calculations
+   run without Qt. Existing OCCT, STEP AP242, viewer and report services consume the results.
+2. Deliver the first complete path for a cylindrical gear pair: target ratio and load → editable
+   design candidates → strength and geometry checks → dimensioned B-rep assembly with semantic
+   and graphical PMI → STEP reimport and comparison. An imported measured value retains its origin.
+3. Demonstrate a second independent workflow early: size a shaft/hub interference fit from torque,
+   materials and seat dimensions, verify pressure across the fit limits, and round-trip both fitted
+   seats and their PMI through STEP. A standalone fit or bearing project needs no gear stage.
+   Add the remaining families independently. Display method, edition, assumptions, applicability
+   limits and unmet requirements per check. Keep nominal geometry available for review when a
+   rating lacks inputs. Validate each released method against published worked examples or
+   independently calculated reference cases. Confirm crucial dimensions, fit assignments and
+   component positions after STEP reimport.
+4. Compose verified elements into system variants. Propagate speeds, torque and bearing reactions
+   where the model supports them. Recalculate dependent checks when loads, materials or dimensions
+   change. QIF extensions follow this work.
+
 ### 8.37 QIF extensions (last in the implementation order)
 
 Finish the tolerance and gear analyses first. Schedule all outstanding QIF work after the other
-planned items, including §§8.35–8.36. For QIF Plans, export a measurement plan with its characteristics
+planned items, including drawing comparison (§8.35), reconstruction (§8.36) and machine-element
+design (§8.38). For QIF Plans, export a measurement plan with its characteristics
 and validate it against the QIF 3 schemas. Existing QIF import and measurement-result assessment
 remain supported.
 

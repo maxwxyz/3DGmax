@@ -280,6 +280,15 @@ def pruefe_alles():
     a.isoliere(None)
     ergebnis["alle_flaechen_sichtbar"] = a.sichtbare_flaechen() is None
     ergebnis["isolation_aufgehoben"] = all(ctx.IsDisplayed(ais) for ais in a._teile.values())
+    from PySide6.QtTest import QTest
+    baum = f.baum.baum
+    it = f.baum._knoten[schrauben[1]]
+    baum.scrollToItem(it)
+    QTest.mouseClick(baum.viewport(), B.LeftButton, pos=baum.visualItemRect(it).center())
+    ergebnis["baum_instanz"] = (a.auswahl_teile == [schrauben[1]] and bool(a.hervor)
+                                and all(a._hervorgehoben(i, a._teile[schrauben[1]])
+                                        and not a._hervorgehoben(i, a._teile[schrauben[0]]) for i in a.hervor))
+    f._auswahl_aufheben()
     # Statuswechsel am gleichen Stand erhaelt Geometrie, Kamera und getrennte Instanzfarben.
     from OCC.Core.gp import gp_Trsf, gp_Vec
     from programm.kern.vergleich_geo import instanz_schluessel

@@ -32,6 +32,9 @@ class BaumPanel(QtWidgets.QWidget):
         self.suche.textChanged.connect(self._filtern)
         lay.addWidget(self.suche)
         self.baum = QtWidgets.QTreeWidget()
+        self.wurzel = None
+        self._knoten = {}
+        self.baum.setSelectionMode(QtWidgets.QAbstractItemView.SelectionMode.ExtendedSelection)
         self.baum.setHeaderHidden(True)
         self.baum.setContextMenuPolicy(QtCore.Qt.ContextMenuPolicy.CustomContextMenu)
         self.baum.customContextMenuRequested.connect(self._menue)
@@ -40,8 +43,10 @@ class BaumPanel(QtWidgets.QWidget):
         self._transparent: set[int] = set()
 
     def zeige(self, wurzel):
+        self.wurzel = wurzel
         self.baum.blockSignals(True)
         self.baum.clear()
+        self._knoten.clear()
         self._transparent = set()
         if wurzel is not None:
             self.baum.addTopLevelItem(self._eintrag(wurzel))
@@ -50,6 +55,7 @@ class BaumPanel(QtWidgets.QWidget):
 
     def _eintrag(self, k):
         it = QtWidgets.QTreeWidgetItem([k.name + (tr(" (Hilfsgeometrie)") if k.hilfsgeometrie else "")])
+        self._knoten[k.nummer] = it
         it.setData(0, QtCore.Qt.ItemDataRole.UserRole, k)
         flags = it.flags() | QtCore.Qt.ItemFlag.ItemIsUserCheckable
         it.setFlags(flags)
@@ -97,23 +103,21 @@ class BaumPanel(QtWidgets.QWidget):
 
     def zeige_knoten(self, nummer: int):
         """Knoten markieren und sichtbar machen (ohne Auswahlsignal), z. B. die Instanz einer Aenderung."""
-        def gehe(it):
-            k = it.data(0, QtCore.Qt.ItemDataRole.UserRole)
-            if k is not None and k.nummer == nummer:
-                return it
-            for i in range(it.childCount()):
-                x = gehe(it.child(i))
-                if x is not None:
-                    return x
-            return None
-        for i in range(self.baum.topLevelItemCount()):
-            it = gehe(self.baum.topLevelItem(i))
-            if it is not None:
-                self.baum.blockSignals(True)
-                self.baum.setCurrentItem(it)
-                self.baum.blockSignals(False)
+        if nummer in self._knoten:
+            with QtCore.QSignalBlocker(self.baum):
+                self.baum.setCurrentItem(self._knoten[nummer])
+            self.baum.scrollToItem(self._knoten[nummer])
+
+    def waehle_blaetter(self, nummern):
+        if nummern == self.gewaehlte_blaetter():
+            return
+        with QtCore.QSignalBlocker(self.baum):
+            self.baum.clearSelection()
+            for nr in sorted(nummern):
+                if nr in self._knoten:
+                    self._knoten[nr].setSelected(True)
+            if len(nummern) == 1 and (it := self._knoten.get(next(iter(nummern)))) is not None:
                 self.baum.scrollToItem(it)
-                return
 
     def gewaehlte_blaetter(self) -> set[int]:
         out = set()
@@ -862,16 +866,27 @@ class VorschauLader(Modellauftrag):
 
     def run(self):
         from ..kern import zeichnung
+        gruppen = {}
         for i, a in enumerate(self.ansichten):
+            gruppen.setdefault((tuple(a.richtung), tuple(a.oben)), []).append(i)
+        for (richtung, oben), indizes in gruppen.items():
             if self.abgebrochen:
                 return
             try:
-                z = zeichnung.projiziere(self.form, a.richtung, a.oben, a.name, verdeckt=False, abweichung=0.5,
-                                         schnell=True)
-                zeichnung.pmi_hinzu(z, self.grafik_je_ansicht[i], self.pmi_text, a.richtung, a.oben)
-                self.fertig.emit(i, zeichnung.als_svg([z], a.name))
-            except Exception:  # noqa: BLE001 - ohne Vorschau weiter
+                basis = zeichnung.projiziere(self.form, richtung, oben, verdeckt=False, abweichung=0.5, schnell=True)
+            except Exception:  # noqa: BLE001 - ungueltige Projektion
                 continue
+            for i in indizes:
+                if self.abgebrochen:
+                    return
+                a = self.ansichten[i]
+                z = zeichnung.Ansicht2D(a.name)
+                z.linien[zeichnung.SICHTBAR] = basis.linien[zeichnung.SICHTBAR]
+                try:
+                    zeichnung.pmi_hinzu(z, self.grafik_je_ansicht[i], self.pmi_text, richtung, oben)
+                    self.fertig.emit(i, zeichnung.als_svg([z], a.name))
+                except Exception:  # noqa: BLE001 - einzelne fehlerhafte Beschriftung
+                    continue
 
 
 def svg_symbol(svg: str, breite: int = 96, hoehe: int = 64) -> QtGui.QIcon:

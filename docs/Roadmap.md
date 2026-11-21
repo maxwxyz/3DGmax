@@ -27,7 +27,7 @@
 | Large assemblies: persistent tessellation cache and viewer levels of detail | ⬜ |
 | Bulk construction of filled graphical PMI and coloured comparison meshes for first display, with the original double-precision vertices and triangle ordering | ✅ |
 | Large STEP files: native reading and cancellable XCAF transfer release the UI interpreter lock; concurrent Part 21 indexing from 30 MB and on-demand geometry arguments reduce load time and memory | ✅ |
-| Indexed STEP geometry and PMI import, unique display edges, saved-view thumbnail generation only when enabled | ✅ |
+| Indexed STEP geometry and PMI import, unique display edges, saved-view thumbnails only when enabled, with one geometry projection per distinct orientation | ✅ |
 | Faster Part 21 parsing of repeated coordinates and geometry references in large STEP models, faster reverse indexing for PMI, and full-file standard detection for plain, ZIP and gzip STEP | ✅ |
 | Model properties: volume, area, mass (density), center of gravity, overall size, file header | ✅ |
 | Anti-aliasing, sans-serif labels, subtle view cube; window/panel/column layout remembered | ✅ |
@@ -272,7 +272,7 @@
 | Fix: helix angle recognition for large angles, many teeth, wide gears | ✅ |
 | Fix: tolerance stack-up strip lower (hint as tooltip, buttons below the links, compact results) | ✅ |
 | Gear analysis: involute, parallel-sided and serrated shaft/hub profiles, measured tooth and space widths | ✅ |
-| Gearbox reverse engineering for an individual gear, selected parts or all visible components, including disconnected wheels inside a single STL/OBJ mesh or CAD compound | ✅ |
+| Wheel recognition on selected component or face occurrences, or all components when selection is empty. Gearbox analysis uses all visible parts. Wheel and pair table selections highlight the source components in the tree and 3D view, including repeated instances. Disconnected wheels in an STL/OBJ mesh or CAD compound are supported | ✅ |
 | Stepped gears: distinguish axial tooth bands on a single solid or connected mesh, including tooth-count changes across a shoulder | ✅ |
 | Multistage power flow with selectable reference shaft, branches, independent gear trains, cycle checks and mixed spur/bevel/worm stages | ✅ |
 | Operating speeds and directions through worm stages and connected shafts, referred to the displayed positive shaft axes | ✅ |
@@ -353,4 +353,5 @@
 
 | Feature | Status |
 |---|---|
+| Modular machine-element sizing, verification and parametric geometry with PMI: cylindrical gears, planetary stages, bevel gears, splines, shafts, bearings, interference fits, couplings, bolted joints, springs, belts and chains – PLAN §8.38 | ⬜ |
 | Remaining QIF extensions, including QIF Plans measurement-plan export and schema validation – PLAN §8.37 | ⬜ |

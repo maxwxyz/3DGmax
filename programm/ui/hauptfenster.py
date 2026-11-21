@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import os
+import weakref
 
 from PySide6 import QtCore, QtGui, QtWidgets
 
@@ -658,10 +659,10 @@ class Hauptfenster(QtWidgets.QMainWindow):
             gruppe.addAction(self.aktionen["norm_" + n])
         A("explosion", tr("Explosion"), self._explosion_umschalten, "X", pruefbar=True,
           tipp=tr("Explosionsansicht: Teile auseinanderziehen (Regler daneben); PMI und Messen ruhen solange"))
-        A("verzahnung", tr("Verzahnung erkennen …"), lambda: self.erkenne_verzahnung(),
+        A("verzahnung", tr("Verzahnung erkennen – Raddaten …"), lambda: self.erkenne_verzahnung(),
           tipp=tr("Zähnezahl, Modul, Eingriffswinkel, Schrägung, Profilverschiebung und Zahnweite der gewählten Teile "
-                  "(ohne Auswahl: aller sichtbaren) aus der Geometrie – Export CSV/JSON"))
-        A("getriebe", tr("Getriebe analysieren …"), lambda: self.erkenne_verzahnung(alle_sichtbaren=True),
+                  "(ohne Auswahl: aller Bauteile) aus der Geometrie – Export CSV/JSON"))
+        A("getriebe", tr("Getriebe analysieren – Kraftfluss …"), lambda: self.erkenne_verzahnung(alle_sichtbaren=True),
           tipp=tr("Alle sichtbaren Teile auf Zahnräder, Wellen, Stufen und Gesamtübersetzungen untersuchen"))
         A("step_pmi_speichern", tr("STEP mit geänderten PMI speichern …"), lambda: self.speichere_step_pmi(),
           tipp=tr("Kopie der STEP-Datei: bearbeitete PMI-Werte ersetzt, eigene PMI als semantische AP242-PMI angehängt "
@@ -1101,10 +1102,12 @@ class Hauptfenster(QtWidgets.QMainWindow):
         self.baum_alt.isolieren.connect(lambda n: self.ansicht_alt and self.ansicht_alt.isoliere(n))
         self.baum_alt.transparent.connect(
             lambda n, an: self.ansicht_alt and self.ansicht_alt.knoten_transparent(n, an))
-        self.baum.baum.itemSelectionChanged.connect(
-            lambda: self.ansicht.setze_fokus(self.ansicht.fokus, self.baum.gewaehlte_blaetter()))
-        self.baum.baum.itemSelectionChanged.connect(lambda: self.inspektor_zeigen("baum"))
-        self.ansicht.auswahl_geaendert.connect(lambda formen: self.inspektor_zeigen("3d" if formen else None))
+        self._aus_baum = False
+        self._auswahl_ansicht = self.ansicht
+        for panel in (self.baum, self.baum_alt):
+            panel.baum.itemSelectionChanged.connect(lambda p=panel: self._baum_auswaehlen(p))
+            panel.baum.itemClicked.connect(lambda _it, _sp, p=panel: self._baum_auswaehlen(p))
+        self.ansicht.auswahl_geaendert.connect(lambda _: self._szene_auswahl(self.ansicht))
         self.ansicht.element_gewaehlt.connect(self.messen.element)
         self.messen.elemente_zeigen.connect(lambda formen: self.ansicht.setze_auswahl(formen))
         self.ansicht.kontextmenue.connect(self._kontextmenue_3d)
@@ -1725,7 +1728,7 @@ class Hauptfenster(QtWidgets.QMainWindow):
         return out
 
     def _schnell_auswahl(self, formen):
-        self._schnell_formen = list(formen)
+        self._schnell_formen = [] if self._aus_baum else list(formen)
         if formen:
             self._schnell_pmi = []  # die zuletzt getroffene Auswahl zaehlt
         self._schnell_zeigen()
@@ -2475,10 +2478,55 @@ class Hauptfenster(QtWidgets.QMainWindow):
     def _baum_ansicht(self):
         return self.ansicht_alt if self._vergleichsmodus == "alt" and self.ansicht_alt is not None else self.ansicht
 
+    def _baum_auswaehlen(self, panel):
+        ansicht = self.ansicht if panel is self.baum else self.ansicht_alt
+        if ansicht is None or ansicht.szene is None or panel.wurzel is not ansicht.szene.baum:
+            return
+        self._auswahl_ansicht = ansicht
+        nummern = panel.gewaehlte_blaetter()
+        knoten = [k for k in ansicht.szene.baum.blaetter() if k.nummer in nummern]
+        ids = [k.nummer for k in knoten]
+        if ids != ansicht.auswahl_teile or any(not k.form.IsSame(f) for k, f in zip(knoten, ansicht.auswahl3d)):
+            self._aus_baum = True
+            try:
+                ansicht.setze_auswahl([k.form for k in knoten], ids)
+            finally:
+                self._aus_baum = False
+        if ansicht.fokus_teile != nummern:
+            ansicht.setze_fokus(ansicht.fokus, nummern)
+        if ansicht is self.ansicht:
+            self.inspektor_zeigen("baum")
+
+    def _szene_auswahl(self, ansicht):
+        if self._aus_baum or ansicht.szene is None:
+            return
+        panel = self.baum if ansicht is self.ansicht else self.baum_alt
+        if panel.wurzel is not ansicht.szene.baum:
+            return
+        self._auswahl_ansicht = ansicht
+        nummern = self._gewaehlte_teile(ansicht)
+        panel.waehle_blaetter(nummern)
+        if ansicht.fokus_teile != nummern:
+            ansicht.setze_fokus(ansicht.fokus, nummern)
+        if ansicht is self.ansicht:
+            self.inspektor_zeigen("3d" if ansicht.auswahl3d else None)
+
+    def _gewaehlte_teile(self, ansicht):
+        if ansicht.szene is None:
+            return set()
+        nummern = set()
+        for form, nr in zip(ansicht.auswahl3d, ansicht.auswahl_teile):
+            if nr is not None:
+                nummern.add(nr)
+            elif k := self._knoten_von(form, ansicht.szene.baum):
+                nummern.add(k.nummer)
+        return nummern
+
     def _zweite_ansicht_anlegen(self):
         """Zweite 3D-Ansicht links (Vergleich: alter Stand, Scanpruefung: Soll) - einmal anlegen."""
         if self.ansicht_alt is None:
             self.ansicht_alt = ansicht3d.erzeuge(self)
+            self.ansicht_alt.auswahl_geaendert.connect(lambda _: self._szene_auswahl(self.ansicht_alt))
             self.ansicht_alt.setze_thema(self.thema)
             self.ansicht_alt.setze_navigation(self.ein.value("navigation", "catia"))
             self.ansicht_alt.setze_pmi_kontrast(self.ein.value("pmi_kontrast", True, type=bool))
@@ -2924,11 +2972,7 @@ class Hauptfenster(QtWidgets.QMainWindow):
         from OCC.Core.BRep import BRep_Builder
         from OCC.Core.TopoDS import TopoDS_Compound
         from .eigenschaften_ui import EigenschaftenDialog
-        nummern = self.baum.gewaehlte_blaetter()
-        for f in self.ansicht.auswahl3d:
-            k = self._knoten_von(f)
-            if k is not None:
-                nummern.add(k.nummer)
+        nummern = self._gewaehlte_teile(self.ansicht) | self.baum.gewaehlte_blaetter()
         teile = [k for k in self.erg.baum.blaetter() if k.nummer in nummern and not k.hilfsgeometrie]
         if teile:
             form = TopoDS_Compound()
@@ -2945,31 +2989,30 @@ class Hauptfenster(QtWidgets.QMainWindow):
             d.exec()
         return d
 
-    def _knoten_von(self, form):
-        if self.erg is None:
-            return None
-        from OCC.Core.TopAbs import TopAbs_FACE
+    def _knoten_von(self, form, wurzel=None):
+        if wurzel is None:
+            if self.erg is None:
+                return None
+            wurzel = self.erg.baum
         from OCC.Core.TopExp import TopExp_Explorer
-        if form.ShapeType() != TopAbs_FACE:
-            # Kante/Punkt: Teil, das dieses Element enthaelt (Lage ignoriert)
-            for k in self.erg.baum.blaetter():
-                ex = TopExp_Explorer(k.form, form.ShapeType())
-                while ex.More():
-                    if ex.Current().IsPartner(form):
-                        return k
-                    ex.Next()
-            return None
-        ziel = self.erg.modell.flaechen_index(form)
-        for k in self.erg.baum.blaetter():
-            ex = TopExp_Explorer(k.form, TopAbs_FACE)
+        partner = []
+        for k in wurzel.blaetter():
+            if k.form.IsSame(form):
+                return k
+            ex = TopExp_Explorer(k.form, form.ShapeType())
+            verwandt = False
             while ex.More():
-                if self.erg.modell.flaechen_index(ex.Current()) == ziel:
+                teil = ex.Current()
+                if teil.IsSame(form):
                     return k
+                verwandt |= teil.IsPartner(form)
                 ex.Next()
-        return None
+            if verwandt:
+                partner.append(k)
+        return partner[0] if len(partner) == 1 else None
 
     def _teil_befehl(self, art):
-        knoten = {k.nummer for f in self.ansicht.auswahl3d for k in [self._knoten_von(f)] if k is not None}
+        knoten = self._gewaehlte_teile(self.ansicht)
         if not knoten:
             self.statusBar().showMessage(tr("Erst eine Fläche oder Kante des Teils wählen"), 4000)
             return
@@ -3236,27 +3279,38 @@ class Hauptfenster(QtWidgets.QMainWindow):
         return f
 
     def erkenne_verzahnung(self, warten: bool = False, *, alle_sichtbaren=False):
-        """Verzahnungsdaten der gewaehlten (sonst aller sichtbaren) Teile im Hintergrund erkennen."""
+        """Raddaten der Auswahl oder aller Teile; der Kraftfluss verwendet alle sichtbaren Teile."""
         from OCC.Core.TopLoc import TopLoc_Location
         from .ansicht3d import gp_trsf
         from .verzahnung_ui import VerzahnungLader
         if self.erg is None:
             return None
+        ansicht = self._auswahl_ansicht if self._vergleichsmodus == "nebeneinander" else self._baum_ansicht()
+        if ansicht.szene is None:
+            return None
         gewaehlt = set()
         if not alle_sichtbaren:
-            gewaehlt = self.baum.gewaehlte_blaetter()
-            for form in self.ansicht.auswahl3d:
-                knoten = self._knoten_von(form)
-                if knoten is not None:
-                    gewaehlt.add(knoten.nummer)
-        lagen = self.baugruppe.lagen
+            if ansicht.auswahl3d:
+                gewaehlt = self._gewaehlte_teile(ansicht)
+            else:
+                panel = self.baum if ansicht is self.ansicht else self.baum_alt
+                if panel.wurzel is ansicht.szene.baum:
+                    gewaehlt = panel.gewaehlte_blaetter()
+        auswahl = not alle_sichtbaren and bool(ansicht.auswahl3d or gewaehlt)
+        knoten = [k for k in ansicht.szene.baum.blaetter() if not k.hilfsgeometrie
+                  and (not auswahl or k.nummer in gewaehlt)
+                  and (not alle_sichtbaren or k.nummer not in ansicht.versteckt)]
+        lagen = self.baugruppe.lagen if ansicht is self.ansicht else ansicht.teil_lagen
         teile = [(k.name, k.form.Moved(TopLoc_Location(gp_trsf(lagen[k.nummer]))) if k.nummer in lagen else k.form)
-                 for k in self.erg.baum.blaetter() if not k.hilfsgeometrie and k.nummer not in self.ansicht.versteckt
-                 and (not gewaehlt or k.nummer in gewaehlt)]
+                 for k in knoten]
         self._verzahnung_abbrechen()
         if not teile:
             return None
-        lader = VerzahnungLader(teile)
+        lader = VerzahnungLader(teile, teilnummern=[k.nummer for k in knoten])
+        lader.ansicht = ansicht
+        lader.quellmodell = weakref.ref(ansicht.szene.modell)
+        lader.umfang = (tr("Sichtbare Bauteile: {}") if alle_sichtbaren else
+                        tr("Ausgewählte Bauteile: {}") if auswahl else tr("Alle Bauteile: {}")).format(len(knoten))
         lader.stand.connect(self._verzahnung_stand)
         lader.fehler.connect(self._verzahnung_fehler)
         lader.fertig.connect(self._verzahnung_fertig)
@@ -3295,7 +3349,23 @@ class Hauptfenster(QtWidgets.QMainWindow):
         if not self._verzahnung_aktuell():
             return
         from .verzahnung_ui import VerzahnungFenster
-        self._verzahnung = VerzahnungFenster(liste, os.path.splitext(self.erg.pfad)[0], self)
+        lader = self._verzahnung_lader
+        ansicht = lader.ansicht
+        modell = lader.quellmodell
+        if ansicht.szene is None or ansicht.szene.modell is not modell():
+            return
+
+        def waehle(nummern):
+            if ansicht.szene is None or ansicht.szene.modell is not modell():
+                return
+            panel = self.baum if ansicht is self.ansicht else self.baum_alt
+            if panel.wurzel is not ansicht.szene.baum:
+                return
+            panel.waehle_blaetter(nummern)
+            self._baum_auswaehlen(panel)
+        self._verzahnung = VerzahnungFenster(liste, os.path.splitext(ansicht.szene.modell.pfad)[0], self,
+                                             quellen=lader.quellen, umfang=lader.umfang, getriebe=self._verzahnung_getriebe)
+        self._verzahnung.teile_gewaehlt.connect(waehle)
         if self._verzahnung_getriebe and self._verzahnung.getriebe_tabelle.rowCount():
             self._verzahnung.reiter.setCurrentWidget(self._verzahnung.getriebeseite)
         self._verzahnung.show()

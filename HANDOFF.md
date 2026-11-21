@@ -2,6 +2,35 @@
 
 ## Current state, 2026-11-21
 
+### Reuse the model projection in saved views
+
+- Checked the large-STEP work in PLAN §6 against the saved-view entry in docs/Roadmap.md.
+  The preview worker computes visible edges once per exact pair of camera direction and up vector.
+  Each view gets new PMI overlays and its original list position. Only the current orientation
+  needs geometry in memory.
+- The FTC-07 and FTC-10 reference files produced byte-identical SVG output for every saved view.
+  FTC-07 needed ten projections for 16 thumbnails and FTC-10 needed twelve for 18 thumbnails.
+  A regression test checks rotated cameras, differing PMI, original list indices and cancellation.
+  The first projection of a complex model can still delay interaction. QIF stays last.
+
+### Machine-element design scope and component selection
+
+- Checked PLAN §8.38 against the planned section in docs/Roadmap.md. Forward sizing, verification
+  and generation of geometry with PMI cover machine elements in general. The first planned
+  end-to-end example is a cylindrical gear pair. Shared materials, units and load cases also
+  serve bearing and shaft/hub modules. Each method needs its own validation. QIF remains last.
+- Updated PLAN §8.27 and the shipped gear-recognition entry in docs/Roadmap.md. Wheel recognition
+  follows selected component occurrences in the tree or viewport. Without selection it checks
+  all physical components. Gearbox analysis still uses the visible assembly for power flow.
+  Wheel and pair selections resolve to their source occurrences, including repeated parts.
+- The user confirmed that the preceding large STEP import change improved opening their model.
+  The filled-PMI display change passed 1,012 headless tests (eight display-only skips).
+- Native macOS checks exercised selection on repeated screw occurrences. The packaged
+  Apple Silicon app passed its self-test (117 faces, 23 PMI) and rendered the 111.55 MB STEP.
+- Next §6 performance lead: the 18-copy FTC-09 input contains 414 saved views with only nine
+  distinct (direction, up) pairs. The original FTC-07 has 16 views with ten distinct orientations.
+  Investigate reusing projected geometry while applying the PMI of each view separately.
+
 ### Accelerate first display of filled PMI in large STEP files
 
 - Checked PLAN §6 against the large-model viewing section of docs/Roadmap.md.
