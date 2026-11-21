@@ -2,6 +2,28 @@
 
 ## Current state, 2026-11-21
 
+### Inclined graphical diameter rows attached to drawing leaders
+
+- Checked PLAN §§8.35–8.37 against docs/Roadmap.md. Selecting a hole pattern now follows free
+  leader segments at arbitrary angles. A PDFium transformation renders just the strip alongside
+  the text-side endpoint into reading orientation. Select the longest complete row over six strip
+  heights and check it in both directions at three resolutions. Unknown suffixes and unfinished
+  branches leave the finding open. Each detected row retains its original leader endpoint.
+- The sheet highlights the oriented text footprint. The detail renders the original row upright
+  and CSV carries its four sheet corners and the text-side leader endpoints. Repeating registration
+  preserves reviewed text and manually removed findings. Tested 28°, −38° and 147° with the
+  original D2MI raster “4X⌀.215-.225”, reversed text direction and PDF page rotations. Each
+  accepted finding kept both limits and pointed to the intended model wall. Negative cases used
+  an additional symbol and an open branch. On original D2MI 904 sheet 3, a local run over
+  all 1664 line segments took 96 ms to find three candidate ends and 54 ms to read their strips.
+  All 73 affected tests and 64 native macOS comparison tests passed. All 2581 UI strings translate.
+- For the next §8.35 item, an isolated PDF probe drew “R2”, “2X R2” and “R2 ±0.1” as filled
+  vector paths at 27°. The OCR confused the R with B or left the row unread. Neither the CAD
+  glyph table nor the stroke-letter set contains R. Radius callouts require validated glyphs
+  for both stroke and filled forms, an explicit radius type when comparing repeated features,
+  and tests that preserve datum B. Section geometry and whole-drawing equivalence remain open.
+  QIF stays last.
+
 ### Oblique orthographic hole views in drawing comparison
 
 - Checked PLAN §§8.35–8.37 and docs/Roadmap.md. File → Compare PMI with 2D drawing can register

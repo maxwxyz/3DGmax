@@ -224,19 +224,19 @@ class Blattgeometrie:
                 ringe.append(k)
         return ringe
 
-    def hinweisziel(self, box, kreise, durchmesseranfang=None, musterzeile=False):
+    def hinweisziel(self, box, kreise, durchmesseranfang=None, musterzeile=False, hinweisenden=()):
         """Ein einzelner unverzweigter Linienzug vom Beschriftungsrand zur Dreiecksspitze."""
         if not self.pfeile or not kreise:
             return None
-        starts = self._starts(box, durchmesseranfang, musterzeile)
+        starts = self._starts(box, durchmesseranfang, musterzeile, hinweisenden)
         ziele = self._verfolge(starts, kreise, 1)
         return ziele[0] if ziele else None
 
-    def hinweisgruppe(self, box, kreise, anzahl):
+    def hinweisgruppe(self, box, kreise, anzahl, hinweisenden=()):
         """Ein gezeichnetes Pfeilende pro gedruckter Wiederholung."""
         if anzahl < 2 or anzahl > len(kreise) or not self.pfeile:
             return ()
-        ziele = self._verfolge(self._starts(box, None, True), kreise, anzahl)
+        ziele = self._verfolge(self._starts(box, None, True, hinweisenden), kreise, anzahl)
         if len(ziele) != anzahl or max(k.r for k in ziele)-min(k.r for k in ziele) > .75:
             return ()
         if any(math.hypot(k.x-q.x, k.y-q.y) < 1.5 for i,k in enumerate(ziele) for q in ziele[:i]):
@@ -244,23 +244,29 @@ class Blattgeometrie:
         return tuple(sorted(ziele, key=lambda k: (k.y, k.x)))
 
     def schriftenden(self, kreise, pruefe=lambda: None):
-        """Freie Enden achsparalleler Hinweisstriche mit Pfeilziel im gewaehlten Bohrbild."""
+        """Freie Enden mit Richtung zur Masszeile und Pfeilziel im gewaehlten Bohrbild."""
         if not kreise or not self.pfeile:
             return []
         orte = []
-        delta = self.linien[:, 1]-self.linien[:, 0]
-        for achse in (0, 1):
-            parallel = (abs(delta[:, 1-achse]) <= .55) & (abs(delta[:, achse]) >= 5)
-            for nr, i in enumerate(np.flatnonzero(parallel)):
-                if nr % 32 == 0:
-                    pruefe()
-                for k in (0, 1):
-                    start, ende = self.linien[i, [k, 1-k]]
-                    if len(self.enden.query_ball_point(start, 1.5)) == 1 and self._verfolge([2*i+k], kreise, len(kreise)):
-                        orte.append((start, 1 if start[achse] > ende[achse] else -1, achse))
+        laengen = np.linalg.norm(self.linien[:,1]-self.linien[:,0],axis=1)
+        for nr,i in enumerate(np.flatnonzero(laengen >= 5)):
+            if nr % 32 == 0:
+                pruefe()
+            for k in (0,1):
+                start,ende = self.linien[i,[k,1-k]]
+                if len(self.enden.query_ball_point(start,1.5)) != 1:
+                    continue
+                if not self._verfolge([2*i+k],kreise,len(kreise)):
+                    continue
+                delta = start-ende
+                delta[abs(delta) <= .55] = 0.
+                orte.append((start,delta/np.linalg.norm(delta)))
         return orte
 
-    def _starts(self, box, durchmesseranfang, musterzeile):
+    def _starts(self, box, durchmesseranfang, musterzeile, hinweisenden=()):
+        if hinweisenden:
+            starts = [self.enden.query_ball_point(np.asarray(ort)*self.groesse,1.5) for ort in hinweisenden]
+            return [j for (j,) in starts] if all(len(js) == 1 for js in starts) else []
         (l,t), (r,b) = np.array(box).reshape(2,2) * self.groesse
         seiten = ((l,(t+b)/2), (r,(t+b)/2), ((l+r)/2,t), ((l+r)/2,b))
         starts = []

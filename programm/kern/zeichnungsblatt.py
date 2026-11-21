@@ -8,6 +8,7 @@ from scipy import ndimage
 
 from . import pmi_strichschrift as schrift
 from .pmi import MASS, TOL_SYMBOL
+from .schriftstreifen import Schriftstreifen, schriftumfang
 from .zeichnungsabgleich import Blattangabe, lese_angabe, musteranzahl
 
 
@@ -88,6 +89,17 @@ def _gedreht(z, k, w, h):
 def _box(punkte):
     x, y = np.array(punkte).T
     return float(x.min()), float(y.min()), float(x.max()), float(y.max())
+
+
+def _enthaelt(bereich, x, y):
+    if np.isscalar(bereich[0]):
+        l,t,r,b = bereich
+        return l <= x <= r and t <= y <= b
+    ecken = np.asarray(bereich)
+    kanten = np.roll(ecken,-1,axis=0)-ecken
+    dx,dy = (np.array([x,y])-ecken).T
+    seiten = kanten[:,0]*dy-kanten[:,1]*dx
+    return seiten.min() >= 0 or seiten.max() <= 0
 
 
 def _zeile(mask):
@@ -362,39 +374,39 @@ class Zeichnungsblatt:
             mask = bild[y:y+2*halbe+1, l:r].min(axis=2) < 245
             if sinn < 0:
                 mask = mask[:, ::-1]
-            gruppen = list(schrift._gruppen(mask))
-            if not gruppen or not 1 <= gruppen[0][0] <= 1.5*halbe:
+            umfang = schriftumfang(mask,halbe)
+            if not umfang:
                 continue
-            von, bis = gruppen[0]
-            for a,b in gruppen[1:]:
-                if a-bis > 2.1*halbe:
-                    break
-                bis = b
-            if bis == gruppen[0][1] or bis+2 >= mask.shape[1]:
-                continue
-            ys = np.nonzero(mask[:, von:bis])[0]
-            oben, unten = ys.min(), ys.max()+1
-            if oben < 1 or unten >= mask.shape[0] or unten-oben < 5:
-                continue
+            von,oben,bis,unten = umfang
             x1, x2 = (l+von, l+bis) if sinn > 0 else (r-bis, r-von)
             box = (max(0,x1-1)/w, (y+oben-1)/h, min(w,x2+1)/w, (y+unten+1)/h)
             yield _gedreht(box, -achse % 4, 1, 1)
 
-    def freie_masszeile(self, ort, sinn, achse, belegt):
-        boxen = list(self._schriftboxen(ort, sinn, achse))
-        if not boxen:
-            return None
-        # Nur die vollstaendige Zeile lesen. Ein schmalerer Ausschnitt kann einen Zusatz verlieren.
-        box = max(boxen, key=lambda q: q[achse+2]-q[achse])
+    def freie_masszeile(self, ort, richtung, belegt):
+        ecken = ()
+        v = np.asarray(richtung)
+        achse = int(abs(v[1]) > abs(v[0]))
+        if v[1-achse] == 0:
+            boxen = list(self._schriftboxen(ort,int(np.sign(v[achse])),achse))
+            if not boxen:
+                return None
+            box = max(boxen,key=lambda b:b[achse+2]-b[achse])
+            masken = (self._mask(box,achse,h) for h in (72,60,64))
+        else:
+            streifen = Schriftstreifen(self,ort,v)
+            fenster = streifen.umfang()
+            if fenster is None or (ecken := streifen.blattecken(fenster)) is None:
+                return None
+            box = tuple(_box(ecken))
+            masken = streifen.lesemasken(fenster)
         x, y = (box[0]+box[2])/2, (box[1]+box[3])/2
-        if any(l <= x <= r and t <= y <= b for l,t,r,b in belegt):
+        if any(_enthaelt(bereich,x,y) for bereich in belegt):
             return None
         h, w = self.bild.shape[:2]
         if any(l <= x*w <= r and t <= y*h <= b for l,t,r,b in self.zellen):
             return None
         richtungen = ({}, {})
-        for hoehe in (72, 60, 64):
-            mask = self._mask(box, achse, hoehe)
+        for mask in masken:
             if mask is None or not mask.any():
                 continue
             for lesarten, lage in zip(richtungen, (mask, mask[::-1, ::-1])):
@@ -410,7 +422,9 @@ class Zeichnungsblatt:
         if len(stimmen) == 1:
             wort, sicher = next(iter(stimmen.items()))
             if sicher:
-                return Blattangabe(self.nummer, box, wort)
+                if ecken and wort in richtungen[1]:
+                    ecken = ecken[2:]+ecken[:2]
+                return Blattangabe(self.nummer,box,wort,hinweisenden=(tuple(ort/np.array([w,h])),),zeilenecken=ecken)
         return None
 
     def _muster_am_rahmen(self, rahmen):

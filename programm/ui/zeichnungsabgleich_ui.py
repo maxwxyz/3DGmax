@@ -79,7 +79,11 @@ class Blattansicht(QtWidgets.QGraphicsView):
             l, t, r, b = a.box
             stift = QtGui.QPen(QtGui.QColor("#cc5300" if a is aktiv else "#007a91"), 2 if a is aktiv else 1)
             stift.setCosmetic(True)
-            item = self.scene().addRect(l*w, t*h, (r-l)*w, (b-t)*h, stift)
+            if a.zeilenecken:
+                rahmen = QtGui.QPolygonF([QtCore.QPointF(x*w,y*h) for x,y in a.zeilenecken])
+                item = self.scene().addPolygon(rahmen,stift)
+            else:
+                item = self.scene().addRect(l*w, t*h, (r-l)*w, (b-t)*h, stift)
             self.marken.append((a, item))
 
     def zeige_kreise(self, kreise, ziel, muster=()):
@@ -121,7 +125,7 @@ class Blattansicht(QtWidgets.QGraphicsView):
         start, self.beginn = self.beginn, None
         if (ende - start).manhattanLength() < 6:
             for a, item in reversed(self.marken):
-                if (self.auswaehlbar is None or a in self.auswaehlbar) and item.rect().contains(self.mapToScene(ende)):
+                if (self.auswaehlbar is None or a in self.auswaehlbar) and item.contains(item.mapFromScene(self.mapToScene(ende))):
                     self.gewaehlt.emit(a)
                     return
             pos = self.mapToScene(ende)
@@ -422,14 +426,28 @@ class Zeichnungsabgleich(QtWidgets.QDialog):
     def _ergaenze_masszeilen(self, schriftenden):
         nr = self.blatt.nummer
         angaben = self.seiten[nr]
-        belegt = [a.box for a in angaben] + self.entfernte_bereiche.get(nr, [])
-        belegt.extend(box for box, _ in self.blatt.textbereiche)
+        belegt = [a.box for a in angaben if not a.hinweisenden]+self.entfernte_bereiche.get(nr,[])
+        belegt.extend(box for box,_ in self.blatt.textbereiche)
+        bekannt = [a for a in angaben if a.hinweisenden]
+        enden = {ort for a in bekannt for ort in a.hinweisenden}
+        h,w = self.blatt.bild.shape[:2]
         neu = []
-        for ort, sinn, achse in schriftenden:
-            a = self.blatt.freie_masszeile(ort, sinn, achse, belegt)
-            if a is not None:
-                belegt.append(a.box)
+        for ort,richtung in schriftenden:
+            if (ort[0]/w,ort[1]/h) in enden:
+                continue
+            a = self.blatt.freie_masszeile(ort,richtung,belegt)
+            if a is None:
+                continue
+            gleich = next((q for q in bekannt if all(abs(u-v)*skala <= 3 for u,v,skala
+                          in zip(q.box,a.box,(w,h,w,h),strict=True))),None)
+            if gleich is None:
                 neu.append(a)
+                bekannt.append(a)
+            else:
+                gleich.hinweisenden += a.hinweisenden
+                if gleich.modell is not None or gleich.nur_zeichnung or gleich.einzelpruefung:
+                    gleich.zielkonflikt = True
+            enden.update(a.hinweisenden)
         with QtCore.QSignalBlocker(self.tabelle):
             for a in sorted(neu, key=lambda a: (a.box[1], a.box[0])):
                 i = len(angaben)
@@ -488,11 +506,11 @@ class Zeichnungsabgleich(QtWidgets.QDialog):
         kreise = self.kreise.get(a.seite, [])
         anzahl = za.musteranzahl(a.text)
         if anzahl > 1:
-            gruppe = self.blattgeometrie.hinweisgruppe(a.box, kreise, anzahl)
+            gruppe = self.blattgeometrie.hinweisgruppe(a.box, kreise, anzahl, a.hinweisenden)
             if gruppe:
                 self.musterwahl[a] = gruppe
                 return gruppe[0]
-        return self.blattgeometrie.hinweisziel(a.box, kreise, pruefe, musterzeile=bool(anzahl) or a.text.lstrip().startswith(("⌀", "Ø", "∅")))
+        return self.blattgeometrie.hinweisziel(a.box, kreise, pruefe, hinweisenden=a.hinweisenden, musterzeile=bool(anzahl) or a.text.lstrip().startswith(("⌀", "Ø", "∅")))
 
     def _anderer_bereich(self, a):
         if not a.blattziel or a.seite not in self.bereiche:
@@ -571,7 +589,12 @@ class Zeichnungsabgleich(QtWidgets.QDialog):
             rand = .22 * (b-t)
             dx = rand * self.blatt.hoehe / self.blatt.breite
             box = (max(0, l-dx), max(0, t-rand), min(1, r+dx), min(1, b+rand))
-            bild = self.blatt.ausschnitt(box, min(520, max(200, self.tabelle.width()-4)), 62)
+            breite = min(520,max(200,self.tabelle.width()-4))
+            if a.zeilenecken:
+                from ..kern.schriftstreifen import zeilenvorschau
+                bild = zeilenvorschau(self.blatt,a.zeilenecken,breite,62)
+            else:
+                bild = self.blatt.ausschnitt(box,breite,62)
             if bild is not None:
                 try:
                     im = QtGui.QImage(bild.buffer, bild.width, bild.height, bild.stride, QtGui.QImage.Format.Format_RGB888)
@@ -731,7 +754,7 @@ class Zeichnungsabgleich(QtWidgets.QDialog):
         self._liste(a)
 
     def _entferne(self):
-        self.entfernte_bereiche.setdefault(self.aktiv.seite, []).append(self.aktiv.box)
+        self.entfernte_bereiche.setdefault(self.aktiv.seite, []).append(self.aktiv.zeilenecken or self.aktiv.box)
         self.musterwahl.pop(self.aktiv, None)
         self.zielvorschlaege.pop(self.aktiv, None)
         self.seiten[self.blatt.nummer] = [a for a in self.seiten[self.blatt.nummer] if a is not self.aktiv]
@@ -756,7 +779,9 @@ class Zeichnungsabgleich(QtWidgets.QDialog):
                             tr("Bohrbild (x/Breite, y/Höhe, Radius/Breite je Bohrung)"),
                             tr("Bohrung im Muster"), tr("Gesamtbefund des Bohrbilds"), tr("Nur als Gruppe zugeordnet"),
                             tr("Hinweisellipse (kleine Halbachse/Breite, Drehwinkel in Grad)"),
-                            tr("Musterellipsen (kleine Halbachse/Breite, Drehwinkel in Grad je Bohrung)")])
+                            tr("Musterellipsen (kleine Halbachse/Breite, Drehwinkel in Grad je Bohrung)"),
+                            tr("Ecken der Maßzeile in Leserichtung (x/Breite, y/Höhe)"),
+                            tr("Textseitige Hinweisenden (x/Breite, y/Höhe)")])
                 verbunden = set()
                 for nr, angaben in sorted(self.seiten.items()):
                     for a in angaben:
@@ -781,13 +806,15 @@ class Zeichnungsabgleich(QtWidgets.QDialog):
                                         int(any(z.tauschgruppe for z in orte)) if orte else "",
                                         " ".join(f"{v:.6f}" for v in a.blattziel[3:]) if a.blattziel else "",
                                         " | ".join(" ".join(f"{v:.6f}" for v in z.ort[3:]) for z in orte)
-                                        if any(len(z.ort)>3 for z in orte) else ""])
+                                        if any(len(z.ort)>3 for z in orte) else "",
+                                        " | ".join(f"{x:.6f} {y:.6f}" for x,y in a.zeilenecken),
+                                        " | ".join(f"{x:.6f} {y:.6f}" for x,y in a.hinweisenden)])
                 for m in self.modell:
                     if id(m) not in verbunden:
                         w.writerow([*self.quellen, "", "", "", "", tr("Nur im Modell") if id(m) in self.nur_modell else
-                                    tr("Modell-PMI offen"), m.nummer, m.wert_text(), sorted(m.flaechen), "", m.step_id if m.step_id > 0 else "", "", "", "", "", "", "", ""])
+                                    tr("Modell-PMI offen"), m.nummer, m.wert_text(), sorted(m.flaechen), "", m.step_id if m.step_id > 0 else "", *([""]*9)])
                 for nr in sorted(set(range(len(self.doc))) - self.seiten.keys()):
-                    w.writerow([*self.quellen, nr+1, "", "", "", tr("Blatt ungeprüft"), "", "", "", "", "", "", "", "", "", "", "", ""])
+                    w.writerow([*self.quellen, nr+1, "", "", "", tr("Blatt ungeprüft"), *([""]*14)])
         except OSError as e:
             QtWidgets.QMessageBox.warning(self, tr("Prüfliste speichern"), str(e))
 

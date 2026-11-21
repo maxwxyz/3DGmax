@@ -33,6 +33,8 @@ class Blattangabe:
     blattziel: tuple | None = None  # x/Breite, y/Hoehe, r/Breite; bei Ellipsen zusaetzlich b/Breite und Winkel
     musterziele: tuple[Musterziel, ...] = ()
     einzelpruefung: bool = False
+    hinweisenden: tuple = ()  # Freie Strichenden der automatisch gefundenen Angabe in Blattkoordinaten
+    zeilenecken: tuple = ()  # Vier Ecken einer geneigten Zeile in Leserichtung
 
     def zugeordnete_pmi(self):
         if self.einzelpruefung:

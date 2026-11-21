@@ -1614,9 +1614,13 @@ characteristic for each hole, the reviewer can step through the individual targe
 competing records and confirm a missing characteristic for one hole. Each CSV row identifies the
 target, model record, source ID, local finding and overall pattern finding. An unresolved hole
 leaves the pattern open. A partly missing or different pattern is reported as changed.
-Selecting a hole pattern also searches free horizontal and vertical leader ends for standalone
-plotted diameter labels in all four orthogonal reading directions. It follows the arrows to printed rings inside the selection, reads the full
-adjacent row at multiple resolutions and adds a finding when the readings agree. This can recover
+Selecting a hole pattern also searches free ends of straight or bent leaders for standalone
+plotted diameter labels at any in-plane angle. It follows each arrow to a ring inside the
+selection. The first segment defines the baseline for the adjacent text. Compare the full row
+at several strip heights to keep the quantity and both limits, then read the longest extent in
+both directions at three resolutions. The finding retains the text-side endpoint so a rotated
+bounding box cannot pick another leader. The review highlights the oriented row and shows its
+upright detail. CSV records the four sheet corners and text-side leader endpoints. This can recover
 text even when the view cannot be registered uniquely. Manually removed findings stay removed.
 The reviewer can also click a matched ring. The CSV stores the accepted circle in sheet coordinates.
 
@@ -1633,7 +1637,7 @@ clicks and arrows follow the elliptical rim. The CSV retains the centre and majo
 existing columns and adds the minor semi-axis and clockwise angle for each accepted ellipse.
 
 Remaining work includes occluded rims, perspective views, sections, non-circular features and leaders on section or edge geometry, automatically
-finding other unframed and oblique graphical annotations, interpreting composite controls and establishing
+finding additional types of unframed graphical annotations, interpreting composite controls and establishing
 the scope required for a verified whole-drawing verdict. Confirmed matches currently apply to individual characteristics.
 
 ### 8.36 Generate 3D geometry and dimensioned PMI from a 2D drawing (partially implemented)

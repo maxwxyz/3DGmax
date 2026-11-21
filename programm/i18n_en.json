@@ -1,4 +1,6 @@
 {
+"Ecken der Maßzeile in Leserichtung (x/Breite, y/Höhe)": "Dimension row corners in reading order (x/width, y/height)",
+"Textseitige Hinweisenden (x/Breite, y/Höhe)": "Leader ends adjacent to the text (x/width, y/height)",
 "Hinweisellipse (kleine Halbachse/Breite, Drehwinkel in Grad)": "Leader ellipse (minor semi-axis/width, rotation in degrees)",
 "Musterellipsen (kleine Halbachse/Breite, Drehwinkel in Grad je Bohrung)": "Pattern ellipses (minor semi-axis/width, rotation in degrees per hole)",
 "Den zweiten Stirndurchmesser mit Ø angeben.": "Enter the second end diameter with Ø.",
