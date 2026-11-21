@@ -7,7 +7,7 @@ from pathlib import Path
 from PySide6 import QtCore, QtWidgets
 
 from ..i18n import tr
-from ..kern.maschinenelemente import FELDER, VERFAHREN, berechne
+from ..kern.maschinenelemente import FELDER, SITZGEOMETRIE, VERFAHREN, berechne, pruefe_sitzmasse
 from .lader import Abbruch, Modellauftrag
 
 
@@ -65,12 +65,21 @@ class AuslegungFenster(QtWidgets.QDialog):
         self.vorschlagen = QtWidgets.QPushButton(tr("Zähnezahlen vorschlagen …"))
         self.vorschlagen.clicked.connect(self._vorschlagen)
         lay.addWidget(self.vorschlagen, alignment=QtCore.Qt.AlignmentFlag.AlignLeft)
+        bereich = QtWidgets.QScrollArea()
+        bereich.setWidgetResizable(True)
+        bereich.setFrameShape(QtWidgets.QFrame.Shape.NoFrame)
+        inhalt = QtWidgets.QWidget()
+        spalte = QtWidgets.QVBoxLayout(inhalt)
+        spalte.setContentsMargins(0, 0, 0, 0)
         self.form = QtWidgets.QFormLayout()
-        lay.addLayout(self.form)
+        spalte.addLayout(self.form)
+        bereich.setWidget(inhalt)
+        lay.addWidget(bereich, 1)
         self.ergebnis = QtWidgets.QLabel()
         self.ergebnis.setTextFormat(QtCore.Qt.TextFormat.PlainText)
         self.ergebnis.setTextInteractionFlags(QtCore.Qt.TextInteractionFlag.TextSelectableByMouse)
-        lay.addWidget(self.ergebnis)
+        spalte.addWidget(self.ergebnis)
+        spalte.addStretch()
         self.lagerwelle = QtWidgets.QPushButton(tr("Zahnkräfte auf eine Lagerwelle übernehmen …"))
         self.lagerwelle.setToolTip(tr("Resultierende Querlast und Ritzeldrehmoment in die Wellenrechnung übernehmen"))
         self.lagerwelle.clicked.connect(self._lagerwelle)
@@ -78,7 +87,6 @@ class AuslegungFenster(QtWidgets.QDialog):
         self.step = QtWidgets.QPushButton()
         self.step.clicked.connect(self._step)
         lay.addWidget(self.step, alignment=QtCore.Qt.AlignmentFlag.AlignLeft)
-        lay.addStretch()
         knoepfe = QtWidgets.QDialogButtonBox()
         self.speichern = knoepfe.addButton(tr("Berechnung speichern …"), knoepfe.ButtonRole.ActionRole)
         self.speichern.setToolTip(tr("Eingaben, Herkunft, Einheiten und Ergebnis als JSON sichern"))
@@ -103,10 +111,13 @@ class AuslegungFenster(QtWidgets.QDialog):
         self.annahme.setText("\n".join(filter(None, (tr(verfahren.annahme), quelle))))
         self.vorschlagen.setVisible(self.art == "stirnrad")
         self.lagerwelle.setVisible(self.art == "stirnrad")
-        self.step.setVisible(self.art in ("stirnrad", "welle", "lagerwelle", "buchse", "reibsitz"))
+        self.step.setVisible(self.art in ("stirnrad", "welle", "lagerwelle", "buchse", "reibsitz", "sitzgrenzen"))
         if self.art == "stirnrad":
             self.step.setText(tr("Stirnradpaar mit PMI als STEP …"))
             self.step.setToolTip(tr("Ritzel und Rad am Nennachsabstand speichern. Unterhalb des Grundkreises verläuft der Zahnfuß radial."))
+        elif self.art == "sitzgrenzen":
+            self.step.setText(tr("Welle und Nabe mit Grenzmaßen als STEP …"))
+            self.step.setToolTip(tr("Beide Bauteile am gemeinsamen Nennmaß mit den Fertigungsgrenzen der jeweiligen Sitzfläche speichern"))
         else:
             self.step.setText(tr("Wellenabschnitt mit PMI als STEP …") if self.art in ("welle", "lagerwelle")
                               else tr("Buchse / Nabe mit PMI als STEP …"))
@@ -180,7 +191,12 @@ class AuslegungFenster(QtWidgets.QDialog):
         self.lagerwelle.setEnabled(False)
         self.speichern.setEnabled(False)
         self.daten = None
-        geom = self._paargeometrie() if self.art == "stirnrad" else self._masse()
+        if self.art == "stirnrad":
+            geom = self._paargeometrie()
+        elif self.art == "sitzgrenzen":
+            geom = self._sitzgeometrie()
+        else:
+            geom = self._masse()
         self.step.setEnabled(geom is not None and self.paarauftrag is None)
         if not all(t.strip() for t in texte.values()):
             self.ergebnis.setText(tr("Fehlende Eingaben ergänzen."))
@@ -203,6 +219,8 @@ class AuslegungFenster(QtWidgets.QDialog):
             self.daten["auslegungsziel"] = self.stirnradziel.copy()
             self.ergebnis.setText(self.ergebnis.text() + "\n" + tr("Abweichung zum Ziel: Δi = {}, Δa = {} mm").format(
                 f"{ausgaben['i']-self.stirnradziel['i']:+.6g}", f"{ausgaben['a']-self.stirnradziel['a']:+.6g}"))
+        if self.art == "sitzgrenzen" and ausgaben["t_res"] < 0:
+            self.ergebnis.setText(self.ergebnis.text() + "\n" + tr("Am unteren Passungsgrenzfall reicht das Reibmoment für das geforderte Drehmoment nicht aus."))
         self.speichern.setEnabled(True)
         self.lagerwelle.setEnabled(self.art == "stirnrad")
 
@@ -223,6 +241,26 @@ class AuslegungFenster(QtWidgets.QDialog):
         if not isfinite(d) or d <= 1e-6 or ("l" in self.felder and (not isfinite(l) or l <= 1e-6)):
             return None
         return d, l
+
+    def _sitzgeometrie(self):
+        try:
+            masse = {k: float(self.felder[k].text().replace(",", ".")) for k in SITZGEOMETRIE}
+            pruefe_sitzmasse(**masse)
+        except ValueError:
+            return None
+        return masse
+
+    def _pressverband_step(self):
+        from ..kern.pressverbandgeometrie import schreibe_pressverband
+        masse = self._sitzgeometrie()
+        if masse is None:
+            return
+        pfad, _ = QtWidgets.QFileDialog.getSaveFileName(self, self.step.text(), "pressverband.step", "STEP (*.step *.stp)")
+        if pfad:
+            try:
+                schreibe_pressverband(pfad, **masse)
+            except (RuntimeError, ValueError, OSError) as e:
+                QtWidgets.QMessageBox.warning(self, self.windowTitle(), str(e))
 
     def _stirnrad_step(self):
         geom = self._paargeometrie()
@@ -258,6 +296,8 @@ class AuslegungFenster(QtWidgets.QDialog):
     def _step(self):
         if self.art == "stirnrad":
             return self._stirnrad_step()
+        if self.art == "sitzgrenzen":
+            return self._pressverband_step()
         from ..kern.maschinenelemente import schreibe_sitzteil
         d, l = self._masse()
         welle = self.art in ("welle", "lagerwelle")

@@ -2205,6 +2205,11 @@ complete gearbox power/load propagation and assembly generation remain open.
 
 The bearing-life implementation uses the catalogue equivalent dynamic load and basic dynamic
 rating. The fit calculation uses effective diametral interference, a solid shaft and free ends.
+The manufacturing-deviation method computes the geometric extrema from the four signed shaft/bore
+deviations. A specified diametral loss reduces effective interference, with zero pressure at clearance.
+The result includes the required minimum geometric interference and torque margin. The common nominal
+assembly exports with separate AP242 limit dimensions on the shaft cylinder and hub bore, both engagement
+lengths and the hub outside diameter. The original effective-interference method remains available.
 [SKF basic rating life](https://cdn.skfmediahub.skf.com/api/public/0901d196802809de/pdf_preview_medium/Rolling_bearings_-_17000_1_EN_pdf_preview_medium.pdf) · [Autodesk press fit calculation](https://help.autodesk.com/cloudhelp/2025/ENU/Inventor-Help/files/GUID-6411393F-5391-467D-8234-D14DD8B5348C.htm)
 
 | Planned module family | Initial design scope and output |

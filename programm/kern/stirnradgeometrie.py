@@ -9,11 +9,10 @@ from OCC.Core.gp import gp_Ax1, gp_Dir, gp_Pnt, gp_Trsf, gp_Vec
 from OCC.Core.TopLoc import TopLoc_Location
 
 from ..i18n import tr
-from .baum import Knoten, lies_baum
 from .maschinenelemente import berechne
 from .pmi import MASS, Pmi
-from .teilausgabe import _flaechen, _step
-from .zeichnungskoerper import schreibe_mit_massangaben
+from .teilausgabe import _flaechen
+from .zeichnungskoerper import schreibe_bemasste_baugruppe
 
 
 def _lage(winkel, x=0., z=0.):
@@ -202,24 +201,12 @@ def schreibe_stirnradpaar(ziel, eingaben, breite_ritzel, breite_rad, pruefe=lamb
     raeder = {tr("Ritzel"): a, tr("Rad"): b}
     _profilueberdeckung(a, b, eingaben["m"], alpha, masse["a"])
 
-    def geometrie(pfad):
-        kinder = [Knoten(name, profil.koerper(breiten[name], pruefe), nummer=i)
-                  for i, (name, profil) in enumerate(raeder.items(), 1)]
-        # Ein Zahn des Ritzels steht im Achsschnitt in der Mitte einer Zahnluecke am Rad.
-        lage = _lage(0. if b.z % 2 else pi/b.z, masse["a"], (breite_ritzel-breite_rad)/2)
-        kinder[1].form = kinder[1].form.Moved(lage)
-        wurzel = Knoten(tr("Geradverzahntes Stirnradpaar"), None, kinder, baugruppe=True)
-        pruefe()
-        if not _step(pfad, wurzel, {k.nummer: k.form for k in kinder}, None, {}):
-            raise ValueError(tr("Der Körper konnte nicht als STEP geschrieben werden."))
+    formen = {name: profil.koerper(breiten[name], pruefe) for name, profil in raeder.items()}
+    # Ein Zahn des Ritzels steht im Achsschnitt in der Mitte einer Zahnluecke am Rad.
+    lage = _lage(0. if b.z % 2 else pi/b.z, masse["a"], (breite_ritzel-breite_rad)/2)
+    formen[tr("Rad")] = formen[tr("Rad")].Moved(lage)
 
-    def merkmale(modell):
-        teile = list(lies_baum(modell).blaetter())
-        if len(teile) != 2 or {k.name for k in teile} != raeder.keys():
-            raise ValueError(tr("Die beiden Räder konnten beim STEP-Export nicht zugeordnet werden."))
-        ziele = [p for k in teile for p in _radmasse(modell, k, raeder[k.name], breiten[k.name])]
-        for i, p in enumerate(ziele, 1):
-            p.nummer, p.step_id, p.quelle = i, -i, "eigen"
-        return ziele
+    def teilmasse(modell, teil):
+        return _radmasse(modell, teil, raeder[teil.name], breiten[teil.name])
 
-    return schreibe_mit_massangaben(ziel, geometrie, merkmale, pruefe)
+    return schreibe_bemasste_baugruppe(ziel, tr("Geradverzahntes Stirnradpaar"), formen, teilmasse, pruefe)

@@ -2,6 +2,37 @@
 
 ## Current state, 2026-11-21
 
+### Size and export a shaft/hub interference fit from manufacturing limits
+
+- Checked PLAN §8.38 and docs/Roadmap.md. Tools › Size machine element now offers a fit
+  from four signed manufacturing deviations and a specified diametral interference loss.
+  It reports geometric and effective limits, pressure at both extremes, required minimum
+  geometric interference and torque margin. A clearance limit gives zero contact pressure.
+  The calculation assumes elastic material, free ends, pure torque and a constant specified
+  loss at operating conditions. The direct effective-interference method remains available.
+- Both nominal solids export in position with separate shaft and bore limit dimensions,
+  two face-linked lengths and hub outside diameter. Geometry and deviations suffice for
+  STEP. Full designs, including negative deviations, can be saved and reopened.
+- Readback experiment: for nominal Ø20 mm and a positive-only deviation on the shaft, the
+  OCCT XCAF plus/minus interface lost the sign of the lower deviation. The writer uses
+  explicit lower, upper and nominal values instead. Both readers now return the physical
+  limits of 20.020–20.030 mm on the shaft and 19.996–20.002 mm on the bore. XCAF exposes
+  the midpoint as the nominal for a range. The full application reader retains the stored
+  nominal of 20 mm. Verified actual mating cylinder orientation, solid volume, named
+  occurrences, 15 mm engagement length and five graphical and semantic dimensions.
+- With 2 µm loss, 16–32 µm effective interference, E = 200 GPa, ν = 0.3 and μ = 0.2,
+  the Ø20/40 × 15 mm fit gives 60–120 MPa, 113.097 N·m friction torque at the lower
+  limit and 13.097 N·m margin at 100 N·m. Verified against an independent closed-form
+  reference, together with transition, clearance and negative-only manufacturing deviations.
+  All 27 affected cases and 38 native Cocoa cases passed. The signed main app passed its
+  self-test and rendered the exported assembly. One app remains at `dist/3DGmax.app`.
+- Next in §§8.27 and 8.38: carry face-linked diameter PMI from a selected measured shaft
+  and hub into the fit calculation. The seat table currently passes only diameter and
+  overlap. The exported reference offers two coincident seat cylinders with different
+  occurrence faces and distinct limit dimensions. Use these to verify association, signed
+  deviations and provenance through save/reopen. For ambiguous or missing PMI keep the
+  measured inputs usable and the unresolved deviations editable. QIF stays last.
+
 ### Choose spur tooth counts from target ratio and centre distance
 
 - Checked PLAN §8.38 against docs/Roadmap.md. Tools › Size machine element › Suggest

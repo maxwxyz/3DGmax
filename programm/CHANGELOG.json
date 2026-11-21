@@ -1,6 +1,7 @@
 {
  "unreleased": {
   "de": [
+   "Die Auslegung von Pressverbänden berechnet aus den Fertigungsabmaßen von Welle und Nabe den Fugendruckbereich, das erforderliche Übermaß und die Drehmomentreserve. Der STEP-Export enthält beide Bauteile in Einbaulage mit Grenzmaßen an ihren jeweiligen Sitzflächen.",
    "Die Stirnradauslegung schlägt Zähnezahlen für eine Zielübersetzung und einen vorgegebenen Achsabstandsbereich vor. Vor der Übernahme sehen Sie beide Abweichungen und die Profilüberdeckung. Die Zielvorgaben werden mit der Auslegung gespeichert.",
    "Die Stirnradauslegung exportiert Ritzel und Rad als STEP-Baugruppe am Nennachsabstand. Beide Zahnbreiten sind einzeln einstellbar. Kopfkreis, Fußkreis und Breite jedes Rads sind grafisch und semantisch bemaßt.",
    "Die Getriebeanalyse erkennt mögliche Kronenradstufen mit eingebautem geradverzahntem Ritzel in STEP- und Netzmodellen. Kraftfluss und Betriebspunkt zeigen die Stufen- und Gesamtübersetzung sowie die Drehzahlen mit Drehrichtung zur jeweiligen Wellenachse.",
@@ -251,6 +252,7 @@
    "Grafische PMI aus unterstützten AP203e2-Kurvenmodellen lassen sich als STEP AP242 Edition 3 ausgeben. Facettierte STEP-Modelle behalten ihre Flächenbezüge. Gepackte STEP-Dateien lassen sich als unkomprimierte STEP-Kopie speichern."
   ],
   "en": [
+   "Interference-fit sizing calculates the pressure range, required interference and torque margin from shaft and hub manufacturing deviations. STEP export includes both parts in their assembled positions with limit dimensions on each seating face.",
    "Spur gear sizing suggests tooth counts for a target ratio and a permitted centre distance range. Review both deviations and the transverse contact ratio before applying a pair. The design file retains the targets.",
    "Spur gear sizing exports a pinion and gear as a STEP assembly at the nominal centre distance. Each face width can be edited independently. Both wheels carry graphical and semantic tip diameter, root diameter and face width dimensions.",
    "Gearbox analysis recognises candidate crown gear stages with an installed straight spur pinion in STEP and mesh models. Power flow and operating point report stage and overall ratios and signed speeds about the indicated shaft axes.",

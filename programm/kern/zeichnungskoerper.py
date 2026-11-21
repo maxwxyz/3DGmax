@@ -503,3 +503,27 @@ def schreibe_mit_massangaben(ziel, geometrie, flaechenmasse, pruefe=lambda: None
         pruefe()
         fertig.replace(ziel)
         return len(merkmale)
+
+
+def schreibe_bemasste_baugruppe(ziel, name, formen, teilmasse, pruefe=lambda: None):
+    """Benannte Einzelteile in Einbaulage schreiben und deren Masse pro Vorkommen zuordnen."""
+    from .baum import Knoten, lies_baum
+    from .teilausgabe import _step
+
+    def geometrie(pfad):
+        kinder = [Knoten(teil, form, nummer=i) for i, (teil, form) in enumerate(formen.items(), 1)]
+        wurzel = Knoten(name, None, kinder, baugruppe=True)
+        pruefe()
+        if not _step(pfad, wurzel, {k.nummer: k.form for k in kinder}, None, {}):
+            raise ValueError(tr("Der Körper konnte nicht als STEP geschrieben werden."))
+
+    def merkmale(modell):
+        teile = list(lies_baum(modell).blaetter())
+        if len(teile) != len(formen) or {k.name for k in teile} != formen.keys():
+            raise ValueError(tr("Die Komponenten konnten beim STEP-Export nicht zugeordnet werden."))
+        ziele = [p for teil in teile for p in teilmasse(modell, teil)]
+        for i, p in enumerate(ziele, 1):
+            p.nummer, p.step_id, p.quelle = i, -i, "eigen"
+        return ziele
+
+    return schreibe_mit_massangaben(ziel, geometrie, merkmale, pruefe)

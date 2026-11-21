@@ -56,6 +56,33 @@ def _pressverband(d, l, da, ew, nw, en, nn, umin, umax, mu, t):
     return p1, p2, tragmoment, bedarf * skala
 
 
+SITZABMASSE = ("ei_w", "es_w", "ei_n", "es_n")
+SITZGEOMETRIE = ("d", "l", "da", *SITZABMASSE)
+
+
+def pruefe_sitzmasse(d, l, da, ei_w, es_w, ei_n, es_n):
+    for k, v in zip(SITZGEOMETRIE, (d, l, da, ei_w, es_w, ei_n, es_n), strict=True):
+        if not isfinite(v) or (k in ("d", "l", "da") and v <= 1e-6):
+            raise ValueError(k)
+    if da - d <= 1e-6:
+        raise ValueError("da")
+    if d + ei_w / 1000 <= 0 or ei_w > es_w:
+        raise ValueError("ei_w")
+    if d + ei_n / 1000 <= 0 or ei_n > es_n:
+        raise ValueError("ei_n")
+    if d + es_n / 1000 >= da:
+        raise ValueError("es_n")
+
+
+def _sitzgrenzen(d, l, da, ei_w, es_w, ei_n, es_n, verlust, ew, nw, en, nn, mu, t):
+    pruefe_sitzmasse(d, l, da, ei_w, es_w, ei_n, es_n)
+    klein, gross = ei_w - es_n, es_w - ei_n
+    # Spiel erzeugt keinen Fugendruck. Die geometrische Differenz bleibt vorzeichenbehaftet.
+    umin, umax = max(0., klein-verlust), max(0., gross-verlust)
+    p1, p2, t1, u_req = _pressverband(d, l, da, ew, nw, en, nn, umin, umax, mu, t)
+    return klein, gross, umin, umax, p1, p2, t1, u_req, (u_req+verlust if t else 0.), t1-t
+
+
 def _stirnrad(z1, z2, m, alpha, t):
     d1, d2 = z1 * m, z2 * m
     ft = 2000 * t / d1
@@ -85,6 +112,12 @@ FELDER = {
     "a": ("Achsabstand", "mm"), "i": ("Übersetzungsbetrag", ""),
     "ft": ("Umfangskraft", "N"), "fr": ("Radialkraft", "N"),
     "da": ("Nabenaußendurchmesser", "mm"),
+    "ei_w": ("Unteres Wellenabmaß ei", "µm"), "es_w": ("Oberes Wellenabmaß es", "µm"),
+    "ei_n": ("Unteres Bohrungsabmaß EI", "µm"), "es_n": ("Oberes Bohrungsabmaß ES", "µm"),
+    "verlust": ("Diametraler Übermaßverlust", "µm"),
+    "ug_min": ("Kleinste Differenz Welle − Bohrung", "µm"), "ug_max": ("Größte Differenz Welle − Bohrung", "µm"),
+    "ug_req": ("Erforderliche kleinste Differenz Welle − Bohrung", "µm"),
+    "t_res": ("Drehmomentreserve bei Mindestübermaß", "N·m"),
     "ew": ("Elastizitätsmodul Welle", "MPa"), "en": ("Elastizitätsmodul Nabe", "MPa"),
     "nw": ("Querkontraktionszahl Welle", ""), "nn": ("Querkontraktionszahl Nabe", ""),
     "umin": ("Kleinstes wirksames Übermaß", "µm"), "umax": ("Größtes wirksames Übermaß", "µm"),
@@ -114,6 +147,10 @@ VERFAHREN = {
                               "Vollwelle und konzentrische dickwandige Nabe mit freien Stirnseiten. Wirksame Übermaße nach Glättung bei Betriebstemperatur, rein elastisch und unter Torsion.",
                               ("d", "l", "da", "ew", "nw", "en", "nn", "umin", "umax", "mu", "t"),
                               ("p1", "p2", "t1", "u_req"), _pressverband),
+    "sitzgrenzen": Verfahren("Pressverband aus Fertigungsabmaßen",
+                             "Vollwelle und Nabe mit freien Stirnseiten. Abmaße zum gemeinsamen Nenndurchmesser. Der eingegebene diametrale Verlust mindert das wirksame Übermaß. Die Rechnung gilt für elastische Verformung unter Torsion.",
+                             (*SITZGEOMETRIE, "verlust", "ew", "nw", "en", "nn", "mu", "t"),
+                             ("ug_min", "ug_max", "umin", "umax", "p1", "p2", "t1", "u_req", "ug_req", "t_res"), _sitzgrenzen),
     "kugellager": Verfahren("Kugellager", _LAGER, ("c", "peq", "n"), ("l10", "l10h"),
                             lambda c, p, n: _lager(c, p, n, 3)),
     "rollenlager": Verfahren("Rollenlager", _LAGER, ("c", "peq", "n"), ("l10", "l10h"),
@@ -131,9 +168,9 @@ def berechne(art, eingaben):
         if feld in ("nw", "nn"):
             if not -1 < wert < .5:
                 raise ValueError(feld)
-        elif wert < 0:
+        elif feld not in SITZABMASSE and wert < 0:
             raise ValueError(feld)
-        if wert == 0 and feld not in ("t", "f", "x", "quer", "umin", "umax", "nw", "nn") and not (feld == "n" and art == "buchse"):
+        if wert == 0 and feld not in ("t", "f", "x", "quer", "umin", "umax", "nw", "nn", "verlust", *SITZABMASSE) and not (feld == "n" and art == "buchse"):
             raise ValueError(feld)
         if feld in ("z1", "z2") and (wert < 3 or not float(wert).is_integer()):
             raise ValueError(feld)
