@@ -841,6 +841,8 @@ class Zeichnungsabgleich(QtWidgets.QDialog):
                 return
             gruppe = self.gruppen.get(a) if a.modell is m and self.text.toPlainText().strip() == a.text.strip() else None
             detail = self._wertdetails(p, m, gruppe)
+            if k := za.koplanarbefund(p, m, self.verbundindex):
+                detail += "\n" + self._koplanartext(k)
             if gruppe:
                 detail += "\n" + tr("Toleranzgruppe auf dem Blatt: {} · Im Modell: {} · {}").format(
                     self._ids(gruppe.blatt_ids), self._ids(gruppe.modell_ids), self._gruppentext(gruppe))
@@ -856,6 +858,16 @@ class Zeichnungsabgleich(QtWidgets.QDialog):
     def _zeilenname(zeile):
         return tr("Untere Rahmenzeile") if zeile.rang else tr("Obere Rahmenzeile")
 
+    @staticmethod
+    def _koplanartext(k):
+        grund = {"geometrie": tr("Geometrie ungeklärt"), "anzahl": tr("Flächenanzahl weicht ab"),
+                 "ebenen": tr("Flächen liegen in verschiedenen Ebenen"), "gekruemmt": tr("Gekrümmte Fläche"),
+                 "vorkommen": tr("Bauteilvorkommen ungeklärt"),
+                 "beruehrung": tr("Berührende Flächen, Aufteilung prüfen"),
+                 "getrennt": tr("Getrennte Flächen in derselben Ebene")}[k.grund]
+        return tr("Koplanare Flächen · Zeichnung {} · Modellflächen {} · {}").format(
+            k.soll, k.ist if k.ist is not None else "–", grund)
+
     def _rahmentext(self, bericht, gruppen):
         namen = dict(FELD_TEXT, typ=tr("Typ"), art=tr("Art"))
         zeilen = [", ".join(tr(namen[k]) for k in felder) or tr("Werte gleich") for felder in bericht.felder]
@@ -870,14 +882,8 @@ class Zeichnungsabgleich(QtWidgets.QDialog):
             text += "\n" + tr("Text am Formelement #{} · Eigenschaft #{} · Darstellung #{}{} · {}").format(
                 quelle.aspekt, quelle.eigenschaft, quelle.darstellung, grafik, status[befund])
             text += "\n" + "\n".join(quelle.zeilen)
-        if k := bericht.koplanar:
-            grund = {"geometrie": tr("Geometrie ungeklärt"), "anzahl": tr("Flächenanzahl weicht ab"),
-                     "ebenen": tr("Flächen liegen in verschiedenen Ebenen"), "gekruemmt": tr("Gekrümmte Fläche"),
-                     "vorkommen": tr("Bauteilvorkommen ungeklärt"),
-                     "beruehrung": tr("Berührende Flächen, Aufteilung prüfen"),
-                     "getrennt": tr("Getrennte Flächen in derselben Ebene")}[k.grund]
-            text += "\n" + tr("Koplanare Flächen · Zeichnung {} · Modellflächen {} · {}").format(
-                k.soll, k.ist if k.ist is not None else "–", grund)
+        if bericht.koplanar:
+            text += "\n" + self._koplanartext(bericht.koplanar)
         if bericht.zusatz_offen:
             text += "\n" + tr("Zusätzliche Anforderung auf der Zeichnung prüfen.")
         for name, gruppe in zip((tr("Obere Rahmenzeile"), tr("Untere Rahmenzeile")), gruppen, strict=True):
@@ -1009,7 +1015,7 @@ class Zeichnungsabgleich(QtWidgets.QDialog):
                             tr("Quell-IDs der Modellgruppe"), tr("Befund der Toleranzgruppe"),
                             tr("STEP-ID der unteren Rahmenzeile"), tr("Modellwert der unteren Rahmenzeile"), tr("Prüfung des Verbundrahmens"),
                             tr("Blattgruppe der unteren Zeile (Blatt und Bereich)"), tr("Zugeordnete Quell-IDs der unteren Gruppe"),
-                            tr("Quell-IDs der unteren Modellgruppe"), tr("Gruppenbefund der unteren Zeile")])
+                            tr("Quell-IDs der unteren Modellgruppe"), tr("Gruppenbefund der unteren Zeile"), tr("Prüfung der koplanaren Flächen")])
                 def modellwert(m):
                     return "\n".join(filter(None, (m.wert_text(), za.modellhinweis(m))))
 
@@ -1029,6 +1035,8 @@ class Zeichnungsabgleich(QtWidgets.QDialog):
                             rahmen = [a.unten.step_id if a.unten else "", modellwert(a.unten) if a.unten else "",
                                       self._rahmentext(bericht, gruppen) if bericht else gesamt]
                         prefix = [*self.quellen, nr+1, " ".join(f"{v:.6f}" for v in a.box), a.text, self.einheit.currentText()]
+                        angabe = za.lese_angabe(a.text, faktor, a.grundmass) if not a.verbundrahmen else None
+                        koplanar = za.koplanarbefund(angabe, a.modell, self.verbundindex)
                         ziele = a.musterziele
                         if a.einzelpruefung:
                             p = za.lese_angabe(a.text, faktor, a.grundmass)
@@ -1049,13 +1057,14 @@ class Zeichnungsabgleich(QtWidgets.QDialog):
                                         " | ".join(" ".join(f"{v:.6f}" for v in z.ort[3:]) for z in orte)
                                         if any(len(z.ort)>3 for z in orte) else "",
                                         " | ".join(f"{x:.6f} {y:.6f}" for x,y in a.zeilenecken),
-                                        " | ".join(f"{x:.6f} {y:.6f}" for x,y in a.hinweisenden), *nachweis, *rahmen, *untere_gruppe])
+                                        " | ".join(f"{x:.6f} {y:.6f}" for x,y in a.hinweisenden), *nachweis, *rahmen, *untere_gruppe,
+                                        self._koplanartext(koplanar) if koplanar else ""])
                 for m in self.modell:
                     if id(m) not in verbunden:
                         w.writerow([*self.quellen, "", "", "", "", tr("Nur im Modell") if id(m) in self.nur_modell else
-                                    tr("Modell-PMI offen"), m.nummer, modellwert(m), sorted(m.flaechen), "", m.step_id if m.step_id > 0 else "", *([""]*20)])
+                                    tr("Modell-PMI offen"), m.nummer, modellwert(m), sorted(m.flaechen), "", m.step_id if m.step_id > 0 else "", *([""]*21)])
                 for nr in sorted(set(range(len(self.doc))) - self.seiten.keys()):
-                    w.writerow([*self.quellen, nr+1, "", "", "", tr("Blatt ungeprüft"), *([""]*25)])
+                    w.writerow([*self.quellen, nr+1, "", "", "", tr("Blatt ungeprüft"), *([""]*26)])
         except OSError as e:
             QtWidgets.QMessageBox.warning(self, tr("Prüfliste speichern"), str(e))
 

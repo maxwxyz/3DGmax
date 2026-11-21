@@ -20,6 +20,13 @@ class Koplanarbefund:
         return "offen"
 
 
+def einzelanzahl(hinweis):
+    m = KOPLANARHINWEIS.fullmatch(" ".join(hinweis.split()))
+    if m and not m["simultan"] and len(m["anzahl"]) <= 4:
+        return int(m["anzahl"])
+    return None
+
+
 def zielanzahl(text):
     treffer = [m["anzahl"] for z in text.splitlines()[2:]
                if (m := KOPLANARHINWEIS.fullmatch(" ".join(z.split())))]

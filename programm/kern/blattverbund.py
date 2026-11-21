@@ -50,11 +50,14 @@ class Verbundindex:
             return None
         if oben.flaechen != unten.flaechen:
             return Koplanarbefund(soll, None, "geometrie")
-        if self.mehrfach_verbaut & oben.flaechen:
+        return self.flaechenanzahl(soll, oben.flaechen)
+
+    def flaechenanzahl(self, soll, flaechen):
+        if self.mehrfach_verbaut & flaechen:
             return Koplanarbefund(soll, None, "vorkommen")
-        schluessel = (soll, frozenset(oben.flaechen))
+        schluessel = (soll, frozenset(flaechen))
         if schluessel not in self.koplanare_ziele:
-            self.koplanare_ziele[schluessel] = pruefe_koplanar(soll, oben.flaechen, self.geometrie)
+            self.koplanare_ziele[schluessel] = pruefe_koplanar(soll, flaechen, self.geometrie)
         return self.koplanare_ziele[schluessel]
 
     def merkmalstexte(self, oben, unten):

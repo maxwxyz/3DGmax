@@ -1,6 +1,7 @@
 {
  "unreleased": {
   "de": [
+   "Der Zeichnungsvergleich liest den koplanaren Flächenhinweis unter einem schräg dargestellten Profilrahmen im PDF. Dialog und CSV zeigen die geforderte Anzahl, die zugeordneten STEP-Flächen und ob diese getrennt in derselben Ebene liegen.",
    "Die PMI-Prüfung liest den Geltungshinweis „4 COPLANAR SURFACES“ unter einer Flächenprofiltoleranz aus Strichschrift, Konturen und Dreiecksfüllungen. Sie gleicht die Anzahl mit den zugeordneten koplanaren Flächen ab. Beim STEP-Export bleiben Hinweis, Flächen und Originalgrafik erhalten.",
    "Die PMI-Erkennung liest den offenen Halbkreis einer Linienprofiltoleranz auch aus Strichschrift und reiner Dreiecksfüllung. Toleranzwert, Bezugsreihenfolge und Zielfläche bleiben beim STEP-Export erhalten.",
    "Kreisförmige Bezugsstellen auf ebenen Ringflächen lassen sich aus grafischer STEP-PMI mit Kennung, Durchmesser, Kreismitte und Flächennormale übernehmen. Der STEP-Export erhält die Originalgrafik. Der Revisionsvergleich berücksichtigt die Ausrichtung der Modelle.",
@@ -237,6 +238,7 @@
    "Grafische PMI aus unterstützten AP203e2-Kurvenmodellen lassen sich als STEP AP242 Edition 3 ausgeben. Facettierte STEP-Modelle behalten ihre Flächenbezüge. Gepackte STEP-Dateien lassen sich als unkomprimierte STEP-Kopie speichern."
   ],
   "en": [
+   "Drawing comparison reads coplanar face counts below a projected PDF surface profile frame. The dialog and CSV show the printed count, the number of linked STEP faces and whether these are separate faces in the same plane.",
    "PMI review reads the scope note “4 COPLANAR SURFACES” below a surface profile from strokes, outlines and triangle fills. It checks the printed count against the linked coplanar faces. STEP export preserves the note, faces and original presentation.",
    "PMI recognition reads the open semicircle of a line-profile tolerance from single strokes and triangle fills. STEP export retains the tolerance value, datum order and target face.",
    "Graphical STEP PMI on flat annular faces can supply a circular datum target with its identifier, diameter, centre and face normal. STEP export preserves the original graphics. Revision comparison accounts for model alignment.",

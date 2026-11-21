@@ -369,8 +369,13 @@ Throughout: tests (core, offscreen UI, stress test, on-screen test), `--selbstte
   A/B/C. The single-row surface profile #8709 reads 0.1 mm and “4 COPLANAR SURFACES”.
   Review and export verify the four distinct linked planar patches. Project and STEP
   retain the printed scope, original strokes or fills, and saved view. All 22 CTC-02
-  graphical tolerance frames now yield a value. The 2D comparison still needs to verify
-  coplanar face counts under a single-row drawing frame, including wrapped scope text.
+  graphical tolerance frames now yield a value. The drawing comparison reads the complete frame and wrapped
+  caption from the projected PDF paths on CTC-02 sheet 3 and CTC-03 sheet 1.
+  It verifies the printed count against the disjoint planar STEP faces in model
+  units. The dialog and CSV distinguish missing geometry, conflicting scope and
+  differing values. Verified four faces at 0.1 mm and two faces at 0.01 inch.
+  The CTC-03 graphical STEP #3636 still needs the tightly spaced single-line
+  version of the two-face caption for conversion.
   Graphical CTC-02 profile controls #8688, #8694 and #8714 recover 2.5 mm tolerance
   with ASME outer boundary distances of 2.5, 0.5 and 0 mm. The accepted value and
   convention survive project reload and AP242 export with the original graphics.

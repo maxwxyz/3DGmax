@@ -24,13 +24,13 @@ def _vorlagen():
     return vorlagen
 
 
-def _zellen(mask):
+def _zellen(mask, max_kurz=90):
     # Das umschlossene Weiss beruehrt die vier durchlaufenden Raender einer Rahmenzelle.
     labels, _ = ndimage.label(~mask)
     zellen = []
     for y, x in ndimage.find_objects(labels):
         l, r, t, b = x.start, x.stop, y.start, y.stop
-        if min(b-t, r-l) < 5 or min(b-t, r-l) > 90 or max(b-t, r-l) > 1080:
+        if min(b-t, r-l) < 5 or min(b-t, r-l) > max_kurz or max(b-t, r-l) > 1080:
             continue
         if l == 0 or t == 0 or r >= mask.shape[1] or b >= mask.shape[0]:
             continue
@@ -487,7 +487,7 @@ class Zeichnungsblatt:
                     break
                 if abs(x-l)*self.breite > .65*h*self.hoehe or not .25*h <= unten-y <= 1.45*h:
                     continue
-                if not teile and not re.match(r"^(?:SIM|INNER|OUTER)\b", text):
+                if not teile and not re.match(r"^(?:SIM|INNER|OUTER|[1-9][0-9]{0,3}\s+COPLANAR)\b", text):
                     break
                 if teile and lese_angabe(text, 1.) is not None:
                     break
@@ -516,12 +516,15 @@ class Zeichnungsblatt:
                     rahmen[a.box] = a
 
         from .zeichnungsverbund import verbundrahmen
+        from .zeichnung_koplanar import profilrahmen
         verbund = list(verbundrahmen(self))
+        profile = list(profilrahmen(self))
 
         def innerhalb(box):
             x, y = (box[0]+box[2])/2, (box[1]+box[3])/2
             return (any(l <= x <= r and t <= y <= b for l, t, r, b in rahmen)
-                    or any(_enthaelt(a.zeilenecken, x, y) for a in verbund))
+                    or any(_enthaelt(a.zeilenecken, x, y) for a in verbund)
+                    or any(_enthaelt(ecken, x, y) for _, ecken in profile))
 
         for a in einzeln:
             if not innerhalb(a.box):
@@ -536,4 +539,15 @@ class Zeichnungsblatt:
                            m.box[1] <= (ortsangabe.box[1]+ortsangabe.box[3])/2 <= m.box[3] for ortsangabe in rahmen.values()):
                     rahmen[m.box] = m
         self._rahmenzusaetze(rahmen.values())
+        for fund, _ in profile:
+            # Waagerechte Rahmen koennen schon durch die allgemeine Zellensuche belegt sein.
+            gleich = [a for a in rahmen.values() if "|" in a.text and
+                      np.max(abs(np.subtract(a.rahmenbox or a.box, fund.rahmenbox) * [w,h,w,h])) <= 4]
+            if gleich:
+                alt = gleich[0]
+                if len(gleich) == 1 and alt.text == fund.text.splitlines()[0]:
+                    del rahmen[alt.box]
+                else:
+                    continue
+            rahmen[fund.box] = fund
         return sorted([*rahmen.values(), *verbund], key=lambda a: (a.box[1], a.box[0]))

@@ -8,6 +8,7 @@ import math
 import re
 
 from . import pmi_ableiten
+from .koplanare_ziele import Koplanarbefund, einzelanzahl
 from .pmi_ableiten import SIMULTANHINWEIS, simultantext
 from .pmi import BEZUG, MASS, TOLERANZ, Pmi
 from .vergleich_pmi import simultangruppen
@@ -251,6 +252,9 @@ def lese_angabe(text, faktor, grundmass=False):
     if "|" in text:
         kopf, _, folge = text.strip().partition("\n")
         zusatz = pmi_ableiten.geltungshinweis(folge)
+        anzahl = einzelanzahl(folge)
+        if anzahl and kopf.split("|", 1)[0].strip() == "⌓":
+            zusatz = f"{anzahl} COPLANAR SURFACES"
         if zusatz:
             text = kopf
         teile = [t.strip().translate(str.maketrans({"Ø": "⌀", "∅": "⌀"})) for t in text.split("|")]
@@ -330,6 +334,9 @@ def grenzen_vertauscht(p):
 
 def wertunterschiede(p, modell, gruppe=None):
     felder = unterschiede(p, modell)
+    anzahl = einzelanzahl(p.beschreibung)
+    if anzahl and "beschreibung" in felder and (not modellhinweis(modell) or anzahl == einzelanzahl(modellhinweis(modell))):
+        felder.remove("beschreibung")  # Die Anzahl kann im STEP allein durch die Zielflaechen belegt sein.
     gedruckt = SIMULTANHINWEIS.fullmatch(p.beschreibung)
     pruefen = gruppe or modell.simultan_mit or modell.simultan_offen or (gedruckt and gedruckt[1])
     if (pruefen and "beschreibung" in felder and (not p.beschreibung or gedruckt)
@@ -342,16 +349,31 @@ def gruppe_zu_pruefen(p, modell):
     return bool(modell.simultan_mit or modell.simultan_offen or simultantext(p.beschreibung) or simultantext(modellhinweis(modell)))
 
 
-def wertebefund(p, modell, gruppe=None):
+def koplanarbefund(p, modell, index):
+    anzahl = einzelanzahl(p.beschreibung) if p and p.typ == "ProfileOfSurface" else None
+    if anzahl is None:
+        return None
+    if index is None or modell is None or modell.typ != p.typ:
+        return Koplanarbefund(anzahl, None, "geometrie")
+    return index.flaechenanzahl(anzahl, modell.flaechen)
+
+
+def wertebefund(p, modell, gruppe=None, index=None):
     if p is None or modell is None or grenzen_vertauscht(modell):
         return "offen"
     if gruppe and gruppe.status == "geaendert":
         return "geaendert"
+    k = koplanarbefund(p, modell, index)
+    if k and k.status == "geaendert":
+        return "geaendert"
     felder = wertunterschiede(p, modell, gruppe)
-    if felder == ["beschreibung"] and (hinweis := modellhinweis(modell)) and not pmi_ableiten.geltungshinweis(hinweis):
+    if (felder == ["beschreibung"] and (hinweis := modellhinweis(modell))
+            and not (pmi_ableiten.geltungshinweis(hinweis) or einzelanzahl(hinweis))):
         return "offen"
     if felder:
         return "geaendert"
+    if k and k.status == "offen":
+        return "offen"
     if (gruppe and gruppe.status == "offen") or (not gruppe and gruppe_zu_pruefen(p, modell)):
         return "offen"  # Die einzelne Blattzeile belegt keine Verknuepfung zu einer anderen Toleranz.
     if p.zone == "Projected":
@@ -396,4 +418,4 @@ def befund(angabe, faktor, gruppe=None, verbundindex=None):
         return befunde.pop() if len(befunde) == 1 else "geaendert"
     if anzahl and not muster_deckt(anzahl, angabe.musterziele, angabe.modell, p.typ):
         return "offen"
-    return wertebefund(p, angabe.modell, gruppe)
+    return wertebefund(p, angabe.modell, gruppe, verbundindex)

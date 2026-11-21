@@ -2,6 +2,41 @@
 
 ## Current state, 2026-11-21
 
+### Compare single-row coplanar drawing controls with STEP
+
+- Checked PLAN §8.4 and docs/Roadmap.md. The NIST CTC-02 Rev C PDF shows
+  “4 COPLANAR / SURFACES” on sheet 3. Its profile frame and lettering are
+  projected vector paths with an adjacent boxed datum G. The comparison reads
+  the closed frame, verifies each compartment at two resolutions and checks the
+  complete caption in the local reading direction. Axis-aligned PDF text also
+  supports a wrapped count. A datum in its own frame compartment remains part
+  of the tolerance.
+- The STEP association selected in the dialog supplies the target faces. CTC-02
+  AP242 #53 controls four separate planar patches at 0.1 mm. CTC-03 Rev C sheet 1
+  reads “2 COPLANAR / SURFACES” at .01 inch. Its AP242 #35 has two separate
+  coplanar patches and a 0.254 mm tolerance. Both give equal results through
+  the file menu, selection dialog and CSV. STEP may express this scope through
+  the target faces alone. An explicit conflicting description still differs.
+- A different count, a parallel offset and a cylinder all produce a difference.
+  Unverified geometry and uncertain assembly occurrences remain open. Reopened
+  STEP exports of CTC-02 from graphical contours, single strokes and pure fills
+  also agreed with the actual PDF. An inventory of 42 local NIST and D2MI PDF
+  sheets added only the two independently verified controls to the 145 existing
+  findings.
+- The final affected suite passed 129 tests. All ten focused cases also passed
+  using native Cocoa. The signed local bundle passed its self-test and rendered
+  the reviewed STEP. Keep one current main app in dist.
+- Next in §8.4, recover the corresponding CTC-03 AP203 callout #3636. Its frame
+  alone reads “⌓ .01” and its two linked faces pass the coplanarity check. Its
+  caption fits on one line in a different font. Adjacent L/A and F/A glyphs
+  overlap in the horizontal projection. Rasterising at higher resolution alone
+  still leaves ambiguous letters. Isolating contours by full bounding-box
+  containment and enclosed counters gave the right 17 characters against both
+  independently rendered Tahoma and Verdana samples. Tahoma separated each
+  character from its nearest alternative by at least 0.80 on the symmetric
+  distance score. Retain word spacing and verify triangle-only and single-stroke
+  sources, controls and negative cases before integrating. QIF remains last.
+
 ### Single-row coplanar profile and the local main build
 
 - Checked PLAN §8.4 and docs/Roadmap.md. AP203 CTC-02 #8709 gives a 0.1 mm
