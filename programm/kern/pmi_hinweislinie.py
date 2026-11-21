@@ -263,3 +263,97 @@ def doppelte_punktlinie(rest, symbol, rand):
             return False
         gedeckt |= (radien <= radius+1.5) | _an_strecke(punkte, knick, zentrum, breite+1.5)
     return bool(gedeckt.all())
+
+
+def _gefuellte_endteile(dreiecke):
+    """Dreiecke mit gemeinsamer Ecke gruppieren. Nur vollstaendig ausgefuellte konvexe Teile zulassen."""
+    from scipy.spatial import ConvexHull, QhullError
+    von_ecke = {}
+    nachbarn = [set() for _ in dreiecke]
+    for i, dreieck in enumerate(dreiecke):
+        for p in dreieck:
+            key = tuple(np.round(p, 6))
+            j = von_ecke.setdefault(key, i)
+            nachbarn[i].add(j)
+            nachbarn[j].add(i)
+    offen = set(range(len(dreiecke)))
+    teile = []
+    while offen:
+        gruppe = {offen.pop()}
+        stapel = list(gruppe)
+        while stapel:
+            andere = nachbarn[stapel.pop()] & offen
+            offen.difference_update(andere)
+            gruppe.update(andere)
+            stapel.extend(andere)
+        t = np.array([dreiecke[i] for i in gruppe])
+        punkte = t.reshape(-1, 2)
+        try:
+            huelle = ConvexHull(punkte)
+        except QhullError:
+            return []
+        flaeche = abs(np.linalg.det(t[:, 1:] - t[:, :1])).sum()/2
+        if abs(flaeche-huelle.volume) > .001*huelle.volume:
+            return []
+        rand = punkte[huelle.vertices]
+        if len(rand) == 4:
+            # Duenner rechteckiger Strich mit zwei kurzen gegenueberliegenden Endkanten.
+            diff = np.roll(rand, -1, axis=0) - rand
+            k = np.linalg.norm(diff, axis=1).argmin()
+            kurz, lang = diff[k], diff[(k+1)%4]
+            if (np.linalg.norm(kurz) < .08 and abs(kurz @ lang) < .01*np.linalg.norm(kurz)*np.linalg.norm(lang)
+                    and np.linalg.norm(kurz + diff[(k+2)%4]) < .002):
+                mitte = (rand + np.roll(rand, -1, axis=0))/2
+                teile.append(mitte[[k, (k+2)%4]])
+                continue
+        teile.append(np.vstack((rand, rand[0])))
+    return teile
+
+
+def abgesetzte_endlinie(pfade, zellen):
+    """Kurzer waagerechter Ansatz, schraeger Schaft und genau eine Endmarke ausserhalb des Rahmens."""
+    l, b, _, t = zellen[0]
+    r, h = zellen[-1][2], t-b
+    teile = []
+    for p, voll in pfade:
+        if (p[:, 0].min() >= l-.03*h and p[:, 0].max() <= r+.03*h and
+                p[:, 1].min() >= b-.03*h and p[:, 1].max() <= t+.03*h):
+            continue
+        teile.append((p, voll))
+    if not 3 <= len(teile) <= 256:
+        return False
+    links = all(p[:, 0].max() < l-.1*h for p, _ in teile)
+    if not links and not all(p[:, 0].min() > r+.1*h for p, _ in teile):
+        return False
+    formen = [(p - [l if links else r, (b+t)/2])*[(-1 if links else 1)/h, 1/h] for p, _ in teile]
+    if all(voll for _, voll in teile):
+        formen = _gefuellte_endteile(formen)
+    elif any(voll for _, voll in teile):
+        return False
+    if len(formen) != 3:
+        return False
+    geraden = sorted((p[np.argsort(p[:, 0])] for p in formen if len(p) == 2), key=lambda p: p[0, 0])
+    if len(geraden) != 2:
+        return False
+    (start, knick), (anschluss, ende) = geraden
+    if not (.1 < start[0] < 1 and .08 < knick[0]-start[0] < 2 and max(abs(start[1]), abs(knick[1])) < .026
+            and np.linalg.norm(knick-anschluss) < .022 and abs(ende[1]-knick[1]) > .25):
+        return False
+    rand, = [p for p in formen if len(p) != 2]
+    if len(rand) < 4 or np.linalg.norm(rand[0]-rand[-1]) > .005:
+        return False
+    q = rand[:-1]-ende
+    if len(q) == 3:
+        i = np.linalg.norm(q, axis=1).argmin()
+        if np.linalg.norm(q[i]) > .022:
+            return False
+        v = np.delete(q, i, axis=0)
+        richtung = (knick-ende)/np.linalg.norm(knick-ende)
+        laengs = v @ richtung
+        quer = v @ [-richtung[1], richtung[0]]
+        return bool(min(laengs) > .15 and max(laengs) < .85 and np.ptp(laengs) < .07
+                    and quer.min() < -.04 and quer.max() > .04 and abs(quer.sum()) < .07)
+    radien = np.linalg.norm(q, axis=1)
+    phi = np.sort(np.arctan2(q[:, 1], q[:, 0]))
+    return bool(len(q) >= 8 and .019 < np.mean(radien) < .21 and np.ptp(radien) < .08*np.mean(radien)
+                and np.diff(phi, append=phi[0]+2*np.pi).max() < .85)

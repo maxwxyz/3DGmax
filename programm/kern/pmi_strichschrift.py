@@ -276,7 +276,7 @@ def _einzelrahmen(pfade, zellen):
             ferne_spalte = x[0]
         elif np.ptp(x) < 80 or len(x) / ((np.ptp(x)+1)*(np.ptp(y)+1)) > .15:
             return False
-    from .pmi_hinweislinie import hat_rundmarke, punkt_hinweislinie
+    from .pmi_hinweislinie import abgesetzte_endlinie, hat_rundmarke, punkt_hinweislinie
     # Rahmenstriche abtrennen, auch wenn der Ansatz ohne Luecke anschliesst.
     h = y2-y1
     for rest, rand, erforderlich in (
@@ -284,7 +284,7 @@ def _einzelrahmen(pfade, zellen):
             (mask[:, x2+3:][:, ::-1], mask.shape[1]-1-x2, ferne_spalte is not None and ferne_spalte > x2)):
         if erforderlich or (rest.shape[1] > .1*h and hat_rundmarke(rest, h)):
             if not punkt_hinweislinie(rest, (rand, y1, rand, y2), h, rundes_ziel=True):
-                return False
+                return erforderlich and abgesetzte_endlinie(pfade, zellen)
     return ferne_spalte is None or ferne_spalte < x1 or ferne_spalte > x2
 
 
@@ -295,6 +295,29 @@ def _rahmenwort(teile):
     return " ".join(teile) if gueltige_rahmenzellen(teile) else ""
 
 
+def _bezugswort(mask, lesen):
+    """Beim gemeinsamen Bezug koennen A und Bindestrich benachbarte Pixelspalten belegen."""
+    wort = lesen(mask)
+    if wort:
+        return wort
+    labels, _ = ndimage.label(mask, np.ones((3, 3)))
+    for i, (y, x) in enumerate(ndimage.find_objects(labels), 1):
+        breite, hoehe = x.stop-x.start, y.stop-y.start
+        if not (.12*mask.shape[0] < breite < .4*mask.shape[0] and hoehe < .42*breite):
+            continue
+        if abs((y.start+y.stop)/2 - mask.shape[0]/2) > .10*mask.shape[0]:
+            continue
+        if np.any(mask[:, x] & (labels[:, x] != i)):
+            continue
+        # Eine leere Rasterspalte trennt die Zeichen. Auch der Strich muss als Glyphe passen.
+        luft = np.zeros((mask.shape[0], 1), bool)
+        getrennt = np.hstack((mask[:, :x.start], luft, mask[:, x], luft, mask[:, x.stop:]))
+        wort = lesen(getrennt)
+        if re.fullmatch(r"[A-Z]{1,2}-[A-Z]{1,2}", wort):
+            return wort
+    return ""
+
+
 def _rahmentext(pfade, zellen, masken=None):
     if not _einzelrahmen(pfade, zellen):
         return ""
@@ -302,8 +325,16 @@ def _rahmentext(pfade, zellen, masken=None):
         masken = [_fachmaske(pfade, z) for z in zellen]
     if any(m is None for m in masken):
         return ""
-    normal = _rahmenwort([_normale_zeile(m) for m in masken])
-    breit = _rahmenwort([_breite_zeile(m, rahmen=True) for m in masken])
+    from .pmi_formzeichen import formzeichen
+    symbol = formzeichen(masken[0]) if len(masken) >= 2 else ""
+    def rahmenwort(lesen):
+        teile = [symbol or lesen(masken[0])]
+        if len(masken) > 1:
+            teile.append(lesen(masken[1]))
+            teile.extend(_bezugswort(m, lesen) for m in masken[2:])
+        return _rahmenwort(teile)
+    normal = rahmenwort(_normale_zeile)
+    breit = rahmenwort(lambda m: _breite_zeile(m, rahmen=True))
     if breit and normal and breit != normal:
         return ""
     return breit or normal
@@ -649,6 +680,9 @@ def _ohne_schreibebene(g, linearmass=False):
     massrichtungen = []
     hat_rahmen = False
     ebenen = list(_rahmenrichtungen(g))
+    if not ebenen:
+        from .pmi_formzeichen import raumrahmen
+        return raumrahmen(g)
     for ebene in ebenen:
         pfade = _pfade(g, ebene)
         zellen = _zellen(pfade)
@@ -675,7 +709,7 @@ def _ohne_schreibebene(g, linearmass=False):
                 if ergebnis and ergebnis != text:
                     return ""
                 ergebnis = text
-    if ergebnis or hat_rahmen or not ebenen:
+    if ergebnis or hat_rahmen:
         return ergebnis
     mass = _mass_ohne_ebene(g, massrichtungen, linearmass=linearmass)
     if mass is None or (mass and re.match(r"^(?:[1-9][0-9]*X)?[⌀R]", mass)):
@@ -700,6 +734,9 @@ def lies_rahmensymbol(g, fachzahl):
     maske = _fachmaske(pfade, zellen[0])
     if maske is None:
         return ""
+    from .pmi_formzeichen import formzeichen
+    if symbol := formzeichen(maske):
+        return symbol
     lesarten = {_normale_zeile(maske), _breite_zeile(maske, rahmen=True)}
     lesarten.discard("")
     if len(lesarten) == 1:

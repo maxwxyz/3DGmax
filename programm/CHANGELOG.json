@@ -1,6 +1,7 @@
 {
  "unreleased": {
   "de": [
+   "Grafische Toleranzrahmen für Geradheit, Rundheit, Konzentrizität, Rundlauf und Gesamtlauf lassen sich als semantische STEP-PMI übernehmen. Der Export erhält die Originalgrafik, den gemeinsamen Bezug A-B und die zugeordneten Flächen.",
    "Die Verzahnungserkennung misst die Innensteckverzahnung und die Außenverzahnung eines Rades getrennt. Bei Kronenrad-Kandidaten zeigt sie die Zähnezahl, die axiale Zahnhöhe und den radialen Messbereich. STEP und Netzmodelle werden unterstützt.",
    "Der Revisionsvergleich weist Änderungen an begrenzten Profilflächen in mm² je Stand aus. Er berücksichtigt Innenlöcher, überlappende Flächen und Aufteilungen an Zylindernähten.",
    "Ebenheit je Kreisfläche lässt sich aus Strichschrift und gefüllten STEP-Grafiken übernehmen. Der Prüfdialog zeigt den Kreisdurchmesser. Er bleibt mit der Originalgrafik im STEP erhalten und ist im Zeichnungs- und Revisionsvergleich einzeln prüfbar.",
@@ -230,6 +231,7 @@
    "Grafische PMI aus unterstützten AP203e2-Kurvenmodellen lassen sich als STEP AP242 Edition 3 ausgeben. Facettierte STEP-Modelle behalten ihre Flächenbezüge. Gepackte STEP-Dateien lassen sich als unkomprimierte STEP-Kopie speichern."
   ],
   "en": [
+   "Graphical straightness, roundness, concentricity, circular runout and total runout controls can be reviewed and exported as semantic STEP PMI together with their source graphics, common datum A-B and target faces.",
    "Gear recognition measures a splined bore and the external teeth on the same wheel independently. Crown gear candidates show tooth count, axial relief and the measured radial range in both CAD and mesh models.",
    "Revision comparison reports the area unique to each trimmed profile in mm². It accounts for holes, overlapping patches and splits at cylindrical seams.",
    "Recover flatness per circular unit area from stroked or filled graphical STEP controls. Review the circle diameter, retain it with the original graphics in STEP, and compare it independently against a drawing or another revision.",

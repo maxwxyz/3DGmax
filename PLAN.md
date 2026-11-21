@@ -345,6 +345,12 @@ Throughout: tests (core, offscreen UI, stress test, on-screen test), `--selbstte
   triangles. The original view and both source graphics survive STEP export. MBD_B's
   separate “4 COPLANAR / SURFACES” caption starts inside the first value cell and wraps
   across two lines. It survives the same round trip without adding a simultaneous requirement.
+  CTC-05 now supplies eight additional controls from outlines, single-stroke symbols and
+  triangle-only presentations. A closed ring identifies roundness, two concentric rings
+  propose concentricity, and the single or double arrow distinguishes circular and total runout.
+  A straightness bar must span the characteristic cell. The common datum A-B, the diameter
+  zone and the target faces survive AP242 export. For a leader extending out of the text plane,
+  the inferred plane must contain the frame and the inclined shaft must reach the separate target.
   Open: additional fonts, further composite layouts and dimensions with
   ambiguous leader or text placement.
 - Convert to semantic PMI: evaluate recognized text + frame structure; mark result as "derived (check)", never as

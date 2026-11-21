@@ -2,6 +2,30 @@
 
 ## Current state, 2026-11-21
 
+### Recover CTC-05 form and runout controls from their graphical STEP presentation
+
+- Checked PLAN §8.4 against docs/Roadmap.md. In CTC-05 AP203 the eight previously unread
+  controls now recover their characteristics, inch values, datum compartments and original
+  target faces. The NIST semantic AP242 reference independently confirms all eight values
+  and types. For example, three circular runouts reference the common datum A-B with
+  values 0.889, 0.635 and 0.635 mm. The two total runouts are 0.0508 mm to A and
+  0.381 mm to B. The concentricity control retains its diameter zone.
+- Verified native contours, separately drawn centreline characteristic symbols, and
+  triangle-only callouts. The latter two variants omit the writing planes. Two leaders
+  traverse depth to separate parallel target planes. Review, project reload and AP242 export
+  preserve all eight controls, original graphic coordinates/connectivity and saved views.
+  OCCT diagnostics and volume match the input. Across 194 callouts in six models, only the
+  eight CTC-05 readings changed, with either supplied or removed writing planes.
+- All 31 affected tests passed, plus 43 related regression tests. Native Cocoa passed the
+  five checks in the new module, including the three end-to-end review/export variants.
+  The signed arm64 build passed its self-test and rendered the semantic copy with the
+  original fills. Local main builds use the single canonical app in dist.
+- Next graphical gap in §8.4 is the circled L. CTC-02 reference controls #59, #60 and
+  #67 distinguish least-material modifiers on J, H, and both datum features. Graphic
+  frames #8678, #8699 and #8711 recover the value but leave the modified cells unread.
+  The same glyph remains unread in three value cells (#8686, #8687 and #8717).
+  Verify feature and datum modifiers separately against the reference. QIF stays last.
+
 ### Recognise crown gears and splined wheel bores, and compare trimmed profile regions
 
 - Checked PLAN §§8.4 and 8.27 against docs/Roadmap.md. The recognition command now
