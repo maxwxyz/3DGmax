@@ -47,7 +47,9 @@ The portable app builds compile and bundle this library automatically.
 
 ## Build portable apps
 `packaging/build_mac.sh`, `packaging/build_linux.sh`, `packaging\build_windows.bat` (each accepts `--ohne-tests`
-to skip tests), or on GitHub: *Actions › Apps bauen*. Local packaging requires a C++17 compiler
+to skip tests), or on GitHub: *Actions › Apps bauen* (option "Apps hochladen" keeps the builds as artifacts for 7 days;
+off = build and test only). Pushing a version tag `v*` (`packaging/release.py … --git`, then `git push --follow-tags`)
+builds all platforms with tests and JT and attaches the files to a GitHub release. Local packaging requires a C++17 compiler
 (Xcode Command Line Tools, a Linux C++ compiler, or the MSVC developer command prompt on Windows).
 
 **JT variant:** `packaging/jt/bauen.py` (macOS, Linux, Windows with MSVC; `bauen.sh` calls it) fetches the TKJT

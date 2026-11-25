@@ -1,8 +1,12 @@
 # Baut die portablen Apps fuer Windows, macOS (Apple-Chip) und Linux.
 # Start von Hand: auf GitHub "Actions" -> "Apps bauen" -> "Run workflow". Die ZIP/TAR-Dateien liegen danach unten im
-# Lauf unter "Artifacts".
+# Lauf unter "Artifacts" (nur wenn "Apps hochladen" an ist, 7 Tage).
+# Release: ein Tag v* (packaging/release.py ... --git, dann git push --follow-tags) baut alle Plattformen mit Tests
+# und JT und haengt die Dateien an ein GitHub-Release; dort zaehlen sie nicht zum Actions-Speicher.
 name: Apps bauen
 on:
+  push:
+    tags: ["v*"]
   workflow_dispatch:
     inputs:
       plattform:
@@ -16,6 +20,10 @@ on:
         default: true
       jt:
         description: "Mit JT-Leser (TKJT, GPL v2+): JT 8–10 öffnen; baut den Konverter jt2glb mit"
+        type: boolean
+        default: true
+      hochladen:
+        description: "Apps als Artifact hochladen (7 Tage); aus = nur bauen und testen"
         type: boolean
         default: true
 jobs:
@@ -34,9 +42,10 @@ jobs:
     timeout-minutes: 60
     env:
       QT_QPA_PLATFORM: offscreen
-      AKTIV: ${{ inputs.plattform == 'alle' || inputs.plattform == matrix.name }}
-      DG_OHNE_TESTS: ${{ inputs.tests && '0' || '1' }}
-      DG_MIT_JT: ${{ inputs.jt && '1' || '0' }}
+      RELEASE: ${{ github.event_name == 'push' }}
+      AKTIV: ${{ github.event_name == 'push' || inputs.plattform == 'alle' || inputs.plattform == matrix.name }}
+      DG_OHNE_TESTS: ${{ (github.event_name == 'push' || inputs.tests) && '0' || '1' }}
+      DG_MIT_JT: ${{ (github.event_name == 'push' || inputs.jt) && '1' || '0' }}
       DG_TESTAUFGABE: test-ci          # ausfuehrlich, mit Zeitlimit je Test
     steps:
       - uses: actions/checkout@v4
@@ -56,7 +65,7 @@ jobs:
         if: env.AKTIV == 'true' && runner.os == 'Windows'
         uses: ilammy/msvc-dev-cmd@v1
       - name: JT-Konverter bauen (TKJT)
-        if: env.AKTIV == 'true' && inputs.jt
+        if: env.AKTIV == 'true' && env.DG_MIT_JT == '1'
         shell: bash
         run: pixi run python packaging/jt/bauen.py
       - name: Bauen, testen, Selbsttest
@@ -69,10 +78,32 @@ jobs:
             Linux)   bash packaging/build_linux.sh ;;
           esac
       - uses: actions/upload-artifact@v4
-        if: env.AKTIV == 'true'
+        if: env.AKTIV == 'true' && (env.RELEASE == 'true' || inputs.hochladen)
         with:
-          name: 3DGmax-${{ matrix.name }}${{ inputs.jt && '-JT' || '' }}
+          name: 3DGmax-${{ matrix.name }}${{ env.DG_MIT_JT == '1' && '-JT' || '' }}
           path: |
             dist/*.zip
             dist/*.tar.gz
           if-no-files-found: error
+          retention-days: ${{ env.RELEASE == 'true' && 1 || 7 }}
+  release:
+    if: github.event_name == 'push'
+    needs: build
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          path: dist
+          merge-multiple: true
+      - name: GitHub-Release anlegen
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ github.ref_name }}
+        run: |
+          # Abschnitt der Version aus CHANGELOG.md als Release-Text
+          awk -v v="## ${TAG#v} " 'index($0, v) == 1 {an = 1; next} /^## / {an = 0} an' CHANGELOG.md > notizen.md
+          gh release create "$TAG" dist/* --title "3DGmax ${TAG#v}" --notes-file notizen.md

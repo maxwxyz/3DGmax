@@ -1,6 +1,16 @@
 # Handoff
 
-## Current state, 2026-11-21
+## Current state, 2026-11-25
+
+### CI artifacts: short retention, optional upload, releases from tags
+Artifact storage quota warning: the build workflow now keeps artifacts 7 days (input "Apps hochladen", off = build
+and test only); a pushed tag `v*` builds all platforms with tests and JT and creates a GitHub release with the files
+(release notes = that version's section of CHANGELOG.md); the intermediate artifacts live 1 day. Old artifacts must be
+deleted by the owner (Actions › run › Artifacts, or `gh api` loop, see README/answer); the session's GitHub tools
+cannot delete artifacts. Not yet run on GitHub: the first tag push is the test of the release job. PLAN/Roadmap:
+no feature change.
+
+## Earlier state, 2026-11-21
 
 ### Carry the diameter PMI of both installed seats into fit sizing
 
